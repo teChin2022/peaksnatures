@@ -1,4 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createServiceRoleClient } from "@/lib/supabase/server";
+import { sendBookingConfirmationEmail, sendHostLineNotification } from "@/lib/notifications";
+import type { Booking, Homestay, Host, Room } from "@/types/database";
 
 interface EasySlipResponse {
   status: number;
@@ -28,6 +31,62 @@ interface EasySlipResponse {
   error?: string;
 }
 
+async function sendNotifications(bookingId: string, verified: boolean) {
+  try {
+    const supabase = createServiceRoleClient();
+
+    // Fetch full booking with homestay, host, and room
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("id", bookingId)
+      .single();
+
+    if (!booking) return;
+
+    const { data: homestay } = await supabase
+      .from("homestays")
+      .select("*")
+      .eq("id", (booking as unknown as Booking).homestay_id)
+      .single();
+
+    if (!homestay) return;
+
+    const { data: host } = await supabase
+      .from("hosts")
+      .select("*")
+      .eq("id", (homestay as unknown as Homestay).host_id)
+      .single();
+
+    if (!host) return;
+
+    let room = null;
+    if ((booking as unknown as Booking).room_id) {
+      const { data: roomData } = await supabase
+        .from("rooms")
+        .select("*")
+        .eq("id", (booking as unknown as Booking).room_id!)
+        .single();
+      room = roomData;
+    }
+
+    const details = {
+      booking: booking as unknown as Booking,
+      homestay: homestay as unknown as Homestay,
+      host: host as unknown as Host,
+      room: (room as unknown as Room) || undefined,
+    };
+
+    // Send email to guest
+    await sendBookingConfirmationEmail(details);
+
+    // Send LINE message to host
+    await sendHostLineNotification(details, verified ? "confirmed" : "flagged");
+  } catch (error) {
+    console.error("Notification error (non-blocking):", error);
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
@@ -52,22 +111,38 @@ export async function POST(req: NextRequest) {
 
     const apiKey = process.env.EASYSLIP_API_KEY;
 
+    const supabase = createServiceRoleClient();
+
     if (!apiKey || apiKey === "your_easyslip_api_key") {
-      // Demo mode: simulate successful verification
+      // Demo mode: simulate successful verification, update booking
       console.log("[Demo] Simulating EasySlip verification...");
+      const demoResponse = {
+        status: 200,
+        data: {
+          amount: { amount: expectedAmount },
+          receiver: {
+            proxy: { type: "MOBILE", account: expectedReceiver },
+          },
+        },
+      };
+
+      await supabase
+        .from("bookings")
+        .update({
+          status: "verified",
+          easyslip_verified: true,
+          easyslip_response: demoResponse,
+        } as never)
+        .eq("id", bookingId);
+
+      // Send notifications (non-blocking)
+      sendNotifications(bookingId, true);
+
       return NextResponse.json({
         verified: true,
         booking_id: bookingId,
         message: "Payment slip verified successfully (demo mode)",
-        easyslip_response: {
-          status: 200,
-          data: {
-            amount: { amount: expectedAmount },
-            receiver: {
-              proxy: { type: "MOBILE", account: expectedReceiver },
-            },
-          },
-        },
+        easyslip_response: demoResponse,
       });
     }
 
@@ -89,7 +164,18 @@ export async function POST(req: NextRequest) {
     const easySlipData: EasySlipResponse = await easySlipRes.json();
 
     if (easySlipData.status !== 200 || !easySlipData.data) {
-      // Verification failed
+      // Verification failed — mark as pending for manual review
+      await supabase
+        .from("bookings")
+        .update({
+          easyslip_verified: false,
+          easyslip_response: easySlipData,
+        } as never)
+        .eq("id", bookingId);
+
+      // Send notifications — host gets flagged alert
+      sendNotifications(bookingId, false);
+
       return NextResponse.json({
         verified: false,
         booking_id: bookingId,
@@ -108,6 +194,17 @@ export async function POST(req: NextRequest) {
       receiverAccount?.replace(/-/g, "") === expectedReceiver?.replace(/-/g, "");
 
     if (!amountMatch || !receiverMatch) {
+      await supabase
+        .from("bookings")
+        .update({
+          easyslip_verified: false,
+          easyslip_response: easySlipData,
+        } as never)
+        .eq("id", bookingId);
+
+      // Send notifications — host gets flagged alert
+      sendNotifications(bookingId, false);
+
       return NextResponse.json({
         verified: false,
         booking_id: bookingId,
@@ -116,18 +213,18 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // All checks passed — auto-confirm
-    // In production: update booking status in Supabase
-    // const supabase = createServiceRoleClient();
-    // await supabase.from("bookings").update({
-    //   status: "confirmed",
-    //   easyslip_verified: true,
-    //   easyslip_response: easySlipData,
-    // }).eq("id", bookingId);
+    // All checks passed — auto-verify the booking
+    await supabase
+      .from("bookings")
+      .update({
+        status: "verified",
+        easyslip_verified: true,
+        easyslip_response: easySlipData,
+      } as never)
+      .eq("id", bookingId);
 
-    // Trigger notifications (email + LINE) — see /lib/notifications.ts
-    // await sendBookingConfirmationEmail(bookingId);
-    // await sendHostLineNotification(bookingId);
+    // Send notifications
+    sendNotifications(bookingId, true);
 
     return NextResponse.json({
       verified: true,

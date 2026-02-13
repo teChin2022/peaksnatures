@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 
 const bookingSchema = z.object({
   homestay_id: z.string().uuid(),
@@ -28,29 +29,32 @@ export async function POST(req: NextRequest) {
 
     const data = parsed.data;
 
-    // In production: insert into Supabase
-    // const supabase = createServiceRoleClient();
-    // const { data: booking, error } = await supabase
-    //   .from("bookings")
-    //   .insert({
-    //     ...data,
-    //     status: "pending",
-    //   })
-    //   .select()
-    //   .single();
+    const supabase = createServiceRoleClient();
+    const { data: booking, error } = await supabase
+      .from("bookings")
+      .insert({
+        homestay_id: data.homestay_id,
+        room_id: data.room_id || null,
+        guest_name: data.guest_name,
+        guest_email: data.guest_email,
+        guest_phone: data.guest_phone,
+        guest_province: data.guest_province || null,
+        check_in: data.check_in,
+        check_out: data.check_out,
+        num_guests: data.num_guests,
+        total_price: data.total_price,
+        status: "pending",
+      } as never)
+      .select()
+      .single();
 
-    // Simulate booking creation
-    const bookingId = `${crypto.randomUUID()}`;
-    const booking = {
-      id: bookingId,
-      ...data,
-      status: "pending" as const,
-      payment_slip_url: null,
-      easyslip_verified: false,
-      easyslip_response: null,
-      notes: null,
-      created_at: new Date().toISOString(),
-    };
+    if (error) {
+      console.error("Supabase booking insert error:", error);
+      return NextResponse.json(
+        { error: "Failed to create booking" },
+        { status: 500 }
+      );
+    }
 
     return NextResponse.json({ booking }, { status: 201 });
   } catch (error) {

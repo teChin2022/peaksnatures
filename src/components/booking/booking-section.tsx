@@ -60,6 +60,10 @@ export function BookingSection({
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
   const [paymentPhase, setPaymentPhase] = useState<"qr" | "upload">("qr");
   const [showWelcomeBack, setShowWelcomeBack] = useState(false);
+  const [uploadSessionId] = useState(() => crypto.randomUUID());
+  const [phoneSlipReceived, setPhoneSlipReceived] = useState(false);
+  const [phoneSlipUrl, setPhoneSlipUrl] = useState<string | null>(null);
+  const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -73,6 +77,8 @@ export function BookingSection({
     if (slipPreview) URL.revokeObjectURL(slipPreview);
     setSlipFile(null);
     setSlipPreview(null);
+    setPhoneSlipReceived(false);
+    setPhoneSlipUrl(null);
     if (galleryInputRef.current) galleryInputRef.current.value = "";
     if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
@@ -91,6 +97,35 @@ export function BookingSection({
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [handleVisibilityChange]);
+
+  // Poll for cross-device slip upload when in upload phase
+  useEffect(() => {
+    if (step === "payment" && paymentPhase === "upload" && !slipFile && !phoneSlipReceived) {
+      pollingRef.current = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/slip-upload/${uploadSessionId}`);
+          const data = await res.json();
+          if (data.uploaded && data.url) {
+            setPhoneSlipReceived(true);
+            setPhoneSlipUrl(data.url);
+            setSlipPreview(data.url);
+            // Create a dummy file reference so the submit button enables
+            setSlipFile(new File(["phone-upload"], data.filename || "slip.jpg", { type: "image/jpeg" }));
+            if (pollingRef.current) clearInterval(pollingRef.current);
+          }
+        } catch {
+          // Silently ignore polling errors
+        }
+      }, 3000);
+    }
+
+    return () => {
+      if (pollingRef.current) {
+        clearInterval(pollingRef.current);
+        pollingRef.current = null;
+      }
+    };
+  }, [step, paymentPhase, slipFile, phoneSlipReceived, uploadSessionId]);
 
   useEffect(() => {
     setMounted(true);
@@ -150,22 +185,80 @@ export function BookingSection({
     setStep("payment");
   };
 
+  const [slipVerified, setSlipVerified] = useState(false);
+
   const handleSubmitBooking = async () => {
     if (!slipFile) {
       toast.error(t("errorUploadSlip"));
       return;
     }
 
+    if (!dateRange?.from || !dateRange?.to) return;
+
     setIsSubmitting(true);
 
     try {
-      // Simulate booking creation & slip verification
-      await new Promise((resolve) => setTimeout(resolve, 2000));
+      // 1. Create booking in Supabase
+      const bookingRes = await fetch("/api/bookings", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          homestay_id: homestay.id,
+          room_id: selectedRoomId || undefined,
+          guest_name: guestName,
+          guest_email: guestEmail,
+          guest_phone: guestPhone,
+          guest_province: guestProvince || undefined,
+          check_in: format(dateRange.from, "yyyy-MM-dd"),
+          check_out: format(dateRange.to, "yyyy-MM-dd"),
+          num_guests: parseInt(numGuests),
+          total_price: totalPrice,
+        }),
+      });
 
-      // In production: POST to /api/bookings with form data
-      // Then POST slip to /api/verify-slip
-      const fakeBookingId = `BK-${format(new Date(), "yyyyMMdd")}-${Math.random().toString(36).slice(2, 5).toUpperCase()}`;
-      setBookingId(fakeBookingId);
+      if (!bookingRes.ok) {
+        throw new Error("Failed to create booking");
+      }
+
+      const { booking } = await bookingRes.json();
+      setBookingId(booking.id);
+
+      // 2. Get the actual slip file for verification
+      // If the slip came from phone (cross-device), use the session slip
+      // If it's a local file, use it directly
+      let slipToVerify: File;
+      if (phoneSlipReceived && phoneSlipUrl) {
+        // Fetch the slip from the signed URL and convert to File
+        const slipRes = await fetch(phoneSlipUrl);
+        const blob = await slipRes.blob();
+        slipToVerify = new File([blob], "slip.jpg", { type: blob.type });
+      } else {
+        slipToVerify = slipFile;
+      }
+
+      // 3. Upload slip to storage via the session endpoint
+      const uploadForm = new FormData();
+      uploadForm.append("slip", slipToVerify);
+      await fetch(`/api/slip-upload/${uploadSessionId}`, {
+        method: "POST",
+        body: uploadForm,
+      });
+
+      // 4. Verify slip with EasySlip
+      const verifyForm = new FormData();
+      verifyForm.append("file", slipToVerify);
+      verifyForm.append("booking_id", booking.id);
+      verifyForm.append("expected_amount", totalPrice.toString());
+      verifyForm.append("expected_receiver", host.promptpay_id);
+
+      const verifyRes = await fetch("/api/verify-slip", {
+        method: "POST",
+        body: verifyForm,
+      });
+
+      const verifyData = await verifyRes.json();
+      setSlipVerified(verifyData.verified === true);
+
       setStep("confirmed");
       toast.success(t("successSubmitted"));
     } catch {
@@ -545,6 +638,15 @@ export function BookingSection({
                       {slipPreview ? (
                         /* Preview uploaded slip */
                         <div className="rounded-lg border bg-gray-50 p-3">
+                          {phoneSlipReceived && (
+                            <div
+                              className="mb-3 rounded-lg px-3 py-2 text-center text-sm font-medium"
+                              style={{ backgroundColor: themeColor + '15', color: themeColor }}
+                            >
+                              <CheckCircle2 className="mr-1.5 inline h-4 w-4" />
+                              {t("slipReceived")}
+                            </div>
+                          )}
                           <p className="mb-2 text-center text-xs font-medium text-gray-500">
                             {t("slipPreview")}
                           </p>
@@ -575,38 +677,65 @@ export function BookingSection({
                           </div>
                         </div>
                       ) : (
-                        /* Upload zone */
-                        <div className="space-y-2">
-                          <button
-                            type="button"
-                            onClick={() => galleryInputRef.current?.click()}
-                            className="flex w-full cursor-pointer items-center gap-4 rounded-xl border-2 border-dashed border-gray-300 p-5 text-left transition-colors active:bg-gray-50"
-                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = themeColor + '99'; e.currentTarget.style.backgroundColor = themeColor + '0d'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
-                          >
-                            <div className="rounded-lg bg-gray-100 p-3">
-                              <ImageIcon className="h-6 w-6 text-gray-500" />
+                        /* Upload zone: local upload + cross-device QR */
+                        <div className="space-y-3">
+                          {/* Local upload buttons */}
+                          <div className="space-y-2">
+                            <button
+                              type="button"
+                              onClick={() => galleryInputRef.current?.click()}
+                              className="flex w-full cursor-pointer items-center gap-4 rounded-xl border-2 border-dashed border-gray-300 p-5 text-left transition-colors active:bg-gray-50"
+                              onMouseEnter={(e) => { e.currentTarget.style.borderColor = themeColor + '99'; e.currentTarget.style.backgroundColor = themeColor + '0d'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
+                            >
+                              <div className="rounded-lg bg-gray-100 p-3">
+                                <ImageIcon className="h-6 w-6 text-gray-500" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-700">{t("chooseFromGallery")}</p>
+                                <p className="text-xs text-gray-400">{t("clickUpload")}</p>
+                              </div>
+                            </button>
+                            <button
+                              type="button"
+                              onClick={() => cameraInputRef.current?.click()}
+                              className="flex w-full cursor-pointer items-center gap-4 rounded-xl border-2 border-dashed border-gray-300 p-5 text-left transition-colors active:bg-gray-50"
+                              onMouseEnter={(e) => { e.currentTarget.style.borderColor = themeColor + '99'; e.currentTarget.style.backgroundColor = themeColor + '0d'; }}
+                              onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
+                            >
+                              <div className="rounded-lg bg-gray-100 p-3">
+                                <Camera className="h-6 w-6 text-gray-500" />
+                              </div>
+                              <div>
+                                <p className="text-sm font-medium text-gray-700">{t("takePhoto")}</p>
+                                <p className="text-xs text-gray-400">{t("clickUpload")}</p>
+                              </div>
+                            </button>
+                          </div>
+
+                          {/* Cross-device upload: scan QR from phone */}
+                          <div className="relative flex items-center gap-3 py-1">
+                            <div className="flex-1 border-t border-gray-200" />
+                            <span className="text-xs font-medium text-gray-400">{t("orUploadFromPhone")}</span>
+                            <div className="flex-1 border-t border-gray-200" />
+                          </div>
+
+                          <div className="rounded-xl border bg-gray-50 p-4 text-center">
+                            <p className="mb-3 text-xs text-gray-500">
+                              {t("scanToUpload")}
+                            </p>
+                            <div className="mx-auto flex h-36 w-36 items-center justify-center rounded-lg border bg-white p-2">
+                              <QRCodeSVG
+                                value={`${typeof window !== "undefined" ? window.location.origin : ""}/upload-slip/${uploadSessionId}`}
+                                size={120}
+                                level="M"
+                              />
                             </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-700">{t("chooseFromGallery")}</p>
-                              <p className="text-xs text-gray-400">{t("clickUpload")}</p>
+                            <div className="mt-3 flex items-center justify-center gap-2 text-xs text-gray-400">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              {t("waitingForPhoneUpload")}
                             </div>
-                          </button>
-                          <button
-                            type="button"
-                            onClick={() => cameraInputRef.current?.click()}
-                            className="flex w-full cursor-pointer items-center gap-4 rounded-xl border-2 border-dashed border-gray-300 p-5 text-left transition-colors active:bg-gray-50"
-                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = themeColor + '99'; e.currentTarget.style.backgroundColor = themeColor + '0d'; }}
-                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
-                          >
-                            <div className="rounded-lg bg-gray-100 p-3">
-                              <Camera className="h-6 w-6 text-gray-500" />
-                            </div>
-                            <div>
-                              <p className="text-sm font-medium text-gray-700">{t("takePhoto")}</p>
-                              <p className="text-xs text-gray-400">{t("clickUpload")}</p>
-                            </div>
-                          </button>
+                          </div>
                         </div>
                       )}
 
@@ -650,12 +779,12 @@ export function BookingSection({
           {step === "confirmed" && (
             <Card className="mx-auto max-w-lg" style={{ borderColor: themeColor + '40' }}>
               <CardContent className="p-8 text-center">
-                <CheckCircle2 className="mx-auto h-16 w-16" style={{ color: themeColor }} />
+                <CheckCircle2 className="mx-auto h-16 w-16" style={{ color: slipVerified ? themeColor : '#f59e0b' }} />
                 <h3 className="mt-4 text-xl font-semibold text-gray-900">
-                  {t("confirmedTitle")}
+                  {slipVerified ? t("confirmedTitle") : t("confirmedTitlePending")}
                 </h3>
                 <p className="mt-2 text-gray-600">
-                  {t("confirmedText")}
+                  {slipVerified ? t("confirmedText") : t("confirmedTextPending")}
                 </p>
                 {bookingId && (
                   <Badge className="mt-4" variant="secondary" style={{ backgroundColor: themeColor + '1a', color: themeColor }}>
@@ -684,6 +813,7 @@ export function BookingSection({
                   onClick={() => {
                     setStep("dates");
                     setPaymentPhase("qr");
+                    setSlipVerified(false);
                     setDateRange(undefined);
                     setSelectedRoomId("");
                     setGuestName("");
