@@ -1,36 +1,62 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# PeaksNature — Homestay Booking App
+
+Multi-tenant white-label booking platform for nature homestays in Thailand, featuring an AI chat assistant powered by Supabase MCP.
+
+## Tech Stack
+
+- **Next.js 16** (App Router, Turbopack)
+- **Tailwind CSS v4** + shadcn/ui
+- **Supabase** (Postgres, Auth, Storage)
+- **Vercel AI SDK** + **Google Gemini** + Supabase MCP (AI booking assistant)
+- **EasySlip API** (auto-verify payment slips)
+- **Resend** (guest email notifications)
+- **LINE Messaging API** (host notifications)
+- **PromptPay** QR code payments
 
 ## Getting Started
 
-First, run the development server:
-
 ```bash
+# Install dependencies
+npm install
+
+# Set up environment variables
+cp .env.local.example .env.local
+# Edit .env.local with your API keys
+
+# Run database migrations (in Supabase SQL Editor)
+# See: supabase/migrations/001_initial_schema.sql
+# Seed data: supabase/seed.sql
+
+# Start dev server
 npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Open [http://localhost:3000](http://localhost:3000)
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Environment Variables
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+| Variable | Description |
+|----------|-------------|
+| `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
+| `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
+| `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Google Gemini API key (for AI chat) |
+| `EASYSLIP_API_KEY` | EasySlip API key (slip verification) |
+| `RESEND_API_KEY` | Resend API key (email) |
+| *(per host in DB)* | `line_channel_access_token` + `line_user_id` stored per host |
 
-## Learn More
+## Pages
 
-To learn more about Next.js, take a look at the following resources:
+| Route | Description |
+|-------|-------------|
+| `/` | Landing page with homestay grid |
+| `/[slug]` | One-page booking (hero, gallery, rooms, calendar, form, AI chat) |
+| `/dashboard` | Host dashboard (bookings, management) |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+## Key Features
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
-
-## Deploy on Vercel
-
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
-
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+- **Two ways to book**: Manual form OR AI chat assistant
+- **Auto-verify payments**: EasySlip verifies PromptPay slips automatically
+- **Auto-confirm bookings**: No manual host confirmation needed for verified slips
+- **Notifications**: Email to guest (Resend) + LINE message to host
+- **MCP-powered AI**: Supabase MCP gives the chat assistant structured DB access
