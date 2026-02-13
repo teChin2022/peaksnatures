@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo, useEffect, useRef } from "react";
+import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { format, differenceInDays, eachDayOfInterval, parseISO } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Calendar } from "@/components/ui/calendar";
@@ -17,7 +17,7 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, Users, CreditCard, Upload, CheckCircle2, Loader2, Camera, ImageIcon, X } from "lucide-react";
+import { CalendarDays, Users, CreditCard, Upload, CheckCircle2, Loader2, Camera, ImageIcon, X, Smartphone, ArrowRight } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
 import type { Homestay, Room, BlockedDate, Host } from "@/types/database";
@@ -58,6 +58,8 @@ export function BookingSection({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
+  const [paymentPhase, setPaymentPhase] = useState<"qr" | "upload">("qr");
+  const [showWelcomeBack, setShowWelcomeBack] = useState(false);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
 
@@ -75,6 +77,20 @@ export function BookingSection({
     if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
   const [bookingId, setBookingId] = useState<string | null>(null);
+
+  // Detect when user returns from banking app (Page Visibility API)
+  const handleVisibilityChange = useCallback(() => {
+    if (document.visibilityState === "visible" && step === "payment" && paymentPhase === "qr" && !slipFile) {
+      setPaymentPhase("upload");
+      setShowWelcomeBack(true);
+      setTimeout(() => setShowWelcomeBack(false), 4000);
+    }
+  }, [step, paymentPhase, slipFile]);
+
+  useEffect(() => {
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
+  }, [handleVisibilityChange]);
 
   useEffect(() => {
     setMounted(true);
@@ -413,147 +429,219 @@ export function BookingSection({
                 </CardTitle>
               </CardHeader>
               <CardContent className="space-y-4">
-                <div className="text-center">
-                  <p className="text-sm text-gray-500">
-                    {t("scanQr")}
-                  </p>
-                  <div className="mx-auto mt-4 flex h-52 w-52 items-center justify-center rounded-lg border bg-white p-3">
-                    <QRCodeSVG
-                      value={generatePayload(host.promptpay_id, { amount: totalPrice })}
-                      size={180}
-                      level="M"
-                    />
-                  </div>
-                  <p className="mt-3 text-2xl font-bold" style={{ color: themeColor }}>
-                    ฿{totalPrice.toLocaleString()}
-                  </p>
-                  <p className="mt-1 text-sm font-medium text-gray-700">
-                    {host.name}
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    {t("promptpayId")}: {host.promptpay_id}
-                  </p>
-                </div>
 
-                <Separator />
+                {/* Hidden file inputs (always rendered) */}
+                <input
+                  ref={galleryInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)}
+                />
+                <input
+                  ref={cameraInputRef}
+                  type="file"
+                  accept="image/*"
+                  capture="environment"
+                  className="hidden"
+                  onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)}
+                />
 
-                <div>
-                  <Label>{t("uploadSlip")} *</Label>
-
-                  {/* Hidden file inputs */}
-                  <input
-                    ref={galleryInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)}
-                  />
-                  <input
-                    ref={cameraInputRef}
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    className="hidden"
-                    onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)}
-                  />
-
-                  {slipPreview ? (
-                    /* Preview uploaded slip */
-                    <div className="mt-2 rounded-lg border bg-gray-50 p-3">
-                      <p className="mb-2 text-center text-xs font-medium text-gray-500">
-                        {t("slipPreview")}
+                {/* Phase 1: QR Code + Instructions */}
+                {paymentPhase === "qr" && (
+                  <>
+                    <div className="text-center">
+                      <p className="text-sm text-gray-500">
+                        {t("scanQr")}
                       </p>
-                      <div className="relative mx-auto w-fit">
-                        <img
-                          src={slipPreview}
-                          alt={t("slipPreview")}
-                          className="mx-auto max-h-64 rounded-lg object-contain"
+                      <div className="mx-auto mt-4 flex h-52 w-52 items-center justify-center rounded-lg border bg-white p-3">
+                        <QRCodeSVG
+                          value={generatePayload(host.promptpay_id, { amount: totalPrice })}
+                          size={180}
+                          level="M"
                         />
-                        <button
-                          type="button"
-                          onClick={handleRemoveSlip}
-                          className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white shadow-md hover:bg-red-600"
-                        >
-                          <X className="h-3.5 w-3.5" />
-                        </button>
                       </div>
-                      <div className="mt-3 flex justify-center gap-2">
-                        <Button
-                          type="button"
-                          variant="outline"
-                          size="sm"
-                          onClick={() => galleryInputRef.current?.click()}
-                        >
-                          <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
-                          {t("changeSlip")}
-                        </Button>
+                      <p className="mt-3 text-2xl font-bold" style={{ color: themeColor }}>
+                        ฿{totalPrice.toLocaleString()}
+                      </p>
+                      <p className="mt-1 text-sm font-medium text-gray-700">
+                        {host.name}
+                      </p>
+                      <p className="text-xs text-gray-400">
+                        {t("promptpayId")}: {host.promptpay_id}
+                      </p>
+                    </div>
+
+                    <Separator />
+
+                    {/* Step-by-step instructions */}
+                    <div className="rounded-xl border bg-gray-50 p-4">
+                      <div className="space-y-3">
+                        {[
+                          { num: 1, icon: Smartphone, text: t("payStep1") },
+                          { num: 2, icon: ArrowRight, text: t("payStep2") },
+                          { num: 3, icon: CreditCard, text: t("payStep3") },
+                          { num: 4, icon: Upload, text: t("payStep4") },
+                        ].map((s) => (
+                          <div key={s.num} className="flex items-center gap-3">
+                            <div
+                              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
+                              style={{ backgroundColor: themeColor }}
+                            >
+                              {s.num}
+                            </div>
+                            <s.icon className="h-4 w-4 shrink-0 text-gray-400" />
+                            <p className="text-sm text-gray-600">{s.text}</p>
+                          </div>
+                        ))}
                       </div>
                     </div>
-                  ) : (
-                    /* Upload zone */
-                    <div className="mt-2 space-y-2">
-                      <button
-                        type="button"
-                        onClick={() => galleryInputRef.current?.click()}
-                        className="flex w-full cursor-pointer items-center gap-4 rounded-xl border-2 border-dashed border-gray-300 p-5 text-left transition-colors active:bg-gray-50"
-                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = themeColor + '99'; e.currentTarget.style.backgroundColor = themeColor + '0d'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => { setStep("details"); setPaymentPhase("qr"); }}
                       >
-                        <div className="rounded-lg bg-gray-100 p-3">
-                          <ImageIcon className="h-6 w-6 text-gray-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-700">{t("chooseFromGallery")}</p>
-                          <p className="text-xs text-gray-400">{t("clickUpload")}</p>
-                        </div>
-                      </button>
-                      <button
-                        type="button"
-                        onClick={() => cameraInputRef.current?.click()}
-                        className="flex w-full cursor-pointer items-center gap-4 rounded-xl border-2 border-dashed border-gray-300 p-5 text-left transition-colors active:bg-gray-50"
-                        onMouseEnter={(e) => { e.currentTarget.style.borderColor = themeColor + '99'; e.currentTarget.style.backgroundColor = themeColor + '0d'; }}
-                        onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
+                        {tc("back")}
+                      </Button>
+                      <Button
+                        className="flex-1 hover:brightness-90"
+                        style={{ backgroundColor: themeColor }}
+                        onClick={() => setPaymentPhase("upload")}
                       >
-                        <div className="rounded-lg bg-gray-100 p-3">
-                          <Camera className="h-6 w-6 text-gray-500" />
-                        </div>
-                        <div>
-                          <p className="text-sm font-medium text-gray-700">{t("takePhoto")}</p>
-                          <p className="text-xs text-gray-400">{t("clickUpload")}</p>
-                        </div>
-                      </button>
+                        <CheckCircle2 className="mr-2 h-4 w-4" />
+                        {t("iveTransferred")}
+                      </Button>
                     </div>
-                  )}
+                  </>
+                )}
 
-                  <p className="mt-2 text-xs text-gray-400">
-                    {t("slipVerify")}
-                  </p>
-                </div>
+                {/* Phase 2: Upload Slip */}
+                {paymentPhase === "upload" && (
+                  <>
+                    <div className="text-center">
+                      {showWelcomeBack ? (
+                        <div
+                          className="mb-3 rounded-lg px-4 py-2.5 text-sm font-medium"
+                          style={{ backgroundColor: themeColor + '15', color: themeColor }}
+                        >
+                          {t("welcomeBack")}
+                        </div>
+                      ) : null}
+                      <Upload className="mx-auto h-10 w-10 text-gray-300" />
+                      <h3 className="mt-2 text-lg font-semibold text-gray-900">
+                        {t("waitingForSlip")}
+                      </h3>
+                      <p className="mt-1 text-sm text-gray-500">
+                        {t("waitingForSlipDesc")}
+                      </p>
+                      <p className="mt-2 text-lg font-bold" style={{ color: themeColor }}>
+                        ฿{totalPrice.toLocaleString()}
+                      </p>
+                    </div>
 
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => setStep("details")}
-                  >
-                    {tc("back")}
-                  </Button>
-                  <Button
-                    className="flex-1 hover:brightness-90"
-                    style={{ backgroundColor: themeColor }}
-                    onClick={handleSubmitBooking}
-                    disabled={isSubmitting || !slipFile}
-                  >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {t("verifying")}
-                      </>
-                    ) : (
-                      t("submitBooking")
-                    )}
-                  </Button>
-                </div>
+                    <div>
+                      {slipPreview ? (
+                        /* Preview uploaded slip */
+                        <div className="rounded-lg border bg-gray-50 p-3">
+                          <p className="mb-2 text-center text-xs font-medium text-gray-500">
+                            {t("slipPreview")}
+                          </p>
+                          <div className="relative mx-auto w-fit">
+                            <img
+                              src={slipPreview}
+                              alt={t("slipPreview")}
+                              className="mx-auto max-h-64 rounded-lg object-contain"
+                            />
+                            <button
+                              type="button"
+                              onClick={handleRemoveSlip}
+                              className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white shadow-md hover:bg-red-600"
+                            >
+                              <X className="h-3.5 w-3.5" />
+                            </button>
+                          </div>
+                          <div className="mt-3 flex justify-center gap-2">
+                            <Button
+                              type="button"
+                              variant="outline"
+                              size="sm"
+                              onClick={() => galleryInputRef.current?.click()}
+                            >
+                              <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
+                              {t("changeSlip")}
+                            </Button>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Upload zone */
+                        <div className="space-y-2">
+                          <button
+                            type="button"
+                            onClick={() => galleryInputRef.current?.click()}
+                            className="flex w-full cursor-pointer items-center gap-4 rounded-xl border-2 border-dashed border-gray-300 p-5 text-left transition-colors active:bg-gray-50"
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = themeColor + '99'; e.currentTarget.style.backgroundColor = themeColor + '0d'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
+                          >
+                            <div className="rounded-lg bg-gray-100 p-3">
+                              <ImageIcon className="h-6 w-6 text-gray-500" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-700">{t("chooseFromGallery")}</p>
+                              <p className="text-xs text-gray-400">{t("clickUpload")}</p>
+                            </div>
+                          </button>
+                          <button
+                            type="button"
+                            onClick={() => cameraInputRef.current?.click()}
+                            className="flex w-full cursor-pointer items-center gap-4 rounded-xl border-2 border-dashed border-gray-300 p-5 text-left transition-colors active:bg-gray-50"
+                            onMouseEnter={(e) => { e.currentTarget.style.borderColor = themeColor + '99'; e.currentTarget.style.backgroundColor = themeColor + '0d'; }}
+                            onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
+                          >
+                            <div className="rounded-lg bg-gray-100 p-3">
+                              <Camera className="h-6 w-6 text-gray-500" />
+                            </div>
+                            <div>
+                              <p className="text-sm font-medium text-gray-700">{t("takePhoto")}</p>
+                              <p className="text-xs text-gray-400">{t("clickUpload")}</p>
+                            </div>
+                          </button>
+                        </div>
+                      )}
+
+                      <p className="mt-2 text-xs text-gray-400">
+                        {t("slipVerify")}
+                      </p>
+                    </div>
+
+                    <div className="flex gap-2">
+                      <Button
+                        variant="outline"
+                        className="flex-1"
+                        onClick={() => setPaymentPhase("qr")}
+                      >
+                        {tc("back")}
+                      </Button>
+                      <Button
+                        className="flex-1 hover:brightness-90"
+                        style={{ backgroundColor: themeColor }}
+                        onClick={handleSubmitBooking}
+                        disabled={isSubmitting || !slipFile}
+                      >
+                        {isSubmitting ? (
+                          <>
+                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                            {t("verifying")}
+                          </>
+                        ) : (
+                          t("submitBooking")
+                        )}
+                      </Button>
+                    </div>
+                  </>
+                )}
+
               </CardContent>
             </Card>
           )}
@@ -595,6 +683,7 @@ export function BookingSection({
                   style={{ backgroundColor: themeColor }}
                   onClick={() => {
                     setStep("dates");
+                    setPaymentPhase("qr");
                     setDateRange(undefined);
                     setSelectedRoomId("");
                     setGuestName("");
