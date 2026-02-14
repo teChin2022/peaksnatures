@@ -160,6 +160,8 @@ export interface Database {
           payment_slip_url: string | null;
           easyslip_verified: boolean;
           easyslip_response: Json | null;
+          payment_slip_hash: string | null;
+          slip_trans_ref: string | null;
           notes: string | null;
           created_at: string;
         };
@@ -179,6 +181,8 @@ export interface Database {
           payment_slip_url?: string | null;
           easyslip_verified?: boolean;
           easyslip_response?: Json | null;
+          payment_slip_hash?: string | null;
+          slip_trans_ref?: string | null;
           notes?: string | null;
           created_at?: string;
         };
@@ -198,6 +202,8 @@ export interface Database {
           payment_slip_url?: string | null;
           easyslip_verified?: boolean;
           easyslip_response?: Json | null;
+          payment_slip_hash?: string | null;
+          slip_trans_ref?: string | null;
           notes?: string | null;
           created_at?: string;
         };

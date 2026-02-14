@@ -124,12 +124,38 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
+    // Compute file hash for duplicate detection
+    const fileBuffer = await file.arrayBuffer();
+    const hashBuffer = await crypto.subtle.digest("SHA-256", fileBuffer);
+    const slipHash = Array.from(new Uint8Array(hashBuffer))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
+
+    // Check if this exact slip image was already used on another booking
+    const { data: hashDuplicate } = await supabase
+      .from("bookings")
+      .select("id")
+      .eq("payment_slip_hash", slipHash)
+      .neq("id", bookingId)
+      .limit(1);
+
+    if ((hashDuplicate as unknown[] | null)?.length) {
+      console.error("[Duplicate] Slip hash already used on booking:", (hashDuplicate as { id: string }[])[0].id);
+      return NextResponse.json(
+        { error: "This payment slip has already been used for another booking.", duplicate: true },
+        { status: 409 }
+      );
+    }
+
+    // Re-create File from buffer since arrayBuffer() consumed it
+    const fileFromBuffer = new File([fileBuffer], file.name, { type: file.type });
+
     // Upload slip to permanent storage path keyed by booking ID
     const ext = file.name.split(".").pop() || "jpg";
     const slipPath = `bookings/${bookingId}/slip.${ext}`;
     await supabase.storage
       .from("payment-slips")
-      .upload(slipPath, file, { upsert: true, contentType: file.type });
+      .upload(slipPath, fileFromBuffer, { upsert: true, contentType: file.type });
 
     const { data: signedUrlData } = await supabase.storage
       .from("payment-slips")
@@ -156,6 +182,7 @@ export async function POST(req: NextRequest) {
           easyslip_verified: true,
           easyslip_response: demoResponse,
           payment_slip_url: paymentSlipUrl,
+          payment_slip_hash: slipHash,
         } as never)
         .eq("id", bookingId);
 
@@ -176,7 +203,7 @@ export async function POST(req: NextRequest) {
 
     // Production: Call EasySlip API with file upload
     const easySlipForm = new FormData();
-    easySlipForm.append("file", file);
+    easySlipForm.append("file", new File([fileBuffer], file.name, { type: file.type }));
 
     const easySlipRes = await fetch(
       "https://developer.easyslip.com/api/v1/verify",
@@ -199,6 +226,7 @@ export async function POST(req: NextRequest) {
           easyslip_verified: false,
           easyslip_response: easySlipData,
           payment_slip_url: paymentSlipUrl,
+          payment_slip_hash: slipHash,
         } as never)
         .eq("id", bookingId);
 
@@ -217,6 +245,37 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Check for duplicate transaction reference
+    const transRef = easySlipData.data.transRef;
+    if (transRef) {
+      const { data: transRefDuplicate } = await supabase
+        .from("bookings")
+        .select("id")
+        .eq("slip_trans_ref", transRef)
+        .neq("id", bookingId)
+        .limit(1);
+
+      if ((transRefDuplicate as unknown[] | null)?.length) {
+        console.error("[Duplicate] Transaction ref already used on booking:", (transRefDuplicate as { id: string }[])[0].id);
+
+        await supabase
+          .from("bookings")
+          .update({
+            easyslip_verified: false,
+            easyslip_response: easySlipData,
+            payment_slip_url: paymentSlipUrl,
+            payment_slip_hash: slipHash,
+            slip_trans_ref: transRef,
+          } as never)
+          .eq("id", bookingId);
+
+        return NextResponse.json(
+          { error: "This payment transaction has already been used for another booking.", duplicate: true },
+          { status: 409 }
+        );
+      }
+    }
+
     // Validate amount and receiver
     const slipAmount = easySlipData.data.amount.amount;
     const receiverAccount = easySlipData.data.receiver?.proxy?.account;
@@ -233,6 +292,8 @@ export async function POST(req: NextRequest) {
           easyslip_verified: false,
           easyslip_response: easySlipData,
           payment_slip_url: paymentSlipUrl,
+          payment_slip_hash: slipHash,
+          slip_trans_ref: transRef || null,
         } as never)
         .eq("id", bookingId);
 
@@ -259,6 +320,8 @@ export async function POST(req: NextRequest) {
         easyslip_verified: true,
         easyslip_response: easySlipData,
         payment_slip_url: paymentSlipUrl,
+        payment_slip_hash: slipHash,
+        slip_trans_ref: transRef || null,
       } as never)
       .eq("id", bookingId);
 

@@ -314,6 +314,15 @@ export function BookingSection({
       });
 
       const verifyData = await verifyRes.json();
+
+      if (verifyRes.status === 409 && verifyData.duplicate) {
+        toast.error(t("errorDuplicateSlip"));
+        handleRemoveSlip();
+        setStep("payment");
+        setIsSubmitting(false);
+        return;
+      }
+
       setSlipVerified(verifyData.verified === true);
 
       setStep("confirmed");
