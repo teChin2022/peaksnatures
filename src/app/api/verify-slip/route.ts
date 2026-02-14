@@ -168,25 +168,26 @@ export async function POST(req: NextRequest) {
       expected: expectedReceiver,
     });
 
-    // Normalize: strip dashes, spaces, and non-digit chars for comparison
-    const normalize = (val: string | undefined | null): string =>
+    // EasySlip masks account numbers (e.g. "xxx-xxx-5198")
+    // Extract only the visible (non-masked) digits for comparison
+    const extractVisibleDigits = (val: string | undefined | null): string =>
       (val || "").replace(/[^0-9]/g, "");
 
-    // Handle Thai phone country code: 66XXXXXXXXX ↔ 0XXXXXXXXX
-    const normalizeThai = (val: string): string => {
-      const digits = normalize(val);
-      if (digits.startsWith("66") && digits.length === 11) {
-        return "0" + digits.slice(2); // 66812345678 → 0812345678
-      }
-      return digits;
-    };
+    const expectedDigits = extractVisibleDigits(expectedReceiver);
 
-    const expectedNorm = normalizeThai(expectedReceiver || "");
+    // Check if expected number ends with the visible digits from EasySlip
+    const matchesAccount = (easyslipVal: string | undefined | null): boolean => {
+      if (!easyslipVal) return false;
+      const visible = extractVisibleDigits(easyslipVal);
+      if (!visible) return false;
+      // If EasySlip returns full number, do exact match; if masked, match suffix
+      return expectedDigits === visible || expectedDigits.endsWith(visible);
+    };
 
     const receiverMatch =
       !expectedReceiver ||
-      normalizeThai(receiverProxy || "") === expectedNorm ||
-      normalizeThai(receiverBank || "") === expectedNorm;
+      matchesAccount(receiverProxy) ||
+      matchesAccount(receiverBank);
 
     if (!amountMatch || !receiverMatch) {
       return NextResponse.json({
@@ -197,7 +198,7 @@ export async function POST(req: NextRequest) {
         easyslip_response: easySlipData,
         debug: {
           expected_receiver: expectedReceiver,
-          expected_normalized: expectedNorm,
+          expected_normalized: expectedDigits,
           easyslip_proxy: receiverProxy || null,
           easyslip_bank: receiverBank || null,
           full_receiver: easySlipData.data.receiver,
