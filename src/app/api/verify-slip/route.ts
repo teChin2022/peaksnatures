@@ -141,6 +141,13 @@ export async function POST(req: NextRequest) {
 
     if ((hashDuplicate as unknown[] | null)?.length) {
       console.error("[Duplicate] Slip hash already used on booking:", (hashDuplicate as { id: string }[])[0].id);
+
+      // Cancel the booking since the slip is a duplicate
+      await supabase
+        .from("bookings")
+        .update({ status: "cancelled", easyslip_verified: false } as never)
+        .eq("id", bookingId);
+
       return NextResponse.json(
         { error: "This payment slip has already been used for another booking.", duplicate: true },
         { status: 409 }
@@ -261,6 +268,7 @@ export async function POST(req: NextRequest) {
         await supabase
           .from("bookings")
           .update({
+            status: "cancelled",
             easyslip_verified: false,
             easyslip_response: easySlipData,
             payment_slip_url: paymentSlipUrl,
