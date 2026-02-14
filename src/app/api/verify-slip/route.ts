@@ -20,12 +20,12 @@ interface EasySlipResponse {
     ref3: string;
     sender: {
       bank: { id: string; name: string; short: string };
-      account: { name: { th: string; en: string }; bank?: { type: string; account: string } };
+      account: { name: { th: string; en: string }; bank?: { type: string; account: string }; proxy?: { type: string; account: string } };
     };
     receiver: {
       bank: { id: string; name: string; short: string };
-      account: { name: { th: string; en: string }; bank?: { type: string; account: string } };
-      proxy?: { type: string; account: string };
+      account: { name: { th: string; en: string }; bank?: { type: string; account: string }; proxy?: { type: string; account: string } };
+      merchantId?: string;
     };
   };
   error?: string;
@@ -286,7 +286,7 @@ export async function POST(req: NextRequest) {
 
     // Validate amount and receiver
     const slipAmount = easySlipData.data.amount.amount;
-    const receiverAccount = easySlipData.data.receiver?.proxy?.account;
+    const receiverAccount = easySlipData.data.receiver?.account?.proxy?.account;
 
     const amountMatch = slipAmount === expectedAmount;
     const receiverMatch =
