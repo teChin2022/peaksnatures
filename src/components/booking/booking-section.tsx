@@ -135,9 +135,23 @@ export function BookingSection({
     };
   }, [step, paymentPhase, slipFile, phoneSlipReceived, uploadSessionId]);
 
+  // Live booked ranges fetched client-side to stay up-to-date
+  const [liveBookedRanges, setLiveBookedRanges] = useState<BookedRange[]>(bookedRanges);
+
   useEffect(() => {
     setMounted(true);
-  }, []);
+    // Fetch fresh availability on mount
+    fetch(`/api/bookings/availability?homestay_id=${homestay.id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.bookedRanges) {
+          setLiveBookedRanges(data.bookedRanges);
+        }
+      })
+      .catch(() => {
+        // Fall back to server-provided data
+      });
+  }, [homestay.id]);
 
   const blockedDateSet = useMemo(() => {
     return new Set(blockedDates.map((d) => d.date));
@@ -153,7 +167,7 @@ export function BookingSection({
 
     // Count bookings per date for this room
     const dateCountMap = new Map<string, number>();
-    bookedRanges
+    liveBookedRanges
       .filter((b) => b.room_id === selectedRoomId)
       .forEach((b) => {
         try {
@@ -176,7 +190,7 @@ export function BookingSection({
       if (count >= roomQuantity) fullyBooked.add(date);
     });
     return fullyBooked;
-  }, [selectedRoomId, bookedRanges, rooms]);
+  }, [selectedRoomId, liveBookedRanges, rooms]);
 
   const disabledDays = useMemo(() => {
     const blocked = blockedDates.map((d) => parseISO(d.date));
@@ -270,6 +284,14 @@ export function BookingSection({
       if (!bookingRes.ok) {
         if (bookingRes.status === 409) {
           toast.error(t("errorDatesUnavailable"));
+          // Refresh availability so calendar shows latest booked dates
+          fetch(`/api/bookings/availability?homestay_id=${homestay.id}`)
+            .then((res) => res.json())
+            .then((data) => {
+              if (data.bookedRanges) setLiveBookedRanges(data.bookedRanges);
+            })
+            .catch(() => {});
+          setDateRange(undefined);
           setStep("dates");
           setIsSubmitting(false);
           return;
