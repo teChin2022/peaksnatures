@@ -7,7 +7,7 @@ import {
   Users,
   Search,
 } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -25,8 +25,8 @@ export default async function Home() {
     .order("created_at", { ascending: false });
   const HOMESTAYS = (homestayRows as unknown as Homestay[]) || [];
 
-  const t = useTranslations("home");
-  const tc = useTranslations("common");
+  const t = await getTranslations("home");
+  const tc = await getTranslations("common");
 
   return (
     <div className="min-h-screen bg-white">
