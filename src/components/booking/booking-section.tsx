@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { format, differenceInDays, eachDayOfInterval, parseISO } from "date-fns";
+import { format, differenceInDays, eachDayOfInterval, parseISO, subDays } from "date-fns";
 import type { DateRange } from "react-day-picker";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
@@ -25,10 +25,17 @@ import { THAI_PROVINCES } from "@/lib/provinces";
 import generatePayload from "promptpay-qr";
 import { QRCodeSVG } from "qrcode.react";
 
+interface BookedRange {
+  room_id: string | null;
+  check_in: string;
+  check_out: string;
+}
+
 interface BookingSectionProps {
   homestay: Homestay;
   rooms: Room[];
   blockedDates: BlockedDate[];
+  bookedRanges?: BookedRange[];
   host: Host;
   embedded?: boolean;
 }
@@ -39,6 +46,7 @@ export function BookingSection({
   homestay,
   rooms,
   blockedDates,
+  bookedRanges = [],
   host,
   embedded = false,
 }: BookingSectionProps) {
@@ -135,9 +143,46 @@ export function BookingSection({
     return new Set(blockedDates.map((d) => d.date));
   }, [blockedDates]);
 
+  // Compute fully-booked dates for the selected room
+  // A booking with check_in=12, check_out=14 occupies nights 12 & 13 (not 14)
+  // So disabled dates = check_in .. check_out-1 (check_out day is free for new check-in)
+  const bookedDatesForRoom = useMemo(() => {
+    if (!selectedRoomId) return new Set<string>();
+    const selectedRoomObj = rooms.find((r) => r.id === selectedRoomId);
+    const roomQuantity = selectedRoomObj?.quantity || 1;
+
+    // Count bookings per date for this room
+    const dateCountMap = new Map<string, number>();
+    bookedRanges
+      .filter((b) => b.room_id === selectedRoomId)
+      .forEach((b) => {
+        try {
+          const start = parseISO(b.check_in);
+          const end = subDays(parseISO(b.check_out), 1);
+          if (end < start) return;
+          const days = eachDayOfInterval({ start, end });
+          days.forEach((d) => {
+            const key = format(d, "yyyy-MM-dd");
+            dateCountMap.set(key, (dateCountMap.get(key) || 0) + 1);
+          });
+        } catch {
+          // Skip malformed dates
+        }
+      });
+
+    // A date is fully booked when booking count >= room quantity
+    const fullyBooked = new Set<string>();
+    dateCountMap.forEach((count, date) => {
+      if (count >= roomQuantity) fullyBooked.add(date);
+    });
+    return fullyBooked;
+  }, [selectedRoomId, bookedRanges, rooms]);
+
   const disabledDays = useMemo(() => {
-    return blockedDates.map((d) => parseISO(d.date));
-  }, [blockedDates]);
+    const blocked = blockedDates.map((d) => parseISO(d.date));
+    const booked = Array.from(bookedDatesForRoom).map((d) => parseISO(d));
+    return [...blocked, ...booked];
+  }, [blockedDates, bookedDatesForRoom]);
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
 
@@ -153,9 +198,15 @@ export function BookingSection({
 
   const isDateRangeValid = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to) return false;
-    const days = eachDayOfInterval({ start: dateRange.from, end: dateRange.to });
-    return !days.some((d) => blockedDateSet.has(format(d, "yyyy-MM-dd")));
-  }, [dateRange, blockedDateSet]);
+    // Check occupied nights: from check-in to check-out - 1
+    const lastNight = subDays(dateRange.to, 1);
+    if (lastNight < dateRange.from) return false;
+    const nights = eachDayOfInterval({ start: dateRange.from, end: lastNight });
+    return !nights.some((d) => {
+      const key = format(d, "yyyy-MM-dd");
+      return blockedDateSet.has(key) || bookedDatesForRoom.has(key);
+    });
+  }, [dateRange, blockedDateSet, bookedDatesForRoom]);
 
   const handleDateSelect = (range: DateRange | undefined) => {
     setDateRange(range);
@@ -217,6 +268,12 @@ export function BookingSection({
       });
 
       if (!bookingRes.ok) {
+        if (bookingRes.status === 409) {
+          toast.error(t("errorDatesUnavailable"));
+          setStep("dates");
+          setIsSubmitting(false);
+          return;
+        }
         throw new Error("Failed to create booking");
       }
 

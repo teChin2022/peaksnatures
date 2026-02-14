@@ -30,6 +30,51 @@ export async function POST(req: NextRequest) {
     const data = parsed.data;
 
     const supabase = createServiceRoleClient();
+
+    // Server-side overlap validation
+    if (data.room_id) {
+      // Fetch room quantity
+      const { data: roomRow } = await supabase
+        .from("rooms")
+        .select("quantity")
+        .eq("id", data.room_id)
+        .single();
+      const roomQuantity = (roomRow as { quantity: number } | null)?.quantity || 1;
+
+      // Check overlapping active bookings for this room
+      // Overlap: new_check_in < existing_check_out AND new_check_out > existing_check_in
+      const { data: overlapping } = await supabase
+        .from("bookings")
+        .select("id, check_in, check_out")
+        .eq("room_id", data.room_id)
+        .in("status", ["pending", "confirmed", "verified"])
+        .lt("check_in", data.check_out)
+        .gt("check_out", data.check_in);
+
+      const overlapCount = (overlapping as unknown[] | null)?.length || 0;
+      if (overlapCount >= roomQuantity) {
+        return NextResponse.json(
+          { error: "Selected dates are no longer available for this room" },
+          { status: 409 }
+        );
+      }
+    }
+
+    // Also check blocked dates
+    const { data: blockedRows } = await supabase
+      .from("blocked_dates")
+      .select("date")
+      .eq("homestay_id", data.homestay_id)
+      .gte("date", data.check_in)
+      .lt("date", data.check_out);
+
+    if ((blockedRows as unknown[] | null)?.length) {
+      return NextResponse.json(
+        { error: "Some selected dates are blocked by the host" },
+        { status: 409 }
+      );
+    }
+
     const { data: booking, error } = await supabase
       .from("bookings")
       .insert({

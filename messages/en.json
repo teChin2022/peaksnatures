@@ -107,6 +107,7 @@
     "errorSelectRoom": "Please select a room",
     "errorFillFields": "Please fill in all required fields",
     "errorUploadSlip": "Please upload your payment slip",
+    "errorDatesUnavailable": "These dates are no longer available. Please select different dates.",
     "errorGeneric": "Something went wrong. Please try again.",
     "successSubmitted": "Booking submitted! Your payment slip is being verified."
   },

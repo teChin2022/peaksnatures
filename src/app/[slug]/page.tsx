@@ -50,10 +50,19 @@ async function getHomestayData(slug: string) {
     .eq("homestay_id", homestay.id);
   const blockedDates = (blockedRows as unknown as BlockedDate[]) || [];
 
+  // Fetch active bookings for availability check
+  const { data: bookingRows } = await supabase
+    .from("bookings")
+    .select("room_id, check_in, check_out")
+    .eq("homestay_id", homestay.id)
+    .in("status", ["pending", "confirmed", "verified"]);
+  const bookedRanges = (bookingRows as { room_id: string | null; check_in: string; check_out: string }[]) || [];
+
   return {
     homestay: { ...homestay, host: host! } as Homestay & { host: Host },
     rooms,
     blockedDates,
+    bookedRanges,
   };
 }
 
@@ -85,7 +94,7 @@ export default async function HomestayPage({ params }: PageProps) {
     notFound();
   }
 
-  const { homestay, rooms, blockedDates } = data;
+  const { homestay, rooms, blockedDates, bookedRanges } = data;
 
   return (
     <div className="min-h-screen bg-white">
@@ -141,6 +150,7 @@ export default async function HomestayPage({ params }: PageProps) {
                   homestay={homestay}
                   rooms={rooms}
                   blockedDates={blockedDates}
+                  bookedRanges={bookedRanges}
                   host={homestay.host}
                   embedded
                 />
