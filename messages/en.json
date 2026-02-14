@@ -337,7 +337,10 @@
     "legendPending": "Pending",
     "legendBlocked": "Blocked",
     "legendAvailable": "Available",
-    "clickToSelect": "Click dates to select, then block/unblock"
+    "clickToSelect": "Click dates to select, then block/unblock",
+    "checkIn": "Check-in",
+    "checkOut": "Check-out",
+    "staying": "Staying"
   },
   "dashboardTheme": {
     "title": "Theme Settings",

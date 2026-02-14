@@ -337,7 +337,10 @@
     "legendPending": "รอดำเนินการ",
     "legendBlocked": "บล็อก",
     "legendAvailable": "ว่าง",
-    "clickToSelect": "คลิกเลือกวันที่ แล้วบล็อก/ปลดบล็อก"
+    "clickToSelect": "คลิกเลือกวันที่ แล้วบล็อก/ปลดบล็อก",
+    "checkIn": "เช็คอิน",
+    "checkOut": "เช็คเอาท์",
+    "staying": "เข้าพัก"
   },
   "dashboardTheme": {
     "title": "ตั้งค่าธีม",

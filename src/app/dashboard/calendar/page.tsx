@@ -69,6 +69,13 @@ interface BlockedDateRow {
   reason: string | null;
 }
 
+type BookingPosition = "start" | "middle" | "end" | "single";
+
+interface DayBookingInfo {
+  booking: BookingRow;
+  position: BookingPosition;
+}
+
 interface DayInfo {
   date: Date;
   dateStr: string;
@@ -77,7 +84,7 @@ interface DayInfo {
   isPast: boolean;
   isBlocked: boolean;
   blockedReason: string | null;
-  bookings: BookingRow[];
+  bookings: DayBookingInfo[];
 }
 
 const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
@@ -179,20 +186,24 @@ export default function CalendarPage() {
     return map;
   }, [blockedDates]);
 
-  // Build booking date map (date string -> bookings that overlap)
+  // Build booking date map (date string -> bookings with position info)
   const bookingDateMap = useMemo(() => {
-    const map = new Map<string, BookingRow[]>();
+    const map = new Map<string, DayBookingInfo[]>();
     bookings.forEach((b) => {
       try {
-        const days = eachDayOfInterval({
-          start: parseISO(b.check_in),
-          end: parseISO(b.check_out),
-        });
-        // Exclude checkout day from visual (checkout is departure)
-        days.slice(0, -1).forEach((d) => {
+        const start = parseISO(b.check_in);
+        const end = parseISO(b.check_out);
+        const days = eachDayOfInterval({ start, end });
+        const lastIdx = days.length - 1;
+        days.forEach((d, idx) => {
           const key = format(d, "yyyy-MM-dd");
           const existing = map.get(key) || [];
-          existing.push(b);
+          let position: BookingPosition;
+          if (lastIdx === 0) position = "single";
+          else if (idx === 0) position = "start";
+          else if (idx === lastIdx) position = "end";
+          else position = "middle";
+          existing.push({ booking: b, position });
           map.set(key, existing);
         });
       } catch {
@@ -510,15 +521,14 @@ export default function CalendarPage() {
               const isSelected = selectedDates.has(dayInfo.dateStr);
               const hasBookings = dayInfo.bookings.length > 0;
               const hasConfirmed = dayInfo.bookings.some(
-                (b) => b.status === "confirmed" || b.status === "completed" || b.status === "verified"
+                (bi) => bi.booking.status === "confirmed" || bi.booking.status === "completed" || bi.booking.status === "verified"
               );
               const hasPending = dayInfo.bookings.some(
-                (b) => b.status === "pending"
+                (bi) => bi.booking.status === "pending"
               );
 
               let bgClass = "bg-white hover:bg-gray-50";
               let textClass = "text-gray-900";
-              let borderStyle = "";
 
               if (!dayInfo.isCurrentMonth) {
                 bgClass = "bg-gray-50/50";
@@ -526,16 +536,21 @@ export default function CalendarPage() {
               } else if (dayInfo.isBlocked) {
                 bgClass = "bg-red-50 hover:bg-red-100";
                 textClass = "text-red-700";
-                borderStyle = "border-red-200";
-              } else if (hasConfirmed) {
-                borderStyle = `border-2`;
-              } else if (hasPending) {
-                borderStyle = "border-yellow-300 border-2";
               }
 
               if (isSelected) {
-                bgClass = "ring-2 ring-offset-1";
+                bgClass += " ring-2 ring-offset-1";
               }
+
+              // Range bar style helper
+              const getRangeBarClass = (pos: BookingPosition) => {
+                switch (pos) {
+                  case "start": return "rounded-l-full rounded-r-none ml-0 mr-[-2px]";
+                  case "middle": return "rounded-none mx-[-2px]";
+                  case "end": return "rounded-r-full rounded-l-none mr-0 ml-[-2px]";
+                  case "single": return "rounded-full";
+                }
+              };
 
               const dayContent = (
                 <button
@@ -543,18 +558,20 @@ export default function CalendarPage() {
                   onClick={() => toggleDateSelection(dayInfo.dateStr, dayInfo)}
                   disabled={!dayInfo.isCurrentMonth}
                   className={`
-                    relative flex h-14 sm:h-20 w-full flex-col items-start rounded-lg border p-1 sm:p-1.5 text-left transition-all
+                    relative flex h-14 sm:h-24 w-full flex-col items-start rounded-lg border p-1 sm:p-1.5 text-left transition-all overflow-hidden
                     ${bgClass} ${textClass}
                     ${dayInfo.isCurrentMonth ? "cursor-pointer" : "cursor-default opacity-40"}
                     ${dayInfo.isPast && !dayInfo.isBlocked ? "opacity-60" : ""}
+                    ${dayInfo.isBlocked && dayInfo.isCurrentMonth ? "border-red-200" : ""}
+                    ${hasConfirmed && dayInfo.isCurrentMonth && !dayInfo.isBlocked ? "border-2" : ""}
+                    ${hasPending && !hasConfirmed && dayInfo.isCurrentMonth && !dayInfo.isBlocked ? "border-yellow-300 border-2" : ""}
                   `}
                   style={{
                     borderColor: isSelected
                       ? themeColor
-                      : hasConfirmed && dayInfo.isCurrentMonth
+                      : hasConfirmed && dayInfo.isCurrentMonth && !dayInfo.isBlocked
                       ? themeColor
                       : undefined,
-                    ...(isSelected ? { ringColor: themeColor } : {}),
                   }}
                 >
                   <span
@@ -568,54 +585,56 @@ export default function CalendarPage() {
                     {format(dayInfo.date, "d")}
                   </span>
 
-                  {/* Indicators */}
-                  {dayInfo.isCurrentMonth && (
-                    <div className="mt-auto flex w-full flex-wrap gap-0.5">
-                      {dayInfo.isBlocked && (
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" title={dayInfo.blockedReason || t("blocked")} />
-                      )}
-                      {hasConfirmed && (
-                        <span className="inline-block h-1.5 w-1.5 rounded-full" style={{ backgroundColor: themeColor }} />
-                      )}
-                      {hasPending && (
-                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-yellow-400" />
+                  {/* Booking range bars */}
+                  {dayInfo.isCurrentMonth && hasBookings && (
+                    <div className="mt-auto flex w-full flex-col gap-0.5">
+                      {dayInfo.bookings.slice(0, 2).map((bi) => {
+                        const isPending = bi.booking.status === "pending";
+                        const barColor = isPending ? "#eab308" : themeColor;
+                        const barBg = isPending ? "rgba(234,179,8,0.15)" : `${themeColor}18`;
+                        return (
+                          <div
+                            key={bi.booking.id + bi.position}
+                            className={`flex items-center h-3.5 sm:h-4 px-1 text-[8px] sm:text-[10px] font-medium leading-none truncate ${getRangeBarClass(bi.position)}`}
+                            style={{ backgroundColor: barBg, color: barColor }}
+                            title={`${bi.booking.guest_name} (${bi.booking.check_in} → ${bi.booking.check_out})`}
+                          >
+                            {(bi.position === "start" || bi.position === "single") && (
+                              <span className="truncate">
+                                <span className="hidden sm:inline">{bi.booking.guest_name}</span>
+                                <span className="sm:hidden">IN</span>
+                              </span>
+                            )}
+                            {bi.position === "end" && (
+                              <span className="truncate">
+                                <span className="hidden sm:inline">{t("checkOut")}</span>
+                                <span className="sm:hidden">OUT</span>
+                              </span>
+                            )}
+                          </div>
+                        );
+                      })}
+                      {dayInfo.bookings.length > 2 && (
+                        <p className="text-[8px] text-gray-400 pl-0.5">+{dayInfo.bookings.length - 2}</p>
                       )}
                     </div>
                   )}
 
-                  {/* Guest name preview (desktop) */}
-                  {dayInfo.isCurrentMonth && hasBookings && (
-                    <div className="hidden sm:block w-full overflow-hidden">
-                      {dayInfo.bookings.slice(0, 1).map((b) => (
-                        <p
-                          key={b.id}
-                          className="truncate text-[10px] leading-tight"
-                          style={{
-                            color:
-                              b.status === "pending"
-                                ? "#ca8a04"
-                                : themeColor,
-                          }}
-                        >
-                          {b.guest_name}
-                        </p>
-                      ))}
-                      {dayInfo.bookings.length > 1 && (
-                        <p className="text-[10px] text-gray-400">
-                          +{dayInfo.bookings.length - 1}
-                        </p>
-                      )}
+                  {/* Blocked indicator */}
+                  {dayInfo.isCurrentMonth && dayInfo.isBlocked && !hasBookings && (
+                    <div className="mt-auto">
+                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" title={dayInfo.blockedReason || t("blocked")} />
                     </div>
                   )}
                 </button>
               );
 
-              // Wrap booked dates with popover for details
+              // Wrap booked/blocked dates with popover for details
               if (dayInfo.isCurrentMonth && (hasBookings || dayInfo.isBlocked)) {
                 return (
                   <Popover key={dayInfo.dateStr}>
                     <PopoverTrigger asChild>{dayContent}</PopoverTrigger>
-                    <PopoverContent className="w-72 p-3" align="center">
+                    <PopoverContent className="w-80 p-3" align="center">
                       <p className="text-sm font-semibold text-gray-900 mb-2">
                         {format(dayInfo.date, "EEE, MMM d, yyyy")}
                       </p>
@@ -634,36 +653,52 @@ export default function CalendarPage() {
 
                       {dayInfo.bookings.length > 0 && (
                         <div className="space-y-2">
-                          {dayInfo.bookings.map((b) => (
+                          {dayInfo.bookings.map((bi) => (
                             <div
-                              key={b.id}
+                              key={bi.booking.id}
                               className="rounded-md border p-2 text-xs"
                             >
                               <div className="flex items-center justify-between mb-1">
                                 <span className="font-semibold text-gray-900">
-                                  {b.guest_name}
+                                  {bi.booking.guest_name}
                                 </span>
-                                <Badge
-                                  variant="secondary"
-                                  className={`text-[10px] px-1.5 py-0 ${
-                                    b.status === "confirmed" || b.status === "verified"
-                                      ? "bg-green-100 text-green-700"
-                                      : b.status === "pending"
-                                      ? "bg-yellow-100 text-yellow-700"
-                                      : "bg-gray-100 text-gray-500"
-                                  }`}
-                                >
-                                  {b.status}
-                                </Badge>
+                                <div className="flex items-center gap-1">
+                                  <Badge
+                                    variant="outline"
+                                    className={`text-[9px] px-1 py-0 ${
+                                      bi.position === "start"
+                                        ? "border-green-300 text-green-700 bg-green-50"
+                                        : bi.position === "end"
+                                        ? "border-orange-300 text-orange-700 bg-orange-50"
+                                        : "border-blue-300 text-blue-700 bg-blue-50"
+                                    }`}
+                                  >
+                                    {bi.position === "start" ? t("checkIn") : bi.position === "end" ? t("checkOut") : t("staying")}
+                                  </Badge>
+                                  <Badge
+                                    variant="secondary"
+                                    className={`text-[9px] px-1 py-0 ${
+                                      bi.booking.status === "confirmed" || bi.booking.status === "verified"
+                                        ? "bg-green-100 text-green-700"
+                                        : bi.booking.status === "pending"
+                                        ? "bg-yellow-100 text-yellow-700"
+                                        : "bg-gray-100 text-gray-500"
+                                    }`}
+                                  >
+                                    {bi.booking.status}
+                                  </Badge>
+                                </div>
                               </div>
-                              <p className="text-gray-500">
-                                {b.check_in} → {b.check_out}
-                              </p>
-                              <p className="text-gray-500">
-                                {b.room_id ? roomMap[b.room_id] || "—" : "—"} · {b.num_guests} {t("guests")}
+                              <div className="flex items-center gap-1.5 text-gray-500 mt-1">
+                                <span className="font-medium text-gray-700">{bi.booking.check_in}</span>
+                                <span>→</span>
+                                <span className="font-medium text-gray-700">{bi.booking.check_out}</span>
+                              </div>
+                              <p className="text-gray-500 mt-0.5">
+                                {bi.booking.room_id ? roomMap[bi.booking.room_id] || "—" : "—"} · {bi.booking.num_guests} {t("guests")}
                               </p>
                               <p className="font-medium mt-0.5" style={{ color: themeColor }}>
-                                ฿{b.total_price.toLocaleString()}
+                                ฿{bi.booking.total_price.toLocaleString()}
                               </p>
                             </div>
                           ))}
