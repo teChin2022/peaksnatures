@@ -195,6 +195,15 @@ export async function POST(req: NextRequest) {
         slip_hash: slipHash,
         payment_slip_url: paymentSlipUrl,
         easyslip_response: easySlipData,
+        debug: {
+          expected_receiver: expectedReceiver,
+          expected_normalized: expectedNorm,
+          easyslip_proxy: receiverProxy || null,
+          easyslip_bank: receiverBank || null,
+          full_receiver: easySlipData.data.receiver,
+          expected_amount: expectedAmount,
+          slip_amount: slipAmount,
+        },
       });
     }
 

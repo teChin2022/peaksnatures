@@ -316,6 +316,7 @@ export function BookingSection({
       }
 
       if (!verifyData.verified) {
+        console.log("[Debug] Verification failed response:", JSON.stringify(verifyData, null, 2));
         toast.error(verifyData.message || t("errorSlipVerification"));
         handleRemoveSlip();
         setIsSubmitting(false);
