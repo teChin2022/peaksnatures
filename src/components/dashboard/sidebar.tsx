@@ -12,6 +12,7 @@ import {
   BedDouble,
   Palette,
   CalendarDays,
+  CalendarCheck,
   ChevronLeft,
   ChevronRight,
   LogOut,
@@ -27,6 +28,7 @@ import { useRouter } from "next/navigation";
 const NAV_ITEMS = [
   { key: "overview", href: "/dashboard", icon: LayoutDashboard },
   { key: "bookings", href: "/dashboard/bookings", icon: CalendarDays },
+  { key: "calendar", href: "/dashboard/calendar", icon: CalendarCheck },
   { key: "profile", href: "/dashboard/profile", icon: User },
   { key: "homestay", href: "/dashboard/homestay", icon: Home },
   { key: "rooms", href: "/dashboard/rooms", icon: BedDouble },

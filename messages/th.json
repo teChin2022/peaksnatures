@@ -207,7 +207,8 @@
     "profile": "โปรไฟล์",
     "homestay": "โฮมสเตย์",
     "rooms": "ห้องพัก",
-    "theme": "ธีม"
+    "theme": "ธีม",
+    "calendar": "ปฏิทิน"
   },
   "dashboardProfile": {
     "title": "โปรไฟล์ของฉัน",
@@ -307,6 +308,36 @@
     "errorSave": "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
     "errorDelete": "ลบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
     "errorUpload": "อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
+  },
+  "dashboardCalendar": {
+    "title": "ปฏิทินห้องว่าง",
+    "subtitle": "ดูการจองและจัดการวันที่บล็อก",
+    "available": "ว่าง",
+    "booked": "มีการจอง",
+    "blocked": "บล็อก",
+    "pending": "รอดำเนินการ",
+    "guests": "ท่าน",
+    "today": "วันนี้",
+    "datesSelected": "วันที่เลือก",
+    "blockDate": "บล็อกวันที่",
+    "unblockDate": "ปลดบล็อกวันที่",
+    "clearSelection": "ล้าง",
+    "reason": "เหตุผล (ไม่บังคับ)",
+    "reasonPlaceholder": "เช่น ซ่อมบำรุง, ใช้ส่วนตัว",
+    "confirmBlock": "บล็อกวันที่",
+    "confirmUnblock": "ปลดบล็อกวันที่",
+    "confirmBlockDesc": "บล็อก {count} วัน? ผู้เข้าพักจะไม่สามารถจองวันเหล่านี้ได้",
+    "confirmUnblockDesc": "ปลดบล็อก {count} วัน? วันเหล่านี้จะเปิดให้จองได้อีกครั้ง",
+    "cancelAction": "ยกเลิก",
+    "blockSuccess": "บล็อกวันที่เรียบร้อยแล้ว",
+    "unblockSuccess": "ปลดบล็อกวันที่เรียบร้อยแล้ว",
+    "errorBlock": "อัปเดตวันที่บล็อกไม่สำเร็จ",
+    "noHomestay": "กรุณาสร้างโฮมสเตย์ก่อน",
+    "legendBooked": "มีการจอง",
+    "legendPending": "รอดำเนินการ",
+    "legendBlocked": "บล็อก",
+    "legendAvailable": "ว่าง",
+    "clickToSelect": "คลิกเลือกวันที่ แล้วบล็อก/ปลดบล็อก"
   },
   "dashboardTheme": {
     "title": "ตั้งค่าธีม",

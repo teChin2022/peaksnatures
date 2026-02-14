@@ -207,7 +207,8 @@
     "profile": "My Profile",
     "homestay": "Homestay",
     "rooms": "Rooms",
-    "theme": "Theme"
+    "theme": "Theme",
+    "calendar": "Calendar"
   },
   "dashboardProfile": {
     "title": "My Profile",
@@ -307,6 +308,36 @@
     "errorSave": "Failed to save. Please try again.",
     "errorDelete": "Failed to delete. Please try again.",
     "errorUpload": "Failed to upload image. Please try again."
+  },
+  "dashboardCalendar": {
+    "title": "Availability Calendar",
+    "subtitle": "View bookings and manage blocked dates",
+    "available": "Available",
+    "booked": "Booked",
+    "blocked": "Blocked",
+    "pending": "Pending",
+    "guests": "guests",
+    "today": "Today",
+    "datesSelected": "date(s) selected",
+    "blockDate": "Block Dates",
+    "unblockDate": "Unblock Dates",
+    "clearSelection": "Clear",
+    "reason": "Reason (optional)",
+    "reasonPlaceholder": "e.g. Maintenance, Personal use",
+    "confirmBlock": "Block Dates",
+    "confirmUnblock": "Unblock Dates",
+    "confirmBlockDesc": "Block {count} date(s)? Guests will not be able to book these dates.",
+    "confirmUnblockDesc": "Unblock {count} date(s)? These dates will become available for booking again.",
+    "cancelAction": "Cancel",
+    "blockSuccess": "Dates blocked successfully",
+    "unblockSuccess": "Dates unblocked successfully",
+    "errorBlock": "Failed to update blocked dates",
+    "noHomestay": "Please create a homestay first.",
+    "legendBooked": "Booked",
+    "legendPending": "Pending",
+    "legendBlocked": "Blocked",
+    "legendAvailable": "Available",
+    "clickToSelect": "Click dates to select, then block/unblock"
   },
   "dashboardTheme": {
     "title": "Theme Settings",
