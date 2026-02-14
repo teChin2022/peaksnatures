@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { sendBookingConfirmationEmail, sendHostLineNotification } from "@/lib/notifications";
+import type { Booking, Homestay, Host, Room } from "@/types/database";
 
 const bookingSchema = z.object({
   homestay_id: z.string().uuid(),
@@ -13,7 +15,65 @@ const bookingSchema = z.object({
   check_out: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
   num_guests: z.number().int().min(1),
   total_price: z.number().int().min(0),
+  // Slip verification data (required — slip must be verified before booking)
+  slip_hash: z.string().min(1, "Slip hash is required"),
+  slip_trans_ref: z.string().nullable().optional(),
+  payment_slip_url: z.string().nullable().optional(),
+  easyslip_response: z.unknown().optional(),
 });
+
+async function sendNotifications(bookingId: string, supabase: ReturnType<typeof createServiceRoleClient>) {
+  try {
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("id", bookingId)
+      .single();
+
+    if (!booking) return;
+
+    const { data: homestay } = await supabase
+      .from("homestays")
+      .select("*")
+      .eq("id", (booking as unknown as Booking).homestay_id)
+      .single();
+
+    if (!homestay) return;
+
+    const { data: host } = await supabase
+      .from("hosts")
+      .select("*")
+      .eq("id", (homestay as unknown as Homestay).host_id)
+      .single();
+
+    if (!host) return;
+
+    let room = null;
+    if ((booking as unknown as Booking).room_id) {
+      const { data: roomData } = await supabase
+        .from("rooms")
+        .select("*")
+        .eq("id", (booking as unknown as Booking).room_id!)
+        .single();
+      room = roomData;
+    }
+
+    const details = {
+      booking: booking as unknown as Booking,
+      homestay: homestay as unknown as Homestay,
+      host: host as unknown as Host,
+      room: (room as unknown as Room) || undefined,
+    };
+
+    const emailResult = await sendBookingConfirmationEmail(details);
+    console.log("[Notification] Email result:", emailResult);
+
+    const lineResult = await sendHostLineNotification(details, "confirmed");
+    console.log("[Notification] LINE result:", lineResult);
+  } catch (error) {
+    console.error("Notification error (non-blocking):", error);
+  }
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -75,6 +135,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Slip is already verified — create booking as confirmed
     const { data: booking, error } = await supabase
       .from("bookings")
       .insert({
@@ -88,7 +149,12 @@ export async function POST(req: NextRequest) {
         check_out: data.check_out,
         num_guests: data.num_guests,
         total_price: data.total_price,
-        status: "pending",
+        status: "confirmed",
+        easyslip_verified: true,
+        payment_slip_hash: data.slip_hash,
+        slip_trans_ref: data.slip_trans_ref || null,
+        payment_slip_url: data.payment_slip_url || null,
+        easyslip_response: data.easyslip_response || null,
       } as never)
       .select()
       .single();
@@ -100,6 +166,9 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Send notifications (non-blocking)
+    sendNotifications((booking as unknown as Booking).id, supabase);
 
     return NextResponse.json({ booking }, { status: 201 });
   } catch (error) {

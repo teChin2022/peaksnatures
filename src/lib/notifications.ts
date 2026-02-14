@@ -84,29 +84,47 @@ export async function sendHostLineNotification(
   try {
     const { booking, homestay, room } = details;
 
-    const messageText =
-      type === "confirmed"
-        ? [
-            `🎉 New Booking Confirmed!`,
-            ``,
-            `🏠 ${homestay.name}`,
-            `👤 ${booking.guest_name}`,
-            `📅 ${booking.check_in} — ${booking.check_out}`,
-            `🛏️ ${room?.name || "Standard"}`,
-            `👥 ${booking.num_guests} guest(s)`,
-            `💰 ฿${booking.total_price.toLocaleString()}`,
-            `✅ Payment verified via EasySlip`,
-          ].join("\n")
-        : [
-            `⚠️ Booking Needs Review`,
-            ``,
-            `🏠 ${homestay.name}`,
-            `👤 ${booking.guest_name}`,
-            `📅 ${booking.check_in} — ${booking.check_out}`,
-            `💰 ฿${booking.total_price.toLocaleString()}`,
-            `❌ Payment slip verification failed`,
-            `Please review in dashboard.`,
-          ].join("\n");
+    // Calculate nights
+    const checkIn = new Date(booking.check_in);
+    const checkOut = new Date(booking.check_out);
+    const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+
+    const header = type === "confirmed"
+      ? `🎉 การจองใหม่ — ยืนยันแล้ว!`
+      : `⚠️ การจองใหม่ — รอตรวจสอบ`;
+
+    const paymentStatus = type === "confirmed"
+      ? `✅ ชำระเงินแล้ว (ยืนยันผ่าน EasySlip)`
+      : `❌ ยืนยันสลิปไม่สำเร็จ — กรุณาตรวจสอบใน Dashboard`;
+
+    const messageText = [
+      header,
+      `━━━━━━━━━━━━━━━━`,
+      ``,
+      `🏠 โฮมสเตย์: ${homestay.name}`,
+      `� Booking ID: ${booking.id.slice(0, 8)}...`,
+      ``,
+      `� ข้อมูลผู้จอง`,
+      `   ชื่อ: ${booking.guest_name}`,
+      `   อีเมล: ${booking.guest_email}`,
+      `   โทร: ${booking.guest_phone}`,
+      ...(booking.guest_province ? [`   จังหวัด: ${booking.guest_province}`] : []),
+      ``,
+      `📋 รายละเอียดการจอง`,
+      `   🛏️ ห้อง: ${room?.name || "Standard"}`,
+      `   � เช็คอิน: ${booking.check_in}`,
+      `   📅 เช็คเอาท์: ${booking.check_out}`,
+      `   🌙 จำนวน: ${nights} คืน`,
+      `   👥 ผู้เข้าพัก: ${booking.num_guests} ท่าน`,
+      ``,
+      `💰 การชำระเงิน`,
+      `   ยอดรวม: ฿${booking.total_price.toLocaleString()}`,
+      ...(room ? [`   (฿${room.price_per_night.toLocaleString()} × ${nights} คืน)`] : []),
+      `   ${paymentStatus}`,
+      ``,
+      `━━━━━━━━━━━━━━━━`,
+      `📍 ${homestay.location}`,
+    ].join("\n");
 
     const response = await fetch("https://api.line.me/v2/bot/message/push", {
       method: "POST",

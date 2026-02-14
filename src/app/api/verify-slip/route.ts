@@ -1,7 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { sendBookingConfirmationEmail, sendHostLineNotification } from "@/lib/notifications";
-import type { Booking, Homestay, Host, Room } from "@/types/database";
 
 interface EasySlipResponse {
   status: number;
@@ -31,78 +29,18 @@ interface EasySlipResponse {
   error?: string;
 }
 
-async function sendNotifications(bookingId: string, verified: boolean) {
-  try {
-    const supabase = createServiceRoleClient();
-
-    // Fetch full booking with homestay, host, and room
-    const { data: booking } = await supabase
-      .from("bookings")
-      .select("*")
-      .eq("id", bookingId)
-      .single();
-
-    if (!booking) {
-      console.error("[Notification] Booking not found:", bookingId);
-      return;
-    }
-
-    const { data: homestay } = await supabase
-      .from("homestays")
-      .select("*")
-      .eq("id", (booking as unknown as Booking).homestay_id)
-      .single();
-
-    if (!homestay) {
-      console.error("[Notification] Homestay not found for booking:", bookingId);
-      return;
-    }
-
-    const { data: host } = await supabase
-      .from("hosts")
-      .select("*")
-      .eq("id", (homestay as unknown as Homestay).host_id)
-      .single();
-
-    if (!host) {
-      console.error("[Notification] Host not found for homestay:", (homestay as unknown as Homestay).id);
-      return;
-    }
-
-    let room = null;
-    if ((booking as unknown as Booking).room_id) {
-      const { data: roomData } = await supabase
-        .from("rooms")
-        .select("*")
-        .eq("id", (booking as unknown as Booking).room_id!)
-        .single();
-      room = roomData;
-    }
-
-    const details = {
-      booking: booking as unknown as Booking,
-      homestay: homestay as unknown as Homestay,
-      host: host as unknown as Host,
-      room: (room as unknown as Room) || undefined,
-    };
-
-    // Send email to guest
-    const emailResult = await sendBookingConfirmationEmail(details);
-    console.log("[Notification] Email result:", emailResult);
-
-    // Send LINE message to host
-    const lineResult = await sendHostLineNotification(details, verified ? "confirmed" : "flagged");
-    console.log("[Notification] LINE result:", lineResult);
-  } catch (error) {
-    console.error("Notification error (non-blocking):", error);
-  }
-}
-
+/**
+ * Pure slip verification endpoint.
+ * Verifies the slip image, checks for duplicates, validates amount/receiver.
+ * Does NOT create or modify bookings — the caller decides what to do next.
+ *
+ * Returns on success: { verified: true, slip_hash, slip_trans_ref, easyslip_response, payment_slip_url }
+ * Returns on failure: { verified: false, message, ... } or { error, duplicate: true } (409)
+ */
 export async function POST(req: NextRequest) {
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
-    const bookingId = formData.get("booking_id") as string | null;
     const expectedAmount = Number(formData.get("expected_amount") || "0");
     const expectedReceiver = formData.get("expected_receiver") as string | null;
 
@@ -113,15 +51,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    if (!bookingId) {
-      return NextResponse.json(
-        { error: "Booking ID is required" },
-        { status: 400 }
-      );
-    }
-
     const apiKey = process.env.EASYSLIP_API_KEY;
-
     const supabase = createServiceRoleClient();
 
     // Compute file hash for duplicate detection
@@ -136,41 +66,31 @@ export async function POST(req: NextRequest) {
       .from("bookings")
       .select("id")
       .eq("payment_slip_hash", slipHash)
-      .neq("id", bookingId)
       .limit(1);
 
     if ((hashDuplicate as unknown[] | null)?.length) {
-      console.error("[Duplicate] Slip hash already used on booking:", (hashDuplicate as { id: string }[])[0].id);
-
-      // Cancel the booking since the slip is a duplicate
-      await supabase
-        .from("bookings")
-        .update({ status: "cancelled", easyslip_verified: false } as never)
-        .eq("id", bookingId);
-
       return NextResponse.json(
         { error: "This payment slip has already been used for another booking.", duplicate: true },
         { status: 409 }
       );
     }
 
-    // Re-create File from buffer since arrayBuffer() consumed it
-    const fileFromBuffer = new File([fileBuffer], file.name, { type: file.type });
-
-    // Upload slip to permanent storage path keyed by booking ID
+    // Upload slip to temporary storage (will be moved to booking path after booking creation)
+    const tempId = crypto.randomUUID();
     const ext = file.name.split(".").pop() || "jpg";
-    const slipPath = `bookings/${bookingId}/slip.${ext}`;
+    const slipPath = `pending/${tempId}/slip.${ext}`;
+    const fileFromBuffer = new File([fileBuffer], file.name, { type: file.type });
     await supabase.storage
       .from("payment-slips")
       .upload(slipPath, fileFromBuffer, { upsert: true, contentType: file.type });
 
     const { data: signedUrlData } = await supabase.storage
       .from("payment-slips")
-      .createSignedUrl(slipPath, 60 * 60 * 24 * 365); // 1 year
+      .createSignedUrl(slipPath, 60 * 60 * 24 * 365);
     const paymentSlipUrl = signedUrlData?.signedUrl || null;
 
+    // --- Demo mode ---
     if (!apiKey || apiKey === "your_easyslip_api_key") {
-      // Demo mode: simulate successful verification, update booking
       console.log("[Demo] Simulating EasySlip verification...");
       const demoResponse = {
         status: 200,
@@ -182,33 +102,17 @@ export async function POST(req: NextRequest) {
         },
       };
 
-      const { error: updateError } = await supabase
-        .from("bookings")
-        .update({
-          status: "confirmed",
-          easyslip_verified: true,
-          easyslip_response: demoResponse,
-          payment_slip_url: paymentSlipUrl,
-          payment_slip_hash: slipHash,
-        } as never)
-        .eq("id", bookingId);
-
-      if (updateError) {
-        console.error("[Demo] Booking update error:", updateError);
-      }
-
-      // Send notifications
-      await sendNotifications(bookingId, true);
-
       return NextResponse.json({
         verified: true,
-        booking_id: bookingId,
         message: "Payment slip verified successfully (demo mode)",
+        slip_hash: slipHash,
+        slip_trans_ref: null,
+        payment_slip_url: paymentSlipUrl,
         easyslip_response: demoResponse,
       });
     }
 
-    // Production: Call EasySlip API with file upload
+    // --- Production: Call EasySlip API ---
     const easySlipForm = new FormData();
     easySlipForm.append("file", new File([fileBuffer], file.name, { type: file.type }));
 
@@ -216,9 +120,7 @@ export async function POST(req: NextRequest) {
       "https://developer.easyslip.com/api/v1/verify",
       {
         method: "POST",
-        headers: {
-          Authorization: `Bearer ${apiKey}`,
-        },
+        headers: { Authorization: `Bearer ${apiKey}` },
         body: easySlipForm,
       }
     );
@@ -226,28 +128,11 @@ export async function POST(req: NextRequest) {
     const easySlipData: EasySlipResponse = await easySlipRes.json();
 
     if (easySlipData.status !== 200 || !easySlipData.data) {
-      // Verification failed — mark as pending for manual review
-      const { error: updateError } = await supabase
-        .from("bookings")
-        .update({
-          easyslip_verified: false,
-          easyslip_response: easySlipData,
-          payment_slip_url: paymentSlipUrl,
-          payment_slip_hash: slipHash,
-        } as never)
-        .eq("id", bookingId);
-
-      if (updateError) {
-        console.error("Booking update error (verification failed):", updateError);
-      }
-
-      // Send notifications — host gets flagged alert
-      await sendNotifications(bookingId, false);
-
       return NextResponse.json({
         verified: false,
-        booking_id: bookingId,
-        message: "Slip verification failed. This booking will be reviewed manually.",
+        message: "Slip verification failed. The payment slip could not be verified.",
+        slip_hash: slipHash,
+        payment_slip_url: paymentSlipUrl,
         easyslip_response: easySlipData,
       });
     }
@@ -259,24 +144,9 @@ export async function POST(req: NextRequest) {
         .from("bookings")
         .select("id")
         .eq("slip_trans_ref", transRef)
-        .neq("id", bookingId)
         .limit(1);
 
       if ((transRefDuplicate as unknown[] | null)?.length) {
-        console.error("[Duplicate] Transaction ref already used on booking:", (transRefDuplicate as { id: string }[])[0].id);
-
-        await supabase
-          .from("bookings")
-          .update({
-            status: "cancelled",
-            easyslip_verified: false,
-            easyslip_response: easySlipData,
-            payment_slip_url: paymentSlipUrl,
-            payment_slip_hash: slipHash,
-            slip_trans_ref: transRef,
-          } as never)
-          .eq("id", bookingId);
-
         return NextResponse.json(
           { error: "This payment transaction has already been used for another booking.", duplicate: true },
           { status: 409 }
@@ -294,56 +164,22 @@ export async function POST(req: NextRequest) {
       receiverAccount?.replace(/-/g, "") === expectedReceiver?.replace(/-/g, "");
 
     if (!amountMatch || !receiverMatch) {
-      const { error: mismatchUpdateError } = await supabase
-        .from("bookings")
-        .update({
-          easyslip_verified: false,
-          easyslip_response: easySlipData,
-          payment_slip_url: paymentSlipUrl,
-          payment_slip_hash: slipHash,
-          slip_trans_ref: transRef || null,
-        } as never)
-        .eq("id", bookingId);
-
-      if (mismatchUpdateError) {
-        console.error("Booking update error (mismatch):", mismatchUpdateError);
-      }
-
-      // Send notifications — host gets flagged alert
-      await sendNotifications(bookingId, false);
-
       return NextResponse.json({
         verified: false,
-        booking_id: bookingId,
         message: `Verification mismatch. ${!amountMatch ? `Amount: expected ฿${expectedAmount}, got ฿${slipAmount}.` : ""} ${!receiverMatch ? "Receiver account does not match." : ""}`.trim(),
+        slip_hash: slipHash,
+        payment_slip_url: paymentSlipUrl,
         easyslip_response: easySlipData,
       });
     }
 
-    // All checks passed — auto-confirm the booking
-    const { error: confirmError } = await supabase
-      .from("bookings")
-      .update({
-        status: "confirmed",
-        easyslip_verified: true,
-        easyslip_response: easySlipData,
-        payment_slip_url: paymentSlipUrl,
-        payment_slip_hash: slipHash,
-        slip_trans_ref: transRef || null,
-      } as never)
-      .eq("id", bookingId);
-
-    if (confirmError) {
-      console.error("Booking update error (confirm):", confirmError);
-    }
-
-    // Send notifications
-    await sendNotifications(bookingId, true);
-
+    // All checks passed
     return NextResponse.json({
       verified: true,
-      booking_id: bookingId,
-      message: "Payment verified! Booking confirmed automatically.",
+      message: "Payment verified!",
+      slip_hash: slipHash,
+      slip_trans_ref: transRef || null,
+      payment_slip_url: paymentSlipUrl,
       easyslip_response: easySlipData,
     });
   } catch (error) {

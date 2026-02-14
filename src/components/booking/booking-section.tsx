@@ -285,7 +285,44 @@ export function BookingSection({
     setIsSubmitting(true);
 
     try {
-      // 1. Create booking in Supabase
+      // 1. Prepare the slip file
+      let slipToVerify: File;
+      if (phoneSlipReceived && phoneSlipUrl) {
+        const slipRes = await fetch(phoneSlipUrl);
+        const blob = await slipRes.blob();
+        slipToVerify = new File([blob], "slip.jpg", { type: blob.type });
+      } else {
+        slipToVerify = slipFile;
+      }
+
+      // 2. Verify slip FIRST — no booking is created yet
+      const verifyForm = new FormData();
+      verifyForm.append("file", slipToVerify);
+      verifyForm.append("expected_amount", totalPrice.toString());
+      verifyForm.append("expected_receiver", host.promptpay_id);
+
+      const verifyRes = await fetch("/api/verify-slip", {
+        method: "POST",
+        body: verifyForm,
+      });
+
+      const verifyData = await verifyRes.json();
+
+      if (verifyRes.status === 409 && verifyData.duplicate) {
+        toast.error(t("errorDuplicateSlip"));
+        handleRemoveSlip();
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!verifyData.verified) {
+        toast.error(verifyData.message || t("errorSlipVerification"));
+        handleRemoveSlip();
+        setIsSubmitting(false);
+        return;
+      }
+
+      // 3. Slip verified — now create the booking with slip data
       const bookingRes = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -300,13 +337,16 @@ export function BookingSection({
           check_out: format(dateRange.to, "yyyy-MM-dd"),
           num_guests: parseInt(numGuests),
           total_price: totalPrice,
+          slip_hash: verifyData.slip_hash,
+          slip_trans_ref: verifyData.slip_trans_ref || null,
+          payment_slip_url: verifyData.payment_slip_url || null,
+          easyslip_response: verifyData.easyslip_response || null,
         }),
       });
 
       if (!bookingRes.ok) {
         if (bookingRes.status === 409) {
           toast.error(t("errorDatesUnavailable"));
-          // Refresh availability so calendar shows latest booked dates
           fetch(`/api/bookings/availability?homestay_id=${homestay.id}`)
             .then((res) => res.json())
             .then((data) => {
@@ -323,51 +363,15 @@ export function BookingSection({
 
       const { booking } = await bookingRes.json();
       setBookingId(booking.id);
+      setSlipVerified(true);
 
-      // 2. Get the actual slip file for verification
-      // If the slip came from phone (cross-device), use the session slip
-      // If it's a local file, use it directly
-      let slipToVerify: File;
-      if (phoneSlipReceived && phoneSlipUrl) {
-        // Fetch the slip from the signed URL and convert to File
-        const slipRes = await fetch(phoneSlipUrl);
-        const blob = await slipRes.blob();
-        slipToVerify = new File([blob], "slip.jpg", { type: blob.type });
-      } else {
-        slipToVerify = slipFile;
-      }
-
-      // 3. Upload slip to storage via the session endpoint
+      // 4. Upload slip to session storage (backup)
       const uploadForm = new FormData();
       uploadForm.append("slip", slipToVerify);
-      await fetch(`/api/slip-upload/${uploadSessionId}`, {
+      fetch(`/api/slip-upload/${uploadSessionId}`, {
         method: "POST",
         body: uploadForm,
-      });
-
-      // 4. Verify slip with EasySlip
-      const verifyForm = new FormData();
-      verifyForm.append("file", slipToVerify);
-      verifyForm.append("booking_id", booking.id);
-      verifyForm.append("expected_amount", totalPrice.toString());
-      verifyForm.append("expected_receiver", host.promptpay_id);
-
-      const verifyRes = await fetch("/api/verify-slip", {
-        method: "POST",
-        body: verifyForm,
-      });
-
-      const verifyData = await verifyRes.json();
-
-      if (verifyRes.status === 409 && verifyData.duplicate) {
-        toast.error(t("errorDuplicateSlip"));
-        handleRemoveSlip();
-        setStep("payment");
-        setIsSubmitting(false);
-        return;
-      }
-
-      setSlipVerified(verifyData.verified === true);
+      }).catch(() => {});
 
       setStep("confirmed");
       toast.success(t("successSubmitted"));
