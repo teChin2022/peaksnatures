@@ -8,7 +8,6 @@ import {
   CalendarDays,
   CheckCircle2,
   AlertTriangle,
-  Loader2,
   Home,
   BedDouble,
   ArrowRight,
@@ -16,6 +15,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SetupProfileModal } from "@/components/setup-profile-modal";
 import { useThemeColor } from "@/components/dashboard/theme-context";
 import { getProvinceLabel } from "@/lib/provinces";
@@ -160,8 +160,62 @@ export default function DashboardPage() {
       <h1 className="text-xl font-bold text-gray-900 mb-6">{ta("hostDashboard")}</h1>
 
       {loading ? (
-        <div className="flex items-center justify-center py-20">
-          <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+        <div className="space-y-6">
+          {/* Stats skeleton */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+            {[1, 2, 3].map((i) => (
+              <Card key={i}>
+                <CardContent className="flex items-center gap-4 p-4">
+                  <Skeleton className="h-10 w-10 rounded-lg" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-4 w-20" />
+                    <Skeleton className="h-7 w-12" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          {/* Quick links skeleton */}
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+            {[1, 2].map((i) => (
+              <Card key={i}>
+                <CardContent className="p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="flex items-center gap-3">
+                      <Skeleton className="h-10 w-10 rounded-lg" />
+                      <div className="space-y-2">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-3 w-16" />
+                      </div>
+                    </div>
+                    <Skeleton className="h-8 w-8 rounded" />
+                  </div>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+          {/* Province stats skeleton */}
+          <Card>
+            <CardHeader className="pb-3">
+              <Skeleton className="h-5 w-40" />
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-3">
+                {[1, 2, 3, 4].map((i) => (
+                  <div key={i} className="flex items-center gap-3">
+                    <Skeleton className="h-4 w-5" />
+                    <div className="flex-1 space-y-1.5">
+                      <div className="flex justify-between">
+                        <Skeleton className="h-4 w-24" />
+                        <Skeleton className="h-3 w-6" />
+                      </div>
+                      <Skeleton className="h-1.5 w-full rounded-full" />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
         </div>
       ) : (
         <div className="space-y-6">

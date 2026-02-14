@@ -12,6 +12,8 @@ import {
   Eye,
   Loader2,
   MapPin,
+  ImageIcon,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -23,7 +25,10 @@ import {
   DialogHeader,
   DialogTitle,
   DialogTrigger,
+  DialogDescription,
+  DialogFooter,
 } from "@/components/ui/dialog";
+import { Skeleton } from "@/components/ui/skeleton";
 import type { BookingStatus } from "@/types/database";
 import { toast } from "sonner";
 import { useThemeColor } from "@/components/dashboard/theme-context";
@@ -155,12 +160,51 @@ export default function BookingsPage() {
   };
 
   const confirmedCount = bookings.filter((b) => b.status === "confirmed").length;
-  const pendingCount = bookings.filter((b) => b.status === "pending").length;
+  const pendingCount = bookings.filter((b) => b.status === "pending" || b.status === "verified").length;
+
+  const [cancelTarget, setCancelTarget] = useState<DisplayBooking | null>(null);
+  const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+
+  const handleCancelClick = (booking: DisplayBooking) => {
+    setCancelTarget(booking);
+    setCancelDialogOpen(true);
+  };
+
+  const handleConfirmCancel = async () => {
+    if (!cancelTarget) return;
+    await updateStatus(cancelTarget.id, "cancelled");
+    setCancelDialogOpen(false);
+    setCancelTarget(null);
+  };
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      <div>
+        <Skeleton className="h-7 w-48 mb-6" />
+        <Skeleton className="h-10 w-80 mb-4" />
+        <div className="space-y-3">
+          {[1, 2, 3].map((i) => (
+            <Card key={i}>
+              <CardContent className="p-4">
+                <div className="flex gap-4">
+                  <Skeleton className="h-20 w-20 shrink-0 rounded-lg" />
+                  <div className="flex-1 space-y-2">
+                    <div className="flex items-center gap-2">
+                      <Skeleton className="h-5 w-32" />
+                      <Skeleton className="h-5 w-20 rounded-full" />
+                    </div>
+                    <Skeleton className="h-4 w-64" />
+                    <Skeleton className="h-3 w-48" />
+                  </div>
+                  <div className="flex items-center gap-2">
+                    <Skeleton className="h-8 w-20" />
+                    <Skeleton className="h-8 w-16" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          ))}
+        </div>
       </div>
     );
   }
@@ -203,8 +247,41 @@ export default function BookingsPage() {
                   return (
                     <Card key={booking.id}>
                       <CardContent className="p-4">
-                        <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-                          <div className="flex-1 space-y-1">
+                        <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
+                          {/* Slip thumbnail */}
+                          {booking.payment_slip_url ? (
+                            <Dialog>
+                              <DialogTrigger asChild>
+                                <button className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border">
+                                  <img
+                                    src={booking.payment_slip_url}
+                                    alt="Payment slip"
+                                    className="h-full w-full object-cover transition-opacity group-hover:opacity-75"
+                                  />
+                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
+                                    <Eye className="h-5 w-5 text-white" />
+                                  </div>
+                                </button>
+                              </DialogTrigger>
+                              <DialogContent>
+                                <DialogHeader>
+                                  <DialogTitle>{t("paymentSlip")}</DialogTitle>
+                                </DialogHeader>
+                                <img
+                                  src={booking.payment_slip_url}
+                                  alt="Payment slip"
+                                  className="w-full rounded-lg"
+                                />
+                              </DialogContent>
+                            </Dialog>
+                          ) : (
+                            <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-gray-100">
+                              <ImageIcon className="h-6 w-6 text-gray-300" />
+                              <span className="sr-only">{t("noSlip")}</span>
+                            </div>
+                          )}
+
+                          <div className="flex-1 min-w-0 space-y-1">
                             <div className="flex items-center gap-2">
                               <h3 className="font-semibold text-gray-900">
                                 {booking.guest_name}
@@ -251,31 +328,9 @@ export default function BookingsPage() {
                             </p>
                           </div>
 
-                          <div className="flex items-center gap-2">
-                            {booking.status === "pending" && (
+                          <div className="flex shrink-0 items-center gap-2">
+                            {(booking.status === "pending" || booking.status === "verified") && (
                               <>
-                                {booking.payment_slip_url && (
-                                  <Dialog>
-                                    <DialogTrigger asChild>
-                                      <Button variant="outline" size="sm">
-                                        <Eye className="mr-1 h-3.5 w-3.5" />
-                                        {t("viewSlip")}
-                                      </Button>
-                                    </DialogTrigger>
-                                    <DialogContent>
-                                      <DialogHeader>
-                                        <DialogTitle>
-                                          {t("paymentSlip")}
-                                        </DialogTitle>
-                                      </DialogHeader>
-                                      <img
-                                        src={booking.payment_slip_url}
-                                        alt="Payment slip"
-                                        className="w-full rounded-lg"
-                                      />
-                                    </DialogContent>
-                                  </Dialog>
-                                )}
                                 <Button
                                   size="sm"
                                   className="hover:brightness-90"
@@ -289,9 +344,7 @@ export default function BookingsPage() {
                                 <Button
                                   variant="destructive"
                                   size="sm"
-                                  onClick={() =>
-                                    updateStatus(booking.id, "cancelled")
-                                  }
+                                  onClick={() => handleCancelClick(booking)}
                                 >
                                   {t("cancel")}
                                 </Button>
@@ -301,9 +354,7 @@ export default function BookingsPage() {
                               <Button
                                 variant="outline"
                                 size="sm"
-                                onClick={() =>
-                                  updateStatus(booking.id, "cancelled")
-                                }
+                                onClick={() => handleCancelClick(booking)}
                               >
                                 {t("cancel")}
                               </Button>
@@ -319,6 +370,35 @@ export default function BookingsPage() {
           );
         })}
       </Tabs>
+
+      {/* Cancel confirmation dialog */}
+      <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-red-500" />
+              {t("cancelConfirmTitle")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("cancelConfirmDesc", { guest: cancelTarget?.guest_name || "" })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setCancelDialogOpen(false)}
+            >
+              {t("cancelKeep")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleConfirmCancel}
+            >
+              {t("cancelConfirmButton")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

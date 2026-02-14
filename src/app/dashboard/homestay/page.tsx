@@ -22,6 +22,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
+import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useThemeColor } from "@/components/dashboard/theme-context";
 
@@ -333,8 +334,56 @@ export default function HomestayPage() {
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center py-20">
-        <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+      <div className="mx-auto max-w-3xl">
+        <Skeleton className="h-7 w-48 mb-6" />
+        <div className="space-y-6">
+          {/* Basic Info skeleton */}
+          <Card>
+            <CardHeader><Skeleton className="h-5 w-32" /></CardHeader>
+            <CardContent className="space-y-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="space-y-2">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-10 w-full rounded-md" />
+                </div>
+              ))}
+            </CardContent>
+          </Card>
+          {/* Location skeleton */}
+          <Card>
+            <CardHeader><Skeleton className="h-5 w-36" /></CardHeader>
+            <CardContent className="space-y-4">
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-20" />
+                <Skeleton className="h-10 w-full rounded-md" />
+              </div>
+              <div className="space-y-2">
+                <Skeleton className="h-4 w-28" />
+                <Skeleton className="h-10 w-full rounded-md" />
+              </div>
+            </CardContent>
+          </Card>
+          {/* Amenities skeleton */}
+          <Card>
+            <CardHeader><Skeleton className="h-5 w-28" /></CardHeader>
+            <CardContent>
+              <div className="flex flex-wrap gap-2">
+                {[1, 2, 3, 4, 5, 6].map((i) => (
+                  <Skeleton key={i} className="h-7 w-20 rounded-full" />
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+          {/* Images skeleton */}
+          <Card>
+            <CardHeader><Skeleton className="h-5 w-24" /></CardHeader>
+            <CardContent className="space-y-4">
+              <Skeleton className="h-20 w-20 rounded-lg" />
+              <Skeleton className="h-48 w-full rounded-lg" />
+            </CardContent>
+          </Card>
+          <Skeleton className="h-11 w-full rounded-md" />
+        </div>
       </div>
     );
   }

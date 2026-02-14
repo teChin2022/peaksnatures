@@ -129,7 +129,7 @@ export async function POST(req: NextRequest) {
       await supabase
         .from("bookings")
         .update({
-          status: "verified",
+          status: "confirmed",
           easyslip_verified: true,
           easyslip_response: demoResponse,
         } as never)
@@ -213,11 +213,11 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // All checks passed — auto-verify the booking
+    // All checks passed — auto-confirm the booking
     await supabase
       .from("bookings")
       .update({
-        status: "verified",
+        status: "confirmed",
         easyslip_verified: true,
         easyslip_response: easySlipData,
       } as never)
