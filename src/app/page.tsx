@@ -4,7 +4,6 @@ import {
   TreePine,
   Waves,
   MapPin,
-  Star,
   Users,
   Search,
 } from "lucide-react";
@@ -14,22 +13,18 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { LanguageSwitcher } from "@/components/language-switcher";
+import { createServiceRoleClient } from "@/lib/supabase/server";
+import type { Homestay } from "@/types/database";
 
-// In production, fetch from Supabase. Empty until real data is added.
-const HOMESTAYS: {
-  slug: string;
-  name: string;
-  tagline: string;
-  location: string;
-  price_per_night: number;
-  max_guests: number;
-  hero_image_url: string;
-  amenities: string[];
-  rating: number;
-  reviews: number;
-}[] = [];
+export default async function Home() {
+  const supabase = createServiceRoleClient();
+  const { data: homestayRows } = await supabase
+    .from("homestays")
+    .select("*")
+    .eq("is_active", true)
+    .order("created_at", { ascending: false });
+  const HOMESTAYS = (homestayRows as unknown as Homestay[]) || [];
 
-export default function Home() {
   const t = useTranslations("home");
   const tc = useTranslations("common");
 
@@ -161,7 +156,7 @@ export default function Home() {
                   <Card className="group overflow-hidden border transition-shadow hover:shadow-lg">
                     <div className="relative aspect-[4/3] overflow-hidden">
                       <img
-                        src={h.hero_image_url}
+                        src={h.hero_image_url || "/placeholder.svg"}
                         alt={h.name}
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
@@ -182,14 +177,7 @@ export default function Home() {
                           {h.location}
                         </span>
                       </div>
-                      <div className="mt-3 flex items-center justify-between">
-                        <div className="flex items-center gap-1 text-sm">
-                          <Star className="h-4 w-4 fill-yellow-400 text-yellow-400" />
-                          <span className="font-medium">{h.rating}</span>
-                          <span className="text-gray-400">
-                            ({h.reviews} {t("reviews")})
-                          </span>
-                        </div>
+                      <div className="mt-3 flex items-center justify-end">
                         <div className="flex items-center gap-1 text-sm text-gray-500">
                           <Users className="h-3.5 w-3.5" />
                           {t("upTo")} {h.max_guests}
