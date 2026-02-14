@@ -167,8 +167,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Send notifications (non-blocking)
-    sendNotifications((booking as unknown as Booking).id, supabase);
+    // Send notifications (must await — serverless context terminates after response)
+    await sendNotifications((booking as unknown as Booking).id, supabase);
 
     return NextResponse.json({ booking }, { status: 201 });
   } catch (error) {
