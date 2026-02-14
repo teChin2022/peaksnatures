@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import React, { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations, useLocale } from "next-intl";
 import {
@@ -14,6 +14,12 @@ import {
   MapPin,
   ImageIcon,
   AlertTriangle,
+  ShieldCheck,
+  ShieldAlert,
+  User,
+  Phone,
+  Mail,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -24,7 +30,6 @@ import {
   DialogContent,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
@@ -164,6 +169,8 @@ export default function BookingsPage() {
 
   const [cancelTarget, setCancelTarget] = useState<DisplayBooking | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [detailTarget, setDetailTarget] = useState<DisplayBooking | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
   const handleCancelClick = (booking: DisplayBooking) => {
     setCancelTarget(booking);
@@ -250,30 +257,19 @@ export default function BookingsPage() {
                         <div className="flex flex-col gap-4 sm:flex-row sm:items-start">
                           {/* Slip thumbnail */}
                           {booking.payment_slip_url ? (
-                            <Dialog>
-                              <DialogTrigger asChild>
-                                <button className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border">
-                                  <img
-                                    src={booking.payment_slip_url}
-                                    alt="Payment slip"
-                                    className="h-full w-full object-cover transition-opacity group-hover:opacity-75"
-                                  />
-                                  <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
-                                    <Eye className="h-5 w-5 text-white" />
-                                  </div>
-                                </button>
-                              </DialogTrigger>
-                              <DialogContent>
-                                <DialogHeader>
-                                  <DialogTitle>{t("paymentSlip")}</DialogTitle>
-                                </DialogHeader>
-                                <img
-                                  src={booking.payment_slip_url}
-                                  alt="Payment slip"
-                                  className="w-full rounded-lg"
-                                />
-                              </DialogContent>
-                            </Dialog>
+                            <button
+                              className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border"
+                              onClick={() => { setDetailTarget(booking); setDetailDialogOpen(true); }}
+                            >
+                              <img
+                                src={booking.payment_slip_url}
+                                alt="Payment slip"
+                                className="h-full w-full object-cover transition-opacity group-hover:opacity-75"
+                              />
+                              <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
+                                <Eye className="h-5 w-5 text-white" />
+                              </div>
+                            </button>
                           ) : (
                             <div className="flex h-20 w-20 shrink-0 items-center justify-center rounded-lg bg-gray-100">
                               <ImageIcon className="h-6 w-6 text-gray-300" />
@@ -329,7 +325,15 @@ export default function BookingsPage() {
                           </div>
 
                           <div className="flex shrink-0 items-center gap-2">
-                            {(booking.status === "pending" || booking.status === "verified") && (
+                            <Button
+                              variant="outline"
+                              size="sm"
+                              onClick={() => { setDetailTarget(booking); setDetailDialogOpen(true); }}
+                            >
+                              <Eye className="mr-1 h-3.5 w-3.5" />
+                              {t("viewDetails")}
+                            </Button>
+                            {(booking.status === "pending" || booking.status === "verified") && !booking.easyslip_verified && (
                               <>
                                 <Button
                                   size="sm"
@@ -370,6 +374,131 @@ export default function BookingsPage() {
           );
         })}
       </Tabs>
+
+      {/* Booking detail dialog */}
+      <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              {t("bookingDetails")}
+              {detailTarget && (
+                <Badge
+                  variant="secondary"
+                  className={statusConfig[detailTarget.status].color}
+                >
+                  {React.createElement(statusConfig[detailTarget.status].icon, { className: "mr-1 h-3 w-3" })}
+                  {t(statusConfig[detailTarget.status].labelKey)}
+                </Badge>
+              )}
+            </DialogTitle>
+          </DialogHeader>
+          {detailTarget && (
+            <div className="space-y-4">
+              {/* Payment Slip */}
+              {detailTarget.payment_slip_url ? (
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between">
+                    <h4 className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                      <CreditCard className="h-4 w-4" />
+                      {t("paymentSlip")}
+                    </h4>
+                    {detailTarget.easyslip_verified ? (
+                      <Badge variant="secondary" style={{ backgroundColor: themeColor + '0d', color: themeColor }}>
+                        <ShieldCheck className="mr-1 h-3 w-3" />
+                        {t("paymentVerified")}
+                      </Badge>
+                    ) : (
+                      <Badge variant="secondary" className="bg-amber-50 text-amber-700">
+                        <ShieldAlert className="mr-1 h-3 w-3" />
+                        {t("paymentPending")}
+                      </Badge>
+                    )}
+                  </div>
+                  <div className="rounded-lg border bg-gray-50 p-2">
+                    <img
+                      src={detailTarget.payment_slip_url}
+                      alt="Payment slip"
+                      className="mx-auto max-h-80 rounded-lg object-contain"
+                    />
+                  </div>
+                </div>
+              ) : (
+                <div className="flex items-center gap-2 rounded-lg border border-dashed border-gray-200 p-4 text-sm text-gray-400">
+                  <ImageIcon className="h-5 w-5" />
+                  {t("noSlip")}
+                </div>
+              )}
+
+              {/* Booking Info */}
+              <div className="rounded-lg border bg-gray-50 p-4 space-y-2 text-sm">
+                <div className="flex items-center gap-2">
+                  <User className="h-4 w-4 text-gray-400" />
+                  <span className="font-medium text-gray-900">{detailTarget.guest_name}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Mail className="h-4 w-4 text-gray-400" />
+                  <span className="text-gray-600">{detailTarget.guest_email}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <Phone className="h-4 w-4 text-gray-400" />
+                  <span className="text-gray-600">{detailTarget.guest_phone}</span>
+                </div>
+                {detailTarget.guest_province && (
+                  <div className="flex items-center gap-2">
+                    <MapPin className="h-4 w-4 text-gray-400" />
+                    <span className="text-gray-600">{getProvinceLabel(detailTarget.guest_province, locale)}</span>
+                  </div>
+                )}
+                <div className="border-t border-gray-200 pt-2 mt-2 space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">{t("room")}</span>
+                    <span className="font-medium">{detailTarget.room_name}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">{t("dates")}</span>
+                    <span>{detailTarget.check_in} → {detailTarget.check_out}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">{t("guests")}</span>
+                    <span>{detailTarget.num_guests}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">{t("total")}</span>
+                    <span className="font-bold" style={{ color: themeColor }}>฿{detailTarget.total_price.toLocaleString()}</span>
+                  </div>
+                </div>
+                <p className="text-xs text-gray-400 pt-1">ID: {detailTarget.id}</p>
+              </div>
+
+              {/* Action buttons */}
+              {(detailTarget.status === "pending" || detailTarget.status === "verified") && !detailTarget.easyslip_verified && (
+                <DialogFooter className="gap-2 sm:gap-0">
+                  <Button
+                    variant="destructive"
+                    onClick={() => {
+                      setDetailDialogOpen(false);
+                      handleCancelClick(detailTarget);
+                    }}
+                  >
+                    {t("cancel")}
+                  </Button>
+                  <Button
+                    className="hover:brightness-90"
+                    style={{ backgroundColor: themeColor }}
+                    onClick={async () => {
+                      await updateStatus(detailTarget.id, "confirmed");
+                      setDetailTarget((prev) => prev ? { ...prev, status: "confirmed" } : null);
+                      setDetailDialogOpen(false);
+                    }}
+                  >
+                    {t("confirm")}
+                  </Button>
+                </DialogFooter>
+              )}
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       {/* Cancel confirmation dialog */}
       <Dialog open={cancelDialogOpen} onOpenChange={setCancelDialogOpen}>

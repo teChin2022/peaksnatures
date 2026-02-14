@@ -42,7 +42,10 @@ async function sendNotifications(bookingId: string, verified: boolean) {
       .eq("id", bookingId)
       .single();
 
-    if (!booking) return;
+    if (!booking) {
+      console.error("[Notification] Booking not found:", bookingId);
+      return;
+    }
 
     const { data: homestay } = await supabase
       .from("homestays")
@@ -50,7 +53,10 @@ async function sendNotifications(bookingId: string, verified: boolean) {
       .eq("id", (booking as unknown as Booking).homestay_id)
       .single();
 
-    if (!homestay) return;
+    if (!homestay) {
+      console.error("[Notification] Homestay not found for booking:", bookingId);
+      return;
+    }
 
     const { data: host } = await supabase
       .from("hosts")
@@ -58,7 +64,10 @@ async function sendNotifications(bookingId: string, verified: boolean) {
       .eq("id", (homestay as unknown as Homestay).host_id)
       .single();
 
-    if (!host) return;
+    if (!host) {
+      console.error("[Notification] Host not found for homestay:", (homestay as unknown as Homestay).id);
+      return;
+    }
 
     let room = null;
     if ((booking as unknown as Booking).room_id) {
@@ -78,10 +87,12 @@ async function sendNotifications(bookingId: string, verified: boolean) {
     };
 
     // Send email to guest
-    await sendBookingConfirmationEmail(details);
+    const emailResult = await sendBookingConfirmationEmail(details);
+    console.log("[Notification] Email result:", emailResult);
 
     // Send LINE message to host
-    await sendHostLineNotification(details, verified ? "confirmed" : "flagged");
+    const lineResult = await sendHostLineNotification(details, verified ? "confirmed" : "flagged");
+    console.log("[Notification] LINE result:", lineResult);
   } catch (error) {
     console.error("Notification error (non-blocking):", error);
   }
@@ -113,6 +124,18 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
+    // Upload slip to permanent storage path keyed by booking ID
+    const ext = file.name.split(".").pop() || "jpg";
+    const slipPath = `bookings/${bookingId}/slip.${ext}`;
+    await supabase.storage
+      .from("payment-slips")
+      .upload(slipPath, file, { upsert: true, contentType: file.type });
+
+    const { data: signedUrlData } = await supabase.storage
+      .from("payment-slips")
+      .createSignedUrl(slipPath, 60 * 60 * 24 * 365); // 1 year
+    const paymentSlipUrl = signedUrlData?.signedUrl || null;
+
     if (!apiKey || apiKey === "your_easyslip_api_key") {
       // Demo mode: simulate successful verification, update booking
       console.log("[Demo] Simulating EasySlip verification...");
@@ -126,17 +149,22 @@ export async function POST(req: NextRequest) {
         },
       };
 
-      await supabase
+      const { error: updateError } = await supabase
         .from("bookings")
         .update({
           status: "confirmed",
           easyslip_verified: true,
           easyslip_response: demoResponse,
+          payment_slip_url: paymentSlipUrl,
         } as never)
         .eq("id", bookingId);
 
-      // Send notifications (non-blocking)
-      sendNotifications(bookingId, true);
+      if (updateError) {
+        console.error("[Demo] Booking update error:", updateError);
+      }
+
+      // Send notifications
+      await sendNotifications(bookingId, true);
 
       return NextResponse.json({
         verified: true,
@@ -165,16 +193,21 @@ export async function POST(req: NextRequest) {
 
     if (easySlipData.status !== 200 || !easySlipData.data) {
       // Verification failed — mark as pending for manual review
-      await supabase
+      const { error: updateError } = await supabase
         .from("bookings")
         .update({
           easyslip_verified: false,
           easyslip_response: easySlipData,
+          payment_slip_url: paymentSlipUrl,
         } as never)
         .eq("id", bookingId);
 
+      if (updateError) {
+        console.error("Booking update error (verification failed):", updateError);
+      }
+
       // Send notifications — host gets flagged alert
-      sendNotifications(bookingId, false);
+      await sendNotifications(bookingId, false);
 
       return NextResponse.json({
         verified: false,
@@ -194,16 +227,21 @@ export async function POST(req: NextRequest) {
       receiverAccount?.replace(/-/g, "") === expectedReceiver?.replace(/-/g, "");
 
     if (!amountMatch || !receiverMatch) {
-      await supabase
+      const { error: mismatchUpdateError } = await supabase
         .from("bookings")
         .update({
           easyslip_verified: false,
           easyslip_response: easySlipData,
+          payment_slip_url: paymentSlipUrl,
         } as never)
         .eq("id", bookingId);
 
+      if (mismatchUpdateError) {
+        console.error("Booking update error (mismatch):", mismatchUpdateError);
+      }
+
       // Send notifications — host gets flagged alert
-      sendNotifications(bookingId, false);
+      await sendNotifications(bookingId, false);
 
       return NextResponse.json({
         verified: false,
@@ -214,17 +252,22 @@ export async function POST(req: NextRequest) {
     }
 
     // All checks passed — auto-confirm the booking
-    await supabase
+    const { error: confirmError } = await supabase
       .from("bookings")
       .update({
         status: "confirmed",
         easyslip_verified: true,
         easyslip_response: easySlipData,
+        payment_slip_url: paymentSlipUrl,
       } as never)
       .eq("id", bookingId);
 
+    if (confirmError) {
+      console.error("Booking update error (confirm):", confirmError);
+    }
+
     // Send notifications
-    sendNotifications(bookingId, true);
+    await sendNotifications(bookingId, true);
 
     return NextResponse.json({
       verified: true,
