@@ -156,12 +156,37 @@ export async function POST(req: NextRequest) {
 
     // Validate amount and receiver
     const slipAmount = easySlipData.data.amount.amount;
-    const receiverAccount = easySlipData.data.receiver?.account?.proxy?.account;
-
     const amountMatch = slipAmount === expectedAmount;
+
+    // Collect all possible receiver account values from the EasySlip response
+    const receiverProxy = easySlipData.data.receiver?.account?.proxy?.account;
+    const receiverBank = easySlipData.data.receiver?.account?.bank?.account;
+
+    console.log("[Verify] Receiver from EasySlip:", {
+      proxy: receiverProxy,
+      bank: receiverBank,
+      expected: expectedReceiver,
+    });
+
+    // Normalize: strip dashes, spaces, and non-digit chars for comparison
+    const normalize = (val: string | undefined | null): string =>
+      (val || "").replace(/[^0-9]/g, "");
+
+    // Handle Thai phone country code: 66XXXXXXXXX ↔ 0XXXXXXXXX
+    const normalizeThai = (val: string): string => {
+      const digits = normalize(val);
+      if (digits.startsWith("66") && digits.length === 11) {
+        return "0" + digits.slice(2); // 66812345678 → 0812345678
+      }
+      return digits;
+    };
+
+    const expectedNorm = normalizeThai(expectedReceiver || "");
+
     const receiverMatch =
       !expectedReceiver ||
-      receiverAccount?.replace(/-/g, "") === expectedReceiver?.replace(/-/g, "");
+      normalizeThai(receiverProxy || "") === expectedNorm ||
+      normalizeThai(receiverBank || "") === expectedNorm;
 
     if (!amountMatch || !receiverMatch) {
       return NextResponse.json({
