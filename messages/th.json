@@ -54,6 +54,7 @@
     "stepConfirmed": "ยืนยัน",
     "selectDates": "เลือกวันที่",
     "selectRoom": "เลือกห้องพัก",
+    "selectRoomFirst": "กรุณาเลือกห้องพักก่อนเพื่อดูวันที่ว่าง",
     "choosePlaceholder": "เลือกประเภทห้องพัก",
     "numGuests": "จำนวนผู้เข้าพัก",
     "continueDetails": "ดำเนินการกรอกข้อมูล",

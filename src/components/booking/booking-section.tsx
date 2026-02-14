@@ -157,39 +157,54 @@ export function BookingSection({
     return new Set(blockedDates.map((d) => d.date));
   }, [blockedDates]);
 
-  // Compute fully-booked dates for the selected room
+  // Compute fully-booked dates (same pattern as blocked dates — always visible)
   // A booking with check_in=12, check_out=14 occupies nights 12 & 13 (not 14)
   // So disabled dates = check_in .. check_out-1 (check_out day is free for new check-in)
   const bookedDatesForRoom = useMemo(() => {
-    if (!selectedRoomId) return new Set<string>();
-    const selectedRoomObj = rooms.find((r) => r.id === selectedRoomId);
-    const roomQuantity = selectedRoomObj?.quantity || 1;
-
-    // Count bookings per date for this room
-    const dateCountMap = new Map<string, number>();
-    liveBookedRanges
-      .filter((b) => b.room_id === selectedRoomId)
-      .forEach((b) => {
-        try {
-          const start = parseISO(b.check_in);
-          const end = subDays(parseISO(b.check_out), 1);
-          if (end < start) return;
-          const days = eachDayOfInterval({ start, end });
-          days.forEach((d) => {
-            const key = format(d, "yyyy-MM-dd");
-            dateCountMap.set(key, (dateCountMap.get(key) || 0) + 1);
-          });
-        } catch {
-          // Skip malformed dates
-        }
+    // Helper: count bookings per date for a given room
+    const getFullyBookedForRoom = (roomId: string) => {
+      const roomObj = rooms.find((r) => r.id === roomId);
+      const qty = roomObj?.quantity || 1;
+      const dateCountMap = new Map<string, number>();
+      liveBookedRanges
+        .filter((b) => b.room_id === roomId)
+        .forEach((b) => {
+          try {
+            const start = parseISO(b.check_in);
+            const end = subDays(parseISO(b.check_out), 1);
+            if (end < start) return;
+            const days = eachDayOfInterval({ start, end });
+            days.forEach((d) => {
+              const key = format(d, "yyyy-MM-dd");
+              dateCountMap.set(key, (dateCountMap.get(key) || 0) + 1);
+            });
+          } catch {
+            // Skip malformed dates
+          }
+        });
+      const fullyBooked = new Set<string>();
+      dateCountMap.forEach((count, date) => {
+        if (count >= qty) fullyBooked.add(date);
       });
+      return fullyBooked;
+    };
 
-    // A date is fully booked when booking count >= room quantity
-    const fullyBooked = new Set<string>();
-    dateCountMap.forEach((count, date) => {
-      if (count >= roomQuantity) fullyBooked.add(date);
+    if (selectedRoomId) {
+      // Room selected: show fully-booked dates for that room
+      return getFullyBookedForRoom(selectedRoomId);
+    }
+
+    // No room selected: a date is disabled if it is fully booked in ALL rooms
+    if (rooms.length === 0) return new Set<string>();
+    const perRoom = rooms.map((r) => getFullyBookedForRoom(r.id));
+    const allDates = new Set<string>();
+    perRoom.forEach((s) => s.forEach((d) => allDates.add(d)));
+    // Keep only dates that appear in every room's fully-booked set
+    const fullyBookedEverywhere = new Set<string>();
+    allDates.forEach((d) => {
+      if (perRoom.every((s) => s.has(d))) fullyBookedEverywhere.add(d);
     });
-    return fullyBooked;
+    return fullyBookedEverywhere;
   }, [selectedRoomId, liveBookedRanges, rooms]);
 
   const disabledDays = useMemo(() => {
@@ -221,6 +236,13 @@ export function BookingSection({
       return blockedDateSet.has(key) || bookedDatesForRoom.has(key);
     });
   }, [dateRange, blockedDateSet, bookedDatesForRoom]);
+
+  const handleRoomChange = (roomId: string) => {
+    setSelectedRoomId(roomId);
+    // Clear date range when switching rooms so stale selections
+    // that overlap with the new room's booked dates are reset
+    setDateRange(undefined);
+  };
 
   const handleDateSelect = (range: DateRange | undefined) => {
     setDateRange(range);
@@ -392,50 +414,17 @@ export function BookingSection({
         </div>
 
         <div className="mt-6">
-          {/* Step 1: Date & Room Selection */}
+          {/* Step 1: Room & Date Selection */}
           {step === "dates" && (
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              <Card>
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <CalendarDays className="h-5 w-5" />
-                    {t("selectDates")}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {mounted ? (
-                    <Calendar
-                      mode="range"
-                      selected={dateRange}
-                      onSelect={handleDateSelect}
-                      disabled={[{ before: new Date() }, ...disabledDays]}
-                      numberOfMonths={1}
-                      className="rounded-md border"
-                    />
-                  ) : (
-                    <div className="flex h-[300px] items-center justify-center rounded-md border">
-                      <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-                    </div>
-                  )}
-                  {dateRange?.from && dateRange?.to && (
-                    <div className="mt-3 text-sm text-gray-600">
-                      <span className="font-medium">
-                        {format(dateRange.from, "MMM d")} —{" "}
-                        {format(dateRange.to, "MMM d, yyyy")}
-                      </span>
-                      <span className="text-gray-400"> · {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
+              {/* Left: Room & Guests first */}
               <div className="space-y-4">
                 <Card>
                   <CardHeader>
                     <CardTitle className="text-base">{t("selectRoom")}</CardTitle>
                   </CardHeader>
                   <CardContent className="space-y-3">
-                    <Select value={selectedRoomId} onValueChange={setSelectedRoomId}>
+                    <Select value={selectedRoomId} onValueChange={handleRoomChange}>
                       <SelectTrigger>
                         <SelectValue placeholder={t("choosePlaceholder")} />
                       </SelectTrigger>
@@ -501,6 +490,46 @@ export function BookingSection({
                   {t("continueDetails")}
                 </Button>
               </div>
+
+              {/* Right: Calendar */}
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <CalendarDays className="h-5 w-5" />
+                    {t("selectDates")}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {!selectedRoomId && (
+                    <div className="mb-3 rounded-lg px-3 py-2 text-sm text-gray-500 bg-gray-50 border border-dashed border-gray-200 text-center">
+                      {t("selectRoomFirst")}
+                    </div>
+                  )}
+                  {mounted ? (
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={handleDateSelect}
+                      disabled={[{ before: new Date() }, ...disabledDays]}
+                      numberOfMonths={1}
+                      className={`rounded-md border ${!selectedRoomId ? "pointer-events-none opacity-50" : ""}`}
+                    />
+                  ) : (
+                    <div className="flex h-[300px] items-center justify-center rounded-md border">
+                      <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                    </div>
+                  )}
+                  {dateRange?.from && dateRange?.to && (
+                    <div className="mt-3 text-sm text-gray-600">
+                      <span className="font-medium">
+                        {format(dateRange.from, "MMM d")} —{" "}
+                        {format(dateRange.to, "MMM d, yyyy")}
+                      </span>
+                      <span className="text-gray-400"> · {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
             </div>
           )}
 

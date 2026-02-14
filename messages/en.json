@@ -54,6 +54,7 @@
     "stepConfirmed": "Confirmed",
     "selectDates": "Select Dates",
     "selectRoom": "Select Room",
+    "selectRoomFirst": "Please select a room first to see available dates",
     "choosePlaceholder": "Choose a room type",
     "numGuests": "Number of Guests",
     "continueDetails": "Continue to Guest Details",
