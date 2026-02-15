@@ -1,25 +1,49 @@
 import Link from "next/link";
-import { Mountain, ArrowLeft } from "lucide-react";
+import { Mountain, ArrowLeft, CalendarDays } from "lucide-react";
+import { Button } from "@/components/ui/button";
 
 interface BookingHeaderProps {
   homestayName: string;
   themeColor: string;
+  logoUrl?: string | null;
 }
 
-export function BookingHeader({ homestayName, themeColor }: BookingHeaderProps) {
+export function BookingHeader({ homestayName, themeColor, logoUrl }: BookingHeaderProps) {
   return (
     <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-md">
-      <div className="mx-auto flex h-14 max-w-7xl items-center gap-4 px-4 sm:px-6">
-        <Link
-          href="/"
-          className="flex items-center gap-1.5 text-sm text-gray-500 hover:text-gray-900 transition-colors"
+      <div className="h-0.5 w-full" style={{ background: `linear-gradient(90deg, ${themeColor}, ${themeColor}66, transparent)` }} />
+      <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
+        <div className="flex items-center gap-3 min-w-0">
+          <Link
+            href="/"
+            className="flex items-center gap-1.5 text-sm text-gray-400 hover:text-gray-700 transition-colors shrink-0"
+          >
+            <ArrowLeft className="h-4 w-4" />
+          </Link>
+          {logoUrl ? (
+            <img
+              src={logoUrl}
+              alt={homestayName}
+              className="h-8 w-8 rounded-full object-cover border shadow-sm shrink-0"
+            />
+          ) : (
+            <Mountain className="h-5 w-5 shrink-0" style={{ color: themeColor }} />
+          )}
+          <span className="truncate text-sm font-semibold text-gray-900">
+            {homestayName}
+          </span>
+        </div>
+        <Button
+          size="sm"
+          className="shrink-0 rounded-full text-white hover:brightness-90 shadow-sm"
+          style={{ backgroundColor: themeColor }}
+          asChild
         >
-          <ArrowLeft className="h-4 w-4" />
-          <Mountain className="h-5 w-5" style={{ color: themeColor }} />
-        </Link>
-        <span className="truncate text-sm font-medium text-gray-900">
-          {homestayName}
-        </span>
+          <a href="#booking">
+            <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+            Book Now
+          </a>
+        </Button>
       </div>
     </header>
   );

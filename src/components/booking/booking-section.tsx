@@ -509,39 +509,61 @@ export function BookingSection({
     }
   };
 
+  const steps: BookingStep[] = ["dates", "details", "payment", "confirmed"];
+  const currentStepIndex = steps.indexOf(step);
+
   const content = (
     <>
-        <h2 className="text-xl font-semibold text-gray-900">{t("title")}</h2>
-        <p className="mt-1 text-sm text-gray-500">
-          {t("subtitle")}
-        </p>
+        <div className="flex items-center gap-2.5">
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-xl"
+            style={{ backgroundColor: themeColor + '15' }}
+          >
+            <CalendarDays className="h-4.5 w-4.5" style={{ color: themeColor }} />
+          </div>
+          <div>
+            <h2 className="text-xl font-semibold text-gray-900">{t("title")}</h2>
+            <p className="text-sm text-gray-500">{t("subtitle")}</p>
+          </div>
+        </div>
 
-        {/* Step Indicators */}
-        <div className="mt-6 flex items-center gap-2 text-sm">
-          {(["dates", "details", "payment", "confirmed"] as BookingStep[]).map(
-            (s, i) => (
-              <div key={s} className="flex items-center gap-2">
-                {i > 0 && (
+        {/* Step Indicators — visual stepper */}
+        <div className="mt-6 flex items-center justify-between">
+          {steps.map((s, i) => {
+            const isActive = step === s;
+            const isCompleted = currentStepIndex > i;
+            return (
+              <div key={s} className="flex flex-1 items-center">
+                <div className="flex flex-col items-center gap-1">
                   <div
-                    className="h-px w-6"
+                    className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-colors"
                     style={{
-                      backgroundColor:
-                        step === s ||
-                        (["dates", "details", "payment", "confirmed"].indexOf(step) > i - 1)
-                          ? themeColor
-                          : "#e5e7eb",
+                      backgroundColor: isActive ? themeColor : isCompleted ? themeColor : '#f3f4f6',
+                      color: isActive || isCompleted ? '#fff' : '#9ca3af',
                     }}
+                  >
+                    {isCompleted ? (
+                      <CheckCircle2 className="h-4 w-4" />
+                    ) : (
+                      i + 1
+                    )}
+                  </div>
+                  <span
+                    className="text-[11px] font-medium whitespace-nowrap"
+                    style={{ color: isActive ? themeColor : isCompleted ? themeColor : '#9ca3af' }}
+                  >
+                    {t(`step${s.charAt(0).toUpperCase() + s.slice(1)}`)}
+                  </span>
+                </div>
+                {i < steps.length - 1 && (
+                  <div
+                    className="mx-1 h-px flex-1 self-start mt-4"
+                    style={{ backgroundColor: currentStepIndex > i ? themeColor : '#e5e7eb' }}
                   />
                 )}
-                <Badge
-                  variant={step === s ? "default" : "secondary"}
-                  style={step === s ? { backgroundColor: themeColor } : undefined}
-                >
-                  {i + 1}. {t(`step${s.charAt(0).toUpperCase() + s.slice(1)}`)}
-                </Badge>
               </div>
-            )
-          )}
+            );
+          })}
         </div>
 
         <div className="mt-6">
@@ -550,7 +572,7 @@ export function BookingSection({
             <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
               {/* Left: Room & Guests first */}
               <div className="space-y-4">
-                <Card>
+                <Card className="shadow-sm">
                   <CardHeader>
                     <CardTitle className="text-base">{t("selectRoom")}</CardTitle>
                   </CardHeader>
@@ -623,10 +645,10 @@ export function BookingSection({
               </div>
 
               {/* Right: Calendar */}
-              <Card>
+              <Card className="shadow-sm">
                 <CardHeader>
                   <CardTitle className="flex items-center gap-2 text-base">
-                    <CalendarDays className="h-5 w-5" />
+                    <CalendarDays className="h-5 w-5" style={{ color: themeColor }} />
                     {t("selectDates")}
                   </CardTitle>
                 </CardHeader>
@@ -666,10 +688,11 @@ export function BookingSection({
 
           {/* Step 2: Guest Details */}
           {step === "details" && (
-            <Card className="mx-auto max-w-lg">
+            <Card className="mx-auto max-w-lg shadow-sm overflow-hidden">
+              <div className="h-1 w-full" style={{ backgroundColor: themeColor }} />
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
-                  <Users className="h-5 w-5" />
+                  <Users className="h-5 w-5" style={{ color: themeColor }} />
                   {t("guestInfo")}
                 </CardTitle>
               </CardHeader>
@@ -770,11 +793,12 @@ export function BookingSection({
 
           {/* Step 3: Payment */}
           {step === "payment" && (
-            <Card className="mx-auto max-w-lg">
+            <Card className="mx-auto max-w-lg shadow-sm overflow-hidden">
+              <div className="h-1 w-full" style={{ backgroundColor: themeColor }} />
               <CardHeader>
                 <div className="flex items-center justify-between">
                   <CardTitle className="flex items-center gap-2 text-base">
-                    <CreditCard className="h-5 w-5" />
+                    <CreditCard className="h-5 w-5" style={{ color: themeColor }} />
                     {t("paymentTitle")}
                   </CardTitle>
                   {holdTimeLeft > 0 && (
@@ -1046,7 +1070,8 @@ export function BookingSection({
 
           {/* Step 4: Confirmation */}
           {step === "confirmed" && (
-            <Card className="mx-auto max-w-lg" style={{ borderColor: themeColor + '40' }}>
+            <Card className="mx-auto max-w-lg shadow-sm overflow-hidden" style={{ borderColor: themeColor + '40' }}>
+              <div className="h-1 w-full" style={{ backgroundColor: themeColor }} />
               <CardContent className="p-8 text-center">
                 <CheckCircle2 className="mx-auto h-16 w-16" style={{ color: slipVerified ? themeColor : '#f59e0b' }} />
                 <h3 className="mt-4 text-xl font-semibold text-gray-900">

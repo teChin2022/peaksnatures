@@ -1,66 +1,83 @@
 import type { Room } from "@/types/database";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users } from "lucide-react";
+import { Users, BedDouble } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useTranslations } from "next-intl";
 
 interface RoomsSectionProps {
   rooms: Room[];
+  themeColor?: string;
 }
 
-export function RoomsSection({ rooms }: RoomsSectionProps) {
+export function RoomsSection({ rooms, themeColor = "#16a34a" }: RoomsSectionProps) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
   if (!rooms.length) return null;
 
   return (
-    <section className="py-8">
+    <section className="py-10">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <h2 className="text-xl font-semibold text-gray-900">
-          {t("title")}
-        </h2>
+        <div className="flex items-center gap-2">
+          <BedDouble className="h-5 w-5" style={{ color: themeColor }} />
+          <h2 className="text-xl font-semibold text-gray-900">
+            {t("title")}
+          </h2>
+        </div>
         <p className="mt-1 text-sm text-gray-500">
           {t("subtitle")}
         </p>
 
-        <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
           {rooms.map((room) => (
-            <Card key={room.id} className="overflow-hidden border">
+            <Card
+              key={room.id}
+              className="group overflow-hidden border transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
+            >
               {room.images[0] && (
-                <div className="aspect-[16/10] overflow-hidden">
+                <div className="relative aspect-[16/10] overflow-hidden">
                   <img
                     src={room.images[0]}
                     alt={room.name}
-                    className="h-full w-full object-cover"
+                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
+                  <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/50 to-transparent" />
+                  <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between">
+                    <h3 className="text-base font-semibold text-white drop-shadow-sm">{room.name}</h3>
+                  </div>
                 </div>
               )}
               <CardContent className="p-4">
-                <div className="flex items-start justify-between">
-                  <h3 className="font-semibold text-gray-900">{room.name}</h3>
-                  <Badge variant="secondary" className="shrink-0">
-                    ฿{room.price_per_night.toLocaleString()}{tc("perNight")}
-                  </Badge>
+                <div className="flex items-center gap-1" style={{ borderLeftColor: themeColor }}>
+                  <span className="text-2xl font-bold" style={{ color: themeColor }}>
+                    ฿{room.price_per_night.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-gray-400 self-end mb-1">{tc("perNight")}</span>
                 </div>
                 {room.description && (
-                  <p className="mt-1.5 text-sm text-gray-500">
+                  <p className="mt-2 text-sm leading-relaxed text-gray-500 line-clamp-2">
                     {room.description}
                   </p>
                 )}
-                <div className="mt-3 flex items-center gap-3 text-xs text-gray-400">
-                  <span className="flex items-center gap-1">
+                <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
+                  <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1">
                     <Users className="h-3.5 w-3.5" />
                     {tc("guests")} {room.max_guests}
                   </span>
-                  <span>{t("available", { count: room.quantity })}</span>
+                  <Badge
+                    variant="secondary"
+                    className="text-xs font-normal"
+                    style={{ backgroundColor: themeColor + "12", color: themeColor }}
+                  >
+                    {t("available", { count: room.quantity })}
+                  </Badge>
                 </div>
               </CardContent>
             </Card>
           ))}
         </div>
 
-        <Separator className="mt-8" />
+        <Separator className="mt-10" />
       </div>
     </section>
   );
