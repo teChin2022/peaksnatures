@@ -34,6 +34,7 @@ export default function ProfilePage() {
   const [phone, setPhone] = useState("");
   const [lineUserId, setLineUserId] = useState("");
   const [lineChannelToken, setLineChannelToken] = useState("");
+  const [lineTokenMasked, setLineTokenMasked] = useState(false);
   const [promptpayId, setPromptpayId] = useState("");
 
   useEffect(() => {
@@ -57,7 +58,15 @@ export default function ProfilePage() {
         setEmail(h.email);
         setPhone(h.phone || "");
         setLineUserId(h.line_user_id || "");
-        setLineChannelToken(h.line_channel_access_token || "");
+        // Never expose the full LINE channel token to the browser
+        const token = h.line_channel_access_token || "";
+        if (token) {
+          setLineChannelToken("••••••••" + token.slice(-4));
+          setLineTokenMasked(true);
+        } else {
+          setLineChannelToken("");
+          setLineTokenMasked(false);
+        }
         setPromptpayId(h.promptpay_id);
       }
       setLoading(false);
@@ -82,7 +91,8 @@ export default function ProfilePage() {
           email: email.trim(),
           phone: phone.trim() || null,
           line_user_id: lineUserId.trim() || null,
-          line_channel_access_token: lineChannelToken.trim() || null,
+          // Only update token if user changed it (not the masked placeholder)
+          ...(lineTokenMasked ? {} : { line_channel_access_token: lineChannelToken.trim() || null }),
           promptpay_id: promptpayId.trim(),
         } as never)
         .eq("id", host.id);
@@ -207,7 +217,7 @@ export default function ProfilePage() {
               id="host-line-token"
               type="password"
               value={lineChannelToken}
-              onChange={(e) => setLineChannelToken(e.target.value)}
+              onChange={(e) => { setLineChannelToken(e.target.value); setLineTokenMasked(false); }}
               placeholder={t("lineChannelTokenPlaceholder")}
             />
             <p className="text-xs text-gray-500">{t("lineChannelTokenHint")}</p>

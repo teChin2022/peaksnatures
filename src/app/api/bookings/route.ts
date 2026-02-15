@@ -22,6 +22,7 @@ const bookingSchema = z.object({
   easyslip_response: z.unknown().optional(),
   // Session ID for hold cleanup
   session_id: z.string().optional(),
+  notes: z.string().optional(),
 });
 
 async function sendNotifications(bookingId: string, supabase: ReturnType<typeof createServiceRoleClient>) {
@@ -93,6 +94,40 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
+    // Server-side price verification: never trust client-supplied total_price
+    if (data.room_id) {
+      const { data: roomRow, error: roomError } = await supabase
+        .from("rooms")
+        .select("price_per_night")
+        .eq("id", data.room_id)
+        .single();
+
+      if (roomError || !roomRow) {
+        return NextResponse.json(
+          { error: "Room not found" },
+          { status: 404 }
+        );
+      }
+
+      const room = roomRow as unknown as { price_per_night: number };
+      const checkIn = new Date(data.check_in);
+      const checkOut = new Date(data.check_out);
+      const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+
+      if (nights <= 0) {
+        return NextResponse.json(
+          { error: "Invalid date range" },
+          { status: 400 }
+        );
+      }
+
+      const serverPrice = room.price_per_night * nights;
+      if (data.total_price !== serverPrice) {
+        console.warn(`[Security] Price mismatch: client=${data.total_price}, server=${serverPrice}`);
+        data.total_price = serverPrice;
+      }
+    }
+
     // Atomic booking creation: checks overlap + blocked dates + inserts in one transaction
     if (data.room_id) {
       const { data: bookingId, error: rpcError } = await supabase.rpc(
@@ -115,6 +150,7 @@ export async function POST(req: NextRequest) {
           p_payment_slip_url: data.payment_slip_url || null,
           p_easyslip_response: data.easyslip_response || null,
           p_session_id: data.session_id || null,
+          p_notes: data.notes || null,
         } as never
       );
 
@@ -179,6 +215,7 @@ export async function POST(req: NextRequest) {
         slip_trans_ref: data.slip_trans_ref || null,
         payment_slip_url: data.payment_slip_url || null,
         easyslip_response: data.easyslip_response || null,
+        notes: data.notes || null,
       } as never)
       .select()
       .single();

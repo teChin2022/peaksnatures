@@ -33,9 +33,11 @@ export async function sendBookingConfirmationEmail(details: BookingDetails) {
             <h1 style="color: white; margin: 0; font-size: 24px;">🎉 Booking Confirmed!</h1>
           </div>
           <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: 0; border-radius: 0 0 12px 12px;">
+            <p style="font-size: 16px; margin-top: 0;">Hi ${booking.guest_name},</p>
             <h2 style="margin-top: 0;">${homestay.name}</h2>
             <table style="width: 100%; border-collapse: collapse;">
               <tr><td style="padding: 8px 0; color: #6b7280;">Booking ID</td><td style="padding: 8px 0; font-weight: bold;">${booking.id}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">Guest</td><td style="padding: 8px 0;">${booking.guest_name}</td></tr>
               <tr><td style="padding: 8px 0; color: #6b7280;">Room</td><td style="padding: 8px 0;">${room?.name || "Standard"}</td></tr>
               <tr><td style="padding: 8px 0; color: #6b7280;">Check-in</td><td style="padding: 8px 0;">${booking.check_in}</td></tr>
               <tr><td style="padding: 8px 0; color: #6b7280;">Check-out</td><td style="padding: 8px 0;">${booking.check_out}</td></tr>

@@ -35,11 +35,11 @@ export async function GET(request: NextRequest) {
 export async function POST(request: NextRequest) {
   try {
     const body = await request.json();
-    const { booking_id, rating, comment } = body;
+    const { booking_id, rating, comment, guest_email } = body;
 
-    if (!booking_id || !rating || rating < 1 || rating > 5) {
+    if (!booking_id || !rating || rating < 1 || rating > 5 || !guest_email) {
       return NextResponse.json(
-        { error: "booking_id and rating (1-5) are required" },
+        { error: "booking_id, guest_email, and rating (1-5) are required" },
         { status: 400 }
       );
     }
@@ -49,16 +49,24 @@ export async function POST(request: NextRequest) {
     // 1. Verify the booking exists and is completed
     const { data: bookingRow, error: bookingError } = await supabase
       .from("bookings")
-      .select("id, homestay_id, guest_name, status, check_out")
+      .select("id, homestay_id, guest_name, guest_email, status, check_out")
       .eq("id", booking_id)
       .single();
 
-    const booking = bookingRow as unknown as { id: string; homestay_id: string; guest_name: string; status: string; check_out: string } | null;
+    const booking = bookingRow as unknown as { id: string; homestay_id: string; guest_name: string; guest_email: string; status: string; check_out: string } | null;
 
     if (bookingError || !booking) {
       return NextResponse.json(
         { error: "Booking not found" },
         { status: 404 }
+      );
+    }
+
+    // Verify the reviewer is the actual guest
+    if (booking.guest_email.toLowerCase() !== (guest_email as string).toLowerCase()) {
+      return NextResponse.json(
+        { error: "Email does not match the booking" },
+        { status: 403 }
       );
     }
 

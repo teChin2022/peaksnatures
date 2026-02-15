@@ -6,6 +6,11 @@ import {
   MapPin,
   Users,
   Search,
+  Shield,
+  FileText,
+  Mail,
+  Clock,
+  MessageCircle,
 } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
@@ -228,6 +233,90 @@ export default async function Home() {
         </div>
       </section>
 
+      {/* Privacy Policy */}
+      <section id="privacy" className="border-t py-16">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-green-100 p-2.5">
+              <Shield className="h-5 w-5 text-green-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900">{t("policyTitle")}</h2>
+          </div>
+          <p className="mt-4 text-gray-600">{t("policyIntro")}</p>
+          <ul className="mt-4 space-y-3">
+            {[t("policy1"), t("policy2"), t("policy3"), t("policy4")].map((item, i) => (
+              <li key={i} className="flex items-start gap-3 text-sm text-gray-600">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-100 text-xs font-bold text-green-700">{i + 1}</span>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* Terms & Conditions */}
+      <section id="terms" className="border-t bg-gray-50 py-16">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-green-100 p-2.5">
+              <FileText className="h-5 w-5 text-green-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900">{t("termsTitle")}</h2>
+          </div>
+          <p className="mt-4 text-gray-600">{t("termsIntro")}</p>
+          <ul className="mt-4 space-y-3">
+            {[t("terms1"), t("terms2"), t("terms3"), t("terms4"), t("terms5")].map((item, i) => (
+              <li key={i} className="flex items-start gap-3 text-sm text-gray-600">
+                <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-100 text-xs font-bold text-green-700">{i + 1}</span>
+                {item}
+              </li>
+            ))}
+          </ul>
+        </div>
+      </section>
+
+      {/* Contact */}
+      <section id="contact" className="border-t py-16">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-green-100 p-2.5">
+              <MessageCircle className="h-5 w-5 text-green-600" />
+            </div>
+            <h2 className="text-2xl font-bold text-gray-900">{t("contactTitle")}</h2>
+          </div>
+          <p className="mt-4 text-gray-600">{t("contactIntro")}</p>
+          <div className="mt-6 grid grid-cols-1 gap-4 sm:grid-cols-3">
+            <Card>
+              <CardContent className="flex items-start gap-3 p-4">
+                <Mail className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{t("contactEmail")}</p>
+                  <p className="text-sm text-gray-500">{t("contactEmailValue")}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex items-start gap-3 p-4">
+                <MessageCircle className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{t("contactLine")}</p>
+                  <p className="text-sm text-gray-500">{t("contactLineValue")}</p>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <CardContent className="flex items-start gap-3 p-4">
+                <Clock className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
+                <div>
+                  <p className="text-sm font-medium text-gray-900">{t("contactHours")}</p>
+                  <p className="text-sm text-gray-500">{t("contactHoursValue")}</p>
+                </div>
+              </CardContent>
+            </Card>
+          </div>
+        </div>
+      </section>
+
       {/* Footer */}
       <footer className="border-t bg-gray-50 py-8">
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-4 px-4 text-center text-sm text-gray-500 sm:flex-row sm:justify-between sm:px-6">
@@ -236,13 +325,13 @@ export default async function Home() {
             <span>{tc("copyright")}</span>
           </div>
           <div className="flex gap-4">
-            <Link href="#" className="hover:text-green-700">
+            <Link href="#privacy" className="hover:text-green-700">
               {tc("privacy")}
             </Link>
-            <Link href="#" className="hover:text-green-700">
+            <Link href="#terms" className="hover:text-green-700">
               {tc("terms")}
             </Link>
-            <Link href="#" className="hover:text-green-700">
+            <Link href="#contact" className="hover:text-green-700">
               {tc("contact")}
             </Link>
           </div>

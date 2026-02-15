@@ -5,8 +5,11 @@ export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
 
-  // If Supabase env vars are missing, skip auth checks and let the page load
+  // If Supabase env vars are missing, fail closed in production — block protected routes
   if (!supabaseUrl || !supabaseAnonKey) {
+    if (request.nextUrl.pathname.startsWith("/dashboard")) {
+      return new NextResponse("Service unavailable — authentication not configured", { status: 503 });
+    }
     return NextResponse.next({ request });
   }
 

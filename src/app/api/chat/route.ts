@@ -13,10 +13,26 @@ interface ChatMessage {
 
 export async function POST(req: NextRequest) {
   try {
-    const { messages, homestayId } = (await req.json()) as {
+    const body = await req.json();
+    const { messages, homestayId } = body as {
       messages: ChatMessage[];
       homestayId: string;
     };
+
+    // Input validation
+    const UUID_REGEX = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (!homestayId || !UUID_REGEX.test(homestayId)) {
+      return NextResponse.json({ message: "Invalid homestay ID." }, { status: 400 });
+    }
+    if (!Array.isArray(messages) || messages.length === 0) {
+      return NextResponse.json({ message: "Messages are required." }, { status: 400 });
+    }
+    const MAX_MESSAGES = 20;
+    const MAX_CONTENT_LENGTH = 2000;
+    const validatedMessages = messages.slice(-MAX_MESSAGES).map((m) => ({
+      role: m.role,
+      content: typeof m.content === "string" ? m.content.slice(0, MAX_CONTENT_LENGTH) : "",
+    }));
 
     const supabase = createServiceRoleClient();
 
@@ -67,7 +83,7 @@ Today's date: ${format(new Date(), "yyyy-MM-dd")}`;
     const result = await generateText({
       model: google("gemini-2.5-flash"),
       system: systemPrompt,
-      messages: messages.map((m) => ({
+      messages: validatedMessages.map((m) => ({
         role: m.role as "user" | "assistant",
         content: m.content,
       })),

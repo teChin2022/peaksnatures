@@ -54,7 +54,22 @@ export async function POST(
     return NextResponse.json({ error: "No file provided" }, { status: 400 });
   }
 
-  const ext = file.name.split(".").pop() || "jpg";
+  // Validate file size (max 5MB)
+  const MAX_FILE_SIZE = 5 * 1024 * 1024;
+  if (file.size > MAX_FILE_SIZE) {
+    return NextResponse.json({ error: "File too large. Maximum size is 5MB." }, { status: 400 });
+  }
+
+  // Validate file type
+  const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+  if (!ALLOWED_TYPES.includes(file.type)) {
+    return NextResponse.json({ error: "Invalid file type. Only image files are allowed." }, { status: 400 });
+  }
+
+  // Sanitize extension to allowed set only
+  const ALLOWED_EXTENSIONS = ["jpg", "jpeg", "png", "webp", "heic", "heif"];
+  const rawExt = file.name.split(".").pop()?.toLowerCase() || "jpg";
+  const ext = ALLOWED_EXTENSIONS.includes(rawExt) ? rawExt : "jpg";
   const path = `sessions/${sessionId}/slip.${ext}`;
 
   const supabase = createServiceRoleClient();

@@ -51,6 +51,24 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Validate file size (max 5MB)
+    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    if (file.size > MAX_FILE_SIZE) {
+      return NextResponse.json(
+        { error: "File too large. Maximum size is 5MB." },
+        { status: 400 }
+      );
+    }
+
+    // Validate file type
+    const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
+    if (!ALLOWED_TYPES.includes(file.type)) {
+      return NextResponse.json(
+        { error: "Invalid file type. Only JPEG, PNG, WebP, and HEIC images are allowed." },
+        { status: 400 }
+      );
+    }
+
     const apiKey = process.env.EASYSLIP_API_KEY;
     const supabase = createServiceRoleClient();
 
@@ -86,12 +104,12 @@ export async function POST(req: NextRequest) {
 
     const { data: signedUrlData } = await supabase.storage
       .from("payment-slips")
-      .createSignedUrl(slipPath, 60 * 60 * 24 * 365);
+      .createSignedUrl(slipPath, 60 * 60 * 24); // 24 hours instead of 1 year
     const paymentSlipUrl = signedUrlData?.signedUrl || null;
 
-    // --- Demo mode ---
-    if (!apiKey || apiKey === "your_easyslip_api_key") {
-      console.log("[Demo] Simulating EasySlip verification...");
+    // --- Demo mode (must be explicitly enabled) ---
+    if (process.env.DEMO_MODE === "true" && (!apiKey || apiKey === "your_easyslip_api_key")) {
+      console.warn("[Demo] Simulating EasySlip verification — DEMO_MODE is enabled. Disable in production!");
       const demoResponse = {
         status: 200,
         data: {
@@ -110,6 +128,14 @@ export async function POST(req: NextRequest) {
         payment_slip_url: paymentSlipUrl,
         easyslip_response: demoResponse,
       });
+    }
+
+    // Reject if no valid API key configured (and not in demo mode)
+    if (!apiKey || apiKey === "your_easyslip_api_key") {
+      return NextResponse.json(
+        { error: "Payment verification is not configured. Please set EASYSLIP_API_KEY." },
+        { status: 503 }
+      );
     }
 
     // --- Production: Call EasySlip API ---
@@ -212,15 +238,18 @@ export async function POST(req: NextRequest) {
         slip_hash: slipHash,
         payment_slip_url: paymentSlipUrl,
         easyslip_response: easySlipData,
-        debug: {
-          expected_receiver: expectedReceiver,
-          expected_normalized: expectedDigits,
-          easyslip_proxy: receiverProxy || null,
-          easyslip_bank: receiverBank || null,
-          full_receiver: easySlipData.data.receiver,
-          expected_amount: expectedAmount,
-          slip_amount: slipAmount,
-        },
+        // Debug details logged server-side only
+        ...(process.env.NODE_ENV === "development" ? {
+          debug: {
+            expected_receiver: expectedReceiver,
+            expected_normalized: expectedDigits,
+            easyslip_proxy: receiverProxy || null,
+            easyslip_bank: receiverBank || null,
+            full_receiver: easySlipData.data.receiver,
+            expected_amount: expectedAmount,
+            slip_amount: slipAmount,
+          },
+        } : {}),
       });
     }
 

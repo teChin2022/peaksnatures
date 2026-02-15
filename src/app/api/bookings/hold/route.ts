@@ -2,6 +2,22 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
+// Simple in-memory rate limiter for hold requests (per IP)
+const holdRateMap = new Map<string, { count: number; resetAt: number }>();
+const HOLD_RATE_LIMIT = 10; // max requests
+const HOLD_RATE_WINDOW_MS = 60_000; // per minute
+
+function isRateLimited(ip: string): boolean {
+  const now = Date.now();
+  const entry = holdRateMap.get(ip);
+  if (!entry || now > entry.resetAt) {
+    holdRateMap.set(ip, { count: 1, resetAt: now + HOLD_RATE_WINDOW_MS });
+    return false;
+  }
+  entry.count++;
+  return entry.count > HOLD_RATE_LIMIT;
+}
+
 const holdSchema = z.object({
   room_id: z.string().uuid(),
   check_in: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
@@ -11,6 +27,15 @@ const holdSchema = z.object({
 
 export async function POST(req: NextRequest) {
   try {
+    // Rate limit by IP to prevent hold DoS
+    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
+    if (isRateLimited(ip)) {
+      return NextResponse.json(
+        { error: "Too many requests. Please try again later." },
+        { status: 429 }
+      );
+    }
+
     const body = await req.json();
     const parsed = holdSchema.safeParse(body);
 

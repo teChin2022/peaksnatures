@@ -2,11 +2,13 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { format, differenceInDays, eachDayOfInterval, parseISO, subDays } from "date-fns";
+import { th as thLocale } from "date-fns/locale";
 import type { DateRange } from "react-day-picker";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
+import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import {
   Select,
@@ -22,7 +24,7 @@ import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
 import type { Homestay, Room, BlockedDate, Host, Review } from "@/types/database";
 import { ReviewsSection } from "@/components/booking/reviews-section";
-import { THAI_PROVINCES } from "@/lib/provinces";
+import { THAI_PROVINCES, getProvinceLabel } from "@/lib/provinces";
 import generatePayload from "promptpay-qr";
 import { QRCodeSVG } from "qrcode.react";
 import {
@@ -77,7 +79,19 @@ export function BookingSection({
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
   const [guestProvince, setGuestProvince] = useState("");
+  const [guestNote, setGuestNote] = useState("");
   const locale = useLocale();
+  const dateFmtOpts = locale === "th" ? { locale: thLocale } : undefined;
+  const fmtDate = (d: Date, pattern: string) => {
+    const formatted = format(d, pattern, dateFmtOpts);
+    if (locale === "th") {
+      const ceYear = d.getFullYear();
+      const beYear = ceYear + 543;
+      return formatted.replace(String(ceYear), String(beYear));
+    }
+    return formatted;
+  };
+  const provinceLabel = (v: string) => getProvinceLabel(v, locale);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
@@ -88,6 +102,7 @@ export function BookingSection({
   const [holdExpiresAt, setHoldExpiresAt] = useState<number | null>(null);
   const [holdTimeLeft, setHoldTimeLeft] = useState<number>(0);
   const [showHeldModal, setShowHeldModal] = useState(false);
+  const [showConfirmModal, setShowConfirmModal] = useState(false);
   const holdTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [phoneSlipReceived, setPhoneSlipReceived] = useState(false);
   const [phoneSlipUrl, setPhoneSlipUrl] = useState<string | null>(null);
@@ -466,7 +481,6 @@ export function BookingSection({
       }
 
       if (!verifyData.verified) {
-        console.log("[Debug] Verification failed response:", JSON.stringify(verifyData, null, 2));
         toast.error(verifyData.message || t("errorSlipVerification"));
         handleRemoveSlip();
         setIsSubmitting(false);
@@ -484,6 +498,7 @@ export function BookingSection({
           guest_email: guestEmail,
           guest_phone: guestPhone,
           guest_province: guestProvince || undefined,
+          notes: guestNote || undefined,
           check_in: format(dateRange.from, "yyyy-MM-dd"),
           check_out: format(dateRange.to, "yyyy-MM-dd"),
           num_guests: parseInt(numGuests),
@@ -689,8 +704,8 @@ export function BookingSection({
                   {dateRange?.from && dateRange?.to && (
                     <div className="mt-3 text-sm text-gray-600">
                       <span className="font-medium">
-                        {format(dateRange.from, "MMM d")} —{" "}
-                        {format(dateRange.to, "MMM d, yyyy")}
+                        {fmtDate(dateRange.from, "MMM d")} —{" "}
+                        {fmtDate(dateRange.to, "MMM d, yyyy")}
                       </span>
                       <span className="text-gray-400"> · {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
                     </div>
@@ -785,6 +800,17 @@ export function BookingSection({
                     </SelectContent>
                   </Select>
                 </div>
+                <div>
+                  <Label htmlFor="notes">{t("notes")}</Label>
+                  <Textarea
+                    id="notes"
+                    value={guestNote}
+                    onChange={(e) => setGuestNote(e.target.value)}
+                    placeholder={t("notesPlaceholder")}
+                    className="mt-1"
+                    rows={3}
+                  />
+                </div>
 
                 <Separator />
 
@@ -794,8 +820,8 @@ export function BookingSection({
                   </p>
                   <p>
                     <strong>{t("dates")}:</strong>{" "}
-                    {dateRange?.from && format(dateRange.from, "MMM d")} —{" "}
-                    {dateRange?.to && format(dateRange.to, "MMM d, yyyy")}
+                    {dateRange?.from && fmtDate(dateRange.from, "MMM d")} —{" "}
+                    {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy")}
                   </p>
                   <p>
                     <strong>{tc("guests")}:</strong> {numGuests}
@@ -816,17 +842,15 @@ export function BookingSection({
                   <Button
                     className="flex-1 hover:brightness-90"
                     style={{ backgroundColor: themeColor }}
-                    onClick={handleProceedToPayment}
-                    disabled={isSubmitting}
+                    onClick={() => {
+                      if (!guestName || !guestEmail || !guestPhone) {
+                        toast.error(t("errorFillFields"));
+                        return;
+                      }
+                      setShowConfirmModal(true);
+                    }}
                   >
-                    {isSubmitting ? (
-                      <>
-                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        {t("continuePayment")}
-                      </>
-                    ) : (
-                      t("continuePayment")
-                    )}
+                    {t("continuePayment")}
                   </Button>
                 </div>
               </CardContent>
@@ -1142,11 +1166,14 @@ export function BookingSection({
                   <p><strong>{t("room")}:</strong> {selectedRoom?.name}</p>
                   <p>
                     <strong>{t("dates")}:</strong>{" "}
-                    {dateRange?.from && format(dateRange.from, "MMM d")} —{" "}
-                    {dateRange?.to && format(dateRange.to, "MMM d, yyyy")}
+                    {dateRange?.from && fmtDate(dateRange.from, "MMM d")} —{" "}
+                    {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy")}
                   </p>
                   <p><strong>{tc("guests")}:</strong> {numGuests}</p>
                   <p><strong>{t("guestInfo")}:</strong> {guestName}</p>
+                  {guestNote && (
+                    <p><strong>{t("notes")}:</strong> {guestNote}</p>
+                  )}
                   <p className="mt-2 text-base font-bold" style={{ color: themeColor }}>
                     {tc("total")}: ฿{totalPrice.toLocaleString()}
                   </p>
@@ -1165,6 +1192,7 @@ export function BookingSection({
                     setGuestEmail("");
                     setGuestPhone("");
                     setGuestProvince("");
+                    setGuestNote("");
                     handleRemoveSlip();
                     setBookingId(null);
                   }}
@@ -1196,6 +1224,94 @@ export function BookingSection({
               onClick={handleHeldModalClose}
             >
               {t("chooseDifferentDates")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Details Modal */}
+      <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full" style={{ backgroundColor: themeColor + '15' }}>
+              <Users className="h-6 w-6" style={{ color: themeColor }} />
+            </div>
+            <DialogTitle className="text-center">{t("confirmTitle")}</DialogTitle>
+            <DialogDescription className="text-center">
+              {t("confirmDesc")}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-3 rounded-lg bg-gray-50 p-4 text-sm">
+            <div className="flex justify-between">
+              <span className="text-gray-500">{t("room")}</span>
+              <span className="font-medium text-gray-900">{selectedRoom?.name}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">{t("dates")}</span>
+              <span className="font-medium text-gray-900">
+                {dateRange?.from && fmtDate(dateRange.from, "MMM d")} — {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy")}
+              </span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">{tc("guests")}</span>
+              <span className="font-medium text-gray-900">{numGuests}</span>
+            </div>
+            <Separator />
+            <div className="flex justify-between">
+              <span className="text-gray-500">{t("fullName")}</span>
+              <span className="font-medium text-gray-900">{guestName}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">{t("email")}</span>
+              <span className="font-medium text-gray-900">{guestEmail}</span>
+            </div>
+            <div className="flex justify-between">
+              <span className="text-gray-500">{t("phone")}</span>
+              <span className="font-medium text-gray-900">{guestPhone}</span>
+            </div>
+            {guestProvince && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">{t("province")}</span>
+                <span className="font-medium text-gray-900">{provinceLabel(guestProvince)}</span>
+              </div>
+            )}
+            {guestNote && (
+              <div className="flex justify-between">
+                <span className="text-gray-500">{t("notes")}</span>
+                <span className="font-medium text-gray-900 text-right max-w-[200px]">{guestNote}</span>
+              </div>
+            )}
+            <Separator />
+            <div className="flex justify-between">
+              <span className="font-semibold text-gray-900">{tc("total")}</span>
+              <span className="text-lg font-bold" style={{ color: themeColor }}>฿{totalPrice.toLocaleString()}</span>
+            </div>
+          </div>
+          <DialogFooter className="flex gap-2 sm:gap-2">
+            <Button
+              variant="outline"
+              className="flex-1"
+              onClick={() => setShowConfirmModal(false)}
+            >
+              {t("confirmEdit")}
+            </Button>
+            <Button
+              className="flex-1 hover:brightness-90"
+              style={{ backgroundColor: themeColor }}
+              disabled={isSubmitting}
+              onClick={() => {
+                setShowConfirmModal(false);
+                handleProceedToPayment();
+              }}
+            >
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  {t("confirmProceed")}
+                </>
+              ) : (
+                t("confirmProceed")
+              )}
             </Button>
           </DialogFooter>
         </DialogContent>
