@@ -64,28 +64,9 @@ export function AboutSection({
               {t("title")}
             </h2>
 
-            {/* Info chips */}
-            <div className="mt-3 flex flex-wrap gap-2">
-              <span
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
-                style={{ backgroundColor: themeColor + "15", color: themeColor }}
-              >
-                <Users className="h-3.5 w-3.5" />
-                {t("upToGuests", { count: maxGuests })}
-              </span>
-              <span
-                className="inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
-                style={{ backgroundColor: themeColor + "15", color: themeColor }}
-              >
-                <MapPin className="h-3.5 w-3.5" />
-                {location}
-              </span>
-            </div>
-
             {/* Description card with accent bar */}
-            <div className="mt-4 flex gap-0 overflow-hidden rounded-xl border bg-gray-50/70">
-              <div className="w-1 shrink-0 rounded-l-xl" style={{ backgroundColor: themeColor }} />
-              <p className="px-5 py-4 leading-relaxed text-gray-600">{description}</p>
+            <div className="mt-3 px-3 flex gap-0 overflow-hidden border rounded-xl">
+              <p className="py-4 leading-relaxed text-gray-600">{description}</p>
             </div>
           </div>
 

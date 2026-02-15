@@ -72,6 +72,7 @@
     "continuePayment": "Continue to Payment",
     "paymentTitle": "Payment via PromptPay",
     "scanQr": "Scan QR code to pay via PromptPay",
+    "saveQrImage": "Save QR Image",
     "promptpayQr": "PromptPay QR",
     "promptpayId": "PromptPay ID",
     "payStep1": "Screenshot or long-press the QR code",
@@ -350,6 +351,31 @@
     "checkOut": "Check-out",
     "staying": "Staying"
   },
+  "bookingSearch": {
+    "searchBooking": "Search Booking",
+    "title": "Search Your Booking",
+    "placeholder": "Email, phone number, or booking ID",
+    "search": "Search",
+    "noResults": "No bookings found. Please check your search and try again.",
+    "status": {
+      "pending": "Pending",
+      "verified": "Verified",
+      "confirmed": "Confirmed",
+      "rejected": "Rejected",
+      "cancelled": "Cancelled",
+      "completed": "Completed"
+    }
+  },
+  "bookingFooter": {
+    "hostedBy": "Hosted by {name}",
+    "poweredBy": "Powered by"
+  },
+  "cookie": {
+    "title": "Cookie Notice",
+    "message": "We use cookies to improve your browsing experience. By continuing to use this site, you consent to our use of cookies.",
+    "accept": "Accept",
+    "decline": "Decline"
+  },
   "dashboardTheme": {
     "title": "Theme Settings",
     "selectColor": "Choose Theme Color",
@@ -360,5 +386,23 @@
     "saved": "Theme updated successfully",
     "noHomestay": "Please create a homestay first.",
     "errorSave": "Failed to save. Please try again."
+  },
+  "reviews": {
+    "title": "Reviews & Ratings",
+    "review": "review",
+    "reviewPlural": "reviews",
+    "noReviews": "No reviews yet",
+    "noReviewsYet": "Be the first to share your experience!",
+    "writeReview": "Write a Review",
+    "submitReview": "Submit Review",
+    "ratingLabel": "Your Rating",
+    "commentLabel": "Your Review (optional)",
+    "commentPlaceholder": "Share your experience at this homestay...",
+    "reviewSubmitted": "Thank you! Your review has been submitted.",
+    "reviewed": "Reviewed",
+    "errorAlreadyReviewed": "You have already reviewed this booking.",
+    "errorBookingNotCompleted": "You can only review after your stay is completed.",
+    "errorSubmit": "Failed to submit review. Please try again.",
+    "tapToRate": "Tap a star to rate"
   }
 }

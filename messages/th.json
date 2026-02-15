@@ -72,6 +72,7 @@
     "continuePayment": "ดำเนินการชำระเงิน",
     "paymentTitle": "ชำระเงินผ่าน PromptPay",
     "scanQr": "สแกน QR Code เพื่อชำระเงินผ่าน PromptPay",
+    "saveQrImage": "บันทึกรูป QR",
     "promptpayQr": "QR PromptPay",
     "promptpayId": "หมายเลข PromptPay",
     "payStep1": "จับภาพหน้าจอหรือกดค้างที่ QR Code",
@@ -350,6 +351,31 @@
     "checkOut": "เช็คเอาท์",
     "staying": "เข้าพัก"
   },
+  "bookingSearch": {
+    "searchBooking": "ค้นหาการจอง",
+    "title": "ค้นหาการจองของคุณ",
+    "placeholder": "อีเมล, เบอร์โทรศัพท์ หรือรหัสการจอง",
+    "search": "ค้นหา",
+    "noResults": "ไม่พบการจอง กรุณาตรวจสอบข้อมูลและลองใหม่อีกครั้ง",
+    "status": {
+      "pending": "รอดำเนินการ",
+      "verified": "ตรวจสอบแล้ว",
+      "confirmed": "ยืนยันแล้ว",
+      "rejected": "ปฏิเสธ",
+      "cancelled": "ยกเลิก",
+      "completed": "เสร็จสิ้น"
+    }
+  },
+  "bookingFooter": {
+    "hostedBy": "ดูแลโดย {name}",
+    "poweredBy": "ขับเคลื่อนโดย"
+  },
+  "cookie": {
+    "title": "แจ้งเตือนคุกกี้",
+    "message": "เราใช้คุกกี้เพื่อปรับปรุงประสบการณ์การใช้งานของคุณ การใช้งานเว็บไซต์นี้ต่อถือว่าคุณยินยอมให้เราใช้คุกกี้",
+    "accept": "ยอมรับ",
+    "decline": "ปฏิเสธ"
+  },
   "dashboardTheme": {
     "title": "ตั้งค่าธีม",
     "selectColor": "เลือกสีธีม",
@@ -360,5 +386,23 @@
     "saved": "อัปเดตธีมเรียบร้อยแล้ว",
     "noHomestay": "กรุณาสร้างโฮมสเตย์ก่อน",
     "errorSave": "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
+  },
+  "reviews": {
+    "title": "รีวิว & คะแนน",
+    "review": "รีวิว",
+    "reviewPlural": "รีวิว",
+    "noReviews": "ยังไม่มีรีวิว",
+    "noReviewsYet": "เป็นคนแรกที่แชร์ประสบการณ์ของคุณ!",
+    "writeReview": "เขียนรีวิว",
+    "submitReview": "ส่งรีวิว",
+    "ratingLabel": "คะแนนของคุณ",
+    "commentLabel": "รีวิวของคุณ (ไม่บังคับ)",
+    "commentPlaceholder": "แชร์ประสบการณ์ที่พักของคุณ...",
+    "reviewSubmitted": "ขอบคุณ! รีวิวของคุณถูกส่งแล้ว",
+    "reviewed": "รีวิวแล้ว",
+    "errorAlreadyReviewed": "คุณได้รีวิวการจองนี้แล้ว",
+    "errorBookingNotCompleted": "สามารถรีวิวได้หลังจากเข้าพักเสร็จสิ้นแล้วเท่านั้น",
+    "errorSubmit": "ส่งรีวิวไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+    "tapToRate": "แตะดาวเพื่อให้คะแนน"
   }
 }

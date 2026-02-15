@@ -1,14 +1,16 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import type { Homestay, Room, BlockedDate, Host } from "@/types/database";
+import type { Homestay, Room, BlockedDate, Host, Review } from "@/types/database";
 import { HeroSection } from "@/components/booking/hero-section";
 import { GallerySection } from "@/components/booking/gallery-section";
 import { AboutSection } from "@/components/booking/about-section";
 import { RoomsSection } from "@/components/booking/rooms-section";
 import { BookingSection } from "@/components/booking/booking-section";
 import { BookingHeader } from "@/components/booking/booking-header";
+import { BookingFooter } from "@/components/booking/booking-footer";
 import { ChatWidget } from "@/components/chat/chat-widget";
+
 
 export const dynamic = "force-dynamic";
 
@@ -60,11 +62,27 @@ async function getHomestayData(slug: string) {
     .in("status", ["pending", "confirmed", "verified"]);
   const bookedRanges = (bookingRows as { room_id: string | null; check_in: string; check_out: string }[]) || [];
 
+  // Fetch reviews
+  const { data: reviewRows } = await supabase
+    .from("reviews")
+    .select("*")
+    .eq("homestay_id", homestay.id)
+    .order("created_at", { ascending: false });
+  const reviews = (reviewRows as unknown as Review[]) || [];
+  const reviewCount = reviews.length;
+  const averageRating =
+    reviewCount > 0
+      ? Math.round((reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount) * 10) / 10
+      : 0;
+
   return {
     homestay: { ...homestay, host: host! } as Homestay & { host: Host },
     rooms,
     blockedDates,
     bookedRanges,
+    reviews,
+    averageRating,
+    reviewCount,
   };
 }
 
@@ -96,11 +114,11 @@ export default async function HomestayPage({ params }: PageProps) {
     notFound();
   }
 
-  const { homestay, rooms, blockedDates, bookedRanges } = data;
+  const { homestay, rooms, blockedDates, bookedRanges, reviews, averageRating, reviewCount } = data;
 
   return (
     <div className="min-h-screen bg-white">
-      <BookingHeader homestayName={homestay.name} themeColor={homestay.theme_color} logoUrl={homestay.logo_url} />
+      <BookingHeader homestayName={homestay.name} themeColor={homestay.theme_color} logoUrl={homestay.logo_url} homestayId={homestay.id} />
 
       <main>
         <HeroSection
@@ -123,7 +141,7 @@ export default async function HomestayPage({ params }: PageProps) {
         <RoomsSection rooms={rooms} themeColor={homestay.theme_color} />
 
         {/* Map Section */}
-        {homestay.map_embed_url && (
+        {/* {homestay.map_embed_url && (
           <section className="bg-gray-50/60 py-10">
             <div className="mx-auto max-w-7xl px-4 sm:px-6">
               <div className="flex items-center gap-2">
@@ -150,7 +168,7 @@ export default async function HomestayPage({ params }: PageProps) {
               </div>
             </div>
           </section>
-        )}
+        )} */}
 
         {/* Booking Form */}
         <section className="py-10">
@@ -162,10 +180,21 @@ export default async function HomestayPage({ params }: PageProps) {
               bookedRanges={bookedRanges}
               host={homestay.host}
               embedded
+              reviews={reviews}
+              averageRating={averageRating}
+              reviewCount={reviewCount}
             />
           </div>
         </section>
       </main>
+
+      <BookingFooter
+        homestayName={homestay.name}
+        themeColor={homestay.theme_color}
+        logoUrl={homestay.logo_url}
+        location={homestay.location}
+        hostName={homestay.host.name}
+      />
 
       <ChatWidget
         homestayId={homestay.id}

@@ -17,10 +17,11 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, Users, CreditCard, Upload, CheckCircle2, Loader2, Camera, ImageIcon, X, Smartphone, ArrowRight, Clock, AlertTriangle } from "lucide-react";
+import { CalendarDays, Users, CreditCard, Upload, CheckCircle2, Loader2, Camera, ImageIcon, X, Smartphone, ArrowRight, Clock, AlertTriangle, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
-import type { Homestay, Room, BlockedDate, Host } from "@/types/database";
+import type { Homestay, Room, BlockedDate, Host, Review } from "@/types/database";
+import { ReviewsSection } from "@/components/booking/reviews-section";
 import { THAI_PROVINCES } from "@/lib/provinces";
 import generatePayload from "promptpay-qr";
 import { QRCodeSVG } from "qrcode.react";
@@ -46,6 +47,9 @@ interface BookingSectionProps {
   bookedRanges?: BookedRange[];
   host: Host;
   embedded?: boolean;
+  reviews?: Review[];
+  averageRating?: number;
+  reviewCount?: number;
 }
 
 type BookingStep = "dates" | "details" | "payment" | "confirmed";
@@ -57,6 +61,9 @@ export function BookingSection({
   bookedRanges = [],
   host,
   embedded = false,
+  reviews = [],
+  averageRating = 0,
+  reviewCount = 0,
 }: BookingSectionProps) {
   const t = useTranslations("booking");
   const tc = useTranslations("common");
@@ -87,6 +94,7 @@ export function BookingSection({
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const qrContainerRef = useRef<HTMLDivElement>(null);
 
   const handleSlipSelect = (file: File | null) => {
     if (slipPreview) URL.revokeObjectURL(slipPreview);
@@ -237,6 +245,30 @@ export function BookingSection({
     if (!selectedRoom || nights <= 0) return 0;
     return selectedRoom.price_per_night * nights;
   }, [selectedRoom, nights]);
+
+  const handleSaveQr = useCallback(() => {
+    const container = qrContainerRef.current;
+    if (!container) return;
+    const svgEl = container.querySelector('svg');
+    if (!svgEl) return;
+    const svgData = new XMLSerializer().serializeToString(svgEl);
+    const canvas = document.createElement('canvas');
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    const img = new Image();
+    img.onload = () => {
+      canvas.width = img.width * 2;
+      canvas.height = img.height * 2;
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const link = document.createElement('a');
+      link.download = `promptpay-${totalPrice}.png`;
+      link.href = canvas.toDataURL('image/png');
+      link.click();
+    };
+    img.src = 'data:image/svg+xml;base64,' + btoa(unescape(encodeURIComponent(svgData)));
+  }, [totalPrice]);
 
   const isDateRangeValid = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to) return false;
@@ -512,66 +544,79 @@ export function BookingSection({
   const steps: BookingStep[] = ["dates", "details", "payment", "confirmed"];
   const currentStepIndex = steps.indexOf(step);
 
-  const content = (
-    <>
-        <div className="flex items-center gap-2.5">
-          <div
-            className="flex h-9 w-9 items-center justify-center rounded-xl"
-            style={{ backgroundColor: themeColor + '15' }}
-          >
-            <CalendarDays className="h-4.5 w-4.5" style={{ color: themeColor }} />
-          </div>
-          <div>
-            <h2 className="text-xl font-semibold text-gray-900">{t("title")}</h2>
-            <p className="text-sm text-gray-500">{t("subtitle")}</p>
-          </div>
-        </div>
-
-        {/* Step Indicators — visual stepper */}
-        <div className="mt-6 flex items-center justify-between">
-          {steps.map((s, i) => {
-            const isActive = step === s;
-            const isCompleted = currentStepIndex > i;
-            return (
-              <div key={s} className="flex flex-1 items-center">
-                <div className="flex flex-col items-center gap-1">
-                  <div
-                    className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-colors"
-                    style={{
-                      backgroundColor: isActive ? themeColor : isCompleted ? themeColor : '#f3f4f6',
-                      color: isActive || isCompleted ? '#fff' : '#9ca3af',
-                    }}
-                  >
-                    {isCompleted ? (
-                      <CheckCircle2 className="h-4 w-4" />
-                    ) : (
-                      i + 1
-                    )}
-                  </div>
-                  <span
-                    className="text-[11px] font-medium whitespace-nowrap"
-                    style={{ color: isActive ? themeColor : isCompleted ? themeColor : '#9ca3af' }}
-                  >
-                    {t(`step${s.charAt(0).toUpperCase() + s.slice(1)}`)}
-                  </span>
-                </div>
-                {i < steps.length - 1 && (
-                  <div
-                    className="mx-1 h-px flex-1 self-start mt-4"
-                    style={{ backgroundColor: currentStepIndex > i ? themeColor : '#e5e7eb' }}
-                  />
+  const stepIndicator = (
+    <div className="flex items-center justify-between">
+      {steps.map((s, i) => {
+        const isActive = step === s;
+        const isCompleted = currentStepIndex > i;
+        return (
+          <div key={s} className={`flex items-center ${i < steps.length - 1 ? 'flex-1' : ''}`}>
+            <div className="flex flex-col items-center gap-1">
+              <div
+                className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-colors"
+                style={{
+                  backgroundColor: isActive ? themeColor : isCompleted ? themeColor : '#f3f4f6',
+                  color: isActive || isCompleted ? '#fff' : '#9ca3af',
+                }}
+              >
+                {isCompleted ? (
+                  <CheckCircle2 className="h-4 w-4" />
+                ) : (
+                  i + 1
                 )}
               </div>
-            );
-          })}
-        </div>
+              <span
+                className="text-[11px] font-medium whitespace-nowrap"
+                style={{ color: isActive ? themeColor : isCompleted ? themeColor : '#9ca3af' }}
+              >
+                {t(`step${s.charAt(0).toUpperCase() + s.slice(1)}`)}
+              </span>
+            </div>
+            {i < steps.length - 1 && (
+              <div
+                className="mx-1 h-px flex-1 self-start mt-4"
+                style={{ backgroundColor: currentStepIndex > i ? themeColor : '#e5e7eb' }}
+              />
+            )}
+          </div>
+        );
+      })}
+    </div>
+  );
 
-        <div className="mt-6">
+  const content = (
+    <>
+        <div>
           {/* Step 1: Room & Date Selection */}
           {step === "dates" && (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
-              {/* Left: Room & Guests first */}
-              <div className="space-y-4">
+            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.2fr]">
+              {/* Left: Reviews */}
+              <div className="order-2 lg:order-1">
+                <ReviewsSection
+                  reviews={reviews}
+                  averageRating={averageRating}
+                  totalCount={reviewCount}
+                  themeColor={themeColor}
+                />
+              </div>
+
+              {/* Right: Booking form stacked vertically */}
+              <div className="order-1 lg:order-2 space-y-4">
+                {/* Booking header & stepper */}
+                <div className="flex items-center gap-2.5">
+                  <div
+                    className="flex h-9 w-9 items-center justify-center rounded-xl"
+                    style={{ backgroundColor: themeColor + '15' }}
+                  >
+                    <CalendarDays className="h-4.5 w-4.5" style={{ color: themeColor }} />
+                  </div>
+                  <div>
+                    <h2 className="text-xl font-semibold text-gray-900">{t("title")}</h2>
+                    <p className="text-sm text-gray-500">{t("subtitle")}</p>
+                  </div>
+                </div>
+                {stepIndicator}
+                {/* Room & Guests */}
                 <Card className="shadow-sm">
                   <CardHeader>
                     <CardTitle className="text-base">{t("selectRoom")}</CardTitle>
@@ -617,78 +662,77 @@ export function BookingSection({
                   </CardContent>
                 </Card>
 
-                {/* Price Summary */}
-                {totalPrice > 0 && (
-                  <Card style={{ borderColor: themeColor + '40', backgroundColor: themeColor + '0d' }}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">
-                          ฿{selectedRoom?.price_per_night.toLocaleString()} × {nights} {nights > 1 ? tc("nights") : tc("night")}
-                        </span>
-                        <span className="text-lg font-bold" style={{ color: themeColor }}>
-                          ฿{totalPrice.toLocaleString()}
-                        </span>
+                {/* Calendar */}
+                <Card className="shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="flex items-center gap-2 text-base">
+                      <CalendarDays className="h-5 w-5" style={{ color: themeColor }} />
+                      {t("selectDates")}
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent>
+                    {mounted ? (
+                      <Calendar
+                        mode="range"
+                        selected={dateRange}
+                        onSelect={handleDateSelect}
+                        disabled={[{ before: new Date() }, ...disabledDays]}
+                        numberOfMonths={2}
+                        className={`rounded-md border w-full ${!selectedRoomId ? "pointer-events-none opacity-50" : ""}`}
+                      />
+                    ) : (
+                      <div className="flex h-[300px] items-center justify-center rounded-md border">
+                        <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
                       </div>
-                    </CardContent>
-                  </Card>
-                )}
+                    )}
+                    {dateRange?.from && dateRange?.to && (
+                      <div className="mt-3 text-sm text-gray-600">
+                        <span className="font-medium">
+                          {format(dateRange.from, "MMM d")} —{" "}
+                          {format(dateRange.to, "MMM d, yyyy")}
+                        </span>
+                        <span className="text-gray-400"> · {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
 
-                <Button
-                  className="w-full hover:brightness-90"
-                  size="lg"
-                  style={{ backgroundColor: themeColor }}
-                  onClick={handleProceedToDetails}
-                  disabled={!dateRange?.from || !dateRange?.to || !selectedRoomId}
-                >
-                  {t("continueDetails")}
-                </Button>
+                {/* Price Summary & Continue */}
+                <div className="space-y-3">
+                  {totalPrice > 0 && (
+                    <Card style={{ borderColor: themeColor + '40', backgroundColor: themeColor + '0d' }}>
+                      <CardContent className="p-4">
+                        <div className="flex items-center justify-between text-sm">
+                          <span className="text-gray-600">
+                            ฿{selectedRoom?.price_per_night.toLocaleString()} × {nights} {nights > 1 ? tc("nights") : tc("night")}
+                          </span>
+                          <span className="text-lg font-bold" style={{ color: themeColor }}>
+                            ฿{totalPrice.toLocaleString()}
+                          </span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  )}
+
+                  <Button
+                    className="w-full hover:brightness-90"
+                    size="lg"
+                    style={{ backgroundColor: themeColor }}
+                    onClick={handleProceedToDetails}
+                    disabled={!dateRange?.from || !dateRange?.to || !selectedRoomId}
+                  >
+                    {t("continueDetails")}
+                  </Button>
+                </div>
               </div>
-
-              {/* Right: Calendar */}
-              <Card className="shadow-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <CalendarDays className="h-5 w-5" style={{ color: themeColor }} />
-                    {t("selectDates")}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {!selectedRoomId && (
-                    <div className="mb-3 rounded-lg px-3 py-2 text-sm text-gray-500 bg-gray-50 border border-dashed border-gray-200 text-center">
-                      {t("selectRoomFirst")}
-                    </div>
-                  )}
-                  {mounted ? (
-                    <Calendar
-                      mode="range"
-                      selected={dateRange}
-                      onSelect={handleDateSelect}
-                      disabled={[{ before: new Date() }, ...disabledDays]}
-                      numberOfMonths={1}
-                      className={`rounded-md border ${!selectedRoomId ? "pointer-events-none opacity-50" : ""}`}
-                    />
-                  ) : (
-                    <div className="flex h-[300px] items-center justify-center rounded-md border">
-                      <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-                    </div>
-                  )}
-                  {dateRange?.from && dateRange?.to && (
-                    <div className="mt-3 text-sm text-gray-600">
-                      <span className="font-medium">
-                        {format(dateRange.from, "MMM d")} —{" "}
-                        {format(dateRange.to, "MMM d, yyyy")}
-                      </span>
-                      <span className="text-gray-400"> · {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
             </div>
           )}
 
           {/* Step 2: Guest Details */}
           {step === "details" && (
-            <Card className="mx-auto max-w-lg shadow-sm overflow-hidden">
+            <div className="mx-auto max-w-lg space-y-4">
+            {stepIndicator}
+            <Card className="shadow-sm overflow-hidden">
               <div className="h-1 w-full" style={{ backgroundColor: themeColor }} />
               <CardHeader>
                 <CardTitle className="flex items-center gap-2 text-base">
@@ -789,11 +833,14 @@ export function BookingSection({
                 </div>
               </CardContent>
             </Card>
+            </div>
           )}
 
           {/* Step 3: Payment */}
           {step === "payment" && (
-            <Card className="mx-auto max-w-lg shadow-sm overflow-hidden">
+            <div className="mx-auto max-w-lg space-y-4">
+            {stepIndicator}
+            <Card className="shadow-sm overflow-hidden">
               <div className="h-1 w-full" style={{ backgroundColor: themeColor }} />
               <CardHeader>
                 <div className="flex items-center justify-between">
@@ -840,13 +887,22 @@ export function BookingSection({
                       <p className="text-sm text-gray-500">
                         {t("scanQr")}
                       </p>
-                      <div className="mx-auto mt-4 flex h-52 w-52 items-center justify-center rounded-lg border bg-white p-3">
+                      <div ref={qrContainerRef} className="mx-auto mt-4 flex h-52 w-52 items-center justify-center rounded-lg border bg-white p-3">
                         <QRCodeSVG
                           value={generatePayload(host.promptpay_id, { amount: totalPrice })}
                           size={180}
                           level="M"
                         />
                       </div>
+                      <button
+                        type="button"
+                        onClick={handleSaveQr}
+                        className="mx-auto mt-3 flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium transition-colors hover:opacity-80"
+                        style={{ backgroundColor: themeColor + '15', color: themeColor }}
+                      >
+                        <Download className="h-3.5 w-3.5" />
+                        {t("saveQrImage")}
+                      </button>
                       <p className="mt-3 text-2xl font-bold" style={{ color: themeColor }}>
                         ฿{totalPrice.toLocaleString()}
                       </p>
@@ -1066,11 +1122,14 @@ export function BookingSection({
 
               </CardContent>
             </Card>
+            </div>
           )}
 
           {/* Step 4: Confirmation */}
           {step === "confirmed" && (
-            <Card className="mx-auto max-w-lg shadow-sm overflow-hidden" style={{ borderColor: themeColor + '40' }}>
+            <div className="mx-auto max-w-lg space-y-4">
+            {stepIndicator}
+            <Card className="shadow-sm overflow-hidden" style={{ borderColor: themeColor + '40' }}>
               <div className="h-1 w-full" style={{ backgroundColor: themeColor }} />
               <CardContent className="p-8 text-center">
                 <CheckCircle2 className="mx-auto h-16 w-16" style={{ color: slipVerified ? themeColor : '#f59e0b' }} />
@@ -1122,6 +1181,7 @@ export function BookingSection({
                 </Button>
               </CardContent>
             </Card>
+            </div>
           )}
         </div>
 
