@@ -228,6 +228,35 @@ export interface Database {
           reason?: string | null;
         };
       };
+      booking_holds: {
+        Row: {
+          id: string;
+          room_id: string;
+          check_in: string;
+          check_out: string;
+          session_id: string;
+          expires_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          room_id: string;
+          check_in: string;
+          check_out: string;
+          session_id: string;
+          expires_at: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          room_id?: string;
+          check_in?: string;
+          check_out?: string;
+          session_id?: string;
+          expires_at?: string;
+          created_at?: string;
+        };
+      };
     };
   };
 }
@@ -237,3 +266,4 @@ export type Homestay = Database["public"]["Tables"]["homestays"]["Row"];
 export type Room = Database["public"]["Tables"]["rooms"]["Row"];
 export type Booking = Database["public"]["Tables"]["bookings"]["Row"];
 export type BlockedDate = Database["public"]["Tables"]["blocked_dates"]["Row"];
+export type BookingHold = Database["public"]["Tables"]["booking_holds"]["Row"];

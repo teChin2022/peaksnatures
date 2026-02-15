@@ -111,7 +111,12 @@
     "errorDuplicateSlip": "This payment slip has already been used. Please upload a different slip.",
     "errorDatesUnavailable": "These dates are no longer available. Please select different dates.",
     "errorGeneric": "Something went wrong. Please try again.",
-    "successSubmitted": "Booking submitted! Your payment slip is being verified."
+    "successSubmitted": "Booking submitted! Your payment slip is being verified.",
+    "holdExpired": "Your reservation hold has expired. Please select your dates again.",
+    "holdTimer": "Complete payment within",
+    "datesHeldTitle": "Dates Currently Being Booked",
+    "datesHeldDesc": "Another guest is currently completing a booking for this room on your selected dates. Please choose different dates or try again shortly.",
+    "chooseDifferentDates": "Choose Different Dates"
   },
   "chat": {
     "title": "Booking Assistant",

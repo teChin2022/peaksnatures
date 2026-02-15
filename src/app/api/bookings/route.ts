@@ -20,6 +20,8 @@ const bookingSchema = z.object({
   slip_trans_ref: z.string().nullable().optional(),
   payment_slip_url: z.string().nullable().optional(),
   easyslip_response: z.unknown().optional(),
+  // Session ID for hold cleanup
+  session_id: z.string().optional(),
 });
 
 async function sendNotifications(bookingId: string, supabase: ReturnType<typeof createServiceRoleClient>) {
@@ -91,56 +93,78 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
-    // Server-side overlap validation
+    // Atomic booking creation: checks overlap + blocked dates + inserts in one transaction
     if (data.room_id) {
-      // Fetch room quantity
-      const { data: roomRow } = await supabase
-        .from("rooms")
-        .select("quantity")
-        .eq("id", data.room_id)
-        .single();
-      const roomQuantity = (roomRow as { quantity: number } | null)?.quantity || 1;
+      const { data: bookingId, error: rpcError } = await supabase.rpc(
+        "create_booking_atomic" as never,
+        {
+          p_homestay_id: data.homestay_id,
+          p_room_id: data.room_id,
+          p_guest_name: data.guest_name,
+          p_guest_email: data.guest_email,
+          p_guest_phone: data.guest_phone,
+          p_guest_province: data.guest_province || null,
+          p_check_in: data.check_in,
+          p_check_out: data.check_out,
+          p_num_guests: data.num_guests,
+          p_total_price: data.total_price,
+          p_status: "confirmed",
+          p_easyslip_verified: true,
+          p_payment_slip_hash: data.slip_hash,
+          p_slip_trans_ref: data.slip_trans_ref || null,
+          p_payment_slip_url: data.payment_slip_url || null,
+          p_easyslip_response: data.easyslip_response || null,
+          p_session_id: data.session_id || null,
+        } as never
+      );
 
-      // Check overlapping active bookings for this room
-      // Overlap: new_check_in < existing_check_out AND new_check_out > existing_check_in
-      const { data: overlapping } = await supabase
-        .from("bookings")
-        .select("id, check_in, check_out")
-        .eq("room_id", data.room_id)
-        .in("status", ["pending", "confirmed", "verified"])
-        .lt("check_in", data.check_out)
-        .gt("check_out", data.check_in);
+      if (rpcError) {
+        console.error("Atomic booking error:", rpcError);
 
-      const overlapCount = (overlapping as unknown[] | null)?.length || 0;
-      if (overlapCount >= roomQuantity) {
+        if (rpcError.message?.includes("DATES_UNAVAILABLE")) {
+          return NextResponse.json(
+            { error: "Selected dates are no longer available for this room" },
+            { status: 409 }
+          );
+        }
+        if (rpcError.message?.includes("DATES_BLOCKED")) {
+          return NextResponse.json(
+            { error: "Some selected dates are blocked by the host" },
+            { status: 409 }
+          );
+        }
+        if (rpcError.message?.includes("ROOM_NOT_FOUND")) {
+          return NextResponse.json(
+            { error: "Room not found" },
+            { status: 404 }
+          );
+        }
+
         return NextResponse.json(
-          { error: "Selected dates are no longer available for this room" },
-          { status: 409 }
+          { error: "Failed to create booking" },
+          { status: 500 }
         );
       }
+
+      // Fetch the created booking for the response
+      const { data: booking } = await supabase
+        .from("bookings")
+        .select("*")
+        .eq("id", bookingId as string)
+        .single();
+
+      // Send notifications (must await — serverless context terminates after response)
+      await sendNotifications(bookingId as string, supabase);
+
+      return NextResponse.json({ booking }, { status: 201 });
     }
 
-    // Also check blocked dates
-    const { data: blockedRows } = await supabase
-      .from("blocked_dates")
-      .select("date")
-      .eq("homestay_id", data.homestay_id)
-      .gte("date", data.check_in)
-      .lt("date", data.check_out);
-
-    if ((blockedRows as unknown[] | null)?.length) {
-      return NextResponse.json(
-        { error: "Some selected dates are blocked by the host" },
-        { status: 409 }
-      );
-    }
-
-    // Slip is already verified — create booking as confirmed
+    // Fallback for bookings without a room_id (shouldn't happen in normal flow)
     const { data: booking, error } = await supabase
       .from("bookings")
       .insert({
         homestay_id: data.homestay_id,
-        room_id: data.room_id || null,
+        room_id: null,
         guest_name: data.guest_name,
         guest_email: data.guest_email,
         guest_phone: data.guest_phone,

@@ -17,13 +17,21 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, Users, CreditCard, Upload, CheckCircle2, Loader2, Camera, ImageIcon, X, Smartphone, ArrowRight } from "lucide-react";
+import { CalendarDays, Users, CreditCard, Upload, CheckCircle2, Loader2, Camera, ImageIcon, X, Smartphone, ArrowRight, Clock, AlertTriangle } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
 import type { Homestay, Room, BlockedDate, Host } from "@/types/database";
 import { THAI_PROVINCES } from "@/lib/provinces";
 import generatePayload from "promptpay-qr";
 import { QRCodeSVG } from "qrcode.react";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
 
 interface BookedRange {
   room_id: string | null;
@@ -69,6 +77,11 @@ export function BookingSection({
   const [paymentPhase, setPaymentPhase] = useState<"qr" | "upload">("qr");
   const [showWelcomeBack, setShowWelcomeBack] = useState(false);
   const [uploadSessionId] = useState(() => crypto.randomUUID());
+  const [holdId, setHoldId] = useState<string | null>(null);
+  const [holdExpiresAt, setHoldExpiresAt] = useState<number | null>(null);
+  const [holdTimeLeft, setHoldTimeLeft] = useState<number>(0);
+  const [showHeldModal, setShowHeldModal] = useState(false);
+  const holdTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [phoneSlipReceived, setPhoneSlipReceived] = useState(false);
   const [phoneSlipUrl, setPhoneSlipUrl] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -264,12 +277,106 @@ export function BookingSection({
     setStep("details");
   };
 
-  const handleProceedToPayment = () => {
+  const handleProceedToPayment = async () => {
     if (!guestName || !guestEmail || !guestPhone) {
       toast.error(t("errorFillFields"));
       return;
     }
-    setStep("payment");
+    if (!dateRange?.from || !dateRange?.to || !selectedRoomId) return;
+
+    setIsSubmitting(true);
+    try {
+      const res = await fetch("/api/bookings/hold", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          room_id: selectedRoomId,
+          check_in: format(dateRange.from, "yyyy-MM-dd"),
+          check_out: format(dateRange.to, "yyyy-MM-dd"),
+          session_id: uploadSessionId,
+        }),
+      });
+
+      if (res.status === 409) {
+        setShowHeldModal(true);
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (!res.ok) {
+        toast.error(t("errorGeneric"));
+        setIsSubmitting(false);
+        return;
+      }
+
+      const data = await res.json();
+      setHoldId(data.hold_id);
+      const expiresMs = new Date(data.expires_at).getTime();
+      setHoldExpiresAt(expiresMs);
+      setHoldTimeLeft(Math.max(0, Math.floor((expiresMs - Date.now()) / 1000)));
+      setStep("payment");
+    } catch {
+      toast.error(t("errorGeneric"));
+    } finally {
+      setIsSubmitting(false);
+    }
+  };
+
+  const releaseHold = useCallback(() => {
+    if (holdId) {
+      fetch("/api/bookings/hold", {
+        method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ hold_id: holdId, session_id: uploadSessionId }),
+      }).catch(() => {});
+      setHoldId(null);
+      setHoldExpiresAt(null);
+      setHoldTimeLeft(0);
+    }
+    if (holdTimerRef.current) {
+      clearInterval(holdTimerRef.current);
+      holdTimerRef.current = null;
+    }
+  }, [holdId, uploadSessionId]);
+
+  // Hold countdown timer
+  useEffect(() => {
+    if (holdExpiresAt && step === "payment") {
+      holdTimerRef.current = setInterval(() => {
+        const remaining = Math.max(0, Math.floor((holdExpiresAt - Date.now()) / 1000));
+        setHoldTimeLeft(remaining);
+        if (remaining <= 0) {
+          if (holdTimerRef.current) clearInterval(holdTimerRef.current);
+          holdTimerRef.current = null;
+          toast.error(t("holdExpired"));
+          setHoldId(null);
+          setHoldExpiresAt(null);
+          setDateRange(undefined);
+          setStep("dates");
+          setPaymentPhase("qr");
+          handleRemoveSlip();
+        }
+      }, 1000);
+    }
+    return () => {
+      if (holdTimerRef.current) {
+        clearInterval(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
+    };
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [holdExpiresAt, step]);
+
+  const handleHeldModalClose = () => {
+    setShowHeldModal(false);
+    fetch(`/api/bookings/availability?homestay_id=${homestay.id}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.bookedRanges) setLiveBookedRanges(data.bookedRanges);
+      })
+      .catch(() => {});
+    setDateRange(undefined);
+    setStep("dates");
   };
 
   const [slipVerified, setSlipVerified] = useState(false);
@@ -342,6 +449,7 @@ export function BookingSection({
           slip_trans_ref: verifyData.slip_trans_ref || null,
           payment_slip_url: verifyData.payment_slip_url || null,
           easyslip_response: verifyData.easyslip_response || null,
+          session_id: uploadSessionId,
         }),
       });
 
@@ -365,6 +473,13 @@ export function BookingSection({
       const { booking } = await bookingRes.json();
       setBookingId(booking.id);
       setSlipVerified(true);
+      // Hold is cleaned up server-side by create_booking_atomic; clear local state
+      setHoldId(null);
+      setHoldExpiresAt(null);
+      if (holdTimerRef.current) {
+        clearInterval(holdTimerRef.current);
+        holdTimerRef.current = null;
+      }
 
       // 4. Upload slip to session storage (backup)
       const uploadForm = new FormData();
@@ -626,8 +741,16 @@ export function BookingSection({
                     className="flex-1 hover:brightness-90"
                     style={{ backgroundColor: themeColor }}
                     onClick={handleProceedToPayment}
+                    disabled={isSubmitting}
                   >
-                    {t("continuePayment")}
+                    {isSubmitting ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        {t("continuePayment")}
+                      </>
+                    ) : (
+                      t("continuePayment")
+                    )}
                   </Button>
                 </div>
               </CardContent>
@@ -638,10 +761,23 @@ export function BookingSection({
           {step === "payment" && (
             <Card className="mx-auto max-w-lg">
               <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <CreditCard className="h-5 w-5" />
-                  {t("paymentTitle")}
-                </CardTitle>
+                <div className="flex items-center justify-between">
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <CreditCard className="h-5 w-5" />
+                    {t("paymentTitle")}
+                  </CardTitle>
+                  {holdTimeLeft > 0 && (
+                    <div className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
+                      style={{
+                        backgroundColor: holdTimeLeft <= 60 ? '#fef2f2' : themeColor + '15',
+                        color: holdTimeLeft <= 60 ? '#dc2626' : themeColor,
+                      }}
+                    >
+                      <Clock className="h-3.5 w-3.5" />
+                      {Math.floor(holdTimeLeft / 60)}:{String(holdTimeLeft % 60).padStart(2, '0')}
+                    </div>
+                  )}
+                </div>
               </CardHeader>
               <CardContent className="space-y-4">
 
@@ -716,7 +852,7 @@ export function BookingSection({
                       <Button
                         variant="outline"
                         className="flex-1"
-                        onClick={() => { setStep("details"); setPaymentPhase("qr"); }}
+                        onClick={() => { releaseHold(); setStep("details"); setPaymentPhase("qr"); }}
                       >
                         {tc("back")}
                       </Button>
@@ -952,6 +1088,30 @@ export function BookingSection({
             </Card>
           )}
         </div>
+
+        {/* Dates Held Modal */}
+        <Dialog open={showHeldModal} onOpenChange={(open) => { if (!open) handleHeldModalClose(); }}>
+          <DialogContent showCloseButton={false}>
+            <DialogHeader>
+              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+                <AlertTriangle className="h-6 w-6 text-amber-600" />
+              </div>
+              <DialogTitle className="text-center">{t("datesHeldTitle")}</DialogTitle>
+              <DialogDescription className="text-center">
+                {t("datesHeldDesc")}
+              </DialogDescription>
+            </DialogHeader>
+            <DialogFooter>
+              <Button
+                className="w-full hover:brightness-90"
+                style={{ backgroundColor: themeColor }}
+                onClick={handleHeldModalClose}
+              >
+                {t("chooseDifferentDates")}
+              </Button>
+            </DialogFooter>
+          </DialogContent>
+        </Dialog>
     </>
   );
 
