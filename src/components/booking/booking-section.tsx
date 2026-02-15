@@ -298,7 +298,18 @@ export function BookingSection({
       });
 
       if (res.status === 409) {
-        setShowHeldModal(true);
+        const errorData = await res.json();
+        if (errorData.error === "DATES_UNAVAILABLE") {
+          toast.error(t("errorDatesUnavailable"));
+          fetch(`/api/bookings/availability?homestay_id=${homestay.id}`)
+            .then((r) => r.json())
+            .then((d) => { if (d.bookedRanges) setLiveBookedRanges(d.bookedRanges); })
+            .catch(() => {});
+          setDateRange(undefined);
+          setStep("dates");
+        } else {
+          setShowHeldModal(true);
+        }
         setIsSubmitting(false);
         return;
       }

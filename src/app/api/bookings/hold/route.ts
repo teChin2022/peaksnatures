@@ -38,6 +38,13 @@ export async function POST(req: NextRequest) {
     if (error) {
       console.error("Hold acquisition error:", error);
 
+      if (error.message?.includes("DATES_UNAVAILABLE")) {
+        return NextResponse.json(
+          { error: "DATES_UNAVAILABLE", message: "These dates are no longer available." },
+          { status: 409 }
+        );
+      }
+
       if (error.message?.includes("DATES_HELD")) {
         return NextResponse.json(
           { error: "DATES_HELD", message: "These dates are currently being booked by another guest." },

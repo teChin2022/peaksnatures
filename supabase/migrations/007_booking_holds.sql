@@ -57,7 +57,19 @@ BEGIN
   -- Delete expired holds for this room (opportunistic cleanup)
   DELETE FROM booking_holds WHERE room_id = p_room_id AND expires_at <= NOW();
 
-  -- Count active holds (from other sessions) + confirmed bookings that overlap
+  -- First check: confirmed bookings alone
+  SELECT COUNT(*) INTO v_active_count
+  FROM bookings
+  WHERE room_id = p_room_id
+    AND status IN ('pending', 'confirmed', 'verified')
+    AND check_in < p_check_out
+    AND check_out > p_check_in;
+
+  IF v_active_count >= v_room_qty THEN
+    RAISE EXCEPTION 'DATES_UNAVAILABLE';
+  END IF;
+
+  -- Second check: bookings + active holds from other sessions
   SELECT COUNT(*) INTO v_active_count FROM (
     SELECT id FROM booking_holds
     WHERE room_id = p_room_id
