@@ -1,6 +1,5 @@
 "use client";
 
-import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
@@ -16,23 +15,21 @@ import {
   ChevronLeft,
   ChevronRight,
   LogOut,
-  Menu,
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Separator } from "@/components/ui/separator";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
 const NAV_ITEMS = [
   { key: "overview", href: "/dashboard", icon: LayoutDashboard },
-  { key: "bookings", href: "/dashboard/bookings", icon: CalendarDays },
-  { key: "calendar", href: "/dashboard/calendar", icon: CalendarCheck },
-  { key: "profile", href: "/dashboard/profile", icon: User },
   { key: "homestay", href: "/dashboard/homestay", icon: Home },
   { key: "rooms", href: "/dashboard/rooms", icon: BedDouble },
+  { key: "bookings", href: "/dashboard/bookings", icon: CalendarDays },
+  { key: "calendar", href: "/dashboard/calendar", icon: CalendarCheck },
   { key: "theme", href: "/dashboard/theme", icon: Palette },
+  { key: "profile", href: "/dashboard/profile", icon: User }
 ] as const;
 
 interface SidebarProps {

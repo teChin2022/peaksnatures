@@ -72,7 +72,7 @@ export function BookingSection({
   const [step, setStep] = useState<BookingStep>("dates");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
-  const [numGuests, setNumGuests] = useState("1");
+  const [numGuests, setNumGuests] = useState("2");
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
@@ -336,7 +336,7 @@ export function BookingSection({
           fetch(`/api/bookings/availability?homestay_id=${homestay.id}`)
             .then((r) => r.json())
             .then((d) => { if (d.bookedRanges) setLiveBookedRanges(d.bookedRanges); })
-            .catch(() => {});
+            .catch(() => { });
           setDateRange(undefined);
           setStep("dates");
         } else {
@@ -371,7 +371,7 @@ export function BookingSection({
         method: "DELETE",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ hold_id: holdId, session_id: uploadSessionId }),
-      }).catch(() => {});
+      }).catch(() => { });
       setHoldId(null);
       setHoldExpiresAt(null);
       setHoldTimeLeft(0);
@@ -407,7 +407,7 @@ export function BookingSection({
         holdTimerRef.current = null;
       }
     };
-  // eslint-disable-next-line react-hooks/exhaustive-deps
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [holdExpiresAt, step]);
 
   const handleHeldModalClose = () => {
@@ -417,7 +417,7 @@ export function BookingSection({
       .then((data) => {
         if (data.bookedRanges) setLiveBookedRanges(data.bookedRanges);
       })
-      .catch(() => {});
+      .catch(() => { });
     setDateRange(undefined);
     setStep("dates");
   };
@@ -504,7 +504,7 @@ export function BookingSection({
             .then((data) => {
               if (data.bookedRanges) setLiveBookedRanges(data.bookedRanges);
             })
-            .catch(() => {});
+            .catch(() => { });
           setDateRange(undefined);
           setStep("dates");
           setIsSubmitting(false);
@@ -530,7 +530,7 @@ export function BookingSection({
       fetch(`/api/slip-upload/${uploadSessionId}`, {
         method: "POST",
         body: uploadForm,
-      }).catch(() => {});
+      }).catch(() => { });
 
       setStep("confirmed");
       toast.success(t("successSubmitted"));
@@ -586,152 +586,150 @@ export function BookingSection({
 
   const content = (
     <>
-        <div>
+      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.2fr]">
+        {/* Left: Reviews (always visible) */}
+        <div className="order-2 lg:order-1">
+          <ReviewsSection
+            reviews={reviews}
+            averageRating={averageRating}
+            totalCount={reviewCount}
+            themeColor={themeColor}
+          />
+        </div>
+
+        {/* Right: Booking form */}
+        <div className="order-1 lg:order-2 space-y-4">
+          {/* Booking header & stepper */}
+          <div className="flex items-center gap-2.5">
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-xl"
+              style={{ backgroundColor: themeColor + '15' }}
+            >
+              <CalendarDays className="h-4.5 w-4.5" style={{ color: themeColor }} />
+            </div>
+            <div>
+              <h2 className="text-xl font-semibold text-gray-900">{t("title")}</h2>
+              <p className="text-sm text-gray-500">{t("subtitle")}</p>
+            </div>
+          </div>
+          {stepIndicator}
+
           {/* Step 1: Room & Date Selection */}
           {step === "dates" && (
-            <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.2fr]">
-              {/* Left: Reviews */}
-              <div className="order-2 lg:order-1">
-                <ReviewsSection
-                  reviews={reviews}
-                  averageRating={averageRating}
-                  totalCount={reviewCount}
-                  themeColor={themeColor}
-                />
-              </div>
+            <div className="space-y-4">
+              {/* Room & Guests */}
+              <Card className="shadow-sm">
+                <CardHeader>
+                  <CardTitle className="text-base">{t("selectRoom")}</CardTitle>
+                </CardHeader>
+                <CardContent className="space-y-3">
+                  <Select value={selectedRoomId} onValueChange={handleRoomChange}>
+                    <SelectTrigger className="w-full">
+                      <SelectValue placeholder={t("choosePlaceholder")} />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {rooms.map((room) => (
+                        <SelectItem key={room.id} value={room.id}>
+                          {room.name} — ฿{room.price_per_night.toLocaleString()}/night
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
 
-              {/* Right: Booking form stacked vertically */}
-              <div className="order-1 lg:order-2 space-y-4">
-                {/* Booking header & stepper */}
-                <div className="flex items-center gap-2.5">
-                  <div
-                    className="flex h-9 w-9 items-center justify-center rounded-xl"
-                    style={{ backgroundColor: themeColor + '15' }}
-                  >
-                    <CalendarDays className="h-4.5 w-4.5" style={{ color: themeColor }} />
-                  </div>
-                  <div>
-                    <h2 className="text-xl font-semibold text-gray-900">{t("title")}</h2>
-                    <p className="text-sm text-gray-500">{t("subtitle")}</p>
-                  </div>
-                </div>
-                {stepIndicator}
-                {/* Room & Guests */}
-                <Card className="shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="text-base">{t("selectRoom")}</CardTitle>
-                  </CardHeader>
-                  <CardContent className="space-y-3">
-                    <Select value={selectedRoomId} onValueChange={handleRoomChange}>
-                      <SelectTrigger>
-                        <SelectValue placeholder={t("choosePlaceholder")} />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {rooms.map((room) => (
-                          <SelectItem key={room.id} value={room.id}>
-                            {room.name} — ฿{room.price_per_night.toLocaleString()}/night
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
-
-                    {selectedRoom && (
-                      <p className="text-sm text-gray-500">
-                        {selectedRoom.description} · {tc("guests", { count: selectedRoom.max_guests })}
-                      </p>
-                    )}
-
-                    <div>
-                      <Label>{t("numGuests")}</Label>
-                      <Select value={numGuests} onValueChange={setNumGuests}>
-                        <SelectTrigger className="mt-1">
-                          <SelectValue />
-                        </SelectTrigger>
-                        <SelectContent>
-                          {Array.from(
-                            { length: selectedRoom?.max_guests || homestay.max_guests },
-                            (_, i) => (
-                              <SelectItem key={i + 1} value={String(i + 1)}>
-                                {i + 1} {tc("guests")}
-                              </SelectItem>
-                            )
-                          )}
-                        </SelectContent>
-                      </Select>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                {/* Calendar */}
-                <Card className="shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="flex items-center gap-2 text-base">
-                      <CalendarDays className="h-5 w-5" style={{ color: themeColor }} />
-                      {t("selectDates")}
-                    </CardTitle>
-                  </CardHeader>
-                  <CardContent>
-                    {mounted ? (
-                      <Calendar
-                        mode="range"
-                        selected={dateRange}
-                        onSelect={handleDateSelect}
-                        disabled={[{ before: new Date() }, ...disabledDays]}
-                        numberOfMonths={2}
-                        className={`rounded-md border w-full ${!selectedRoomId ? "pointer-events-none opacity-50" : ""}`}
-                      />
-                    ) : (
-                      <div className="flex h-[300px] items-center justify-center rounded-md border">
-                        <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-                      </div>
-                    )}
-                    {dateRange?.from && dateRange?.to && (
-                      <div className="mt-3 text-sm text-gray-600">
-                        <span className="font-medium">
-                          {format(dateRange.from, "MMM d")} —{" "}
-                          {format(dateRange.to, "MMM d, yyyy")}
-                        </span>
-                        <span className="text-gray-400"> · {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                {/* Price Summary & Continue */}
-                <div className="space-y-3">
-                  {totalPrice > 0 && (
-                    <Card style={{ borderColor: themeColor + '40', backgroundColor: themeColor + '0d' }}>
-                      <CardContent className="p-4">
-                        <div className="flex items-center justify-between text-sm">
-                          <span className="text-gray-600">
-                            ฿{selectedRoom?.price_per_night.toLocaleString()} × {nights} {nights > 1 ? tc("nights") : tc("night")}
-                          </span>
-                          <span className="text-lg font-bold" style={{ color: themeColor }}>
-                            ฿{totalPrice.toLocaleString()}
-                          </span>
-                        </div>
-                      </CardContent>
-                    </Card>
+                  {selectedRoom && (
+                    <p className="text-sm text-gray-500">
+                      {selectedRoom.description} · {tc("guests", { count: selectedRoom.max_guests })}
+                    </p>
                   )}
 
-                  <Button
-                    className="w-full hover:brightness-90"
-                    size="lg"
-                    style={{ backgroundColor: themeColor }}
-                    onClick={handleProceedToDetails}
-                    disabled={!dateRange?.from || !dateRange?.to || !selectedRoomId}
-                  >
-                    {t("continueDetails")}
-                  </Button>
-                </div>
+                  <div>
+                    <Label>{t("numGuests")}</Label>
+                    <Select value={numGuests} onValueChange={setNumGuests}>
+                      <SelectTrigger className="mt-1 w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from(
+                          { length: selectedRoom?.max_guests || homestay.max_guests },
+                          (_, i) => (
+                            <SelectItem key={i + 1} value={String(i + 1)}>
+                              {i + 1} {tc("guests")}
+                            </SelectItem>
+                          )
+                        )}
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </CardContent>
+              </Card>
+
+              {/* Calendar */}
+              <Card className="shadow-sm">
+                <CardHeader>
+                  <CardTitle className="flex items-center gap-2 text-base">
+                    <CalendarDays className="h-5 w-5" style={{ color: themeColor }} />
+                    {t("selectDates")}
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  {mounted ? (
+                    <Calendar
+                      mode="range"
+                      selected={dateRange}
+                      onSelect={handleDateSelect}
+                      disabled={[{ before: new Date() }, ...disabledDays]}
+                      numberOfMonths={2}
+                      className={`rounded-md border w-full ${!selectedRoomId ? "pointer-events-none opacity-50" : ""}`}
+                    />
+                  ) : (
+                    <div className="flex h-[300px] items-center justify-center rounded-md border">
+                      <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                    </div>
+                  )}
+                  {dateRange?.from && dateRange?.to && (
+                    <div className="mt-3 text-sm text-gray-600">
+                      <span className="font-medium">
+                        {format(dateRange.from, "MMM d")} —{" "}
+                        {format(dateRange.to, "MMM d, yyyy")}
+                      </span>
+                      <span className="text-gray-400"> · {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+
+              {/* Price Summary & Continue */}
+              <div className="space-y-3">
+                {totalPrice > 0 && (
+                  <Card style={{ borderColor: themeColor + '40', backgroundColor: themeColor + '0d' }}>
+                    <CardContent className="p-4">
+                      <div className="flex items-center justify-between text-sm">
+                        <span className="text-gray-600">
+                          ฿{selectedRoom?.price_per_night.toLocaleString()} × {nights} {nights > 1 ? tc("nights") : tc("night")}
+                        </span>
+                        <span className="text-lg font-bold" style={{ color: themeColor }}>
+                          ฿{totalPrice.toLocaleString()}
+                        </span>
+                      </div>
+                    </CardContent>
+                  </Card>
+                )}
+
+                <Button
+                  className="w-full hover:brightness-90"
+                  size="lg"
+                  style={{ backgroundColor: themeColor }}
+                  onClick={handleProceedToDetails}
+                  disabled={!dateRange?.from || !dateRange?.to || !selectedRoomId}
+                >
+                  {t("continueDetails")}
+                </Button>
               </div>
             </div>
           )}
 
           {/* Step 2: Guest Details */}
           {step === "details" && (
-            <div className="mx-auto max-w-lg space-y-4">
-            {stepIndicator}
             <Card className="shadow-sm overflow-hidden">
               <div className="h-1 w-full" style={{ backgroundColor: themeColor }} />
               <CardHeader>
@@ -775,7 +773,7 @@ export function BookingSection({
                 <div>
                   <Label>{t("province")}</Label>
                   <Select value={guestProvince} onValueChange={setGuestProvince}>
-                    <SelectTrigger className="mt-1">
+                    <SelectTrigger className="mt-1 w-full">
                       <SelectValue placeholder={t("provincePlaceholder")} />
                     </SelectTrigger>
                     <SelectContent className="max-h-60">
@@ -833,13 +831,10 @@ export function BookingSection({
                 </div>
               </CardContent>
             </Card>
-            </div>
           )}
 
           {/* Step 3: Payment */}
           {step === "payment" && (
-            <div className="mx-auto max-w-lg space-y-4">
-            {stepIndicator}
             <Card className="shadow-sm overflow-hidden">
               <div className="h-1 w-full" style={{ backgroundColor: themeColor }} />
               <CardHeader>
@@ -1122,13 +1117,10 @@ export function BookingSection({
 
               </CardContent>
             </Card>
-            </div>
           )}
 
           {/* Step 4: Confirmation */}
           {step === "confirmed" && (
-            <div className="mx-auto max-w-lg space-y-4">
-            {stepIndicator}
             <Card className="shadow-sm overflow-hidden" style={{ borderColor: themeColor + '40' }}>
               <div className="h-1 w-full" style={{ backgroundColor: themeColor }} />
               <CardContent className="p-8 text-center">
@@ -1181,33 +1173,33 @@ export function BookingSection({
                 </Button>
               </CardContent>
             </Card>
-            </div>
           )}
         </div>
+      </div>
 
-        {/* Dates Held Modal */}
-        <Dialog open={showHeldModal} onOpenChange={(open) => { if (!open) handleHeldModalClose(); }}>
-          <DialogContent showCloseButton={false}>
-            <DialogHeader>
-              <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
-                <AlertTriangle className="h-6 w-6 text-amber-600" />
-              </div>
-              <DialogTitle className="text-center">{t("datesHeldTitle")}</DialogTitle>
-              <DialogDescription className="text-center">
-                {t("datesHeldDesc")}
-              </DialogDescription>
-            </DialogHeader>
-            <DialogFooter>
-              <Button
-                className="w-full hover:brightness-90"
-                style={{ backgroundColor: themeColor }}
-                onClick={handleHeldModalClose}
-              >
-                {t("chooseDifferentDates")}
-              </Button>
-            </DialogFooter>
-          </DialogContent>
-        </Dialog>
+      {/* Dates Held Modal */}
+      <Dialog open={showHeldModal} onOpenChange={(open) => { if (!open) handleHeldModalClose(); }}>
+        <DialogContent showCloseButton={false}>
+          <DialogHeader>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+              <AlertTriangle className="h-6 w-6 text-amber-600" />
+            </div>
+            <DialogTitle className="text-center">{t("datesHeldTitle")}</DialogTitle>
+            <DialogDescription className="text-center">
+              {t("datesHeldDesc")}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              className="w-full hover:brightness-90"
+              style={{ backgroundColor: themeColor }}
+              onClick={handleHeldModalClose}
+            >
+              {t("chooseDifferentDates")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   );
 
