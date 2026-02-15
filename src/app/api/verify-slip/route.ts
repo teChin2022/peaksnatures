@@ -137,6 +137,22 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    // Validate slip date — reject slips older than 1 hour
+    const slipDate = new Date(easySlipData.data.date);
+    const now = new Date();
+    const slipAgeMs = now.getTime() - slipDate.getTime();
+    const MAX_SLIP_AGE_MS = 60 * 60 * 1000; // 1 hour
+
+    if (slipAgeMs > MAX_SLIP_AGE_MS || slipAgeMs < 0) {
+      return NextResponse.json({
+        verified: false,
+        message: "Payment slip is too old or has an invalid date. Please use a recent transfer slip (within 1 hour).",
+        slip_hash: slipHash,
+        payment_slip_url: paymentSlipUrl,
+        easyslip_response: easySlipData,
+      });
+    }
+
     // Check for duplicate transaction reference
     const transRef = easySlipData.data.transRef;
     if (transRef) {
