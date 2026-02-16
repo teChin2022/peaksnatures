@@ -137,7 +137,7 @@ export default function RegisterPage() {
                   <Input
                     id="name"
                     type="text"
-                    placeholder="Somchai Peaks"
+                    placeholder={t("fullNamePlaceholder")}
                     value={name}
                     onChange={(e) => setName(e.target.value)}
                     required
