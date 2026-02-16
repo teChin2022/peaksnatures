@@ -1,5 +1,6 @@
 import Link from "next/link";
-import { Mountain, ArrowLeft, CalendarDays } from "lucide-react";
+import { ArrowLeft, CalendarDays } from "lucide-react";
+import { getInitials } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { BookingSearchDialog } from "@/components/booking/booking-search-dialog";
 
@@ -29,7 +30,12 @@ export function BookingHeader({ homestayName, themeColor, logoUrl, homestayId }:
               className="h-8 w-8 rounded-full object-cover border shadow-sm shrink-0"
             />
           ) : (
-            <Mountain className="h-5 w-5 shrink-0" style={{ color: themeColor }} />
+            <div
+              className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm"
+              style={{ backgroundColor: themeColor }}
+            >
+              {getInitials(homestayName)}
+            </div>
           )}
           <span className="truncate text-sm font-semibold text-gray-900">
             {homestayName}

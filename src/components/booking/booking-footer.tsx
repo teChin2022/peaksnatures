@@ -1,4 +1,5 @@
-import { Mountain, MapPin } from "lucide-react";
+import { MapPin } from "lucide-react";
+import { getInitials } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 
 interface BookingFooterProps {
@@ -38,7 +39,12 @@ export function BookingFooter({
                 className="h-8 w-8 rounded-full object-cover border shadow-sm"
               />
             ) : (
-              <Mountain className="h-5 w-5" style={{ color: themeColor }} />
+              <div
+                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm"
+                style={{ backgroundColor: themeColor }}
+              >
+                {getInitials(homestayName)}
+              </div>
             )}
             <div>
               <span className="font-semibold text-gray-900">{homestayName}</span>
@@ -52,7 +58,7 @@ export function BookingFooter({
           {/* Right: Powered by */}
           <div className="flex flex-col items-center gap-1 sm:items-end">
             <div className="flex items-center gap-1.5 text-xs text-gray-400">
-              <Mountain className="h-3.5 w-3.5 text-green-600" />
+              <img src="/logo.png" alt="PeaksNature" className="h-4 w-4 rounded" />
               {t("poweredBy")} <span className="font-medium text-green-700">{tc("brand")}</span>
             </div>
             <p className="text-xs text-gray-400">{tc("copyright")}</p>

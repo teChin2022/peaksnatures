@@ -20,6 +20,10 @@ export const metadata: Metadata = {
   title: "PeaksNature — Homestay Booking",
   description:
     "Book unique nature homestays in Thailand. Mountain retreats, riverside escapes, and forest hideaways.",
+  icons: {
+    icon: "/favicon.ico",
+    apple: "/logo.png",
+  },
 };
 
 export default async function RootLayout({

@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
-  Mountain,
   LayoutDashboard,
   User,
   Home,
@@ -18,7 +17,7 @@ import {
   X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { cn } from "@/lib/utils";
+import { cn, getInitials } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
 
@@ -66,7 +65,12 @@ export function Sidebar({ collapsed, onToggle, brandName = "PeaksNature", brandL
           {brandLogo ? (
             <img src={brandLogo} alt={brandName} className="h-6 w-6 shrink-0 rounded object-cover" />
           ) : (
-            <Mountain className="h-5 w-5 shrink-0" style={{ color: themeColor }} />
+            <div
+              className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-bold text-white"
+              style={{ backgroundColor: themeColor }}
+            >
+              {getInitials(brandName)}
+            </div>
           )}
           {!collapsed && (
             <span className="whitespace-nowrap font-bold truncate" style={{ color: themeColor }}>
@@ -177,7 +181,12 @@ export function MobileSidebar({
             {brandLogo ? (
               <img src={brandLogo} alt={brandName} className="h-6 w-6 shrink-0 rounded object-cover" />
             ) : (
-              <Mountain className="h-5 w-5 shrink-0" style={{ color: themeColor }} />
+              <div
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-bold text-white"
+                style={{ backgroundColor: themeColor }}
+              >
+                {getInitials(brandName)}
+              </div>
             )}
             <span className="font-bold truncate" style={{ color: themeColor }}>{brandName}</span>
           </Link>
