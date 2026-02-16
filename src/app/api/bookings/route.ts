@@ -23,9 +23,10 @@ const bookingSchema = z.object({
   // Session ID for hold cleanup
   session_id: z.string().optional(),
   notes: z.string().optional(),
+  locale: z.string().optional(),
 });
 
-async function sendNotifications(bookingId: string, supabase: ReturnType<typeof createServiceRoleClient>) {
+async function sendNotifications(bookingId: string, supabase: ReturnType<typeof createServiceRoleClient>, locale: string = "th") {
   try {
     const { data: booking } = await supabase
       .from("bookings")
@@ -68,7 +69,7 @@ async function sendNotifications(bookingId: string, supabase: ReturnType<typeof 
       room: (room as unknown as Room) || undefined,
     };
 
-    const emailResult = await sendBookingConfirmationEmail(details);
+    const emailResult = await sendBookingConfirmationEmail(details, locale);
     console.log("[Notification] Email result:", emailResult);
 
     const lineResult = await sendHostLineNotification(details, "confirmed");
@@ -190,7 +191,7 @@ export async function POST(req: NextRequest) {
         .single();
 
       // Send notifications (must await — serverless context terminates after response)
-      await sendNotifications(bookingId as string, supabase);
+      await sendNotifications(bookingId as string, supabase, data.locale || "th");
 
       return NextResponse.json({ booking }, { status: 201 });
     }
@@ -229,7 +230,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Send notifications (must await — serverless context terminates after response)
-    await sendNotifications((booking as unknown as Booking).id, supabase);
+    await sendNotifications((booking as unknown as Booking).id, supabase, data.locale || "th");
 
     return NextResponse.json({ booking }, { status: 201 });
   } catch (error) {

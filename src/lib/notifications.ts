@@ -1,3 +1,5 @@
+import { format, parseISO } from "date-fns";
+import { th as thLocale, enUS as enLocale } from "date-fns/locale";
 import type { Booking, Homestay, Host, Room } from "@/types/database";
 
 interface BookingDetails {
@@ -7,10 +9,21 @@ interface BookingDetails {
   room?: Room;
 }
 
+function formatBookingDate(dateStr: string, locale: string): string {
+  const date = parseISO(dateStr);
+  if (locale === "th") {
+    const formatted = format(date, "d MMM yyyy", { locale: thLocale });
+    const ceYear = date.getFullYear();
+    const beYear = ceYear + 543;
+    return formatted.replace(String(ceYear), String(beYear));
+  }
+  return format(date, "MMM d, yyyy", { locale: enLocale });
+}
+
 // ============================================================
 // EMAIL NOTIFICATION (Resend)
 // ============================================================
-export async function sendBookingConfirmationEmail(details: BookingDetails) {
+export async function sendBookingConfirmationEmail(details: BookingDetails, locale: string = "th") {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || apiKey === "your_resend_api_key") {
     console.log("[Demo] Would send confirmation email to:", details.booking.guest_email);
@@ -23,30 +36,37 @@ export async function sendBookingConfirmationEmail(details: BookingDetails) {
 
     const { booking, homestay, room } = details;
 
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "PeaksNature <onboarding@resend.dev>";
+    const checkInFmt = formatBookingDate(booking.check_in, locale);
+    const checkOutFmt = formatBookingDate(booking.check_out, locale);
+    const isTh = locale === "th";
+
     const { data, error } = await resend.emails.send({
-      from: "PeaksNature <bookings@peaksnature.com>",
+      from: fromEmail,
       to: booking.guest_email,
-      subject: `Booking Confirmed — ${homestay.name}`,
+      subject: isTh
+        ? `ยืนยันการจอง — ${homestay.name}`
+        : `Booking Confirmed — ${homestay.name}`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: ${homestay.theme_color}; padding: 24px; border-radius: 12px 12px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">🎉 Booking Confirmed!</h1>
+            <h1 style="color: white; margin: 0; font-size: 24px;">🎉 ${isTh ? "ยืนยันการจองเรียบร้อย!" : "Booking Confirmed!"}</h1>
           </div>
           <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: 0; border-radius: 0 0 12px 12px;">
-            <p style="font-size: 16px; margin-top: 0;">Hi ${booking.guest_name},</p>
+            <p style="font-size: 16px; margin-top: 0;">${isTh ? `สวัสดีคุณ ${booking.guest_name}` : `Hi ${booking.guest_name}`},</p>
             <h2 style="margin-top: 0;">${homestay.name}</h2>
             <table style="width: 100%; border-collapse: collapse;">
-              <tr><td style="padding: 8px 0; color: #6b7280;">Booking ID</td><td style="padding: 8px 0; font-weight: bold;">${booking.id}</td></tr>
-              <tr><td style="padding: 8px 0; color: #6b7280;">Guest</td><td style="padding: 8px 0;">${booking.guest_name}</td></tr>
-              <tr><td style="padding: 8px 0; color: #6b7280;">Room</td><td style="padding: 8px 0;">${room?.name || "Standard"}</td></tr>
-              <tr><td style="padding: 8px 0; color: #6b7280;">Check-in</td><td style="padding: 8px 0;">${booking.check_in}</td></tr>
-              <tr><td style="padding: 8px 0; color: #6b7280;">Check-out</td><td style="padding: 8px 0;">${booking.check_out}</td></tr>
-              <tr><td style="padding: 8px 0; color: #6b7280;">Guests</td><td style="padding: 8px 0;">${booking.num_guests}</td></tr>
-              <tr><td style="padding: 8px 0; color: #6b7280;">Total</td><td style="padding: 8px 0; font-weight: bold; color: ${homestay.theme_color};">฿${booking.total_price.toLocaleString()}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "รหัสการจอง" : "Booking ID"}</td><td style="padding: 8px 0; font-weight: bold;">${booking.id}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "ผู้เข้าพัก" : "Guest"}</td><td style="padding: 8px 0;">${booking.guest_name}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "ห้องพัก" : "Room"}</td><td style="padding: 8px 0;">${room?.name || "Standard"}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "เช็คอิน" : "Check-in"}</td><td style="padding: 8px 0;">${checkInFmt}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "เช็คเอาท์" : "Check-out"}</td><td style="padding: 8px 0;">${checkOutFmt}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "จำนวนผู้เข้าพัก" : "Guests"}</td><td style="padding: 8px 0;">${booking.num_guests}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "ยอดรวม" : "Total"}</td><td style="padding: 8px 0; font-weight: bold; color: ${homestay.theme_color};">฿${booking.total_price.toLocaleString()}</td></tr>
             </table>
             <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 16px 0;" />
             <p style="color: #6b7280; font-size: 14px;">📍 ${homestay.location}</p>
-            <p style="color: #6b7280; font-size: 14px;">Your payment has been verified automatically. See you soon!</p>
+            <p style="color: #6b7280; font-size: 14px;">${isTh ? "การชำระเงินได้รับการยืนยันเรียบร้อยแล้ว แล้วพบกันนะคะ!" : "Your payment has been verified automatically. See you soon!"}</p>
             <p style="color: #9ca3af; font-size: 12px; margin-top: 24px;">PeaksNature — Nature Homestays in Thailand</p>
           </div>
         </div>
@@ -114,8 +134,8 @@ export async function sendHostLineNotification(
       ``,
       `📋 รายละเอียดการจอง`,
       `   🛏️ ห้อง: ${room?.name || "Standard"}`,
-      `   � เช็คอิน: ${booking.check_in}`,
-      `   📅 เช็คเอาท์: ${booking.check_out}`,
+      `   📅 เช็คอิน: ${formatBookingDate(booking.check_in, "th")}`,
+      `   📅 เช็คเอาท์: ${formatBookingDate(booking.check_out, "th")}`,
       `   🌙 จำนวน: ${nights} คืน`,
       `   👥 ผู้เข้าพัก: ${booking.num_guests} ท่าน`,
       ``,

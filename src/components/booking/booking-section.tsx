@@ -243,54 +243,42 @@ export function BookingSection({
     return fullyBookedEverywhere;
   }, [selectedRoomId, liveBookedRanges, rooms]);
 
-  const disabledDays = useMemo(() => {
-    const blocked = blockedDates.map((d) => parseISO(d.date));
-    const booked = Array.from(bookedDatesForRoom).map((d) => parseISO(d));
-    const allDisabled = [...blocked, ...booked];
+  // When selecting check-out, compute which booked date (if any) is allowed
+  // as a valid check-out and where to cap the selectable range.
+  const allowedCheckoutKey = useMemo<string | null>(() => {
+    if (!dateRange?.from) return null;
+    // react-day-picker v9 sets from===to on first click; treat as "selecting checkout"
+    if (dateRange?.to && dateRange.to.getTime() !== dateRange.from.getTime()) return null;
+    const fromTime = dateRange.from.getTime();
 
-    // When selecting check-out (from chosen, to not yet chosen), allow the
-    // first *booked* date after check-in as a valid check-out and cap the
-    // selectable range at that barrier so the range can't span across bookings.
-    if (dateRange?.from && !dateRange?.to) {
-      const fromTime = dateRange.from.getTime();
+    const firstBooked = Array.from(bookedDatesForRoom)
+      .map((d) => ({ key: d, time: parseISO(d).getTime() }))
+      .filter((d) => d.time > fromTime)
+      .sort((a, b) => a.time - b.time)[0];
 
-      // Earliest booked date after check-in
-      const firstBooked = booked
-        .filter((d) => d.getTime() > fromTime)
-        .sort((a, b) => a.getTime() - b.getTime())[0];
+    const firstBlockedTime = blockedDates
+      .map((d) => parseISO(d.date).getTime())
+      .filter((t) => t > fromTime)
+      .sort((a, b) => a - b)[0];
 
-      // Earliest blocked date after check-in
-      const firstBlocked = blocked
-        .filter((d) => d.getTime() > fromTime)
-        .sort((a, b) => a.getTime() - b.getTime())[0];
+    if (!firstBooked) return null;
+    // If a blocked date comes before or on the same day, don't allow checkout on booked
+    if (firstBlockedTime !== undefined && firstBlockedTime <= firstBooked.time) return null;
+    return firstBooked.key;
+  }, [dateRange?.from, dateRange?.to, bookedDatesForRoom, blockedDates]);
 
-      // Determine which barrier comes first
-      const barrier = [firstBooked, firstBlocked]
-        .filter(Boolean)
-        .sort((a, b) => a!.getTime() - b!.getTime())[0];
-
-      if (barrier) {
-        const barrierTime = barrier.getTime();
-        const isBookedBarrier = firstBooked && firstBooked.getTime() === barrierTime;
-
-        // Remove the barrier date from disabled if it's a booked date (valid check-out)
-        // Keep it disabled if it's a blocked date
-        const adjusted = allDisabled.filter((d) => {
-          const t = d.getTime();
-          if (isBookedBarrier && t === barrierTime) return false; // allow as check-out
-          return true;
-        });
-
-        // Disable all dates after the barrier to prevent spanning across bookings
-        const dayAfterBarrier = new Date(barrierTime);
-        dayAfterBarrier.setDate(dayAfterBarrier.getDate() + 1);
-
-        return [...adjusted, { from: dayAfterBarrier, to: new Date(2099, 11, 31) }] as (Date | { from: Date; to: Date })[];
-      }
-    }
-
-    return allDisabled;
-  }, [blockedDates, bookedDatesForRoom, dateRange?.from, dateRange?.to]);
+  const checkoutBarrierTime = useMemo<number | null>(() => {
+    if (!dateRange?.from) return null;
+    if (dateRange?.to && dateRange.to.getTime() !== dateRange.from.getTime()) return null;
+    const fromTime = dateRange.from.getTime();
+    const allTimes = [
+      ...Array.from(bookedDatesForRoom).map((d) => parseISO(d).getTime()),
+      ...blockedDates.map((d) => parseISO(d.date).getTime()),
+    ]
+      .filter((t) => t > fromTime)
+      .sort((a, b) => a - b);
+    return allTimes[0] ?? null;
+  }, [dateRange?.from, dateRange?.to, bookedDatesForRoom, blockedDates]);
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
 
@@ -551,6 +539,7 @@ export function BookingSection({
           payment_slip_url: verifyData.payment_slip_url || null,
           easyslip_response: verifyData.easyslip_response || null,
           session_id: uploadSessionId,
+          locale,
         }),
       });
 
@@ -735,7 +724,18 @@ export function BookingSection({
                       mode="range"
                       selected={dateRange}
                       onSelect={handleDateSelect}
-                      disabled={[{ before: new Date() }, ...disabledDays]}
+                      disabled={[
+                        { before: new Date() },
+                        (date: Date) => {
+                          const key = format(date, "yyyy-MM-dd");
+                          if (blockedDateSet.has(key)) return true;
+                          if (bookedDatesForRoom.has(key)) {
+                            return key !== allowedCheckoutKey;
+                          }
+                          if (checkoutBarrierTime !== null && date.getTime() > checkoutBarrierTime) return true;
+                          return false;
+                        },
+                      ]}
                       numberOfMonths={2}
                       className={`rounded-md border w-full ${!selectedRoomId ? "pointer-events-none opacity-50" : ""}`}
                     />
