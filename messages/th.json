@@ -200,7 +200,14 @@
     "updatePassword": "อัปเดตรหัสผ่าน",
     "passwordUpdatedTitle": "อัปเดตรหัสผ่านแล้ว",
     "passwordUpdatedDesc": "รหัสผ่านของคุณได้รับการอัปเดตแล้ว กำลังไปที่แดชบอร์ด...",
-    "signOut": "ออกจากระบบ"
+    "signOut": "ออกจากระบบ",
+    "otpTitle": "กรอกรหัสยืนยัน",
+    "otpDesc": "เราส่งรหัส 6 หลักไปที่ {email}",
+    "otpSubmit": "ยืนยัน",
+    "otpResend": "ส่งรหัสอีกครั้ง",
+    "otpResendIn": "ส่งอีกครั้งใน {seconds} วินาที",
+    "otpExpired": "รหัสหมดอายุ กรุณาขอรหัสใหม่",
+    "otpInvalid": "รหัสไม่ถูกต้อง กรุณาลองใหม่"
   },
   "dashboard": {
     "confirmed": "ยืนยันแล้ว",

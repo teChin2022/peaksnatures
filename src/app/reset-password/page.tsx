@@ -21,12 +21,30 @@ export default function ResetPasswordPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
   const [success, setSuccess] = useState(false);
+  const [passwordWarning, setPasswordWarning] = useState<string | null>(null);
+  const [confirmPasswordWarning, setConfirmPasswordWarning] = useState<string | null>(null);
+
+  const passwordRegex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[_#@]).{6,}$/;
+
+  const handlePasswordBlur = () => {
+    if (password && !passwordRegex.test(password)) {
+      setPasswordWarning(t("errorPasswordWeak"));
+    } else {
+      setPasswordWarning(null);
+    }
+  };
+
+  const handleConfirmPasswordBlur = () => {
+    if (confirmPassword && password !== confirmPassword) {
+      setConfirmPasswordWarning(t("errorPasswordMismatch"));
+    } else {
+      setConfirmPasswordWarning(null);
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-
-    const passwordRegex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[_#@]).{6,}$/;
     if (!passwordRegex.test(password)) {
       setError(t("errorPasswordWeak"));
       return;
@@ -107,7 +125,11 @@ export default function ResetPasswordPage() {
                       type={showPassword ? "text" : "password"}
                       placeholder={t("passwordPlaceholder")}
                       value={password}
-                      onChange={(e) => setPassword(e.target.value)}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        if (passwordWarning) setPasswordWarning(null);
+                      }}
+                      onBlur={handlePasswordBlur}
                       required
                       minLength={6}
                       autoComplete="new-password"
@@ -126,6 +148,9 @@ export default function ResetPasswordPage() {
                       )}
                     </button>
                   </div>
+                  {passwordWarning && (
+                    <p className="text-xs text-amber-600 mt-1">{passwordWarning}</p>
+                  )}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="confirmPassword">{t("confirmNewPassword")}</Label>
@@ -135,7 +160,11 @@ export default function ResetPasswordPage() {
                       type={showConfirmPassword ? "text" : "password"}
                       placeholder={t("confirmPasswordPlaceholder")}
                       value={confirmPassword}
-                      onChange={(e) => setConfirmPassword(e.target.value)}
+                      onChange={(e) => {
+                        setConfirmPassword(e.target.value);
+                        if (confirmPasswordWarning) setConfirmPasswordWarning(null);
+                      }}
+                      onBlur={handleConfirmPasswordBlur}
                       required
                       minLength={6}
                       autoComplete="new-password"
@@ -154,6 +183,9 @@ export default function ResetPasswordPage() {
                       )}
                     </button>
                   </div>
+                  {confirmPasswordWarning && (
+                    <p className="text-xs text-amber-600 mt-1">{confirmPasswordWarning}</p>
+                  )}
                 </div>
               </CardContent>
               <CardFooter>

@@ -286,6 +286,29 @@ export interface Database {
           created_at?: string;
         };
       };
+      login_otps: {
+        Row: {
+          id: string;
+          email: string;
+          code: string;
+          expires_at: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          email: string;
+          code: string;
+          expires_at: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          email?: string;
+          code?: string;
+          expires_at?: string;
+          created_at?: string;
+        };
+      };
     };
   };
 }

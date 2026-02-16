@@ -200,7 +200,14 @@
     "updatePassword": "Update Password",
     "passwordUpdatedTitle": "Password Updated",
     "passwordUpdatedDesc": "Your password has been updated. Redirecting to dashboard...",
-    "signOut": "Sign Out"
+    "signOut": "Sign Out",
+    "otpTitle": "Enter Verification Code",
+    "otpDesc": "We sent a 6-digit code to {email}",
+    "otpSubmit": "Verify",
+    "otpResend": "Resend Code",
+    "otpResendIn": "Resend in {seconds}s",
+    "otpExpired": "Code expired. Please request a new one.",
+    "otpInvalid": "Invalid code. Please try again."
   },
   "dashboard": {
     "confirmed": "Confirmed",

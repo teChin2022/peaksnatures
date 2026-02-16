@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useCallback } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { Mountain, Loader2, Eye, EyeOff } from "lucide-react";
@@ -9,7 +9,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/client";
+import OtpModal from "@/components/otp-modal";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -19,6 +19,9 @@ export default function LoginPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
+  const [showOtpModal, setShowOtpModal] = useState(false);
+  const [otpError, setOtpError] = useState<string | null>(null);
+  const [otpLoading, setOtpLoading] = useState(false);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -26,19 +29,20 @@ export default function LoginPage() {
     setLoading(true);
 
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.signInWithPassword({
-        email,
-        password,
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
       });
 
-      if (error) {
-        setError(error.message);
+      const data = await res.json();
+
+      if (!res.ok) {
+        setError(data.error || t("errorGeneric"));
         return;
       }
 
-      router.push("/dashboard");
-      router.refresh();
+      setShowOtpModal(true);
     } catch {
       setError(t("errorGeneric"));
     } finally {
@@ -46,8 +50,68 @@ export default function LoginPage() {
     }
   };
 
+  const handleVerifyOtp = useCallback(async (otp: string) => {
+    setOtpError(null);
+    setOtpLoading(true);
+
+    try {
+      const res = await fetch("/api/auth/verify-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password, otp }),
+      });
+
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.error === "code_expired") {
+          setOtpError(t("otpExpired"));
+        } else if (data.error === "invalid_code") {
+          setOtpError(t("otpInvalid"));
+        } else {
+          setOtpError(data.error || t("errorGeneric"));
+        }
+        return;
+      }
+
+      router.push("/dashboard");
+      router.refresh();
+    } catch {
+      setOtpError(t("errorGeneric"));
+    } finally {
+      setOtpLoading(false);
+    }
+  }, [email, password, router, t]);
+
+  const handleResendOtp = useCallback(async () => {
+    setOtpError(null);
+    try {
+      const res = await fetch("/api/auth/send-otp", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, password }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        setOtpError(data.error || t("errorGeneric"));
+      }
+    } catch {
+      setOtpError(t("errorGeneric"));
+    }
+  }, [email, password, t]);
+
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+      {showOtpModal && (
+        <OtpModal
+          email={email}
+          onVerify={handleVerifyOtp}
+          onResend={handleResendOtp}
+          onClose={() => { setShowOtpModal(false); setOtpError(null); }}
+          error={otpError}
+          loading={otpLoading}
+        />
+      )}
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2">
           <Link href="/" className="flex items-center gap-2">
