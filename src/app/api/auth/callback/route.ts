@@ -2,15 +2,18 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import type { Database } from "@/types/database";
+import type { EmailOtpType } from "@supabase/supabase-js";
 
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url);
   const code = searchParams.get("code");
+  const token_hash = searchParams.get("token_hash");
+  const type = searchParams.get("type") as EmailOtpType | null;
   const rawNext = searchParams.get("next") ?? "/dashboard";
   // Prevent open redirect — only allow relative paths, block protocol-relative URLs
   const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/dashboard";
 
-  if (code) {
+  if (code || (token_hash && type)) {
     // Build a Supabase client that writes cookies directly onto the response
     const response = NextResponse.redirect(`${origin}${next}`);
 
@@ -31,8 +34,22 @@ export async function GET(req: NextRequest) {
       }
     );
 
-    const { error } = await supabase.auth.exchangeCodeForSession(code);
-    if (error) {
+    let authError: Error | null = null;
+
+    if (code) {
+      // PKCE flow — works when user clicks the link in the same browser
+      const { error } = await supabase.auth.exchangeCodeForSession(code);
+      authError = error;
+    }
+
+    if ((!code || authError) && token_hash && type) {
+      // Token hash fallback — works even when opened in a different browser
+      const { error } = await supabase.auth.verifyOtp({ token_hash, type });
+      authError = error;
+    }
+
+    if (authError) {
+      console.error("Auth callback error:", authError.message);
       return NextResponse.redirect(`${origin}/login?error=auth_failed`);
     }
 
