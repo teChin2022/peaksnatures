@@ -40,7 +40,7 @@ export default async function Home() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2">
             <img src="/logo.png" alt="PeaksNature" className="h-8 w-8 rounded" />
-            <span className="text-xl font-bold text-blue-800">
+            <span className="text-xl font-bold text-[#0055AA]">
               {tc("brand")}
             </span>
           </Link>
