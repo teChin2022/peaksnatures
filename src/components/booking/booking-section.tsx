@@ -246,8 +246,51 @@ export function BookingSection({
   const disabledDays = useMemo(() => {
     const blocked = blockedDates.map((d) => parseISO(d.date));
     const booked = Array.from(bookedDatesForRoom).map((d) => parseISO(d));
-    return [...blocked, ...booked];
-  }, [blockedDates, bookedDatesForRoom]);
+    const allDisabled = [...blocked, ...booked];
+
+    // When selecting check-out (from chosen, to not yet chosen), allow the
+    // first *booked* date after check-in as a valid check-out and cap the
+    // selectable range at that barrier so the range can't span across bookings.
+    if (dateRange?.from && !dateRange?.to) {
+      const fromTime = dateRange.from.getTime();
+
+      // Earliest booked date after check-in
+      const firstBooked = booked
+        .filter((d) => d.getTime() > fromTime)
+        .sort((a, b) => a.getTime() - b.getTime())[0];
+
+      // Earliest blocked date after check-in
+      const firstBlocked = blocked
+        .filter((d) => d.getTime() > fromTime)
+        .sort((a, b) => a.getTime() - b.getTime())[0];
+
+      // Determine which barrier comes first
+      const barrier = [firstBooked, firstBlocked]
+        .filter(Boolean)
+        .sort((a, b) => a!.getTime() - b!.getTime())[0];
+
+      if (barrier) {
+        const barrierTime = barrier.getTime();
+        const isBookedBarrier = firstBooked && firstBooked.getTime() === barrierTime;
+
+        // Remove the barrier date from disabled if it's a booked date (valid check-out)
+        // Keep it disabled if it's a blocked date
+        const adjusted = allDisabled.filter((d) => {
+          const t = d.getTime();
+          if (isBookedBarrier && t === barrierTime) return false; // allow as check-out
+          return true;
+        });
+
+        // Disable all dates after the barrier to prevent spanning across bookings
+        const dayAfterBarrier = new Date(barrierTime);
+        dayAfterBarrier.setDate(dayAfterBarrier.getDate() + 1);
+
+        return [...adjusted, { from: dayAfterBarrier, to: new Date(2099, 11, 31) }] as (Date | { from: Date; to: Date })[];
+      }
+    }
+
+    return allDisabled;
+  }, [blockedDates, bookedDatesForRoom, dateRange?.from, dateRange?.to]);
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
 
