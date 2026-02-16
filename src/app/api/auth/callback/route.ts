@@ -1,8 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
-import {
-  createServerSupabaseClient,
-  createServiceRoleClient,
-} from "@/lib/supabase/server";
+import { createServerClient } from "@supabase/ssr";
+import { createServiceRoleClient } from "@/lib/supabase/server";
+import type { Database } from "@/types/database";
 
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url);
@@ -12,7 +11,26 @@ export async function GET(req: NextRequest) {
   const next = rawNext.startsWith("/") && !rawNext.startsWith("//") ? rawNext : "/dashboard";
 
   if (code) {
-    const supabase = await createServerSupabaseClient();
+    // Build a Supabase client that writes cookies directly onto the response
+    const response = NextResponse.redirect(`${origin}${next}`);
+
+    const supabase = createServerClient<Database>(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
+      {
+        cookies: {
+          getAll() {
+            return req.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              response.cookies.set(name, value, options)
+            );
+          },
+        },
+      }
+    );
+
     const { error } = await supabase.auth.exchangeCodeForSession(code);
     if (error) {
       return NextResponse.redirect(`${origin}/login?error=auth_failed`);
@@ -51,7 +69,7 @@ export async function GET(req: NextRequest) {
       }
     }
 
-    return NextResponse.redirect(`${origin}${next}`);
+    return response;
   }
 
   return NextResponse.redirect(`${origin}/login?error=auth_failed`);
