@@ -26,7 +26,7 @@ function formatBookingDate(dateStr: string, locale: string): string {
 export async function sendBookingConfirmationEmail(details: BookingDetails, locale: string = "th") {
   const apiKey = process.env.RESEND_API_KEY;
   if (!apiKey || apiKey === "your_resend_api_key") {
-    console.log("[Demo] Would send confirmation email to:", details.booking.guest_email);
+    console.log("[Email] Skipped — RESEND_API_KEY not configured. Would send to:", details.booking.guest_email);
     return { success: true, demo: true };
   }
 
@@ -36,7 +36,8 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
 
     const { booking, homestay, room } = details;
 
-    const fromEmail = process.env.RESEND_FROM_EMAIL || "PeaksNature <onboarding@resend.dev>";
+    const fromEmail = process.env.RESEND_FROM_EMAIL || "PeaksNature <bookings@peaksnature.com>";
+    console.log(`[Email] Sending to: ${booking.guest_email}, from: ${fromEmail}, locale: ${locale}`);
     const checkInFmt = formatBookingDate(booking.check_in, locale);
     const checkOutFmt = formatBookingDate(booking.check_out, locale);
     const isTh = locale === "th";
@@ -74,13 +75,14 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
     });
 
     if (error) {
-      console.error("Resend error:", error);
+      console.error("[Email] Resend API error:", JSON.stringify(error));
       return { success: false, error };
     }
 
+    console.log("[Email] Sent successfully, id:", data?.id);
     return { success: true, data };
   } catch (error) {
-    console.error("Email send error:", error);
+    console.error("[Email] Exception:", error);
     return { success: false, error };
   }
 }

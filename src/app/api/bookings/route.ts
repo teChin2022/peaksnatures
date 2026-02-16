@@ -27,30 +27,31 @@ const bookingSchema = z.object({
 });
 
 async function sendNotifications(bookingId: string, supabase: ReturnType<typeof createServiceRoleClient>, locale: string = "th") {
+  console.log(`[Notification] Starting for booking ${bookingId}, locale=${locale}`);
   try {
-    const { data: booking } = await supabase
+    const { data: booking, error: bookingErr } = await supabase
       .from("bookings")
       .select("*")
       .eq("id", bookingId)
       .single();
 
-    if (!booking) return;
+    if (!booking) { console.error("[Notification] Booking not found:", bookingId, bookingErr); return; }
 
-    const { data: homestay } = await supabase
+    const { data: homestay, error: homestayErr } = await supabase
       .from("homestays")
       .select("*")
       .eq("id", (booking as unknown as Booking).homestay_id)
       .single();
 
-    if (!homestay) return;
+    if (!homestay) { console.error("[Notification] Homestay not found:", (booking as unknown as Booking).homestay_id, homestayErr); return; }
 
-    const { data: host } = await supabase
+    const { data: host, error: hostErr } = await supabase
       .from("hosts")
       .select("*")
       .eq("id", (homestay as unknown as Homestay).host_id)
       .single();
 
-    if (!host) return;
+    if (!host) { console.error("[Notification] Host not found:", (homestay as unknown as Homestay).host_id, hostErr); return; }
 
     let room = null;
     if ((booking as unknown as Booking).room_id) {

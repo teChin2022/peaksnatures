@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
-import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { createServiceRoleClient } from "@/lib/supabase/server";
 
 interface BookingResult {
   id: string;
@@ -26,32 +26,8 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ bookings: [] });
   }
 
-  // Require authentication and verify ownership
-  const authClient = await createServerSupabaseClient();
-  const { data: { user } } = await authClient.auth.getUser();
-  if (!user) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
-
-  const { data: hostRow } = await authClient
-    .from("hosts")
-    .select("id")
-    .eq("user_id", user.id)
-    .single();
-  if (!hostRow) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
-  const { data: homestayRow } = await authClient
-    .from("homestays")
-    .select("id")
-    .eq("id", homestayId)
-    .eq("host_id", (hostRow as { id: string }).id)
-    .single();
-  if (!homestayRow) {
-    return NextResponse.json({ error: "Forbidden" }, { status: 403 });
-  }
-
+  // Public endpoint: guests search their own bookings by email, phone, or ID.
+  // Scoped by homestay_id + specific identifiers — no auth required.
   const supabase = createServiceRoleClient();
 
   // Search by exact email, phone, or booking ID (prefix)
