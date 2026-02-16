@@ -196,11 +196,11 @@ export default async function HomestayPage({ params }: PageProps) {
         hostName={homestay.host.name}
       />
 
-      <ChatWidget
+      {/* <ChatWidget
         homestayId={homestay.id}
         homestayName={homestay.name}
         themeColor={homestay.theme_color}
-      />
+      /> */}
     </div>
   );
 }

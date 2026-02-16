@@ -40,7 +40,7 @@ export default async function Home() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2">
             <img src="/logo.png" alt="PeaksNature" className="h-8 w-8 rounded" />
-            <span className="text-xl font-bold text-[#0055AA]">
+            <span className="text-xl font-bold text-green-800">
               {tc("brand")}
             </span>
           </Link>
@@ -322,7 +322,7 @@ export default async function Home() {
         <div className="mx-auto flex max-w-7xl flex-col items-center gap-4 px-4 text-center text-sm text-gray-500 sm:flex-row sm:justify-between sm:px-6">
           <div className="flex items-center gap-2">
             <img src="/logo.png" alt="PeaksNature" className="h-5 w-5 rounded" />
-            <span>{tc("copyright")}</span>
+            <span>{`Copyright \u00A9 ${new Date().getFullYear()} All rights reserved.`}</span>
           </div>
           <div className="flex gap-4">
             <Link href="#privacy" className="hover:text-green-700">
