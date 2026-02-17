@@ -62,9 +62,11 @@ export interface Database {
           tagline: string | null;
           location: string;
           map_embed_url: string | null;
-          price_per_night: number;
           max_guests: number;
           amenities: string[];
+          prohibitions: string[];
+          check_in_time: string | null;
+          check_out_time: string | null;
           hero_image_url: string | null;
           logo_url: string | null;
           gallery: string[];
@@ -81,9 +83,11 @@ export interface Database {
           tagline?: string | null;
           location: string;
           map_embed_url?: string | null;
-          price_per_night: number;
           max_guests?: number;
           amenities?: string[];
+          prohibitions?: string[];
+          check_in_time?: string | null;
+          check_out_time?: string | null;
           hero_image_url?: string | null;
           logo_url?: string | null;
           gallery?: string[];
@@ -100,9 +104,11 @@ export interface Database {
           tagline?: string | null;
           location?: string;
           map_embed_url?: string | null;
-          price_per_night?: number;
           max_guests?: number;
           amenities?: string[];
+          prohibitions?: string[];
+          check_in_time?: string | null;
+          check_out_time?: string | null;
           hero_image_url?: string | null;
           logo_url?: string | null;
           gallery?: string[];
@@ -163,6 +169,8 @@ export interface Database {
           payment_slip_hash: string | null;
           slip_trans_ref: string | null;
           notes: string | null;
+          checked_in_at: string | null;
+          checked_out_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -184,6 +192,8 @@ export interface Database {
           payment_slip_hash?: string | null;
           slip_trans_ref?: string | null;
           notes?: string | null;
+          checked_in_at?: string | null;
+          checked_out_at?: string | null;
           created_at?: string;
         };
         Update: {
@@ -205,6 +215,8 @@ export interface Database {
           payment_slip_hash?: string | null;
           slip_trans_ref?: string | null;
           notes?: string | null;
+          checked_in_at?: string | null;
+          checked_out_at?: string | null;
           created_at?: string;
         };
       };

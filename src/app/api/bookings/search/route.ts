@@ -12,10 +12,12 @@ interface BookingResult {
   total_price: number;
   status: string;
   room_id: string | null;
+  checked_in_at: string | null;
+  checked_out_at: string | null;
   created_at: string;
 }
 
-const BOOKING_SELECT = "id, guest_name, guest_email, guest_phone, check_in, check_out, num_guests, total_price, status, room_id, created_at";
+const BOOKING_SELECT = "id, guest_name, guest_email, guest_phone, check_in, check_out, num_guests, total_price, status, room_id, checked_in_at, checked_out_at, created_at";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);

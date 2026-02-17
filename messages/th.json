@@ -8,6 +8,7 @@
     "guest": "ท่าน",
     "guests": "ท่าน",
     "perNight": "/คืน",
+    "from": "เริ่มต้น",
     "total": "รวม",
     "hostLogin": "เข้าสู่ระบบเจ้าของที่พัก",
     "privacy": "นโยบายความเป็นส่วนตัว",
@@ -59,7 +60,12 @@
     "title": "เกี่ยวกับที่พักนี้",
     "amenities": "สิ่งอำนวยความสะดวก",
     "upToGuests": "รองรับสูงสุด {count} ท่าน",
-    "maxGuests": "สูงสุด {count} ท่าน"
+    "maxGuests": "สูงสุด {count} ท่าน",
+    "location": "ที่ตั้ง"
+  },
+  "prohibitions": {
+    "title": "กฎของที่พัก",
+    "noItems": "ไม่มีกฎที่พักระบุไว้"
   },
   "rooms": {
     "title": "ห้องพัก & ราคา",
@@ -144,7 +150,9 @@
     "confirmTitle": "ตรวจสอบข้อมูลของคุณ",
     "confirmDesc": "กรุณาตรวจสอบข้อมูลให้ถูกต้องก่อนดำเนินการชำระเงิน",
     "confirmEdit": "แก้ไขข้อมูล",
-    "confirmProceed": "ยืนยันและชำระเงิน"
+    "confirmProceed": "ยืนยัน & ชำระเงิน",
+    "checkInTime": "เช็คอินหลัง {time} น.",
+    "checkOutTime": "เช็คเอาท์ก่อน {time} น."
   },
   "chat": {
     "title": "ผู้ช่วยจองที่พัก",
@@ -243,11 +251,20 @@
     "cancelConfirmDesc": "คุณแน่ใจหรือว่าต้องการยกเลิกการจองของ {guest}? การดำเนินการนี้ไม่สามารถย้อนกลับได้",
     "cancelConfirmButton": "ใช่ ยกเลิกการจอง",
     "cancelKeep": "เก็บการจองไว้",
+    "markCompleted": "เสร็จสิ้นการเข้าพัก",
+    "guestCheckedIn": "เช็คอินแล้ว",
+    "guestCheckedOut": "เช็คเอาท์แล้ว",
     "errorUpdate": "อัปเดตการจองไม่สำเร็จ",
     "provinceStats": "การจองตามจังหวัด",
     "provinceLabel": "จังหวัด",
     "bookingCount": "จำนวนการจอง",
-    "noProvinceData": "ยังไม่มีข้อมูลจังหวัด"
+    "noProvinceData": "ยังไม่มีข้อมูลจังหวัด",
+    "qrCodeTitle": "QR Code เช็คอินสำหรับแขก",
+    "qrCodeDesc": "พิมพ์หรือแสดง QR Code นี้ที่ที่พัก แขกสแกนเพื่อเช็คอิน เช็คเอาท์ และรีวิว",
+    "qrStep1": "แขกสแกน QR Code ตอนมาถึง → เช็คอิน",
+    "qrStep2": "แขกสแกน QR Code ตอนออก → เช็คเอาท์",
+    "qrStep3": "หลังเช็คเอาท์ → เขียนรีวิว",
+    "qrDownload": "ดาวน์โหลด QR"
   },
   "setupProfile": {
     "title": "กรอกข้อมูลโปรไฟล์",
@@ -339,7 +356,15 @@
     "created": "สร้างโฮมสเตย์เรียบร้อยแล้ว",
     "saved": "อัปเดตโฮมสเตย์เรียบร้อยแล้ว",
     "errorRequired": "กรุณากรอกชื่อ slug และที่ตั้ง",
-    "errorSave": "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
+    "errorSave": "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+    "checkInOutTimes": "เวลาเช็คอิน / เช็คเอาท์",
+    "checkInTime": "เวลาเช็คอิน",
+    "checkOutTime": "เวลาเช็คเอาท์",
+    "prohibitions": "กฎของที่พัก",
+    "selectedProhibitions": "กฎที่เลือก",
+    "addCustomProhibition": "เพิ่มกฎเอง",
+    "customProhibitionPlaceholder": "เช่น ห้ามเปิดเพลงดังหลัง 4 ทุ่ม",
+    "commonProhibitions": "เพิ่มด่วน"
   },
   "dashboardRooms": {
     "title": "จัดการห้องพัก",
@@ -401,7 +426,8 @@
     "clickToSelect": "คลิกเลือกวันที่ แล้วบล็อก/ปลดบล็อก",
     "checkIn": "เช็คอิน",
     "checkOut": "เช็คเอาท์",
-    "staying": "เข้าพัก"
+    "staying": "เข้าพัก",
+    "bookingDetailDesc": "{count} การจองในวันนี้"
   },
   "bookingSearch": {
     "searchBooking": "ค้นหาการจอง",
@@ -409,6 +435,10 @@
     "placeholder": "อีเมล, เบอร์โทรศัพท์ หรือรหัสการจอง",
     "search": "ค้นหา",
     "noResults": "ไม่พบการจอง กรุณาตรวจสอบข้อมูลและลองใหม่อีกครั้ง",
+    "checkIn": "เช็คอิน",
+    "checkOut": "เช็คเอาท์",
+    "checkedIn": "เช็คอินแล้ว",
+    "checkedOut": "เช็คเอาท์แล้ว",
     "status": {
       "pending": "รอดำเนินการ",
       "verified": "ตรวจสอบแล้ว",

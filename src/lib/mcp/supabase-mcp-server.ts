@@ -154,7 +154,6 @@ export function createSupabaseMcpServer() {
               description: homestay.description,
               tagline: homestay.tagline,
               location: homestay.location,
-              price_per_night: homestay.price_per_night,
               max_guests: homestay.max_guests,
               amenities: homestay.amenities,
             }),

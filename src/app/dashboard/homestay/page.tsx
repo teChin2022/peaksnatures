@@ -15,6 +15,8 @@ import {
   X,
   ImageIcon,
   Plus,
+  Clock,
+  ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -35,9 +37,11 @@ interface HomestayData {
   tagline: string | null;
   location: string;
   map_embed_url: string | null;
-  price_per_night: number;
   max_guests: number;
   amenities: string[];
+  prohibitions: string[];
+  check_in_time: string | null;
+  check_out_time: string | null;
   hero_image_url: string | null;
   logo_url: string | null;
   gallery: string[];
@@ -67,6 +71,19 @@ const COMMON_AMENITIES = [
   "Library",
 ];
 
+const COMMON_PROHIBITIONS = [
+  "No Smoking",
+  "No Pets",
+  "No Parties",
+  "No Loud Music after 10 PM",
+  "No Outside Visitors",
+  "No Alcohol",
+  "No Campfire without Permission",
+  "No Littering",
+  "No Drone Flying",
+  "No Swimming without Lifeguard",
+];
+
 export default function HomestayPage() {
   const t = useTranslations("dashboardHomestay");
   const themeColor = useThemeColor();
@@ -85,6 +102,10 @@ export default function HomestayPage() {
   const [mapEmbedUrl, setMapEmbedUrl] = useState("");
   const [amenities, setAmenities] = useState<string[]>([]);
   const [customAmenity, setCustomAmenity] = useState("");
+  const [prohibitions, setProhibitions] = useState<string[]>([]);
+  const [customProhibition, setCustomProhibition] = useState("");
+  const [checkInTime, setCheckInTime] = useState("14:00");
+  const [checkOutTime, setCheckOutTime] = useState("11:00");
   const [heroImageUrl, setHeroImageUrl] = useState("");
   const [logoUrl, setLogoUrl] = useState("");
   const [gallery, setGallery] = useState<string[]>([]);
@@ -134,6 +155,9 @@ export default function HomestayPage() {
         setLocation(h.location);
         setMapEmbedUrl(h.map_embed_url || "");
         setAmenities(h.amenities || []);
+        setProhibitions(h.prohibitions || []);
+        setCheckInTime(h.check_in_time || "14:00");
+        setCheckOutTime(h.check_out_time || "11:00");
         setHeroImageUrl(h.hero_image_url || "");
         setLogoUrl(h.logo_url || "");
         setGallery(h.gallery || []);
@@ -172,6 +196,27 @@ export default function HomestayPage() {
 
   const removeAmenity = (amenity: string) => {
     setAmenities((prev) => prev.filter((a) => a !== amenity));
+  };
+
+  const toggleProhibition = (item: string) => {
+    setProhibitions((prev) =>
+      prev.includes(item) ? prev.filter((p) => p !== item) : [...prev, item]
+    );
+  };
+
+  const addCustomProhibition = () => {
+    const value = customProhibition.trim();
+    if (!value) return;
+    if (prohibitions.includes(value)) {
+      setCustomProhibition("");
+      return;
+    }
+    setProhibitions((prev) => [...prev, value]);
+    setCustomProhibition("");
+  };
+
+  const removeProhibition = (item: string) => {
+    setProhibitions((prev) => prev.filter((p) => p !== item));
   };
 
   const uploadFile = async (file: File, folder: string): Promise<string | null> => {
@@ -294,6 +339,9 @@ export default function HomestayPage() {
         location: location.trim(),
         map_embed_url: mapEmbedUrl.trim() || null,
         amenities,
+        prohibitions,
+        check_in_time: checkInTime || "14:00",
+        check_out_time: checkOutTime || "11:00",
         hero_image_url: heroImageUrl.trim() || null,
         logo_url: logoUrl.trim() || null,
         gallery,
@@ -574,6 +622,117 @@ export default function HomestayPage() {
                   >
                     <Plus className="mr-0.5 h-3 w-3" />
                     {a}
+                  </Badge>
+                ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Check-in / Check-out Times */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Clock className="h-4 w-4" />
+              {t("checkInOutTimes")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t("checkInTime")}</Label>
+                <Input
+                  type="time"
+                  value={checkInTime}
+                  onChange={(e) => setCheckInTime(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("checkOutTime")}</Label>
+                <Input
+                  type="time"
+                  value={checkOutTime}
+                  onChange={(e) => setCheckOutTime(e.target.value)}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Prohibitions / House Rules */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <ShieldAlert className="h-4 w-4" />
+              {t("prohibitions")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            {/* Selected prohibitions */}
+            {prohibitions.length > 0 && (
+              <div>
+                <Label className="mb-2 block text-sm text-gray-500">{t("selectedProhibitions")}</Label>
+                <div className="flex flex-wrap gap-2">
+                  {prohibitions.map((p) => (
+                    <Badge
+                      key={p}
+                      className="cursor-pointer pr-1 hover:brightness-90"
+                      style={{ backgroundColor: themeColor }}
+                    >
+                      {p}
+                      <button
+                        type="button"
+                        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full hover:brightness-75"
+                        onClick={() => removeProhibition(p)}
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </Badge>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {/* Add custom prohibition */}
+            <div>
+              <Label className="mb-2 block text-sm text-gray-500">{t("addCustomProhibition")}</Label>
+              <div className="flex gap-2">
+                <Input
+                  value={customProhibition}
+                  onChange={(e) => setCustomProhibition(e.target.value)}
+                  placeholder={t("customProhibitionPlaceholder")}
+                  onKeyDown={(e) => {
+                    if (e.key === "Enter") {
+                      e.preventDefault();
+                      addCustomProhibition();
+                    }
+                  }}
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="icon"
+                  onClick={addCustomProhibition}
+                  disabled={!customProhibition.trim()}
+                >
+                  <Plus className="h-4 w-4" />
+                </Button>
+              </div>
+            </div>
+
+            {/* Common prohibitions quick-add */}
+            <div>
+              <Label className="mb-2 block text-sm text-gray-500">{t("commonProhibitions")}</Label>
+              <div className="flex flex-wrap gap-2">
+                {COMMON_PROHIBITIONS.filter((p) => !prohibitions.includes(p)).map((p) => (
+                  <Badge
+                    key={p}
+                    variant="outline"
+                    className="cursor-pointer hover:bg-gray-100"
+                    onClick={() => toggleProhibition(p)}
+                  >
+                    <Plus className="mr-0.5 h-3 w-3" />
+                    {p}
                   </Badge>
                 ))}
               </div>

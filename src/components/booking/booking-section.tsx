@@ -2,7 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { format, differenceInDays, eachDayOfInterval, parseISO, subDays } from "date-fns";
-import { th as thLocale } from "date-fns/locale";
+import { fmtDate } from "@/lib/format-date";
 import type { DateRange } from "react-day-picker";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
@@ -35,7 +35,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-
 interface BookedRange {
   room_id: string | null;
   check_in: string;
@@ -81,16 +80,6 @@ export function BookingSection({
   const [guestProvince, setGuestProvince] = useState("");
   const [guestNote, setGuestNote] = useState("");
   const locale = useLocale();
-  const dateFmtOpts = locale === "th" ? { locale: thLocale } : undefined;
-  const fmtDate = (d: Date, pattern: string) => {
-    const formatted = format(d, pattern, dateFmtOpts);
-    if (locale === "th") {
-      const ceYear = d.getFullYear();
-      const beYear = ceYear + 543;
-      return formatted.replace(String(ceYear), String(beYear));
-    }
-    return formatted;
-  };
   const provinceLabel = (v: string) => getProvinceLabel(v, locale);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [slipFile, setSlipFile] = useState<File | null>(null);
@@ -745,10 +734,10 @@ export function BookingSection({
                     </div>
                   )}
                   {dateRange?.from && dateRange?.to && (
-                    <div className="mt-3 text-sm text-gray-600">
+                    <div className="mt-2 text-sm text-gray-600">
                       <span className="font-medium">
-                        {fmtDate(dateRange.from, "MMM d")} —{" "}
-                        {fmtDate(dateRange.to, "MMM d, yyyy")}
+                        {fmtDate(dateRange.from, "MMM d", locale)} —{" "}
+                        {fmtDate(dateRange.to, "MMM d, yyyy", locale)}
                       </span>
                       <span className="text-gray-400"> · {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
                     </div>
@@ -863,12 +852,18 @@ export function BookingSection({
                   </p>
                   <p>
                     <strong>{t("dates")}:</strong>{" "}
-                    {dateRange?.from && fmtDate(dateRange.from, "MMM d")} —{" "}
-                    {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy")}
+                    {dateRange?.from && fmtDate(dateRange.from, "MMM d", locale)} —{" "}
+                    {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy", locale)}
                   </p>
                   <p>
                     <strong>{tc("guests")}:</strong> {numGuests}
                   </p>
+                  {(homestay.check_in_time || homestay.check_out_time) && (
+                    <div className="mt-2 flex gap-3 text-xs text-gray-500">
+                      {homestay.check_in_time && <span>{t("checkInTime", { time: homestay.check_in_time })}</span>}
+                      {homestay.check_out_time && <span>{t("checkOutTime", { time: homestay.check_out_time })}</span>}
+                    </div>
+                  )}
                   <p className="mt-1 text-base font-bold" style={{ color: themeColor }}>
                     {tc("total")}: ฿{totalPrice.toLocaleString()}
                   </p>
@@ -1209,8 +1204,8 @@ export function BookingSection({
                   <p><strong>{t("room")}:</strong> {selectedRoom?.name}</p>
                   <p>
                     <strong>{t("dates")}:</strong>{" "}
-                    {dateRange?.from && fmtDate(dateRange.from, "MMM d")} —{" "}
-                    {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy")}
+                    {dateRange?.from && fmtDate(dateRange.from, "MMM d", locale)} —{" "}
+                    {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy", locale)}
                   </p>
                   <p><strong>{tc("guests")}:</strong> {numGuests}</p>
                   <p><strong>{t("guestInfo")}:</strong> {guestName}</p>
@@ -1292,9 +1287,15 @@ export function BookingSection({
             <div className="flex justify-between">
               <span className="text-gray-500">{t("dates")}</span>
               <span className="font-medium text-gray-900">
-                {dateRange?.from && fmtDate(dateRange.from, "MMM d")} — {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy")}
+                {dateRange?.from && fmtDate(dateRange.from, "MMM d", locale)} — {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy", locale)}
               </span>
             </div>
+            {(homestay.check_in_time || homestay.check_out_time) && (
+              <div className="flex justify-between text-xs">
+                <span className="text-gray-400">{homestay.check_in_time && t("checkInTime", { time: homestay.check_in_time })}</span>
+                <span className="text-gray-400">{homestay.check_out_time && t("checkOutTime", { time: homestay.check_out_time })}</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-gray-500">{tc("guests")}</span>
               <span className="font-medium text-gray-900">{numGuests}</span>

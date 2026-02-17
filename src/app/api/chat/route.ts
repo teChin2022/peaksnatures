@@ -184,7 +184,6 @@ Today's date: ${format(new Date(), "yyyy-MM-dd")}`;
             description: homestay.description,
             amenities: homestay.amenities,
             max_guests: homestay.max_guests,
-            price_per_night: homestay.price_per_night,
           }),
         }),
       },

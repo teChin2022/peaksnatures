@@ -1,8 +1,9 @@
 "use client";
 
 import { Star, MessageSquare } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import type { Review } from "@/types/database";
+import { fmtDateStr } from "@/lib/format-date";
 
 interface ReviewsSectionProps {
   reviews: Review[];
@@ -37,6 +38,7 @@ export function ReviewsSection({
   themeColor,
 }: ReviewsSectionProps) {
   const t = useTranslations("reviews");
+  const locale = useLocale();
 
   return (
     <div className="space-y-4">
@@ -86,11 +88,7 @@ export function ReviewsSection({
                 </p>
               )}
               <p className="mt-2 text-xs text-gray-400">
-                {new Date(review.created_at).toLocaleDateString(undefined, {
-                  year: "numeric",
-                  month: "short",
-                  day: "numeric",
-                })}
+                {fmtDateStr(review.created_at.split("T")[0], "d MMM yyyy", locale)}
               </p>
             </div>
           ))}

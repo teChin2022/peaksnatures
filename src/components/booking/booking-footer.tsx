@@ -61,7 +61,7 @@ export function BookingFooter({
               <img src="/logo.png" alt="PeaksNature" className="h-4 w-4 rounded" />
               {t("poweredBy")} <span className="font-medium text-green-700">{tc("brand")}</span>
             </div>
-            <p className="text-xs text-gray-400">{tc("copyright")}</p>
+            <p className="text-xs text-gray-400">{`Copyright \u00A9 ${new Date().getFullYear()} All rights reserved.`}</p>
           </div>
         </div>
       </div>

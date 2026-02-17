@@ -36,6 +36,7 @@ import {
 import { Skeleton } from "@/components/ui/skeleton";
 import type { BookingStatus } from "@/types/database";
 import { toast } from "sonner";
+import { fmtDateStr } from "@/lib/format-date";
 import { useThemeColor } from "@/components/dashboard/theme-context";
 import { getProvinceLabel } from "@/lib/provinces";
 
@@ -54,6 +55,8 @@ interface BookingRow {
   easyslip_verified: boolean;
   payment_slip_url: string | null;
   guest_province: string | null;
+  checked_in_at: string | null;
+  checked_out_at: string | null;
   created_at: string;
 }
 
@@ -161,7 +164,11 @@ export default function BookingsPage() {
     setBookings((prev) =>
       prev.map((b) => (b.id === id ? { ...b, status } : b))
     );
-    toast.success(status === "confirmed" ? t("confirm") + "!" : t("cancel") + "!");
+    toast.success(
+      status === "confirmed" ? t("confirm") + "!" :
+      status === "completed" ? t("markCompleted") + "!" :
+      t("cancel") + "!"
+    );
   };
 
   const confirmedCount = bookings.filter((b) => b.status === "confirmed").length;
@@ -297,6 +304,18 @@ export default function BookingsPage() {
                                   ✓ EasySlip
                                 </Badge>
                               )}
+                              {booking.checked_in_at && (
+                                <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+                                  <CheckCircle2 className="mr-1 h-3 w-3" />
+                                  {t("guestCheckedIn")}
+                                </Badge>
+                              )}
+                              {booking.checked_out_at && (
+                                <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+                                  <CheckCircle2 className="mr-1 h-3 w-3" />
+                                  {t("guestCheckedOut")}
+                                </Badge>
+                              )}
                             </div>
                             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
                               <span className="flex items-center gap-1">
@@ -306,7 +325,7 @@ export default function BookingsPage() {
                               <span>{booking.room_name}</span>
                               <span className="flex items-center gap-1">
                                 <CalendarDays className="h-3.5 w-3.5" />
-                                {booking.check_in} → {booking.check_out}
+                                {fmtDateStr(booking.check_in, "d MMM yyyy", locale)} → {fmtDateStr(booking.check_out, "d MMM yyyy", locale)}
                               </span>
                               <span className="font-medium" style={{ color: themeColor }}>
                                 ฿{booking.total_price.toLocaleString()}
@@ -355,13 +374,28 @@ export default function BookingsPage() {
                               </>
                             )}
                             {booking.status === "confirmed" && (
-                              <Button
-                                variant="outline"
-                                size="sm"
-                                onClick={() => handleCancelClick(booking)}
-                              >
-                                {t("cancel")}
-                              </Button>
+                              <>
+                                {new Date(booking.check_out) <= new Date() && (
+                                  <Button
+                                    size="sm"
+                                    className="hover:brightness-90 text-white"
+                                    style={{ backgroundColor: themeColor }}
+                                    onClick={() =>
+                                      updateStatus(booking.id, "completed")
+                                    }
+                                  >
+                                    <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                                    {t("markCompleted")}
+                                  </Button>
+                                )}
+                                <Button
+                                  variant="outline"
+                                  size="sm"
+                                  onClick={() => handleCancelClick(booking)}
+                                >
+                                  {t("cancel")}
+                                </Button>
+                              </>
                             )}
                           </div>
                         </div>
@@ -456,7 +490,7 @@ export default function BookingsPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">{t("dates")}</span>
-                    <span>{detailTarget.check_in} → {detailTarget.check_out}</span>
+                    <span>{fmtDateStr(detailTarget.check_in, "d MMM yyyy", locale)} → {fmtDateStr(detailTarget.check_out, "d MMM yyyy", locale)}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">{t("guests")}</span>
@@ -492,6 +526,22 @@ export default function BookingsPage() {
                     }}
                   >
                     {t("confirm")}
+                  </Button>
+                </DialogFooter>
+              )}
+              {detailTarget.status === "confirmed" && new Date(detailTarget.check_out) <= new Date() && (
+                <DialogFooter>
+                  <Button
+                    className="hover:brightness-90 text-white"
+                    style={{ backgroundColor: themeColor }}
+                    onClick={async () => {
+                      await updateStatus(detailTarget.id, "completed");
+                      setDetailTarget((prev) => prev ? { ...prev, status: "completed" } : null);
+                      setDetailDialogOpen(false);
+                    }}
+                  >
+                    <CheckCircle2 className="mr-1 h-4 w-4" />
+                    {t("markCompleted")}
                   </Button>
                 </DialogFooter>
               )}

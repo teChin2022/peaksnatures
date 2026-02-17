@@ -1,7 +1,7 @@
 "use client";
 
 import { useState } from "react";
-import { Search, CalendarDays, Clock, CheckCircle2, XCircle, Loader2, Star, MessageSquare } from "lucide-react";
+import { Search, CalendarDays, Clock, CheckCircle2, XCircle, Loader2, Star, MessageSquare, LogIn, LogOut } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -13,8 +13,9 @@ import {
   DialogTitle,
   DialogTrigger,
 } from "@/components/ui/dialog";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
+import { fmtDateStr } from "@/lib/format-date";
 
 interface SearchResult {
   id: string;
@@ -27,6 +28,8 @@ interface SearchResult {
   total_price: number;
   status: string;
   room_name: string;
+  checked_in_at: string | null;
+  checked_out_at: string | null;
   created_at: string;
   has_review: boolean;
 }
@@ -48,6 +51,7 @@ interface BookingSearchDialogProps {
 export function BookingSearchDialog({ homestayId, themeColor }: BookingSearchDialogProps) {
   const t = useTranslations("bookingSearch");
   const tr = useTranslations("reviews");
+  const locale = useLocale();
   const [open, setOpen] = useState(false);
   const [query, setQuery] = useState("");
   const [results, setResults] = useState<SearchResult[]>([]);
@@ -58,8 +62,40 @@ export function BookingSearchDialog({ homestayId, themeColor }: BookingSearchDia
   const [reviewHover, setReviewHover] = useState(0);
   const [reviewComment, setReviewComment] = useState("");
   const [submittingReview, setSubmittingReview] = useState(false);
+  const [checkingIn, setCheckingIn] = useState<string | null>(null);
 
-  const handleSubmitReview = async (bookingId: string) => {
+  const handleCheckin = async (bookingId: string, guestEmail: string, action: "checkin" | "checkout") => {
+    setCheckingIn(bookingId);
+    try {
+      const res = await fetch("/api/bookings/checkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ booking_id: bookingId, guest_email: guestEmail, action }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data.message || data.error || t("noResults"));
+      } else {
+        if (action === "checkin") {
+          toast.success(t("checkedIn"));
+          setResults((prev) =>
+            prev.map((b) => (b.id === bookingId ? { ...b, checked_in_at: new Date().toISOString() } : b))
+          );
+        } else {
+          toast.success(t("checkedOut"));
+          setResults((prev) =>
+            prev.map((b) => (b.id === bookingId ? { ...b, checked_out_at: new Date().toISOString(), status: "completed" } : b))
+          );
+        }
+      }
+    } catch {
+      toast.error(t("noResults"));
+    } finally {
+      setCheckingIn(null);
+    }
+  };
+
+  const handleSubmitReview = async (bookingId: string, guestEmail: string) => {
     if (reviewRating === 0) return;
     setSubmittingReview(true);
     try {
@@ -70,6 +106,7 @@ export function BookingSearchDialog({ homestayId, themeColor }: BookingSearchDia
           booking_id: bookingId,
           rating: reviewRating,
           comment: reviewComment.trim() || null,
+          guest_email: guestEmail,
         }),
       });
       const data = await res.json();
@@ -206,7 +243,7 @@ export function BookingSearchDialog({ homestayId, themeColor }: BookingSearchDia
                   <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
                     <span className="flex items-center gap-1">
                       <CalendarDays className="h-3 w-3" />
-                      {booking.check_in} → {booking.check_out}
+                      {fmtDateStr(booking.check_in, "d MMM yyyy", locale)} → {fmtDateStr(booking.check_out, "d MMM yyyy", locale)}
                     </span>
                     <span>{booking.room_name}</span>
                     <span className="font-medium" style={{ color: themeColor }}>
@@ -216,6 +253,50 @@ export function BookingSearchDialog({ homestayId, themeColor }: BookingSearchDia
                   <p className="text-xs text-gray-400">
                     ID: {booking.id.slice(0, 8)}…
                   </p>
+
+                  {/* Check-in button: confirmed + not checked in yet */}
+                  {booking.status === "confirmed" && !booking.checked_in_at && (
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <Button
+                        size="sm"
+                        className="w-full text-white hover:brightness-90"
+                        style={{ backgroundColor: themeColor }}
+                        onClick={() => handleCheckin(booking.id, booking.guest_email, "checkin")}
+                        disabled={checkingIn === booking.id}
+                      >
+                        {checkingIn === booking.id ? (
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <LogIn className="mr-1.5 h-3.5 w-3.5" />
+                        )}
+                        {t("checkIn")}
+                      </Button>
+                    </div>
+                  )}
+
+                  {/* Check-out button: confirmed + checked in + not checked out yet */}
+                  {booking.status === "confirmed" && booking.checked_in_at && !booking.checked_out_at && (
+                    <div className="mt-2 pt-2 border-t border-gray-200">
+                      <Badge variant="secondary" className="bg-blue-100 text-blue-700 mb-2">
+                        <CheckCircle2 className="mr-1 h-3 w-3" />
+                        {t("checkedIn")}
+                      </Badge>
+                      <Button
+                        size="sm"
+                        className="w-full text-white hover:brightness-90"
+                        style={{ backgroundColor: themeColor }}
+                        onClick={() => handleCheckin(booking.id, booking.guest_email, "checkout")}
+                        disabled={checkingIn === booking.id}
+                      >
+                        {checkingIn === booking.id ? (
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                        ) : (
+                          <LogOut className="mr-1.5 h-3.5 w-3.5" />
+                        )}
+                        {t("checkOut")}
+                      </Button>
+                    </div>
+                  )}
 
                   {/* Review section for completed bookings */}
                   {booking.status === "completed" && (
@@ -280,7 +361,7 @@ export function BookingSearchDialog({ homestayId, themeColor }: BookingSearchDia
                               size="sm"
                               className="flex-1 text-white hover:brightness-90"
                               style={{ backgroundColor: themeColor }}
-                              onClick={() => handleSubmitReview(booking.id)}
+                              onClick={() => handleSubmitReview(booking.id, booking.guest_email)}
                               disabled={reviewRating === 0 || submittingReview}
                             >
                               {submittingReview ? (

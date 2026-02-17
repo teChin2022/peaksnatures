@@ -19,7 +19,7 @@ import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import type { Homestay } from "@/types/database";
+import type { Homestay, Room } from "@/types/database";
 
 export default async function Home() {
   const supabase = createServiceRoleClient();
@@ -28,7 +28,27 @@ export default async function Home() {
     .select("*")
     .eq("is_active", true)
     .order("created_at", { ascending: false });
-  const HOMESTAYS = (homestayRows as unknown as Homestay[]) || [];
+  const homestays = (homestayRows as unknown as Homestay[]) || [];
+
+  // Fetch all rooms for active homestays to derive min price
+  const homestayIds = homestays.map((h) => h.id);
+  const { data: roomRows } = homestayIds.length
+    ? await supabase
+        .from("rooms")
+        .select("homestay_id, price_per_night")
+        .in("homestay_id", homestayIds)
+    : { data: [] };
+  const rooms = (roomRows as unknown as Pick<Room, "homestay_id" | "price_per_night">[]) || [];
+
+  const minPriceMap = new Map<string, number>();
+  for (const r of rooms) {
+    const cur = minPriceMap.get(r.homestay_id);
+    if (cur === undefined || r.price_per_night < cur) {
+      minPriceMap.set(r.homestay_id, r.price_per_night);
+    }
+  }
+
+  const HOMESTAYS = homestays;
 
   const t = await getTranslations("home");
   const tc = await getTranslations("common");
@@ -166,9 +186,11 @@ export default async function Home() {
                         className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                       <div className="absolute right-3 top-3">
-                        <Badge className="bg-white/90 text-gray-900 backdrop-blur-sm">
-                          ฿{h.price_per_night.toLocaleString()}{tc("perNight")}
-                        </Badge>
+                        {minPriceMap.has(h.id) && (
+                          <Badge className="bg-white/90 text-gray-900 backdrop-blur-sm">
+                            {tc("from")} ฿{minPriceMap.get(h.id)!.toLocaleString()}{tc("perNight")}
+                          </Badge>
+                        )}
                       </div>
                     </div>
                     <CardContent className="p-4">

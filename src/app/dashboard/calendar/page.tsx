@@ -17,6 +17,7 @@ import {
   startOfDay,
 } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
+import { fmtDate, fmtDateStr } from "@/lib/format-date";
 import { useTranslations } from "next-intl";
 import {
   ChevronLeft,
@@ -40,11 +41,6 @@ import {
   DialogFooter,
   DialogDescription,
 } from "@/components/ui/dialog";
-import {
-  Popover,
-  PopoverContent,
-  PopoverTrigger,
-} from "@/components/ui/popover";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useThemeColor } from "@/components/dashboard/theme-context";
@@ -106,6 +102,7 @@ export default function CalendarPage() {
   const [saving, setSaving] = useState(false);
   const [roomMap, setRoomMap] = useState<Record<string, string>>({});
   const [locale, setLocale] = useState("en");
+  const [detailDay, setDetailDay] = useState<DayInfo | null>(null);
 
   // Detect locale
   useEffect(() => {
@@ -258,6 +255,12 @@ export default function CalendarPage() {
 
   // Selection handling
   const toggleDateSelection = (dateStr: string, dayInfo: DayInfo) => {
+    // If the date has bookings, open the detail modal instead of toggling selection
+    if (dayInfo.bookings.length > 0 && dayInfo.isCurrentMonth) {
+      setDetailDay(dayInfo);
+      return;
+    }
+
     if (dayInfo.isPast && !dayInfo.isBlocked) return;
 
     setSelectedDates((prev) => {
@@ -491,7 +494,7 @@ export default function CalendarPage() {
             </Button>
             <div className="flex items-center gap-3">
               <CardTitle className="text-lg">
-                {format(currentMonth, locale === "th" ? "MMMM yyyy" : "MMMM yyyy")}
+                {fmtDate(currentMonth, "MMMM yyyy", locale)}
               </CardTitle>
               <Button variant="outline" size="sm" onClick={goToToday}>
                 {t("today")}
@@ -629,86 +632,6 @@ export default function CalendarPage() {
                 </button>
               );
 
-              // Wrap booked/blocked dates with popover for details
-              if (dayInfo.isCurrentMonth && (hasBookings || dayInfo.isBlocked)) {
-                return (
-                  <Popover key={dayInfo.dateStr}>
-                    <PopoverTrigger asChild>{dayContent}</PopoverTrigger>
-                    <PopoverContent className="w-80 p-3" align="center">
-                      <p className="text-sm font-semibold text-gray-900 mb-2">
-                        {format(dayInfo.date, "EEE, MMM d, yyyy")}
-                      </p>
-
-                      {dayInfo.isBlocked && (
-                        <div className="mb-2 flex items-center gap-2 rounded-md bg-red-50 px-2.5 py-1.5 text-xs text-red-700">
-                          <Ban className="h-3.5 w-3.5 shrink-0" />
-                          <div>
-                            <span className="font-medium">{t("blocked")}</span>
-                            {dayInfo.blockedReason && (
-                              <span className="text-red-500"> — {dayInfo.blockedReason}</span>
-                            )}
-                          </div>
-                        </div>
-                      )}
-
-                      {dayInfo.bookings.length > 0 && (
-                        <div className="space-y-2">
-                          {dayInfo.bookings.map((bi) => (
-                            <div
-                              key={bi.booking.id}
-                              className="rounded-md border p-2 text-xs"
-                            >
-                              <div className="flex items-center justify-between mb-1">
-                                <span className="font-semibold text-gray-900">
-                                  {bi.booking.guest_name}
-                                </span>
-                                <div className="flex items-center gap-1">
-                                  <Badge
-                                    variant="outline"
-                                    className={`text-[9px] px-1 py-0 ${
-                                      bi.position === "start"
-                                        ? "border-green-300 text-green-700 bg-green-50"
-                                        : bi.position === "end"
-                                        ? "border-orange-300 text-orange-700 bg-orange-50"
-                                        : "border-blue-300 text-blue-700 bg-blue-50"
-                                    }`}
-                                  >
-                                    {bi.position === "start" ? t("checkIn") : bi.position === "end" ? t("checkOut") : t("staying")}
-                                  </Badge>
-                                  <Badge
-                                    variant="secondary"
-                                    className={`text-[9px] px-1 py-0 ${
-                                      bi.booking.status === "confirmed" || bi.booking.status === "verified"
-                                        ? "bg-green-100 text-green-700"
-                                        : bi.booking.status === "pending"
-                                        ? "bg-yellow-100 text-yellow-700"
-                                        : "bg-gray-100 text-gray-500"
-                                    }`}
-                                  >
-                                    {bi.booking.status}
-                                  </Badge>
-                                </div>
-                              </div>
-                              <div className="flex items-center gap-1.5 text-gray-500 mt-1">
-                                <span className="font-medium text-gray-700">{bi.booking.check_in}</span>
-                                <span>→</span>
-                                <span className="font-medium text-gray-700">{bi.booking.check_out}</span>
-                              </div>
-                              <p className="text-gray-500 mt-0.5">
-                                {bi.booking.room_id ? roomMap[bi.booking.room_id] || "—" : "—"} · {bi.booking.num_guests} {t("guests")}
-                              </p>
-                              <p className="font-medium mt-0.5" style={{ color: themeColor }}>
-                                ฿{bi.booking.total_price.toLocaleString()}
-                              </p>
-                            </div>
-                          ))}
-                        </div>
-                      )}
-                    </PopoverContent>
-                  </Popover>
-                );
-              }
-
               return <div key={dayInfo.dateStr}>{dayContent}</div>;
             })}
           </div>
@@ -789,6 +712,102 @@ export default function CalendarPage() {
                 <Ban className="mr-2 h-4 w-4" />
               )}
               {t("confirmBlock")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Booking Detail Modal */}
+      <Dialog open={!!detailDay} onOpenChange={(open) => !open && setDetailDay(null)}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5" style={{ color: themeColor }} />
+              {detailDay && fmtDate(detailDay.date, "EEE, d MMM yyyy", locale)}
+            </DialogTitle>
+            <DialogDescription>
+              {detailDay && detailDay.bookings.length > 0
+                ? t("bookingDetailDesc", { count: detailDay.bookings.length })
+                : ""}
+            </DialogDescription>
+          </DialogHeader>
+
+          {detailDay && detailDay.isBlocked && (
+            <div className="flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
+              <Ban className="h-4 w-4 shrink-0" />
+              <div>
+                <span className="font-medium">{t("blocked")}</span>
+                {detailDay.blockedReason && (
+                  <span className="text-red-500"> — {detailDay.blockedReason}</span>
+                )}
+              </div>
+            </div>
+          )}
+
+          {detailDay && detailDay.bookings.length > 0 && (
+            <div className="max-h-[60vh] overflow-y-auto space-y-3 pr-1">
+              {detailDay.bookings.map((bi) => (
+                <div
+                  key={bi.booking.id}
+                  className="rounded-lg border p-3 text-sm"
+                >
+                  <div className="flex items-center justify-between mb-2">
+                    <span className="font-semibold text-gray-900">
+                      {bi.booking.guest_name}
+                    </span>
+                    <div className="flex items-center gap-1.5">
+                      <Badge
+                        variant="outline"
+                        className={`text-[10px] px-1.5 py-0 ${
+                          bi.position === "start"
+                            ? "border-green-300 text-green-700 bg-green-50"
+                            : bi.position === "end"
+                            ? "border-orange-300 text-orange-700 bg-orange-50"
+                            : "border-blue-300 text-blue-700 bg-blue-50"
+                        }`}
+                      >
+                        {bi.position === "start" ? t("checkIn") : bi.position === "end" ? t("checkOut") : t("staying")}
+                      </Badge>
+                      <Badge
+                        variant="secondary"
+                        className={`text-[10px] px-1.5 py-0 ${
+                          bi.booking.status === "confirmed" || bi.booking.status === "verified"
+                            ? "bg-green-100 text-green-700"
+                            : bi.booking.status === "pending"
+                            ? "bg-yellow-100 text-yellow-700"
+                            : "bg-gray-100 text-gray-500"
+                        }`}
+                      >
+                        {bi.booking.status}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="grid grid-cols-2 gap-2 text-xs">
+                    <div className="rounded-md bg-green-50 px-2.5 py-1.5">
+                      <p className="text-green-600 font-medium mb-0.5">{t("checkIn")}</p>
+                      <p className="text-gray-900 font-semibold">{fmtDateStr(bi.booking.check_in, "d MMM yyyy", locale)}</p>
+                    </div>
+                    <div className="rounded-md bg-orange-50 px-2.5 py-1.5">
+                      <p className="text-orange-600 font-medium mb-0.5">{t("checkOut")}</p>
+                      <p className="text-gray-900 font-semibold">{fmtDateStr(bi.booking.check_out, "d MMM yyyy", locale)}</p>
+                    </div>
+                  </div>
+                  <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                    <span>
+                      {bi.booking.room_id ? roomMap[bi.booking.room_id] || "—" : "—"} · {bi.booking.num_guests} {t("guests")}
+                    </span>
+                    <span className="font-semibold text-sm" style={{ color: themeColor }}>
+                      ฿{bi.booking.total_price.toLocaleString()}
+                    </span>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setDetailDay(null)}>
+              {t("cancelAction")}
             </Button>
           </DialogFooter>
         </DialogContent>

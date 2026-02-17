@@ -12,6 +12,8 @@ import {
   BedDouble,
   ArrowRight,
   MapPin,
+  QrCode,
+  Download,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -19,6 +21,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SetupProfileModal } from "@/components/setup-profile-modal";
 import { useThemeColor } from "@/components/dashboard/theme-context";
 import { getProvinceLabel } from "@/lib/provinces";
+import { QRCodeSVG } from "qrcode.react";
 
 interface HostProfile {
   id: string;
@@ -33,6 +36,7 @@ interface Stats {
   totalBookings: number;
   roomCount: number;
   homestayName: string | null;
+  homestaySlug: string | null;
 }
 
 export default function DashboardPage() {
@@ -51,6 +55,7 @@ export default function DashboardPage() {
     totalBookings: 0,
     roomCount: 0,
     homestayName: null,
+    homestaySlug: null,
   });
   const [provinceStats, setProvinceStats] = useState<{ province: string; count: number }[]>([]);
 
@@ -83,12 +88,12 @@ export default function DashboardPage() {
       // Fetch homestay
       const { data: homestayRow } = await supabase
         .from("homestays")
-        .select("id, name")
+        .select("id, name, slug")
         .eq("host_id", host.id)
         .limit(1)
         .single();
 
-      const homestay = homestayRow as { id: string; name: string } | null;
+      const homestay = homestayRow as { id: string; name: string; slug: string } | null;
 
       if (!homestay) {
         setLoading(false);
@@ -134,6 +139,7 @@ export default function DashboardPage() {
         totalBookings: bookings.length,
         roomCount: roomCount || 0,
         homestayName: homestay.name,
+        homestaySlug: homestay.slug,
       });
 
       setLoading(false);
@@ -309,6 +315,65 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
           </div>
+
+          {/* QR Code for Guest Check-in/Check-out */}
+          {stats.homestaySlug && (
+            <Card>
+              <CardHeader className="pb-3">
+                <CardTitle className="flex items-center gap-2 text-base">
+                  <QrCode className="h-4 w-4" />
+                  {t("qrCodeTitle")}
+                </CardTitle>
+              </CardHeader>
+              <CardContent>
+                <div className="flex flex-col items-center gap-4 sm:flex-row sm:items-start">
+                  <div className="rounded-xl border-2 border-gray-100 bg-white p-3">
+                    <QRCodeSVG
+                      id="checkin-qr"
+                      value={`${typeof window !== "undefined" ? window.location.origin : ""}/${stats.homestaySlug}`}
+                      size={160}
+                      fgColor={themeColor}
+                      level="M"
+                    />
+                  </div>
+                  <div className="flex flex-col gap-2 text-center sm:text-left">
+                    <p className="text-sm text-gray-600">{t("qrCodeDesc")}</p>
+                    <ol className="text-xs text-gray-500 space-y-1 list-decimal list-inside">
+                      <li>{t("qrStep1")}</li>
+                      <li>{t("qrStep2")}</li>
+                      <li>{t("qrStep3")}</li>
+                    </ol>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="mt-1 w-fit self-center sm:self-start"
+                      onClick={() => {
+                        const svg = document.getElementById("checkin-qr");
+                        if (!svg) return;
+                        const svgData = new XMLSerializer().serializeToString(svg);
+                        const canvas = document.createElement("canvas");
+                        canvas.width = 400;
+                        canvas.height = 400;
+                        const ctx = canvas.getContext("2d");
+                        const img = new Image();
+                        img.onload = () => {
+                          ctx?.drawImage(img, 0, 0, 400, 400);
+                          const a = document.createElement("a");
+                          a.download = `${stats.homestaySlug}-qr.png`;
+                          a.href = canvas.toDataURL("image/png");
+                          a.click();
+                        };
+                        img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+                      }}
+                    >
+                      <Download className="mr-1.5 h-3.5 w-3.5" />
+                      {t("qrDownload")}
+                    </Button>
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+          )}
 
           {/* Province Stats */}
           <Card>

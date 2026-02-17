@@ -9,6 +9,7 @@ import { RoomsSection } from "@/components/booking/rooms-section";
 import { BookingSection } from "@/components/booking/booking-section";
 import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingFooter } from "@/components/booking/booking-footer";
+import { MapRulesSection } from "@/components/booking/map-rules-section";
 import { ChatWidget } from "@/components/chat/chat-widget";
 
 
@@ -140,35 +141,12 @@ export default async function HomestayPage({ params }: PageProps) {
 
         <RoomsSection rooms={rooms} themeColor={homestay.theme_color} />
 
-        {/* Map Section */}
-        {/* {homestay.map_embed_url && (
-          <section className="bg-gray-50/60 py-10">
-            <div className="mx-auto max-w-7xl px-4 sm:px-6">
-              <div className="flex items-center gap-2">
-                <div
-                  className="flex h-8 w-8 items-center justify-center rounded-lg"
-                  style={{ backgroundColor: homestay.theme_color + '15' }}
-                >
-                  <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" style={{ color: homestay.theme_color }}><path d="M20 10c0 6-8 12-8 12s-8-6-8-12a8 8 0 0 1 16 0Z"/><circle cx="12" cy="10" r="3"/></svg>
-                </div>
-                <div>
-                  <h2 className="text-xl font-semibold text-gray-900">Location</h2>
-                  <p className="text-sm text-gray-500">{homestay.location}</p>
-                </div>
-              </div>
-              <div className="mt-4 overflow-hidden rounded-2xl border bg-white shadow-sm">
-                <iframe
-                  src={homestay.map_embed_url}
-                  className="h-80 w-full lg:h-[400px]"
-                  loading="lazy"
-                  allowFullScreen
-                  referrerPolicy="no-referrer-when-downgrade"
-                  title="Map"
-                />
-              </div>
-            </div>
-          </section>
-        )} */}
+        <MapRulesSection
+          mapEmbedUrl={homestay.map_embed_url}
+          location={homestay.location}
+          prohibitions={homestay.prohibitions}
+          themeColor={homestay.theme_color}
+        />
 
         {/* Booking Form */}
         <section className="py-10">

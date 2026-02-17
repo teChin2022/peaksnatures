@@ -8,6 +8,7 @@
     "guest": "guest",
     "guests": "guests",
     "perNight": "/night",
+    "from": "From",
     "total": "Total",
     "hostLogin": "Host Login",
     "privacy": "Privacy",
@@ -59,7 +60,12 @@
     "title": "About this place",
     "amenities": "Amenities",
     "upToGuests": "Up to {count} guests",
-    "maxGuests": "Max {count} guests"
+    "maxGuests": "Max {count} guests",
+    "location": "Location"
+  },
+  "prohibitions": {
+    "title": "House Rules",
+    "noItems": "No house rules specified"
   },
   "rooms": {
     "title": "Rooms & Pricing",
@@ -144,7 +150,9 @@
     "confirmTitle": "Review Your Details",
     "confirmDesc": "Please double-check your information before proceeding to payment.",
     "confirmEdit": "Edit Details",
-    "confirmProceed": "Confirm & Pay"
+    "confirmProceed": "Confirm & Pay",
+    "checkInTime": "Check-in after {time}",
+    "checkOutTime": "Check-out before {time}"
   },
   "chat": {
     "title": "Booking Assistant",
@@ -243,11 +251,20 @@
     "cancelConfirmDesc": "Are you sure you want to cancel this booking for {guest}? This action cannot be undone.",
     "cancelConfirmButton": "Yes, Cancel Booking",
     "cancelKeep": "Keep Booking",
+    "markCompleted": "Mark Completed",
+    "guestCheckedIn": "Checked In",
+    "guestCheckedOut": "Checked Out",
     "errorUpdate": "Failed to update booking",
     "provinceStats": "Bookings by Province",
     "provinceLabel": "Province",
     "bookingCount": "Bookings",
-    "noProvinceData": "No province data yet"
+    "noProvinceData": "No province data yet",
+    "qrCodeTitle": "Guest Check-in QR Code",
+    "qrCodeDesc": "Print or display this QR code at your property. Guests scan it to check in, check out, and leave reviews.",
+    "qrStep1": "Guest scans QR code on arrival → Check In",
+    "qrStep2": "Guest scans QR code on departure → Check Out",
+    "qrStep3": "After check-out → Write a Review",
+    "qrDownload": "Download QR"
   },
   "setupProfile": {
     "title": "Complete Your Profile",
@@ -339,7 +356,15 @@
     "created": "Homestay created successfully",
     "saved": "Homestay updated successfully",
     "errorRequired": "Please fill in name, slug, and location",
-    "errorSave": "Failed to save. Please try again."
+    "errorSave": "Failed to save. Please try again.",
+    "checkInOutTimes": "Check-in / Check-out Times",
+    "checkInTime": "Check-in Time",
+    "checkOutTime": "Check-out Time",
+    "prohibitions": "House Rules",
+    "selectedProhibitions": "Selected rules",
+    "addCustomProhibition": "Add custom rule",
+    "customProhibitionPlaceholder": "e.g. No loud music after 10 PM",
+    "commonProhibitions": "Quick add"
   },
   "dashboardRooms": {
     "title": "Manage Rooms",
@@ -401,7 +426,8 @@
     "clickToSelect": "Click dates to select, then block/unblock",
     "checkIn": "Check-in",
     "checkOut": "Check-out",
-    "staying": "Staying"
+    "staying": "Staying",
+    "bookingDetailDesc": "{count} booking(s) on this date"
   },
   "bookingSearch": {
     "searchBooking": "Search Booking",
@@ -409,6 +435,10 @@
     "placeholder": "Email, phone number, or booking ID",
     "search": "Search",
     "noResults": "No bookings found. Please check your search and try again.",
+    "checkIn": "Check In",
+    "checkOut": "Check Out",
+    "checkedIn": "Checked In",
+    "checkedOut": "Checked Out",
     "status": {
       "pending": "Pending",
       "verified": "Verified",
