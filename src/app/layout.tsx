@@ -21,7 +21,7 @@ export const metadata: Metadata = {
   description:
     "Book unique nature homestays in Thailand. Mountain retreats, riverside escapes, and forest hideaways.",
   icons: {
-    icon: "/favicon.ico?v=2",
+    icon: "/logo.png",
     apple: "/logo.png",
   },
 };
