@@ -322,7 +322,7 @@ export default async function Home() {
                 <MessageCircle className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
                 <div>
                   <p className="text-sm font-medium text-gray-900">{t("contactLine")}</p>
-                  <p className="text-sm text-gray-500">@Peaksnature</p>
+                  <p className="text-sm text-gray-500">@peaksnature</p>
                 </div>
               </CardContent>
             </Card>
