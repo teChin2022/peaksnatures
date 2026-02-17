@@ -176,12 +176,26 @@ export default function BookingsPage() {
 
   const [cancelTarget, setCancelTarget] = useState<DisplayBooking | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [completeTarget, setCompleteTarget] = useState<DisplayBooking | null>(null);
+  const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [detailTarget, setDetailTarget] = useState<DisplayBooking | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
   const handleCancelClick = (booking: DisplayBooking) => {
     setCancelTarget(booking);
     setCancelDialogOpen(true);
+  };
+
+  const handleCompleteClick = (booking: DisplayBooking) => {
+    setCompleteTarget(booking);
+    setCompleteDialogOpen(true);
+  };
+
+  const handleConfirmComplete = async () => {
+    if (!completeTarget) return;
+    await updateStatus(completeTarget.id, "completed");
+    setCompleteDialogOpen(false);
+    setCompleteTarget(null);
   };
 
   const handleConfirmCancel = async () => {
@@ -380,9 +394,7 @@ export default function BookingsPage() {
                                     size="sm"
                                     className="hover:brightness-90 text-white"
                                     style={{ backgroundColor: themeColor }}
-                                    onClick={() =>
-                                      updateStatus(booking.id, "completed")
-                                    }
+                                    onClick={() => handleCompleteClick(booking)}
                                   >
                                     <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
                                     {t("markCompleted")}
@@ -534,10 +546,9 @@ export default function BookingsPage() {
                   <Button
                     className="hover:brightness-90 text-white"
                     style={{ backgroundColor: themeColor }}
-                    onClick={async () => {
-                      await updateStatus(detailTarget.id, "completed");
-                      setDetailTarget((prev) => prev ? { ...prev, status: "completed" } : null);
+                    onClick={() => {
                       setDetailDialogOpen(false);
+                      handleCompleteClick(detailTarget);
                     }}
                   >
                     <CheckCircle2 className="mr-1 h-4 w-4" />
@@ -574,6 +585,37 @@ export default function BookingsPage() {
               onClick={handleConfirmCancel}
             >
               {t("cancelConfirmButton")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Complete confirmation dialog */}
+      <Dialog open={completeDialogOpen} onOpenChange={setCompleteDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5" style={{ color: themeColor }} />
+              {t("completeConfirmTitle")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("completeConfirmDesc", { guest: completeTarget?.guest_name || "" })}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button
+              variant="outline"
+              onClick={() => setCompleteDialogOpen(false)}
+            >
+              {t("cancel")}
+            </Button>
+            <Button
+              className="hover:brightness-90 text-white"
+              style={{ backgroundColor: themeColor }}
+              onClick={handleConfirmComplete}
+            >
+              <CheckCircle2 className="mr-1 h-4 w-4" />
+              {t("completeConfirmButton")}
             </Button>
           </DialogFooter>
         </DialogContent>

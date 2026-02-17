@@ -327,6 +327,11 @@ export default function HomestayPage() {
       return;
     }
 
+    if (!/^[a-z0-9]+(-[a-z0-9]+)*$/.test(slug.trim())) {
+      toast.error(t("errorSlugFormat"));
+      return;
+    }
+
     setSaving(true);
     try {
       const supabase = createClient();
@@ -471,7 +476,10 @@ export default function HomestayPage() {
               </Label>
               <Input
                 value={slug}
-                onChange={(e) => setSlug(e.target.value)}
+                onChange={(e) => {
+                  const v = e.target.value.toLowerCase().replace(/[^a-z0-9-]/g, "");
+                  setSlug(v);
+                }}
                 placeholder="my-homestay"
               />
               <p className="text-xs text-gray-500">
