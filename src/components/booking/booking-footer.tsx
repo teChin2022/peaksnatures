@@ -42,12 +42,13 @@ export function BookingFooter({
                 className="h-8 w-8 rounded-full object-cover border shadow-sm"
               />
             ) : (
-              <div
-                className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm"
-                style={{ backgroundColor: themeColor }}
-              >
-                {getInitials(homestayName)}
-              </div>
+              <div></div>
+              // <div
+              //   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm"
+              //   style={{ backgroundColor: themeColor }}
+              // >
+              //   {getInitials(homestayName)}
+              // </div>
             )}
             <div>
               <span className="font-semibold text-gray-900">{homestayName}</span>
