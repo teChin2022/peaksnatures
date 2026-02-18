@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
 import { Palette, Loader2, Save, Check, Eye } from "lucide-react";
@@ -242,9 +243,11 @@ export default function ThemePage() {
               {/* Simulated hero */}
               <div className="relative h-40 bg-gradient-to-br from-gray-700 to-gray-900">
                 {homestay.hero_image_url && (
-                  <img
+                  <Image
                     src={homestay.hero_image_url}
                     alt="Preview"
+                    fill
+                    sizes="600px"
                     className="absolute inset-0 h-full w-full object-cover opacity-60"
                   />
                 )}

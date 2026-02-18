@@ -1,6 +1,7 @@
 "use client";
 
 import { useState } from "react";
+import Image from "next/image";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 
@@ -26,9 +27,11 @@ export function GallerySection({ images, name }: GallerySectionProps) {
                 onClick={() => setLightboxIndex(i)}
                 className="group relative aspect-[4/3] overflow-hidden rounded-lg"
               >
-                <img
+                <Image
                   src={img}
                   alt={`${name} photo ${i + 1}`}
+                  fill
+                  sizes="(max-width: 640px) 50vw, 25vw"
                   className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                 />
                 <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
@@ -63,9 +66,11 @@ export function GallerySection({ images, name }: GallerySectionProps) {
             <ChevronLeft className="h-8 w-8" />
           </Button>
 
-          <img
+          <Image
             src={images[lightboxIndex]}
             alt={`${name} photo ${lightboxIndex + 1}`}
+            width={1200}
+            height={800}
             className="max-h-[80vh] max-w-[90vw] rounded-lg object-contain"
           />
 

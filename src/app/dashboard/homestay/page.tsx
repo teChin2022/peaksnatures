@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
 import {
@@ -762,9 +763,11 @@ export default function HomestayPage() {
               <Label>{t("logo")}</Label>
               {logoUrl ? (
                 <div className="group relative inline-block overflow-hidden rounded-lg border">
-                  <img
+                  <Image
                     src={logoUrl}
                     alt="Logo preview"
+                    width={80}
+                    height={80}
                     className="h-20 w-20 object-cover"
                   />
                   <div className="absolute inset-0 flex items-center justify-center gap-1 bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
@@ -816,9 +819,11 @@ export default function HomestayPage() {
               <Label>{t("heroImage")}</Label>
               {heroImageUrl ? (
                 <div className="group relative overflow-hidden rounded-lg border">
-                  <img
+                  <Image
                     src={heroImageUrl}
                     alt="Hero preview"
+                    width={800}
+                    height={192}
                     className="h-48 w-full object-cover"
                   />
                   <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
@@ -898,9 +903,11 @@ export default function HomestayPage() {
                 <div className="mt-3 grid grid-cols-3 gap-2 sm:grid-cols-4">
                   {gallery.map((img, i) => (
                     <div key={i} className="group relative aspect-[4/3] overflow-hidden rounded-lg border">
-                      <img
+                      <Image
                         src={img}
                         alt={`Gallery ${i + 1}`}
+                        fill
+                        sizes="(max-width: 640px) 33vw, 25vw"
                         className="h-full w-full object-cover"
                       />
                       <button

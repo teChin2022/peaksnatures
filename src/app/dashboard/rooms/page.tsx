@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
 import {
@@ -322,9 +323,11 @@ export default function RoomsPage() {
               <CardContent className="p-4">
                 <div className="flex gap-4">
                   {room.images[0] ? (
-                    <img
+                    <Image
                       src={room.images[0]}
                       alt={room.name}
+                      width={128}
+                      height={96}
                       className="h-24 w-32 shrink-0 rounded-lg object-cover"
                     />
                   ) : (
@@ -484,9 +487,11 @@ export default function RoomsPage() {
                       key={i}
                       className="group relative overflow-hidden rounded-lg border"
                     >
-                      <img
+                      <Image
                         src={img}
                         alt={`Room image ${i + 1}`}
+                        width={200}
+                        height={80}
                         className="h-20 w-full object-cover"
                       />
                       <button

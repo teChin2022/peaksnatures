@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import Link from "next/link";
+import Image from "next/image";
 import { Mountain, Loader2, Eye, EyeOff, Mail } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -91,7 +92,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2">
           <Link href="/" className="flex items-center gap-2">
-            <img src="/logo.png" alt="PeaksNature" className="h-8 w-8 rounded" />
+            <Image src="/logo.png" alt="PeaksNature" width={32} height={32} className="h-8 w-8 rounded" />
             <span className="text-2xl font-bold text-green-800">PeaksNature</span>
           </Link>
           <p className="text-sm text-gray-500">{t("registerAs")}</p>
