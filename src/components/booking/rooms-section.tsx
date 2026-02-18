@@ -1,3 +1,4 @@
+import Image from "next/image";
 import type { Room } from "@/types/database";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -36,9 +37,11 @@ export function RoomsSection({ rooms, themeColor = "#16a34a" }: RoomsSectionProp
             >
               {room.images[0] && (
                 <div className="relative aspect-[16/10] overflow-hidden">
-                  <img
+                  <Image
                     src={room.images[0]}
                     alt={room.name}
+                    fill
+                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
                     className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
                   />
                   <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/50 to-transparent" />

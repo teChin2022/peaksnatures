@@ -1,4 +1,5 @@
 import Link from "next/link";
+import Image from "next/image";
 import { ArrowLeft, CalendarDays } from "lucide-react";
 import { getInitials } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
@@ -24,9 +25,11 @@ export function BookingHeader({ homestayName, themeColor, logoUrl, homestayId }:
             <ArrowLeft className="h-4 w-4" />
           </Link>
           {logoUrl ? (
-            <img
+            <Image
               src={logoUrl}
               alt={homestayName}
+              width={32}
+              height={32}
               className="h-8 w-8 rounded-full object-cover border shadow-sm shrink-0"
             />
           ) : (

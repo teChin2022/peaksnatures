@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { usePathname } from "next/navigation";
 import { useTranslations } from "next-intl";
 import {
@@ -63,14 +64,15 @@ export function Sidebar({ collapsed, onToggle, brandName = "PeaksNature", brandL
       <div className="flex h-14 items-center justify-between border-b px-3">
         <Link href="/" className="flex items-center gap-2 overflow-hidden">
           {brandLogo ? (
-            <img src={brandLogo} alt={brandName} className="h-6 w-6 shrink-0 rounded object-cover" />
+            <Image src={brandLogo} alt={brandName} width={24} height={24} className="h-6 w-6 shrink-0 rounded object-cover" />
           ) : (
-            <div
-              className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-bold text-white"
-              style={{ backgroundColor: themeColor }}
-            >
-              {getInitials(brandName)}
-            </div>
+            <div></div>
+            // <div
+            //   className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-bold text-white"
+            //   style={{ backgroundColor: themeColor }}
+            // >
+            //   {getInitials(brandName)}
+            // </div>
           )}
           {!collapsed && (
             <span className="whitespace-nowrap font-bold truncate" style={{ color: themeColor }}>
@@ -179,7 +181,7 @@ export function MobileSidebar({
         <div className="flex h-14 items-center justify-between border-b px-3">
           <Link href="/" className="flex items-center gap-2 overflow-hidden">
             {brandLogo ? (
-              <img src={brandLogo} alt={brandName} className="h-6 w-6 shrink-0 rounded object-cover" />
+              <Image src={brandLogo} alt={brandName} width={24} height={24} className="h-6 w-6 shrink-0 rounded object-cover" />
             ) : (
               <div
                 className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-bold text-white"

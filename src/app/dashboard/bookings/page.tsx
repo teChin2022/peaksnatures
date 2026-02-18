@@ -1,6 +1,7 @@
 "use client";
 
 import React, { useState, useEffect } from "react";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations, useLocale } from "next-intl";
 import {
@@ -282,9 +283,11 @@ export default function BookingsPage() {
                               className="group relative h-20 w-20 shrink-0 overflow-hidden rounded-lg border"
                               onClick={() => { setDetailTarget(booking); setDetailDialogOpen(true); }}
                             >
-                              <img
+                              <Image
                                 src={booking.payment_slip_url}
                                 alt="Payment slip"
+                                fill
+                                sizes="80px"
                                 className="h-full w-full object-cover transition-opacity group-hover:opacity-75"
                               />
                               <div className="absolute inset-0 flex items-center justify-center bg-black/30 opacity-0 transition-opacity group-hover:opacity-100">
@@ -461,9 +464,11 @@ export default function BookingsPage() {
                     )}
                   </div>
                   <div className="rounded-lg border bg-gray-50 p-2">
-                    <img
+                    <Image
                       src={detailTarget.payment_slip_url}
                       alt="Payment slip"
+                      width={400}
+                      height={320}
                       className="mx-auto max-h-80 rounded-lg object-contain"
                     />
                   </div>

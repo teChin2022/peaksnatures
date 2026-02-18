@@ -1,3 +1,5 @@
+import Image from "next/image";
+
 interface HeroSectionProps {
   name: string;
   tagline: string | null;
@@ -14,9 +16,12 @@ export function HeroSection({
   return (
     <section className="relative h-[50vh] min-h-[360px] overflow-hidden sm:h-[60vh]">
       {heroImageUrl && (
-        <img
+        <Image
           src={heroImageUrl}
           alt={name}
+          fill
+          sizes="100vw"
+          priority
           className="absolute inset-0 h-full w-full object-cover"
         />
       )}

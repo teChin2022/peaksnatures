@@ -15,9 +15,9 @@ interface DashboardShellProps {
 export function DashboardShell({ children }: DashboardShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [brandName, setBrandName] = useState("PeaksNature");
+  const [brandName, setBrandName] = useState("Loading...");
   const [brandLogo, setBrandLogo] = useState<string | null>(null);
-  const [themeColor, setThemeColor] = useState("#16a34a");
+  const [themeColor, setThemeColor] = useState("#000000");
 
   useEffect(() => {
     const fetchBrand = async () => {
@@ -45,7 +45,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
         const h = homestay as { name: string; logo_url: string | null; theme_color: string };
         setBrandName(h.name);
         setBrandLogo(h.logo_url);
-        setThemeColor(h.theme_color || "#16a34a");
+        setThemeColor(h.theme_color || "#000000");
       }
     };
     fetchBrand();
