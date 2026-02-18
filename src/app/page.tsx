@@ -316,7 +316,7 @@ export default async function Home() {
                 <Mail className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
                 <div>
                   <p className="text-sm font-medium text-gray-900">{t("contactEmail")}</p>
-                  <p className="text-sm text-gray-500">techin.s001@gmail.com</p>
+                  <p className="text-sm text-gray-500">peaksnature@gmail.com</p>
                 </div>
               </CardContent>
             </Card>
@@ -329,7 +329,7 @@ export default async function Home() {
                 </div>
               </CardContent>
             </Card>
-            {/* <Card>
+            <Card>
               <CardContent className="flex items-start gap-3 p-4">
                 <Clock className="mt-0.5 h-5 w-5 shrink-0 text-green-600" />
                 <div>
@@ -337,7 +337,7 @@ export default async function Home() {
                   <p className="text-sm text-gray-500">{t("contactHoursValue")}</p>
                 </div>
               </CardContent>
-            </Card> */}
+            </Card>
           </div>
         </div>
       </section>
