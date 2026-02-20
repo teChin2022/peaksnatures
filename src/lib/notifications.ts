@@ -36,7 +36,7 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
 
     const { booking, homestay, room } = details;
 
-    const fromEmail = process.env.RESEND_FROM_EMAIL || `${homestay?.name || "PeaksNature"} <peaksnature@gmail.com>`;
+    const fromEmail = process.env.RESEND_FROM_EMAIL || 'PeaksNature <notification@peaksnature.com>';
     console.log(`[Email] Sending to: ${booking.guest_email}, from: ${fromEmail}, locale: ${locale}`);
     const checkInFmt = formatBookingDate(booking.check_in, locale);
     const checkOutFmt = formatBookingDate(booking.check_out, locale);
