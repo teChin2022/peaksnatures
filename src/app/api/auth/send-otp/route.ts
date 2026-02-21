@@ -61,9 +61,9 @@ export async function POST(req: NextRequest) {
         const resend = new Resend(apiKey);
         const fromEmail =
           process.env.RESEND_FROM_EMAIL ||
-          "PeaksNature <bookings@peaksnature.com>";
+          "PeaksNature <notification@peaksnature.com>";
 
-        await resend.emails.send({
+        const { data, error: sendError } = await resend.emails.send({
           from: fromEmail,
           to: email,
           subject: "Your PeaksNature Login Code",
@@ -85,10 +85,22 @@ export async function POST(req: NextRequest) {
             </div>
           `,
         });
-        console.log(`[OTP] Code sent to ${email}`);
+
+        if (sendError) {
+          console.error("[OTP] Resend API error:", JSON.stringify(sendError));
+          return NextResponse.json(
+            { error: "Failed to send verification email" },
+            { status: 500 }
+          );
+        }
+
+        console.log(`[OTP] Code sent to ${email}, id: ${data?.id}`);
       } catch (emailError) {
         console.error("[OTP] Email send error:", emailError);
-        // Don't fail the request — OTP is stored, host may retry
+        return NextResponse.json(
+          { error: "Failed to send verification email" },
+          { status: 500 }
+        );
       }
     } else {
       console.log(`[OTP] Resend not configured. Code for ${email}: ${code}`);
