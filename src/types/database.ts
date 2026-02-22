@@ -226,18 +226,21 @@ export interface Database {
           homestay_id: string;
           date: string;
           reason: string | null;
+          room_id: string | null;
         };
         Insert: {
           id?: string;
           homestay_id: string;
           date: string;
           reason?: string | null;
+          room_id?: string | null;
         };
         Update: {
           id?: string;
           homestay_id?: string;
           date?: string;
           reason?: string | null;
+          room_id?: string | null;
         };
       };
       booking_holds: {

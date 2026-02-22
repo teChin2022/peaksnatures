@@ -129,10 +129,15 @@ CREATE TABLE blocked_dates (
   homestay_id UUID NOT NULL REFERENCES homestays(id) ON DELETE CASCADE,
   date DATE NOT NULL,
   reason TEXT,
-  UNIQUE(homestay_id, date)
+  room_id UUID REFERENCES rooms(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_blocked_dates_homestay_id ON blocked_dates(homestay_id);
+CREATE INDEX idx_blocked_dates_room_id ON blocked_dates(room_id);
+CREATE UNIQUE INDEX idx_blocked_dates_homestay_date_room
+  ON blocked_dates (homestay_id, date, room_id) WHERE room_id IS NOT NULL;
+CREATE UNIQUE INDEX idx_blocked_dates_homestay_date_all
+  ON blocked_dates (homestay_id, date) WHERE room_id IS NULL;
 
 -- ************************************************************
 -- 007: Booking Holds
@@ -463,7 +468,8 @@ BEGIN
   FROM blocked_dates
   WHERE homestay_id = p_homestay_id
     AND date >= p_check_in
-    AND date < p_check_out;
+    AND date < p_check_out
+    AND (room_id IS NULL OR room_id = p_room_id);
 
   IF v_blocked_count > 0 THEN
     RAISE EXCEPTION 'DATES_BLOCKED';

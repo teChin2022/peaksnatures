@@ -431,7 +431,10 @@
     "checkIn": "เช็คอิน",
     "checkOut": "เช็คเอาท์",
     "staying": "เข้าพัก",
-    "bookingDetailDesc": "{count} การจองในวันนี้"
+    "bookingDetailDesc": "{count} การจองในวันนี้",
+    "filterRoom": "ห้อง",
+    "allRooms": "ทุกห้อง",
+    "forRoom": "ห้อง"
   },
   "bookingSearch": {
     "searchBooking": "ค้นหาการจอง",

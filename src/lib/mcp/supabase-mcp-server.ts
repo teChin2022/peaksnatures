@@ -31,7 +31,10 @@ export function createSupabaseMcpServer() {
         .select("*")
         .eq("homestay_id", homestay_id);
       const blockedDates = (blockedRows as unknown as BlockedDate[]) || [];
-      const blockedSet = new Set(blockedDates.map((d) => d.date));
+      // Only homestay-wide blocks (room_id=null) block all rooms
+      const blockedSet = new Set(
+        blockedDates.filter((d) => d.room_id === null).map((d) => d.date)
+      );
 
       const days = eachDayOfInterval({
         start: parseISO(check_in),
@@ -110,6 +113,7 @@ export function createSupabaseMcpServer() {
               blocked_dates: blocked.map((d) => ({
                 date: d.date,
                 reason: d.reason,
+                room_id: d.room_id,
               })),
               available_count: monthEnd.getDate() - blocked.length,
             }),

@@ -179,8 +179,12 @@ export function BookingSection({
   }, [homestay.id]);
 
   const blockedDateSet = useMemo(() => {
-    return new Set(blockedDates.map((d) => d.date));
-  }, [blockedDates]);
+    return new Set(
+      blockedDates
+        .filter((d) => d.room_id === null || !selectedRoomId || d.room_id === selectedRoomId)
+        .map((d) => d.date)
+    );
+  }, [blockedDates, selectedRoomId]);
 
   // Compute fully-booked dates (same pattern as blocked dates — always visible)
   // A booking with check_in=12, check_out=14 occupies nights 12 & 13 (not 14)

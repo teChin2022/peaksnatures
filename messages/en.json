@@ -431,7 +431,10 @@
     "checkIn": "Check-in",
     "checkOut": "Check-out",
     "staying": "Staying",
-    "bookingDetailDesc": "{count} booking(s) on this date"
+    "bookingDetailDesc": "{count} booking(s) on this date",
+    "filterRoom": "Room",
+    "allRooms": "All Rooms",
+    "forRoom": "Room"
   },
   "bookingSearch": {
     "searchBooking": "Search Booking",
