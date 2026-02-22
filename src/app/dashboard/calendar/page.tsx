@@ -62,6 +62,8 @@ interface BookingRow {
   check_out: string;
   num_guests: number;
   total_price: number;
+  amount_paid: number;
+  payment_type: string;
   status: BookingStatus;
 }
 
@@ -168,7 +170,7 @@ export default function CalendarPage() {
     // Fetch bookings (non-cancelled)
     const { data: bookingRows } = await supabase
       .from("bookings")
-      .select("id, homestay_id, room_id, guest_name, check_in, check_out, num_guests, total_price, status")
+      .select("id, homestay_id, room_id, guest_name, check_in, check_out, num_guests, total_price, amount_paid, payment_type, status")
       .eq("homestay_id", homestay.id)
       .not("status", "in", '("cancelled","rejected")')
       .order("check_in", { ascending: true });
@@ -857,9 +859,16 @@ export default function CalendarPage() {
                     <span>
                       {bi.booking.room_id ? roomMap[bi.booking.room_id] || "—" : "—"} · {bi.booking.num_guests} {t("guests")}
                     </span>
-                    <span className="font-semibold text-sm" style={{ color: themeColor }}>
-                      ฿{bi.booking.total_price.toLocaleString()}
-                    </span>
+                    <div className="text-right">
+                      <span className="font-semibold text-sm" style={{ color: themeColor }}>
+                        ฿{bi.booking.total_price.toLocaleString()}
+                      </span>
+                      {bi.booking.payment_type === "deposit" && bi.booking.amount_paid < bi.booking.total_price && (
+                        <span className="ml-1.5 text-[10px] font-medium text-amber-600">
+                          (มัดจำ ฿{bi.booking.amount_paid.toLocaleString()})
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}

@@ -10,9 +10,11 @@ interface BookingHeaderProps {
   themeColor: string;
   logoUrl?: string | null;
   homestayId: string;
+  promptpayId?: string;
+  hostName?: string;
 }
 
-export function BookingHeader({ homestayName, themeColor, logoUrl, homestayId }: BookingHeaderProps) {
+export function BookingHeader({ homestayName, themeColor, logoUrl, homestayId, promptpayId, hostName }: BookingHeaderProps) {
   return (
     <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-md">
       <div className="h-0.5 w-full" style={{ background: `linear-gradient(90deg, ${themeColor}, ${themeColor}66, transparent)` }} />
@@ -46,7 +48,7 @@ export function BookingHeader({ homestayName, themeColor, logoUrl, homestayId }:
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <BookingSearchDialog homestayId={homestayId} themeColor={themeColor} />
+          <BookingSearchDialog homestayId={homestayId} themeColor={themeColor} promptpayId={promptpayId} hostName={hostName} />
           <Button
             size="sm"
             className="shrink-0 rounded-full text-white hover:brightness-90 shadow-sm"

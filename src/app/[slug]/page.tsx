@@ -119,7 +119,7 @@ export default async function HomestayPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-white">
-      <BookingHeader homestayName={homestay.name} themeColor={homestay.theme_color} logoUrl={homestay.logo_url} homestayId={homestay.id} />
+      <BookingHeader homestayName={homestay.name} themeColor={homestay.theme_color} logoUrl={homestay.logo_url} homestayId={homestay.id} promptpayId={homestay.host.promptpay_id} hostName={homestay.host.name} />
 
       <main>
         <HeroSection

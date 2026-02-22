@@ -109,10 +109,10 @@ export default function DashboardPage() {
       // Fetch booking stats
       const { data: bookingRows } = await supabase
         .from("bookings")
-        .select("status, total_price, guest_province")
+        .select("status, total_price, amount_paid, payment_type, guest_province")
         .eq("homestay_id", homestay.id);
 
-      const bookings = (bookingRows as { status: string; total_price: number; guest_province: string | null }[]) || [];
+      const bookings = (bookingRows as { status: string; total_price: number; amount_paid: number; payment_type: string; guest_province: string | null }[]) || [];
 
       const confirmed = bookings.filter((b) => b.status === "confirmed").length;
       const pending = bookings.filter((b) => b.status === "pending").length;

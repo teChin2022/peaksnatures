@@ -20,6 +20,7 @@ interface HostData {
   line_user_id: string | null;
   line_channel_access_token: string | null;
   promptpay_id: string;
+  deposit_amount: number;
 }
 
 export default function ProfilePage() {
@@ -36,6 +37,7 @@ export default function ProfilePage() {
   const [lineChannelToken, setLineChannelToken] = useState("");
   const [lineTokenMasked, setLineTokenMasked] = useState(false);
   const [promptpayId, setPromptpayId] = useState("");
+  const [depositAmount, setDepositAmount] = useState(0);
 
   useEffect(() => {
     const fetchHost = async () => {
@@ -47,7 +49,7 @@ export default function ProfilePage() {
 
       const { data } = await supabase
         .from("hosts")
-        .select("id, name, email, phone, line_user_id, line_channel_access_token, promptpay_id")
+        .select("id, name, email, phone, line_user_id, line_channel_access_token, promptpay_id, deposit_amount")
         .eq("user_id", user.id)
         .single();
 
@@ -68,6 +70,7 @@ export default function ProfilePage() {
           setLineTokenMasked(false);
         }
         setPromptpayId(h.promptpay_id);
+        setDepositAmount(h.deposit_amount || 0);
       }
       setLoading(false);
     };
@@ -94,6 +97,7 @@ export default function ProfilePage() {
           // Only update token if user changed it (not the masked placeholder)
           ...(lineTokenMasked ? {} : { line_channel_access_token: lineChannelToken.trim() || null }),
           promptpay_id: promptpayId.trim(),
+          deposit_amount: depositAmount,
         } as never)
         .eq("id", host.id);
 
@@ -235,6 +239,22 @@ export default function ProfilePage() {
               placeholder={t("promptpayPlaceholder")}
             />
             <p className="text-xs text-gray-500">{t("promptpayHint")}</p>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="host-deposit" className="flex items-center gap-2">
+              <CreditCard className="h-3.5 w-3.5" />
+              {t("depositAmount")}
+            </Label>
+            <Input
+              id="host-deposit"
+              type="number"
+              min={0}
+              value={depositAmount || ""}
+              onChange={(e) => setDepositAmount(parseInt(e.target.value) || 0)}
+              placeholder={t("depositPlaceholder")}
+            />
+            <p className="text-xs text-gray-500">{t("depositHint")}</p>
           </div>
 
           <Button

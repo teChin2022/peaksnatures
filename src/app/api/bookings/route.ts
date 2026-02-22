@@ -24,6 +24,8 @@ const bookingSchema = z.object({
   session_id: z.string().optional(),
   notes: z.string().optional(),
   locale: z.string().optional(),
+  payment_type: z.enum(["full", "deposit"]).optional().default("full"),
+  amount_paid: z.number().int().min(0).optional(),
 });
 
 async function sendNotifications(bookingId: string, supabase: ReturnType<typeof createServiceRoleClient>, locale: string = "th") {
@@ -130,6 +132,37 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Validate payment_type and amount_paid
+    if (data.payment_type === "deposit") {
+      // Fetch host deposit_amount for validation
+      const { data: homestayRow } = await supabase
+        .from("homestays")
+        .select("host_id")
+        .eq("id", data.homestay_id)
+        .single();
+
+      if (homestayRow) {
+        const { data: hostRow } = await supabase
+          .from("hosts")
+          .select("deposit_amount")
+          .eq("id", (homestayRow as unknown as { host_id: string }).host_id)
+          .single();
+
+        const hostDeposit = (hostRow as unknown as { deposit_amount: number } | null)?.deposit_amount || 0;
+        if (hostDeposit <= 0) {
+          return NextResponse.json(
+            { error: "Deposit payment is not enabled for this homestay" },
+            { status: 400 }
+          );
+        }
+        // Server enforces the host's deposit amount
+        data.amount_paid = hostDeposit;
+      }
+    } else {
+      // Full payment: amount_paid = total_price
+      data.amount_paid = data.total_price;
+    }
+
     // Atomic booking creation: checks overlap + blocked dates + inserts in one transaction
     if (data.room_id) {
       const { data: bookingId, error: rpcError } = await supabase.rpc(
@@ -153,6 +186,8 @@ export async function POST(req: NextRequest) {
           p_easyslip_response: data.easyslip_response || null,
           p_session_id: data.session_id || null,
           p_notes: data.notes || null,
+          p_payment_type: data.payment_type || "full",
+          p_amount_paid: data.amount_paid || data.total_price,
         } as never
       );
 
@@ -218,6 +253,8 @@ export async function POST(req: NextRequest) {
         payment_slip_url: data.payment_slip_url || null,
         easyslip_response: data.easyslip_response || null,
         notes: data.notes || null,
+        payment_type: data.payment_type || "full",
+        amount_paid: data.amount_paid || data.total_price,
       } as never)
       .select()
       .single();
