@@ -70,6 +70,7 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
   const [submittingReview, setSubmittingReview] = useState(false);
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
   const [payingBalanceId, setPayingBalanceId] = useState<string | null>(null);
+  const [balancePayMethod, setBalancePayMethod] = useState<"transfer" | "cash" | null>(null);
   const [balanceSlipFile, setBalanceSlipFile] = useState<File | null>(null);
   const [balanceSlipPreview, setBalanceSlipPreview] = useState<string | null>(null);
   const [submittingBalance, setSubmittingBalance] = useState(false);
@@ -153,6 +154,7 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
         body: JSON.stringify({
           booking_id: booking.id,
           guest_email: booking.guest_email,
+          method: "transfer",
           slip_hash: verifyData.slip_hash,
           slip_trans_ref: verifyData.slip_trans_ref || null,
           payment_slip_url: verifyData.payment_slip_url || null,
@@ -177,8 +179,45 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
         )
       );
       setPayingBalanceId(null);
+      setBalancePayMethod(null);
       setBalanceSlipFile(null);
       setBalanceSlipPreview(null);
+    } catch {
+      toast.error("Payment failed.");
+    } finally {
+      setSubmittingBalance(false);
+    }
+  };
+
+  const handlePayCash = async (booking: SearchResult) => {
+    setSubmittingBalance(true);
+    try {
+      const payRes = await fetch("/api/bookings/pay-balance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          booking_id: booking.id,
+          guest_email: booking.guest_email,
+          method: "cash",
+        }),
+      });
+
+      if (!payRes.ok) {
+        const payData = await payRes.json();
+        toast.error(payData.error || "Payment failed.");
+        return;
+      }
+
+      toast.success(t("balancePaid"));
+      setResults((prev) =>
+        prev.map((b) =>
+          b.id === booking.id
+            ? { ...b, amount_paid: b.total_price, payment_type: "full" }
+            : b
+        )
+      );
+      setPayingBalanceId(null);
+      setBalancePayMethod(null);
     } catch {
       toast.error("Payment failed.");
     } finally {
@@ -382,59 +421,113 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
                           </div>
 
                           {/* Pay remaining flow */}
-                          {payingBalanceId === booking.id && promptpayId ? (
+                          {payingBalanceId === booking.id ? (
                             <div className="space-y-2 mt-2">
-                              <div className="flex justify-center">
-                                <div className="rounded-lg border bg-white p-2">
-                                  <QRCodeSVG
-                                    value={generatePayload(promptpayId, { amount: booking.total_price - (booking.amount_paid || 0) })}
-                                    size={120}
-                                    level="M"
-                                  />
-                                </div>
-                              </div>
-                              <p className="text-center text-sm font-bold" style={{ color: themeColor }}>
-                                ฿{(booking.total_price - (booking.amount_paid || 0)).toLocaleString()}
-                              </p>
-                              <input
-                                ref={balanceFileRef}
-                                type="file"
-                                accept="image/*"
-                                className="hidden"
-                                onChange={(e) => {
-                                  const f = e.target.files?.[0] || null;
-                                  setBalanceSlipFile(f);
-                                  setBalanceSlipPreview(f ? URL.createObjectURL(f) : null);
-                                }}
-                              />
-                              {balanceSlipPreview ? (
-                                <div className="text-center">
-                                  <img src={balanceSlipPreview} alt="Slip" className="mx-auto max-h-32 rounded-lg" />
+                              {/* Method selector — show if no method chosen yet */}
+                              {!balancePayMethod && (
+                                <div className="flex gap-2">
+                                  {promptpayId && (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="flex-1"
+                                      onClick={() => setBalancePayMethod("transfer")}
+                                    >
+                                      <CreditCard className="mr-1.5 h-3.5 w-3.5" />
+                                      {t("payViaTransfer")}
+                                    </Button>
+                                  )}
                                   <Button
                                     size="sm"
-                                    className="mt-2 w-full text-white hover:brightness-90"
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={() => setBalancePayMethod("cash")}
+                                  >
+                                    <Download className="mr-1.5 h-3.5 w-3.5" />
+                                    {t("payViaCash")}
+                                  </Button>
+                                </div>
+                              )}
+
+                              {/* Transfer flow */}
+                              {balancePayMethod === "transfer" && promptpayId && (
+                                <div className="space-y-2">
+                                  <div className="flex justify-center">
+                                    <div className="rounded-lg border bg-white p-2">
+                                      <QRCodeSVG
+                                        value={generatePayload(promptpayId, { amount: booking.total_price - (booking.amount_paid || 0) })}
+                                        size={120}
+                                        level="M"
+                                      />
+                                    </div>
+                                  </div>
+                                  <p className="text-center text-sm font-bold" style={{ color: themeColor }}>
+                                    ฿{(booking.total_price - (booking.amount_paid || 0)).toLocaleString()}
+                                  </p>
+                                  <input
+                                    ref={balanceFileRef}
+                                    type="file"
+                                    accept="image/*"
+                                    className="hidden"
+                                    onChange={(e) => {
+                                      const f = e.target.files?.[0] || null;
+                                      setBalanceSlipFile(f);
+                                      setBalanceSlipPreview(f ? URL.createObjectURL(f) : null);
+                                    }}
+                                  />
+                                  {balanceSlipPreview ? (
+                                    <div className="text-center">
+                                      <img src={balanceSlipPreview} alt="Slip" className="mx-auto max-h-32 rounded-lg" />
+                                      <Button
+                                        size="sm"
+                                        className="mt-2 w-full text-white hover:brightness-90"
+                                        style={{ backgroundColor: themeColor }}
+                                        onClick={() => handlePayBalance(booking)}
+                                        disabled={submittingBalance}
+                                      >
+                                        {submittingBalance ? (
+                                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                        ) : (
+                                          <CreditCard className="mr-1.5 h-3.5 w-3.5" />
+                                        )}
+                                        {t("payRemaining", { amount: (booking.total_price - (booking.amount_paid || 0)).toLocaleString() })}
+                                      </Button>
+                                    </div>
+                                  ) : (
+                                    <Button
+                                      size="sm"
+                                      variant="outline"
+                                      className="w-full"
+                                      onClick={() => balanceFileRef.current?.click()}
+                                    >
+                                      <Upload className="mr-1.5 h-3.5 w-3.5" />
+                                      {t("uploadSlip")}
+                                    </Button>
+                                  )}
+                                </div>
+                              )}
+
+                              {/* Cash flow */}
+                              {balancePayMethod === "cash" && (
+                                <div className="space-y-2">
+                                  <p className="text-center text-sm font-bold" style={{ color: themeColor }}>
+                                    ฿{(booking.total_price - (booking.amount_paid || 0)).toLocaleString()}
+                                  </p>
+                                  <Button
+                                    size="sm"
+                                    className="w-full text-white hover:brightness-90"
                                     style={{ backgroundColor: themeColor }}
-                                    onClick={() => handlePayBalance(booking)}
+                                    onClick={() => handlePayCash(booking)}
                                     disabled={submittingBalance}
                                   >
                                     {submittingBalance ? (
                                       <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
                                     ) : (
-                                      <CreditCard className="mr-1.5 h-3.5 w-3.5" />
+                                      <Download className="mr-1.5 h-3.5 w-3.5" />
                                     )}
-                                    {t("payRemaining", { amount: (booking.total_price - (booking.amount_paid || 0)).toLocaleString() })}
+                                    {t("cashConfirm")} ฿{(booking.total_price - (booking.amount_paid || 0)).toLocaleString()}
                                   </Button>
                                 </div>
-                              ) : (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="w-full"
-                                  onClick={() => balanceFileRef.current?.click()}
-                                >
-                                  <Upload className="mr-1.5 h-3.5 w-3.5" />
-                                  Upload Transfer Slip
-                                </Button>
                               )}
                             </div>
                           ) : (
@@ -442,7 +535,7 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
                               size="sm"
                               className="w-full text-white hover:brightness-90 mt-1"
                               style={{ backgroundColor: themeColor }}
-                              onClick={() => setPayingBalanceId(booking.id)}
+                              onClick={() => { setPayingBalanceId(booking.id); setBalancePayMethod(null); }}
                             >
                               <CreditCard className="mr-1.5 h-3.5 w-3.5" />
                               {t("payRemaining", { amount: (booking.total_price - (booking.amount_paid || 0)).toLocaleString() })}

@@ -463,6 +463,10 @@
     "payRemaining": "Pay Remaining ฿{amount}",
     "balanceDueCheckout": "Please pay the remaining balance of ฿{amount} before checking out.",
     "balancePaid": "Remaining balance paid!",
+    "payViaTransfer": "Transfer (PromptPay)",
+    "payViaCash": "Pay Cash",
+    "cashConfirm": "Confirm Cash Payment",
+    "uploadSlip": "Upload Transfer Slip",
     "paymentFull": "Paid Full",
     "paymentDeposit": "Deposit",
     "status": {

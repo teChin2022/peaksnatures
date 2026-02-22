@@ -463,6 +463,10 @@
     "payRemaining": "ชำระส่วนที่เหลือ ฿{amount}",
     "balanceDueCheckout": "กรุณาชำระยอดค้าง ฿{amount} ก่อนเช็คเอาท์",
     "balancePaid": "ชำระยอดค้างเรียบร้อยแล้ว!",
+    "payViaTransfer": "โอนเงิน (PromptPay)",
+    "payViaCash": "ชำระเงินสด",
+    "cashConfirm": "ยืนยันรับเงินสด",
+    "uploadSlip": "อัปโหลดสลิปโอนเงิน",
     "paymentFull": "ชำระครบ",
     "paymentDeposit": "มัดจำ",
     "status": {

@@ -5,7 +5,8 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 const payBalanceSchema = z.object({
   booking_id: z.string().uuid(),
   guest_email: z.string().email(),
-  slip_hash: z.string().min(1),
+  method: z.enum(["transfer", "cash"]).default("transfer"),
+  slip_hash: z.string().nullable().optional(),
   slip_trans_ref: z.string().nullable().optional(),
   payment_slip_url: z.string().nullable().optional(),
   easyslip_response: z.unknown().optional(),
@@ -29,6 +30,15 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data;
+
+    // Transfer method requires a verified slip
+    if (data.method === "transfer" && !data.slip_hash) {
+      return NextResponse.json(
+        { error: "Slip hash is required for transfer payments" },
+        { status: 400 }
+      );
+    }
+
     const supabase = createServiceRoleClient();
 
     // Fetch the booking
