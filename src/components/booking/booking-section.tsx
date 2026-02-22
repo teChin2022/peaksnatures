@@ -430,9 +430,9 @@ export function BookingSection({
         if (remaining <= 0) {
           if (holdTimerRef.current) clearInterval(holdTimerRef.current);
           holdTimerRef.current = null;
+          // Release the hold on the server before clearing local state
+          releaseHold();
           toast.error(t("holdExpired"));
-          setHoldId(null);
-          setHoldExpiresAt(null);
           setDateRange(undefined);
           setStep("dates");
           setPaymentPhase("qr");
