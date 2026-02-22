@@ -23,6 +23,7 @@ CREATE TABLE hosts (
   promptpay_id TEXT NOT NULL,
   line_user_id TEXT,
   line_channel_access_token TEXT,
+  deposit_amount INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(user_id)
 );
@@ -109,6 +110,8 @@ CREATE TABLE bookings (
   payment_slip_hash TEXT,
   slip_trans_ref TEXT,
   notes TEXT,
+  payment_type TEXT NOT NULL DEFAULT 'full',
+  amount_paid INTEGER NOT NULL DEFAULT 0,
   checked_in_at TIMESTAMPTZ,
   checked_out_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -129,10 +132,15 @@ CREATE TABLE blocked_dates (
   homestay_id UUID NOT NULL REFERENCES homestays(id) ON DELETE CASCADE,
   date DATE NOT NULL,
   reason TEXT,
-  UNIQUE(homestay_id, date)
+  room_id UUID REFERENCES rooms(id) ON DELETE CASCADE
 );
 
 CREATE INDEX idx_blocked_dates_homestay_id ON blocked_dates(homestay_id);
+CREATE INDEX idx_blocked_dates_room_id ON blocked_dates(room_id);
+CREATE UNIQUE INDEX idx_blocked_dates_homestay_date_room
+  ON blocked_dates (homestay_id, date, room_id) WHERE room_id IS NOT NULL;
+CREATE UNIQUE INDEX idx_blocked_dates_homestay_date_all
+  ON blocked_dates (homestay_id, date) WHERE room_id IS NULL;
 
 -- ************************************************************
 -- 007: Booking Holds
@@ -433,7 +441,9 @@ CREATE OR REPLACE FUNCTION create_booking_atomic(
   p_payment_slip_url TEXT,
   p_easyslip_response JSONB,
   p_session_id TEXT DEFAULT NULL,
-  p_notes TEXT DEFAULT NULL
+  p_notes TEXT DEFAULT NULL,
+  p_payment_type TEXT DEFAULT 'full',
+  p_amount_paid INT DEFAULT 0
 ) RETURNS UUID AS $$
 DECLARE
   v_room_qty INT;
@@ -463,7 +473,8 @@ BEGIN
   FROM blocked_dates
   WHERE homestay_id = p_homestay_id
     AND date >= p_check_in
-    AND date < p_check_out;
+    AND date < p_check_out
+    AND (room_id IS NULL OR room_id = p_room_id);
 
   IF v_blocked_count > 0 THEN
     RAISE EXCEPTION 'DATES_BLOCKED';
@@ -473,12 +484,12 @@ BEGIN
     homestay_id, room_id, guest_name, guest_email, guest_phone,
     guest_province, check_in, check_out, num_guests, total_price,
     status, easyslip_verified, payment_slip_hash, slip_trans_ref,
-    payment_slip_url, easyslip_response, notes
+    payment_slip_url, easyslip_response, notes, payment_type, amount_paid
   ) VALUES (
     p_homestay_id, p_room_id, p_guest_name, p_guest_email, p_guest_phone,
     p_guest_province, p_check_in, p_check_out, p_num_guests, p_total_price,
     p_status, p_easyslip_verified, p_payment_slip_hash, p_slip_trans_ref,
-    p_payment_slip_url, p_easyslip_response, p_notes
+    p_payment_slip_url, p_easyslip_response, p_notes, p_payment_type, p_amount_paid
   ) RETURNING id INTO v_booking_id;
 
   IF p_session_id IS NOT NULL THEN

@@ -85,6 +85,7 @@ export function BookingSection({
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
   const [paymentPhase, setPaymentPhase] = useState<"qr" | "upload">("qr");
+  const [paymentOption, setPaymentOption] = useState<"full" | "deposit">("full");
   const [showWelcomeBack, setShowWelcomeBack] = useState(false);
   const [uploadSessionId] = useState(() => crypto.randomUUID());
   const [holdId, setHoldId] = useState<string | null>(null);
@@ -179,8 +180,12 @@ export function BookingSection({
   }, [homestay.id]);
 
   const blockedDateSet = useMemo(() => {
-    return new Set(blockedDates.map((d) => d.date));
-  }, [blockedDates]);
+    return new Set(
+      blockedDates
+        .filter((d) => d.room_id === null || !selectedRoomId || d.room_id === selectedRoomId)
+        .map((d) => d.date)
+    );
+  }, [blockedDates, selectedRoomId]);
 
   // Compute fully-booked dates (same pattern as blocked dates — always visible)
   // A booking with check_in=12, check_out=14 occupies nights 12 & 13 (not 14)
@@ -280,6 +285,15 @@ export function BookingSection({
     if (!selectedRoom || nights <= 0) return 0;
     return selectedRoom.price_per_night * nights;
   }, [selectedRoom, nights]);
+
+  const depositAvailable = host.deposit_amount > 0 && host.deposit_amount < totalPrice;
+
+  const paymentAmount = useMemo(() => {
+    if (paymentOption === "deposit" && depositAvailable) {
+      return host.deposit_amount;
+    }
+    return totalPrice;
+  }, [paymentOption, depositAvailable, host.deposit_amount, totalPrice]);
 
   const handleSaveQr = useCallback(() => {
     const container = qrContainerRef.current;
@@ -426,9 +440,9 @@ export function BookingSection({
         if (remaining <= 0) {
           if (holdTimerRef.current) clearInterval(holdTimerRef.current);
           holdTimerRef.current = null;
+          // Release the hold on the server before clearing local state
+          releaseHold();
           toast.error(t("holdExpired"));
-          setHoldId(null);
-          setHoldExpiresAt(null);
           setDateRange(undefined);
           setStep("dates");
           setPaymentPhase("qr");
@@ -483,7 +497,7 @@ export function BookingSection({
       // 2. Verify slip FIRST — no booking is created yet
       const verifyForm = new FormData();
       verifyForm.append("file", slipToVerify);
-      verifyForm.append("expected_amount", totalPrice.toString());
+      verifyForm.append("expected_amount", paymentAmount.toString());
       verifyForm.append("expected_receiver", host.promptpay_id);
 
       const verifyRes = await fetch("/api/verify-slip", {
@@ -523,6 +537,8 @@ export function BookingSection({
           check_out: format(dateRange.to, "yyyy-MM-dd"),
           num_guests: parseInt(numGuests),
           total_price: totalPrice,
+          payment_type: paymentOption,
+          amount_paid: paymentAmount,
           slip_hash: verifyData.slip_hash,
           slip_trans_ref: verifyData.slip_trans_ref || null,
           payment_slip_url: verifyData.payment_slip_url || null,
@@ -937,6 +953,38 @@ export function BookingSection({
                   onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)}
                 />
 
+                {/* Payment option selector (deposit vs full) */}
+                {depositAvailable && paymentPhase === "qr" && (
+                  <div className="rounded-xl border p-3 space-y-2">
+                    <div className="flex gap-2">
+                      <button
+                        type="button"
+                        className={`flex-1 rounded-lg border-2 p-3 text-left text-sm transition-all ${
+                          paymentOption === "full" ? "border-current shadow-sm" : "border-gray-200"
+                        }`}
+                        style={{ color: paymentOption === "full" ? themeColor : undefined }}
+                        onClick={() => setPaymentOption("full")}
+                      >
+                        <p className="font-semibold">{t("payFull")}</p>
+                        <p className="text-lg font-bold">฿{totalPrice.toLocaleString()}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{t("fullSelected")}</p>
+                      </button>
+                      <button
+                        type="button"
+                        className={`flex-1 rounded-lg border-2 p-3 text-left text-sm transition-all ${
+                          paymentOption === "deposit" ? "border-current shadow-sm" : "border-gray-200"
+                        }`}
+                        style={{ color: paymentOption === "deposit" ? themeColor : undefined }}
+                        onClick={() => setPaymentOption("deposit")}
+                      >
+                        <p className="font-semibold">{t("payDeposit")}</p>
+                        <p className="text-lg font-bold">฿{host.deposit_amount.toLocaleString()}</p>
+                        <p className="text-xs text-gray-400 mt-0.5">{t("depositSelected")}</p>
+                      </button>
+                    </div>
+                  </div>
+                )}
+
                 {/* Phase 1: QR Code + Instructions */}
                 {paymentPhase === "qr" && (
                   <>
@@ -946,7 +994,7 @@ export function BookingSection({
                       </p>
                       <div ref={qrContainerRef} className="mx-auto mt-4 flex h-52 w-52 items-center justify-center rounded-lg border bg-white p-3">
                         <QRCodeSVG
-                          value={generatePayload(host.promptpay_id, { amount: totalPrice })}
+                          value={generatePayload(host.promptpay_id, { amount: paymentAmount })}
                           size={180}
                           level="M"
                         />
@@ -961,8 +1009,13 @@ export function BookingSection({
                         {t("saveQrImage")}
                       </button>
                       <p className="mt-3 text-2xl font-bold" style={{ color: themeColor }}>
-                        ฿{totalPrice.toLocaleString()}
+                        ฿{paymentAmount.toLocaleString()}
                       </p>
+                      {paymentOption === "deposit" && depositAvailable && (
+                        <p className="mt-1 text-xs text-amber-600">
+                          {t("balanceDue")}: ฿{(totalPrice - paymentAmount).toLocaleString()} — {t("payOnArrival")}
+                        </p>
+                      )}
                       <p className="mt-1 text-sm font-medium text-gray-700">
                         {host.name}
                       </p>
@@ -1036,8 +1089,13 @@ export function BookingSection({
                         {t("waitingForSlipDesc")}
                       </p>
                       <p className="mt-2 text-lg font-bold" style={{ color: themeColor }}>
-                        ฿{totalPrice.toLocaleString()}
+                        ฿{paymentAmount.toLocaleString()}
                       </p>
+                      {paymentOption === "deposit" && depositAvailable && (
+                        <p className="mt-1 text-xs text-amber-600">
+                          {t("balanceDue")}: ฿{(totalPrice - paymentAmount).toLocaleString()} — {t("payOnArrival")}
+                        </p>
+                      )}
                     </div>
 
                     <div>
@@ -1215,6 +1273,16 @@ export function BookingSection({
                   <p className="mt-2 text-base font-bold" style={{ color: themeColor }}>
                     {tc("total")}: ฿{totalPrice.toLocaleString()}
                   </p>
+                  {paymentOption === "deposit" && depositAvailable && (
+                    <>
+                      <p className="text-sm" style={{ color: themeColor }}>
+                        {t("amountPaid")}: ฿{paymentAmount.toLocaleString()}
+                      </p>
+                      <p className="text-sm text-amber-600">
+                        {t("balanceDue")}: ฿{(totalPrice - paymentAmount).toLocaleString()} — {t("payOnArrival")}
+                      </p>
+                    </>
+                  )}
                 </div>
 
                 <Button
@@ -1223,6 +1291,7 @@ export function BookingSection({
                   onClick={() => {
                     setStep("dates");
                     setPaymentPhase("qr");
+                    setPaymentOption("full");
                     setSlipVerified(false);
                     setDateRange(undefined);
                     setSelectedRoomId("");
@@ -1330,6 +1399,12 @@ export function BookingSection({
               <span className="font-semibold text-gray-900">{tc("total")}</span>
               <span className="text-lg font-bold" style={{ color: themeColor }}>฿{totalPrice.toLocaleString()}</span>
             </div>
+            {depositAvailable && (
+              <div className="flex justify-between text-xs text-gray-400">
+                <span>{t("payDeposit")}: ฿{host.deposit_amount.toLocaleString()}</span>
+                <span>{t("payFull")}: ฿{totalPrice.toLocaleString()}</span>
+              </div>
+            )}
           </div>
           <DialogFooter className="flex gap-2 sm:gap-2">
             <Button

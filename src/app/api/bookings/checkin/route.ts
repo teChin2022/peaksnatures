@@ -31,7 +31,7 @@ export async function POST(request: NextRequest) {
     // Fetch the booking
     const { data: bookingRow, error: bookingError } = await supabase
       .from("bookings")
-      .select("id, status, guest_email, check_in, check_out, checked_in_at, checked_out_at")
+      .select("id, status, guest_email, check_in, check_out, checked_in_at, checked_out_at, total_price, amount_paid, payment_type")
       .eq("id", booking_id)
       .single();
 
@@ -43,6 +43,9 @@ export async function POST(request: NextRequest) {
       check_out: string;
       checked_in_at: string | null;
       checked_out_at: string | null;
+      total_price: number;
+      amount_paid: number;
+      payment_type: string;
     } | null;
 
     if (bookingError || !booking) {
@@ -98,6 +101,15 @@ export async function POST(request: NextRequest) {
       return NextResponse.json(
         { error: "ALREADY_CHECKED_OUT", message: "Already checked out" },
         { status: 409 }
+      );
+    }
+
+    // Block checkout if there is an unpaid balance
+    const balanceDue = booking.total_price - (booking.amount_paid || 0);
+    if (balanceDue > 0) {
+      return NextResponse.json(
+        { error: "BALANCE_DUE", message: `Please pay the remaining balance of ฿${balanceDue.toLocaleString()} before checking out.`, balance_due: balanceDue },
+        { status: 402 }
       );
     }
 

@@ -27,6 +27,7 @@ export interface Database {
           promptpay_id: string;
           line_user_id: string | null;
           line_channel_access_token: string | null;
+          deposit_amount: number;
           created_at: string;
         };
         Insert: {
@@ -38,6 +39,7 @@ export interface Database {
           promptpay_id: string;
           line_user_id?: string | null;
           line_channel_access_token?: string | null;
+          deposit_amount?: number;
           created_at?: string;
         };
         Update: {
@@ -49,6 +51,7 @@ export interface Database {
           promptpay_id?: string;
           line_user_id?: string | null;
           line_channel_access_token?: string | null;
+          deposit_amount?: number;
           created_at?: string;
         };
       };
@@ -169,6 +172,8 @@ export interface Database {
           payment_slip_hash: string | null;
           slip_trans_ref: string | null;
           notes: string | null;
+          payment_type: string;
+          amount_paid: number;
           checked_in_at: string | null;
           checked_out_at: string | null;
           created_at: string;
@@ -192,6 +197,8 @@ export interface Database {
           payment_slip_hash?: string | null;
           slip_trans_ref?: string | null;
           notes?: string | null;
+          payment_type?: string;
+          amount_paid?: number;
           checked_in_at?: string | null;
           checked_out_at?: string | null;
           created_at?: string;
@@ -215,6 +222,8 @@ export interface Database {
           payment_slip_hash?: string | null;
           slip_trans_ref?: string | null;
           notes?: string | null;
+          payment_type?: string;
+          amount_paid?: number;
           checked_in_at?: string | null;
           checked_out_at?: string | null;
           created_at?: string;
@@ -226,18 +235,21 @@ export interface Database {
           homestay_id: string;
           date: string;
           reason: string | null;
+          room_id: string | null;
         };
         Insert: {
           id?: string;
           homestay_id: string;
           date: string;
           reason?: string | null;
+          room_id?: string | null;
         };
         Update: {
           id?: string;
           homestay_id?: string;
           date?: string;
           reason?: string | null;
+          room_id?: string | null;
         };
       };
       booking_holds: {

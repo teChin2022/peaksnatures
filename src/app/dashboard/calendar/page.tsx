@@ -42,6 +42,13 @@ import {
   DialogDescription,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { toast } from "sonner";
 import { useThemeColor } from "@/components/dashboard/theme-context";
 import type { BookingStatus } from "@/types/database";
@@ -55,6 +62,8 @@ interface BookingRow {
   check_out: string;
   num_guests: number;
   total_price: number;
+  amount_paid: number;
+  payment_type: string;
   status: BookingStatus;
 }
 
@@ -63,6 +72,7 @@ interface BlockedDateRow {
   homestay_id: string;
   date: string;
   reason: string | null;
+  room_id: string | null;
 }
 
 type BookingPosition = "start" | "middle" | "end" | "single";
@@ -101,8 +111,10 @@ export default function CalendarPage() {
   const [blockReason, setBlockReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [roomMap, setRoomMap] = useState<Record<string, string>>({});
+  const [rooms, setRooms] = useState<{ id: string; name: string }[]>([]);
   const [locale, setLocale] = useState("en");
   const [detailDay, setDetailDay] = useState<DayInfo | null>(null);
+  const [selectedRoomFilter, setSelectedRoomFilter] = useState<string>("all");
 
   // Detect locale
   useEffect(() => {
@@ -148,15 +160,17 @@ export default function CalendarPage() {
       .from("rooms")
       .select("id, name")
       .eq("homestay_id", homestay.id);
+    const roomList = (roomRows as { id: string; name: string }[]) || [];
     const rMap = Object.fromEntries(
-      ((roomRows as { id: string; name: string }[]) || []).map((r) => [r.id, r.name])
+      roomList.map((r) => [r.id, r.name])
     );
     setRoomMap(rMap);
+    setRooms(roomList);
 
     // Fetch bookings (non-cancelled)
     const { data: bookingRows } = await supabase
       .from("bookings")
-      .select("id, homestay_id, room_id, guest_name, check_in, check_out, num_guests, total_price, status")
+      .select("id, homestay_id, room_id, guest_name, check_in, check_out, num_guests, total_price, amount_paid, payment_type, status")
       .eq("homestay_id", homestay.id)
       .not("status", "in", '("cancelled","rejected")')
       .order("check_in", { ascending: true });
@@ -176,12 +190,30 @@ export default function CalendarPage() {
     fetchData();
   }, [fetchData]);
 
-  // Build blocked date set
+  // Build blocked date set (filtered by selected room)
   const blockedDateMap = useMemo(() => {
     const map = new Map<string, BlockedDateRow>();
-    blockedDates.forEach((bd) => map.set(bd.date, bd));
+    blockedDates.forEach((bd) => {
+      if (selectedRoomFilter === "all") {
+        // Show all blocks: homestay-wide + any room-specific
+        // If multiple blocks exist for the same date, homestay-wide takes priority
+        const existing = map.get(bd.date);
+        if (!existing || bd.room_id === null) {
+          map.set(bd.date, bd);
+        }
+      } else {
+        // Show blocks that apply to the selected room:
+        // homestay-wide (room_id=null) OR matching room_id
+        if (bd.room_id === null || bd.room_id === selectedRoomFilter) {
+          const existing = map.get(bd.date);
+          if (!existing || bd.room_id === null) {
+            map.set(bd.date, bd);
+          }
+        }
+      }
+    });
     return map;
-  }, [blockedDates]);
+  }, [blockedDates, selectedRoomFilter]);
 
   // Build booking date map (date string -> bookings with position info)
   const bookingDateMap = useMemo(() => {
@@ -306,6 +338,8 @@ export default function CalendarPage() {
       return;
     }
 
+    const roomId = selectedRoomFilter === "all" ? null : selectedRoomFilter;
+
     try {
       const res = await fetch("/api/blocked-dates", {
         method: "POST",
@@ -314,6 +348,7 @@ export default function CalendarPage() {
           homestay_id: homestayId,
           dates: datesToBlock,
           reason: blockReason || undefined,
+          room_id: roomId,
         }),
       });
 
@@ -347,6 +382,10 @@ export default function CalendarPage() {
       return;
     }
 
+    // Determine room_id from the blocked entries being unblocked
+    // All selected blocked dates should share the same room_id context from the filter
+    const roomId = selectedRoomFilter === "all" ? null : selectedRoomFilter;
+
     try {
       const res = await fetch("/api/blocked-dates", {
         method: "DELETE",
@@ -354,13 +393,19 @@ export default function CalendarPage() {
         body: JSON.stringify({
           homestay_id: homestayId,
           dates: datesToUnblock,
+          room_id: roomId,
         }),
       });
 
       if (!res.ok) throw new Error("Failed to unblock dates");
 
       setBlockedDates((prev) =>
-        prev.filter((bd) => !datesToUnblock.includes(bd.date))
+        prev.filter((bd) => {
+          if (!datesToUnblock.includes(bd.date)) return true;
+          // Only remove entries matching the room_id we unblocked
+          if (roomId === null) return bd.room_id !== null;
+          return bd.room_id !== roomId;
+        })
       );
       toast.success(t("unblockSuccess"));
       clearSelection();
@@ -459,6 +504,19 @@ export default function CalendarPage() {
           <Badge variant="secondary">
             {selectedDates.size} {t("datesSelected")}
           </Badge>
+          {rooms.length > 0 && (
+            <Select value={selectedRoomFilter} onValueChange={setSelectedRoomFilter}>
+              <SelectTrigger className="h-8 w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("allRooms")}</SelectItem>
+                {rooms.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           {(selectionType === "unblocked" || selectionType === "mixed") && (
             <Button
               size="sm"
@@ -675,6 +733,11 @@ export default function CalendarPage() {
             </DialogTitle>
             <DialogDescription>
               {t("confirmBlockDesc", { count: Array.from(selectedDates).filter((d) => !blockedDateMap.has(d)).length })}
+              {selectedRoomFilter !== "all" && roomMap[selectedRoomFilter] && (
+                <span className="block mt-1 font-medium text-gray-700">
+                  {t("forRoom")}: {roomMap[selectedRoomFilter]}
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div>
@@ -796,9 +859,16 @@ export default function CalendarPage() {
                     <span>
                       {bi.booking.room_id ? roomMap[bi.booking.room_id] || "—" : "—"} · {bi.booking.num_guests} {t("guests")}
                     </span>
-                    <span className="font-semibold text-sm" style={{ color: themeColor }}>
-                      ฿{bi.booking.total_price.toLocaleString()}
-                    </span>
+                    <div className="text-right">
+                      <span className="font-semibold text-sm" style={{ color: themeColor }}>
+                        ฿{bi.booking.total_price.toLocaleString()}
+                      </span>
+                      {bi.booking.payment_type === "deposit" && bi.booking.amount_paid < bi.booking.total_price && (
+                        <span className="ml-1.5 text-[10px] font-medium text-amber-600">
+                          (มัดจำ ฿{bi.booking.amount_paid.toLocaleString()})
+                        </span>
+                      )}
+                    </div>
                   </div>
                 </div>
               ))}
@@ -823,6 +893,11 @@ export default function CalendarPage() {
             </DialogTitle>
             <DialogDescription>
               {t("confirmUnblockDesc", { count: Array.from(selectedDates).filter((d) => blockedDateMap.has(d)).length })}
+              {selectedRoomFilter !== "all" && roomMap[selectedRoomFilter] && (
+                <span className="block mt-1 font-medium text-gray-700">
+                  {t("forRoom")}: {roomMap[selectedRoomFilter]}
+                </span>
+              )}
             </DialogDescription>
           </DialogHeader>
           <div className="flex flex-wrap gap-1">

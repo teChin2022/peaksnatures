@@ -13,10 +13,11 @@ export async function POST(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { homestay_id, dates, reason } = body as {
+    const { homestay_id, dates, reason, room_id } = body as {
       homestay_id: string;
       dates: string[];
       reason?: string;
+      room_id?: string | null;
     };
 
     if (!homestay_id || !dates || dates.length === 0) {
@@ -54,11 +55,28 @@ export async function POST(req: NextRequest) {
       homestay_id,
       date,
       reason: reason || null,
+      room_id: room_id || null,
     }));
+
+    // Use insert + on-conflict handling; for room-specific blocks the unique index
+    // is (homestay_id, date, room_id), for homestay-wide it's (homestay_id, date) where room_id IS NULL.
+    // We delete-then-insert to handle both partial-unique-index cases cleanly.
+    for (const row of rows) {
+      const q = supabase
+        .from("blocked_dates")
+        .delete()
+        .eq("homestay_id", row.homestay_id)
+        .eq("date", row.date);
+      if (row.room_id) {
+        await q.eq("room_id", row.room_id);
+      } else {
+        await q.is("room_id", null);
+      }
+    }
 
     const { data: inserted, error } = await supabase
       .from("blocked_dates")
-      .upsert(rows as never[], { onConflict: "homestay_id,date" })
+      .insert(rows as never[])
       .select();
 
     if (error) {
@@ -91,9 +109,10 @@ export async function DELETE(req: NextRequest) {
     }
 
     const body = await req.json();
-    const { homestay_id, dates } = body as {
+    const { homestay_id, dates, room_id } = body as {
       homestay_id: string;
       dates: string[];
+      room_id?: string | null;
     };
 
     if (!homestay_id || !dates || dates.length === 0) {
@@ -126,11 +145,19 @@ export async function DELETE(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const { error } = await supabase
+    let deleteQuery = supabase
       .from("blocked_dates")
       .delete()
       .eq("homestay_id", homestay_id)
       .in("date", dates);
+
+    if (room_id) {
+      deleteQuery = deleteQuery.eq("room_id", room_id);
+    } else {
+      deleteQuery = deleteQuery.is("room_id", null);
+    }
+
+    const { error } = await deleteQuery;
 
     if (error) {
       console.error("Unblock dates error:", error);

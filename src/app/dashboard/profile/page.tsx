@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
-import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key } from "lucide-react";
+import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key, Lock, Eye, EyeOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -20,6 +20,7 @@ interface HostData {
   line_user_id: string | null;
   line_channel_access_token: string | null;
   promptpay_id: string;
+  deposit_amount: number;
 }
 
 export default function ProfilePage() {
@@ -36,6 +37,14 @@ export default function ProfilePage() {
   const [lineChannelToken, setLineChannelToken] = useState("");
   const [lineTokenMasked, setLineTokenMasked] = useState(false);
   const [promptpayId, setPromptpayId] = useState("");
+  const [depositAmount, setDepositAmount] = useState(0);
+  const [oldPassword, setOldPassword] = useState("");
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
+  const [showOldPassword, setShowOldPassword] = useState(false);
+  const [showNewPassword, setShowNewPassword] = useState(false);
+  const [showConfirmPassword, setShowConfirmPassword] = useState(false);
 
   useEffect(() => {
     const fetchHost = async () => {
@@ -47,7 +56,7 @@ export default function ProfilePage() {
 
       const { data } = await supabase
         .from("hosts")
-        .select("id, name, email, phone, line_user_id, line_channel_access_token, promptpay_id")
+        .select("id, name, email, phone, line_user_id, line_channel_access_token, promptpay_id, deposit_amount")
         .eq("user_id", user.id)
         .single();
 
@@ -68,6 +77,7 @@ export default function ProfilePage() {
           setLineTokenMasked(false);
         }
         setPromptpayId(h.promptpay_id);
+        setDepositAmount(h.deposit_amount || 0);
       }
       setLoading(false);
     };
@@ -94,6 +104,7 @@ export default function ProfilePage() {
           // Only update token if user changed it (not the masked placeholder)
           ...(lineTokenMasked ? {} : { line_channel_access_token: lineChannelToken.trim() || null }),
           promptpay_id: promptpayId.trim(),
+          deposit_amount: depositAmount,
         } as never)
         .eq("id", host.id);
 
@@ -108,6 +119,58 @@ export default function ProfilePage() {
       toast.error(t("errorSave"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (!oldPassword) {
+      toast.error(t("oldPasswordRequired"));
+      return;
+    }
+    if (newPassword.length < 6) {
+      toast.error(t("passwordTooShort"));
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error(t("passwordMismatch"));
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const supabase = createClient();
+
+      // Verify old password first
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) {
+        toast.error(t("passwordError"));
+        return;
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: oldPassword,
+      });
+      if (signInError) {
+        toast.error(t("oldPasswordWrong"));
+        return;
+      }
+
+      // Update password
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        toast.error(t("passwordError"));
+        console.error("Change password error:", error);
+        return;
+      }
+      toast.success(t("passwordChanged"));
+      setOldPassword("");
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch {
+      toast.error(t("passwordError"));
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -237,6 +300,22 @@ export default function ProfilePage() {
             <p className="text-xs text-gray-500">{t("promptpayHint")}</p>
           </div>
 
+          <div className="space-y-2">
+            <Label htmlFor="host-deposit" className="flex items-center gap-2">
+              <CreditCard className="h-3.5 w-3.5" />
+              {t("depositAmount")}
+            </Label>
+            <Input
+              id="host-deposit"
+              type="number"
+              min={0}
+              value={depositAmount || ""}
+              onChange={(e) => setDepositAmount(parseInt(e.target.value) || 0)}
+              placeholder={t("depositPlaceholder")}
+            />
+            <p className="text-xs text-gray-500">{t("depositHint")}</p>
+          </div>
+
           <Button
             onClick={handleSave}
             disabled={saving}
@@ -249,6 +328,105 @@ export default function ProfilePage() {
               <Save className="mr-2 h-4 w-4" />
             )}
             {t("save")}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Lock className="h-4 w-4" />
+            {t("changePassword")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="old-password" className="flex items-center gap-2">
+              <Key className="h-3.5 w-3.5" />
+              {t("oldPassword")}
+            </Label>
+            <div className="relative">
+              <Input
+                id="old-password"
+                type={showOldPassword ? "text" : "password"}
+                value={oldPassword}
+                onChange={(e) => setOldPassword(e.target.value)}
+                placeholder={t("oldPasswordPlaceholder")}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                onClick={() => setShowOldPassword(!showOldPassword)}
+                tabIndex={-1}
+              >
+                {showOldPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="new-password" className="flex items-center gap-2">
+              <Key className="h-3.5 w-3.5" />
+              {t("newPassword")}
+            </Label>
+            <div className="relative">
+              <Input
+                id="new-password"
+                type={showNewPassword ? "text" : "password"}
+                value={newPassword}
+                onChange={(e) => setNewPassword(e.target.value)}
+                placeholder={t("newPasswordPlaceholder")}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                onClick={() => setShowNewPassword(!showNewPassword)}
+                tabIndex={-1}
+              >
+                {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password" className="flex items-center gap-2">
+              <Key className="h-3.5 w-3.5" />
+              {t("confirmPassword")}
+            </Label>
+            <div className="relative">
+              <Input
+                id="confirm-password"
+                type={showConfirmPassword ? "text" : "password"}
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+                placeholder={t("confirmPasswordPlaceholder")}
+                className="pr-10"
+              />
+              <button
+                type="button"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                tabIndex={-1}
+              >
+                {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+              </button>
+            </div>
+          </div>
+
+          <Button
+            onClick={handleChangePassword}
+            disabled={changingPassword || !oldPassword || !newPassword || !confirmPassword}
+            className="w-full hover:brightness-90"
+            style={{ backgroundColor: themeColor }}
+          >
+            {changingPassword ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Lock className="mr-2 h-4 w-4" />
+            )}
+            {t("updatePassword")}
           </Button>
         </CardContent>
       </Card>

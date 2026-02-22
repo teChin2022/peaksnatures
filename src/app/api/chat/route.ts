@@ -74,7 +74,7 @@ Key info:
 Rooms available:
 ${rooms.map((r) => `- ${r.name}: ฿${r.price_per_night}/night, max ${r.max_guests} guests — ${r.description || ""}`).join("\n") || "No rooms configured yet."}
 
-Blocked dates: ${blockedDates.map((d) => `${d.date} (${d.reason || ""})`).join(", ") || "None"}
+Blocked dates: ${blockedDates.map((d) => `${d.date} (${d.reason || ""}${d.room_id ? ` [room-specific]` : " [all rooms]"})`).join(", ") || "None"}
 
 You can use tools to check availability and get room info. Be helpful, concise, and warm. Use emojis sparingly. If the guest wants to book, guide them to use the booking form above or collect their details. You can respond in Thai or English based on the guest's language.
 

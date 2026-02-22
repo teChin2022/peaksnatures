@@ -52,6 +52,8 @@ interface BookingRow {
   check_out: string;
   num_guests: number;
   total_price: number;
+  amount_paid: number;
+  payment_type: string;
   status: BookingStatus;
   easyslip_verified: boolean;
   payment_slip_url: string | null;
@@ -333,6 +335,15 @@ export default function BookingsPage() {
                                   {t("guestCheckedOut")}
                                 </Badge>
                               )}
+                              {booking.payment_type === "deposit" && booking.amount_paid < booking.total_price ? (
+                                <Badge variant="secondary" className="bg-amber-100 text-amber-700">
+                                  {t("paymentDeposit")}
+                                </Badge>
+                              ) : booking.amount_paid >= booking.total_price ? (
+                                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">
+                                  {t("paymentFull")}
+                                </Badge>
+                              ) : null}
                             </div>
                             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
                               <span className="flex items-center gap-1">
@@ -347,6 +358,11 @@ export default function BookingsPage() {
                               <span className="font-medium" style={{ color: themeColor }}>
                                 ฿{booking.total_price.toLocaleString()}
                               </span>
+                              {booking.amount_paid < booking.total_price && (
+                                <span className="font-medium text-amber-600">
+                                  {t("balanceDue", { amount: (booking.total_price - booking.amount_paid).toLocaleString() })}
+                                </span>
+                              )}
                               {booking.guest_province && (
                                 <span className="flex items-center gap-1">
                                   <MapPin className="h-3.5 w-3.5" />
