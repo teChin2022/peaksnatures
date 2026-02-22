@@ -496,30 +496,25 @@ export default function CalendarPage() {
         </Card>
       </div>
 
-      {/* Room filter */}
-      {rooms.length > 0 && (
-        <div className="mb-4 flex items-center gap-2">
-          <Label className="text-sm font-medium text-gray-600 whitespace-nowrap">{t("filterRoom")}</Label>
-          <Select value={selectedRoomFilter} onValueChange={(v) => { setSelectedRoomFilter(v); clearSelection(); }}>
-            <SelectTrigger className="w-[200px]">
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              <SelectItem value="all">{t("allRooms")}</SelectItem>
-              {rooms.map((r) => (
-                <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
-        </div>
-      )}
-
       {/* Action bar */}
       {selectedDates.size > 0 && (
         <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-gray-50 p-3">
           <Badge variant="secondary">
             {selectedDates.size} {t("datesSelected")}
           </Badge>
+          {rooms.length > 0 && (
+            <Select value={selectedRoomFilter} onValueChange={setSelectedRoomFilter}>
+              <SelectTrigger className="h-8 w-[180px]">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("allRooms")}</SelectItem>
+                {rooms.map((r) => (
+                  <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          )}
           {(selectionType === "unblocked" || selectionType === "mixed") && (
             <Button
               size="sm"
