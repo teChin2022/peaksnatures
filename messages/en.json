@@ -327,7 +327,17 @@
     "saved": "Profile updated successfully",
     "noHost": "No host profile found. Please register first.",
     "errorRequired": "Please fill in name, email, and PromptPay ID",
-    "errorSave": "Failed to save. Please try again."
+    "errorSave": "Failed to save. Please try again.",
+    "changePassword": "Change Password",
+    "newPassword": "New Password",
+    "newPasswordPlaceholder": "Enter new password",
+    "confirmPassword": "Confirm Password",
+    "confirmPasswordPlaceholder": "Re-enter new password",
+    "passwordMismatch": "Passwords do not match",
+    "passwordTooShort": "Password must be at least 6 characters",
+    "passwordChanged": "Password changed successfully",
+    "passwordError": "Failed to change password. Please try again.",
+    "updatePassword": "Update Password"
   },
   "dashboardHomestay": {
     "createTitle": "Create Homestay",

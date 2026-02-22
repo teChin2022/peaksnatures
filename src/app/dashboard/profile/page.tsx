@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
-import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key } from "lucide-react";
+import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -38,6 +38,9 @@ export default function ProfilePage() {
   const [lineTokenMasked, setLineTokenMasked] = useState(false);
   const [promptpayId, setPromptpayId] = useState("");
   const [depositAmount, setDepositAmount] = useState(0);
+  const [newPassword, setNewPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [changingPassword, setChangingPassword] = useState(false);
 
   useEffect(() => {
     const fetchHost = async () => {
@@ -112,6 +115,35 @@ export default function ProfilePage() {
       toast.error(t("errorSave"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleChangePassword = async () => {
+    if (newPassword.length < 6) {
+      toast.error(t("passwordTooShort"));
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      toast.error(t("passwordMismatch"));
+      return;
+    }
+
+    setChangingPassword(true);
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.auth.updateUser({ password: newPassword });
+      if (error) {
+        toast.error(t("passwordError"));
+        console.error("Change password error:", error);
+        return;
+      }
+      toast.success(t("passwordChanged"));
+      setNewPassword("");
+      setConfirmPassword("");
+    } catch {
+      toast.error(t("passwordError"));
+    } finally {
+      setChangingPassword(false);
     }
   };
 
@@ -269,6 +301,58 @@ export default function ProfilePage() {
               <Save className="mr-2 h-4 w-4" />
             )}
             {t("save")}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Lock className="h-4 w-4" />
+            {t("changePassword")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="space-y-2">
+            <Label htmlFor="new-password" className="flex items-center gap-2">
+              <Key className="h-3.5 w-3.5" />
+              {t("newPassword")}
+            </Label>
+            <Input
+              id="new-password"
+              type="password"
+              value={newPassword}
+              onChange={(e) => setNewPassword(e.target.value)}
+              placeholder={t("newPasswordPlaceholder")}
+            />
+          </div>
+
+          <div className="space-y-2">
+            <Label htmlFor="confirm-password" className="flex items-center gap-2">
+              <Key className="h-3.5 w-3.5" />
+              {t("confirmPassword")}
+            </Label>
+            <Input
+              id="confirm-password"
+              type="password"
+              value={confirmPassword}
+              onChange={(e) => setConfirmPassword(e.target.value)}
+              placeholder={t("confirmPasswordPlaceholder")}
+            />
+          </div>
+
+          <Button
+            onClick={handleChangePassword}
+            disabled={changingPassword || !newPassword || !confirmPassword}
+            className="w-full hover:brightness-90"
+            style={{ backgroundColor: themeColor }}
+          >
+            {changingPassword ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Lock className="mr-2 h-4 w-4" />
+            )}
+            {t("updatePassword")}
           </Button>
         </CardContent>
       </Card>
