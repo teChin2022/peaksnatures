@@ -30,53 +30,18 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ bookings: [] });
   }
 
-  // Public endpoint: guests search their own bookings by email, phone, or ID.
-  // Scoped by homestay_id + specific identifiers — no auth required.
+  // Public endpoint: guests search their own bookings by booking ID.
+  // Scoped by homestay_id — no auth required.
   const supabase = createServiceRoleClient();
 
-  // Search by exact email, phone, or booking ID (prefix)
-  const isUUID = /^[0-9a-f-]{4,36}$/i.test(query);
-
-  let idResults: BookingResult[] = [];
-
-  if (isUUID) {
-    const { data } = await supabase
-      .from("bookings")
-      .select(BOOKING_SELECT)
-      .eq("homestay_id", homestayId)
-      .ilike("id", `${query}%`)
-      .order("created_at", { ascending: false })
-      .limit(10);
-    idResults = (data as unknown as BookingResult[]) || [];
-  }
-
-  // Also search by email or phone
-  const { data: emailData } = await supabase
+  // Search by exact booking ID
+  const { data } = await supabase
     .from("bookings")
     .select(BOOKING_SELECT)
     .eq("homestay_id", homestayId)
-    .ilike("guest_email", `%${query}%`)
-    .order("created_at", { ascending: false })
-    .limit(10);
-  const emailResults = (emailData as unknown as BookingResult[]) || [];
-
-  const { data: phoneData } = await supabase
-    .from("bookings")
-    .select(BOOKING_SELECT)
-    .eq("homestay_id", homestayId)
-    .ilike("guest_phone", `%${query}%`)
-    .order("created_at", { ascending: false })
-    .limit(10);
-  const phoneResults = (phoneData as unknown as BookingResult[]) || [];
-
-  // Merge and deduplicate
-  const allResults = [...idResults, ...emailResults, ...phoneResults];
-  const seen = new Set<string>();
-  const unique = allResults.filter((b) => {
-    if (seen.has(b.id)) return false;
-    seen.add(b.id);
-    return true;
-  });
+    .eq("id", query)
+    .limit(1);
+  const unique = (data as unknown as BookingResult[]) || [];
 
   // Fetch room names for results
   const roomIds = [...new Set(unique.map((b) => b.room_id).filter(Boolean))] as string[];

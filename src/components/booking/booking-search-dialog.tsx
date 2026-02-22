@@ -341,8 +341,8 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
                       ฿{booking.total_price.toLocaleString()}
                     </span>
                   </div>
-                  <p className="text-xs text-gray-400">
-                    ID: {booking.id.slice(0, 8)}…
+                  <p className="text-xs text-gray-400 break-all">
+                    ID: {booking.id}
                   </p>
 
                   {/* Check-in button: confirmed + not checked in yet */}

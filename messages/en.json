@@ -453,7 +453,7 @@
   "bookingSearch": {
     "searchBooking": "Search Booking",
     "title": "Search Your Booking",
-    "placeholder": "Email, phone number, or booking ID",
+    "placeholder": "Enter your booking ID",
     "search": "Search",
     "noResults": "No bookings found. Please check your search and try again.",
     "checkIn": "Check In",
