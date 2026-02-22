@@ -38,6 +38,7 @@ export default function ProfilePage() {
   const [lineTokenMasked, setLineTokenMasked] = useState(false);
   const [promptpayId, setPromptpayId] = useState("");
   const [depositAmount, setDepositAmount] = useState(0);
+  const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [changingPassword, setChangingPassword] = useState(false);
@@ -119,6 +120,10 @@ export default function ProfilePage() {
   };
 
   const handleChangePassword = async () => {
+    if (!oldPassword) {
+      toast.error(t("oldPasswordRequired"));
+      return;
+    }
     if (newPassword.length < 6) {
       toast.error(t("passwordTooShort"));
       return;
@@ -131,6 +136,24 @@ export default function ProfilePage() {
     setChangingPassword(true);
     try {
       const supabase = createClient();
+
+      // Verify old password first
+      const { data: { user } } = await supabase.auth.getUser();
+      if (!user?.email) {
+        toast.error(t("passwordError"));
+        return;
+      }
+
+      const { error: signInError } = await supabase.auth.signInWithPassword({
+        email: user.email,
+        password: oldPassword,
+      });
+      if (signInError) {
+        toast.error(t("oldPasswordWrong"));
+        return;
+      }
+
+      // Update password
       const { error } = await supabase.auth.updateUser({ password: newPassword });
       if (error) {
         toast.error(t("passwordError"));
@@ -138,6 +161,7 @@ export default function ProfilePage() {
         return;
       }
       toast.success(t("passwordChanged"));
+      setOldPassword("");
       setNewPassword("");
       setConfirmPassword("");
     } catch {
@@ -314,6 +338,20 @@ export default function ProfilePage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
+            <Label htmlFor="old-password" className="flex items-center gap-2">
+              <Key className="h-3.5 w-3.5" />
+              {t("oldPassword")}
+            </Label>
+            <Input
+              id="old-password"
+              type="password"
+              value={oldPassword}
+              onChange={(e) => setOldPassword(e.target.value)}
+              placeholder={t("oldPasswordPlaceholder")}
+            />
+          </div>
+
+          <div className="space-y-2">
             <Label htmlFor="new-password" className="flex items-center gap-2">
               <Key className="h-3.5 w-3.5" />
               {t("newPassword")}
@@ -343,7 +381,7 @@ export default function ProfilePage() {
 
           <Button
             onClick={handleChangePassword}
-            disabled={changingPassword || !newPassword || !confirmPassword}
+            disabled={changingPassword || !oldPassword || !newPassword || !confirmPassword}
             className="w-full hover:brightness-90"
             style={{ backgroundColor: themeColor }}
           >
