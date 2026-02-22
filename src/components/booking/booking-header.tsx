@@ -4,6 +4,7 @@ import { ArrowLeft, CalendarDays } from "lucide-react";
 import { getInitials } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { BookingSearchDialog } from "@/components/booking/booking-search-dialog";
+import { useTranslations } from "next-intl";
 
 interface BookingHeaderProps {
   homestayName: string;
@@ -15,6 +16,7 @@ interface BookingHeaderProps {
 }
 
 export function BookingHeader({ homestayName, themeColor, logoUrl, homestayId, promptpayId, hostName }: BookingHeaderProps) {
+  const t = useTranslations("dashboardTheme");
   return (
     <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-md">
       <div className="h-0.5 w-full" style={{ background: `linear-gradient(90deg, ${themeColor}, ${themeColor}66, transparent)` }} />
@@ -55,10 +57,7 @@ export function BookingHeader({ homestayName, themeColor, logoUrl, homestayId, p
             style={{ backgroundColor: themeColor }}
             asChild
           >
-            <a href="#booking">
-              <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
-              Book Now
-            </a>
+            <a href="#booking"><CalendarDays className="mr-1.5 h-3.5 w-3.5" />{t('bookNow')}</a>
           </Button>
         </div>
       </div>
