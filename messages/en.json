@@ -202,6 +202,7 @@
     "errorPasswordMismatch": "Passwords do not match",
     "errorEmailExists": "An account with this email already exists. Please sign in instead.",
     "errorGeneric": "Something went wrong. Please try again.",
+    "errorCaptcha": "Please complete the verification check",
     "errorRegistration": "Registration failed",
     "forgotPassword": "Forgot password?",
     "forgotPasswordTitle": "Forgot Password",

@@ -1,15 +1,15 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Mountain, Loader2, Eye, EyeOff, Mail } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/client";
 
 export default function RegisterPage() {
   const t = useTranslations("auth");
@@ -24,6 +24,8 @@ export default function RegisterPage() {
   const [emailSent, setEmailSent] = useState(false);
   const [passwordWarning, setPasswordWarning] = useState<string | null>(null);
   const [confirmPasswordWarning, setConfirmPasswordWarning] = useState<string | null>(null);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const turnstileRef = useRef<TurnstileInstance>(null);
 
   const passwordRegex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[_#@]).{6,}$/;
 
@@ -57,31 +59,41 @@ export default function RegisterPage() {
       return;
     }
 
+    if (!turnstileToken) {
+      setError(t("errorCaptcha"));
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const supabase = createClient();
-      const { error: signUpError } = await supabase.auth.signUp({
-        email,
-        password,
-        options: {
-          data: { name },
-          emailRedirectTo: `${window.location.origin}/api/auth/callback?next=/dashboard`,
-        },
+      const res = await fetch("/api/auth/register", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ name, email, password, turnstileToken }),
       });
 
-      if (signUpError) {
-        if (signUpError.message === "Invalid login credentials") {
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.error === "EMAIL_EXISTS") {
           setError(t("errorEmailExists"));
+        } else if (res.status === 403) {
+          setError(t("errorCaptcha"));
         } else {
-          setError(signUpError.message);
+          setError(data.error || t("errorGeneric"));
         }
+        // Reset Turnstile so user can retry
+        turnstileRef.current?.reset();
+        setTurnstileToken(null);
         return;
       }
 
       setEmailSent(true);
     } catch {
       setError(t("errorGeneric"));
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
     } finally {
       setLoading(false);
     }
@@ -226,12 +238,22 @@ export default function RegisterPage() {
                     <p className="text-xs text-amber-600 mt-1">{confirmPasswordWarning}</p>
                   )}
                 </div>
+                <div className="flex justify-center">
+                  <Turnstile
+                    ref={turnstileRef}
+                    siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+                    onSuccess={(token) => setTurnstileToken(token)}
+                    onExpire={() => setTurnstileToken(null)}
+                    onError={() => setTurnstileToken(null)}
+                    options={{ theme: "light", size: "normal" }}
+                  />
+                </div>
               </CardContent>
               <CardFooter className="flex flex-col gap-3">
                 <Button
                   type="submit"
                   className="w-full bg-green-600 hover:bg-green-700"
-                  disabled={loading}
+                  disabled={loading || !turnstileToken}
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {t("createAccount")}
