@@ -202,6 +202,7 @@
     "errorPasswordMismatch": "รหัสผ่านไม่ตรงกัน",
     "errorEmailExists": "อีเมลนี้มีบัญชีอยู่แล้ว กรุณาเข้าสู่ระบบแทน",
     "errorGeneric": "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง",
+    "errorCaptcha": "กรุณายืนยันว่าคุณไม่ใช่บอท",
     "errorRegistration": "การสมัครล้มเหลว",
     "forgotPassword": "ลืมรหัสผ่าน?",
     "forgotPasswordTitle": "ลืมรหัสผ่าน",
