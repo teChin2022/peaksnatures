@@ -25,6 +25,7 @@ export default function RegisterPage() {
   const [passwordWarning, setPasswordWarning] = useState<string | null>(null);
   const [confirmPasswordWarning, setConfirmPasswordWarning] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = useState(false);
   const turnstileRef = useRef<TurnstileInstance>(null);
 
   const passwordRegex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[_#@]).{6,}$/;
@@ -59,7 +60,7 @@ export default function RegisterPage() {
       return;
     }
 
-    if (!turnstileToken) {
+    if (!turnstileToken && !turnstileError) {
       setError(t("errorCaptcha"));
       return;
     }
@@ -70,7 +71,7 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, turnstileToken }),
+        body: JSON.stringify({ name, email, password, turnstileToken: turnstileToken || "" }),
       });
 
       const data = await res.json();
@@ -244,7 +245,7 @@ export default function RegisterPage() {
                     siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
                     onSuccess={(token) => setTurnstileToken(token)}
                     onExpire={() => setTurnstileToken(null)}
-                    onError={() => setTurnstileToken(null)}
+                    onError={() => { setTurnstileToken(null); setTurnstileError(true); }}
                     options={{ theme: "light", size: "normal" }}
                   />
                 </div>
@@ -253,7 +254,7 @@ export default function RegisterPage() {
                 <Button
                   type="submit"
                   className="w-full bg-green-600 hover:bg-green-700"
-                  disabled={loading || !turnstileToken}
+                  disabled={loading || (!turnstileToken && !turnstileError)}
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {t("createAccount")}
