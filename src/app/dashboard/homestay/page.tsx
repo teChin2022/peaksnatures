@@ -51,38 +51,16 @@ interface HomestayData {
 }
 
 const COMMON_AMENITIES = [
-  "WiFi",
-  "Parking",
-  "Kitchen",
-  "Mountain View",
-  "Garden",
-  "BBQ",
-  "Hiking Trails",
-  "Waterfall Nearby",
-  "River View",
-  "Kayaking",
-  "Fishing",
-  "Restaurant",
-  "Swimming",
-  "Forest View",
-  "Bird Watching",
-  "National Park Access",
-  "Telescope",
-  "Fireplace",
-  "Library",
+  "ไวไฟ (WiFi)",
+  "ที่จอดรถ (Parking)",
+  "ห้องครัว (Kitchen)",
+  "เตาผิง (Fireplace)",
 ];
 
 const COMMON_PROHIBITIONS = [
-  "No Smoking",
-  "No Pets",
-  "No Parties",
-  "No Loud Music after 10 PM",
-  "No Outside Visitors",
-  "No Alcohol",
-  "No Campfire without Permission",
-  "No Littering",
-  "No Drone Flying",
-  "No Swimming without Lifeguard",
+  "ห้ามสูบบุหรี่ (No Smoking)",
+  "ห้ามนำสัตว์เลี้ยงเข้า (No Pets)",
+  "ห้ามเล่นเพลงดัง (No Loud Music)"
 ];
 
 export default function HomestayPage() {

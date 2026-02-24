@@ -682,7 +682,7 @@ export function BookingSection({
                     <SelectContent>
                       {rooms.map((room) => (
                         <SelectItem key={room.id} value={room.id}>
-                          {room.name} — ฿{room.price_per_night.toLocaleString()}/night
+                          {room.name} — ฿{room.price_per_night.toLocaleString()}/{tc('night')}
                         </SelectItem>
                       ))}
                     </SelectContent>
