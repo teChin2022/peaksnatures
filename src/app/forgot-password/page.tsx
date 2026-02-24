@@ -1,14 +1,15 @@
 "use client";
 
 import { useState } from "react";
-import Link from "next/link";
-import { Mountain, Loader2, Mail, ArrowLeft } from "lucide-react";
+import { Loader2, Mail, ArrowLeft } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { createClient } from "@/lib/supabase/client";
+import Link from "next/link";
+import Image from "next/image";
 
 export default function ForgotPasswordPage() {
   const t = useTranslations("auth");
@@ -46,7 +47,7 @@ export default function ForgotPasswordPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2">
           <Link href="/" className="flex items-center gap-2">
-            <Mountain className="h-8 w-8 text-green-600" />
+            <Image src="/logo.png" alt="PeaksNature" width={32} height={32} className="h-8 w-8 rounded" />
             <span className="text-2xl font-bold text-green-800">{t('forgotPasswordTitle')}</span>
           </Link>
           <p className="text-sm text-gray-500">{t("hostDashboard")}</p>
