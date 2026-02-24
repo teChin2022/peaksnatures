@@ -1,13 +1,13 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef } from "react";
 import { Loader2, Mail, ArrowLeft } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
-import { createClient } from "@/lib/supabase/client";
 import Link from "next/link";
 import Image from "next/image";
 
@@ -17,26 +17,46 @@ export default function ForgotPasswordPage() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const [emailSent, setEmailSent] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = useState(false);
+  const turnstileRef = useRef<TurnstileInstance>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!turnstileToken && !turnstileError) {
+      setError(t("errorCaptcha"));
+      return;
+    }
+
     setLoading(true);
 
     try {
-      const supabase = createClient();
-      const { error } = await supabase.auth.resetPasswordForEmail(email, {
-        redirectTo: `${window.location.origin}/api/auth/callback?next=/reset-password`,
+      const res = await fetch("/api/auth/forgot-password", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email, turnstileToken: turnstileToken || "" }),
       });
 
-      if (error) {
-        setError(error.message);
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (res.status === 403) {
+          setError(t("errorCaptcha"));
+        } else {
+          setError(data.error || t("errorGeneric"));
+        }
+        turnstileRef.current?.reset();
+        setTurnstileToken(null);
         return;
       }
 
       setEmailSent(true);
     } catch {
       setError(t("errorGeneric"));
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
     } finally {
       setLoading(false);
     }
@@ -100,12 +120,22 @@ export default function ForgotPasswordPage() {
                     autoComplete="email"
                   />
                 </div>
+                <div className="flex justify-center">
+                  <Turnstile
+                    ref={turnstileRef}
+                    siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+                    onSuccess={(token) => setTurnstileToken(token)}
+                    onExpire={() => setTurnstileToken(null)}
+                    onError={() => { setTurnstileToken(null); setTurnstileError(true); }}
+                    options={{ theme: "light", size: "normal" }}
+                  />
+                </div>
               </CardContent>
               <CardFooter className="flex flex-col gap-3">
                 <Button
                   type="submit"
                   className="w-full bg-green-600 hover:bg-green-700"
-                  disabled={loading}
+                  disabled={loading || (!turnstileToken && !turnstileError)}
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {t("sendResetLink")}

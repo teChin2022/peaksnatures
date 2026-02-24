@@ -2,6 +2,7 @@
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import { format, differenceInDays, eachDayOfInterval, parseISO, subDays } from "date-fns";
+import { th as thLocale } from "date-fns/locale";
 import { fmtDate } from "@/lib/format-date";
 import type { DateRange } from "react-day-picker";
 import { Calendar } from "@/components/ui/calendar";
@@ -729,6 +730,7 @@ export function BookingSection({
                       mode="range"
                       selected={dateRange}
                       onSelect={handleDateSelect}
+                      locale={locale === "th" ? thLocale : undefined}
                       disabled={[
                         { before: new Date() },
                         (date: Date) => {
