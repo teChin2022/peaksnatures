@@ -732,6 +732,13 @@ export function BookingSection({
                       selected={dateRange}
                       onSelect={handleDateSelect}
                       locale={locale === "th" ? thLocale : undefined}
+                      formatters={locale === "th" ? {
+                        formatCaption: (date) => {
+                          const month = date.toLocaleDateString("th-TH", { month: "long" });
+                          const beYear = date.getFullYear() + 543;
+                          return `${month} ${beYear}`;
+                        },
+                      } : undefined}
                       disabled={[
                         { before: new Date() },
                         (date: Date) => {
