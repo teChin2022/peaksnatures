@@ -272,11 +272,8 @@ Deno.serve(async (req) => {
     return new Response(JSON.stringify({ error: "Method not allowed" }), { status: 405 });
   }
 
-  // Verify authorization (service role key or custom secret)
-  const authHeader = req.headers.get("Authorization");
-  if (!authHeader?.startsWith("Bearer ") || authHeader.slice(7) !== SUPABASE_SERVICE_ROLE_KEY) {
-    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401 });
-  }
+  // Auth is handled by Supabase API Gateway (JWT verification).
+  // No custom auth check needed — only valid anon/service_role keys pass the gateway.
 
   try {
     const { host_id, title, body, url } = await req.json();
