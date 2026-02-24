@@ -3,7 +3,7 @@
 import { useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { useRouter } from "next/navigation";
+import { useRouter, useSearchParams } from "next/navigation";
 import { Loader2, Eye, EyeOff } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -14,6 +14,7 @@ import OtpModal from "@/components/otp-modal";
 
 export default function LoginPage() {
   const router = useRouter();
+  const searchParams = useSearchParams();
   const t = useTranslations("auth");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
@@ -75,14 +76,15 @@ export default function LoginPage() {
         return;
       }
 
-      router.push("/dashboard");
+      const nextUrl = searchParams.get("next") || "/dashboard";
+      router.push(nextUrl);
       router.refresh();
     } catch {
       setOtpError(t("errorGeneric"));
     } finally {
       setOtpLoading(false);
     }
-  }, [email, password, router, t]);
+  }, [email, password, router, searchParams, t]);
 
   const handleResendOtp = useCallback(async () => {
     setOtpError(null);
