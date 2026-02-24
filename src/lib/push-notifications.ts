@@ -1,5 +1,3 @@
-import { createClient } from "@/lib/supabase/client";
-
 const VAPID_PUBLIC_KEY = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY || "";
 
 function urlBase64ToUint8Array(base64String: string): Uint8Array {
@@ -22,16 +20,16 @@ export function isPushSupported(): boolean {
   );
 }
 
-export async function isPushSubscribed(hostId: string): Promise<boolean> {
+export async function isPushSubscribed(_hostId: string): Promise<boolean> {
   if (!isPushSupported()) return false;
 
-  const supabase = createClient();
-  const { count } = await supabase
-    .from("push_subscriptions")
-    .select("id", { count: "exact", head: true })
-    .eq("host_id", hostId);
-
-  return (count ?? 0) > 0;
+  try {
+    const registration = await navigator.serviceWorker.ready;
+    const subscription = await registration.pushManager.getSubscription();
+    return subscription !== null;
+  } catch {
+    return false;
+  }
 }
 
 export async function subscribeHostToPush(hostId: string): Promise<{ success: boolean; error?: string }> {
