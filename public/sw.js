@@ -29,13 +29,14 @@ self.addEventListener("push", (event) => {
 self.addEventListener("notificationclick", (event) => {
   event.notification.close();
 
-  const targetUrl = event.notification.data?.url || "/dashboard";
+  const path = event.notification.data?.url || "/dashboard";
+  const targetUrl = new URL(path, self.location.origin).href;
 
   event.waitUntil(
     clients.matchAll({ type: "window", includeUncontrolled: true }).then((windowClients) => {
       // Focus existing window if available
       for (const client of windowClients) {
-        if (client.url.includes(targetUrl) && "focus" in client) {
+        if (new URL(client.url).pathname === path && "focus" in client) {
           return client.focus();
         }
       }
