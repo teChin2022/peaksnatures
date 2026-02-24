@@ -99,15 +99,10 @@ export async function sendHostPushNotification(
   details: BookingDetails,
   type: "confirmed" | "flagged" = "confirmed"
 ) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-
-  if (!supabaseUrl || !serviceRoleKey) {
-    console.log("[Push] Skipped — Supabase env vars not configured");
-    return { success: false, error: "Supabase not configured" };
-  }
-
   try {
+    const { createServiceRoleClient } = await import("@/lib/supabase/server");
+    const supabase = createServiceRoleClient();
+
     const { booking, homestay, room } = details;
 
     const checkIn = new Date(booking.check_in);
@@ -126,32 +121,22 @@ export async function sendHostPushNotification(
       `฿${booking.total_price.toLocaleString()}`,
     ].join("\n");
 
-    const response = await fetch(
-      `${supabaseUrl}/functions/v1/send-push-notification`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${serviceRoleKey}`,
-        },
-        body: JSON.stringify({
-          host_id: details.host.id,
-          title,
-          body,
-          url: "/dashboard",
-        }),
-      }
-    );
+    const { data, error } = await supabase.functions.invoke("send-push-notification", {
+      body: {
+        host_id: details.host.id,
+        title,
+        body,
+        url: "/dashboard",
+      },
+    });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error("[Push] Edge Function error:", response.status, errorData);
-      return { success: false, error: errorData };
+    if (error) {
+      console.error("[Push] Edge Function error:", error);
+      return { success: false, error: String(error) };
     }
 
-    const result = await response.json();
-    console.log("[Push] Result:", result);
-    return { success: true, data: result };
+    console.log("[Push] Result:", data);
+    return { success: true, data };
   } catch (error) {
     console.error("[Push] Exception:", error);
     return { success: false, error };
