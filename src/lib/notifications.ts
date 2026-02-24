@@ -93,23 +93,50 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
 }
 
 // ============================================================
-// WEB PUSH NOTIFICATION (via Supabase Edge Function)
+// WEB PUSH NOTIFICATION (via web-push library, sent from Next.js server)
 // ============================================================
 export async function sendHostPushNotification(
   details: BookingDetails,
   type: "confirmed" | "flagged" = "confirmed"
 ) {
-  const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
+  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
 
-  if (!supabaseUrl || !serviceRoleKey) {
-    console.log("[Push] Skipped — Supabase env vars not configured");
-    return { success: false, error: "Supabase not configured" };
+  if (!vapidPublicKey || !vapidPrivateKey) {
+    console.log("[Push] Skipped — VAPID keys not configured");
+    return { success: false, error: "VAPID keys not configured" };
   }
 
   try {
-    const { booking, homestay, room } = details;
+    const webpush = await import("web-push");
+    webpush.setVapidDetails(
+      "mailto:notification@peaksnature.com",
+      vapidPublicKey,
+      vapidPrivateKey
+    );
 
+    const { createServiceRoleClient } = await import("@/lib/supabase/server");
+    const supabase = createServiceRoleClient();
+
+    // Fetch all push subscriptions for this host
+    const { data: subscriptions, error: dbError } = await supabase
+      .from("push_subscriptions" as never)
+      .select("id, endpoint, p256dh, auth")
+      .eq("host_id", details.host.id);
+
+    if (dbError) {
+      console.error("[Push] DB error:", dbError);
+      return { success: false, error: "Database error" };
+    }
+
+    const subs = subscriptions as unknown as { id: string; endpoint: string; p256dh: string; auth: string }[];
+
+    if (!subs || subs.length === 0) {
+      console.log("[Push] No subscriptions for host:", details.host.id);
+      return { success: false, error: "No subscriptions" };
+    }
+
+    const { booking, homestay, room } = details;
     const checkIn = new Date(booking.check_in);
     const checkOut = new Date(booking.check_out);
     const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
@@ -126,33 +153,37 @@ export async function sendHostPushNotification(
       `฿${booking.total_price.toLocaleString()}`,
     ].join("\n");
 
-    const response = await fetch(
-      `${supabaseUrl}/functions/v1/send-push-notification`,
-      {
-        method: "POST",
-        headers: {
-          "Content-Type": "application/json",
-          "Authorization": `Bearer ${serviceRoleKey}`,
-          "apikey": serviceRoleKey,
-        },
-        body: JSON.stringify({
-          host_id: details.host.id,
-          title,
-          body,
-          url: "/dashboard",
-        }),
-      }
-    );
+    const payload = JSON.stringify({ title, body, url: "/dashboard", tag: `booking-${Date.now()}` });
 
-    if (!response.ok) {
-      const errorData = await response.text();
-      console.error("[Push] Edge Function error:", response.status, errorData);
-      return { success: false, error: errorData };
+    let sent = 0;
+    const expired: string[] = [];
+
+    for (const sub of subs) {
+      try {
+        await webpush.sendNotification(
+          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
+          payload
+        );
+        sent++;
+        console.log("[Push] Sent to:", sub.endpoint.slice(0, 60));
+      } catch (err: unknown) {
+        const pushErr = err as { statusCode?: number };
+        if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
+          expired.push(sub.id);
+        } else {
+          console.error("[Push] Send failed:", pushErr);
+        }
+      }
     }
 
-    const result = await response.json();
-    console.log("[Push] Result:", result);
-    return { success: true, data: result };
+    // Clean up expired subscriptions
+    if (expired.length > 0) {
+      await supabase.from("push_subscriptions" as never).delete().in("id", expired);
+      console.log(`[Push] Cleaned ${expired.length} expired subscriptions`);
+    }
+
+    console.log(`[Push] Result: sent=${sent}, total=${subs.length}, expired=${expired.length}`);
+    return { success: true, data: { sent, total: subs.length, expired: expired.length } };
   } catch (error) {
     console.error("[Push] Exception:", error);
     return { success: false, error };
