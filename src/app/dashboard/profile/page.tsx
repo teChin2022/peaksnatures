@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
-import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key, Lock, Eye, EyeOff } from "lucide-react";
+import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key, Lock, Eye, EyeOff, Bell, BellOff } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -11,6 +11,8 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useThemeColor } from "@/components/dashboard/theme-context";
+
+import { isPushSupported, isPushSubscribed, subscribeHostToPush, unsubscribeFromPush } from "@/lib/push-notifications";
 
 interface HostData {
   id: string;
@@ -21,6 +23,7 @@ interface HostData {
   line_channel_access_token: string | null;
   promptpay_id: string;
   deposit_amount: number;
+  notification_preference: string;
 }
 
 export default function ProfilePage() {
@@ -45,6 +48,10 @@ export default function ProfilePage() {
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
+  const [notificationPreference, setNotificationPreference] = useState("push");
+  const [pushSubscribed, setPushSubscribed] = useState(false);
+  const [pushSupported, setPushSupported] = useState(false);
+  const [togglingPush, setTogglingPush] = useState(false);
 
   useEffect(() => {
     const fetchHost = async () => {
@@ -56,7 +63,7 @@ export default function ProfilePage() {
 
       const { data } = await supabase
         .from("hosts")
-        .select("id, name, email, phone, line_user_id, line_channel_access_token, promptpay_id, deposit_amount")
+        .select("id, name, email, phone, line_user_id, line_channel_access_token, promptpay_id, deposit_amount, notification_preference")
         .eq("user_id", user.id)
         .single();
 
@@ -78,6 +85,14 @@ export default function ProfilePage() {
         }
         setPromptpayId(h.promptpay_id);
         setDepositAmount(h.deposit_amount || 0);
+        setNotificationPreference(h.notification_preference || "push");
+
+        // Check push support and subscription status
+        const supported = isPushSupported();
+        setPushSupported(supported);
+        if (supported) {
+          isPushSubscribed(h.id).then(setPushSubscribed);
+        }
       }
       setLoading(false);
     };
@@ -105,6 +120,7 @@ export default function ProfilePage() {
           ...(lineTokenMasked ? {} : { line_channel_access_token: lineChannelToken.trim() || null }),
           promptpay_id: promptpayId.trim(),
           deposit_amount: depositAmount,
+          notification_preference: notificationPreference,
         } as never)
         .eq("id", host.id);
 
@@ -258,35 +274,6 @@ export default function ProfilePage() {
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="host-line-user-id" className="flex items-center gap-2">
-              <MessageCircle className="h-3.5 w-3.5" />
-              {t("lineUserId")}
-            </Label>
-            <Input
-              id="host-line-user-id"
-              value={lineUserId}
-              onChange={(e) => setLineUserId(e.target.value)}
-              placeholder={t("lineUserIdPlaceholder")}
-            />
-            <p className="text-xs text-gray-500">{t("lineUserIdHint")}</p>
-          </div>
-
-          <div className="space-y-2">
-            <Label htmlFor="host-line-token" className="flex items-center gap-2">
-              <Key className="h-3.5 w-3.5" />
-              {t("lineChannelToken")}
-            </Label>
-            <Input
-              id="host-line-token"
-              type="password"
-              value={lineChannelToken}
-              onChange={(e) => { setLineChannelToken(e.target.value); setLineTokenMasked(false); }}
-              placeholder={t("lineChannelTokenPlaceholder")}
-            />
-            <p className="text-xs text-gray-500">{t("lineChannelTokenHint")}</p>
-          </div>
-
-          <div className="space-y-2">
             <Label htmlFor="host-promptpay" className="flex items-center gap-2">
               <CreditCard className="h-3.5 w-3.5" />
               {t("promptpay")}
@@ -315,6 +302,166 @@ export default function ProfilePage() {
             />
             <p className="text-xs text-gray-500">{t("depositHint")}</p>
           </div>
+
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full hover:brightness-90"
+            style={{ backgroundColor: themeColor }}
+          >
+            {saving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            {t("save")}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <Bell className="h-4 w-4" />
+            {t("notificationSettings")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          {/* Notification Preference Selector */}
+          <div className="space-y-2">
+            <Label className="flex items-center gap-2">
+              {t("notificationPreference")}
+            </Label>
+            <div className="flex gap-2">
+              {(["push", "line", "both"] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setNotificationPreference(option)}
+                  className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-colors ${
+                    notificationPreference === option
+                      ? "border-current text-white"
+                      : "border-gray-200 text-gray-600 hover:border-gray-300"
+                  }`}
+                  style={
+                    notificationPreference === option
+                      ? { backgroundColor: themeColor, borderColor: themeColor }
+                      : undefined
+                  }
+                >
+                  {t(`notification${option.charAt(0).toUpperCase() + option.slice(1)}` as "notificationPush" | "notificationLine" | "notificationBoth")}
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* Web Push Toggle */}
+          {(notificationPreference === "push" || notificationPreference === "both") && (
+            <div className="rounded-lg border border-gray-200 p-4 space-y-3">
+              <div className="flex items-center justify-between">
+                <div className="flex items-center gap-2">
+                  {pushSubscribed ? (
+                    <Bell className="h-4 w-4" style={{ color: themeColor }} />
+                  ) : (
+                    <BellOff className="h-4 w-4 text-gray-400" />
+                  )}
+                  <span className="text-sm font-medium">{t("pushNotifications")}</span>
+                </div>
+              </div>
+              <p className="text-xs text-gray-500">
+                {!pushSupported
+                  ? t("pushNotSupported")
+                  : pushSubscribed
+                    ? t("pushEnabled")
+                    : t("pushDisabled")}
+              </p>
+              {pushSupported && (
+                <Button
+                  variant={pushSubscribed ? "outline" : "default"}
+                  size="sm"
+                  disabled={togglingPush}
+                  className="w-full hover:brightness-90"
+                  style={!pushSubscribed ? { backgroundColor: themeColor } : undefined}
+                  onClick={async () => {
+                    if (!host) return;
+                    setTogglingPush(true);
+                    try {
+                      if (pushSubscribed) {
+                        const result = await unsubscribeFromPush(host.id);
+                        if (result.success) {
+                          setPushSubscribed(false);
+                          toast.success(t("pushDisableSuccess"));
+                        } else {
+                          toast.error(t("pushError"));
+                        }
+                      } else {
+                        const result = await subscribeHostToPush(host.id);
+                        if (result.success) {
+                          setPushSubscribed(true);
+                          toast.success(t("pushEnableSuccess"));
+                        } else if (result.error?.includes("denied")) {
+                          toast.error(t("pushPermissionDenied"));
+                        } else {
+                          toast.error(result.error || t("pushError"));
+                        }
+                      }
+                    } catch {
+                      toast.error(t("pushError"));
+                    } finally {
+                      setTogglingPush(false);
+                    }
+                  }}
+                >
+                  {togglingPush ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : pushSubscribed ? (
+                    <BellOff className="mr-2 h-4 w-4" />
+                  ) : (
+                    <Bell className="mr-2 h-4 w-4" />
+                  )}
+                  {togglingPush
+                    ? t("pushEnabling")
+                    : pushSubscribed
+                      ? t("pushDisable")
+                      : t("pushEnable")}
+                </Button>
+              )}
+            </div>
+          )}
+
+          {/* LINE Settings — shown when LINE or Both is selected */}
+          {(notificationPreference === "line" || notificationPreference === "both") && (
+            <div className="rounded-lg border border-gray-200 p-4 space-y-3">
+              <p className="text-xs text-gray-500 mb-2">{t("lineSettingsHint")}</p>
+              <div className="space-y-2">
+                <Label htmlFor="host-line-user-id" className="flex items-center gap-2">
+                  <MessageCircle className="h-3.5 w-3.5" />
+                  {t("lineUserId")}
+                </Label>
+                <Input
+                  id="host-line-user-id"
+                  value={lineUserId}
+                  onChange={(e) => setLineUserId(e.target.value)}
+                  placeholder={t("lineUserIdPlaceholder")}
+                />
+                <p className="text-xs text-gray-500">{t("lineUserIdHint")}</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="host-line-token" className="flex items-center gap-2">
+                  <Key className="h-3.5 w-3.5" />
+                  {t("lineChannelToken")}
+                </Label>
+                <Input
+                  id="host-line-token"
+                  type="password"
+                  value={lineChannelToken}
+                  onChange={(e) => { setLineChannelToken(e.target.value); setLineTokenMasked(false); }}
+                  placeholder={t("lineChannelTokenPlaceholder")}
+                />
+                <p className="text-xs text-gray-500">{t("lineChannelTokenHint")}</p>
+              </div>
+            </div>
+          )}
 
           <Button
             onClick={handleSave}
