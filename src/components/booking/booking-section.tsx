@@ -647,6 +647,7 @@ export function BookingSection({
             averageRating={averageRating}
             totalCount={reviewCount}
             themeColor={themeColor}
+            homestayId={homestay.id}
           />
         </div>
 

@@ -1,15 +1,21 @@
 "use client";
 
-import { Star, MessageSquare } from "lucide-react";
+import { useState, useCallback } from "react";
+import { Star, MessageSquare, Loader2 } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
+import { Button } from "@/components/ui/button";
+import { createClient } from "@/lib/supabase/client";
 import type { Review } from "@/types/database";
 import { fmtDateStr } from "@/lib/format-date";
+
+const PAGE_SIZE = 5;
 
 interface ReviewsSectionProps {
   reviews: Review[];
   averageRating: number;
   totalCount: number;
   themeColor: string;
+  homestayId: string;
 }
 
 function StarRating({ rating, size = 16, color }: { rating: number; size?: number; color: string }) {
@@ -32,13 +38,36 @@ function StarRating({ rating, size = 16, color }: { rating: number; size?: numbe
 }
 
 export function ReviewsSection({
-  reviews,
+  reviews: initialReviews,
   averageRating,
   totalCount,
   themeColor,
+  homestayId,
 }: ReviewsSectionProps) {
   const t = useTranslations("reviews");
   const locale = useLocale();
+  const [reviews, setReviews] = useState<Review[]>(initialReviews);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const hasMore = reviews.length < totalCount;
+
+  const loadMore = useCallback(async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const supabase = createClient();
+    const from = reviews.length;
+    const to = from + PAGE_SIZE - 1;
+
+    const { data } = await supabase
+      .from("reviews")
+      .select("*")
+      .eq("homestay_id", homestayId)
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    const rows = (data as unknown as Review[]) || [];
+    setReviews((prev) => [...prev, ...rows]);
+    setLoadingMore(false);
+  }, [loadingMore, hasMore, reviews.length, homestayId]);
 
   return (
     <div className="space-y-4">
@@ -70,7 +99,7 @@ export function ReviewsSection({
 
       {/* Review list */}
       {totalCount > 0 && (
-        <div className="max-h-[480px] space-y-3 overflow-y-auto pr-1">
+        <div className="space-y-3">
           {reviews.map((review) => (
             <div
               key={review.id}
@@ -92,6 +121,30 @@ export function ReviewsSection({
               </p>
             </div>
           ))}
+
+          {/* Load More */}
+          {hasMore && (
+            <div className="flex flex-col items-center gap-2 pt-2">
+              <p className="text-xs text-gray-400">
+                {t("showingCount", { count: reviews.length, total: totalCount })}
+              </p>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={loadMore}
+                disabled={loadingMore}
+              >
+                {loadingMore ? (
+                  <>
+                    <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                    {t("loadingMore")}
+                  </>
+                ) : (
+                  t("loadMore")
+                )}
+              </Button>
+            </div>
+          )}
         </div>
       )}
 

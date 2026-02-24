@@ -279,7 +279,10 @@
     "qrStep1": "แขกสแกน QR Code ตอนมาถึง → เช็คอิน",
     "qrStep2": "แขกสแกน QR Code ตอนออก → เช็คเอาท์",
     "qrStep3": "หลังเช็คเอาท์ → เขียนรีวิว",
-    "qrDownload": "ดาวน์โหลด QR"
+    "qrDownload": "ดาวน์โหลด QR",
+    "loadMore": "โหลดเพิ่มเติม",
+    "loadingMore": "กำลังโหลด...",
+    "showingCount": "แสดง {count} จาก {total}"
   },
   "setupProfile": {
     "title": "กรอกข้อมูลโปรไฟล์",
@@ -530,6 +533,9 @@
     "errorAlreadyReviewed": "คุณได้รีวิวการจองนี้แล้ว",
     "errorBookingNotCompleted": "สามารถรีวิวได้หลังจากเข้าพักเสร็จสิ้นแล้วเท่านั้น",
     "errorSubmit": "ส่งรีวิวไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
-    "tapToRate": "แตะดาวเพื่อให้คะแนน"
+    "tapToRate": "แตะดาวเพื่อให้คะแนน",
+    "loadMore": "โหลดรีวิวเพิ่มเติม",
+    "loadingMore": "กำลังโหลด...",
+    "showingCount": "แสดง {count} จาก {total}"
   }
 }

@@ -279,7 +279,10 @@
     "qrStep1": "Guest scans QR code on arrival → Check In",
     "qrStep2": "Guest scans QR code on departure → Check Out",
     "qrStep3": "After check-out → Write a Review",
-    "qrDownload": "Download QR"
+    "qrDownload": "Download QR",
+    "loadMore": "Load More",
+    "loadingMore": "Loading...",
+    "showingCount": "Showing {count} of {total}"
   },
   "setupProfile": {
     "title": "Complete Your Profile",
@@ -530,6 +533,9 @@
     "errorAlreadyReviewed": "You have already reviewed this booking.",
     "errorBookingNotCompleted": "You can only review after your stay is completed.",
     "errorSubmit": "Failed to submit review. Please try again.",
-    "tapToRate": "Tap a star to rate"
+    "tapToRate": "Tap a star to rate",
+    "loadMore": "Load More Reviews",
+    "loadingMore": "Loading...",
+    "showingCount": "Showing {count} of {total}"
   }
 }

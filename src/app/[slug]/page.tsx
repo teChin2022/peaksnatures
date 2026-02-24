@@ -63,18 +63,30 @@ async function getHomestayData(slug: string) {
     .in("status", ["pending", "confirmed", "verified"]);
   const bookedRanges = (bookingRows as { room_id: string | null; check_in: string; check_out: string }[]) || [];
 
-  // Fetch reviews
+  // Fetch review count + average
+  const { count: reviewCount } = await supabase
+    .from("reviews")
+    .select("id", { count: "exact", head: true })
+    .eq("homestay_id", homestay.id);
+  const { data: avgRow } = await supabase
+    .from("reviews")
+    .select("rating")
+    .eq("homestay_id", homestay.id);
+  const allRatings = (avgRow as { rating: number }[]) || [];
+  const averageRating =
+    allRatings.length > 0
+      ? Math.round((allRatings.reduce((sum, r) => sum + r.rating, 0) / allRatings.length) * 10) / 10
+      : 0;
+
+  // Fetch first page of reviews
+  const INITIAL_REVIEWS = 5;
   const { data: reviewRows } = await supabase
     .from("reviews")
     .select("*")
     .eq("homestay_id", homestay.id)
-    .order("created_at", { ascending: false });
+    .order("created_at", { ascending: false })
+    .range(0, INITIAL_REVIEWS - 1);
   const reviews = (reviewRows as unknown as Review[]) || [];
-  const reviewCount = reviews.length;
-  const averageRating =
-    reviewCount > 0
-      ? Math.round((reviews.reduce((sum, r) => sum + r.rating, 0) / reviewCount) * 10) / 10
-      : 0;
 
   return {
     homestay: { ...homestay, host: host! } as Homestay & { host: Host },
@@ -83,7 +95,7 @@ async function getHomestayData(slug: string) {
     bookedRanges,
     reviews,
     averageRating,
-    reviewCount,
+    reviewCount: reviewCount || 0,
   };
 }
 
