@@ -1,7 +1,7 @@
 import type { Metadata } from "next";
 import { notFound } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import type { Homestay, Room, BlockedDate, Host, Review } from "@/types/database";
+import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice } from "@/types/database";
 import { HeroSection } from "@/components/booking/hero-section";
 import { GallerySection } from "@/components/booking/gallery-section";
 import { AboutSection } from "@/components/booking/about-section";
@@ -78,6 +78,18 @@ async function getHomestayData(slug: string) {
       ? Math.round((allRatings.reduce((sum, r) => sum + r.rating, 0) / allRatings.length) * 10) / 10
       : 0;
 
+  // Fetch seasonal prices for all rooms
+  const roomIds = rooms.map((r) => r.id);
+  let seasonalPrices: RoomSeasonalPrice[] = [];
+  if (roomIds.length > 0) {
+    const { data: seasonRows } = await supabase
+      .from("room_seasonal_prices")
+      .select("*")
+      .in("room_id", roomIds)
+      .order("start_date");
+    seasonalPrices = (seasonRows as unknown as RoomSeasonalPrice[]) || [];
+  }
+
   // Fetch first page of reviews
   const INITIAL_REVIEWS = 5;
   const { data: reviewRows } = await supabase
@@ -93,6 +105,7 @@ async function getHomestayData(slug: string) {
     rooms,
     blockedDates,
     bookedRanges,
+    seasonalPrices,
     reviews,
     averageRating,
     reviewCount: reviewCount || 0,
@@ -127,7 +140,7 @@ export default async function HomestayPage({ params }: PageProps) {
     notFound();
   }
 
-  const { homestay, rooms, blockedDates, bookedRanges, reviews, averageRating, reviewCount } = data;
+  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, reviews, averageRating, reviewCount } = data;
 
   return (
     <div className="min-h-screen bg-white">
@@ -151,7 +164,7 @@ export default async function HomestayPage({ params }: PageProps) {
           themeColor={homestay.theme_color}
         />
 
-        <RoomsSection rooms={rooms} themeColor={homestay.theme_color} />
+        <RoomsSection rooms={rooms} themeColor={homestay.theme_color} seasonalPrices={seasonalPrices} />
 
         <MapRulesSection
           mapEmbedUrl={homestay.map_embed_url}
@@ -173,6 +186,7 @@ export default async function HomestayPage({ params }: PageProps) {
               reviews={reviews}
               averageRating={averageRating}
               reviewCount={reviewCount}
+              seasonalPrices={seasonalPrices}
             />
           </div>
         </section>

@@ -15,7 +15,9 @@ import {
   Pencil,
   Users,
   ImageIcon,
+  CalendarDays,
 } from "lucide-react";
+import type { RoomSeasonalPrice } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -42,6 +44,14 @@ interface RoomData {
   images: string[];
 }
 
+interface SeasonFormData {
+  id?: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  price_per_night: string;
+}
+
 export default function RoomsPage() {
   const t = useTranslations("dashboardRooms");
   const themeColor = useThemeColor();
@@ -61,6 +71,12 @@ export default function RoomsPage() {
   const [roomMaxGuests, setRoomMaxGuests] = useState("2");
   const [roomQuantity, setRoomQuantity] = useState("1");
   const [roomImages, setRoomImages] = useState<string[]>([]);
+
+  // Seasonal pricing state
+  const [seasonalPrices, setSeasonalPrices] = useState<Record<string, RoomSeasonalPrice[]>>({});
+  const [seasonForm, setSeasonForm] = useState<SeasonFormData>({ name: "", start_date: "", end_date: "", price_per_night: "" });
+  const [editingSeason, setEditingSeason] = useState<RoomSeasonalPrice | null>(null);
+  const [savingSeason, setSavingSeason] = useState(false);
 
   useEffect(() => {
     fetchData();
@@ -108,6 +124,25 @@ export default function RoomsPage() {
 
     if (roomRows) {
       setRooms(roomRows as unknown as RoomData[]);
+
+      // Fetch seasonal prices for all rooms
+      const roomIds = (roomRows as unknown as RoomData[]).map((r) => r.id);
+      if (roomIds.length > 0) {
+        const { data: seasonRows } = await supabase
+          .from("room_seasonal_prices")
+          .select("*")
+          .in("room_id", roomIds)
+          .order("start_date" as never);
+
+        if (seasonRows) {
+          const grouped: Record<string, RoomSeasonalPrice[]> = {};
+          for (const s of seasonRows as unknown as RoomSeasonalPrice[]) {
+            if (!grouped[s.room_id]) grouped[s.room_id] = [];
+            grouped[s.room_id].push(s);
+          }
+          setSeasonalPrices(grouped);
+        }
+      }
     }
     setLoading(false);
   };
@@ -247,6 +282,89 @@ export default function RoomsPage() {
       toast.success(t("deleted"));
     } catch {
       toast.error(t("errorDelete"));
+    }
+  };
+
+  // --- Seasonal pricing handlers ---
+  const resetSeasonForm = () => {
+    setSeasonForm({ name: "", start_date: "", end_date: "", price_per_night: "" });
+    setEditingSeason(null);
+  };
+
+  const startEditSeason = (season: RoomSeasonalPrice) => {
+    setEditingSeason(season);
+    setSeasonForm({
+      id: season.id,
+      name: season.name,
+      start_date: season.start_date,
+      end_date: season.end_date,
+      price_per_night: season.price_per_night.toString(),
+    });
+  };
+
+  const handleSaveSeason = async () => {
+    if (!editingRoom) return;
+
+    if (!seasonForm.name.trim()) { toast.error(t("errorSeasonName")); return; }
+    if (!seasonForm.start_date || !seasonForm.end_date || seasonForm.end_date < seasonForm.start_date) {
+      toast.error(t("errorSeasonDates")); return;
+    }
+    const price = parseInt(seasonForm.price_per_night);
+    if (!price || price <= 0) { toast.error(t("errorSeasonPrice")); return; }
+
+    // Check overlap with existing seasons (excluding current if editing)
+    const existing = seasonalPrices[editingRoom.id] || [];
+    const hasOverlap = existing.some((s) => {
+      if (editingSeason && s.id === editingSeason.id) return false;
+      return seasonForm.start_date <= s.end_date && seasonForm.end_date >= s.start_date;
+    });
+    if (hasOverlap) { toast.error(t("errorOverlap")); return; }
+
+    setSavingSeason(true);
+    try {
+      const supabase = createClient();
+      const payload = {
+        room_id: editingRoom.id,
+        name: seasonForm.name.trim(),
+        start_date: seasonForm.start_date,
+        end_date: seasonForm.end_date,
+        price_per_night: price,
+      };
+
+      if (editingSeason) {
+        const { error } = await supabase
+          .from("room_seasonal_prices")
+          .update(payload as never)
+          .eq("id", editingSeason.id);
+        if (error) { toast.error(t("errorSeasonSave")); console.error(error); return; }
+        toast.success(t("seasonUpdated"));
+      } else {
+        const { error } = await supabase
+          .from("room_seasonal_prices")
+          .insert(payload as never);
+        if (error) { toast.error(t("errorSeasonSave")); console.error(error); return; }
+        toast.success(t("seasonCreated"));
+      }
+
+      resetSeasonForm();
+      await fetchData();
+    } catch {
+      toast.error(t("errorSeasonSave"));
+    } finally {
+      setSavingSeason(false);
+    }
+  };
+
+  const handleDeleteSeason = async (seasonId: string) => {
+    if (!confirm(t("confirmDeleteSeason"))) return;
+    try {
+      const supabase = createClient();
+      const { error } = await supabase.from("room_seasonal_prices").delete().eq("id", seasonId);
+      if (error) { toast.error(t("errorSeasonDelete")); console.error(error); return; }
+      toast.success(t("seasonDeleted"));
+      await fetchData();
+    } catch {
+      toast.error(t("errorSeasonDelete"));
     }
   };
 
@@ -505,6 +623,119 @@ export default function RoomsPage() {
                 </div>
               )}
             </div>
+
+            {/* Seasonal Pricing Section — only for existing rooms */}
+            {editingRoom && (
+              <div className="space-y-3 rounded-lg border p-4">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4" style={{ color: themeColor }} />
+                  <h3 className="text-sm font-semibold text-gray-900">{t("seasonalPricing")}</h3>
+                </div>
+                <p className="text-xs text-gray-500">{t("seasonalPricingDesc")}</p>
+
+                {/* Existing seasons list */}
+                {(seasonalPrices[editingRoom.id] || []).length > 0 ? (
+                  <div className="space-y-2">
+                    {(seasonalPrices[editingRoom.id] || []).map((season) => (
+                      <div
+                        key={season.id}
+                        className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-900">{season.name}</p>
+                          <p className="text-xs text-gray-500">
+                            {season.start_date} → {season.end_date} · <span className="font-medium" style={{ color: themeColor }}>฿{season.price_per_night.toLocaleString()}</span>/{t("seasonPrice").replace("/", "").toLowerCase().includes("night") ? "" : t("seasonPrice").split("/")[1] || "night"}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => startEditSeason(season)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-red-500 hover:text-red-700"
+                            onClick={() => handleDeleteSeason(season.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs italic text-gray-400">{t("noSeasons")}</p>
+                )}
+
+                {/* Season add/edit form */}
+                <div className="space-y-2 rounded-md border bg-white p-3">
+                  <p className="text-xs font-medium text-gray-700">
+                    {editingSeason ? t("editSeason") : t("addSeason")}
+                  </p>
+                  <Input
+                    placeholder={t("seasonNamePlaceholder")}
+                    value={seasonForm.name}
+                    onChange={(e) => setSeasonForm((f) => ({ ...f, name: e.target.value }))}
+                    className="text-sm"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">{t("startDate")}</Label>
+                      <Input
+                        type="date"
+                        value={seasonForm.start_date}
+                        onChange={(e) => setSeasonForm((f) => ({ ...f, start_date: e.target.value }))}
+                        className="text-sm"
+                      />
+                    </div>
+                    <div>
+                      <Label className="text-xs">{t("endDate")}</Label>
+                      <Input
+                        type="date"
+                        value={seasonForm.end_date}
+                        onChange={(e) => setSeasonForm((f) => ({ ...f, end_date: e.target.value }))}
+                        className="text-sm"
+                      />
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">{t("seasonPrice")}</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">฿</span>
+                      <Input
+                        type="number"
+                        className="pl-7 text-sm"
+                        value={seasonForm.price_per_night}
+                        onChange={(e) => setSeasonForm((f) => ({ ...f, price_per_night: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleSaveSeason}
+                      disabled={savingSeason}
+                      className="hover:brightness-90"
+                      style={{ backgroundColor: themeColor }}
+                    >
+                      {savingSeason ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Plus className="mr-1 h-3 w-3" />}
+                      {editingSeason ? t("saveSeason") : t("addSeason")}
+                    </Button>
+                    {editingSeason && (
+                      <Button size="sm" variant="outline" onClick={resetSeasonForm}>
+                        <X className="mr-1 h-3 w-3" />
+                        {t("deleteSeason").split(" ")[0]}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+            )}
 
             <Button
               onClick={handleSaveRoom}

@@ -23,7 +23,8 @@ import { Badge } from "@/components/ui/badge";
 import { CalendarDays, Users, CreditCard, Upload, CheckCircle2, Loader2, Camera, ImageIcon, X, Smartphone, ArrowRight, Clock, AlertTriangle, Download } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
-import type { Homestay, Room, BlockedDate, Host, Review } from "@/types/database";
+import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice } from "@/types/database";
+import { calculateTotalPrice, getPriceRange } from "@/lib/calculate-price";
 import { ReviewsSection } from "@/components/booking/reviews-section";
 import { THAI_PROVINCES, getProvinceLabel } from "@/lib/provinces";
 import generatePayload from "promptpay-qr";
@@ -52,6 +53,7 @@ interface BookingSectionProps {
   reviews?: Review[];
   averageRating?: number;
   reviewCount?: number;
+  seasonalPrices?: RoomSeasonalPrice[];
 }
 
 type BookingStep = "dates" | "details" | "payment" | "confirmed";
@@ -66,6 +68,7 @@ export function BookingSection({
   reviews = [],
   averageRating = 0,
   reviewCount = 0,
+  seasonalPrices = [],
 }: BookingSectionProps) {
   const t = useTranslations("booking");
   const tc = useTranslations("common");
@@ -277,15 +280,27 @@ export function BookingSection({
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
 
+  const seasonsByRoom = useMemo(() => {
+    const map: Record<string, RoomSeasonalPrice[]> = {};
+    for (const s of seasonalPrices) {
+      if (!map[s.room_id]) map[s.room_id] = [];
+      map[s.room_id].push(s);
+    }
+    return map;
+  }, [seasonalPrices]);
+
   const nights = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to) return 0;
     return differenceInDays(dateRange.to, dateRange.from);
   }, [dateRange]);
 
-  const totalPrice = useMemo(() => {
-    if (!selectedRoom || nights <= 0) return 0;
-    return selectedRoom.price_per_night * nights;
-  }, [selectedRoom, nights]);
+  const priceResult = useMemo(() => {
+    if (!selectedRoom || nights <= 0 || !dateRange?.from || !dateRange?.to) return null;
+    const roomSeasons = seasonsByRoom[selectedRoom.id] || [];
+    return calculateTotalPrice(selectedRoom.price_per_night, dateRange.from, dateRange.to, roomSeasons);
+  }, [selectedRoom, nights, dateRange, seasonsByRoom]);
+
+  const totalPrice = priceResult?.total ?? 0;
 
   const depositAvailable = host.deposit_amount > 0 && host.deposit_amount < totalPrice;
 
@@ -682,11 +697,18 @@ export function BookingSection({
                       <SelectValue placeholder={t("choosePlaceholder")} />
                     </SelectTrigger>
                     <SelectContent>
-                      {rooms.map((room) => (
-                        <SelectItem key={room.id} value={room.id}>
-                          {room.name} — ฿{room.price_per_night.toLocaleString()}/{tc('night')}
-                        </SelectItem>
-                      ))}
+                      {rooms.map((room) => {
+                        const roomSeasons = seasonsByRoom[room.id] || [];
+                        const { min, max } = getPriceRange(room.price_per_night, roomSeasons);
+                        const priceLabel = min !== max
+                          ? `฿${min.toLocaleString()}–฿${max.toLocaleString()}`
+                          : `฿${room.price_per_night.toLocaleString()}`;
+                        return (
+                          <SelectItem key={room.id} value={room.id}>
+                            {room.name} — {priceLabel}/{tc('night')}
+                          </SelectItem>
+                        );
+                      })}
                     </SelectContent>
                   </Select>
 
@@ -773,17 +795,56 @@ export function BookingSection({
 
               {/* Price Summary & Continue */}
               <div className="space-y-3">
-                {totalPrice > 0 && (
+                {totalPrice > 0 && priceResult && (
                   <Card style={{ borderColor: themeColor + '40', backgroundColor: themeColor + '0d' }}>
-                    <CardContent className="p-4">
-                      <div className="flex items-center justify-between text-sm">
-                        <span className="text-gray-600">
-                          ฿{selectedRoom?.price_per_night.toLocaleString()} × {nights} {nights > 1 ? tc("nights") : tc("night")}
-                        </span>
-                        <span className="text-lg font-bold" style={{ color: themeColor }}>
-                          ฿{totalPrice.toLocaleString()}
-                        </span>
-                      </div>
+                    <CardContent className="p-4 space-y-2">
+                      {(() => {
+                        const hasSeasons = priceResult.breakdown.some((b) => b.seasonName);
+                        if (!hasSeasons) {
+                          return (
+                            <div className="flex items-center justify-between text-sm">
+                              <span className="text-gray-600">
+                                ฿{selectedRoom?.price_per_night.toLocaleString()} × {nights} {nights > 1 ? tc("nights") : tc("night")}
+                              </span>
+                              <span className="text-lg font-bold" style={{ color: themeColor }}>
+                                ฿{totalPrice.toLocaleString()}
+                              </span>
+                            </div>
+                          );
+                        }
+                        // Group consecutive nights by rate
+                        const groups: { label: string; price: number; count: number }[] = [];
+                        for (const b of priceResult.breakdown) {
+                          const label = b.seasonName || t("baseRate");
+                          const last = groups[groups.length - 1];
+                          if (last && last.label === label && last.price === b.price) {
+                            last.count++;
+                          } else {
+                            groups.push({ label, price: b.price, count: 1 });
+                          }
+                        }
+                        return (
+                          <>
+                            {groups.map((g, i) => (
+                              <div key={i} className="flex items-center justify-between text-sm">
+                                <span className="text-gray-600">
+                                  {g.label}: ฿{g.price.toLocaleString()} × {g.count} {g.count > 1 ? tc("nights") : tc("night")}
+                                </span>
+                                <span className="font-medium text-gray-700">
+                                  ฿{(g.price * g.count).toLocaleString()}
+                                </span>
+                              </div>
+                            ))}
+                            <Separator />
+                            <div className="flex items-center justify-between">
+                              <span className="text-sm font-medium text-gray-700">{tc("total")}</span>
+                              <span className="text-lg font-bold" style={{ color: themeColor }}>
+                                ฿{totalPrice.toLocaleString()}
+                              </span>
+                            </div>
+                          </>
+                        );
+                      })()}
                     </CardContent>
                   </Card>
                 )}

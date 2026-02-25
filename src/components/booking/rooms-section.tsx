@@ -1,19 +1,32 @@
+import { useMemo } from "react";
 import Image from "next/image";
-import type { Room } from "@/types/database";
+import type { Room, RoomSeasonalPrice } from "@/types/database";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, BedDouble } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useTranslations } from "next-intl";
+import { getPriceRange } from "@/lib/calculate-price";
 
 interface RoomsSectionProps {
   rooms: Room[];
   themeColor?: string;
+  seasonalPrices?: RoomSeasonalPrice[];
 }
 
-export function RoomsSection({ rooms, themeColor = "#16a34a" }: RoomsSectionProps) {
+export function RoomsSection({ rooms, themeColor = "#16a34a", seasonalPrices = [] }: RoomsSectionProps) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
+
+  const seasonsByRoom = useMemo(() => {
+    const map: Record<string, RoomSeasonalPrice[]> = {};
+    for (const s of seasonalPrices) {
+      if (!map[s.room_id]) map[s.room_id] = [];
+      map[s.room_id].push(s);
+    }
+    return map;
+  }, [seasonalPrices]);
+
   if (!rooms.length) return null;
 
   return (
@@ -51,12 +64,28 @@ export function RoomsSection({ rooms, themeColor = "#16a34a" }: RoomsSectionProp
                 </div>
               )}
               <CardContent className="p-4">
-                <div className="flex items-center gap-1" style={{ borderLeftColor: themeColor }}>
-                  <span className="text-2xl font-bold" style={{ color: themeColor }}>
-                    ฿{room.price_per_night.toLocaleString()}
-                  </span>
-                  <span className="text-xs text-gray-400 self-end mb-1">{tc("perNight")}</span>
-                </div>
+                {(() => {
+                  const roomSeasons = seasonsByRoom[room.id] || [];
+                  const { min, max } = getPriceRange(room.price_per_night, roomSeasons);
+                  const hasRange = min !== max;
+                  return (
+                    <div className="flex items-center gap-1" style={{ borderLeftColor: themeColor }}>
+                      {hasRange ? (
+                        <>
+                          <span className="text-xs text-gray-400 self-end mb-1">{t("fromPrice")}</span>
+                          <span className="text-2xl font-bold" style={{ color: themeColor }}>
+                            ฿{min.toLocaleString()}
+                          </span>
+                        </>
+                      ) : (
+                        <span className="text-2xl font-bold" style={{ color: themeColor }}>
+                          ฿{room.price_per_night.toLocaleString()}
+                        </span>
+                      )}
+                      <span className="text-xs text-gray-400 self-end mb-1">{tc("perNight")}</span>
+                    </div>
+                  );
+                })()}
                 {room.description && (
                   <p className="mt-2 text-sm leading-relaxed text-gray-500 line-clamp-2">
                     {room.description}
