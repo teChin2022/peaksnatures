@@ -24,6 +24,7 @@ export const metadata: Metadata = {
     icon: "/logo.png",
     apple: "/logo.png",
   },
+  manifest: "/manifest.json",
 };
 
 export default async function RootLayout({
@@ -45,6 +46,11 @@ export default async function RootLayout({
           <Toaster richColors position="top-right" />
           <CookieConsent />
         </NextIntlClientProvider>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(function(){})}`,
+          }}
+        />
       </body>
     </html>
   );

@@ -28,7 +28,7 @@
     "featureRiverDesc": "พักผ่อนริมสายน้ำที่ไหลเอื่อย",
     "featureForest": "ที่พักกลางป่า",
     "featureForestDesc": "ดื่มด่ำกับป่าดึกดำบรรพ์",
-    "featured": "โฮมสเตย์แนะนำ",
+    "featured": "ที่พักแนะนำ",
     "featuredSub": "ที่พักธรรมชาติคัดสรรจากทั่วประเทศไทย",
     "upTo": "สูงสุด",
     "reviews": "รีวิว",
@@ -123,7 +123,7 @@
     "changeSlip": "เปลี่ยน",
     "removeSlip": "ลบ",
     "slipPreview": "ตัวอย่างสลิปการชำระเงิน",
-    "slipVerify": "สลิปของคุณจะถูกตรวจสอบอัตโนมัติผ่าน EasySlip",
+    "slipVerify": "สลิปของคุณจะถูกตรวจสอบอัตโนมัติผ่าน",
     "submitBooking": "ยืนยันการจอง",
     "verifying": "กำลังตรวจสอบ...",
     "confirmedTitle": "ยืนยันการจองแล้ว!",
@@ -279,7 +279,10 @@
     "qrStep1": "แขกสแกน QR Code ตอนมาถึง → เช็คอิน",
     "qrStep2": "แขกสแกน QR Code ตอนออก → เช็คเอาท์",
     "qrStep3": "หลังเช็คเอาท์ → เขียนรีวิว",
-    "qrDownload": "ดาวน์โหลด QR"
+    "qrDownload": "ดาวน์โหลด QR",
+    "loadMore": "โหลดเพิ่มเติม",
+    "loadingMore": "กำลังโหลด...",
+    "showingCount": "แสดง {count} จาก {total}"
   },
   "setupProfile": {
     "title": "กรอกข้อมูลโปรไฟล์",
@@ -342,7 +345,24 @@
     "passwordTooShort": "รหัสผ่านต้องมีอย่างน้อย 6 ตัวอักษร",
     "passwordChanged": "เปลี่ยนรหัสผ่านเรียบร้อยแล้ว",
     "passwordError": "เปลี่ยนรหัสผ่านไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
-    "updatePassword": "อัปเดตรหัสผ่าน"
+    "updatePassword": "อัปเดตรหัสผ่าน",
+    "notificationSettings": "ตั้งค่าการแจ้งเตือน",
+    "notificationPreference": "ช่องทางการแจ้งเตือน",
+    "notificationPush": "Web Push",
+    "notificationLine": "LINE Message",
+    "notificationBoth": "ทั้งสองช่องทาง",
+    "pushNotifications": "การแจ้งเตือนแบบ Push",
+    "pushEnabled": "เปิดใช้งานการแจ้งเตือน Push บนอุปกรณ์นี้แล้ว",
+    "pushDisabled": "ยังไม่ได้เปิดใช้งานการแจ้งเตือน Push",
+    "pushEnable": "เปิดใช้งาน Push Notifications",
+    "pushDisable": "ปิดใช้งาน Push Notifications",
+    "pushEnabling": "กำลังเปิดใช้งาน...",
+    "pushNotSupported": "เบราว์เซอร์นี้ไม่รองรับ Push Notifications",
+    "pushPermissionDenied": "สิทธิ์การแจ้งเตือนถูกปฏิเสธ กรุณาอนุญาตการแจ้งเตือนในการตั้งค่าเบราว์เซอร์",
+    "pushEnableSuccess": "เปิดใช้งาน Push Notifications แล้ว!",
+    "pushDisableSuccess": "ปิดใช้งาน Push Notifications แล้ว",
+    "pushError": "อัปเดต Push Notifications ไม่สำเร็จ",
+    "lineSettingsHint": "ตั้งค่า LINE ด้านล่างเพื่อรับแจ้งเตือนผ่าน LINE"
   },
   "dashboardHomestay": {
     "createTitle": "สร้างโฮมสเตย์",
@@ -530,6 +550,9 @@
     "errorAlreadyReviewed": "คุณได้รีวิวการจองนี้แล้ว",
     "errorBookingNotCompleted": "สามารถรีวิวได้หลังจากเข้าพักเสร็จสิ้นแล้วเท่านั้น",
     "errorSubmit": "ส่งรีวิวไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
-    "tapToRate": "แตะดาวเพื่อให้คะแนน"
+    "tapToRate": "แตะดาวเพื่อให้คะแนน",
+    "loadMore": "โหลดรีวิวเพิ่มเติม",
+    "loadingMore": "กำลังโหลด...",
+    "showingCount": "แสดง {count} จาก {total}"
   }
 }

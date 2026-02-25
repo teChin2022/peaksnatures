@@ -2,16 +2,13 @@ import {
   Wifi,
   Car,
   UtensilsCrossed,
-  Mountain,
   TreePine,
   Waves,
-  Binoculars,
   Flame,
   BookOpen,
   Telescope,
   Fish,
-  Users,
-  MapPin,
+  Check
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useTranslations } from "next-intl";
@@ -20,19 +17,12 @@ const AMENITY_ICONS: Record<string, React.ElementType> = {
   WiFi: Wifi,
   Parking: Car,
   Kitchen: UtensilsCrossed,
-  "Mountain View": Mountain,
   Garden: TreePine,
   BBQ: Flame,
-  "Hiking Trails": Mountain,
-  "Waterfall Nearby": Waves,
-  "River View": Waves,
   Kayaking: Waves,
   Fishing: Fish,
   Restaurant: UtensilsCrossed,
   Swimming: Waves,
-  "Forest View": TreePine,
-  "Bird Watching": Binoculars,
-  "National Park Access": TreePine,
   Telescope: Telescope,
   Fireplace: Flame,
   Library: BookOpen,
@@ -51,7 +41,7 @@ export function AboutSection({
   amenities,
   maxGuests,
   location,
-  themeColor = "#16a34a",
+  themeColor = "#dee1dfff",
 }: AboutSectionProps) {
   const t = useTranslations("about");
   return (
@@ -75,7 +65,7 @@ export function AboutSection({
             <h3 className="text-lg font-semibold text-gray-900">{t("amenities")}</h3>
             <div className="mt-3 grid grid-cols-2 gap-2">
               {amenities.map((amenity) => {
-                const Icon = AMENITY_ICONS[amenity] || TreePine;
+                const Icon = AMENITY_ICONS[amenity] || Check;
                 return (
                   <div
                     key={amenity}

@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState, useEffect } from "react";
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations, useLocale } from "next-intl";
@@ -68,6 +68,8 @@ interface DisplayBooking extends BookingRow {
   room_name: string;
 }
 
+const PAGE_SIZE = 20;
+
 const statusConfig: Record<
   BookingStatus,
   { labelKey: string; color: string; icon: React.ElementType }
@@ -86,6 +88,26 @@ export default function BookingsPage() {
   const locale = useLocale();
   const [bookings, setBookings] = useState<DisplayBooking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadingMore, setLoadingMore] = useState(false);
+  const [hasMore, setHasMore] = useState(false);
+  const [totalCount, setTotalCount] = useState(0);
+  const [totalPendingCount, setTotalPendingCount] = useState(0);
+  const [totalConfirmedCount, setTotalConfirmedCount] = useState(0);
+
+  // Store lookup maps so loadMore can reuse them
+  const homestayMapRef = useRef<Record<string, string>>({});
+  const roomMapRef = useRef<Record<string, string>>({});
+  const homestayIdsRef = useRef<string[]>([]);
+
+  const toDisplay = useCallback(
+    (rows: BookingRow[]): DisplayBooking[] =>
+      rows.map((b) => ({
+        ...b,
+        homestay_name: homestayMapRef.current[b.homestay_id] || "—",
+        room_name: b.room_id ? roomMapRef.current[b.room_id] || "—" : "—",
+      })),
+    []
+  );
 
   useEffect(() => {
     fetchBookings();
@@ -123,6 +145,8 @@ export default function BookingsPage() {
 
     const homestayIds = homestays.map((h) => h.id);
     const homestayMap = Object.fromEntries(homestays.map((h) => [h.id, h.name]));
+    homestayIdsRef.current = homestayIds;
+    homestayMapRef.current = homestayMap;
 
     // Get rooms for name lookup
     const { data: roomRows } = await supabase
@@ -132,23 +156,61 @@ export default function BookingsPage() {
     const roomMap = Object.fromEntries(
       ((roomRows as { id: string; name: string }[]) || []).map((r) => [r.id, r.name])
     );
+    roomMapRef.current = roomMap;
 
-    // Get bookings
+    // Get total count + status counts for tab badges
+    const { count: total } = await supabase
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .in("homestay_id", homestayIds);
+    const { count: pendingCnt } = await supabase
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .in("homestay_id", homestayIds)
+      .in("status", ["pending", "verified"]);
+    const { count: confirmedCnt } = await supabase
+      .from("bookings")
+      .select("id", { count: "exact", head: true })
+      .in("homestay_id", homestayIds)
+      .eq("status", "confirmed");
+
+    setTotalCount(total || 0);
+    setTotalPendingCount(pendingCnt || 0);
+    setTotalConfirmedCount(confirmedCnt || 0);
+
+    // Get first page of bookings
     const { data: bookingRows } = await supabase
       .from("bookings")
       .select("*")
       .in("homestay_id", homestayIds)
-      .order("created_at", { ascending: false });
+      .order("created_at", { ascending: false })
+      .range(0, PAGE_SIZE - 1);
 
     const rows = (bookingRows as unknown as BookingRow[]) || [];
-    const display: DisplayBooking[] = rows.map((b) => ({
-      ...b,
-      homestay_name: homestayMap[b.homestay_id] || "—",
-      room_name: b.room_id ? roomMap[b.room_id] || "—" : "—",
-    }));
-
-    setBookings(display);
+    setBookings(toDisplay(rows));
+    setHasMore(rows.length === PAGE_SIZE && rows.length < (total || 0));
     setLoading(false);
+  };
+
+  const loadMore = async () => {
+    if (loadingMore || !hasMore) return;
+    setLoadingMore(true);
+    const supabase = createClient();
+    const from = bookings.length;
+    const to = from + PAGE_SIZE - 1;
+
+    const { data: bookingRows } = await supabase
+      .from("bookings")
+      .select("*")
+      .in("homestay_id", homestayIdsRef.current)
+      .order("created_at", { ascending: false })
+      .range(from, to);
+
+    const rows = (bookingRows as unknown as BookingRow[]) || [];
+    const newBookings = toDisplay(rows);
+    setBookings((prev) => [...prev, ...newBookings]);
+    setHasMore(rows.length === PAGE_SIZE && from + rows.length < totalCount);
+    setLoadingMore(false);
   };
 
   const updateStatus = async (id: string, status: BookingStatus) => {
@@ -176,6 +238,12 @@ export default function BookingsPage() {
 
   const confirmedCount = bookings.filter((b) => b.status === "confirmed").length;
   const pendingCount = bookings.filter((b) => b.status === "pending" || b.status === "verified").length;
+
+  const getTabTotal = (tab: "all" | "pending" | "confirmed") => {
+    if (tab === "all") return totalCount;
+    if (tab === "pending") return totalPendingCount;
+    return totalConfirmedCount;
+  };
 
   const [cancelTarget, setCancelTarget] = useState<DisplayBooking | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
@@ -247,19 +315,19 @@ export default function BookingsPage() {
       <Tabs defaultValue="all">
         <TabsList>
           <TabsTrigger value="all">
-            {t("allBookings")} ({bookings.length})
+            {t("allBookings")} ({totalCount})
           </TabsTrigger>
           <TabsTrigger value="pending">
-            {t("pending")} ({pendingCount})
+            {t("pending")} ({totalPendingCount})
           </TabsTrigger>
           <TabsTrigger value="confirmed">
-            {t("confirmedTab")} ({confirmedCount})
+            {t("confirmedTab")} ({totalConfirmedCount})
           </TabsTrigger>
         </TabsList>
 
         {(["all", "pending", "confirmed"] as const).map((tab) => {
           const filtered = bookings.filter(
-            (b) => tab === "all" || b.status === tab
+            (b) => tab === "all" || b.status === tab || (tab === "pending" && b.status === "verified")
           );
           return (
             <TabsContent key={tab} value={tab} className="mt-4 space-y-3">
@@ -271,7 +339,8 @@ export default function BookingsPage() {
                   </p>
                 </div>
               ) : (
-                filtered.map((booking) => {
+                <>
+                {filtered.map((booking) => {
                   const config = statusConfig[booking.status];
                   const StatusIcon = config.icon;
 
@@ -433,7 +502,32 @@ export default function BookingsPage() {
                       </CardContent>
                     </Card>
                   );
-                })
+                })}
+
+                {/* Load More */}
+                {tab === "all" && hasMore && (
+                  <div className="flex flex-col items-center gap-2 pt-4">
+                    <p className="text-xs text-gray-400">
+                      {t("showingCount", { count: bookings.length, total: totalCount })}
+                    </p>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      onClick={loadMore}
+                      disabled={loadingMore}
+                    >
+                      {loadingMore ? (
+                        <>
+                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                          {t("loadingMore")}
+                        </>
+                      ) : (
+                        t("loadMore")
+                      )}
+                    </Button>
+                  </div>
+                )}
+                </>
               )}
             </TabsContent>
           );

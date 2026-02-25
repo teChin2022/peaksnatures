@@ -28,7 +28,7 @@
     "featureRiverDesc": "Relax by gentle flowing rivers",
     "featureForest": "Forest Hideaways",
     "featureForestDesc": "Immerse yourself in ancient forests",
-    "featured": "Featured Homestays",
+    "featured": "Featured Residences",
     "featuredSub": "Hand-picked nature retreats across Thailand",
     "upTo": "Up to",
     "reviews": "reviews",
@@ -279,7 +279,10 @@
     "qrStep1": "Guest scans QR code on arrival → Check In",
     "qrStep2": "Guest scans QR code on departure → Check Out",
     "qrStep3": "After check-out → Write a Review",
-    "qrDownload": "Download QR"
+    "qrDownload": "Download QR",
+    "loadMore": "Load More",
+    "loadingMore": "Loading...",
+    "showingCount": "Showing {count} of {total}"
   },
   "setupProfile": {
     "title": "Complete Your Profile",
@@ -342,7 +345,24 @@
     "passwordTooShort": "Password must be at least 6 characters",
     "passwordChanged": "Password changed successfully",
     "passwordError": "Failed to change password. Please try again.",
-    "updatePassword": "Update Password"
+    "updatePassword": "Update Password",
+    "notificationSettings": "Notification Settings",
+    "notificationPreference": "Notification Channel",
+    "notificationPush": "Web Push",
+    "notificationLine": "LINE Message",
+    "notificationBoth": "Both",
+    "pushNotifications": "Push Notifications",
+    "pushEnabled": "Push notifications are enabled for this device",
+    "pushDisabled": "Push notifications are not enabled",
+    "pushEnable": "Enable Push Notifications",
+    "pushDisable": "Disable Push Notifications",
+    "pushEnabling": "Enabling...",
+    "pushNotSupported": "Push notifications are not supported in this browser",
+    "pushPermissionDenied": "Notification permission was denied. Please allow notifications in your browser settings.",
+    "pushEnableSuccess": "Push notifications enabled!",
+    "pushDisableSuccess": "Push notifications disabled",
+    "pushError": "Failed to update push notifications",
+    "lineSettingsHint": "Configure LINE credentials below to receive notifications via LINE"
   },
   "dashboardHomestay": {
     "createTitle": "Create Homestay",
@@ -530,6 +550,9 @@
     "errorAlreadyReviewed": "You have already reviewed this booking.",
     "errorBookingNotCompleted": "You can only review after your stay is completed.",
     "errorSubmit": "Failed to submit review. Please try again.",
-    "tapToRate": "Tap a star to rate"
+    "tapToRate": "Tap a star to rate",
+    "loadMore": "Load More Reviews",
+    "loadingMore": "Loading...",
+    "showingCount": "Showing {count} of {total}"
   }
 }

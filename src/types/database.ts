@@ -28,6 +28,7 @@ export interface Database {
           line_user_id: string | null;
           line_channel_access_token: string | null;
           deposit_amount: number;
+          notification_preference: string;
           created_at: string;
         };
         Insert: {
@@ -40,6 +41,7 @@ export interface Database {
           line_user_id?: string | null;
           line_channel_access_token?: string | null;
           deposit_amount?: number;
+          notification_preference?: string;
           created_at?: string;
         };
         Update: {
@@ -52,6 +54,7 @@ export interface Database {
           line_user_id?: string | null;
           line_channel_access_token?: string | null;
           deposit_amount?: number;
+          notification_preference?: string;
           created_at?: string;
         };
       };
@@ -307,6 +310,35 @@ export interface Database {
           guest_name?: string;
           rating?: number;
           comment?: string | null;
+          created_at?: string;
+        };
+      };
+      push_subscriptions: {
+        Row: {
+          id: string;
+          host_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          user_agent: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          host_id: string;
+          endpoint: string;
+          p256dh: string;
+          auth: string;
+          user_agent?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          host_id?: string;
+          endpoint?: string;
+          p256dh?: string;
+          auth?: string;
+          user_agent?: string | null;
           created_at?: string;
         };
       };

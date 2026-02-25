@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { sendBookingConfirmationEmail, sendHostLineNotification } from "@/lib/notifications";
+import { sendBookingConfirmationEmail, sendHostLineNotification, sendHostPushNotification } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room } from "@/types/database";
 
 const bookingSchema = z.object({
@@ -75,8 +75,19 @@ async function sendNotifications(bookingId: string, supabase: ReturnType<typeof 
     const emailResult = await sendBookingConfirmationEmail(details, locale);
     console.log("[Notification] Email result:", emailResult);
 
-    const lineResult = await sendHostLineNotification(details, "confirmed");
-    console.log("[Notification] LINE result:", lineResult);
+    // Host notification: dispatch based on notification_preference
+    const preference = (host as unknown as Host).notification_preference || "push";
+    console.log(`[Notification] Host preference: ${preference}`);
+
+    if (preference === "push" || preference === "both") {
+      const pushResult = await sendHostPushNotification(details, "confirmed");
+      console.log("[Notification] Push result:", pushResult);
+    }
+
+    if (preference === "line" || preference === "both") {
+      const lineResult = await sendHostLineNotification(details, "confirmed");
+      console.log("[Notification] LINE result:", lineResult);
+    }
   } catch (error) {
     console.error("Notification error (non-blocking):", error);
   }
