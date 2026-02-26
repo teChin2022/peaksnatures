@@ -14,7 +14,10 @@
     "privacy": "Privacy",
     "terms": "Terms",
     "contact": "Contact",
-    "copyright": "All rights reserved."
+    "copyright": "All rights reserved.",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "loading": "Loading..."
   },
   "home": {
     "badge": "Nature Homestays in Thailand",
@@ -61,7 +64,8 @@
     "amenities": "Amenities",
     "upToGuests": "Up to {count} guests",
     "maxGuests": "Max {count} guests",
-    "location": "Location"
+    "location": "Location",
+    "mapTitle": "Map"
   },
   "prohibitions": {
     "title": "House Rules",
@@ -70,7 +74,8 @@
   "rooms": {
     "title": "Rooms & Pricing",
     "subtitle": "Choose from our available room types",
-    "available": "{count} available"
+    "available": "{count} available",
+    "fromPrice": "From"
   },
   "booking": {
     "title": "Book Your Stay",
@@ -123,7 +128,7 @@
     "changeSlip": "Change",
     "removeSlip": "Remove",
     "slipPreview": "Payment Slip Preview",
-    "slipVerify": "Your slip will be verified automatically via EasySlip",
+    "slipVerify": "Your slip will be verified automatically",
     "submitBooking": "Submit Booking",
     "verifying": "Verifying...",
     "confirmedTitle": "Booking Confirmed!",
@@ -159,7 +164,11 @@
     "balanceDue": "Remaining Balance",
     "payOnArrival": "Pay remaining on arrival",
     "depositSelected": "Deposit — remaining balance due on arrival",
-    "fullSelected": "Full payment — no balance due"
+    "fullSelected": "Full payment — no balance due",
+    "priceBreakdown": "Price Breakdown",
+    "seasonRate": "{name}",
+    "baseRate": "Base Rate",
+    "perNightRate": "฿{price}/night"
   },
   "chat": {
     "title": "Booking Assistant",
@@ -446,7 +455,30 @@
     "errorName": "Please enter a room name",
     "errorSave": "Failed to save. Please try again.",
     "errorDelete": "Failed to delete. Please try again.",
-    "errorUpload": "Failed to upload image. Please try again."
+    "errorUpload": "Failed to upload image. Please try again.",
+    "seasonalPricing": "Seasonal Pricing",
+    "seasonalPricingDesc": "Set different nightly rates for specific date ranges (e.g. high season, holidays)",
+    "addSeason": "Add Season",
+    "editSeason": "Edit Season",
+    "deleteSeason": "Delete Season",
+    "seasonName": "Season Name",
+    "seasonNamePlaceholder": "e.g. High Season",
+    "startDate": "Start Date",
+    "endDate": "End Date",
+    "seasonPrice": "Price/Night",
+    "saveSeason": "Save Season",
+    "seasonCreated": "Season created successfully",
+    "seasonUpdated": "Season updated successfully",
+    "seasonDeleted": "Season deleted",
+    "confirmDeleteSeason": "Are you sure you want to delete this season?",
+    "errorSeasonName": "Please enter a season name",
+    "errorSeasonDates": "Please select valid start and end dates",
+    "errorSeasonPrice": "Please enter a valid price",
+    "errorOverlap": "This date range overlaps with an existing season",
+    "errorSeasonSave": "Failed to save season. Please try again.",
+    "errorSeasonDelete": "Failed to delete season. Please try again.",
+    "noSeasons": "No seasonal pricing configured. Base price will be used for all dates.",
+    "basePrice": "Base Price"
   },
   "dashboardCalendar": {
     "title": "Availability Calendar",
@@ -504,6 +536,10 @@
     "uploadSlip": "Upload Transfer Slip",
     "paymentFull": "Paid Full",
     "paymentDeposit": "Deposit",
+    "errorSlipDuplicate": "This slip has already been used.",
+    "errorSlipVerify": "Slip verification failed.",
+    "errorPayment": "Payment failed.",
+    "cancelReview": "Cancel",
     "status": {
       "pending": "Pending",
       "verified": "Verified",
@@ -532,7 +568,19 @@
     "save": "Save Theme",
     "saved": "Theme updated successfully",
     "noHomestay": "Please create a homestay first.",
-    "errorSave": "Failed to save. Please try again."
+    "errorSave": "Failed to save. Please try again.",
+    "colorGreen": "Green",
+    "colorBlue": "Blue",
+    "colorPurple": "Purple",
+    "colorRose": "Rose",
+    "colorOrange": "Orange",
+    "colorTeal": "Teal",
+    "colorIndigo": "Indigo",
+    "colorAmber": "Amber",
+    "colorSky": "Sky",
+    "colorEmerald": "Emerald",
+    "colorFuchsia": "Fuchsia",
+    "colorSlate": "Slate"
   },
   "reviews": {
     "title": "Reviews & Ratings",
@@ -554,5 +602,10 @@
     "loadMore": "Load More Reviews",
     "loadingMore": "Loading...",
     "showingCount": "Showing {count} of {total}"
+  },
+  "notFound": {
+    "title": "Homestay Not Found",
+    "description": "The homestay you're looking for doesn't exist or has been removed.",
+    "browseAll": "Browse All Homestays"
   }
 }

@@ -132,7 +132,7 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
       const verifyData = await verifyRes.json();
 
       if (verifyRes.status === 409 && verifyData.duplicate) {
-        toast.error("This slip has already been used.");
+        toast.error(t("errorSlipDuplicate"));
         setBalanceSlipFile(null);
         setBalanceSlipPreview(null);
         setSubmittingBalance(false);
@@ -140,7 +140,7 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
       }
 
       if (!verifyData.verified) {
-        toast.error(verifyData.message || "Slip verification failed.");
+        toast.error(verifyData.message || t("errorSlipVerify"));
         setBalanceSlipFile(null);
         setBalanceSlipPreview(null);
         setSubmittingBalance(false);
@@ -164,7 +164,7 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
 
       if (!payRes.ok) {
         const payData = await payRes.json();
-        toast.error(payData.error || "Payment failed.");
+        toast.error(payData.error || t("errorPayment"));
         setSubmittingBalance(false);
         return;
       }
@@ -183,7 +183,7 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
       setBalanceSlipFile(null);
       setBalanceSlipPreview(null);
     } catch {
-      toast.error("Payment failed.");
+      toast.error(t("errorPayment"));
     } finally {
       setSubmittingBalance(false);
     }
@@ -204,7 +204,7 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
 
       if (!payRes.ok) {
         const payData = await payRes.json();
-        toast.error(payData.error || "Payment failed.");
+        toast.error(payData.error || t("errorPayment"));
         return;
       }
 
@@ -219,7 +219,7 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
       setPayingBalanceId(null);
       setBalancePayMethod(null);
     } catch {
-      toast.error("Payment failed.");
+      toast.error(t("errorPayment"));
     } finally {
       setSubmittingBalance(false);
     }
@@ -621,7 +621,7 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
                                 setReviewComment("");
                               }}
                             >
-                              {t("status.cancelled") || "Cancel"}
+                              {t("cancelReview")}
                             </Button>
                             <Button
                               size="sm"

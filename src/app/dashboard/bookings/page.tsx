@@ -221,7 +221,7 @@ export default function BookingsPage() {
       .eq("id", id);
 
     if (error) {
-      toast.error(t("errorUpdate") || "Failed to update");
+      toast.error(t("errorUpdate"));
       console.error("Update booking error:", error);
       return;
     }
@@ -373,10 +373,10 @@ export default function BookingsPage() {
                           )}
 
                           <div className="flex-1 min-w-0 space-y-1">
-                            <div className="flex items-center gap-2">
-                              <h3 className="font-semibold text-gray-900">
-                                {booking.guest_name}
-                              </h3>
+                            <h3 className="font-semibold text-gray-900">
+                              {booking.guest_name}
+                            </h3>
+                            <div className="flex flex-wrap items-center gap-1.5">
                               <Badge
                                 variant="secondary"
                                 className={config.color}

@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import { format, parse } from "date-fns";
+import { th as thLocale } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import {
   BedDouble,
   Plus,
@@ -15,7 +17,9 @@ import {
   Pencil,
   Users,
   ImageIcon,
+  CalendarDays,
 } from "lucide-react";
+import type { RoomSeasonalPrice } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -24,10 +28,14 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { useThemeColor } from "@/components/dashboard/theme-context";
 
@@ -42,8 +50,18 @@ interface RoomData {
   images: string[];
 }
 
+interface SeasonFormData {
+  id?: string;
+  name: string;
+  start_date: string;
+  end_date: string;
+  price_per_night: string;
+}
+
 export default function RoomsPage() {
   const t = useTranslations("dashboardRooms");
+  const tc = useTranslations("common");
+  const locale = useLocale();
   const themeColor = useThemeColor();
   const [rooms, setRooms] = useState<RoomData[]>([]);
   const [homestayId, setHomestayId] = useState<string | null>(null);
@@ -61,6 +79,35 @@ export default function RoomsPage() {
   const [roomMaxGuests, setRoomMaxGuests] = useState("2");
   const [roomQuantity, setRoomQuantity] = useState("1");
   const [roomImages, setRoomImages] = useState<string[]>([]);
+
+  // Seasonal pricing state
+  const [seasonalPrices, setSeasonalPrices] = useState<Record<string, RoomSeasonalPrice[]>>({});
+  const [seasonForm, setSeasonForm] = useState<SeasonFormData>({ name: "", start_date: "", end_date: "", price_per_night: "" });
+  const [editingSeason, setEditingSeason] = useState<RoomSeasonalPrice | null>(null);
+  const [savingSeason, setSavingSeason] = useState(false);
+  const [pendingSeasons, setPendingSeasons] = useState<Omit<RoomSeasonalPrice, "id" | "room_id" | "created_at">[]>([]);
+
+  // Format date with Thai BE year when locale is Thai
+  const fmtDate = (dateStr: string) => {
+    const d = parse(dateStr, "yyyy-MM-dd", new Date());
+    if (locale === "th") {
+      const formatted = format(d, "d MMM", { locale: thLocale });
+      const beYear = d.getFullYear() + 543;
+      return `${formatted} ${beYear}`;
+    }
+    return format(d, "d MMM yyyy");
+  };
+
+  // Confirm delete dialog state
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const confirmCallbackRef = useRef<(() => void) | null>(null);
+
+  const showConfirm = (message: string, onConfirm: () => void) => {
+    setConfirmMessage(message);
+    confirmCallbackRef.current = onConfirm;
+    setConfirmOpen(true);
+  };
 
   useEffect(() => {
     fetchData();
@@ -108,6 +155,25 @@ export default function RoomsPage() {
 
     if (roomRows) {
       setRooms(roomRows as unknown as RoomData[]);
+
+      // Fetch seasonal prices for all rooms
+      const roomIds = (roomRows as unknown as RoomData[]).map((r) => r.id);
+      if (roomIds.length > 0) {
+        const { data: seasonRows } = await supabase
+          .from("room_seasonal_prices")
+          .select("*")
+          .in("room_id", roomIds)
+          .order("start_date" as never);
+
+        if (seasonRows) {
+          const grouped: Record<string, RoomSeasonalPrice[]> = {};
+          for (const s of seasonRows as unknown as RoomSeasonalPrice[]) {
+            if (!grouped[s.room_id]) grouped[s.room_id] = [];
+            grouped[s.room_id].push(s);
+          }
+          setSeasonalPrices(grouped);
+        }
+      }
     }
     setLoading(false);
   };
@@ -120,6 +186,8 @@ export default function RoomsPage() {
     setRoomQuantity("1");
     setRoomImages([]);
     setEditingRoom(null);
+    setPendingSeasons([]);
+    resetSeasonForm();
   };
 
   const openCreateDialog = () => {
@@ -211,14 +279,34 @@ export default function RoomsPage() {
         }
         toast.success(t("updated"));
       } else {
-        const { error } = await supabase
+        const { data: newRoom, error } = await supabase
           .from("rooms")
-          .insert(payload as never);
-        if (error) {
+          .insert(payload as never)
+          .select("id")
+          .single();
+        if (error || !newRoom) {
           toast.error(t("errorSave"));
           console.error("Insert room error:", error);
           return;
         }
+
+        // Save pending seasonal prices for the new room
+        if (pendingSeasons.length > 0) {
+          const seasonPayloads = pendingSeasons.map((s) => ({
+            room_id: (newRoom as { id: string }).id,
+            name: s.name,
+            start_date: s.start_date,
+            end_date: s.end_date,
+            price_per_night: s.price_per_night,
+          }));
+          const { error: seasonError } = await supabase
+            .from("room_seasonal_prices")
+            .insert(seasonPayloads as never);
+          if (seasonError) {
+            console.error("Insert seasons error:", seasonError);
+          }
+        }
+
         toast.success(t("created"));
       }
 
@@ -232,22 +320,125 @@ export default function RoomsPage() {
     }
   };
 
-  const handleDeleteRoom = async (roomId: string) => {
-    if (!confirm(t("confirmDelete"))) return;
+  const handleDeleteRoom = (roomId: string) => {
+    showConfirm(t("confirmDelete"), async () => {
+      try {
+        const supabase = createClient();
+        const { error } = await supabase.from("rooms").delete().eq("id", roomId);
+        if (error) {
+          toast.error(t("errorDelete"));
+          console.error("Delete room error:", error);
+          return;
+        }
+        setRooms((prev) => prev.filter((r) => r.id !== roomId));
+        toast.success(t("deleted"));
+      } catch {
+        toast.error(t("errorDelete"));
+      }
+    });
+  };
 
+  // --- Seasonal pricing handlers ---
+  const resetSeasonForm = () => {
+    setSeasonForm({ name: "", start_date: "", end_date: "", price_per_night: "" });
+    setEditingSeason(null);
+  };
+
+  const startEditSeason = (season: RoomSeasonalPrice) => {
+    setEditingSeason(season);
+    setSeasonForm({
+      id: season.id,
+      name: season.name,
+      start_date: season.start_date,
+      end_date: season.end_date,
+      price_per_night: season.price_per_night.toString(),
+    });
+  };
+
+  const handleSaveSeason = async () => {
+    if (!seasonForm.name.trim()) { toast.error(t("errorSeasonName")); return; }
+    if (!seasonForm.start_date || !seasonForm.end_date || seasonForm.end_date < seasonForm.start_date) {
+      toast.error(t("errorSeasonDates")); return;
+    }
+    const price = parseInt(seasonForm.price_per_night);
+    if (!price || price <= 0) { toast.error(t("errorSeasonPrice")); return; }
+
+    // For new rooms — store pending seasons locally
+    if (!editingRoom) {
+      const hasOverlap = pendingSeasons.some((s) =>
+        seasonForm.start_date <= s.end_date && seasonForm.end_date >= s.start_date
+      );
+      if (hasOverlap) { toast.error(t("errorOverlap")); return; }
+
+      setPendingSeasons((prev) => [
+        ...prev,
+        {
+          name: seasonForm.name.trim(),
+          start_date: seasonForm.start_date,
+          end_date: seasonForm.end_date,
+          price_per_night: price,
+        },
+      ]);
+      toast.success(t("seasonCreated"));
+      resetSeasonForm();
+      return;
+    }
+
+    // For existing rooms — save to DB
+    const existing = seasonalPrices[editingRoom.id] || [];
+    const hasOverlap = existing.some((s) => {
+      if (editingSeason && s.id === editingSeason.id) return false;
+      return seasonForm.start_date <= s.end_date && seasonForm.end_date >= s.start_date;
+    });
+    if (hasOverlap) { toast.error(t("errorOverlap")); return; }
+
+    setSavingSeason(true);
     try {
       const supabase = createClient();
-      const { error } = await supabase.from("rooms").delete().eq("id", roomId);
-      if (error) {
-        toast.error(t("errorDelete"));
-        console.error("Delete room error:", error);
-        return;
+      const payload = {
+        room_id: editingRoom.id,
+        name: seasonForm.name.trim(),
+        start_date: seasonForm.start_date,
+        end_date: seasonForm.end_date,
+        price_per_night: price,
+      };
+
+      if (editingSeason) {
+        const { error } = await supabase
+          .from("room_seasonal_prices")
+          .update(payload as never)
+          .eq("id", editingSeason.id);
+        if (error) { toast.error(t("errorSeasonSave")); console.error(error); return; }
+        toast.success(t("seasonUpdated"));
+      } else {
+        const { error } = await supabase
+          .from("room_seasonal_prices")
+          .insert(payload as never);
+        if (error) { toast.error(t("errorSeasonSave")); console.error(error); return; }
+        toast.success(t("seasonCreated"));
       }
-      setRooms((prev) => prev.filter((r) => r.id !== roomId));
-      toast.success(t("deleted"));
+
+      resetSeasonForm();
+      await fetchData();
     } catch {
-      toast.error(t("errorDelete"));
+      toast.error(t("errorSeasonSave"));
+    } finally {
+      setSavingSeason(false);
     }
+  };
+
+  const handleDeleteSeason = (seasonId: string) => {
+    showConfirm(t("confirmDeleteSeason"), async () => {
+      try {
+        const supabase = createClient();
+        const { error } = await supabase.from("room_seasonal_prices").delete().eq("id", seasonId);
+        if (error) { toast.error(t("errorSeasonDelete")); console.error(error); return; }
+        toast.success(t("seasonDeleted"));
+        await fetchData();
+      } catch {
+        toast.error(t("errorSeasonDelete"));
+      }
+    });
   };
 
   if (loading) {
@@ -367,7 +558,7 @@ export default function RoomsPage() {
                     </div>
                     <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
                       <span className="font-medium" style={{ color: themeColor }}>
-                        ฿{room.price_per_night.toLocaleString()}/night
+                        ฿{room.price_per_night.toLocaleString()}{tc("perNight")}
                       </span>
                       <span className="flex items-center gap-1">
                         <Users className="h-3.5 w-3.5" />
@@ -506,6 +697,195 @@ export default function RoomsPage() {
               )}
             </div>
 
+            {/* Seasonal Pricing Section */}
+              <div className="space-y-3 rounded-lg border p-4">
+                <div className="flex items-center gap-2">
+                  <CalendarDays className="h-4 w-4" style={{ color: themeColor }} />
+                  <h3 className="text-sm font-semibold text-gray-900">{t("seasonalPricing")}</h3>
+                </div>
+                <p className="text-xs text-gray-500">{t("seasonalPricingDesc")}</p>
+
+                {/* Seasons list — DB seasons for existing rooms, pending for new */}
+                {editingRoom ? (
+                  (seasonalPrices[editingRoom.id] || []).length > 0 ? (
+                    <div className="space-y-2">
+                      {(seasonalPrices[editingRoom.id] || []).map((season) => (
+                        <div
+                          key={season.id}
+                          className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-900">{season.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {fmtDate(season.start_date)} → {fmtDate(season.end_date)} · <span className="font-medium" style={{ color: themeColor }}>฿{season.price_per_night.toLocaleString()}</span>{tc("perNight")}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => startEditSeason(season)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-500 hover:text-red-700"
+                              onClick={() => handleDeleteSeason(season.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs italic text-gray-400">{t("noSeasons")}</p>
+                  )
+                ) : (
+                  pendingSeasons.length > 0 ? (
+                    <div className="space-y-2">
+                      {pendingSeasons.map((season, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-900">{season.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {fmtDate(season.start_date)} → {fmtDate(season.end_date)} · <span className="font-medium" style={{ color: themeColor }}>฿{season.price_per_night.toLocaleString()}</span>{tc("perNight")}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-red-500 hover:text-red-700"
+                            onClick={() => setPendingSeasons((prev) => prev.filter((_, i) => i !== idx))}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs italic text-gray-400">{t("noSeasons")}</p>
+                  )
+                )}
+
+                {/* Season add/edit form */}
+                <div className="space-y-2 rounded-md border bg-white p-3">
+                  <p className="text-xs font-medium text-gray-700">
+                    {editingSeason ? t("editSeason") : t("addSeason")}
+                  </p>
+                  <Input
+                    placeholder={t("seasonNamePlaceholder")}
+                    value={seasonForm.name}
+                    onChange={(e) => setSeasonForm((f) => ({ ...f, name: e.target.value }))}
+                    className="text-sm"
+                  />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <Label className="text-xs">{t("startDate")}</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left text-sm font-normal"
+                          >
+                            <CalendarDays className="mr-2 h-3.5 w-3.5 text-gray-400" />
+                            {seasonForm.start_date
+                              ? fmtDate(seasonForm.start_date)
+                              : <span className="text-gray-400">{t("startDate")}</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={seasonForm.start_date ? parse(seasonForm.start_date, "yyyy-MM-dd", new Date()) : undefined}
+                            onSelect={(date) => {
+                              if (date) setSeasonForm((f) => ({ ...f, start_date: format(date, "yyyy-MM-dd") }));
+                            }}
+                            locale={locale === "th" ? thLocale : undefined}
+                            formatters={locale === "th" ? {
+                              formatCaption: (date) => {
+                                const month = date.toLocaleDateString("th-TH", { month: "long" });
+                                const beYear = date.getFullYear() + 543;
+                                return `${month} ${beYear}`;
+                              },
+                            } : undefined}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                    <div>
+                      <Label className="text-xs">{t("endDate")}</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left text-sm font-normal"
+                          >
+                            <CalendarDays className="mr-2 h-3.5 w-3.5 text-gray-400" />
+                            {seasonForm.end_date
+                              ? fmtDate(seasonForm.end_date)
+                              : <span className="text-gray-400">{t("endDate")}</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={seasonForm.end_date ? parse(seasonForm.end_date, "yyyy-MM-dd", new Date()) : undefined}
+                            onSelect={(date) => {
+                              if (date) setSeasonForm((f) => ({ ...f, end_date: format(date, "yyyy-MM-dd") }));
+                            }}
+                            locale={locale === "th" ? thLocale : undefined}
+                            formatters={locale === "th" ? {
+                              formatCaption: (date) => {
+                                const month = date.toLocaleDateString("th-TH", { month: "long" });
+                                const beYear = date.getFullYear() + 543;
+                                return `${month} ${beYear}`;
+                              },
+                            } : undefined}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                    </div>
+                  </div>
+                  <div>
+                    <Label className="text-xs">{t("seasonPrice")}</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">฿</span>
+                      <Input
+                        type="number"
+                        className="pl-7 text-sm"
+                        value={seasonForm.price_per_night}
+                        onChange={(e) => setSeasonForm((f) => ({ ...f, price_per_night: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleSaveSeason}
+                      disabled={savingSeason}
+                      className="hover:brightness-90"
+                      style={{ backgroundColor: themeColor }}
+                    >
+                      {savingSeason ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Plus className="mr-1 h-3 w-3" />}
+                      {editingSeason ? t("saveSeason") : t("addSeason")}
+                    </Button>
+                    {editingSeason && (
+                      <Button size="sm" variant="outline" onClick={resetSeasonForm}>
+                        <X className="mr-1 h-3 w-3" />
+                        {tc("cancel")}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
             <Button
               onClick={handleSaveRoom}
               disabled={saving}
@@ -520,6 +900,39 @@ export default function RoomsPage() {
               {editingRoom ? t("saveRoom") : t("createRoom")}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Delete Dialog */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-4 w-4 text-red-500" />
+              {tc("brand")}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-600">
+              {confirmMessage}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmOpen(false)}
+            >
+              {tc("cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setConfirmOpen(false);
+                confirmCallbackRef.current?.();
+              }}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {tc("delete")}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

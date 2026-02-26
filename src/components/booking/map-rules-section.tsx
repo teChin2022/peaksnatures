@@ -53,7 +53,7 @@ export function MapRulesSection({
                   loading="lazy"
                   allowFullScreen
                   referrerPolicy="no-referrer-when-downgrade"
-                  title="Map"
+                  title={t("mapTitle")}
                 />
               </div>
             </div>

@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendBookingConfirmationEmail, sendHostLineNotification, sendHostPushNotification } from "@/lib/notifications";
-import type { Booking, Homestay, Host, Room } from "@/types/database";
+import type { Booking, Homestay, Host, Room, RoomSeasonalPrice } from "@/types/database";
+import { calculateTotalPrice } from "@/lib/calculate-price";
 
 const bookingSchema = z.object({
   homestay_id: z.string().uuid(),
@@ -136,7 +137,14 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      const serverPrice = room.price_per_night * nights;
+      // Fetch seasonal prices for this room
+      const { data: seasonRows } = await supabase
+        .from("room_seasonal_prices")
+        .select("*")
+        .eq("room_id", data.room_id);
+      const seasons = (seasonRows as unknown as RoomSeasonalPrice[]) || [];
+
+      const { total: serverPrice } = calculateTotalPrice(room.price_per_night, checkIn, checkOut, seasons);
       if (data.total_price !== serverPrice) {
         console.warn(`[Security] Price mismatch: client=${data.total_price}, server=${serverPrice}`);
         data.total_price = serverPrice;

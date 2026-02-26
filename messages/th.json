@@ -14,7 +14,10 @@
     "privacy": "นโยบายความเป็นส่วนตัว",
     "terms": "ข้อกำหนด",
     "contact": "ติดต่อ",
-    "copyright": "สงวนลิขสิทธิ์"
+    "copyright": "สงวนลิขสิทธิ์",
+    "delete": "ลบ",
+    "cancel": "ยกเลิก",
+    "loading": "กำลังโหลด..."
   },
   "home": {
     "badge": "โฮมสเตย์ธรรมชาติในประเทศไทย",
@@ -61,7 +64,8 @@
     "amenities": "สิ่งอำนวยความสะดวก",
     "upToGuests": "รองรับสูงสุด {count} ท่าน",
     "maxGuests": "สูงสุด {count} ท่าน",
-    "location": "ที่ตั้ง"
+    "location": "ที่ตั้ง",
+    "mapTitle": "แผนที่"
   },
   "prohibitions": {
     "title": "กฎของที่พัก",
@@ -70,7 +74,8 @@
   "rooms": {
     "title": "ห้องพัก & ราคา",
     "subtitle": "เลือกจากประเภทห้องพักที่มี",
-    "available": "ว่าง {count} ห้อง"
+    "available": "ว่าง {count} ห้อง",
+    "fromPrice": "เริ่มต้น"
   },
   "booking": {
     "title": "จองที่พัก",
@@ -123,7 +128,7 @@
     "changeSlip": "เปลี่ยน",
     "removeSlip": "ลบ",
     "slipPreview": "ตัวอย่างสลิปการชำระเงิน",
-    "slipVerify": "สลิปของคุณจะถูกตรวจสอบอัตโนมัติผ่าน",
+    "slipVerify": "สลิปของคุณจะถูกตรวจสอบอัตโนมัติ",
     "submitBooking": "ยืนยันการจอง",
     "verifying": "กำลังตรวจสอบ...",
     "confirmedTitle": "ยืนยันการจองแล้ว!",
@@ -159,7 +164,11 @@
     "balanceDue": "ยอดค้างชำระ",
     "payOnArrival": "ชำระส่วนที่เหลือเมื่อเข้าพัก",
     "depositSelected": "มัดจำ — ชำระส่วนที่เหลือเมื่อเข้าพัก",
-    "fullSelected": "ชำระเต็มจำนวน — ไม่มียอดค้าง"
+    "fullSelected": "ชำระเต็มจำนวน — ไม่มียอดค้าง",
+    "priceBreakdown": "รายละเอียดราคา",
+    "seasonRate": "{name}",
+    "baseRate": "ราคาพื้นฐาน",
+    "perNightRate": "฿{price}/คืน"
   },
   "chat": {
     "title": "ผู้ช่วยจองที่พัก",
@@ -446,7 +455,30 @@
     "errorName": "กรุณากรอกชื่อห้อง",
     "errorSave": "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
     "errorDelete": "ลบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
-    "errorUpload": "อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
+    "errorUpload": "อัปโหลดรูปไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+    "seasonalPricing": "ราคาตามฤดูกาล",
+    "seasonalPricingDesc": "กำหนดราคาต่อคืนที่แตกต่างกันสำหรับช่วงเวลาเฉพาะ (เช่น ไฮซีซั่น, วันหยุด)",
+    "addSeason": "เพิ่มช่วงราคา",
+    "editSeason": "แก้ไขช่วงราคา",
+    "deleteSeason": "ลบช่วงราคา",
+    "seasonName": "ชื่อช่วงราคา",
+    "seasonNamePlaceholder": "เช่น ไฮซีซั่น",
+    "startDate": "วันเริ่มต้น",
+    "endDate": "วันสิ้นสุด",
+    "seasonPrice": "ราคา/คืน",
+    "saveSeason": "บันทึกช่วงราคา",
+    "seasonCreated": "สร้างช่วงราคาเรียบร้อยแล้ว",
+    "seasonUpdated": "อัปเดตช่วงราคาเรียบร้อยแล้ว",
+    "seasonDeleted": "ลบช่วงราคาแล้ว",
+    "confirmDeleteSeason": "คุณแน่ใจหรือไม่ที่จะลบช่วงราคานี้?",
+    "errorSeasonName": "กรุณากรอกชื่อช่วงราคา",
+    "errorSeasonDates": "กรุณาเลือกวันเริ่มต้นและวันสิ้นสุดที่ถูกต้อง",
+    "errorSeasonPrice": "กรุณากรอกราคาที่ถูกต้อง",
+    "errorOverlap": "ช่วงวันที่นี้ซ้อนทับกับช่วงราคาที่มีอยู่",
+    "errorSeasonSave": "บันทึกช่วงราคาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+    "errorSeasonDelete": "ลบช่วงราคาไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+    "noSeasons": "ยังไม่มีราคาตามฤดูกาล ราคาพื้นฐานจะถูกใช้สำหรับทุกวัน",
+    "basePrice": "ราคาพื้นฐาน"
   },
   "dashboardCalendar": {
     "title": "ปฏิทินห้องว่าง",
@@ -504,6 +536,10 @@
     "uploadSlip": "อัปโหลดสลิปโอนเงิน",
     "paymentFull": "ชำระครบ",
     "paymentDeposit": "มัดจำ",
+    "errorSlipDuplicate": "สลิปนี้ถูกใช้ไปแล้ว",
+    "errorSlipVerify": "ตรวจสอบสลิปไม่สำเร็จ",
+    "errorPayment": "ชำระเงินไม่สำเร็จ",
+    "cancelReview": "ยกเลิก",
     "status": {
       "pending": "รอดำเนินการ",
       "verified": "ตรวจสอบแล้ว",
@@ -532,7 +568,19 @@
     "save": "บันทึกธีม",
     "saved": "อัปเดตธีมเรียบร้อยแล้ว",
     "noHomestay": "กรุณาสร้างโฮมสเตย์ก่อน",
-    "errorSave": "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
+    "errorSave": "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+    "colorGreen": "เขียว",
+    "colorBlue": "น้ำเงิน",
+    "colorPurple": "ม่วง",
+    "colorRose": "ชมพู",
+    "colorOrange": "ส้ม",
+    "colorTeal": "เขียวอมฟ้า",
+    "colorIndigo": "คราม",
+    "colorAmber": "อำพัน",
+    "colorSky": "ฟ้า",
+    "colorEmerald": "มรกต",
+    "colorFuchsia": "บานเย็น",
+    "colorSlate": "เทา"
   },
   "reviews": {
     "title": "รีวิว & คะแนน",
@@ -554,5 +602,10 @@
     "loadMore": "โหลดรีวิวเพิ่มเติม",
     "loadingMore": "กำลังโหลด...",
     "showingCount": "แสดง {count} จาก {total}"
+  },
+  "notFound": {
+    "title": "ไม่พบที่พัก",
+    "description": "ที่พักที่คุณกำลังค้นหาไม่มีอยู่หรือถูกลบออกแล้ว",
+    "browseAll": "ดูที่พักทั้งหมด"
   }
 }
