@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound, redirect } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice } from "@/types/database";
 import { HeroSection } from "@/components/booking/hero-section";
@@ -158,7 +158,7 @@ export default async function HomestayPage({ params }: PageProps) {
     // Check if this is an old slug that should redirect
     const newSlug = await resolveSlugRedirect(slug);
     if (newSlug) {
-      redirect(`/${newSlug}`);
+      permanentRedirect(`/${newSlug}`);
     }
     notFound();
   }
