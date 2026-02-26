@@ -909,7 +909,7 @@ export default function RoomsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Trash2 className="h-4 w-4 text-red-500" />
-              {tc("brand")}
+              {t("confirmDeleteTitle")}
             </DialogTitle>
             <DialogDescription className="text-sm text-gray-600">
               {confirmMessage}

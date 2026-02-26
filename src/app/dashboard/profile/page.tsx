@@ -3,13 +3,14 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
-import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key, Lock, Eye, EyeOff, Bell, BellOff } from "lucide-react";
+import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key, Lock, Eye, EyeOff, Bell, BellOff, Trash2, AlertTriangle } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { useRouter } from "next/navigation";
 import { useThemeColor } from "@/components/dashboard/theme-context";
 
 import { isPushSupported, isPushSubscribed, subscribeHostToPush, unsubscribeFromPush } from "@/lib/push-notifications";
@@ -28,6 +29,7 @@ interface HostData {
 
 export default function ProfilePage() {
   const t = useTranslations("dashboardProfile");
+  const router = useRouter();
   const themeColor = useThemeColor();
   const [host, setHost] = useState<HostData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -52,6 +54,9 @@ export default function ProfilePage() {
   const [pushSubscribed, setPushSubscribed] = useState(false);
   const [pushSupported, setPushSupported] = useState(false);
   const [togglingPush, setTogglingPush] = useState(false);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [deleting, setDeleting] = useState(false);
 
   useEffect(() => {
     const fetchHost = async () => {
@@ -135,6 +140,34 @@ export default function ProfilePage() {
       toast.error(t("errorSave"));
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteConfirmText !== "DELETE") {
+      toast.error(t("deleteConfirmMismatch"));
+      return;
+    }
+
+    setDeleting(true);
+    try {
+      const res = await fetch("/api/auth/delete-account", {
+        method: "DELETE",
+      });
+
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error || t("deleteError"));
+        return;
+      }
+
+      toast.success(t("deleteSuccess"));
+      router.push("/login");
+      router.refresh();
+    } catch {
+      toast.error(t("deleteError"));
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -575,6 +608,67 @@ export default function ProfilePage() {
             )}
             {t("updatePassword")}
           </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6 border-red-200">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base text-red-600">
+            <Trash2 className="h-4 w-4" />
+            {t("deleteAccount")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <div className="rounded-lg border border-red-100 bg-red-50 p-3">
+            <div className="flex items-start gap-2">
+              <AlertTriangle className="h-4 w-4 text-red-500 mt-0.5 shrink-0" />
+              <p className="text-sm text-red-700">{t("deleteWarning")}</p>
+            </div>
+          </div>
+
+          {!showDeleteConfirm ? (
+            <Button
+              variant="outline"
+              className="w-full border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
+              onClick={() => setShowDeleteConfirm(true)}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {t("deleteAccount")}
+            </Button>
+          ) : (
+            <div className="space-y-3">
+              <p className="text-sm text-gray-600">{t("deleteConfirmInstructions")}</p>
+              <Input
+                value={deleteConfirmText}
+                onChange={(e) => setDeleteConfirmText(e.target.value)}
+                placeholder='DELETE'
+                className="border-red-300 focus-visible:ring-red-500"
+              />
+              <div className="flex gap-2">
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(""); }}
+                  disabled={deleting}
+                >
+                  {t("cancelDelete")}
+                </Button>
+                <Button
+                  variant="destructive"
+                  className="flex-1"
+                  onClick={handleDeleteAccount}
+                  disabled={deleting || deleteConfirmText !== "DELETE"}
+                >
+                  {deleting ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Trash2 className="mr-2 h-4 w-4" />
+                  )}
+                  {t("confirmDeleteAccount")}
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
     </div>

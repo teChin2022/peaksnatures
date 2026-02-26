@@ -371,7 +371,15 @@
     "pushEnableSuccess": "เปิดใช้งาน Push Notifications แล้ว!",
     "pushDisableSuccess": "ปิดใช้งาน Push Notifications แล้ว",
     "pushError": "อัปเดต Push Notifications ไม่สำเร็จ",
-    "lineSettingsHint": "ตั้งค่า LINE ด้านล่างเพื่อรับแจ้งเตือนผ่าน LINE"
+    "lineSettingsHint": "ตั้งค่า LINE ด้านล่างเพื่อรับแจ้งเตือนผ่าน LINE",
+    "deleteAccount": "ลบบัญชี",
+    "deleteWarning": "การดำเนินการนี้ไม่สามารถย้อนกลับได้ ข้อมูลทั้งหมดของคุณ รวมถึงโฮมสเตย์ ห้องพัก การจอง และบัญชีจะถูกลบอย่างถาวร",
+    "deleteConfirmInstructions": "พิมพ์ DELETE เพื่อยืนยันการลบบัญชี",
+    "deleteConfirmMismatch": "กรุณาพิมพ์ DELETE เพื่อยืนยัน",
+    "confirmDeleteAccount": "ลบบัญชีของฉัน",
+    "cancelDelete": "ยกเลิก",
+    "deleteSuccess": "ลบบัญชีเรียบร้อยแล้ว",
+    "deleteError": "ลบบัญชีไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
   },
   "dashboardHomestay": {
     "createTitle": "สร้างโฮมสเตย์",
@@ -454,6 +462,7 @@
     "created": "สร้างห้องเรียบร้อยแล้ว",
     "updated": "อัปเดตห้องเรียบร้อยแล้ว",
     "deleted": "ลบห้องเรียบร้อยแล้ว",
+    "confirmDeleteTitle": "ยืนยันการลบ",
     "confirmDelete": "คุณแน่ใจหรือไม่ที่จะลบห้องนี้?",
     "errorName": "กรุณากรอกชื่อห้อง",
     "errorSave": "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",

@@ -2,14 +2,55 @@ import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 
+// Returns: "pass" | "fail" | "skip" (skip = Cloudflare unreachable, graceful degradation)
+async function verifyTurnstileToken(token: string): Promise<"pass" | "fail" | "skip"> {
+  if (!token) {
+    console.warn("Turnstile: No token provided — widget may have failed to load. Allowing login.");
+    return "skip";
+  }
+
+  const secret = process.env.TURNSTILE_SECRET_KEY;
+  if (!secret) {
+    console.error("TURNSTILE_SECRET_KEY is not configured — skipping verification");
+    return "skip";
+  }
+
+  try {
+    const response = await fetch(
+      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
+      {
+        method: "POST",
+        headers: { "Content-Type": "application/x-www-form-urlencoded" },
+        body: new URLSearchParams({ secret, response: token }),
+        signal: AbortSignal.timeout(5000),
+      }
+    );
+
+    const data = await response.json();
+    return data.success === true ? "pass" : "fail";
+  } catch (err) {
+    console.error("Turnstile: Cloudflare verification unreachable — allowing login.", err);
+    return "skip";
+  }
+}
+
 export async function POST(req: NextRequest) {
   try {
-    const { email, password } = await req.json();
+    const { email, password, turnstileToken } = await req.json();
 
     if (!email || !password) {
       return NextResponse.json(
         { error: "Email and password are required" },
         { status: 400 }
+      );
+    }
+
+    // Verify Turnstile CAPTCHA token
+    const captchaResult = await verifyTurnstileToken(turnstileToken || "");
+    if (captchaResult === "fail") {
+      return NextResponse.json(
+        { error: "CAPTCHA verification failed" },
+        { status: 403 }
       );
     }
 

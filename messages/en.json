@@ -371,7 +371,15 @@
     "pushEnableSuccess": "Push notifications enabled!",
     "pushDisableSuccess": "Push notifications disabled",
     "pushError": "Failed to update push notifications",
-    "lineSettingsHint": "Configure LINE credentials below to receive notifications via LINE"
+    "lineSettingsHint": "Configure LINE credentials below to receive notifications via LINE",
+    "deleteAccount": "Delete Account",
+    "deleteWarning": "This action is permanent and cannot be undone. All your data including homestay, rooms, bookings, and your account will be permanently deleted.",
+    "deleteConfirmInstructions": "Type DELETE to confirm account deletion",
+    "deleteConfirmMismatch": "Please type DELETE to confirm",
+    "confirmDeleteAccount": "Delete My Account",
+    "cancelDelete": "Cancel",
+    "deleteSuccess": "Account deleted successfully",
+    "deleteError": "Failed to delete account. Please try again."
   },
   "dashboardHomestay": {
     "createTitle": "Create Homestay",
@@ -454,6 +462,7 @@
     "created": "Room created successfully",
     "updated": "Room updated successfully",
     "deleted": "Room deleted",
+    "confirmDeleteTitle": "Confirm Delete",
     "confirmDelete": "Are you sure you want to delete this room?",
     "errorName": "Please enter a room name",
     "errorSave": "Failed to save. Please try again.",
