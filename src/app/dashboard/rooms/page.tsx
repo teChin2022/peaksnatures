@@ -85,6 +85,18 @@ export default function RoomsPage() {
   const [seasonForm, setSeasonForm] = useState<SeasonFormData>({ name: "", start_date: "", end_date: "", price_per_night: "" });
   const [editingSeason, setEditingSeason] = useState<RoomSeasonalPrice | null>(null);
   const [savingSeason, setSavingSeason] = useState(false);
+  const [pendingSeasons, setPendingSeasons] = useState<Omit<RoomSeasonalPrice, "id" | "room_id" | "created_at">[]>([]);
+
+  // Format date with Thai BE year when locale is Thai
+  const fmtDate = (dateStr: string) => {
+    const d = parse(dateStr, "yyyy-MM-dd", new Date());
+    if (locale === "th") {
+      const formatted = format(d, "d MMM", { locale: thLocale });
+      const beYear = d.getFullYear() + 543;
+      return `${formatted} ${beYear}`;
+    }
+    return format(d, "d MMM yyyy");
+  };
 
   // Confirm delete dialog state
   const [confirmOpen, setConfirmOpen] = useState(false);
@@ -174,6 +186,8 @@ export default function RoomsPage() {
     setRoomQuantity("1");
     setRoomImages([]);
     setEditingRoom(null);
+    setPendingSeasons([]);
+    resetSeasonForm();
   };
 
   const openCreateDialog = () => {
@@ -265,14 +279,34 @@ export default function RoomsPage() {
         }
         toast.success(t("updated"));
       } else {
-        const { error } = await supabase
+        const { data: newRoom, error } = await supabase
           .from("rooms")
-          .insert(payload as never);
-        if (error) {
+          .insert(payload as never)
+          .select("id")
+          .single();
+        if (error || !newRoom) {
           toast.error(t("errorSave"));
           console.error("Insert room error:", error);
           return;
         }
+
+        // Save pending seasonal prices for the new room
+        if (pendingSeasons.length > 0) {
+          const seasonPayloads = pendingSeasons.map((s) => ({
+            room_id: (newRoom as { id: string }).id,
+            name: s.name,
+            start_date: s.start_date,
+            end_date: s.end_date,
+            price_per_night: s.price_per_night,
+          }));
+          const { error: seasonError } = await supabase
+            .from("room_seasonal_prices")
+            .insert(seasonPayloads as never);
+          if (seasonError) {
+            console.error("Insert seasons error:", seasonError);
+          }
+        }
+
         toast.success(t("created"));
       }
 
@@ -322,8 +356,6 @@ export default function RoomsPage() {
   };
 
   const handleSaveSeason = async () => {
-    if (!editingRoom) return;
-
     if (!seasonForm.name.trim()) { toast.error(t("errorSeasonName")); return; }
     if (!seasonForm.start_date || !seasonForm.end_date || seasonForm.end_date < seasonForm.start_date) {
       toast.error(t("errorSeasonDates")); return;
@@ -331,7 +363,28 @@ export default function RoomsPage() {
     const price = parseInt(seasonForm.price_per_night);
     if (!price || price <= 0) { toast.error(t("errorSeasonPrice")); return; }
 
-    // Check overlap with existing seasons (excluding current if editing)
+    // For new rooms — store pending seasons locally
+    if (!editingRoom) {
+      const hasOverlap = pendingSeasons.some((s) =>
+        seasonForm.start_date <= s.end_date && seasonForm.end_date >= s.start_date
+      );
+      if (hasOverlap) { toast.error(t("errorOverlap")); return; }
+
+      setPendingSeasons((prev) => [
+        ...prev,
+        {
+          name: seasonForm.name.trim(),
+          start_date: seasonForm.start_date,
+          end_date: seasonForm.end_date,
+          price_per_night: price,
+        },
+      ]);
+      toast.success(t("seasonCreated"));
+      resetSeasonForm();
+      return;
+    }
+
+    // For existing rooms — save to DB
     const existing = seasonalPrices[editingRoom.id] || [];
     const hasOverlap = existing.some((s) => {
       if (editingSeason && s.id === editingSeason.id) return false;
@@ -644,8 +697,7 @@ export default function RoomsPage() {
               )}
             </div>
 
-            {/* Seasonal Pricing Section — only for existing rooms */}
-            {editingRoom && (
+            {/* Seasonal Pricing Section */}
               <div className="space-y-3 rounded-lg border p-4">
                 <div className="flex items-center gap-2">
                   <CalendarDays className="h-4 w-4" style={{ color: themeColor }} />
@@ -653,43 +705,73 @@ export default function RoomsPage() {
                 </div>
                 <p className="text-xs text-gray-500">{t("seasonalPricingDesc")}</p>
 
-                {/* Existing seasons list */}
-                {(seasonalPrices[editingRoom.id] || []).length > 0 ? (
-                  <div className="space-y-2">
-                    {(seasonalPrices[editingRoom.id] || []).map((season) => (
-                      <div
-                        key={season.id}
-                        className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900">{season.name}</p>
-                          <p className="text-xs text-gray-500">
-                            {format(parse(season.start_date, "yyyy-MM-dd", new Date()), "d MMM yyyy", { locale: locale === "th" ? thLocale : undefined })} → {format(parse(season.end_date, "yyyy-MM-dd", new Date()), "d MMM yyyy", { locale: locale === "th" ? thLocale : undefined })} · <span className="font-medium" style={{ color: themeColor }}>฿{season.price_per_night.toLocaleString()}</span>{tc("perNight")}
-                          </p>
+                {/* Seasons list — DB seasons for existing rooms, pending for new */}
+                {editingRoom ? (
+                  (seasonalPrices[editingRoom.id] || []).length > 0 ? (
+                    <div className="space-y-2">
+                      {(seasonalPrices[editingRoom.id] || []).map((season) => (
+                        <div
+                          key={season.id}
+                          className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-900">{season.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {fmtDate(season.start_date)} → {fmtDate(season.end_date)} · <span className="font-medium" style={{ color: themeColor }}>฿{season.price_per_night.toLocaleString()}</span>{tc("perNight")}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => startEditSeason(season)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-500 hover:text-red-700"
+                              onClick={() => handleDeleteSeason(season.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
                         </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => startEditSeason(season)}
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </Button>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs italic text-gray-400">{t("noSeasons")}</p>
+                  )
+                ) : (
+                  pendingSeasons.length > 0 ? (
+                    <div className="space-y-2">
+                      {pendingSeasons.map((season, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-900">{season.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {fmtDate(season.start_date)} → {fmtDate(season.end_date)} · <span className="font-medium" style={{ color: themeColor }}>฿{season.price_per_night.toLocaleString()}</span>{tc("perNight")}
+                            </p>
+                          </div>
                           <Button
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-red-500 hover:text-red-700"
-                            onClick={() => handleDeleteSeason(season.id)}
+                            onClick={() => setPendingSeasons((prev) => prev.filter((_, i) => i !== idx))}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
                         </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs italic text-gray-400">{t("noSeasons")}</p>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs italic text-gray-400">{t("noSeasons")}</p>
+                  )
                 )}
 
                 {/* Season add/edit form */}
@@ -714,7 +796,7 @@ export default function RoomsPage() {
                           >
                             <CalendarDays className="mr-2 h-3.5 w-3.5 text-gray-400" />
                             {seasonForm.start_date
-                              ? format(parse(seasonForm.start_date, "yyyy-MM-dd", new Date()), "d MMM yyyy", { locale: locale === "th" ? thLocale : undefined })
+                              ? fmtDate(seasonForm.start_date)
                               : <span className="text-gray-400">{t("startDate")}</span>}
                           </Button>
                         </PopoverTrigger>
@@ -747,7 +829,7 @@ export default function RoomsPage() {
                           >
                             <CalendarDays className="mr-2 h-3.5 w-3.5 text-gray-400" />
                             {seasonForm.end_date
-                              ? format(parse(seasonForm.end_date, "yyyy-MM-dd", new Date()), "d MMM yyyy", { locale: locale === "th" ? thLocale : undefined })
+                              ? fmtDate(seasonForm.end_date)
                               : <span className="text-gray-400">{t("endDate")}</span>}
                           </Button>
                         </PopoverTrigger>
@@ -803,7 +885,6 @@ export default function RoomsPage() {
                   </div>
                 </div>
               </div>
-            )}
 
             <Button
               onClick={handleSaveRoom}

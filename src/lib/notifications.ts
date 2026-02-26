@@ -1,6 +1,7 @@
 import { format, parseISO } from "date-fns";
 import { th as thLocale, enUS as enLocale } from "date-fns/locale";
 import type { Booking, Homestay, Host, Room } from "@/types/database";
+import { getProvinceLabel } from "@/lib/provinces";
 
 interface BookingDetails {
   booking: Booking;
@@ -235,7 +236,7 @@ export async function sendHostLineNotification(
       `   ชื่อ: ${booking.guest_name}`,
       `   อีเมล: ${booking.guest_email}`,
       `   โทร: ${booking.guest_phone}`,
-      ...(booking.guest_province ? [`   จังหวัด: ${booking.guest_province}`] : []),
+      ...(booking.guest_province ? [`   จังหวัด: ${getProvinceLabel(booking.guest_province, "th")}`] : []),
       ``,
       `📋 รายละเอียดการจอง`,
       `   🛏️ ห้อง: ${room?.name || "Standard"}`,
