@@ -158,33 +158,22 @@ export default function BookingsPage() {
     );
     roomMapRef.current = roomMap;
 
-    // Get total count + status counts for tab badges
-    const { count: total } = await supabase
-      .from("bookings")
-      .select("id", { count: "exact", head: true })
-      .in("homestay_id", homestayIds);
-    const { count: pendingCnt } = await supabase
-      .from("bookings")
-      .select("id", { count: "exact", head: true })
-      .in("homestay_id", homestayIds)
-      .in("status", ["pending", "verified"]);
-    const { count: confirmedCnt } = await supabase
-      .from("bookings")
-      .select("id", { count: "exact", head: true })
-      .in("homestay_id", homestayIds)
-      .eq("status", "confirmed");
+    // Parallel: fetch counts + first page of bookings
+    const [
+      { count: total },
+      { count: pendingCnt },
+      { count: confirmedCnt },
+      { data: bookingRows },
+    ] = await Promise.all([
+      supabase.from("bookings").select("id", { count: "exact", head: true }).in("homestay_id", homestayIds),
+      supabase.from("bookings").select("id", { count: "exact", head: true }).in("homestay_id", homestayIds).in("status", ["pending", "verified"]),
+      supabase.from("bookings").select("id", { count: "exact", head: true }).in("homestay_id", homestayIds).eq("status", "confirmed"),
+      supabase.from("bookings").select("*").in("homestay_id", homestayIds).order("created_at", { ascending: false }).range(0, PAGE_SIZE - 1),
+    ]);
 
     setTotalCount(total || 0);
     setTotalPendingCount(pendingCnt || 0);
     setTotalConfirmedCount(confirmedCnt || 0);
-
-    // Get first page of bookings
-    const { data: bookingRows } = await supabase
-      .from("bookings")
-      .select("*")
-      .in("homestay_id", homestayIds)
-      .order("created_at", { ascending: false })
-      .range(0, PAGE_SIZE - 1);
 
     const rows = (bookingRows as unknown as BookingRow[]) || [];
     setBookings(toDisplay(rows));
