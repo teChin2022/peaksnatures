@@ -63,7 +63,7 @@ async function getHomestayData(slug: string) {
     { data: reviewRows },
   ] = await Promise.all([
     supabase.from("hosts").select("*").eq("id", homestay.host_id).single(),
-    supabase.from("rooms").select("*").eq("homestay_id", homestay.id),
+    supabase.from("rooms").select("*").eq("homestay_id", homestay.id).eq("is_active", true),
     supabase.from("blocked_dates").select("*").eq("homestay_id", homestay.id),
     supabase.from("bookings").select("room_id, check_in, check_out").eq("homestay_id", homestay.id).in("status", ["pending", "confirmed", "verified"]),
     supabase.from("reviews").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id),

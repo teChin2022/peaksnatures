@@ -83,7 +83,8 @@ CREATE TABLE rooms (
   price_per_night INTEGER NOT NULL DEFAULT 0,
   max_guests INTEGER NOT NULL DEFAULT 2,
   quantity INTEGER NOT NULL DEFAULT 1,
-  images JSONB NOT NULL DEFAULT '[]'
+  images JSONB NOT NULL DEFAULT '[]',
+  is_active BOOLEAN NOT NULL DEFAULT true
 );
 
 CREATE INDEX idx_rooms_homestay_id ON rooms(homestay_id);

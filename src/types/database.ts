@@ -133,6 +133,7 @@ export interface Database {
           max_guests: number;
           quantity: number;
           images: string[];
+          is_active: boolean;
         };
         Insert: {
           id?: string;
@@ -143,6 +144,7 @@ export interface Database {
           max_guests?: number;
           quantity?: number;
           images?: string[];
+          is_active?: boolean;
         };
         Update: {
           id?: string;
@@ -153,6 +155,7 @@ export interface Database {
           max_guests?: number;
           quantity?: number;
           images?: string[];
+          is_active?: boolean;
         };
       };
       bookings: {
