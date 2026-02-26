@@ -146,12 +146,40 @@ export async function sendHostPushNotification(
       ? `🎉 การจองใหม่ — ยืนยันแล้ว!`
       : `⚠️ การจองใหม่ — รอตรวจสอบ`;
 
+    const paymentStatus = type === "confirmed"
+      ? `✅ ชำระเงินแล้ว (ยืนยันผ่าน EasySlip)`
+      : `❌ ยืนยันสลิปไม่สำเร็จ — กรุณาตรวจสอบใน Dashboard`;
+
     const body = [
-      `${homestay.name}`,
-      `ผู้จอง: ${booking.guest_name}`,
-      `ห้อง: ${room?.name || "Standard"}`,
-      `${formatBookingDate(booking.check_in, "th")} — ${formatBookingDate(booking.check_out, "th")} (${nights} คืน)`,
-      `฿${booking.total_price.toLocaleString()}`,
+      `━━━━━━━━━━━━━━━━`,
+      ``,
+      `🏠 โฮมสเตย์: ${homestay.name}`,
+      `🔖 Booking ID: ${booking.id.slice(0, 8)}...`,
+      ``,
+      `👤 ข้อมูลผู้จอง`,
+      `   ชื่อ: ${booking.guest_name}`,
+      `   อีเมล: ${booking.guest_email}`,
+      `   โทร: ${booking.guest_phone}`,
+      ...(booking.guest_province ? [`   จังหวัด: ${getProvinceLabel(booking.guest_province, "th")}`] : []),
+      ``,
+      `📋 รายละเอียดการจอง`,
+      `   🛏️ ห้อง: ${room?.name || "Standard"}`,
+      `   📅 เช็คอิน: ${formatBookingDate(booking.check_in, "th")}`,
+      `   📅 เช็คเอาท์: ${formatBookingDate(booking.check_out, "th")}`,
+      `   🌙 จำนวน: ${nights} คืน`,
+      `   👥 ผู้เข้าพัก: ${booking.num_guests} ท่าน`,
+      ``,
+      `💰 การชำระเงิน`,
+      `   ยอดรวม: ฿${booking.total_price.toLocaleString()}`,
+      ...(room ? [`   (฿${room.price_per_night.toLocaleString()} × ${nights} คืน)`] : []),
+      ...((booking as Record<string, unknown>).payment_type === "deposit" ? [
+        `   💳 ยอดที่ชำระ: ฿${((booking as Record<string, unknown>).amount_paid as number || 0).toLocaleString()} (มัดจำ)`,
+        `   ⏳ ยอดค้าง: ฿${(booking.total_price - ((booking as Record<string, unknown>).amount_paid as number || 0)).toLocaleString()} (ชำระเมื่อเข้าพัก)`,
+      ] : []),
+      `   ${paymentStatus}`,
+      ``,
+      `━━━━━━━━━━━━━━━━`,
+      `📍 ${homestay.location}`,
     ].join("\n");
 
     const payload = JSON.stringify({ title, body, url: "/dashboard", tag: `booking-${Date.now()}` });

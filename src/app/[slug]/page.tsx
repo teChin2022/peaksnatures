@@ -1,5 +1,5 @@
 import type { Metadata } from "next";
-import { notFound } from "next/navigation";
+import { notFound, permanentRedirect } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice } from "@/types/database";
 import { HeroSection } from "@/components/booking/hero-section";
@@ -17,6 +17,24 @@ export const dynamic = "force-dynamic";
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+}
+
+async function resolveSlugRedirect(slug: string): Promise<string | null> {
+  const supabase = createServiceRoleClient();
+  const { data } = await supabase
+    .from("homestay_slug_redirects" as never)
+    .select("homestay_id")
+    .eq("old_slug", slug)
+    .single();
+  if (!data) return null;
+  const homestayId = (data as unknown as { homestay_id: string }).homestay_id;
+  const { data: homestay } = await supabase
+    .from("homestays")
+    .select("slug")
+    .eq("id", homestayId)
+    .eq("is_active", true)
+    .single();
+  return (homestay as unknown as { slug: string } | null)?.slug || null;
 }
 
 async function getHomestayData(slug: string) {
@@ -137,6 +155,11 @@ export default async function HomestayPage({ params }: PageProps) {
   const data = await getHomestayData(slug);
 
   if (!data) {
+    // Check if this is an old slug that should redirect
+    const newSlug = await resolveSlugRedirect(slug);
+    if (newSlug) {
+      permanentRedirect(`/${newSlug}`);
+    }
     notFound();
   }
 

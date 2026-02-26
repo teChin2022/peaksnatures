@@ -426,7 +426,10 @@
     "selectedProhibitions": "กฎที่เลือก",
     "addCustomProhibition": "เพิ่มกฎเอง",
     "customProhibitionPlaceholder": "เช่น ห้ามเปิดเพลงดังหลัง 4 ทุ่ม",
-    "commonProhibitions": "เพิ่มด่วน"
+    "commonProhibitions": "เพิ่มด่วน",
+    "slugChangeWarning": "การเปลี่ยน URL slug จะทำให้ลิงก์ QR Code และบุ๊กมาร์กที่แชร์ไว้ก่อนหน้าใช้ไม่ได้ ลิงก์เก่าจะเปลี่ยนเส้นทางไปยัง URL ใหม่โดยอัตโนมัติ",
+    "slugChangeConfirm": "เปลี่ยน Slug",
+    "slugChangeTitle": "เปลี่ยน URL Slug?"
   },
   "dashboardRooms": {
     "title": "จัดการห้องพัก",

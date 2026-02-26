@@ -61,6 +61,18 @@ CREATE INDEX idx_homestays_slug ON homestays(slug);
 CREATE INDEX idx_homestays_host_id ON homestays(host_id);
 
 -- ============================================================
+-- SLUG REDIRECTS (019)
+-- ============================================================
+CREATE TABLE homestay_slug_redirects (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  homestay_id UUID NOT NULL REFERENCES homestays(id) ON DELETE CASCADE,
+  old_slug TEXT NOT NULL UNIQUE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+
+CREATE INDEX idx_slug_redirects_old_slug ON homestay_slug_redirects(old_slug);
+
+-- ============================================================
 -- ROOMS
 -- ============================================================
 CREATE TABLE rooms (
@@ -230,6 +242,21 @@ CREATE POLICY "Anyone can view active homestays"
 CREATE POLICY "Hosts can manage own homestays"
   ON homestays FOR ALL
   USING (host_id IN (SELECT id FROM hosts WHERE user_id = auth.uid()));
+
+-- Slug Redirects
+ALTER TABLE homestay_slug_redirects ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can read slug redirects"
+  ON homestay_slug_redirects FOR SELECT
+  USING (true);
+
+CREATE POLICY "Hosts can manage slug redirects for own homestays"
+  ON homestay_slug_redirects FOR ALL
+  USING (homestay_id IN (
+    SELECT h.id FROM homestays h
+    JOIN hosts ho ON h.host_id = ho.id
+    WHERE ho.user_id = auth.uid()
+  ));
 
 -- Rooms
 ALTER TABLE rooms ENABLE ROW LEVEL SECURITY;
