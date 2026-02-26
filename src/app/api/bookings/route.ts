@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { after } from "next/server";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendBookingConfirmationEmail, sendHostLineNotification, sendHostPushNotification } from "@/lib/notifications";
@@ -245,8 +246,8 @@ export async function POST(req: NextRequest) {
         .eq("id", bookingId as string)
         .single();
 
-      // Send notifications (must await — serverless context terminates after response)
-      await sendNotifications(bookingId as string, supabase, data.locale || "th");
+      // Send notifications in background — response returns immediately
+      after(() => sendNotifications(bookingId as string, supabase, data.locale || "th"));
 
       return NextResponse.json({ booking }, { status: 201 });
     }
@@ -286,8 +287,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Send notifications (must await — serverless context terminates after response)
-    await sendNotifications((booking as unknown as Booking).id, supabase, data.locale || "th");
+    // Send notifications in background — response returns immediately
+    after(() => sendNotifications((booking as unknown as Booking).id, supabase, data.locale || "th"));
 
     return NextResponse.json({ booking }, { status: 201 });
   } catch (error) {

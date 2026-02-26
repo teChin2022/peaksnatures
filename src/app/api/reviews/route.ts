@@ -10,26 +10,37 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ reviews: [], averageRating: 0, totalCount: 0 });
   }
 
+  const page = Math.max(1, parseInt(searchParams.get("page") || "1", 10));
+  const limit = Math.min(50, Math.max(1, parseInt(searchParams.get("limit") || "20", 10)));
+  const from = (page - 1) * limit;
+  const to = from + limit - 1;
+
   const supabase = createServiceRoleClient();
 
-  const { data, error } = await supabase
-    .from("reviews")
-    .select("*")
-    .eq("homestay_id", homestayId)
-    .order("created_at", { ascending: false });
+  // Parallel: fetch paginated reviews + total count + all ratings for average
+  const [
+    { data, error },
+    { count: totalCount },
+    { data: ratingRows },
+  ] = await Promise.all([
+    supabase.from("reviews").select("*").eq("homestay_id", homestayId).order("created_at", { ascending: false }).range(from, to),
+    supabase.from("reviews").select("id", { count: "exact", head: true }).eq("homestay_id", homestayId),
+    supabase.from("reviews").select("rating").eq("homestay_id", homestayId),
+  ]);
 
   if (error) {
     return NextResponse.json({ reviews: [], averageRating: 0, totalCount: 0 });
   }
 
   const reviews = (data as unknown as Review[]) || [];
-  const totalCount = reviews.length;
+  const allRatings = (ratingRows as { rating: number }[]) || [];
+  const count = totalCount || 0;
   const averageRating =
-    totalCount > 0
-      ? Math.round((reviews.reduce((sum, r) => sum + r.rating, 0) / totalCount) * 10) / 10
+    allRatings.length > 0
+      ? Math.round((allRatings.reduce((sum, r) => sum + r.rating, 0) / allRatings.length) * 10) / 10
       : 0;
 
-  return NextResponse.json({ reviews, averageRating, totalCount });
+  return NextResponse.json({ reviews, averageRating, totalCount: count, page, limit });
 }
 
 export async function POST(request: NextRequest) {
