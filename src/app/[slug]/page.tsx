@@ -51,52 +51,38 @@ async function getHomestayData(slug: string) {
 
   const homestay = homestayRow as unknown as Homestay;
 
-  // Fetch host
-  const { data: hostRow } = await supabase
-    .from("hosts")
-    .select("*")
-    .eq("id", homestay.host_id)
-    .single();
+  // Parallel fetch: all queries below are independent of each other
+  const INITIAL_REVIEWS = 5;
+  const [
+    { data: hostRow },
+    { data: roomRows },
+    { data: blockedRows },
+    { data: bookingRows },
+    { count: reviewCount },
+    { data: avgRow },
+    { data: reviewRows },
+  ] = await Promise.all([
+    supabase.from("hosts").select("*").eq("id", homestay.host_id).single(),
+    supabase.from("rooms").select("*").eq("homestay_id", homestay.id),
+    supabase.from("blocked_dates").select("*").eq("homestay_id", homestay.id),
+    supabase.from("bookings").select("room_id, check_in, check_out").eq("homestay_id", homestay.id).in("status", ["pending", "confirmed", "verified"]),
+    supabase.from("reviews").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id),
+    supabase.from("reviews").select("rating").eq("homestay_id", homestay.id),
+    supabase.from("reviews").select("*").eq("homestay_id", homestay.id).order("created_at", { ascending: false }).range(0, INITIAL_REVIEWS - 1),
+  ]);
+
   const host = hostRow as unknown as Host | null;
-
-  // Fetch rooms
-  const { data: roomRows } = await supabase
-    .from("rooms")
-    .select("*")
-    .eq("homestay_id", homestay.id);
   const rooms = (roomRows as unknown as Room[]) || [];
-
-  // Fetch blocked dates
-  const { data: blockedRows } = await supabase
-    .from("blocked_dates")
-    .select("*")
-    .eq("homestay_id", homestay.id);
   const blockedDates = (blockedRows as unknown as BlockedDate[]) || [];
-
-  // Fetch active bookings for availability check
-  const { data: bookingRows } = await supabase
-    .from("bookings")
-    .select("room_id, check_in, check_out")
-    .eq("homestay_id", homestay.id)
-    .in("status", ["pending", "confirmed", "verified"]);
   const bookedRanges = (bookingRows as { room_id: string | null; check_in: string; check_out: string }[]) || [];
-
-  // Fetch review count + average
-  const { count: reviewCount } = await supabase
-    .from("reviews")
-    .select("id", { count: "exact", head: true })
-    .eq("homestay_id", homestay.id);
-  const { data: avgRow } = await supabase
-    .from("reviews")
-    .select("rating")
-    .eq("homestay_id", homestay.id);
   const allRatings = (avgRow as { rating: number }[]) || [];
   const averageRating =
     allRatings.length > 0
       ? Math.round((allRatings.reduce((sum, r) => sum + r.rating, 0) / allRatings.length) * 10) / 10
       : 0;
+  const reviews = (reviewRows as unknown as Review[]) || [];
 
-  // Fetch seasonal prices for all rooms
+  // Fetch seasonal prices (depends on rooms result)
   const roomIds = rooms.map((r) => r.id);
   let seasonalPrices: RoomSeasonalPrice[] = [];
   if (roomIds.length > 0) {
@@ -107,16 +93,6 @@ async function getHomestayData(slug: string) {
       .order("start_date");
     seasonalPrices = (seasonRows as unknown as RoomSeasonalPrice[]) || [];
   }
-
-  // Fetch first page of reviews
-  const INITIAL_REVIEWS = 5;
-  const { data: reviewRows } = await supabase
-    .from("reviews")
-    .select("*")
-    .eq("homestay_id", homestay.id)
-    .order("created_at", { ascending: false })
-    .range(0, INITIAL_REVIEWS - 1);
-  const reviews = (reviewRows as unknown as Review[]) || [];
 
   return {
     homestay: { ...homestay, host: host! } as Homestay & { host: Host },

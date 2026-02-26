@@ -1,6 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { createRateLimiter } from "@/lib/rate-limit";
+
+const otpRateLimit = createRateLimiter({ limit: 5, windowMs: 60_000 });
 
 // Returns: "pass" | "fail" | "skip" (skip = Cloudflare unreachable, graceful degradation)
 async function verifyTurnstileToken(token: string): Promise<"pass" | "fail" | "skip"> {
@@ -35,6 +38,9 @@ async function verifyTurnstileToken(token: string): Promise<"pass" | "fail" | "s
 }
 
 export async function POST(req: NextRequest) {
+  const rateLimited = otpRateLimit.check(req);
+  if (rateLimited) return rateLimited;
+
   try {
     const { email, password, turnstileToken } = await req.json();
 

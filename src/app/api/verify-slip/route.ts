@@ -1,5 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { createRateLimiter } from "@/lib/rate-limit";
+
+const slipRateLimit = createRateLimiter({ limit: 10, windowMs: 60_000 });
 
 interface EasySlipResponse {
   status: number;
@@ -38,6 +41,9 @@ interface EasySlipResponse {
  * Returns on failure: { verified: false, message, ... } or { error, duplicate: true } (409)
  */
 export async function POST(req: NextRequest) {
+  const rateLimited = slipRateLimit.check(req);
+  if (rateLimited) return rateLimited;
+
   try {
     const formData = await req.formData();
     const file = formData.get("file") as File | null;
