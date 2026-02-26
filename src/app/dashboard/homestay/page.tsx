@@ -18,6 +18,7 @@ import {
   Plus,
   Clock,
   ShieldAlert,
+  AlertTriangle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -26,6 +27,7 @@ import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useThemeColor } from "@/components/dashboard/theme-context";
 
@@ -91,6 +93,7 @@ export default function HomestayPage() {
   const [uploadingHero, setUploadingHero] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
+  const [showSlugWarning, setShowSlugWarning] = useState(false);
   const heroInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -299,6 +302,8 @@ export default function HomestayPage() {
     setGallery((prev) => prev.filter((_, i) => i !== index));
   };
 
+  const slugHasChanged = !isNew && homestay && slug.trim() !== homestay.slug;
+
   const handleSave = async () => {
     if (!hostId) return;
     if (!name.trim() || !slug.trim() || !location.trim()) {
@@ -311,6 +316,13 @@ export default function HomestayPage() {
       return;
     }
 
+    // If slug changed on an existing homestay, show confirmation first
+    if (slugHasChanged && !showSlugWarning) {
+      setShowSlugWarning(true);
+      return;
+    }
+
+    setShowSlugWarning(false);
     setSaving(true);
     try {
       const supabase = createClient();
@@ -346,6 +358,13 @@ export default function HomestayPage() {
         setIsNew(false);
         toast.success(t("created"));
       } else if (homestay) {
+        // Save old slug to redirects table before updating
+        if (slug.trim() !== homestay.slug) {
+          await supabase
+            .from("homestay_slug_redirects" as never)
+            .upsert({ homestay_id: homestay.id, old_slug: homestay.slug } as never, { onConflict: "old_slug" });
+        }
+
         const { error } = await supabase
           .from("homestays")
           .update(payload as never)
@@ -355,6 +374,7 @@ export default function HomestayPage() {
           console.error("Update homestay error:", error);
           return;
         }
+        setHomestay({ ...homestay, ...payload } as HomestayData);
         toast.success(t("saved"));
       }
     } catch {
@@ -918,6 +938,34 @@ export default function HomestayPage() {
           {isNew ? t("create") : t("save")}
         </Button>
       </div>
+
+      {/* Slug Change Confirmation Dialog */}
+      <Dialog open={showSlugWarning} onOpenChange={setShowSlugWarning}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              {t("slugChangeTitle")}
+            </DialogTitle>
+            <DialogDescription>{t("slugChangeWarning")}</DialogDescription>
+          </DialogHeader>
+          <div className="rounded-md bg-amber-50 p-3 text-sm text-amber-800">
+            <p><strong>{homestay?.slug}</strong> → <strong>{slug.trim()}</strong></p>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSlugWarning(false)}>
+              {t("cancel") || "Cancel"}
+            </Button>
+            <Button
+              onClick={handleSave}
+              className="text-white hover:brightness-90"
+              style={{ backgroundColor: themeColor }}
+            >
+              {t("slugChangeConfirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

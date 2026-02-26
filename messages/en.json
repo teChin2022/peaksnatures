@@ -426,7 +426,10 @@
     "selectedProhibitions": "Selected rules",
     "addCustomProhibition": "Add custom rule",
     "customProhibitionPlaceholder": "e.g. No loud music after 10 PM",
-    "commonProhibitions": "Quick add"
+    "commonProhibitions": "Quick add",
+    "slugChangeWarning": "Changing the URL slug will break all previously shared links, QR codes, and bookmarks. Old links will automatically redirect to the new URL.",
+    "slugChangeConfirm": "Change Slug",
+    "slugChangeTitle": "Change URL Slug?"
   },
   "dashboardRooms": {
     "title": "Manage Rooms",
