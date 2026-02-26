@@ -546,7 +546,12 @@
     "errorSeasonSave": "Failed to save season. Please try again.",
     "errorSeasonDelete": "Failed to delete season. Please try again.",
     "noSeasons": "No seasonal pricing configured. Base price will be used for all dates.",
-    "basePrice": "Base Price"
+    "basePrice": "Base Price",
+    "active": "Active",
+    "inactive": "Inactive",
+    "activated": "Room activated",
+    "deactivated": "Room deactivated",
+    "errorToggle": "Failed to toggle room status. Please try again."
   },
   "dashboardCalendar": {
     "title": "Availability Calendar",

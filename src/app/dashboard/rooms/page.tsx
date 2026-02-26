@@ -34,6 +34,7 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
@@ -48,6 +49,7 @@ interface RoomData {
   max_guests: number;
   quantity: number;
   images: string[];
+  is_active: boolean;
 }
 
 interface SeasonFormData {
@@ -320,6 +322,27 @@ export default function RoomsPage() {
     }
   };
 
+  const handleToggleActive = async (roomId: string, isActive: boolean) => {
+    try {
+      const supabase = createClient();
+      const { error } = await supabase
+        .from("rooms")
+        .update({ is_active: isActive } as never)
+        .eq("id", roomId);
+      if (error) {
+        toast.error(t("errorToggle"));
+        console.error("Toggle room error:", error);
+        return;
+      }
+      setRooms((prev) =>
+        prev.map((r) => (r.id === roomId ? { ...r, is_active: isActive } : r))
+      );
+      toast.success(isActive ? t("activated") : t("deactivated"));
+    } catch {
+      toast.error(t("errorToggle"));
+    }
+  };
+
   const handleDeleteRoom = (roomId: string) => {
     showConfirm(t("confirmDelete"), async () => {
       try {
@@ -510,7 +533,7 @@ export default function RoomsPage() {
       ) : (
         <div className="space-y-4">
           {rooms.map((room) => (
-            <Card key={room.id}>
+            <Card key={room.id} className={room.is_active ? "" : "opacity-50"}>
               <CardContent className="p-4">
                 <div className="flex gap-4">
                   {room.images[0] ? (
@@ -530,7 +553,14 @@ export default function RoomsPage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-start justify-between">
                       <div>
-                        <h3 className="font-semibold text-gray-900">{room.name}</h3>
+                        <div className="flex items-center gap-2">
+                          <h3 className="font-semibold text-gray-900">{room.name}</h3>
+                          {!room.is_active && (
+                            <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                              {t("inactive")}
+                            </span>
+                          )}
+                        </div>
                         {room.description && (
                           <p className="mt-0.5 text-sm text-gray-500 line-clamp-1">
                             {room.description}
@@ -538,6 +568,11 @@ export default function RoomsPage() {
                         )}
                       </div>
                       <div className="flex items-center gap-1">
+                        <Switch
+                          checked={room.is_active}
+                          onCheckedChange={(checked) => handleToggleActive(room.id, checked)}
+                          className="data-[state=checked]:bg-green-500"
+                        />
                         <Button
                           variant="ghost"
                           size="icon"

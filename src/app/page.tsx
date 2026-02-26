@@ -38,6 +38,7 @@ export default async function Home() {
         .from("rooms")
         .select("homestay_id, price_per_night")
         .in("homestay_id", homestayIds)
+        .eq("is_active", true)
     : { data: [] };
   const rooms = (roomRows as unknown as Pick<Room, "homestay_id" | "price_per_night">[]) || [];
 
