@@ -61,10 +61,10 @@ export function BookingFooter({
 
           {/* Right: Powered by */}
           <div className="flex flex-col items-center gap-1 sm:items-end">
-            <div className="flex items-center gap-1.5 text-xs text-gray-400">
+            {/* <div className="flex items-center gap-1.5 text-xs text-gray-400">
               <Image src="/logo.png" alt="PeaksNature" width={16} height={16} className="h-4 w-4 rounded" />
               {t("poweredBy")} <span className="font-medium text-green-700">{tc("brand")}</span>
-            </div>
+            </div> */}
             <p className="text-xs text-gray-400">{`Copyright \u00A9 ${new Date().getFullYear()} All rights reserved.`}</p>
           </div>
         </div>
