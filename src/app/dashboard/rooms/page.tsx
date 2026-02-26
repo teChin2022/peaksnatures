@@ -54,6 +54,7 @@ interface SeasonFormData {
 
 export default function RoomsPage() {
   const t = useTranslations("dashboardRooms");
+  const tc = useTranslations("common");
   const themeColor = useThemeColor();
   const [rooms, setRooms] = useState<RoomData[]>([]);
   const [homestayId, setHomestayId] = useState<string | null>(null);
@@ -485,7 +486,7 @@ export default function RoomsPage() {
                     </div>
                     <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
                       <span className="font-medium" style={{ color: themeColor }}>
-                        ฿{room.price_per_night.toLocaleString()}/night
+                        ฿{room.price_per_night.toLocaleString()}{tc("perNight")}
                       </span>
                       <span className="flex items-center gap-1">
                         <Users className="h-3.5 w-3.5" />
@@ -644,7 +645,7 @@ export default function RoomsPage() {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-gray-900">{season.name}</p>
                           <p className="text-xs text-gray-500">
-                            {season.start_date} → {season.end_date} · <span className="font-medium" style={{ color: themeColor }}>฿{season.price_per_night.toLocaleString()}</span>/{t("seasonPrice").replace("/", "").toLowerCase().includes("night") ? "" : t("seasonPrice").split("/")[1] || "night"}
+                            {season.start_date} → {season.end_date} · <span className="font-medium" style={{ color: themeColor }}>฿{season.price_per_night.toLocaleString()}</span>{tc("perNight")}
                           </p>
                         </div>
                         <div className="flex items-center gap-1">
