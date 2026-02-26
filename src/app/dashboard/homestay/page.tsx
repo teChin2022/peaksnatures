@@ -67,6 +67,7 @@ const COMMON_PROHIBITIONS = [
 
 export default function HomestayPage() {
   const t = useTranslations("dashboardHomestay");
+  const tc = useTranslations("common");
   const themeColor = useThemeColor();
   const [homestay, setHomestay] = useState<HomestayData | null>(null);
   const [hostId, setHostId] = useState<string | null>(null);
@@ -954,7 +955,7 @@ export default function HomestayPage() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowSlugWarning(false)}>
-              {t("cancel") || "Cancel"}
+              {tc("cancel")}
             </Button>
             <Button
               onClick={handleSave}
