@@ -13,18 +13,18 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 
 const PRESET_COLORS = [
-  { name: "Green", value: "#16a34a" },
-  { name: "Blue", value: "#2563eb" },
-  { name: "Purple", value: "#7c3aed" },
-  { name: "Rose", value: "#e11d48" },
-  { name: "Orange", value: "#ea580c" },
-  { name: "Teal", value: "#0d9488" },
-  { name: "Indigo", value: "#4f46e5" },
-  { name: "Amber", value: "#d97706" },
-  { name: "Sky", value: "#0284c7" },
-  { name: "Emerald", value: "#059669" },
-  { name: "Fuchsia", value: "#c026d3" },
-  { name: "Slate", value: "#475569" },
+  { key: "colorGreen", value: "#16a34a" },
+  { key: "colorBlue", value: "#2563eb" },
+  { key: "colorPurple", value: "#7c3aed" },
+  { key: "colorRose", value: "#e11d48" },
+  { key: "colorOrange", value: "#ea580c" },
+  { key: "colorTeal", value: "#0d9488" },
+  { key: "colorIndigo", value: "#4f46e5" },
+  { key: "colorAmber", value: "#d97706" },
+  { key: "colorSky", value: "#0284c7" },
+  { key: "colorEmerald", value: "#059669" },
+  { key: "colorFuchsia", value: "#c026d3" },
+  { key: "colorSlate", value: "#475569" },
 ];
 
 interface HomestayThemeData {
@@ -177,7 +177,7 @@ export default function ThemePage() {
                   key={color.value}
                   onClick={() => setThemeColor(color.value)}
                   className="group flex flex-col items-center gap-1.5"
-                  title={color.name}
+                  title={t(color.key)}
                 >
                   <div
                     className="relative h-10 w-10 rounded-full border-2 transition-transform hover:scale-110"
@@ -195,7 +195,7 @@ export default function ThemePage() {
                       <Check className="absolute inset-0 m-auto h-5 w-5 text-white" />
                     )}
                   </div>
-                  <span className="text-[10px] text-gray-500">{color.name}</span>
+                  <span className="text-[10px] text-gray-500">{t(color.key)}</span>
                 </button>
               ))}
             </div>

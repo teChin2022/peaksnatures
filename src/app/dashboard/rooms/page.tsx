@@ -2,8 +2,10 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import { format, parse } from "date-fns";
+import { th as thLocale } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import {
   BedDouble,
   Plus,
@@ -26,10 +28,14 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { useThemeColor } from "@/components/dashboard/theme-context";
 
@@ -55,6 +61,7 @@ interface SeasonFormData {
 export default function RoomsPage() {
   const t = useTranslations("dashboardRooms");
   const tc = useTranslations("common");
+  const locale = useLocale();
   const themeColor = useThemeColor();
   const [rooms, setRooms] = useState<RoomData[]>([]);
   const [homestayId, setHomestayId] = useState<string | null>(null);
@@ -78,6 +85,17 @@ export default function RoomsPage() {
   const [seasonForm, setSeasonForm] = useState<SeasonFormData>({ name: "", start_date: "", end_date: "", price_per_night: "" });
   const [editingSeason, setEditingSeason] = useState<RoomSeasonalPrice | null>(null);
   const [savingSeason, setSavingSeason] = useState(false);
+
+  // Confirm delete dialog state
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const confirmCallbackRef = useRef<(() => void) | null>(null);
+
+  const showConfirm = (message: string, onConfirm: () => void) => {
+    setConfirmMessage(message);
+    confirmCallbackRef.current = onConfirm;
+    setConfirmOpen(true);
+  };
 
   useEffect(() => {
     fetchData();
@@ -268,22 +286,22 @@ export default function RoomsPage() {
     }
   };
 
-  const handleDeleteRoom = async (roomId: string) => {
-    if (!confirm(t("confirmDelete"))) return;
-
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.from("rooms").delete().eq("id", roomId);
-      if (error) {
+  const handleDeleteRoom = (roomId: string) => {
+    showConfirm(t("confirmDelete"), async () => {
+      try {
+        const supabase = createClient();
+        const { error } = await supabase.from("rooms").delete().eq("id", roomId);
+        if (error) {
+          toast.error(t("errorDelete"));
+          console.error("Delete room error:", error);
+          return;
+        }
+        setRooms((prev) => prev.filter((r) => r.id !== roomId));
+        toast.success(t("deleted"));
+      } catch {
         toast.error(t("errorDelete"));
-        console.error("Delete room error:", error);
-        return;
       }
-      setRooms((prev) => prev.filter((r) => r.id !== roomId));
-      toast.success(t("deleted"));
-    } catch {
-      toast.error(t("errorDelete"));
-    }
+    });
   };
 
   // --- Seasonal pricing handlers ---
@@ -356,17 +374,18 @@ export default function RoomsPage() {
     }
   };
 
-  const handleDeleteSeason = async (seasonId: string) => {
-    if (!confirm(t("confirmDeleteSeason"))) return;
-    try {
-      const supabase = createClient();
-      const { error } = await supabase.from("room_seasonal_prices").delete().eq("id", seasonId);
-      if (error) { toast.error(t("errorSeasonDelete")); console.error(error); return; }
-      toast.success(t("seasonDeleted"));
-      await fetchData();
-    } catch {
-      toast.error(t("errorSeasonDelete"));
-    }
+  const handleDeleteSeason = (seasonId: string) => {
+    showConfirm(t("confirmDeleteSeason"), async () => {
+      try {
+        const supabase = createClient();
+        const { error } = await supabase.from("room_seasonal_prices").delete().eq("id", seasonId);
+        if (error) { toast.error(t("errorSeasonDelete")); console.error(error); return; }
+        toast.success(t("seasonDeleted"));
+        await fetchData();
+      } catch {
+        toast.error(t("errorSeasonDelete"));
+      }
+    });
   };
 
   if (loading) {
@@ -645,7 +664,7 @@ export default function RoomsPage() {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-gray-900">{season.name}</p>
                           <p className="text-xs text-gray-500">
-                            {season.start_date} → {season.end_date} · <span className="font-medium" style={{ color: themeColor }}>฿{season.price_per_night.toLocaleString()}</span>{tc("perNight")}
+                            {format(parse(season.start_date, "yyyy-MM-dd", new Date()), "d MMM yyyy", { locale: locale === "th" ? thLocale : undefined })} → {format(parse(season.end_date, "yyyy-MM-dd", new Date()), "d MMM yyyy", { locale: locale === "th" ? thLocale : undefined })} · <span className="font-medium" style={{ color: themeColor }}>฿{season.price_per_night.toLocaleString()}</span>{tc("perNight")}
                           </p>
                         </div>
                         <div className="flex items-center gap-1">
@@ -687,21 +706,69 @@ export default function RoomsPage() {
                   <div className="grid grid-cols-2 gap-2">
                     <div>
                       <Label className="text-xs">{t("startDate")}</Label>
-                      <Input
-                        type="date"
-                        value={seasonForm.start_date}
-                        onChange={(e) => setSeasonForm((f) => ({ ...f, start_date: e.target.value }))}
-                        className="text-sm"
-                      />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left text-sm font-normal"
+                          >
+                            <CalendarDays className="mr-2 h-3.5 w-3.5 text-gray-400" />
+                            {seasonForm.start_date
+                              ? format(parse(seasonForm.start_date, "yyyy-MM-dd", new Date()), "d MMM yyyy", { locale: locale === "th" ? thLocale : undefined })
+                              : <span className="text-gray-400">{t("startDate")}</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={seasonForm.start_date ? parse(seasonForm.start_date, "yyyy-MM-dd", new Date()) : undefined}
+                            onSelect={(date) => {
+                              if (date) setSeasonForm((f) => ({ ...f, start_date: format(date, "yyyy-MM-dd") }));
+                            }}
+                            locale={locale === "th" ? thLocale : undefined}
+                            formatters={locale === "th" ? {
+                              formatCaption: (date) => {
+                                const month = date.toLocaleDateString("th-TH", { month: "long" });
+                                const beYear = date.getFullYear() + 543;
+                                return `${month} ${beYear}`;
+                              },
+                            } : undefined}
+                          />
+                        </PopoverContent>
+                      </Popover>
                     </div>
                     <div>
                       <Label className="text-xs">{t("endDate")}</Label>
-                      <Input
-                        type="date"
-                        value={seasonForm.end_date}
-                        onChange={(e) => setSeasonForm((f) => ({ ...f, end_date: e.target.value }))}
-                        className="text-sm"
-                      />
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button
+                            variant="outline"
+                            className="w-full justify-start text-left text-sm font-normal"
+                          >
+                            <CalendarDays className="mr-2 h-3.5 w-3.5 text-gray-400" />
+                            {seasonForm.end_date
+                              ? format(parse(seasonForm.end_date, "yyyy-MM-dd", new Date()), "d MMM yyyy", { locale: locale === "th" ? thLocale : undefined })
+                              : <span className="text-gray-400">{t("endDate")}</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="single"
+                            selected={seasonForm.end_date ? parse(seasonForm.end_date, "yyyy-MM-dd", new Date()) : undefined}
+                            onSelect={(date) => {
+                              if (date) setSeasonForm((f) => ({ ...f, end_date: format(date, "yyyy-MM-dd") }));
+                            }}
+                            locale={locale === "th" ? thLocale : undefined}
+                            formatters={locale === "th" ? {
+                              formatCaption: (date) => {
+                                const month = date.toLocaleDateString("th-TH", { month: "long" });
+                                const beYear = date.getFullYear() + 543;
+                                return `${month} ${beYear}`;
+                              },
+                            } : undefined}
+                          />
+                        </PopoverContent>
+                      </Popover>
                     </div>
                   </div>
                   <div>
@@ -730,7 +797,7 @@ export default function RoomsPage() {
                     {editingSeason && (
                       <Button size="sm" variant="outline" onClick={resetSeasonForm}>
                         <X className="mr-1 h-3 w-3" />
-                        {t("deleteSeason").split(" ")[0]}
+                        {tc("cancel")}
                       </Button>
                     )}
                   </div>
@@ -752,6 +819,39 @@ export default function RoomsPage() {
               {editingRoom ? t("saveRoom") : t("createRoom")}
             </Button>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Delete Dialog */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-4 w-4 text-red-500" />
+              {tc("brand")}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-600">
+              {confirmMessage}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => setConfirmOpen(false)}
+            >
+              {tc("cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setConfirmOpen(false);
+                confirmCallbackRef.current?.();
+              }}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {tc("delete")}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
     </div>

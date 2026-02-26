@@ -74,7 +74,7 @@ export function ChatWidget({ homestayId, homestayName, themeColor = "#16a34a" }:
         {
           id: (Date.now() + 1).toString(),
           role: "assistant",
-          content: data.message || "Sorry, I couldn't process that. Please try again.",
+          content: data.message || t("errorProcess"),
         },
       ]);
     } catch {

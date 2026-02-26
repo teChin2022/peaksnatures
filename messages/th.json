@@ -14,7 +14,10 @@
     "privacy": "นโยบายความเป็นส่วนตัว",
     "terms": "ข้อกำหนด",
     "contact": "ติดต่อ",
-    "copyright": "สงวนลิขสิทธิ์"
+    "copyright": "สงวนลิขสิทธิ์",
+    "delete": "ลบ",
+    "cancel": "ยกเลิก",
+    "loading": "กำลังโหลด..."
   },
   "home": {
     "badge": "โฮมสเตย์ธรรมชาติในประเทศไทย",
@@ -61,7 +64,8 @@
     "amenities": "สิ่งอำนวยความสะดวก",
     "upToGuests": "รองรับสูงสุด {count} ท่าน",
     "maxGuests": "สูงสุด {count} ท่าน",
-    "location": "ที่ตั้ง"
+    "location": "ที่ตั้ง",
+    "mapTitle": "แผนที่"
   },
   "prohibitions": {
     "title": "กฎของที่พัก",
@@ -532,6 +536,10 @@
     "uploadSlip": "อัปโหลดสลิปโอนเงิน",
     "paymentFull": "ชำระครบ",
     "paymentDeposit": "มัดจำ",
+    "errorSlipDuplicate": "สลิปนี้ถูกใช้ไปแล้ว",
+    "errorSlipVerify": "ตรวจสอบสลิปไม่สำเร็จ",
+    "errorPayment": "ชำระเงินไม่สำเร็จ",
+    "cancelReview": "ยกเลิก",
     "status": {
       "pending": "รอดำเนินการ",
       "verified": "ตรวจสอบแล้ว",
@@ -560,7 +568,19 @@
     "save": "บันทึกธีม",
     "saved": "อัปเดตธีมเรียบร้อยแล้ว",
     "noHomestay": "กรุณาสร้างโฮมสเตย์ก่อน",
-    "errorSave": "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง"
+    "errorSave": "บันทึกไม่สำเร็จ กรุณาลองใหม่อีกครั้ง",
+    "colorGreen": "เขียว",
+    "colorBlue": "น้ำเงิน",
+    "colorPurple": "ม่วง",
+    "colorRose": "ชมพู",
+    "colorOrange": "ส้ม",
+    "colorTeal": "เขียวอมฟ้า",
+    "colorIndigo": "คราม",
+    "colorAmber": "อำพัน",
+    "colorSky": "ฟ้า",
+    "colorEmerald": "มรกต",
+    "colorFuchsia": "บานเย็น",
+    "colorSlate": "เทา"
   },
   "reviews": {
     "title": "รีวิว & คะแนน",
@@ -582,5 +602,10 @@
     "loadMore": "โหลดรีวิวเพิ่มเติม",
     "loadingMore": "กำลังโหลด...",
     "showingCount": "แสดง {count} จาก {total}"
+  },
+  "notFound": {
+    "title": "ไม่พบที่พัก",
+    "description": "ที่พักที่คุณกำลังค้นหาไม่มีอยู่หรือถูกลบออกแล้ว",
+    "browseAll": "ดูที่พักทั้งหมด"
   }
 }

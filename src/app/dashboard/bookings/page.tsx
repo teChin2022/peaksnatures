@@ -221,7 +221,7 @@ export default function BookingsPage() {
       .eq("id", id);
 
     if (error) {
-      toast.error(t("errorUpdate") || "Failed to update");
+      toast.error(t("errorUpdate"));
       console.error("Update booking error:", error);
       return;
     }

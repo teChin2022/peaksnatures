@@ -14,7 +14,10 @@
     "privacy": "Privacy",
     "terms": "Terms",
     "contact": "Contact",
-    "copyright": "All rights reserved."
+    "copyright": "All rights reserved.",
+    "delete": "Delete",
+    "cancel": "Cancel",
+    "loading": "Loading..."
   },
   "home": {
     "badge": "Nature Homestays in Thailand",
@@ -61,7 +64,8 @@
     "amenities": "Amenities",
     "upToGuests": "Up to {count} guests",
     "maxGuests": "Max {count} guests",
-    "location": "Location"
+    "location": "Location",
+    "mapTitle": "Map"
   },
   "prohibitions": {
     "title": "House Rules",
@@ -532,6 +536,10 @@
     "uploadSlip": "Upload Transfer Slip",
     "paymentFull": "Paid Full",
     "paymentDeposit": "Deposit",
+    "errorSlipDuplicate": "This slip has already been used.",
+    "errorSlipVerify": "Slip verification failed.",
+    "errorPayment": "Payment failed.",
+    "cancelReview": "Cancel",
     "status": {
       "pending": "Pending",
       "verified": "Verified",
@@ -560,7 +568,19 @@
     "save": "Save Theme",
     "saved": "Theme updated successfully",
     "noHomestay": "Please create a homestay first.",
-    "errorSave": "Failed to save. Please try again."
+    "errorSave": "Failed to save. Please try again.",
+    "colorGreen": "Green",
+    "colorBlue": "Blue",
+    "colorPurple": "Purple",
+    "colorRose": "Rose",
+    "colorOrange": "Orange",
+    "colorTeal": "Teal",
+    "colorIndigo": "Indigo",
+    "colorAmber": "Amber",
+    "colorSky": "Sky",
+    "colorEmerald": "Emerald",
+    "colorFuchsia": "Fuchsia",
+    "colorSlate": "Slate"
   },
   "reviews": {
     "title": "Reviews & Ratings",
@@ -582,5 +602,10 @@
     "loadMore": "Load More Reviews",
     "loadingMore": "Loading...",
     "showingCount": "Showing {count} of {total}"
+  },
+  "notFound": {
+    "title": "Homestay Not Found",
+    "description": "The homestay you're looking for doesn't exist or has been removed.",
+    "browseAll": "Browse All Homestays"
   }
 }
