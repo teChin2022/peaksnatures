@@ -103,6 +103,7 @@ export function BookingSection({
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const cameraInputRef = useRef<HTMLInputElement>(null);
+  const nameInputRef = useRef<HTMLInputElement>(null);
   const qrContainerRef = useRef<HTMLDivElement>(null);
 
   const handleSlipSelect = (file: File | null) => {
@@ -372,6 +373,7 @@ export function BookingSection({
       return;
     }
     setStep("details");
+    setTimeout(() => nameInputRef.current?.focus(), 100);
   };
 
   const handleProceedToPayment = async () => {
@@ -877,6 +879,7 @@ export function BookingSection({
                   <Label htmlFor="name">{t("fullName")} *</Label>
                   <Input
                     id="name"
+                    ref={nameInputRef}
                     value={guestName}
                     onChange={(e) => setGuestName(e.target.value)}
                     placeholder={t("fullNamePlaceholder")}
