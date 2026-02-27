@@ -107,7 +107,7 @@ export async function POST(req: NextRequest) {
         const { Resend } = await import("resend");
         const resend = new Resend(apiKey);
         const rawFrom = process.env.RESEND_FROM_EMAIL || "PeaksNature <onboarding@resend.dev>";
-        const fromEmail = rawFrom.replace(/["']/g, "").trim();
+        const fromEmail = rawFrom.replace(/["'\r\n]/g, "").trim();
 
         const { data, error: sendError } = await resend.emails.send({
           from: fromEmail,
