@@ -99,7 +99,7 @@ export default function ProfilePage() {
         query = query.eq("user_id", user.id);
       }
 
-      const { data } = await query.single();
+      const { data } = await query.maybeSingle();
 
       if (data) {
         const h = data as HostData;

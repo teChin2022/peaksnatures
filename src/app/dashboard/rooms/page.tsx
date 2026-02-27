@@ -133,7 +133,7 @@ export default function RoomsPage() {
     } else {
       hostQuery = hostQuery.eq("user_id", user.id);
     }
-    const { data: hostRow } = await hostQuery.single();
+    const { data: hostRow } = await hostQuery.maybeSingle();
 
     const host = hostRow as { id: string } | null;
     if (!host) {

@@ -48,7 +48,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
         .from("hosts")
         .select("id")
         .eq("user_id", user.id)
-        .single();
+        .maybeSingle();
 
       let resolvedHostId: string | null = null;
 
@@ -57,21 +57,28 @@ export function DashboardShell({ children }: DashboardShellProps) {
         setRole("owner");
       } else {
         // Check if user is an assistant
-        const { data: assistant } = await supabase
-          .from("host_assistants")
-          .select("host_id")
-          .eq("user_id", user.id)
-          .eq("status", "active")
-          .limit(1)
-          .single();
+        try {
+          const { data: assistant } = await supabase
+            .from("host_assistants")
+            .select("host_id")
+            .eq("user_id", user.id)
+            .eq("status", "active")
+            .limit(1)
+            .maybeSingle();
 
-        if (assistant) {
-          resolvedHostId = (assistant as { host_id: string }).host_id;
-          setRole("assistant");
+          if (assistant) {
+            resolvedHostId = (assistant as { host_id: string }).host_id;
+            setRole("assistant");
+          }
+        } catch {
+          // Table may not exist yet or RLS error — treat as no assistant
         }
       }
 
-      if (!resolvedHostId) return;
+      if (!resolvedHostId) {
+        setRole("owner"); // default to owner so pages don't hang waiting for role
+        return;
+      }
       setHostId(resolvedHostId);
 
       const { data: homestay } = await supabase

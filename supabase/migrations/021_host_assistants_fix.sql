@@ -1,22 +1,33 @@
--- Host assistants: allow hosts to invite assistants with restricted access
-CREATE TABLE IF NOT EXISTS host_assistants (
-  id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  host_id uuid NOT NULL REFERENCES hosts(id) ON DELETE CASCADE,
-  user_id uuid REFERENCES auth.users(id) ON DELETE CASCADE,
-  email text NOT NULL,
-  name text NOT NULL DEFAULT '',
-  status text NOT NULL DEFAULT 'pending' CHECK (status IN ('pending', 'active', 'revoked')),
-  invited_at timestamptz DEFAULT now(),
-  accepted_at timestamptz
-);
+-- ============================================================
+-- ROLLBACK: Drop old policies and functions from the previous migration
+-- ============================================================
 
--- One active/pending invitation per email per host
-CREATE UNIQUE INDEX IF NOT EXISTS idx_host_assistants_host_email
-  ON host_assistants(host_id, email) WHERE status IN ('pending', 'active');
+-- Drop policies on host_assistants
+DROP POLICY IF EXISTS "Hosts can view own assistants" ON host_assistants;
+DROP POLICY IF EXISTS "Hosts can insert own assistants" ON host_assistants;
+DROP POLICY IF EXISTS "Hosts can update own assistants" ON host_assistants;
+DROP POLICY IF EXISTS "Hosts can delete own assistants" ON host_assistants;
+DROP POLICY IF EXISTS "Service role full access on host_assistants" ON host_assistants;
 
--- Fast lookup: which host does this user assist?
-CREATE INDEX IF NOT EXISTS idx_host_assistants_user_id
-  ON host_assistants(user_id) WHERE status = 'active';
+-- Drop assistant policies on hosts
+DROP POLICY IF EXISTS "Assistants can view their linked host" ON hosts;
+DROP POLICY IF EXISTS "Assistants can update linked host" ON hosts;
+
+-- Drop assistant policies on other tables
+DROP POLICY IF EXISTS "Assistants can view linked homestays" ON homestays;
+DROP POLICY IF EXISTS "Assistants can view linked rooms" ON rooms;
+DROP POLICY IF EXISTS "Assistants can view linked bookings" ON bookings;
+DROP POLICY IF EXISTS "Assistants can update linked bookings" ON bookings;
+DROP POLICY IF EXISTS "Assistants can view linked blocked_dates" ON blocked_dates;
+DROP POLICY IF EXISTS "Assistants can manage linked blocked_dates" ON blocked_dates;
+DROP POLICY IF EXISTS "Assistants can delete linked blocked_dates" ON blocked_dates;
+
+-- Drop old trigger + functions
+DROP TRIGGER IF EXISTS trg_prevent_assistant_sensitive_update ON hosts;
+DROP FUNCTION IF EXISTS prevent_assistant_sensitive_update();
+DROP FUNCTION IF EXISTS get_host_ids_for_owner(uuid);
+DROP FUNCTION IF EXISTS get_host_ids_for_assistant(uuid);
+DROP FUNCTION IF EXISTS get_homestay_ids_for_hosts(uuid[]);
 
 -- ============================================================
 -- SECURITY DEFINER helpers to break circular RLS between
@@ -42,11 +53,9 @@ RETURNS SETOF uuid AS $$
 $$ LANGUAGE sql SECURITY DEFINER STABLE;
 
 -- ============================================================
--- RLS on host_assistants
+-- RLS on host_assistants (re-create)
 -- ============================================================
-ALTER TABLE host_assistants ENABLE ROW LEVEL SECURITY;
 
--- Hosts can manage their own assistants
 CREATE POLICY "Hosts can view own assistants"
   ON host_assistants FOR SELECT
   USING (
@@ -73,7 +82,6 @@ CREATE POLICY "Hosts can delete own assistants"
     host_id IN (SELECT get_host_ids_for_owner(auth.uid()))
   );
 
--- Service role full access
 CREATE POLICY "Service role full access on host_assistants"
   ON host_assistants FOR ALL
   USING (auth.role() = 'service_role');
@@ -82,25 +90,22 @@ CREATE POLICY "Service role full access on host_assistants"
 -- RLS policies on hosts — assistant access
 -- ============================================================
 
--- Allow assistants to read the host's data
 CREATE POLICY "Assistants can view their linked host"
   ON hosts FOR SELECT
   USING (
     id IN (SELECT get_host_ids_for_assistant(auth.uid()))
   );
 
--- Allow assistants to update non-sensitive host fields
 CREATE POLICY "Assistants can update linked host"
   ON hosts FOR UPDATE
   USING (
     id IN (SELECT get_host_ids_for_assistant(auth.uid()))
   );
 
--- Trigger: prevent assistants from modifying sensitive fields (promptpay_id, line_channel_access_token)
+-- Trigger: prevent assistants from modifying sensitive fields
 CREATE OR REPLACE FUNCTION prevent_assistant_sensitive_update()
 RETURNS TRIGGER AS $$
 BEGIN
-  -- If the current user is NOT the host owner, block changes to sensitive fields
   IF NOT EXISTS (SELECT 1 FROM hosts WHERE id = NEW.id AND user_id = auth.uid()) THEN
     NEW.promptpay_id := OLD.promptpay_id;
     NEW.line_channel_access_token := OLD.line_channel_access_token;
@@ -118,14 +123,12 @@ CREATE TRIGGER trg_prevent_assistant_sensitive_update
 -- RLS policies on other tables — assistant access
 -- ============================================================
 
--- Allow assistants to read homestays for their linked host
 CREATE POLICY "Assistants can view linked homestays"
   ON homestays FOR SELECT
   USING (
     host_id IN (SELECT get_host_ids_for_assistant(auth.uid()))
   );
 
--- Allow assistants to read rooms for their linked homestay
 CREATE POLICY "Assistants can view linked rooms"
   ON rooms FOR SELECT
   USING (
@@ -136,7 +139,6 @@ CREATE POLICY "Assistants can view linked rooms"
     )
   );
 
--- Allow assistants to read bookings for their linked homestay
 CREATE POLICY "Assistants can view linked bookings"
   ON bookings FOR SELECT
   USING (
@@ -147,7 +149,6 @@ CREATE POLICY "Assistants can view linked bookings"
     )
   );
 
--- Allow assistants to update booking status (confirm/reject etc.)
 CREATE POLICY "Assistants can update linked bookings"
   ON bookings FOR UPDATE
   USING (
@@ -158,7 +159,6 @@ CREATE POLICY "Assistants can update linked bookings"
     )
   );
 
--- Allow assistants to read blocked dates
 CREATE POLICY "Assistants can view linked blocked_dates"
   ON blocked_dates FOR SELECT
   USING (
@@ -169,7 +169,6 @@ CREATE POLICY "Assistants can view linked blocked_dates"
     )
   );
 
--- Allow assistants to manage blocked dates
 CREATE POLICY "Assistants can manage linked blocked_dates"
   ON blocked_dates FOR INSERT
   WITH CHECK (
