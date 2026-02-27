@@ -101,7 +101,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Send OTP email via Resend
-    const apiKey = process.env.RESEND_API_KEY;
+    const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
     if (apiKey && apiKey !== "your_resend_api_key") {
       try {
         const { Resend } = await import("resend");

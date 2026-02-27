@@ -25,7 +25,7 @@ function formatBookingDate(dateStr: string, locale: string): string {
 // EMAIL NOTIFICATION (Resend)
 // ============================================================
 export async function sendBookingConfirmationEmail(details: BookingDetails, locale: string = "th") {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
   if (!apiKey || apiKey === "your_resend_api_key") {
     console.log("[Email] Skipped — RESEND_API_KEY not configured. Would send to:", details.booking.guest_email);
     return { success: true, demo: true };

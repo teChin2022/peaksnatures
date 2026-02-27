@@ -145,7 +145,7 @@ export async function POST(req: NextRequest) {
 
     // Send invitation email via Resend (if assistant not yet registered)
     if (!assistantUser) {
-      const apiKey = process.env.RESEND_API_KEY;
+      const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
       if (apiKey && apiKey !== "your_resend_api_key") {
         try {
           const { Resend } = await import("resend");
