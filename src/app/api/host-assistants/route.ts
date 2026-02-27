@@ -152,8 +152,8 @@ export async function POST(req: NextRequest) {
           const resend = new Resend(apiKey);
           const rawFrom =
             process.env.RESEND_FROM_EMAIL ||
-            "PeaksNature <notification@peaksnature.com>";
-          const fromEmail = rawFrom.replace(/['"]+/g, "");
+            "PeaksNature <onboarding@resend.dev>";
+          const fromEmail = rawFrom.replace(/["'\\n\\r\n\r]+/g, "").trim();
           const origin =
             req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "";
 
