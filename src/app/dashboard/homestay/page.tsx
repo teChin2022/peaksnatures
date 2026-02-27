@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
+import { useUserRole } from "@/components/dashboard/dashboard-shell";
 import {
   Home,
   MapPin,
@@ -99,7 +100,11 @@ export default function HomestayPage() {
   const logoInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
 
+  const { role, hostId: contextHostId } = useUserRole();
+  const isAssistant = role === "assistant";
+
   useEffect(() => {
+    if (role === null) return;
     const fetch = async () => {
       const supabase = createClient();
       const {
@@ -107,11 +112,13 @@ export default function HomestayPage() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      const { data: hostRow } = await supabase
-        .from("hosts")
-        .select("id")
-        .eq("user_id", user.id)
-        .single();
+      let hostQuery = supabase.from("hosts").select("id");
+      if (isAssistant && contextHostId) {
+        hostQuery = hostQuery.eq("id", contextHostId);
+      } else {
+        hostQuery = hostQuery.eq("user_id", user.id);
+      }
+      const { data: hostRow } = await hostQuery.single();
 
       const host = hostRow as { id: string } | null;
       if (!host) {
@@ -151,7 +158,7 @@ export default function HomestayPage() {
       setLoading(false);
     };
     fetch();
-  }, []);
+  }, [role, contextHostId, isAssistant]);
 
   const generateSlug = (n: string) => {
     return n

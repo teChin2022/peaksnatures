@@ -20,6 +20,7 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SetupProfileModal } from "@/components/setup-profile-modal";
 import { useThemeColor } from "@/components/dashboard/theme-context";
+import { useUserRole } from "@/components/dashboard/dashboard-shell";
 import { getProvinceLabel } from "@/lib/provinces";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -45,6 +46,8 @@ export default function DashboardPage() {
   const tn = useTranslations("dashboardNav");
   const themeColor = useThemeColor();
   const locale = useLocale();
+  const { role, hostId: contextHostId } = useUserRole();
+  const isAssistant = role === "assistant";
   const [hostProfile, setHostProfile] = useState<HostProfile | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
@@ -60,6 +63,8 @@ export default function DashboardPage() {
   const [provinceStats, setProvinceStats] = useState<{ province: string; count: number }[]>([]);
 
   useEffect(() => {
+    if (role === null) return;
+
     const fetchData = async () => {
       const supabase = createClient();
       const {
@@ -68,11 +73,17 @@ export default function DashboardPage() {
       if (!user) return;
 
       // Fetch host profile
-      const { data: hostRow } = await supabase
+      let hostQuery = supabase
         .from("hosts")
-        .select("id, phone, promptpay_id")
-        .eq("user_id", user.id)
-        .single();
+        .select("id, phone, promptpay_id");
+
+      if (isAssistant && contextHostId) {
+        hostQuery = hostQuery.eq("id", contextHostId);
+      } else {
+        hostQuery = hostQuery.eq("user_id", user.id);
+      }
+
+      const { data: hostRow } = await hostQuery.single();
 
       const host = hostRow as HostProfile | null;
       if (host) {
@@ -146,11 +157,11 @@ export default function DashboardPage() {
     };
 
     fetchData();
-  }, []);
+  }, [role, contextHostId, isAssistant]);
 
   return (
     <div>
-      {profileLoaded && hostProfile && (!hostProfile.phone || !hostProfile.promptpay_id) && (
+      {!isAssistant && profileLoaded && hostProfile && (!hostProfile.phone || !hostProfile.promptpay_id) && (
         <SetupProfileModal
           hostId={hostProfile.id}
           currentPhone={hostProfile.phone}

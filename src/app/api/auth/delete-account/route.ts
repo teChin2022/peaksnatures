@@ -22,6 +22,22 @@ export async function DELETE() {
 
     const serviceClient = createServiceRoleClient();
 
+    // Block assistants from deleting the host's account
+    const { data: assistantCheck } = await serviceClient
+      .from("host_assistants")
+      .select("id")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .limit(1)
+      .single();
+
+    if (assistantCheck) {
+      return NextResponse.json(
+        { error: "Assistants cannot delete the host account" },
+        { status: 403 }
+      );
+    }
+
     // Look up host record
     const { data: host } = await serviceClient
       .from("hosts")

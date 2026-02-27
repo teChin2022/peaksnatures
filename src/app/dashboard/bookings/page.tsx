@@ -4,6 +4,7 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations, useLocale } from "next-intl";
+import { useUserRole } from "@/components/dashboard/dashboard-shell";
 import {
   Home,
   CalendarDays,
@@ -109,9 +110,13 @@ export default function BookingsPage() {
     []
   );
 
+  const { role, hostId: contextHostId } = useUserRole();
+  const isAssistant = role === "assistant";
+
   useEffect(() => {
+    if (role === null) return;
     fetchBookings();
-  }, []);
+  }, [role, contextHostId]);
 
   const fetchBookings = async () => {
     const supabase = createClient();
@@ -121,11 +126,13 @@ export default function BookingsPage() {
     if (!user) return;
 
     // Get host
-    const { data: hostRow } = await supabase
-      .from("hosts")
-      .select("id")
-      .eq("user_id", user.id)
-      .single();
+    let hostQuery = supabase.from("hosts").select("id");
+    if (isAssistant && contextHostId) {
+      hostQuery = hostQuery.eq("id", contextHostId);
+    } else {
+      hostQuery = hostQuery.eq("user_id", user.id);
+    }
+    const { data: hostRow } = await hostQuery.single();
     const host = hostRow as { id: string } | null;
     if (!host) {
       setLoading(false);

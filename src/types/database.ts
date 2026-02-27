@@ -397,6 +397,38 @@ export interface Database {
           created_at?: string;
         };
       };
+      host_assistants: {
+        Row: {
+          id: string;
+          host_id: string;
+          user_id: string | null;
+          email: string;
+          name: string;
+          status: "pending" | "active" | "revoked";
+          invited_at: string;
+          accepted_at: string | null;
+        };
+        Insert: {
+          id?: string;
+          host_id: string;
+          user_id?: string | null;
+          email: string;
+          name?: string;
+          status?: "pending" | "active" | "revoked";
+          invited_at?: string;
+          accepted_at?: string | null;
+        };
+        Update: {
+          id?: string;
+          host_id?: string;
+          user_id?: string | null;
+          email?: string;
+          name?: string;
+          status?: "pending" | "active" | "revoked";
+          invited_at?: string;
+          accepted_at?: string | null;
+        };
+      };
     };
   };
 }
@@ -409,3 +441,4 @@ export type BlockedDate = Database["public"]["Tables"]["blocked_dates"]["Row"];
 export type BookingHold = Database["public"]["Tables"]["booking_holds"]["Row"];
 export type Review = Database["public"]["Tables"]["reviews"]["Row"];
 export type RoomSeasonalPrice = Database["public"]["Tables"]["room_seasonal_prices"]["Row"];
+export type HostAssistant = Database["public"]["Tables"]["host_assistants"]["Row"];
