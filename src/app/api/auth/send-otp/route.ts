@@ -107,8 +107,10 @@ export async function POST(req: NextRequest) {
         const { Resend } = await import("resend");
         const resend = new Resend(apiKey);
         const DEFAULT_FROM = "PeaksNature <onboarding@resend.dev>";
-        const rawFrom = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
-        const fromEmail = rawFrom && /@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}>?$/.test(rawFrom) ? rawFrom : DEFAULT_FROM;
+        const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
+        const fromEmail = cleaned
+          ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
+          : DEFAULT_FROM;
 
         const { data, error: sendError } = await resend.emails.send({
           from: fromEmail,

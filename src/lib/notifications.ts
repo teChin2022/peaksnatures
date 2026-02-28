@@ -38,8 +38,10 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
     const { booking, homestay, room } = details;
 
     const DEFAULT_FROM = "PeaksNature <onboarding@resend.dev>";
-    const rawFrom = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
-    const fromEmail = rawFrom && /@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}>?$/.test(rawFrom) ? rawFrom : DEFAULT_FROM;
+    const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
+    const fromEmail = cleaned
+      ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
+      : DEFAULT_FROM;
     console.log(`[Email] Sending to: ${booking.guest_email}, from: ${fromEmail}, locale: ${locale}`);
     const checkInFmt = formatBookingDate(booking.check_in, locale);
     const checkOutFmt = formatBookingDate(booking.check_out, locale);
