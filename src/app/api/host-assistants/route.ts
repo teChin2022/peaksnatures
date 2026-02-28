@@ -159,7 +159,9 @@ export async function POST(req: NextRequest) {
     }
 
     const assistantUserId = linkData.user.id;
-    const magicLink = linkData.properties.action_link;
+    // Build magic link that goes directly to our callback (avoids Supabase redirect issues)
+    const hashedToken = linkData.properties.hashed_token;
+    const magicLink = `${origin}/api/auth/callback?token_hash=${hashedToken}&type=magiclink&next=/dashboard`;
     console.log(
       `[Assistant Invite] email=${trimmedEmail}, userId=${assistantUserId}, magicLink generated`
     );
