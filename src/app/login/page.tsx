@@ -263,7 +263,7 @@ export default function LoginPage() {
                 </div>
               </div>
 
-              {magicLinkSent ? (
+              {/* {magicLinkSent ? (
                 <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-3 text-center text-sm text-green-700">
                   {t("magicLinkSent")}
                 </div>
@@ -294,7 +294,7 @@ export default function LoginPage() {
                     {t("magicLinkButton")}
                   </Button>
                 </div>
-              )}
+              )} */}
 
               <p className="text-center text-sm text-gray-500">
                 {t("noAccount")}{" "}
