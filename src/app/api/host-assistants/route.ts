@@ -118,85 +118,125 @@ export async function POST(req: NextRequest) {
     const serviceClient = createServiceRoleClient();
 
     // Check if the assistant email is already a registered user
-    const { data: existingUsers } = await serviceClient.auth.admin.listUsers();
-    const assistantUser = existingUsers?.users?.find(
-      (u) => u.email === trimmedEmail
-    );
+    // Note: listUsers() only returns 50 by default, so search by email in auth.users via service role
+    let assistantUserId: string | null = null;
+    const { data: authLookup } = await serviceClient
+      .from("auth.users" as never)
+      .select("id")
+      .eq("email", trimmedEmail)
+      .maybeSingle();
+
+    if (!authLookup) {
+      // Fallback: try admin listUsers with filter (works on newer Supabase)
+      try {
+        const { data: listData } = await serviceClient.auth.admin.listUsers();
+        const found = listData?.users?.find((u) => u.email === trimmedEmail);
+        if (found) assistantUserId = found.id;
+      } catch {
+        // Ignore — user lookup is best-effort
+      }
+    } else {
+      assistantUserId = (authLookup as { id: string }).id;
+    }
+
+    console.log(`[Assistant Invite] email=${trimmedEmail}, existingUserId=${assistantUserId}`);
 
     // Insert the invitation
     const { error: insertError } = await serviceClient
       .from("host_assistants")
       .insert({
         host_id: hostRow.id,
-        user_id: assistantUser?.id || null,
+        user_id: assistantUserId,
         email: trimmedEmail,
         name: (name || "").trim() || trimmedEmail.split("@")[0],
-        status: assistantUser ? "active" : "pending",
-        accepted_at: assistantUser ? new Date().toISOString() : null,
+        status: assistantUserId ? "active" : "pending",
+        accepted_at: assistantUserId ? new Date().toISOString() : null,
       } as never);
 
     if (insertError) {
-      console.error("Insert assistant error:", insertError);
+      console.error("[Assistant Invite] Insert error:", insertError);
       return NextResponse.json(
         { error: "Failed to invite assistant" },
         { status: 500 }
       );
     }
 
-    // Send invitation email via Resend (if assistant not yet registered)
-    if (!assistantUser) {
-      const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
-      if (apiKey && apiKey !== "your_resend_api_key") {
-        try {
-          const { Resend } = await import("resend");
-          const resend = new Resend(apiKey);
-          const rawFrom =
-            process.env.RESEND_FROM_EMAIL ||
-            "PeaksNature <onboarding@resend.dev>";
-          const fromEmail = rawFrom.replace(/["'\r\n]/g, "").trim();
-          const origin =
-            req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "";
+    console.log(`[Assistant Invite] Inserted OK. Sending email...`);
 
-          await resend.emails.send({
-            from: fromEmail,
-            to: trimmedEmail,
-            subject: `You've been invited as an assistant on PeaksNature`,
-            html: `
-              <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-                <div style="background: #16a34a; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
-                  <h1 style="color: white; margin: 0; font-size: 22px;">Assistant Invitation</h1>
-                </div>
-                <div style="padding: 32px 24px; border: 1px solid #e5e7eb; border-top: 0; border-radius: 0 0 12px 12px;">
-                  <p style="font-size: 16px; color: #374151; margin-top: 0;">
-                    <strong>${hostRow.name}</strong> has invited you as an assistant to help manage their homestay on PeaksNature.
-                  </p>
-                  <p style="font-size: 14px; color: #6b7280;">
-                    To accept this invitation, register an account with this email address (${trimmedEmail}) at:
-                  </p>
-                  <div style="text-align: center; margin: 20px 0;">
-                    <a href="${origin}/register" style="display: inline-block; background: #16a34a; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
-                      Register on PeaksNature
-                    </a>
-                  </div>
-                  <p style="font-size: 13px; color: #9ca3af; margin-top: 24px;">
-                    If you didn't expect this invitation, you can safely ignore this email.
-                  </p>
-                  <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
-                  <p style="color: #9ca3af; font-size: 12px; margin-bottom: 0;">PeaksNature — Nature Homestays in Thailand</p>
-                </div>
+    // Send notification email to the assistant
+    const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
+    console.log(`[Assistant Invite] RESEND_API_KEY present=${!!apiKey}, length=${apiKey.length}`);
+
+    if (apiKey && apiKey !== "your_resend_api_key") {
+      try {
+        const { Resend } = await import("resend");
+        const resend = new Resend(apiKey);
+        const rawFrom =
+          process.env.RESEND_FROM_EMAIL ||
+          "PeaksNature <onboarding@resend.dev>";
+        const fromEmail = rawFrom.replace(/["'\r\n]/g, "").trim();
+        const origin =
+          req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "";
+
+        console.log(`[Assistant Invite] from=${fromEmail}, to=${trimmedEmail}, origin=${origin}`);
+
+        const actionHtml = assistantUserId
+          ? `<p style="font-size: 14px; color: #6b7280;">
+               You already have an account. Log in to access the dashboard:
+             </p>
+             <div style="text-align: center; margin: 20px 0;">
+               <a href="${origin}/login" style="display: inline-block; background: #16a34a; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+                 Log in to PeaksNature
+               </a>
+             </div>`
+          : `<p style="font-size: 14px; color: #6b7280;">
+               To accept this invitation, register an account with this email address (${trimmedEmail}) at:
+             </p>
+             <div style="text-align: center; margin: 20px 0;">
+               <a href="${origin}/register" style="display: inline-block; background: #16a34a; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
+                 Register on PeaksNature
+               </a>
+             </div>`;
+
+        const { data: emailResult, error: emailError } = await resend.emails.send({
+          from: fromEmail,
+          to: trimmedEmail,
+          subject: `You've been invited as an assistant on PeaksNature`,
+          html: `
+            <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
+              <div style="background: #16a34a; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
+                <h1 style="color: white; margin: 0; font-size: 22px;">Assistant Invitation</h1>
               </div>
-            `,
-          });
-        } catch (emailError) {
-          console.error("Failed to send assistant invitation email:", emailError);
-          // Don't fail the invitation if email fails
+              <div style="padding: 32px 24px; border: 1px solid #e5e7eb; border-top: 0; border-radius: 0 0 12px 12px;">
+                <p style="font-size: 16px; color: #374151; margin-top: 0;">
+                  <strong>${hostRow.name}</strong> has invited you as an assistant to help manage their homestay on PeaksNature.
+                </p>
+                ${actionHtml}
+                <p style="font-size: 13px; color: #9ca3af; margin-top: 24px;">
+                  If you didn't expect this invitation, you can safely ignore this email.
+                </p>
+                <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
+                <p style="color: #9ca3af; font-size: 12px; margin-bottom: 0;">PeaksNature — Nature Homestays in Thailand</p>
+              </div>
+            </div>
+          `,
+        });
+
+        if (emailError) {
+          console.error("[Assistant Invite] Resend API error:", JSON.stringify(emailError));
+        } else {
+          console.log(`[Assistant Invite] Email sent OK, id=${emailResult?.id}`);
         }
+      } catch (emailErr) {
+        console.error("[Assistant Invite] Email send exception:", emailErr);
       }
+    } else {
+      console.log("[Assistant Invite] Skipped email — RESEND_API_KEY not configured");
     }
 
     return NextResponse.json({
       success: true,
-      activated: !!assistantUser,
+      activated: !!assistantUserId,
     });
   } catch (error) {
     console.error("POST /api/host-assistants error:", error);
