@@ -377,12 +377,18 @@ export default function ProfilePage() {
               <User className="h-3.5 w-3.5" />
               {t("name")}
             </Label>
-            <Input
-              id="host-name"
-              value={name}
-              onChange={(e) => setName(e.target.value)}
-              placeholder={t("namePlaceholder")}
-            />
+            {isAssistant ? (
+              <div className="flex h-10 items-center rounded-md border bg-gray-50 px-3 text-sm text-gray-600">
+                {name || "-"}
+              </div>
+            ) : (
+              <Input
+                id="host-name"
+                value={name}
+                onChange={(e) => setName(e.target.value)}
+                placeholder={t("namePlaceholder")}
+              />
+            )}
           </div>
 
           <div className="space-y-2">
@@ -390,13 +396,19 @@ export default function ProfilePage() {
               <Mail className="h-3.5 w-3.5" />
               {t("email")}
             </Label>
-            <Input
-              id="host-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={t("emailPlaceholder")}
-            />
+            {isAssistant ? (
+              <div className="flex h-10 items-center rounded-md border bg-gray-50 px-3 text-sm text-gray-600">
+                {email || "-"}
+              </div>
+            ) : (
+              <Input
+                id="host-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={t("emailPlaceholder")}
+              />
+            )}
           </div>
 
           <div className="space-y-2">
@@ -404,13 +416,19 @@ export default function ProfilePage() {
               <Phone className="h-3.5 w-3.5" />
               {t("phone")}
             </Label>
-            <Input
-              id="host-phone"
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder={t("phonePlaceholder")}
-            />
+            {isAssistant ? (
+              <div className="flex h-10 items-center rounded-md border bg-gray-50 px-3 text-sm text-gray-600">
+                {phone || "-"}
+              </div>
+            ) : (
+              <Input
+                id="host-phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder={t("phonePlaceholder")}
+              />
+            )}
           </div>
 
           {!isAssistant && (
@@ -473,7 +491,7 @@ export default function ProfilePage() {
         </CardContent>
       </Card>
 
-      <Card className="mt-6">
+      {!isAssistant && (<Card className="mt-6">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base">
             <Bell className="h-4 w-4" />
@@ -631,7 +649,7 @@ export default function ProfilePage() {
             {t("save")}
           </Button>
         </CardContent>
-      </Card>
+      </Card>)}
 
       {!isAssistant && (
         <Card className="mt-6">
