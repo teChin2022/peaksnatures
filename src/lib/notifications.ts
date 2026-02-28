@@ -25,7 +25,7 @@ function formatBookingDate(dateStr: string, locale: string): string {
 // EMAIL NOTIFICATION (Resend)
 // ============================================================
 export async function sendBookingConfirmationEmail(details: BookingDetails, locale: string = "th") {
-  const apiKey = process.env.RESEND_API_KEY;
+  const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
   if (!apiKey || apiKey === "your_resend_api_key") {
     console.log("[Email] Skipped — RESEND_API_KEY not configured. Would send to:", details.booking.guest_email);
     return { success: true, demo: true };
@@ -37,8 +37,11 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
 
     const { booking, homestay, room } = details;
 
-    const rawFrom = process.env.RESEND_FROM_EMAIL || 'PeaksNature <notification@peaksnature.com>';
-    const fromEmail = rawFrom.replace(/['"]+/g, '');
+    const DEFAULT_FROM = "PeaksNature <onboarding@resend.dev>";
+    const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
+    const fromEmail = cleaned
+      ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
+      : DEFAULT_FROM;
     console.log(`[Email] Sending to: ${booking.guest_email}, from: ${fromEmail}, locale: ${locale}`);
     const checkInFmt = formatBookingDate(booking.check_in, locale);
     const checkOutFmt = formatBookingDate(booking.check_out, locale);

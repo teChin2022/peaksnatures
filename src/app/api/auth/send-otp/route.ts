@@ -101,13 +101,16 @@ export async function POST(req: NextRequest) {
     }
 
     // Send OTP email via Resend
-    const apiKey = process.env.RESEND_API_KEY;
+    const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
     if (apiKey && apiKey !== "your_resend_api_key") {
       try {
         const { Resend } = await import("resend");
         const resend = new Resend(apiKey);
-        const rawFrom = process.env.RESEND_FROM_EMAIL || "PeaksNature <notification@peaksnature.com>";
-        const fromEmail = rawFrom.replace(/['"]+/g, '');
+        const DEFAULT_FROM = "PeaksNature <onboarding@resend.dev>";
+        const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
+        const fromEmail = cleaned
+          ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
+          : DEFAULT_FROM;
 
         const { data, error: sendError } = await resend.emails.send({
           from: fromEmail,

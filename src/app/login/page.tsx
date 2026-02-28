@@ -4,7 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { useRouter, useSearchParams } from "next/navigation";
-import { Loader2, Eye, EyeOff } from "lucide-react";
+import { Loader2, Eye, EyeOff, Mail } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { Button } from "@/components/ui/button";
@@ -28,6 +28,10 @@ export default function LoginPage() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileError, setTurnstileError] = useState(false);
   const turnstileRef = useRef<TurnstileInstance>(null);
+  const [magicLinkEmail, setMagicLinkEmail] = useState("");
+  const [magicLinkSent, setMagicLinkSent] = useState(false);
+  const [magicLinkLoading, setMagicLinkLoading] = useState(false);
+  const [magicLinkError, setMagicLinkError] = useState<string | null>(null);
 
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -120,6 +124,33 @@ export default function LoginPage() {
       setOtpError(t("errorGeneric"));
     }
   }, [email, password, t]);
+
+  const handleMagicLink = async () => {
+    if (!magicLinkEmail.trim()) return;
+    setMagicLinkError(null);
+    setMagicLinkLoading(true);
+    try {
+      const res = await fetch("/api/auth/send-magic-link", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: magicLinkEmail.trim() }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        if (data.error === "no_account") {
+          setMagicLinkError(t("magicLinkNoAccount"));
+        } else {
+          setMagicLinkError(data.error || t("errorGeneric"));
+        }
+        return;
+      }
+      setMagicLinkSent(true);
+    } catch {
+      setMagicLinkError(t("errorGeneric"));
+    } finally {
+      setMagicLinkLoading(false);
+    }
+  };
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
@@ -223,6 +254,49 @@ export default function LoginPage() {
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {t("signInButton")}
               </Button>
+
+              {/* <div className="relative my-1">
+                <div className="absolute inset-0 flex items-center">
+                  <span className="w-full border-t" />
+                </div>
+                <div className="relative flex justify-center text-xs uppercase">
+                  <span className="bg-white px-2 text-gray-400">{t("or")}</span>
+                </div>
+              </div> */}
+
+              {/* {magicLinkSent ? (
+                <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-3 text-center text-sm text-green-700">
+                  {t("magicLinkSent")}
+                </div>
+              ) : (
+                <div className="space-y-2">
+                  <Input
+                    type="email"
+                    placeholder={t("emailPlaceholder")}
+                    value={magicLinkEmail}
+                    onChange={(e) => setMagicLinkEmail(e.target.value)}
+                    autoComplete="email"
+                  />
+                  {magicLinkError && (
+                    <p className="text-xs text-red-600">{magicLinkError}</p>
+                  )}
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="w-full"
+                    disabled={magicLinkLoading || !magicLinkEmail.trim()}
+                    onClick={handleMagicLink}
+                  >
+                    {magicLinkLoading ? (
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    ) : (
+                      <Mail className="mr-2 h-4 w-4" />
+                    )}
+                    {t("magicLinkButton")}
+                  </Button>
+                </div>
+              )} */}
+
               <p className="text-center text-sm text-gray-500">
                 {t("noAccount")}{" "}
                 <Link

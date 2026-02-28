@@ -17,6 +17,7 @@ import {
   startOfDay,
 } from "date-fns";
 import { createClient } from "@/lib/supabase/client";
+import { useUserRole } from "@/components/dashboard/dashboard-shell";
 import { fmtDate, fmtDateStr } from "@/lib/format-date";
 import { useTranslations } from "next-intl";
 import {
@@ -122,19 +123,25 @@ export default function CalendarPage() {
     if (html === "th") setLocale("th");
   }, []);
 
+  const { role, hostId: contextHostId } = useUserRole();
+  const isAssistant = role === "assistant";
+
   // Fetch data
   const fetchData = useCallback(async () => {
+    if (role === null) return;
     const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    const { data: hostRow } = await supabase
-      .from("hosts")
-      .select("id")
-      .eq("user_id", user.id)
-      .single();
+    let hostQuery = supabase.from("hosts").select("id");
+    if (isAssistant && contextHostId) {
+      hostQuery = hostQuery.eq("id", contextHostId);
+    } else {
+      hostQuery = hostQuery.eq("user_id", user.id);
+    }
+    const { data: hostRow } = await hostQuery.maybeSingle();
     const host = hostRow as { id: string } | null;
     if (!host) {
       setLoading(false);
@@ -184,7 +191,7 @@ export default function CalendarPage() {
     setBlockedDates((blockedRows as unknown as BlockedDateRow[]) || []);
 
     setLoading(false);
-  }, []);
+  }, [role, isAssistant, contextHostId]);
 
   useEffect(() => {
     fetchData();
