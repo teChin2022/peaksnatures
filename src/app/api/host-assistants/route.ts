@@ -173,7 +173,7 @@ export async function POST(req: NextRequest) {
         const resend = new Resend(apiKey);
         const DEFAULT_FROM = "PeaksNature <onboarding@resend.dev>";
         const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
-        // Remove spaces inside the <email> part: "Name <user@ domain .com>" → "Name <user@domain.com>"
+      
         const fromEmail = cleaned
           ? cleaned.replace(/<([^>]+)>/, (_, email) => `<${email.replace(/\s+/g, "")}>`)
           : DEFAULT_FROM;
