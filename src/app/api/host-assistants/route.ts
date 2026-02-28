@@ -116,41 +116,63 @@ export async function POST(req: NextRequest) {
     }
 
     const serviceClient = createServiceRoleClient();
+    const origin =
+      req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "";
 
-    // Check if the assistant email is already a registered user
-    // Note: listUsers() only returns 50 by default, so search by email in auth.users via service role
-    let assistantUserId: string | null = null;
-    const { data: authLookup } = await serviceClient
-      .from("auth.users" as never)
-      .select("id")
-      .eq("email", trimmedEmail)
-      .maybeSingle();
+    // Step 1: Ensure assistant has a Supabase account
+    const assistantName = (name || "").trim() || trimmedEmail.split("@")[0];
+    const { error: createUserError } =
+      await serviceClient.auth.admin.createUser({
+        email: trimmedEmail,
+        email_confirm: true,
+        user_metadata: { name: assistantName },
+      });
 
-    if (!authLookup) {
-      // Fallback: try admin listUsers with filter (works on newer Supabase)
-      try {
-        const { data: listData } = await serviceClient.auth.admin.listUsers();
-        const found = listData?.users?.find((u) => u.email === trimmedEmail);
-        if (found) assistantUserId = found.id;
-      } catch {
-        // Ignore — user lookup is best-effort
-      }
-    } else {
-      assistantUserId = (authLookup as { id: string }).id;
+    // Ignore "already registered" errors — that's fine
+    if (
+      createUserError &&
+      !createUserError.message?.toLowerCase().includes("already")
+    ) {
+      console.error("[Assistant Invite] Create user error:", createUserError);
+      return NextResponse.json(
+        { error: "Failed to create assistant account" },
+        { status: 500 }
+      );
     }
 
-    console.log(`[Assistant Invite] email=${trimmedEmail}, existingUserId=${assistantUserId}`);
+    // Step 2: Generate magic link (also returns the user object)
+    const { data: linkData, error: linkError } =
+      await serviceClient.auth.admin.generateLink({
+        type: "magiclink",
+        email: trimmedEmail,
+        options: {
+          redirectTo: `${origin}/api/auth/callback?next=/dashboard`,
+        },
+      });
 
-    // Insert the invitation
+    if (linkError || !linkData) {
+      console.error("[Assistant Invite] Generate magic link error:", linkError);
+      return NextResponse.json(
+        { error: "Failed to generate invitation link" },
+        { status: 500 }
+      );
+    }
+
+    const assistantUserId = linkData.user.id;
+    const magicLink = linkData.properties.action_link;
+    console.log(
+      `[Assistant Invite] email=${trimmedEmail}, userId=${assistantUserId}, magicLink generated`
+    );
+
+    // Step 3: Insert the invitation
     const { error: insertError } = await serviceClient
       .from("host_assistants")
       .insert({
         host_id: hostRow.id,
         user_id: assistantUserId,
         email: trimmedEmail,
-        name: (name || "").trim() || trimmedEmail.split("@")[0],
-        status: assistantUserId ? "active" : "pending",
-        accepted_at: assistantUserId ? new Date().toISOString() : null,
+        name: assistantName,
+        status: "pending",
       } as never);
 
     if (insertError) {
@@ -161,51 +183,32 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log(`[Assistant Invite] Inserted OK. Sending email...`);
+    console.log(`[Assistant Invite] Inserted OK. Sending magic link email...`);
 
-    // Send notification email to the assistant
+    // Step 4: Send invitation email with magic link
     const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
-    console.log(`[Assistant Invite] RESEND_API_KEY present=${!!apiKey}, length=${apiKey.length}`);
 
     if (apiKey && apiKey !== "your_resend_api_key") {
       try {
         const { Resend } = await import("resend");
         const resend = new Resend(apiKey);
         const DEFAULT_FROM = "PeaksNature <onboarding@resend.dev>";
-        const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
-      
+        const cleaned = (process.env.RESEND_FROM_EMAIL || "")
+          .replace(/["'\r\n]/g, "")
+          .trim();
         const fromEmail = cleaned
-          ? cleaned.replace(/<([^>]+)>/, (_, email) => `<${email.replace(/\s+/g, "")}>`)
+          ? cleaned.replace(
+              /<([^>]+)>/,
+              (_, em: string) => `<${em.replace(/\s+/g, "")}>`
+            )
           : DEFAULT_FROM;
-        console.log(`[Assistant Invite] rawFrom=${JSON.stringify(process.env.RESEND_FROM_EMAIL)}, resolved=${fromEmail}`);
-        const origin =
-          req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "";
 
-        console.log(`[Assistant Invite] from=${fromEmail}, to=${trimmedEmail}, origin=${origin}`);
-
-        const actionHtml = assistantUserId
-          ? `<p style="font-size: 14px; color: #6b7280;">
-               You already have an account. Log in to access the dashboard:
-             </p>
-             <div style="text-align: center; margin: 20px 0;">
-               <a href="${origin}/login" style="display: inline-block; background: #16a34a; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
-                 Log in to PeaksNature
-               </a>
-             </div>`
-          : `<p style="font-size: 14px; color: #6b7280;">
-               To accept this invitation, register an account with this email address (${trimmedEmail}) at:
-             </p>
-             <div style="text-align: center; margin: 20px 0;">
-               <a href="${origin}/register" style="display: inline-block; background: #16a34a; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: bold;">
-                 Register on PeaksNature
-               </a>
-             </div>`;
-
-        const { data: emailResult, error: emailError } = await resend.emails.send({
-          from: fromEmail,
-          to: trimmedEmail,
-          subject: `You've been invited as an assistant on PeaksNature`,
-          html: `
+        const { data: emailResult, error: emailError } =
+          await resend.emails.send({
+            from: fromEmail,
+            to: trimmedEmail,
+            subject: `You've been invited as an assistant on PeaksNature`,
+            html: `
             <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
               <div style="background: #16a34a; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
                 <h1 style="color: white; margin: 0; font-size: 22px;">Assistant Invitation</h1>
@@ -214,33 +217,44 @@ export async function POST(req: NextRequest) {
                 <p style="font-size: 16px; color: #374151; margin-top: 0;">
                   <strong>${hostRow.name}</strong> has invited you as an assistant to help manage their homestay on PeaksNature.
                 </p>
-                ${actionHtml}
+                <p style="font-size: 14px; color: #6b7280;">
+                  Click the button below to accept the invitation and access the dashboard:
+                </p>
+                <div style="text-align: center; margin: 24px 0;">
+                  <a href="${magicLink}" style="display: inline-block; background: #16a34a; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
+                    Accept Invitation
+                  </a>
+                </div>
                 <p style="font-size: 13px; color: #9ca3af; margin-top: 24px;">
-                  If you didn't expect this invitation, you can safely ignore this email.
+                  This link expires in 24 hours. If you didn't expect this invitation, you can safely ignore this email.
                 </p>
                 <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
                 <p style="color: #9ca3af; font-size: 12px; margin-bottom: 0;">PeaksNature — Nature Homestays in Thailand</p>
               </div>
             </div>
           `,
-        });
+          });
 
         if (emailError) {
-          console.error("[Assistant Invite] Resend API error:", JSON.stringify(emailError));
+          console.error(
+            "[Assistant Invite] Resend API error:",
+            JSON.stringify(emailError)
+          );
         } else {
-          console.log(`[Assistant Invite] Email sent OK, id=${emailResult?.id}`);
+          console.log(
+            `[Assistant Invite] Email sent OK, id=${emailResult?.id}`
+          );
         }
       } catch (emailErr) {
         console.error("[Assistant Invite] Email send exception:", emailErr);
       }
     } else {
-      console.log("[Assistant Invite] Skipped email — RESEND_API_KEY not configured");
+      console.log(
+        "[Assistant Invite] Skipped email — RESEND_API_KEY not configured"
+      );
     }
 
-    return NextResponse.json({
-      success: true,
-      activated: !!assistantUserId,
-    });
+    return NextResponse.json({ success: true });
   } catch (error) {
     console.error("POST /api/host-assistants error:", error);
     return NextResponse.json(

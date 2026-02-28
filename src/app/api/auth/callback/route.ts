@@ -59,50 +59,51 @@ export async function GET(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (user) {
-      // Create host record if it doesn't exist yet (first-time email verification)
       const serviceClient = createServiceRoleClient();
+
+      // Always activate any pending assistant invitations for this user
+      const { data: pendingInvites } = await serviceClient
+        .from("host_assistants")
+        .select("id")
+        .eq("email", user.email!)
+        .eq("status", "pending");
+
+      if (pendingInvites && pendingInvites.length > 0) {
+        const ids = (pendingInvites as { id: string }[]).map((i) => i.id);
+        await serviceClient
+          .from("host_assistants")
+          .update({
+            user_id: user.id,
+            status: "active",
+            accepted_at: new Date().toISOString(),
+          } as never)
+          .in("id", ids);
+        console.log(`[Auth Callback] Activated ${ids.length} assistant invitation(s) for ${user.email}`);
+      }
+
+      // Create host record if it doesn't exist yet (first-time registration)
       const { data: existingHost } = await serviceClient
         .from("hosts")
         .select("id")
         .eq("user_id", user.id)
         .single();
 
-      if (!existingHost) {
-        // Check if this user has a pending assistant invitation
-        const { data: pendingInvites } = await serviceClient
-          .from("host_assistants")
-          .select("id")
-          .eq("email", user.email!)
-          .eq("status", "pending");
+      if (!existingHost && !(pendingInvites && pendingInvites.length > 0)) {
+        // Normal host registration — create host record (skip if user is an invited assistant)
+        const name =
+          user.user_metadata?.name || user.email?.split("@")[0] || "Host";
+        const { error: hostError } = await serviceClient
+          .from("hosts")
+          .insert({
+            user_id: user.id,
+            name,
+            email: user.email!,
+            phone: null,
+            promptpay_id: "",
+          } as never);
 
-        if (pendingInvites && pendingInvites.length > 0) {
-          // This user is an invited assistant — activate invitations, do NOT create a host record
-          const ids = (pendingInvites as { id: string }[]).map((i) => i.id);
-          await serviceClient
-            .from("host_assistants")
-            .update({
-              user_id: user.id,
-              status: "active",
-              accepted_at: new Date().toISOString(),
-            } as never)
-            .in("id", ids);
-        } else {
-          // Normal host registration — create host record
-          const name =
-            user.user_metadata?.name || user.email?.split("@")[0] || "Host";
-          const { error: hostError } = await serviceClient
-            .from("hosts")
-            .insert({
-              user_id: user.id,
-              name,
-              email: user.email!,
-              phone: null,
-              promptpay_id: "",
-            } as never);
-
-          if (hostError) {
-            console.error("Host record creation error:", hostError);
-          }
+        if (hostError) {
+          console.error("Host record creation error:", hostError);
         }
       }
     }
