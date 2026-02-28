@@ -254,14 +254,15 @@ export default function LoginPage() {
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {t("signInButton")}
               </Button>
-              <div className="relative my-1">
+
+              {/* <div className="relative my-1">
                 <div className="absolute inset-0 flex items-center">
                   <span className="w-full border-t" />
                 </div>
                 <div className="relative flex justify-center text-xs uppercase">
                   <span className="bg-white px-2 text-gray-400">{t("or")}</span>
                 </div>
-              </div>
+              </div> */}
 
               {/* {magicLinkSent ? (
                 <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-3 text-center text-sm text-green-700">
