@@ -77,8 +77,7 @@ export function BookingSection({
   const [step, setStep] = useState<BookingStep>("dates");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
-  const [numAdults, setNumAdults] = useState(1);
-  const [numChildren, setNumChildren] = useState(0);
+  const [numGuests, setNumGuests] = useState("2");
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
@@ -554,7 +553,7 @@ export function BookingSection({
           notes: guestNote || undefined,
           check_in: format(dateRange.from, "yyyy-MM-dd"),
           check_out: format(dateRange.to, "yyyy-MM-dd"),
-          num_guests: numAdults + numChildren,
+          num_guests: parseInt(numGuests),
           total_price: totalPrice,
           payment_type: paymentOption,
           amount_paid: paymentAmount,
@@ -722,68 +721,23 @@ export function BookingSection({
                     </p>
                   )}
 
-                  <div className="space-y-1">
+                  <div>
                     <Label>{t("numGuests")}</Label>
-                    {(() => {
-                      const maxGuests = selectedRoom?.max_guests || homestay.max_guests;
-                      const totalGuests = numAdults + numChildren;
-                      return (
-                        <div className="mt-1 space-y-3">
-                          {/* Adults row */}
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-base font-medium text-gray-900">{t("adults")}</p>
-                              <p className="text-sm text-gray-400">{t("adultsAge")}</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <button
-                                type="button"
-                                disabled={numAdults <= 1}
-                                onClick={() => setNumAdults((v) => Math.max(1, v - 1))}
-                                className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-300 text-gray-500 transition-colors hover:border-gray-400 disabled:opacity-30 disabled:cursor-not-allowed"
-                              >
-                                −
-                              </button>
-                              <span className="w-6 text-center text-base font-medium text-gray-900">{numAdults}</span>
-                              <button
-                                type="button"
-                                disabled={totalGuests >= maxGuests}
-                                onClick={() => setNumAdults((v) => v + 1)}
-                                className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-300 text-gray-500 transition-colors hover:border-gray-400 disabled:opacity-30 disabled:cursor-not-allowed"
-                              >
-                                +
-                              </button>
-                            </div>
-                          </div>
-                          {/* Children row */}
-                          <div className="flex items-center justify-between">
-                            <div>
-                              <p className="text-base font-medium text-gray-900">{t("children")}</p>
-                              <p className="text-sm text-gray-400">{t("childrenAge")}</p>
-                            </div>
-                            <div className="flex items-center gap-3">
-                              <button
-                                type="button"
-                                disabled={numChildren <= 0}
-                                onClick={() => setNumChildren((v) => Math.max(0, v - 1))}
-                                className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-300 text-gray-500 transition-colors hover:border-gray-400 disabled:opacity-30 disabled:cursor-not-allowed"
-                              >
-                                −
-                              </button>
-                              <span className="w-6 text-center text-base font-medium text-gray-900">{numChildren}</span>
-                              <button
-                                type="button"
-                                disabled={totalGuests >= maxGuests}
-                                onClick={() => setNumChildren((v) => v + 1)}
-                                className="flex h-9 w-9 items-center justify-center rounded-full border border-gray-300 text-gray-500 transition-colors hover:border-gray-400 disabled:opacity-30 disabled:cursor-not-allowed"
-                              >
-                                +
-                              </button>
-                            </div>
-                          </div>
-                        </div>
-                      );
-                    })()}
+                    <Select value={numGuests} onValueChange={setNumGuests}>
+                      <SelectTrigger className="mt-1 w-full">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        {Array.from(
+                          { length: selectedRoom?.max_guests || homestay.max_guests },
+                          (_, i) => (
+                            <SelectItem key={i + 1} value={String(i + 1)}>
+                              {i + 1} {tc("guests")}
+                            </SelectItem>
+                          )
+                        )}
+                      </SelectContent>
+                    </Select>
                   </div>
                 </CardContent>
               </Card>
@@ -993,7 +947,7 @@ export function BookingSection({
                     {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy", locale)}
                   </p>
                   <p>
-                    <strong>{tc("guests")}:</strong> {numAdults} {t("adults")}, {numChildren} {t("children")}
+                    <strong>{tc("guests")}:</strong> {numGuests}
                   </p>
                   {(homestay.check_in_time || homestay.check_out_time) && (
                     <div className="mt-2 flex gap-3 text-xs text-gray-500">
@@ -1386,7 +1340,7 @@ export function BookingSection({
                     {dateRange?.from && fmtDate(dateRange.from, "MMM d", locale)} —{" "}
                     {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy", locale)}
                   </p>
-                  <p><strong>{tc("guests")}:</strong> {numAdults} {t("adults")}, {numChildren} {t("children")}</p>
+                  <p><strong>{tc("guests")}:</strong> {numGuests}</p>
                   <p><strong>{t("guestInfo")}:</strong> {guestName}</p>
                   {guestNote && (
                     <p><strong>{t("notes")}:</strong> {guestNote}</p>
@@ -1416,8 +1370,6 @@ export function BookingSection({
                     setSlipVerified(false);
                     setDateRange(undefined);
                     setSelectedRoomId("");
-                    setNumAdults(1);
-                    setNumChildren(0);
                     setGuestName("");
                     setGuestEmail("");
                     setGuestPhone("");
@@ -1490,7 +1442,7 @@ export function BookingSection({
             )}
             <div className="flex justify-between">
               <span className="text-gray-500">{tc("guests")}</span>
-              <span className="font-medium text-gray-900">{numAdults} {t("adults")}, {numChildren} {t("children")}</span>
+              <span className="font-medium text-gray-900">{numGuests}</span>
             </div>
             <Separator />
             <div className="flex justify-between">
