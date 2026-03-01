@@ -255,10 +255,26 @@ export default function HomestayPage() {
     const files = e.target.files;
     if (!files || !hostId) return;
 
+    // Check if already at limit
+    if (gallery.length >= 4) {
+      toast.error(t("errorImageLimitReached"));
+      if (galleryInputRef.current) galleryInputRef.current.value = "";
+      return;
+    }
+
+    // Calculate remaining slots
+    const remainingSlots = 4 - gallery.length;
+    const filesToUpload = Array.from(files).slice(0, remainingSlots);
+
+    // Show warning if trying to upload more than allowed
+    if (files.length > remainingSlots) {
+      toast.error(t("errorImageLimit"));
+    }
+
     setUploadingGallery(true);
     try {
       const urls: string[] = [];
-      for (const file of Array.from(files)) {
+      for (const file of filesToUpload) {
         const url = await uploadFile(file, "gallery");
         if (url) urls.push(url);
       }
@@ -266,7 +282,7 @@ export default function HomestayPage() {
         setGallery((prev) => [...prev, ...urls]);
         toast.success(t("uploadSuccess"));
       }
-      if (urls.length < files.length) {
+      if (urls.length < filesToUpload.length) {
         toast.error(t("errorUpload"));
       }
     } catch {

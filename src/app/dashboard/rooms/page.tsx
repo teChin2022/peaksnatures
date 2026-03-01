@@ -219,11 +219,28 @@ export default function RoomsPage() {
     const files = e.target.files;
     if (!files || !homestayId) return;
 
+    // Check if already at limit
+    if (roomImages.length >= 4) {
+      toast.error(t("errorImageLimitReached"));
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    // Calculate remaining slots
+    const remainingSlots = 4 - roomImages.length;
+    const filesToUpload = Array.from(files).slice(0, remainingSlots);
+
+    // Show warning if trying to upload more than allowed
+    if (files.length > remainingSlots) {
+      toast.error(t("errorImageLimit"));
+    }
+
     setUploading(true);
     const supabase = createClient();
 
     try {
-      for (const file of Array.from(files)) {
+      let uploadedCount = 0;
+      for (const file of filesToUpload) {
         const ext = file.name.split(".").pop();
         const path = `${homestayId}/rooms/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
@@ -242,8 +259,11 @@ export default function RoomsPage() {
         } = supabase.storage.from("homestay-photos").getPublicUrl(path);
 
         setRoomImages((prev) => [...prev, publicUrl]);
+        uploadedCount++;
       }
-      toast.success(t("uploadSuccess"));
+      if (uploadedCount > 0) {
+        toast.success(t("uploadSuccess"));
+      }
     } catch {
       toast.error(t("errorUpload"));
     } finally {
