@@ -40,21 +40,24 @@ export function RichTextEditor({
         placeholder,
       }),
     ],
-    content: value,
+    content: value || "",
     onUpdate: ({ editor }) => {
       onChange(editor.getHTML());
     },
     editorProps: {
       attributes: {
         class:
-          "prose prose-sm max-w-none focus:outline-none min-h-[120px] px-3 py-2",
+          "prose prose-sm max-w-none focus:outline-none min-h-[120px] px-3 py-2 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:ml-0 [&_p]:my-2",
       },
     },
   });
 
   useEffect(() => {
-    if (editor && value !== editor.getHTML()) {
-      editor.commands.setContent(value);
+    if (editor && value !== undefined && value !== null) {
+      const currentContent = editor.getHTML();
+      if (value !== currentContent) {
+        editor.commands.setContent(value || "");
+      }
     }
   }, [value, editor]);
 
@@ -69,7 +72,10 @@ export function RichTextEditor({
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => editor.chain().focus().toggleBold().run()}
+          onClick={(e) => {
+            e.preventDefault();
+            editor.chain().focus().toggleBold().run();
+          }}
           className={`h-8 w-8 p-0 ${
             editor.isActive("bold") ? "bg-gray-200" : ""
           }`}
@@ -81,7 +87,10 @@ export function RichTextEditor({
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => editor.chain().focus().toggleItalic().run()}
+          onClick={(e) => {
+            e.preventDefault();
+            editor.chain().focus().toggleItalic().run();
+          }}
           className={`h-8 w-8 p-0 ${
             editor.isActive("italic") ? "bg-gray-200" : ""
           }`}
@@ -94,7 +103,10 @@ export function RichTextEditor({
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => editor.chain().focus().toggleBulletList().run()}
+          onClick={(e) => {
+            e.preventDefault();
+            editor.chain().focus().toggleBulletList().run();
+          }}
           className={`h-8 w-8 p-0 ${
             editor.isActive("bulletList") ? "bg-gray-200" : ""
           }`}
@@ -106,7 +118,10 @@ export function RichTextEditor({
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => editor.chain().focus().toggleOrderedList().run()}
+          onClick={(e) => {
+            e.preventDefault();
+            editor.chain().focus().toggleOrderedList().run();
+          }}
           className={`h-8 w-8 p-0 ${
             editor.isActive("orderedList") ? "bg-gray-200" : ""
           }`}
@@ -119,7 +134,10 @@ export function RichTextEditor({
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => editor.chain().focus().undo().run()}
+          onClick={(e) => {
+            e.preventDefault();
+            editor.chain().focus().undo().run();
+          }}
           disabled={!editor.can().undo()}
           className="h-8 w-8 p-0"
           title="Undo"
@@ -130,7 +148,10 @@ export function RichTextEditor({
           type="button"
           variant="ghost"
           size="sm"
-          onClick={() => editor.chain().focus().redo().run()}
+          onClick={(e) => {
+            e.preventDefault();
+            editor.chain().focus().redo().run();
+          }}
           disabled={!editor.can().redo()}
           className="h-8 w-8 p-0"
           title="Redo"
@@ -138,7 +159,12 @@ export function RichTextEditor({
           <Redo className="h-4 w-4" />
         </Button>
       </div>
-      <EditorContent editor={editor} />
+      <div 
+        className="cursor-text"
+        onClick={() => editor.chain().focus().run()}
+      >
+        <EditorContent editor={editor} />
+      </div>
     </div>
   );
 }
