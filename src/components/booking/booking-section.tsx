@@ -29,6 +29,7 @@ import { ReviewsSection } from "@/components/booking/reviews-section";
 import { THAI_PROVINCES, getProvinceLabel } from "@/lib/provinces";
 import generatePayload from "promptpay-qr";
 import { QRCodeSVG } from "qrcode.react";
+import { HTMLContent } from "@/components/ui/html-content";
 import {
   Dialog,
   DialogContent,
@@ -587,6 +588,7 @@ export function BookingSection({
       setBookingId(booking.id);
       setSlipVerified(true);
       // Hold is cleaned up server-side by create_booking_atomic; clear local state
+      releaseHold();
       setHoldId(null);
       setHoldExpiresAt(null);
       if (holdTimerRef.current) {
@@ -715,9 +717,11 @@ export function BookingSection({
                   </Select>
 
                   {selectedRoom && (
-                    <p className="text-sm text-gray-500">
-                      {selectedRoom.description} · {tc("guests", { count: selectedRoom.max_guests })}
-                    </p>
+                    <div className="text-sm text-gray-500">
+                      <HTMLContent content={selectedRoom.description || ""} className="inline" />
+                      {selectedRoom.description && " · "}
+                      {tc("guests", { count: selectedRoom.max_guests })}
+                    </div>
                   )}
 
                   <div>

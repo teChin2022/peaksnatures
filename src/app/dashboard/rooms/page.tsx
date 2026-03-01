@@ -26,6 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Dialog,
   DialogContent,
@@ -219,11 +220,28 @@ export default function RoomsPage() {
     const files = e.target.files;
     if (!files || !homestayId) return;
 
+    // Check if already at limit
+    if (roomImages.length >= 4) {
+      toast.error(t("errorImageLimitReached"));
+      if (fileInputRef.current) fileInputRef.current.value = "";
+      return;
+    }
+
+    // Calculate remaining slots
+    const remainingSlots = 4 - roomImages.length;
+    const filesToUpload = Array.from(files).slice(0, remainingSlots);
+
+    // Show warning if trying to upload more than allowed
+    if (files.length > remainingSlots) {
+      toast.error(t("errorImageLimit"));
+    }
+
     setUploading(true);
     const supabase = createClient();
 
     try {
-      for (const file of Array.from(files)) {
+      let uploadedCount = 0;
+      for (const file of filesToUpload) {
         const ext = file.name.split(".").pop();
         const path = `${homestayId}/rooms/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 
@@ -242,8 +260,11 @@ export default function RoomsPage() {
         } = supabase.storage.from("homestay-photos").getPublicUrl(path);
 
         setRoomImages((prev) => [...prev, publicUrl]);
+        uploadedCount++;
       }
-      toast.success(t("uploadSuccess"));
+      if (uploadedCount > 0) {
+        toast.success(t("uploadSuccess"));
+      }
     } catch {
       toast.error(t("errorUpload"));
     } finally {
@@ -643,11 +664,10 @@ export default function RoomsPage() {
 
             <div className="space-y-2">
               <Label>{t("roomDescription")}</Label>
-              <Textarea
+              <RichTextEditor
                 value={roomDesc}
-                onChange={(e) => setRoomDesc(e.target.value)}
+                onChange={setRoomDesc}
                 placeholder={t("roomDescPlaceholder")}
-                rows={3}
               />
             </div>
 
