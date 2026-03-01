@@ -587,6 +587,7 @@ export function BookingSection({
       setBookingId(booking.id);
       setSlipVerified(true);
       // Hold is cleaned up server-side by create_booking_atomic; clear local state
+      releaseHold();
       setHoldId(null);
       setHoldExpiresAt(null);
       if (holdTimerRef.current) {

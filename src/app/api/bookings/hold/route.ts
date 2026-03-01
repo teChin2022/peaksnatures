@@ -38,7 +38,7 @@ export async function POST(req: NextRequest) {
         p_check_in: check_in,
         p_check_out: check_out,
         p_session_id: session_id,
-        p_hold_minutes: 5,
+        p_hold_minutes: 10,
       } as never
     );
 
@@ -73,7 +73,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Calculate expires_at for the client countdown
-    const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString();
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000).toISOString();
 
     return NextResponse.json(
       { hold_id: data, expires_at: expiresAt },
