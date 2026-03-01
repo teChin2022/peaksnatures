@@ -26,6 +26,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import {
   Dialog,
   DialogContent,
@@ -663,11 +664,10 @@ export default function RoomsPage() {
 
             <div className="space-y-2">
               <Label>{t("roomDescription")}</Label>
-              <Textarea
+              <RichTextEditor
                 value={roomDesc}
-                onChange={(e) => setRoomDesc(e.target.value)}
+                onChange={setRoomDesc}
                 placeholder={t("roomDescPlaceholder")}
-                rows={3}
               />
             </div>
 

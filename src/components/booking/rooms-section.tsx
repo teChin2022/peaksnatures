@@ -7,6 +7,7 @@ import { Users, BedDouble } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useTranslations } from "next-intl";
 import { getPriceRange } from "@/lib/calculate-price";
+import { HTMLContent } from "@/components/ui/html-content";
 
 interface RoomsSectionProps {
   rooms: Room[];
@@ -87,9 +88,7 @@ export function RoomsSection({ rooms, themeColor = "#16a34a", seasonalPrices = [
                   );
                 })()}
                 {room.description && (
-                  <p className="mt-2 text-sm leading-relaxed text-gray-500 line-clamp-2">
-                    {room.description}
-                  </p>
+                  <HTMLContent content={room.description} className="mt-2 text-sm leading-relaxed text-gray-500 line-clamp-2" />
                 )}
                 <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
                   <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1">

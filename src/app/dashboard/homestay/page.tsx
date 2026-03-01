@@ -31,6 +31,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { useThemeColor } from "@/components/dashboard/theme-context";
+import { RichTextEditor } from "@/components/ui/rich-text-editor";
 
 interface HomestayData {
   id: string;
@@ -524,11 +525,10 @@ export default function HomestayPage() {
                 <FileText className="h-3.5 w-3.5" />
                 {t("description")}
               </Label>
-              <Textarea
+              <RichTextEditor
                 value={description}
-                onChange={(e) => setDescription(e.target.value)}
+                onChange={setDescription}
                 placeholder={t("descriptionPlaceholder")}
-                rows={4}
               />
             </div>
           </CardContent>

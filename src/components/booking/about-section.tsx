@@ -12,6 +12,7 @@ import {
 } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useTranslations } from "next-intl";
+import { HTMLContent } from "@/components/ui/html-content";
 
 const AMENITY_ICONS: Record<string, React.ElementType> = {
   WiFi: Wifi,
@@ -56,7 +57,7 @@ export function AboutSection({
 
             {/* Description card with accent bar */}
             <div className="mt-3 px-3 flex gap-0 overflow-hidden border rounded-xl">
-              <p className="py-4 leading-relaxed text-gray-600">{description}</p>
+              <HTMLContent content={description} className="py-4 leading-relaxed text-gray-600" />
             </div>
           </div>
 
