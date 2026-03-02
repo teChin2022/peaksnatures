@@ -407,6 +407,8 @@ export interface Database {
           status: "pending" | "active" | "revoked";
           invited_at: string;
           accepted_at: string | null;
+          invite_token_hash: string | null;
+          invite_expires_at: string | null;
         };
         Insert: {
           id?: string;
@@ -417,6 +419,8 @@ export interface Database {
           status?: "pending" | "active" | "revoked";
           invited_at?: string;
           accepted_at?: string | null;
+          invite_token_hash?: string | null;
+          invite_expires_at?: string | null;
         };
         Update: {
           id?: string;
@@ -427,6 +431,8 @@ export interface Database {
           status?: "pending" | "active" | "revoked";
           invited_at?: string;
           accepted_at?: string | null;
+          invite_token_hash?: string | null;
+          invite_expires_at?: string | null;
         };
       };
     };
