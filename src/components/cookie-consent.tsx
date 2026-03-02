@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import { Cookie, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "next-intl";
@@ -17,14 +17,10 @@ function setCookie(name: string, value: string, days: number) {
 
 export function CookieConsent() {
   const t = useTranslations("cookie");
-  const [visible, setVisible] = useState(false);
-
-  useEffect(() => {
-    const consent = getCookie("cookie_consent");
-    if (!consent) {
-      setVisible(true);
-    }
-  }, []);
+  const [visible, setVisible] = useState(() => {
+    if (typeof document === "undefined") return false;
+    return !getCookie("cookie_consent");
+  });
 
   const handleAccept = () => {
     setCookie("cookie_consent", "accepted", 365);
