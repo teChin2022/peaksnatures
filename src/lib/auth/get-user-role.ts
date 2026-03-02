@@ -21,22 +21,27 @@ export async function getUserRole(): Promise<UserRole | null> {
     .from("hosts")
     .select("id")
     .eq("user_id", user.id)
-    .single();
+    .maybeSingle();
 
   if (host) {
     return { role: "owner", hostId: (host as { id: string }).id };
   }
 
   // Check if user is an active assistant
-  const { data: assistant } = await supabase
-    .from("host_assistants")
-    .select("host_id")
-    .eq("user_id", user.id)
-    .eq("status", "active")
-    .single();
+  try {
+    const { data: assistant } = await supabase
+      .from("host_assistants")
+      .select("host_id")
+      .eq("user_id", user.id)
+      .eq("status", "active")
+      .limit(1)
+      .maybeSingle();
 
-  if (assistant) {
-    return { role: "assistant", hostId: (assistant as { host_id: string }).host_id };
+    if (assistant) {
+      return { role: "assistant", hostId: (assistant as { host_id: string }).host_id };
+    }
+  } catch {
+    // Table may not exist yet or RLS error — treat as no assistant
   }
 
   return null;

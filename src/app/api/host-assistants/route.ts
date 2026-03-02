@@ -115,6 +115,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Enforce assistant limit (max 10 active/pending per host)
+    const { count: assistantCount } = await supabase
+      .from("host_assistants")
+      .select("id", { count: "exact", head: true })
+      .eq("host_id", hostRow.id)
+      .in("status", ["pending", "active"]);
+
+    if ((assistantCount ?? 0) >= 10) {
+      return NextResponse.json(
+        { error: "Maximum 10 assistants allowed" },
+        { status: 400 }
+      );
+    }
+
     const serviceClient = createServiceRoleClient();
     const origin =
       req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "";
@@ -198,7 +212,7 @@ export async function POST(req: NextRequest) {
         cta: "Click the button below to accept the invitation and access the dashboard:",
         button: "Accept Invitation",
         expiry:
-          "This link expires in 24 hours. If you didn't expect this invitation, you can safely ignore this email.",
+          "This link expires in 1 hour. If you didn't expect this invitation, you can safely ignore this email.",
         footer: "PeaksNature — Nature Homestays in Thailand",
       },
       th: {
@@ -209,7 +223,7 @@ export async function POST(req: NextRequest) {
         cta: "กดปุ่มด้านล่างเพื่อยอมรับคำเชิญและเข้าถึงแดชบอร์ด:",
         button: "ยอมรับคำเชิญ",
         expiry:
-          "ลิงก์นี้จะหมดอายุใน 24 ชั่วโมง หากคุณไม่ได้คาดหวังคำเชิญนี้ สามารถเพิกเฉยอีเมลนี้ได้",
+          "ลิงก์นี้จะหมดอายุใน 1 ชั่วโมง หากคุณไม่ได้คาดหวังคำเชิญนี้ สามารถเพิกเฉยอีเมลนี้ได้",
         footer: "PeaksNature — โฮมสเตย์ธรรมชาติในประเทศไทย",
       },
     }[locale];
@@ -243,7 +257,7 @@ export async function POST(req: NextRequest) {
               </div>
               <div style="padding: 32px 24px; border: 1px solid #e5e7eb; border-top: 0; border-radius: 0 0 12px 12px;">
                 <p style="font-size: 16px; color: #374151; margin-top: 0;">
-                  ${emailT.body(hostRow.name)}
+                  ${emailT.body(hostRow.name.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;").replace(/"/g, "&quot;"))}
                 </p>
                 <p style="font-size: 14px; color: #6b7280;">
                   ${emailT.cta}
@@ -282,7 +296,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, activated: false });
   } catch (error) {
     console.error("POST /api/host-assistants error:", error);
     return NextResponse.json(

@@ -7,6 +7,7 @@ import { Sidebar, MobileSidebar } from "./sidebar";
 import { ThemeProvider } from "./theme-context";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
+import { getUserRole } from "@/lib/auth/get-user-role";
 
 export type DashboardRole = "owner" | "assistant" | null;
 
@@ -39,52 +40,21 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
   useEffect(() => {
     const fetchBrand = async () => {
-      const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      const userRole = await getUserRole();
 
-      // Try owner first
-      const { data: host } = await supabase
-        .from("hosts")
-        .select("id")
-        .eq("user_id", user.id)
-        .maybeSingle();
-
-      let resolvedHostId: string | null = null;
-
-      if (host) {
-        resolvedHostId = (host as { id: string }).id;
-        setRole("owner");
-      } else {
-        // Check if user is an assistant
-        try {
-          const { data: assistant } = await supabase
-            .from("host_assistants")
-            .select("host_id")
-            .eq("user_id", user.id)
-            .eq("status", "active")
-            .limit(1)
-            .maybeSingle();
-
-          if (assistant) {
-            resolvedHostId = (assistant as { host_id: string }).host_id;
-            setRole("assistant");
-          }
-        } catch {
-          // Table may not exist yet or RLS error — treat as no assistant
-        }
-      }
-
-      if (!resolvedHostId) {
+      if (!userRole) {
         setRole("owner"); // default to owner so pages don't hang waiting for role
         return;
       }
-      setHostId(resolvedHostId);
 
+      setRole(userRole.role);
+      setHostId(userRole.hostId);
+
+      const supabase = createClient();
       const { data: homestay } = await supabase
         .from("homestays")
         .select("name, logo_url, theme_color")
-        .eq("host_id", resolvedHostId)
+        .eq("host_id", userRole.hostId)
         .limit(1)
         .single();
 
