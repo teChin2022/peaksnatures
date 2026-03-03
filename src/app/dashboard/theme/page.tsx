@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
-import { useUserRole } from "@/components/dashboard/dashboard-shell";
 import { Palette, Loader2, Save, Check, Eye } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -44,11 +43,7 @@ export default function ThemePage() {
   const [saving, setSaving] = useState(false);
   const [themeColor, setThemeColor] = useState("#16a34a");
 
-  const { role, hostId: contextHostId } = useUserRole();
-  const isAssistant = role === "assistant";
-
   useEffect(() => {
-    if (role === null) return;
     const fetch = async () => {
       const supabase = createClient();
       const {
@@ -56,12 +51,7 @@ export default function ThemePage() {
       } = await supabase.auth.getUser();
       if (!user) return;
 
-      let hostQuery = supabase.from("hosts").select("id");
-      if (isAssistant && contextHostId) {
-        hostQuery = hostQuery.eq("id", contextHostId);
-      } else {
-        hostQuery = hostQuery.eq("user_id", user.id);
-      }
+      const hostQuery = supabase.from("hosts").select("id").eq("user_id", user.id);
       const { data: hostRow } = await hostQuery.maybeSingle();
 
       const host = hostRow as { id: string } | null;
@@ -85,7 +75,7 @@ export default function ThemePage() {
       setLoading(false);
     };
     fetch();
-  }, [role, contextHostId, isAssistant]);
+  }, []);
 
   const handleSave = async () => {
     if (!homestay) return;

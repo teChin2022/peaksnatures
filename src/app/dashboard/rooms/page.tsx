@@ -6,7 +6,6 @@ import { format, parse } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations, useLocale } from "next-intl";
-import { useUserRole } from "@/components/dashboard/dashboard-shell";
 import {
   BedDouble,
   Plus,
@@ -113,13 +112,9 @@ export default function RoomsPage() {
     setConfirmOpen(true);
   };
 
-  const { role, hostId: contextHostId } = useUserRole();
-  const isAssistant = role === "assistant";
-
   useEffect(() => {
-    if (role === null) return;
     fetchData();
-  }, [role, contextHostId]);
+  }, []);
 
   const fetchData = async () => {
     const supabase = createClient();
@@ -128,12 +123,7 @@ export default function RoomsPage() {
     } = await supabase.auth.getUser();
     if (!user) return;
 
-    let hostQuery = supabase.from("hosts").select("id");
-    if (isAssistant && contextHostId) {
-      hostQuery = hostQuery.eq("id", contextHostId);
-    } else {
-      hostQuery = hostQuery.eq("user_id", user.id);
-    }
+    const hostQuery = supabase.from("hosts").select("id").eq("user_id", user.id);
     const { data: hostRow } = await hostQuery.maybeSingle();
 
     const host = hostRow as { id: string } | null;
