@@ -99,6 +99,20 @@ export async function GET(req: NextRequest) {
 
       const isAssistant = (pendingInvites && pendingInvites.length > 0) || !!activeAssistant;
 
+      // Clean up stale empty host record if user is actually an assistant
+      if (existingHost && isAssistant) {
+        const hostId = (existingHost as { id: string }).id;
+        const { count: homestayCount } = await serviceClient
+          .from("homestays")
+          .select("id", { count: "exact", head: true })
+          .eq("host_id", hostId);
+
+        if (!homestayCount || homestayCount === 0) {
+          await serviceClient.from("hosts").delete().eq("id", hostId);
+          console.log(`[Auth Callback] Deleted stale empty host record ${hostId} for assistant ${user.email}`);
+        }
+      }
+
       if (!existingHost && !isAssistant) {
         // Normal host registration — create host record (skip if user is an invited assistant)
         const name =

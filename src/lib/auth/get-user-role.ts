@@ -16,18 +16,7 @@ export async function getUserRole(): Promise<UserRole | null> {
   } = await supabase.auth.getUser();
   if (!user) return null;
 
-  // Check if user is a host owner
-  const { data: host } = await supabase
-    .from("hosts")
-    .select("id")
-    .eq("user_id", user.id)
-    .maybeSingle();
-
-  if (host) {
-    return { role: "owner", hostId: (host as { id: string }).id };
-  }
-
-  // Check if user is an active assistant
+  // Check if user is an active assistant first (takes priority over stale host records)
   try {
     const { data: assistant } = await supabase
       .from("host_assistants")
@@ -42,6 +31,17 @@ export async function getUserRole(): Promise<UserRole | null> {
     }
   } catch {
     // Table may not exist yet or RLS error — treat as no assistant
+  }
+
+  // Check if user is a host owner
+  const { data: host } = await supabase
+    .from("hosts")
+    .select("id")
+    .eq("user_id", user.id)
+    .maybeSingle();
+
+  if (host) {
+    return { role: "owner", hostId: (host as { id: string }).id };
   }
 
   return null;
