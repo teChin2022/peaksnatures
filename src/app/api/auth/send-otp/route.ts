@@ -1,7 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { Resend } from "resend";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { createRateLimiter } from "@/lib/rate-limit";
+
+// Lazy singleton — created once per cold start, not per request
+let resendClient: Resend | null = null;
+function getResendClient(apiKey: string): Resend {
+  if (!resendClient) resendClient = new Resend(apiKey);
+  return resendClient;
+}
 
 const otpRateLimit = createRateLimiter({ limit: 5, windowMs: 60_000 });
 
@@ -51,8 +59,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify Turnstile CAPTCHA token
-    const captchaResult = await verifyTurnstileToken(turnstileToken || "");
+    // Run Turnstile verification and credential check in parallel
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+    );
+
+    const [captchaResult, signInResult] = await Promise.all([
+      verifyTurnstileToken(turnstileToken || ""),
+      supabase.auth.signInWithPassword({ email, password }),
+    ]);
+
     if (captchaResult === "fail") {
       return NextResponse.json(
         { error: "CAPTCHA verification failed" },
@@ -60,37 +77,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify credentials using a non-cookie Supabase client (throwaway)
-    const supabase = createClient(
-      process.env.NEXT_PUBLIC_SUPABASE_URL!,
-      process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
-    );
-
-    const { error: signInError } = await supabase.auth.signInWithPassword({
-      email,
-      password,
-    });
-
-    if (signInError) {
+    if (signInResult.error) {
       return NextResponse.json(
-        { error: signInError.message },
+        { error: signInResult.error.message },
         { status: 401 }
       );
     }
 
-    // Sign out the throwaway client immediately
-    await supabase.auth.signOut();
+    // Sign out the throwaway client (fire-and-forget — no need to await)
+    supabase.auth.signOut().catch(() => {});
 
     // Generate 6-digit OTP code
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 minutes
 
-    // Store OTP in DB (delete old codes for this email first)
+    // Store OTP in DB (delete old codes in parallel with insert)
     const serviceClient = createServiceRoleClient();
-    await serviceClient.from("login_otps").delete().eq("email", email);
-    const { error: insertError } = await serviceClient
-      .from("login_otps")
-      .insert({ email, code, expires_at: expiresAt } as never);
+    const [, { error: insertError }] = await Promise.all([
+      serviceClient.from("login_otps").delete().eq("email", email),
+      serviceClient.from("login_otps").insert({ email, code, expires_at: expiresAt } as never),
+    ]);
 
     if (insertError) {
       console.error("[OTP] Failed to store OTP:", insertError);
@@ -104,8 +110,7 @@ export async function POST(req: NextRequest) {
     const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
     if (apiKey && apiKey !== "your_resend_api_key") {
       try {
-        const { Resend } = await import("resend");
-        const resend = new Resend(apiKey);
+        const resend = getResendClient(apiKey);
         const DEFAULT_FROM = "PeaksNature <onboarding@resend.dev>";
         const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
         const fromEmail = cleaned
