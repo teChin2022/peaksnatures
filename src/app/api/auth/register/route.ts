@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
 import type { Database } from "@/types/database";
 
 const registerSchema = z.object({
@@ -71,15 +71,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Create a lightweight Supabase client with the anon key for signUp
-    // (no cookies needed — signUp just creates the user and sends verification email)
-    const supabase = createClient<Database>(
+    const origin = req.headers.get("origin") || req.nextUrl.origin;
+
+    // Use SSR client so the PKCE code_verifier is persisted in response cookies
+    const response = NextResponse.json({ success: true });
+
+    const supabase = createServerClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
+      {
+        cookies: {
+          getAll() {
+            return req.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              response.cookies.set(name, value, options)
+            );
+          },
+        },
+      }
     );
-
-    const origin = req.headers.get("origin") || req.nextUrl.origin;
 
     const { error: signUpError } = await supabase.auth.signUp({
       email,
@@ -105,7 +117,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ success: true });
+    return response;
   } catch (error) {
     console.error("Register route error:", error);
     return NextResponse.json(
