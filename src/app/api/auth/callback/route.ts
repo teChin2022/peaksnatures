@@ -88,7 +88,32 @@ export async function GET(req: NextRequest) {
         .eq("user_id", user.id)
         .single();
 
-      if (!existingHost && !(pendingInvites && pendingInvites.length > 0)) {
+      // Check if user is already an active assistant (e.g. activated by accept-invite endpoint)
+      const { data: activeAssistant } = await serviceClient
+        .from("host_assistants")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .limit(1)
+        .maybeSingle();
+
+      const isAssistant = (pendingInvites && pendingInvites.length > 0) || !!activeAssistant;
+
+      // Clean up stale empty host record if user is actually an assistant
+      if (existingHost && isAssistant) {
+        const hostId = (existingHost as { id: string }).id;
+        const { count: homestayCount } = await serviceClient
+          .from("homestays")
+          .select("id", { count: "exact", head: true })
+          .eq("host_id", hostId);
+
+        if (!homestayCount || homestayCount === 0) {
+          await serviceClient.from("hosts").delete().eq("id", hostId);
+          console.log(`[Auth Callback] Deleted stale empty host record ${hostId} for assistant ${user.email}`);
+        }
+      }
+
+      if (!existingHost && !isAssistant) {
         // Normal host registration — create host record (skip if user is an invited assistant)
         const name =
           user.user_metadata?.name || user.email?.split("@")[0] || "Host";

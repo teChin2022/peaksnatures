@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
-import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key, Lock, Eye, EyeOff, Bell, BellOff, Trash2, AlertTriangle, UserPlus, ShieldAlert, X } from "lucide-react";
+import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key, Lock, Eye, EyeOff, Bell, BellOff, Trash2, AlertTriangle, UserPlus, ShieldAlert, X, RefreshCw, Clock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -76,7 +76,9 @@ export default function ProfilePage() {
   const [assistants, setAssistants] = useState<AssistantData[]>([]);
   const [inviteEmail, setInviteEmail] = useState("");
   const [inviteName, setInviteName] = useState("");
+  const [inviteExpiry, setInviteExpiry] = useState<number>(1);
   const [inviting, setInviting] = useState(false);
+  const [resendingId, setResendingId] = useState<string | null>(null);
 
   useEffect(() => {
     // Wait for role context to resolve before fetching
@@ -278,7 +280,7 @@ export default function ProfilePage() {
       const res = await fetch("/api/host-assistants", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email: inviteEmail.trim(), name: inviteName.trim() }),
+        body: JSON.stringify({ email: inviteEmail.trim(), name: inviteName.trim(), expiryDays: inviteExpiry }),
       });
       const data = await res.json();
       if (!res.ok) {
@@ -286,6 +288,8 @@ export default function ProfilePage() {
           toast.error(t("alreadyInvited"));
         } else if (data.error === "Cannot invite yourself") {
           toast.error(t("cannotInviteSelf"));
+        } else if (data.error === "Maximum 10 assistants allowed") {
+          toast.error(t("maxAssistants"));
         } else {
           toast.error(data.error || t("inviteError"));
         }
@@ -302,6 +306,36 @@ export default function ProfilePage() {
       toast.error(t("inviteError"));
     } finally {
       setInviting(false);
+    }
+  };
+
+  const handleResendInvite = async (assistant: AssistantData) => {
+    setResendingId(assistant.id);
+    try {
+      // Revoke old invitation, then re-invite with same email/name
+      await fetch("/api/host-assistants", {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ assistantId: assistant.id, action: "revoke" }),
+      });
+      const res = await fetch("/api/host-assistants", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ email: assistant.email, name: assistant.name, expiryDays: inviteExpiry }),
+      });
+      if (!res.ok) {
+        toast.error(t("resendError"));
+        return;
+      }
+      toast.success(t("resendSuccess"));
+      // Refresh assistants list
+      const listRes = await fetch("/api/host-assistants");
+      const listData = await listRes.json();
+      if (listData.assistants) setAssistants(listData.assistants as AssistantData[]);
+    } catch {
+      toast.error(t("resendError"));
+    } finally {
+      setResendingId(null);
     }
   };
 
@@ -791,6 +825,29 @@ export default function ProfilePage() {
                   placeholder={t("assistantNamePlaceholder")}
                 />
               </div>
+              <div className="space-y-2">
+                <Label className="flex items-center gap-2">
+                  <Clock className="h-3.5 w-3.5" />
+                  {t("inviteExpiry")}
+                </Label>
+                <div className="flex gap-2">
+                  {([1, 7, 30] as const).map((days) => (
+                    <button
+                      key={days}
+                      type="button"
+                      onClick={() => setInviteExpiry(days)}
+                      className={`flex-1 rounded-md border px-3 py-1.5 text-xs font-medium transition-colors ${
+                        inviteExpiry === days
+                          ? "border-transparent text-white"
+                          : "border-gray-200 bg-white text-gray-700 hover:bg-gray-50"
+                      }`}
+                      style={inviteExpiry === days ? { backgroundColor: themeColor } : undefined}
+                    >
+                      {days === 1 ? t("expiry1Day") : days === 7 ? t("expiry7Days") : t("expiry30Days")}
+                    </button>
+                  ))}
+                </div>
+              </div>
               <Button
                 onClick={handleInviteAssistant}
                 disabled={inviting || !inviteEmail.trim()}
@@ -832,6 +889,22 @@ export default function ProfilePage() {
                       >
                         {a.status === "active" ? t("statusActive") : t("statusPending")}
                       </span>
+                      {a.status === "pending" && (
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-gray-400 hover:text-blue-600"
+                          onClick={() => handleResendInvite(a)}
+                          disabled={resendingId === a.id}
+                          title={t("resend")}
+                        >
+                          {resendingId === a.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <RefreshCw className="h-3.5 w-3.5" />
+                          )}
+                        </Button>
+                      )}
                       <Button
                         variant="ghost"
                         size="icon"

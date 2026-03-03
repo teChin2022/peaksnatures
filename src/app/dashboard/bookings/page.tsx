@@ -113,11 +113,6 @@ export default function BookingsPage() {
   const { role, hostId: contextHostId } = useUserRole();
   const isAssistant = role === "assistant";
 
-  useEffect(() => {
-    if (role === null) return;
-    fetchBookings();
-  }, [role, contextHostId]);
-
   const fetchBookings = async () => {
     const supabase = createClient();
     const {
@@ -187,6 +182,12 @@ export default function BookingsPage() {
     setHasMore(rows.length === PAGE_SIZE && rows.length < (total || 0));
     setLoading(false);
   };
+
+  useEffect(() => {
+    if (role === null) return;
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch; setState calls occur after await boundaries
+    fetchBookings();
+  }, [role, contextHostId]);
 
   const loadMore = async () => {
     if (loadingMore || !hasMore) return;

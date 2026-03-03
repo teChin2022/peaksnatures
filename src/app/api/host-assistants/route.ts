@@ -1,8 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
+import { createHash, randomUUID } from "crypto";
 import {
   createServerSupabaseClient,
   createServiceRoleClient,
 } from "@/lib/supabase/server";
+
+function hashToken(token: string): string {
+  return createHash("sha256").update(token).digest("hex");
+}
 
 // GET — list assistants for the authenticated host
 export async function GET() {
@@ -80,7 +85,7 @@ export async function POST(req: NextRequest) {
 
     const hostRow = host as { id: string; name: string };
 
-    const { email, name } = await req.json();
+    const { email, name, expiryDays } = await req.json();
 
     if (!email || typeof email !== "string") {
       return NextResponse.json(
@@ -88,6 +93,10 @@ export async function POST(req: NextRequest) {
         { status: 400 }
       );
     }
+
+    // Validate expiryDays (1, 7, or 30; default 1)
+    const ALLOWED_EXPIRY = [1, 7, 30];
+    const expiry = ALLOWED_EXPIRY.includes(expiryDays) ? expiryDays : 1;
 
     const trimmedEmail = email.trim().toLowerCase();
 
@@ -112,6 +121,20 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "This email has already been invited" },
         { status: 409 }
+      );
+    }
+
+    // Enforce assistant limit (max 10 active/pending per host)
+    const { count: assistantCount } = await supabase
+      .from("host_assistants")
+      .select("id", { count: "exact", head: true })
+      .eq("host_id", hostRow.id)
+      .in("status", ["pending", "active"]);
+
+    if ((assistantCount ?? 0) >= 10) {
+      return NextResponse.json(
+        { error: "Maximum 10 assistants allowed" },
+        { status: 400 }
       );
     }
 
@@ -140,33 +163,35 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Step 2: Generate magic link (also returns the user object)
+    // Step 2: Look up the assistant's user ID via generateLink
     const { data: linkData, error: linkError } =
       await serviceClient.auth.admin.generateLink({
         type: "magiclink",
         email: trimmedEmail,
-        options: {
-          redirectTo: `${origin}/api/auth/callback?next=/dashboard`,
-        },
       });
 
-    if (linkError || !linkData) {
-      console.error("[Assistant Invite] Generate magic link error:", linkError);
+    if (linkError || !linkData?.user) {
+      console.error("[Assistant Invite] User lookup error:", linkError);
       return NextResponse.json(
-        { error: "Failed to generate invitation link" },
+        { error: "Failed to find assistant account" },
         { status: 500 }
       );
     }
 
     const assistantUserId = linkData.user.id;
-    // Build magic link that goes directly to our callback (avoids Supabase redirect issues)
-    const hashedToken = linkData.properties.hashed_token;
-    const magicLink = `${origin}/api/auth/callback?token_hash=${hashedToken}&type=magiclink&next=/dashboard`;
+
+    // Step 3: Generate custom invite token with configurable expiry
+    const rawToken = randomUUID();
+    const tokenHash = hashToken(rawToken);
+    const expiresAt = new Date();
+    expiresAt.setDate(expiresAt.getDate() + expiry);
+
+    const inviteLink = `${origin}/api/host-assistants/accept-invite?token=${rawToken}`;
     console.log(
-      `[Assistant Invite] email=${trimmedEmail}, userId=${assistantUserId}, magicLink generated`
+      `[Assistant Invite] email=${trimmedEmail}, userId=${assistantUserId}, expiry=${expiry}d`
     );
 
-    // Step 3: Insert the invitation
+    // Step 4: Insert the invitation
     const { error: insertError } = await serviceClient
       .from("host_assistants")
       .insert({
@@ -175,6 +200,8 @@ export async function POST(req: NextRequest) {
         email: trimmedEmail,
         name: assistantName,
         status: "pending",
+        invite_token_hash: tokenHash,
+        invite_expires_at: expiresAt.toISOString(),
       } as never);
 
     if (insertError) {
@@ -185,10 +212,16 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    console.log(`[Assistant Invite] Inserted OK. Sending magic link email...`);
+    console.log(`[Assistant Invite] Inserted OK. Sending invite email...`);
 
-    // Step 4: Send invitation email with magic link (locale-aware)
+    // Step 5: Send invitation email (locale-aware, dynamic expiry text)
     const locale = req.cookies.get("locale")?.value === "en" ? "en" : "th";
+    const expiryTextMap = {
+      en: { 1: "1 day", 7: "7 days", 30: "30 days" } as Record<number, string>,
+      th: { 1: "1 วัน", 7: "7 วัน", 30: "30 วัน" } as Record<number, string>,
+    };
+    const expiryLabel = expiryTextMap[locale][expiry];
+
     const emailT = {
       en: {
         subject: "You've been invited as an assistant on PeaksNature",
@@ -197,8 +230,7 @@ export async function POST(req: NextRequest) {
           `<strong>${h}</strong> has invited you as an assistant to help manage their homestay on PeaksNature.`,
         cta: "Click the button below to accept the invitation and access the dashboard:",
         button: "Accept Invitation",
-        expiry:
-          "This link expires in 24 hours. If you didn't expect this invitation, you can safely ignore this email.",
+        expiry: `This link expires in ${expiryLabel}. If you didn't expect this invitation, you can safely ignore this email.`,
         footer: "PeaksNature — Nature Homestays in Thailand",
       },
       th: {
@@ -208,8 +240,7 @@ export async function POST(req: NextRequest) {
           `<strong>${h}</strong> ได้เชิญคุณเป็นผู้ช่วยในการจัดการโฮมสเตย์บน PeaksNature`,
         cta: "กดปุ่มด้านล่างเพื่อยอมรับคำเชิญและเข้าถึงแดชบอร์ด:",
         button: "ยอมรับคำเชิญ",
-        expiry:
-          "ลิงก์นี้จะหมดอายุใน 24 ชั่วโมง หากคุณไม่ได้คาดหวังคำเชิญนี้ สามารถเพิกเฉยอีเมลนี้ได้",
+        expiry: `ลิงก์นี้จะหมดอายุใน ${expiryLabel} หากคุณไม่ได้คาดหวังคำเชิญนี้ สามารถเพิกเฉยอีเมลนี้ได้`,
         footer: "PeaksNature — โฮมสเตย์ธรรมชาติในประเทศไทย",
       },
     }[locale];
@@ -231,6 +262,12 @@ export async function POST(req: NextRequest) {
             )
           : DEFAULT_FROM;
 
+        const escapedName = hostRow.name
+          .replace(/&/g, "&amp;")
+          .replace(/</g, "&lt;")
+          .replace(/>/g, "&gt;")
+          .replace(/"/g, "&quot;");
+
         const { data: emailResult, error: emailError } =
           await resend.emails.send({
             from: fromEmail,
@@ -243,13 +280,13 @@ export async function POST(req: NextRequest) {
               </div>
               <div style="padding: 32px 24px; border: 1px solid #e5e7eb; border-top: 0; border-radius: 0 0 12px 12px;">
                 <p style="font-size: 16px; color: #374151; margin-top: 0;">
-                  ${emailT.body(hostRow.name)}
+                  ${emailT.body(escapedName)}
                 </p>
                 <p style="font-size: 14px; color: #6b7280;">
                   ${emailT.cta}
                 </p>
                 <div style="text-align: center; margin: 24px 0;">
-                  <a href="${magicLink}" style="display: inline-block; background: #16a34a; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
+                  <a href="${inviteLink}" style="display: inline-block; background: #16a34a; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
                     ${emailT.button}
                   </a>
                 </div>
@@ -282,7 +319,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, activated: false });
   } catch (error) {
     console.error("POST /api/host-assistants error:", error);
     return NextResponse.json(
