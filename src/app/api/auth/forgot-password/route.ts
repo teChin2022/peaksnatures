@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
-import { createClient } from "@supabase/supabase-js";
+import { createServerClient } from "@supabase/ssr";
 import type { Database } from "@/types/database";
 
 const forgotPasswordSchema = z.object({
@@ -61,13 +61,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const supabase = createClient<Database>(
+    const origin = req.headers.get("origin") || req.nextUrl.origin;
+
+    // Use SSR client so the PKCE code_verifier is persisted in response cookies
+    const response = NextResponse.json({ success: true });
+
+    const supabase = createServerClient<Database>(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
-      { auth: { autoRefreshToken: false, persistSession: false } }
+      {
+        cookies: {
+          getAll() {
+            return req.cookies.getAll();
+          },
+          setAll(cookiesToSet) {
+            cookiesToSet.forEach(({ name, value, options }) =>
+              response.cookies.set(name, value, options)
+            );
+          },
+        },
+      }
     );
-
-    const origin = req.headers.get("origin") || req.nextUrl.origin;
 
     const { error } = await supabase.auth.resetPasswordForEmail(email, {
       redirectTo: `${origin}/api/auth/callback?next=/reset-password`,
@@ -78,7 +92,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: error.message }, { status: 400 });
     }
 
-    return NextResponse.json({ success: true });
+    return response;
   } catch (error) {
     console.error("Forgot password route error:", error);
     return NextResponse.json(
