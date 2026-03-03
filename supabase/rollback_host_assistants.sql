@@ -10,10 +10,10 @@ DROP TABLE IF EXISTS host_assistants CASCADE;
 DROP TRIGGER IF EXISTS trg_prevent_assistant_sensitive_update ON hosts;
 
 -- 3. Drop functions (now safe — dependent policies were removed with the table)
-DROP FUNCTION IF EXISTS prevent_assistant_sensitive_update();
-DROP FUNCTION IF EXISTS get_host_ids_for_owner(uuid);
-DROP FUNCTION IF EXISTS get_host_ids_for_assistant(uuid);
-DROP FUNCTION IF EXISTS get_homestay_ids_for_hosts(uuid[]);
+DROP FUNCTION IF EXISTS prevent_assistant_sensitive_update() CASCADE;
+DROP FUNCTION IF EXISTS get_host_ids_for_owner(uuid) CASCADE;
+DROP FUNCTION IF EXISTS get_host_ids_for_assistant(uuid) CASCADE;
+DROP FUNCTION IF EXISTS get_homestay_ids_for_hosts(uuid[]) CASCADE;
 
 -- 4. Drop assistant-related RLS policies from other tables
 -- hosts
