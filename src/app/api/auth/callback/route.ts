@@ -88,7 +88,18 @@ export async function GET(req: NextRequest) {
         .eq("user_id", user.id)
         .single();
 
-      if (!existingHost && !(pendingInvites && pendingInvites.length > 0)) {
+      // Check if user is already an active assistant (e.g. activated by accept-invite endpoint)
+      const { data: activeAssistant } = await serviceClient
+        .from("host_assistants")
+        .select("id")
+        .eq("user_id", user.id)
+        .eq("status", "active")
+        .limit(1)
+        .maybeSingle();
+
+      const isAssistant = (pendingInvites && pendingInvites.length > 0) || !!activeAssistant;
+
+      if (!existingHost && !isAssistant) {
         // Normal host registration — create host record (skip if user is an invited assistant)
         const name =
           user.user_metadata?.name || user.email?.split("@")[0] || "Host";
