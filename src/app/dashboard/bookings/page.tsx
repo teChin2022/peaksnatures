@@ -4,7 +4,6 @@ import React, { useState, useEffect, useCallback, useRef } from "react";
 import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations, useLocale } from "next-intl";
-import { useUserRole } from "@/components/dashboard/dashboard-shell";
 import {
   Home,
   CalendarDays,
@@ -110,9 +109,6 @@ export default function BookingsPage() {
     []
   );
 
-  const { role, hostId: contextHostId } = useUserRole();
-  const isAssistant = role === "assistant";
-
   const fetchBookings = async () => {
     const supabase = createClient();
     const {
@@ -121,13 +117,11 @@ export default function BookingsPage() {
     if (!user) return;
 
     // Get host
-    let hostQuery = supabase.from("hosts").select("id");
-    if (isAssistant && contextHostId) {
-      hostQuery = hostQuery.eq("id", contextHostId);
-    } else {
-      hostQuery = hostQuery.eq("user_id", user.id);
-    }
-    const { data: hostRow } = await hostQuery.maybeSingle();
+    const { data: hostRow } = await supabase
+      .from("hosts")
+      .select("id")
+      .eq("user_id", user.id)
+      .single();
     const host = hostRow as { id: string } | null;
     if (!host) {
       setLoading(false);
@@ -184,10 +178,9 @@ export default function BookingsPage() {
   };
 
   useEffect(() => {
-    if (role === null) return;
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch; setState calls occur after await boundaries
     fetchBookings();
-  }, [role, contextHostId]);
+  }, []);
 
   const loadMore = async () => {
     if (loadingMore || !hasMore) return;

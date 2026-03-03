@@ -59,62 +59,15 @@ export async function GET(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (user) {
+      // Create host record if it doesn't exist yet (first-time email verification)
       const serviceClient = createServiceRoleClient();
-
-      // Always activate any pending assistant invitations for this user
-      const { data: pendingInvites } = await serviceClient
-        .from("host_assistants")
-        .select("id")
-        .eq("email", user.email!)
-        .eq("status", "pending");
-
-      if (pendingInvites && pendingInvites.length > 0) {
-        const ids = (pendingInvites as { id: string }[]).map((i) => i.id);
-        await serviceClient
-          .from("host_assistants")
-          .update({
-            user_id: user.id,
-            status: "active",
-            accepted_at: new Date().toISOString(),
-          } as never)
-          .in("id", ids);
-        console.log(`[Auth Callback] Activated ${ids.length} assistant invitation(s) for ${user.email}`);
-      }
-
-      // Create host record if it doesn't exist yet (first-time registration)
       const { data: existingHost } = await serviceClient
         .from("hosts")
         .select("id")
         .eq("user_id", user.id)
         .single();
 
-      // Check if user is already an active assistant (e.g. activated by accept-invite endpoint)
-      const { data: activeAssistant } = await serviceClient
-        .from("host_assistants")
-        .select("id")
-        .eq("user_id", user.id)
-        .eq("status", "active")
-        .limit(1)
-        .maybeSingle();
-
-      const isAssistant = (pendingInvites && pendingInvites.length > 0) || !!activeAssistant;
-
-      // Clean up stale empty host record if user is actually an assistant
-      if (existingHost && isAssistant) {
-        const hostId = (existingHost as { id: string }).id;
-        const { count: homestayCount } = await serviceClient
-          .from("homestays")
-          .select("id", { count: "exact", head: true })
-          .eq("host_id", hostId);
-
-        if (!homestayCount || homestayCount === 0) {
-          await serviceClient.from("hosts").delete().eq("id", hostId);
-          console.log(`[Auth Callback] Deleted stale empty host record ${hostId} for assistant ${user.email}`);
-        }
-      }
-
-      if (!existingHost && !isAssistant) {
-        // Normal host registration — create host record (skip if user is an invited assistant)
+      if (!existingHost) {
         const name =
           user.user_metadata?.name || user.email?.split("@")[0] || "Host";
         const { error: hostError } = await serviceClient
