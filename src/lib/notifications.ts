@@ -24,7 +24,7 @@ function formatBookingDate(dateStr: string, locale: string): string {
 // ============================================================
 // EMAIL NOTIFICATION (Resend)
 // ============================================================
-export async function sendBookingConfirmationEmail(details: BookingDetails, locale: string = "th") {
+export async function sendBookingConfirmationEmail(details: BookingDetails, locale: string = "th", type: "confirmed" | "pending" = "confirmed") {
   const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
   if (!apiKey || apiKey === "your_resend_api_key") {
     console.log("[Email] Skipped — RESEND_API_KEY not configured. Would send to:", details.booking.guest_email);
@@ -50,13 +50,15 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
     const { data, error } = await resend.emails.send({
       from: fromEmail,
       to: booking.guest_email,
-      subject: isTh
-        ? `ยืนยันการจอง — ${homestay.name}`
-        : `Booking Confirmed — ${homestay.name}`,
+      subject: type === "confirmed"
+        ? (isTh ? `ยืนยันการจอง — ${homestay.name}` : `Booking Confirmed — ${homestay.name}`)
+        : (isTh ? `ได้รับการจองแล้ว — รอการตรวจสอบ — ${homestay.name}` : `Booking Received — Pending Review — ${homestay.name}`),
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: ${homestay.theme_color}; padding: 24px; border-radius: 12px 12px 0 0;">
-            <h1 style="color: white; margin: 0; font-size: 24px;">🎉 ${isTh ? "ยืนยันการจองเรียบร้อย!" : "Booking Confirmed!"}</h1>
+          <div style="background: ${type === "confirmed" ? homestay.theme_color : "#f59e0b"}; padding: 24px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">${type === "confirmed"
+              ? (isTh ? "🎉 ยืนยันการจองเรียบร้อย!" : "🎉 Booking Confirmed!")
+              : (isTh ? "📋 ได้รับการจองแล้ว — รอการตรวจสอบ" : "📋 Booking Received — Pending Review")}</h1>
           </div>
           <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: 0; border-radius: 0 0 12px 12px;">
             <p style="font-size: 16px; margin-top: 0;">${isTh ? `สวัสดีคุณ ${booking.guest_name}` : `Hi ${booking.guest_name}`},</p>
@@ -76,7 +78,9 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
             </table>
             <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 16px 0;" />
             <p style="color: #6b7280; font-size: 14px;">📍 ${homestay.location}</p>
-            <p style="color: #6b7280; font-size: 14px;">${isTh ? "การชำระเงินได้รับการยืนยันเรียบร้อยแล้ว แล้วพบกันนะคะ!" : "Your payment has been verified automatically. See you soon!"}</p>
+            <p style="color: #6b7280; font-size: 14px;">${type === "confirmed"
+              ? (isTh ? "การชำระเงินได้รับการยืนยันเรียบร้อยแล้ว แล้วพบกันนะคะ!" : "Your payment has been verified automatically. See you soon!")
+              : (isTh ? "สลิปการชำระเงินไม่สามารถตรวจสอบอัตโนมัติได้ เจ้าของที่พักจะตรวจสอบและยืนยันให้ในเร็วๆ นี้" : "Your payment slip could not be auto-verified. The host will review and confirm your booking shortly.")}</p>
             <p style="color: #9ca3af; font-size: 12px; margin-top: 24px;">PeaksNature — Nature Homestays in Thailand</p>
           </div>
         </div>
@@ -92,6 +96,102 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
     return { success: true, data };
   } catch (error) {
     console.error("[Email] Exception:", error);
+    return { success: false, error };
+  }
+}
+
+// ============================================================
+// BOOKING STATUS UPDATE EMAIL (sent to guest after host review)
+// ============================================================
+export async function sendBookingStatusUpdateEmail(
+  details: BookingDetails,
+  newStatus: "confirmed" | "cancelled",
+  locale: string = "th",
+  reason?: string
+) {
+  const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
+  if (!apiKey || apiKey === "your_resend_api_key") {
+    console.log("[Email] Skipped — RESEND_API_KEY not configured. Would send status update to:", details.booking.guest_email);
+    return { success: true, demo: true };
+  }
+
+  try {
+    const { Resend } = await import("resend");
+    const resend = new Resend(apiKey);
+
+    const { booking, homestay, room } = details;
+
+    const DEFAULT_FROM = "PeaksNature <onboarding@resend.dev>";
+    const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
+    const fromEmail = cleaned
+      ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
+      : DEFAULT_FROM;
+    const checkInFmt = formatBookingDate(booking.check_in, locale);
+    const checkOutFmt = formatBookingDate(booking.check_out, locale);
+    const isTh = locale === "th";
+    const isConfirmed = newStatus === "confirmed";
+
+    const subject = isConfirmed
+      ? (isTh ? `ยืนยันการจองแล้ว! — ${homestay.name}` : `Booking Confirmed! — ${homestay.name}`)
+      : (isTh ? `อัปเดตการจอง — ${homestay.name}` : `Booking Update — ${homestay.name}`);
+
+    const headerBg = isConfirmed ? homestay.theme_color : "#ef4444";
+    const headerText = isConfirmed
+      ? (isTh ? "✅ เจ้าของที่พักยืนยันการจองแล้ว!" : "✅ Your Booking Has Been Confirmed!")
+      : (isTh ? "❌ การจองถูกยกเลิก" : "❌ Booking Cancelled");
+
+    const footerText = isConfirmed
+      ? (isTh ? "เจ้าของที่พักได้ตรวจสอบและยืนยันการจองของคุณเรียบร้อยแล้ว แล้วพบกันนะคะ!" : "The host has reviewed and confirmed your booking. See you soon!")
+      : (isTh ? "ขออภัย การจองของคุณไม่สามารถยืนยันได้" : "Unfortunately, your booking could not be confirmed.");
+
+    const reasonHtml = !isConfirmed && reason
+      ? `<div style="margin: 16px 0; padding: 12px 16px; background: #fef2f2; border-left: 4px solid #ef4444; border-radius: 4px;">
+           <p style="margin: 0; font-size: 14px; color: #991b1b; font-weight: 600;">${isTh ? "เหตุผล" : "Reason"}:</p>
+           <p style="margin: 4px 0 0; font-size: 14px; color: #7f1d1d;">${reason}</p>
+         </div>`
+      : "";
+
+    console.log(`[Email] Sending status update (${newStatus}) to: ${booking.guest_email}, locale: ${locale}`);
+
+    const { data, error } = await resend.emails.send({
+      from: fromEmail,
+      to: booking.guest_email,
+      subject,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: ${headerBg}; padding: 24px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 24px;">${headerText}</h1>
+          </div>
+          <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: 0; border-radius: 0 0 12px 12px;">
+            <p style="font-size: 16px; margin-top: 0;">${isTh ? `สวัสดีคุณ ${booking.guest_name}` : `Hi ${booking.guest_name}`},</p>
+            <p style="color: #374151; font-size: 14px;">${footerText}</p>
+            ${reasonHtml}
+            <h2 style="margin-top: 16px;">${homestay.name}</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "รหัสการจอง" : "Booking ID"}</td><td style="padding: 8px 0; font-weight: bold;">${booking.id}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "ห้องพัก" : "Room"}</td><td style="padding: 8px 0;">${room?.name || "Standard"}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "เช็คอิน" : "Check-in"}</td><td style="padding: 8px 0;">${checkInFmt}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "เช็คเอาท์" : "Check-out"}</td><td style="padding: 8px 0;">${checkOutFmt}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "ยอดรวม" : "Total"}</td><td style="padding: 8px 0; font-weight: bold; color: ${homestay.theme_color};">฿${booking.total_price.toLocaleString()}</td></tr>
+            </table>
+            <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 16px 0;" />
+            <p style="color: #6b7280; font-size: 14px;">📍 ${homestay.location}</p>
+            ${!isConfirmed ? `<p style="color: #6b7280; font-size: 14px;">${isTh ? "หากมีข้อสงสัย กรุณาติดต่อเจ้าของที่พักโดยตรง" : "If you have any questions, please contact the host directly."}</p>` : ""}
+            <p style="color: #9ca3af; font-size: 12px; margin-top: 24px;">PeaksNature — Nature Homestays in Thailand</p>
+          </div>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error("[Email] Status update send error:", JSON.stringify(error));
+      return { success: false, error };
+    }
+
+    console.log("[Email] Status update sent successfully, id:", data?.id);
+    return { success: true, data };
+  } catch (error) {
+    console.error("[Email] Status update exception:", error);
     return { success: false, error };
   }
 }
