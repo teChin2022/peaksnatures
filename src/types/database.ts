@@ -29,6 +29,7 @@ export interface Database {
           line_channel_access_token: string | null;
           deposit_amount: number;
           notification_preference: string;
+          security_pin_hash: string | null;
           created_at: string;
         };
         Insert: {
@@ -42,6 +43,7 @@ export interface Database {
           line_channel_access_token?: string | null;
           deposit_amount?: number;
           notification_preference?: string;
+          security_pin_hash?: string | null;
           created_at?: string;
         };
         Update: {
@@ -55,6 +57,7 @@ export interface Database {
           line_channel_access_token?: string | null;
           deposit_amount?: number;
           notification_preference?: string;
+          security_pin_hash?: string | null;
           created_at?: string;
         };
       };
