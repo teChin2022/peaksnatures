@@ -270,7 +270,7 @@ export default async function Home() {
           </div>
           <p className="mt-4 text-gray-600">{t("policyIntro")}</p>
           <ul className="mt-4 space-y-3">
-            {[t("policy1"), t("policy2"), t("policy3"), t("policy4")].map((item, i) => (
+            {[t("policy1"), t("policy2"), t("policy3"), t("policy4"), t("policy5"), t("policy6")].map((item, i) => (
               <li key={i} className="flex items-start gap-3 text-sm text-gray-600">
                 <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-100 text-xs font-bold text-green-700">{i + 1}</span>
                 {item}
@@ -291,7 +291,7 @@ export default async function Home() {
           </div>
           <p className="mt-4 text-gray-600">{t("termsIntro")}</p>
           <ul className="mt-4 space-y-3">
-            {[t("terms1"), t("terms2"), t("terms3"), t("terms4"), t("terms5")].map((item, i) => (
+            {[t("terms1"), t("terms2"), t("terms3"), t("terms4"), t("terms5"), t("terms6"), t("terms7")].map((item, i) => (
               <li key={i} className="flex items-start gap-3 text-sm text-gray-600">
                 <span className="mt-0.5 flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-green-100 text-xs font-bold text-green-700">{i + 1}</span>
                 {item}
