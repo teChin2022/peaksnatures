@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useTranslations } from "next-intl";
-import { Phone, CreditCard, Loader2 } from "lucide-react";
+import { Phone, CreditCard, Loader2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -20,6 +20,7 @@ interface SetupProfileModalProps {
   hostId: string;
   currentPhone: string | null;
   currentPromptpay: string | null;
+  hasPinSet: boolean;
   onComplete: () => void;
 }
 
@@ -27,47 +28,78 @@ export function SetupProfileModal({
   hostId,
   currentPhone,
   currentPromptpay,
+  hasPinSet,
   onComplete,
 }: SetupProfileModalProps) {
   const t = useTranslations("setupProfile");
   const themeColor = useThemeColor();
   const [phone, setPhone] = useState(currentPhone || "");
   const [promptpayId, setPromptpayId] = useState(currentPromptpay || "");
+  const [pin, setPin] = useState("");
+  const [confirmPin, setConfirmPin] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const needsPhone = !currentPhone;
   const needsPromptpay = !currentPromptpay;
-  const isOpen = needsPhone || needsPromptpay;
+  const needsPin = !hasPinSet;
+  const isOpen = needsPhone || needsPromptpay || needsPin;
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
 
-    if (!phone.trim()) {
+    if (needsPhone && !phone.trim()) {
       setError(t("errorPhone"));
       return;
     }
-    if (!promptpayId.trim()) {
+    if (needsPromptpay && !promptpayId.trim()) {
       setError(t("errorPromptpay"));
       return;
+    }
+    if (needsPin) {
+      if (!pin || pin.length < 4 || pin.length > 6 || !/^\d+$/.test(pin)) {
+        setError(t("errorPinFormat"));
+        return;
+      }
+      if (pin !== confirmPin) {
+        setError(t("errorPinMismatch"));
+        return;
+      }
     }
 
     setLoading(true);
     try {
-      const supabase = createClient();
-      const { error: updateError } = await supabase
-        .from("hosts")
-        .update({
-          phone: phone.trim(),
-          promptpay_id: promptpayId.trim(),
-        } as never)
-        .eq("id", hostId);
+      // Update phone & promptpay if needed
+      if (needsPhone || needsPromptpay) {
+        const supabase = createClient();
+        const { error: updateError } = await supabase
+          .from("hosts")
+          .update({
+            phone: phone.trim(),
+            promptpay_id: promptpayId.trim(),
+          } as never)
+          .eq("id", hostId);
 
-      if (updateError) {
-        setError(t("errorGeneric"));
-        console.error("Profile update error:", updateError);
-        return;
+        if (updateError) {
+          setError(t("errorGeneric"));
+          console.error("Profile update error:", updateError);
+          return;
+        }
+      }
+
+      // Set PIN if needed
+      if (needsPin) {
+        const pinRes = await fetch("/api/host/security-pin", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ pin }),
+        });
+        if (!pinRes.ok) {
+          const pinData = await pinRes.json();
+          setError(pinData.error || t("errorGeneric"));
+          return;
+        }
       }
 
       onComplete();
@@ -99,36 +131,78 @@ export function SetupProfileModal({
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="setup-phone" className="flex items-center gap-2">
-              <Phone className="h-4 w-4" />
-              {t("phone")}
-            </Label>
-            <Input
-              id="setup-phone"
-              type="tel"
-              placeholder={t("phonePlaceholder")}
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              required
-            />
-          </div>
+          {needsPhone && (
+            <div className="space-y-2">
+              <Label htmlFor="setup-phone" className="flex items-center gap-2">
+                <Phone className="h-4 w-4" />
+                {t("phone")}
+              </Label>
+              <Input
+                id="setup-phone"
+                type="tel"
+                placeholder={t("phonePlaceholder")}
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                required
+              />
+            </div>
+          )}
 
-          <div className="space-y-2">
-            <Label htmlFor="setup-promptpay" className="flex items-center gap-2">
-              <CreditCard className="h-4 w-4" />
-              {t("promptpay")}
-            </Label>
-            <Input
-              id="setup-promptpay"
-              type="text"
-              placeholder={t("promptpayPlaceholder")}
-              value={promptpayId}
-              onChange={(e) => setPromptpayId(e.target.value)}
-              required
-            />
-            <p className="text-xs text-gray-500">{t("promptpayHint")}</p>
-          </div>
+          {needsPromptpay && (
+            <div className="space-y-2">
+              <Label htmlFor="setup-promptpay" className="flex items-center gap-2">
+                <CreditCard className="h-4 w-4" />
+                {t("promptpay")}
+              </Label>
+              <Input
+                id="setup-promptpay"
+                type="text"
+                placeholder={t("promptpayPlaceholder")}
+                value={promptpayId}
+                onChange={(e) => setPromptpayId(e.target.value)}
+                required
+              />
+              <p className="text-xs text-gray-500">{t("promptpayHint")}</p>
+            </div>
+          )}
+
+          {needsPin && (
+            <>
+              <div className="space-y-2">
+                <Label htmlFor="setup-pin" className="flex items-center gap-2">
+                  <Lock className="h-4 w-4" />
+                  {t("pin")}
+                </Label>
+                <Input
+                  id="setup-pin"
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder={t("pinPlaceholder")}
+                  value={pin}
+                  onChange={(e) => setPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  required
+                />
+                <p className="text-xs text-gray-500">{t("pinHint")}</p>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="setup-pin-confirm" className="flex items-center gap-2">
+                  <Lock className="h-4 w-4" />
+                  {t("pinConfirm")}
+                </Label>
+                <Input
+                  id="setup-pin-confirm"
+                  type="password"
+                  inputMode="numeric"
+                  maxLength={6}
+                  placeholder={t("pinConfirmPlaceholder")}
+                  value={confirmPin}
+                  onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, "").slice(0, 6))}
+                  required
+                />
+              </div>
+            </>
+          )}
 
           <Button
             type="submit"

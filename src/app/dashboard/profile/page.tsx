@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
-import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key, Lock, Eye, EyeOff, Bell, BellOff, Trash2, AlertTriangle } from "lucide-react";
+import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key, Lock, Eye, EyeOff, Bell, BellOff, Trash2, AlertTriangle, ShieldCheck, Unlock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -14,6 +14,23 @@ import { useRouter } from "next/navigation";
 import { useThemeColor } from "@/components/dashboard/theme-context";
 
 import { isPushSupported, isPushSubscribed, subscribeHostToPush, unsubscribeFromPush } from "@/lib/push-notifications";
+import { SecurityPinDialog } from "@/components/security-pin-dialog";
+
+function maskEmail(email: string): string {
+  const [local, domain] = email.split("@");
+  if (!domain) return "***";
+  return local.charAt(0) + "***@" + domain;
+}
+
+function maskPhone(phone: string): string {
+  if (phone.length < 4) return "***";
+  return phone.slice(0, 2) + "x-xxx-x" + phone.slice(-3);
+}
+
+function maskPromptpay(id: string): string {
+  if (id.length < 4) return "***";
+  return "x-xxxx-xx" + id.slice(-3);
+}
 
 interface HostData {
   id: string;
@@ -57,6 +74,11 @@ export default function ProfilePage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [sensitiveUnlocked, setSensitiveUnlocked] = useState(false);
+  const [currentPin, setCurrentPin] = useState("");
+  const [showPinDialog, setShowPinDialog] = useState(false);
+  const [pinDialogMode, setPinDialogMode] = useState<"verify" | "change">("verify");
+  const [hasPinSet, setHasPinSet] = useState(false);
 
   useEffect(() => {
     const fetchHost = async () => {
@@ -68,16 +90,18 @@ export default function ProfilePage() {
 
       const { data } = await supabase
         .from("hosts")
-        .select("id, name, email, phone, line_user_id, line_channel_access_token, promptpay_id, deposit_amount, notification_preference")
+        .select("id, name, email, phone, line_user_id, line_channel_access_token, promptpay_id, deposit_amount, notification_preference, security_pin_hash")
         .eq("user_id", user.id)
         .single();
 
       if (data) {
-        const h = data as HostData;
+        const h = data as HostData & { security_pin_hash: string | null };
         setHost(h);
         setName(h.name);
-        setEmail(h.email);
-        setPhone(h.phone || "");
+        setHasPinSet(!!h.security_pin_hash);
+        // Always show masked values for sensitive fields
+        setEmail(maskEmail(h.email));
+        setPhone(h.phone ? maskPhone(h.phone) : "");
         setLineUserId(h.line_user_id || "");
         // Never expose the full LINE channel token to the browser
         const token = h.line_channel_access_token || "";
@@ -88,7 +112,7 @@ export default function ProfilePage() {
           setLineChannelToken("");
           setLineTokenMasked(false);
         }
-        setPromptpayId(h.promptpay_id);
+        setPromptpayId(maskPromptpay(h.promptpay_id));
         setDepositAmount(h.deposit_amount || 0);
         setNotificationPreference(h.notification_preference || "push");
 
@@ -106,7 +130,7 @@ export default function ProfilePage() {
 
   const handleSave = async () => {
     if (!host) return;
-    if (!name.trim() || !email.trim() || !promptpayId.trim()) {
+    if (!name.trim()) {
       toast.error(t("errorRequired"));
       return;
     }
@@ -114,18 +138,19 @@ export default function ProfilePage() {
     setSaving(true);
     try {
       const supabase = createClient();
+
+      // Save non-sensitive fields via Supabase client
+      const nonSensitiveUpdate: Record<string, unknown> = {
+        name: name.trim(),
+        line_user_id: lineUserId.trim() || null,
+        ...(lineTokenMasked ? {} : { line_channel_access_token: lineChannelToken.trim() || null }),
+        deposit_amount: depositAmount,
+        notification_preference: notificationPreference,
+      };
+
       const { error } = await supabase
         .from("hosts")
-        .update({
-          name: name.trim(),
-          email: email.trim(),
-          phone: phone.trim() || null,
-          line_user_id: lineUserId.trim() || null,
-          ...(lineTokenMasked ? {} : { line_channel_access_token: lineChannelToken.trim() || null }),
-          promptpay_id: promptpayId.trim(),
-          deposit_amount: depositAmount,
-          notification_preference: notificationPreference,
-        } as never)
+        .update(nonSensitiveUpdate as never)
         .eq("id", host.id);
 
       if (error) {
@@ -134,12 +159,61 @@ export default function ProfilePage() {
         return;
       }
 
+      // If sensitive fields are unlocked, save them via PIN-protected API
+      if (sensitiveUnlocked && currentPin) {
+        const res = await fetch("/api/host/update-sensitive", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            pin: currentPin,
+            email: email.trim(),
+            phone: phone.trim() || null,
+            promptpay_id: promptpayId.trim(),
+          }),
+        });
+
+        if (!res.ok) {
+          const data = await res.json();
+          toast.error(data.error || t("errorSave"));
+          return;
+        }
+      }
+
       toast.success(t("saved"));
     } catch {
       toast.error(t("errorSave"));
     } finally {
       setSaving(false);
     }
+  };
+
+  const handlePinVerified = (pin: string) => {
+    setCurrentPin(pin);
+    // Fetch full values from the reveal-sensitive API
+    fetch("/api/host/reveal-sensitive", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ pin }),
+    })
+      .then((res) => res.json())
+      .then((data) => {
+        if (data.email) {
+          setEmail(data.email);
+          setPhone(data.phone || "");
+          setPromptpayId(data.promptpay_id || "");
+          setSensitiveUnlocked(true);
+        }
+      })
+      .catch(() => toast.error(t("errorSave")));
+  };
+
+  const handleLockSensitive = () => {
+    if (!host) return;
+    setSensitiveUnlocked(false);
+    setCurrentPin("");
+    setEmail(maskEmail(host.email));
+    setPhone(host.phone ? maskPhone(host.phone) : "");
+    setPromptpayId(maskPromptpay(host.promptpay_id));
   };
 
   const handleDeleteAccount = async () => {
@@ -277,46 +351,85 @@ export default function ProfilePage() {
             />
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="host-email" className="flex items-center gap-2">
-              <Mail className="h-3.5 w-3.5" />
-              {t("email")}
-            </Label>
-            <Input
-              id="host-email"
-              type="email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-              placeholder={t("emailPlaceholder")}
-            />
-          </div>
+          <div className="rounded-lg border border-gray-200 p-4 space-y-4">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <ShieldCheck className="h-4 w-4" style={{ color: themeColor }} />
+                {t("sensitiveFields")}
+              </div>
+              {hasPinSet && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    if (sensitiveUnlocked) {
+                      handleLockSensitive();
+                    } else {
+                      setPinDialogMode("verify");
+                      setShowPinDialog(true);
+                    }
+                  }}
+                >
+                  {sensitiveUnlocked ? (
+                    <><Lock className="mr-1.5 h-3.5 w-3.5" />{t("lockFields")}</>
+                  ) : (
+                    <><Unlock className="mr-1.5 h-3.5 w-3.5" />{t("unlockFields")}</>
+                  )}
+                </Button>
+              )}
+            </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="host-phone" className="flex items-center gap-2">
-              <Phone className="h-3.5 w-3.5" />
-              {t("phone")}
-            </Label>
-            <Input
-              id="host-phone"
-              type="tel"
-              value={phone}
-              onChange={(e) => setPhone(e.target.value)}
-              placeholder={t("phonePlaceholder")}
-            />
-          </div>
+            {!sensitiveUnlocked && (
+              <p className="text-xs text-gray-500">{t("sensitiveHint")}</p>
+            )}
 
-          <div className="space-y-2">
-            <Label htmlFor="host-promptpay" className="flex items-center gap-2">
-              <CreditCard className="h-3.5 w-3.5" />
-              {t("promptpay")}
-            </Label>
-            <Input
-              id="host-promptpay"
-              value={promptpayId}
-              onChange={(e) => setPromptpayId(e.target.value)}
-              placeholder={t("promptpayPlaceholder")}
-            />
-            <p className="text-xs text-gray-500">{t("promptpayHint")}</p>
+            <div className="space-y-2">
+              <Label htmlFor="host-email" className="flex items-center gap-2">
+                <Mail className="h-3.5 w-3.5" />
+                {t("email")}
+              </Label>
+              <Input
+                id="host-email"
+                type="email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                placeholder={t("emailPlaceholder")}
+                readOnly={!sensitiveUnlocked}
+                className={!sensitiveUnlocked ? "bg-gray-50 cursor-not-allowed" : ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="host-phone" className="flex items-center gap-2">
+                <Phone className="h-3.5 w-3.5" />
+                {t("phone")}
+              </Label>
+              <Input
+                id="host-phone"
+                type="tel"
+                value={phone}
+                onChange={(e) => setPhone(e.target.value)}
+                placeholder={t("phonePlaceholder")}
+                readOnly={!sensitiveUnlocked}
+                className={!sensitiveUnlocked ? "bg-gray-50 cursor-not-allowed" : ""}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="host-promptpay" className="flex items-center gap-2">
+                <CreditCard className="h-3.5 w-3.5" />
+                {t("promptpay")}
+              </Label>
+              <Input
+                id="host-promptpay"
+                value={promptpayId}
+                onChange={(e) => setPromptpayId(e.target.value)}
+                placeholder={t("promptpayPlaceholder")}
+                readOnly={!sensitiveUnlocked}
+                className={!sensitiveUnlocked ? "bg-gray-50 cursor-not-allowed" : ""}
+              />
+              <p className="text-xs text-gray-500">{t("promptpayHint")}</p>
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -609,6 +722,39 @@ export default function ProfilePage() {
           </Button>
         </CardContent>
       </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ShieldCheck className="h-4 w-4" />
+            {t("securityPin")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-sm text-gray-600">{t("securityPinDesc")}</p>
+          {hasPinSet && (
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => {
+                setPinDialogMode("change");
+                setShowPinDialog(true);
+              }}
+            >
+              <Key className="mr-2 h-4 w-4" />
+              {t("changePin")}
+            </Button>
+          )}
+        </CardContent>
+      </Card>
+
+      <SecurityPinDialog
+        open={showPinDialog}
+        onClose={() => setShowPinDialog(false)}
+        mode={pinDialogMode}
+        onVerified={handlePinVerified}
+        onChanged={() => toast.success(t("pinChanged"))}
+      />
 
       <Card className="mt-6 border-red-200">
         <CardHeader>

@@ -27,6 +27,7 @@ interface HostProfile {
   id: string;
   phone: string | null;
   promptpay_id: string | null;
+  hasPinSet: boolean;
 }
 
 interface Stats {
@@ -70,17 +71,22 @@ export default function DashboardPage() {
       // Fetch host profile
       const { data: hostRow } = await supabase
         .from("hosts")
-        .select("id, phone, promptpay_id")
+        .select("id, phone, promptpay_id, security_pin_hash")
         .eq("user_id", user.id)
         .single();
 
-      const host = hostRow as HostProfile | null;
-      if (host) {
-        setHostProfile(host);
+      const rawHost = hostRow as { id: string; phone: string | null; promptpay_id: string | null; security_pin_hash: string | null } | null;
+      if (rawHost) {
+        setHostProfile({
+          id: rawHost.id,
+          phone: rawHost.phone,
+          promptpay_id: rawHost.promptpay_id,
+          hasPinSet: !!rawHost.security_pin_hash,
+        });
       }
       setProfileLoaded(true);
 
-      if (!host) {
+      if (!rawHost) {
         setLoading(false);
         return;
       }
@@ -89,7 +95,7 @@ export default function DashboardPage() {
       const { data: homestayRow } = await supabase
         .from("homestays")
         .select("id, name, slug")
-        .eq("host_id", host.id)
+        .eq("host_id", rawHost.id)
         .limit(1)
         .single();
 
@@ -150,14 +156,15 @@ export default function DashboardPage() {
 
   return (
     <div>
-      {profileLoaded && hostProfile && (!hostProfile.phone || !hostProfile.promptpay_id) && (
+      {profileLoaded && hostProfile && (!hostProfile.phone || !hostProfile.promptpay_id || !hostProfile.hasPinSet) && (
         <SetupProfileModal
           hostId={hostProfile.id}
           currentPhone={hostProfile.phone}
           currentPromptpay={hostProfile.promptpay_id}
+          hasPinSet={hostProfile.hasPinSet}
           onComplete={() => {
             setHostProfile((prev) =>
-              prev ? { ...prev, phone: "set", promptpay_id: "set" } : prev
+              prev ? { ...prev, phone: "set", promptpay_id: "set", hasPinSet: true } : prev
             );
           }}
         />
