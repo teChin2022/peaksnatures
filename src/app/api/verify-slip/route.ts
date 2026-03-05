@@ -114,35 +114,35 @@ export async function POST(req: NextRequest) {
     const paymentSlipUrl = signedUrlData?.signedUrl || null;
 
     // --- Demo mode (must be explicitly enabled) ---
-    if (process.env.DEMO_MODE === "true" && (!apiKey || apiKey === "your_easyslip_api_key")) {
-      console.warn("[Demo] Simulating EasySlip verification — DEMO_MODE is enabled. Disable in production!");
-      const demoResponse = {
-        status: 200,
-        data: {
-          amount: { amount: expectedAmount },
-          receiver: {
-            proxy: { type: "MOBILE", account: expectedReceiver },
-          },
-        },
-      };
+    // if (process.env.DEMO_MODE === "true" && (!apiKey || apiKey === "your_easyslip_api_key")) {
+    //   console.warn("[Demo] Simulating EasySlip verification — DEMO_MODE is enabled. Disable in production!");
+    //   const demoResponse = {
+    //     status: 200,
+    //     data: {
+    //       amount: { amount: expectedAmount },
+    //       receiver: {
+    //         proxy: { type: "MOBILE", account: expectedReceiver },
+    //       },
+    //     },
+    //   };
 
-      return NextResponse.json({
-        verified: true,
-        message: "Payment slip verified successfully (demo mode)",
-        slip_hash: slipHash,
-        slip_trans_ref: null,
-        payment_slip_url: paymentSlipUrl,
-        easyslip_response: demoResponse,
-      });
-    }
+    //   return NextResponse.json({
+    //     verified: true,
+    //     message: "Payment slip verified successfully (demo mode)",
+    //     slip_hash: slipHash,
+    //     slip_trans_ref: null,
+    //     payment_slip_url: paymentSlipUrl,
+    //     easyslip_response: demoResponse,
+    //   });
+    // }
 
     // Reject if no valid API key configured (and not in demo mode)
-    if (!apiKey || apiKey === "your_easyslip_api_key") {
-      return NextResponse.json(
-        { error: "Payment verification is not configured. Please set EASYSLIP_API_KEY." },
-        { status: 503 }
-      );
-    }
+    // if (!apiKey || apiKey === "your_easyslip_api_key") {
+    //   return NextResponse.json(
+    //     { error: "Payment verification is not configured. Please set EASYSLIP_API_KEY." },
+    //     { status: 503 }
+    //   );
+    // }
 
     // --- Production: Call EasySlip API ---
     const easySlipForm = new FormData();

@@ -22,6 +22,7 @@ const bookingSchema = z.object({
   slip_trans_ref: z.string().nullable().optional(),
   payment_slip_url: z.string().nullable().optional(),
   easyslip_response: z.unknown().optional(),
+  easyslip_verified: z.boolean().optional().default(true),
   // Session ID for hold cleanup
   session_id: z.string().optional(),
   notes: z.string().optional(),
@@ -30,8 +31,8 @@ const bookingSchema = z.object({
   amount_paid: z.number().int().min(0).optional(),
 });
 
-async function sendNotifications(bookingId: string, supabase: ReturnType<typeof createServiceRoleClient>, locale: string = "th") {
-  console.log(`[Notification] Starting for booking ${bookingId}, locale=${locale}`);
+async function sendNotifications(bookingId: string, supabase: ReturnType<typeof createServiceRoleClient>, locale: string = "th", isVerified: boolean = true) {
+  console.log(`[Notification] Starting for booking ${bookingId}, locale=${locale}, verified=${isVerified}`);
   try {
     const { data: booking, error: bookingErr } = await supabase
       .from("bookings")
@@ -74,20 +75,23 @@ async function sendNotifications(bookingId: string, supabase: ReturnType<typeof 
       room: (room as unknown as Room) || undefined,
     };
 
-    const emailResult = await sendBookingConfirmationEmail(details, locale);
+    const emailType = isVerified ? "confirmed" : "pending";
+    const hostNotifType = isVerified ? "confirmed" : "flagged";
+
+    const emailResult = await sendBookingConfirmationEmail(details, locale, emailType);
     console.log("[Notification] Email result:", emailResult);
 
     // Host notification: dispatch based on notification_preference
     const preference = (host as unknown as Host).notification_preference || "push";
-    console.log(`[Notification] Host preference: ${preference}`);
+    console.log(`[Notification] Host preference: ${preference}, notif type: ${hostNotifType}`);
 
     if (preference === "push" || preference === "both") {
-      const pushResult = await sendHostPushNotification(details, "confirmed");
+      const pushResult = await sendHostPushNotification(details, hostNotifType);
       console.log("[Notification] Push result:", pushResult);
     }
 
     if (preference === "line" || preference === "both") {
-      const lineResult = await sendHostLineNotification(details, "confirmed");
+      const lineResult = await sendHostLineNotification(details, hostNotifType);
       console.log("[Notification] LINE result:", lineResult);
     }
   } catch (error) {
@@ -198,8 +202,8 @@ export async function POST(req: NextRequest) {
           p_check_out: data.check_out,
           p_num_guests: data.num_guests,
           p_total_price: data.total_price,
-          p_status: "confirmed",
-          p_easyslip_verified: true,
+          p_status: data.easyslip_verified ? "confirmed" : "pending",
+          p_easyslip_verified: data.easyslip_verified,
           p_payment_slip_hash: data.slip_hash,
           p_slip_trans_ref: data.slip_trans_ref || null,
           p_payment_slip_url: data.payment_slip_url || null,
@@ -247,7 +251,7 @@ export async function POST(req: NextRequest) {
         .single();
 
       // Send notifications in background — response returns immediately
-      after(() => sendNotifications(bookingId as string, supabase, data.locale || "th"));
+      after(() => sendNotifications(bookingId as string, supabase, data.locale || "th", data.easyslip_verified));
 
       return NextResponse.json({ booking }, { status: 201 });
     }
@@ -266,8 +270,8 @@ export async function POST(req: NextRequest) {
         check_out: data.check_out,
         num_guests: data.num_guests,
         total_price: data.total_price,
-        status: "confirmed",
-        easyslip_verified: true,
+        status: data.easyslip_verified ? "confirmed" : "pending",
+        easyslip_verified: data.easyslip_verified,
         payment_slip_hash: data.slip_hash,
         slip_trans_ref: data.slip_trans_ref || null,
         payment_slip_url: data.payment_slip_url || null,
@@ -288,7 +292,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Send notifications in background — response returns immediately
-    after(() => sendNotifications((booking as unknown as Booking).id, supabase, data.locale || "th"));
+    after(() => sendNotifications((booking as unknown as Booking).id, supabase, data.locale || "th", data.easyslip_verified));
 
     return NextResponse.json({ booking }, { status: 201 });
   } catch (error) {

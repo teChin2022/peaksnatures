@@ -123,6 +123,7 @@ CREATE TABLE bookings (
   payment_slip_hash TEXT,
   slip_trans_ref TEXT,
   notes TEXT,
+  cancel_reason TEXT,
   payment_type TEXT NOT NULL DEFAULT 'full',
   amount_paid INTEGER NOT NULL DEFAULT 0,
   checked_in_at TIMESTAMPTZ,

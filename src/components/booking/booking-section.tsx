@@ -533,14 +533,9 @@ export function BookingSection({
         return;
       }
 
-      if (!verifyData.verified) {
-        toast.error(verifyData.message || t("errorSlipVerification"));
-        handleRemoveSlip();
-        setIsSubmitting(false);
-        return;
-      }
+      const isSlipVerified = !!verifyData.verified;
 
-      // 3. Slip verified — now create the booking with slip data
+      // 3. Create the booking — verified or pending (host review)
       const bookingRes = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -562,6 +557,7 @@ export function BookingSection({
           slip_trans_ref: verifyData.slip_trans_ref || null,
           payment_slip_url: verifyData.payment_slip_url || null,
           easyslip_response: verifyData.easyslip_response || null,
+          easyslip_verified: isSlipVerified,
           session_id: uploadSessionId,
           locale,
         }),
@@ -586,7 +582,7 @@ export function BookingSection({
 
       const { booking } = await bookingRes.json();
       setBookingId(booking.id);
-      setSlipVerified(true);
+      setSlipVerified(isSlipVerified);
       // Hold is cleaned up server-side by create_booking_atomic; clear local state
       releaseHold();
       setHoldId(null);

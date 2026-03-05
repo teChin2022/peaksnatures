@@ -25,6 +25,8 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Textarea } from "@/components/ui/textarea";
+import { Label } from "@/components/ui/label";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -237,6 +239,8 @@ export default function BookingsPage() {
 
   const [cancelTarget, setCancelTarget] = useState<DisplayBooking | null>(null);
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
+  const [cancelReason, setCancelReason] = useState("");
+  const [updatingStatus, setUpdatingStatus] = useState(false);
   const [completeTarget, setCompleteTarget] = useState<DisplayBooking | null>(null);
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   const [detailTarget, setDetailTarget] = useState<DisplayBooking | null>(null);
@@ -244,6 +248,7 @@ export default function BookingsPage() {
 
   const handleCancelClick = (booking: DisplayBooking) => {
     setCancelTarget(booking);
+    setCancelReason("");
     setCancelDialogOpen(true);
   };
 
@@ -261,9 +266,40 @@ export default function BookingsPage() {
 
   const handleConfirmCancel = async () => {
     if (!cancelTarget) return;
-    await updateStatus(cancelTarget.id, "cancelled");
+    // Use new API for pending/verified bookings to send guest email
+    if (cancelTarget.status === "pending" || cancelTarget.status === "verified") {
+      setUpdatingStatus(true);
+      try {
+        const res = await fetch("/api/bookings/update-status", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            booking_id: cancelTarget.id,
+            status: "cancelled",
+            reason: cancelReason.trim() || undefined,
+            locale,
+          }),
+        });
+        if (!res.ok) {
+          const data = await res.json();
+          toast.error(data.error || t("errorUpdate"));
+          return;
+        }
+        setBookings((prev) =>
+          prev.map((b) => (b.id === cancelTarget.id ? { ...b, status: "cancelled" as BookingStatus } : b))
+        );
+        toast.success(t("cancel") + "!");
+      } catch {
+        toast.error(t("errorUpdate"));
+      } finally {
+        setUpdatingStatus(false);
+      }
+    } else {
+      await updateStatus(cancelTarget.id, "cancelled");
+    }
     setCancelDialogOpen(false);
     setCancelTarget(null);
+    setCancelReason("");
   };
 
   if (loading) {
@@ -450,9 +486,34 @@ export default function BookingsPage() {
                                   size="sm"
                                   className="hover:brightness-90"
                                   style={{ backgroundColor: themeColor }}
-                                  onClick={() =>
-                                    updateStatus(booking.id, "confirmed")
-                                  }
+                                  onClick={async () => {
+                                    setUpdatingStatus(true);
+                                    try {
+                                      const res = await fetch("/api/bookings/update-status", {
+                                        method: "POST",
+                                        headers: { "Content-Type": "application/json" },
+                                        body: JSON.stringify({
+                                          booking_id: booking.id,
+                                          status: "confirmed",
+                                          locale,
+                                        }),
+                                      });
+                                      if (!res.ok) {
+                                        const data = await res.json();
+                                        toast.error(data.error || t("errorUpdate"));
+                                        return;
+                                      }
+                                      setBookings((prev) =>
+                                        prev.map((b) => (b.id === booking.id ? { ...b, status: "confirmed" as BookingStatus } : b))
+                                      );
+                                      toast.success(t("confirm") + "!");
+                                    } catch {
+                                      toast.error(t("errorUpdate"));
+                                    } finally {
+                                      setUpdatingStatus(false);
+                                    }
+                                  }}
+                                  disabled={updatingStatus}
                                 >
                                   {t("confirm")}
                                 </Button>
@@ -636,9 +697,39 @@ export default function BookingsPage() {
                   <Button
                     className="hover:brightness-90"
                     style={{ backgroundColor: themeColor }}
+                    disabled={updatingStatus}
                     onClick={async () => {
-                      await updateStatus(detailTarget.id, "confirmed");
-                      setDetailTarget((prev) => prev ? { ...prev, status: "confirmed" } : null);
+                      if (detailTarget.status === "pending" || detailTarget.status === "verified") {
+                        setUpdatingStatus(true);
+                        try {
+                          const res = await fetch("/api/bookings/update-status", {
+                            method: "POST",
+                            headers: { "Content-Type": "application/json" },
+                            body: JSON.stringify({
+                              booking_id: detailTarget.id,
+                              status: "confirmed",
+                              locale,
+                            }),
+                          });
+                          if (!res.ok) {
+                            const data = await res.json();
+                            toast.error(data.error || t("errorUpdate"));
+                            return;
+                          }
+                          setBookings((prev) =>
+                            prev.map((b) => (b.id === detailTarget.id ? { ...b, status: "confirmed" as BookingStatus } : b))
+                          );
+                          setDetailTarget((prev) => prev ? { ...prev, status: "confirmed" } : null);
+                          toast.success(t("confirm") + "!");
+                        } catch {
+                          toast.error(t("errorUpdate"));
+                        } finally {
+                          setUpdatingStatus(false);
+                        }
+                      } else {
+                        await updateStatus(detailTarget.id, "confirmed");
+                        setDetailTarget((prev) => prev ? { ...prev, status: "confirmed" } : null);
+                      }
                       setDetailDialogOpen(false);
                     }}
                   >
@@ -678,17 +769,34 @@ export default function BookingsPage() {
               {t("cancelConfirmDesc", { guest: cancelTarget?.guest_name || "" })}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
+          {(cancelTarget?.status === "pending" || cancelTarget?.status === "verified") && (
+            <div>
+              <Label htmlFor="cancel-reason">{t("cancelReason")}</Label>
+              <Textarea
+                id="cancel-reason"
+                value={cancelReason}
+                onChange={(e) => setCancelReason(e.target.value)}
+                placeholder={t("cancelReasonPlaceholder")}
+                rows={2}
+                className="mt-1"
+              />
+              <p className="mt-1 text-xs text-gray-400">{t("cancelReasonHint")}</p>
+            </div>
+          )}
+          <DialogFooter className="flex gap-2 sm:justify-end">
             <Button
               variant="outline"
               onClick={() => setCancelDialogOpen(false)}
+              disabled={updatingStatus}
             >
               {t("cancelKeep")}
             </Button>
             <Button
               variant="destructive"
               onClick={handleConfirmCancel}
+              disabled={updatingStatus}
             >
+              {updatingStatus && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
               {t("cancelConfirmButton")}
             </Button>
           </DialogFooter>
@@ -707,7 +815,7 @@ export default function BookingsPage() {
               {t("completeConfirmDesc", { guest: completeTarget?.guest_name || "" })}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="flex gap-2 sm:justify-end">
             <Button
               variant="outline"
               onClick={() => setCompleteDialogOpen(false)}
