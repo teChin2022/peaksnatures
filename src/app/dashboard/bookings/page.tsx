@@ -783,7 +783,7 @@ export default function BookingsPage() {
               <p className="mt-1 text-xs text-gray-400">{t("cancelReasonHint")}</p>
             </div>
           )}
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="flex gap-2 sm:justify-end">
             <Button
               variant="outline"
               onClick={() => setCancelDialogOpen(false)}
@@ -815,7 +815,7 @@ export default function BookingsPage() {
               {t("completeConfirmDesc", { guest: completeTarget?.guest_name || "" })}
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="flex gap-2 sm:justify-end">
             <Button
               variant="outline"
               onClick={() => setCompleteDialogOpen(false)}
