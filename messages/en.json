@@ -628,6 +628,7 @@
     "confirmBlockDesc": "Block {count} date(s)? Guests will not be able to book these dates.",
     "confirmUnblockDesc": "Unblock {count} date(s)? These dates will become available for booking again.",
     "cancelAction": "Cancel",
+    "closeAction": "Close",
     "blockSuccess": "Dates blocked successfully",
     "unblockSuccess": "Dates unblocked successfully",
     "errorBlock": "Failed to update blocked dates",

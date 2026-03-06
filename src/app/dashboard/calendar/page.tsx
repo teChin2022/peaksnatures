@@ -877,7 +877,7 @@ export default function CalendarPage() {
 
           <DialogFooter>
             <Button variant="outline" onClick={() => setDetailDay(null)}>
-              {t("cancelAction")}
+              {t("closeAction")}
             </Button>
           </DialogFooter>
         </DialogContent>
