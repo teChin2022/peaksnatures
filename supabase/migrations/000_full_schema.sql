@@ -1,6 +1,6 @@
 -- ============================================================
 -- PeaksNature — Full Database Schema
--- Combined from migrations 001–014 for one-shot production setup.
+-- Combined from migrations 001–024 for one-shot production setup.
 -- Run this in Supabase SQL Editor on a fresh project.
 -- ============================================================
 
@@ -25,6 +25,7 @@ CREATE TABLE hosts (
   line_channel_access_token TEXT,
   deposit_amount INTEGER NOT NULL DEFAULT 0,
   deposit_by_month JSONB DEFAULT NULL,
+  cancellation_days INTEGER NOT NULL DEFAULT 0,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(user_id)
 );
@@ -129,6 +130,8 @@ CREATE TABLE bookings (
   amount_paid INTEGER NOT NULL DEFAULT 0,
   checked_in_at TIMESTAMPTZ,
   checked_out_at TIMESTAMPTZ,
+  cancelled_by TEXT,
+  cancelled_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   CONSTRAINT check_dates CHECK (check_out > check_in)
 );
