@@ -78,11 +78,11 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect pending hosts to /dashboard/pending (except if already there)
+  // Redirect pending hosts to /dashboard/pending, and approved hosts away from it
   const isDashboard = request.nextUrl.pathname.startsWith("/dashboard");
   const isPendingPage = request.nextUrl.pathname === "/dashboard/pending";
 
-  if (isDashboard && user && !isPendingPage) {
+  if (isDashboard && user) {
     const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
     if (serviceRoleKey && supabaseUrl) {
       try {
@@ -94,9 +94,15 @@ export async function middleware(request: NextRequest) {
           .select("status")
           .eq("user_id", user.id)
           .single();
-        if (host && (host as { status: string }).status === "pending") {
+        const status = (host as { status: string } | null)?.status;
+        if (status === "pending" && !isPendingPage) {
           const url = request.nextUrl.clone();
           url.pathname = "/dashboard/pending";
+          return NextResponse.redirect(url);
+        }
+        if (status !== "pending" && isPendingPage) {
+          const url = request.nextUrl.clone();
+          url.pathname = "/dashboard";
           return NextResponse.redirect(url);
         }
       } catch {
