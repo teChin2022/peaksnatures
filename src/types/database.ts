@@ -28,6 +28,7 @@ export interface Database {
           line_user_id: string | null;
           line_channel_access_token: string | null;
           deposit_amount: number;
+          deposit_by_month: Record<string, number> | null;
           notification_preference: string;
           security_pin_hash: string | null;
           created_at: string;
@@ -42,6 +43,7 @@ export interface Database {
           line_user_id?: string | null;
           line_channel_access_token?: string | null;
           deposit_amount?: number;
+          deposit_by_month?: Record<string, number> | null;
           notification_preference?: string;
           security_pin_hash?: string | null;
           created_at?: string;
@@ -56,6 +58,7 @@ export interface Database {
           line_user_id?: string | null;
           line_channel_access_token?: string | null;
           deposit_amount?: number;
+          deposit_by_month?: Record<string, number> | null;
           notification_preference?: string;
           security_pin_hash?: string | null;
           created_at?: string;

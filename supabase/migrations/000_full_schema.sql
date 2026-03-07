@@ -24,6 +24,7 @@ CREATE TABLE hosts (
   line_user_id TEXT,
   line_channel_access_token TEXT,
   deposit_amount INTEGER NOT NULL DEFAULT 0,
+  deposit_by_month JSONB DEFAULT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(user_id)
 );

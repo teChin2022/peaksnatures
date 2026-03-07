@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
 import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice } from "@/types/database";
 import { calculateTotalPrice, getPriceRange } from "@/lib/calculate-price";
+import { getDepositForMonth } from "@/lib/get-deposit";
 import { ReviewsSection } from "@/components/booking/reviews-section";
 import { THAI_PROVINCES, getProvinceLabel } from "@/lib/provinces";
 import generatePayload from "promptpay-qr";
@@ -304,14 +305,18 @@ export function BookingSection({
 
   const totalPrice = priceResult?.total ?? 0;
 
-  const depositAvailable = host.deposit_amount > 0 && host.deposit_amount < totalPrice;
+  const resolvedDeposit = useMemo(() => {
+    return getDepositForMonth(host, dateRange?.from);
+  }, [host, dateRange?.from]);
+
+  const depositAvailable = resolvedDeposit > 0 && resolvedDeposit < totalPrice;
 
   const paymentAmount = useMemo(() => {
     if (paymentOption === "deposit" && depositAvailable) {
-      return host.deposit_amount;
+      return resolvedDeposit;
     }
     return totalPrice;
-  }, [paymentOption, depositAvailable, host.deposit_amount, totalPrice]);
+  }, [paymentOption, depositAvailable, resolvedDeposit, totalPrice]);
 
   const handleSaveQr = useCallback(() => {
     const container = qrContainerRef.current;
@@ -1052,7 +1057,7 @@ export function BookingSection({
                         onClick={() => setPaymentOption("deposit")}
                       >
                         <p className="font-semibold">{t("payDeposit")}</p>
-                        <p className="text-lg font-bold">฿{host.deposit_amount.toLocaleString()}</p>
+                        <p className="text-lg font-bold">฿{resolvedDeposit.toLocaleString()}</p>
                         <p className="text-xs text-gray-400 mt-0.5">{t("depositSelected")}</p>
                       </button>
                     </div>
@@ -1475,7 +1480,7 @@ export function BookingSection({
             </div>
             {depositAvailable && (
               <div className="flex justify-between text-xs text-gray-400">
-                <span>{t("payDeposit")}: ฿{host.deposit_amount.toLocaleString()}</span>
+                <span>{t("payDeposit")}: ฿{resolvedDeposit.toLocaleString()}</span>
                 <span>{t("payFull")}: ฿{totalPrice.toLocaleString()}</span>
               </div>
             )}
