@@ -74,6 +74,50 @@ interface DisplayBooking extends BookingRow {
 
 const PAGE_SIZE = 20;
 
+/**
+ * Converts a storage path (or legacy signed URL) stored in payment_slip_url
+ * into a fresh signed URL. Returns null if no path is stored.
+ */
+function extractStoragePath(value: string | null): string | null {
+  if (!value) return null;
+  // New format: plain storage path like "pending/xxx/slip.jpg"
+  if (!value.startsWith("http")) return value;
+  // Legacy format: full signed URL — extract path after "/payment-slips/"
+  const match = value.match(/\/payment-slips\/([^?]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+async function resolveSlipUrls(
+  rows: BookingRow[],
+  supabase: ReturnType<typeof createClient>
+): Promise<BookingRow[]> {
+  const paths = rows
+    .map((r) => ({ id: r.id, path: extractStoragePath(r.payment_slip_url) }))
+    .filter((p): p is { id: string; path: string } => p.path !== null);
+
+  if (paths.length === 0) return rows;
+
+  const { data } = await supabase.storage
+    .from("payment-slips")
+    .createSignedUrls(
+      paths.map((p) => p.path),
+      60 * 60 // 1 hour
+    );
+
+  if (!data) return rows;
+
+  const urlMap = new Map<string, string>();
+  paths.forEach((p, i) => {
+    const signed = data[i]?.signedUrl;
+    if (signed) urlMap.set(p.id, signed);
+  });
+
+  return rows.map((r) => ({
+    ...r,
+    payment_slip_url: urlMap.get(r.id) ?? r.payment_slip_url,
+  }));
+}
+
 const statusConfig: Record<
   BookingStatus,
   { labelKey: string; color: string; icon: React.ElementType }
@@ -175,7 +219,8 @@ export default function BookingsPage() {
     setTotalPendingCount(pendingCnt || 0);
     setTotalConfirmedCount(confirmedCnt || 0);
 
-    const rows = (bookingRows as unknown as BookingRow[]) || [];
+    const rawRows = (bookingRows as unknown as BookingRow[]) || [];
+    const rows = await resolveSlipUrls(rawRows, supabase);
     setBookings(toDisplay(rows));
     setHasMore(rows.length === PAGE_SIZE && rows.length < (total || 0));
     setLoading(false);
@@ -200,7 +245,8 @@ export default function BookingsPage() {
       .order("created_at", { ascending: false })
       .range(from, to);
 
-    const rows = (bookingRows as unknown as BookingRow[]) || [];
+    const rawRows = (bookingRows as unknown as BookingRow[]) || [];
+    const rows = await resolveSlipUrls(rawRows, supabase);
     const newBookings = toDisplay(rows);
     setBookings((prev) => [...prev, ...newBookings]);
     setHasMore(rows.length === PAGE_SIZE && from + rows.length < totalCount);
