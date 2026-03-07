@@ -32,6 +32,7 @@ export interface Database {
           cancellation_days: number;
           notification_preference: string;
           security_pin_hash: string | null;
+          status: string;
           created_at: string;
         };
         Insert: {
@@ -48,6 +49,7 @@ export interface Database {
           cancellation_days?: number;
           notification_preference?: string;
           security_pin_hash?: string | null;
+          status?: string;
           created_at?: string;
         };
         Update: {
@@ -64,6 +66,7 @@ export interface Database {
           cancellation_days?: number;
           notification_preference?: string;
           security_pin_hash?: string | null;
+          status?: string;
           created_at?: string;
         };
       };

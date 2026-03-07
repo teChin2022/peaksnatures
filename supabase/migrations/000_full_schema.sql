@@ -26,6 +26,7 @@ CREATE TABLE hosts (
   deposit_amount INTEGER NOT NULL DEFAULT 0,
   deposit_by_month JSONB DEFAULT NULL,
   cancellation_days INTEGER NOT NULL DEFAULT 0,
+  status TEXT NOT NULL DEFAULT 'pending',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   UNIQUE(user_id)
 );

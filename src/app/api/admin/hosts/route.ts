@@ -23,18 +23,21 @@ export async function GET(req: NextRequest) {
     const offset = (page - 1) * limit;
 
     const sc = createServiceRoleClient();
+    const statusFilter = url.searchParams.get("status"); // 'pending', 'approved', or null (all)
 
     // Get total count
-    const { count: total } = await sc
-      .from("hosts")
-      .select("id", { count: "exact", head: true });
+    let countQuery = sc.from("hosts").select("id", { count: "exact", head: true });
+    if (statusFilter) countQuery = countQuery.eq("status", statusFilter);
+    const { count: total } = await countQuery;
 
     // Get paginated hosts
-    const { data: hosts, error } = await sc
+    let hostsQuery = sc
       .from("hosts")
-      .select("id, user_id, name, email, phone, created_at")
+      .select("id, user_id, name, email, phone, status, created_at")
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
+    if (statusFilter) hostsQuery = hostsQuery.eq("status", statusFilter);
+    const { data: hosts, error } = await hostsQuery;
 
     if (error) {
       console.error("[Admin Hosts] query error:", error);
@@ -55,7 +58,7 @@ export async function GET(req: NextRequest) {
       homestayMap.set(h.host_id, { name: h.name, slug: h.slug, is_active: h.is_active });
     }
 
-    const data = (hosts as { id: string; user_id: string; name: string; email: string; phone: string | null; created_at: string }[]).map((h) => ({
+    const data = (hosts as { id: string; user_id: string; name: string; email: string; phone: string | null; status: string; created_at: string }[]).map((h) => ({
       ...h,
       homestay: homestayMap.get(h.id) || null,
     }));

@@ -1,12 +1,14 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import { Users, Home, CalendarDays, DollarSign, AlertTriangle, CheckCircle2 } from "lucide-react";
+import Link from "next/link";
+import { Users, Home, CalendarDays, DollarSign, AlertTriangle, CheckCircle2, UserCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
 
 interface Stats {
   totalHosts: number;
+  pendingHosts: number;
   totalHomestays: number;
   totalBookings: number;
   totalRevenue: number;
@@ -67,11 +69,12 @@ export default function AdminDashboardPage() {
 
   const cards = [
     { label: "Total Hosts", value: stats.totalHosts, icon: Users, bg: "bg-blue-100", fg: "text-blue-600" },
+    { label: "Pending Hosts", value: stats.pendingHosts, icon: UserCheck, bg: "bg-amber-100", fg: "text-amber-600", href: "/admin/hosts?status=pending" },
     { label: "Total Homestays", value: stats.totalHomestays, icon: Home, bg: "bg-purple-100", fg: "text-purple-600" },
     { label: "Total Bookings", value: stats.totalBookings, icon: CalendarDays, bg: "bg-orange-100", fg: "text-orange-600" },
     { label: "Total Revenue", value: `฿${stats.totalRevenue.toLocaleString()}`, icon: DollarSign, bg: "bg-green-100", fg: "text-green-600" },
     { label: "Confirmed", value: stats.confirmedBookings, icon: CheckCircle2, bg: "bg-emerald-100", fg: "text-emerald-600" },
-    { label: "Pending Review", value: stats.pendingBookings, icon: AlertTriangle, bg: "bg-yellow-100", fg: "text-yellow-600" },
+    { label: "Pending Bookings", value: stats.pendingBookings, icon: AlertTriangle, bg: "bg-yellow-100", fg: "text-yellow-600" },
   ];
 
   return (
@@ -80,8 +83,8 @@ export default function AdminDashboardPage() {
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((card) => {
           const Icon = card.icon;
-          return (
-            <Card key={card.label}>
+          const inner = (
+            <Card key={card.label} className={(card as { href?: string }).href ? "hover:shadow-md transition-shadow cursor-pointer" : ""}>
               <CardContent className="flex items-center gap-4 p-4">
                 <div className={`rounded-lg p-2.5 ${card.bg}`}>
                   <Icon className={`h-5 w-5 ${card.fg}`} />
@@ -93,6 +96,8 @@ export default function AdminDashboardPage() {
               </CardContent>
             </Card>
           );
+          const href = (card as { href?: string }).href;
+          return href ? <Link key={card.label} href={href}>{inner}</Link> : <div key={card.label}>{inner}</div>;
         })}
       </div>
     </div>

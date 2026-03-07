@@ -491,3 +491,200 @@ export async function sendHostLineNotification(
     return { success: false, error };
   }
 }
+
+// ============================================================
+// ADMIN NOTIFICATIONS — Host Registration
+// ============================================================
+
+interface NewHostInfo {
+  hostName: string;
+  hostEmail: string;
+}
+
+export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
+  try {
+    const { createClient } = await import("@supabase/supabase-js");
+    const supabase = createClient(
+      process.env.NEXT_PUBLIC_SUPABASE_URL!,
+      process.env.SUPABASE_SERVICE_ROLE_KEY!,
+      { auth: { autoRefreshToken: false, persistSession: false } }
+    );
+
+    const { data: admins } = await supabase
+      .from("platform_admins")
+      .select("email, line_user_id, line_channel_access_token");
+
+    if (!admins || admins.length === 0) {
+      console.log("[Admin Notify] No platform admins found — skipping notification");
+      return;
+    }
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+
+    for (const admin of admins as { email: string; line_user_id: string | null; line_channel_access_token: string | null }[]) {
+      // Send LINE if configured
+      if (admin.line_user_id && admin.line_channel_access_token) {
+        try {
+          const lineMsg = [
+            `🆕 โฮสต์ใหม่สมัครเข้ามา`,
+            `━━━━━━━━━━━━━━━━`,
+            ``,
+            `👤 ชื่อ: ${info.hostName}`,
+            `📧 อีเมล: ${info.hostEmail}`,
+            ``,
+            `กรุณาตรวจสอบและอนุมัติที่ Admin Panel`,
+          ].join("\n");
+
+          await fetch("https://api.line.me/v2/bot/message/push", {
+            method: "POST",
+            headers: {
+              "Content-Type": "application/json",
+              Authorization: `Bearer ${admin.line_channel_access_token}`,
+            },
+            body: JSON.stringify({
+              to: admin.line_user_id,
+              messages: [{ type: "text", text: lineMsg }],
+            }),
+          });
+          console.log(`[Admin Notify] LINE sent to admin: ${admin.email}`);
+        } catch (err) {
+          console.error(`[Admin Notify] LINE failed for ${admin.email}:`, err);
+        }
+      }
+
+      // Always send email
+      try {
+        const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
+        if (!apiKey || apiKey === "your_resend_api_key") {
+          console.log(`[Admin Notify] Email skipped — RESEND_API_KEY not configured. Would send to: ${admin.email}`);
+          continue;
+        }
+        const { Resend } = await import("resend");
+        const resend = new Resend(apiKey);
+
+        const DEFAULT_FROM = "PeaksNature <onboarding@resend.dev>";
+        const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
+        const fromEmail = cleaned
+          ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
+          : DEFAULT_FROM;
+
+        await resend.emails.send({
+          from: fromEmail,
+          to: admin.email,
+          subject: `🆕 New host registration — ${info.hostName}`,
+          html: `
+            <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+              <div style="background: #1e293b; padding: 24px; border-radius: 12px 12px 0 0;">
+                <h1 style="color: white; margin: 0; font-size: 20px;">🆕 New Host Registration</h1>
+              </div>
+              <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: 0; border-radius: 0 0 12px 12px;">
+                <p style="font-size: 16px; margin-top: 0;">A new host has registered and is waiting for your approval.</p>
+                <table style="width: 100%; border-collapse: collapse;">
+                  <tr><td style="padding: 8px 0; color: #6b7280;">Name</td><td style="padding: 8px 0; font-weight: bold;">${info.hostName}</td></tr>
+                  <tr><td style="padding: 8px 0; color: #6b7280;">Email</td><td style="padding: 8px 0;">${info.hostEmail}</td></tr>
+                </table>
+                ${appUrl ? `<a href="${appUrl}/admin/hosts?status=pending" style="display: inline-block; margin-top: 16px; background: #1e293b; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Review in Admin Panel</a>` : ""}
+              </div>
+            </div>
+          `,
+        });
+        console.log(`[Admin Notify] Email sent to admin: ${admin.email}`);
+      } catch (err) {
+        console.error(`[Admin Notify] Email failed for ${admin.email}:`, err);
+      }
+    }
+  } catch (error) {
+    console.error("[Admin Notify] Error:", error);
+  }
+}
+
+// ============================================================
+// HOST APPROVAL / REJECTION EMAILS
+// ============================================================
+
+export async function sendHostApprovalEmail(hostEmail: string, hostName: string) {
+  const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
+  if (!apiKey || apiKey === "your_resend_api_key") {
+    console.log("[Email] Skipped — RESEND_API_KEY not configured. Would send approval to:", hostEmail);
+    return { success: true, demo: true };
+  }
+
+  try {
+    const { Resend } = await import("resend");
+    const resend = new Resend(apiKey);
+
+    const DEFAULT_FROM = "PeaksNature <onboarding@resend.dev>";
+    const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
+    const fromEmail = cleaned
+      ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
+      : DEFAULT_FROM;
+
+    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+
+    await resend.emails.send({
+      from: fromEmail,
+      to: hostEmail,
+      subject: "✅ บัญชีโฮสต์ของคุณได้รับการอนุมัติแล้ว — PeaksNature",
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: #16a34a; padding: 24px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 20px;">✅ บัญชีได้รับการอนุมัติแล้ว!</h1>
+          </div>
+          <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: 0; border-radius: 0 0 12px 12px;">
+            <p style="font-size: 16px; margin-top: 0;">สวัสดีคุณ ${hostName},</p>
+            <p>บัญชีโฮสต์ของคุณบน PeaksNature ได้รับการอนุมัติเรียบร้อยแล้ว คุณสามารถเข้าสู่ระบบและเริ่มจัดการโฮมสเตย์ของคุณได้ทันที</p>
+            <p style="color: #6b7280;">Your host account on PeaksNature has been approved! You can now log in and start managing your homestay.</p>
+            ${appUrl ? `<a href="${appUrl}/login" style="display: inline-block; margin-top: 16px; background: #16a34a; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">เข้าสู่ระบบ / Log In</a>` : ""}
+          </div>
+        </div>
+      `,
+    });
+    console.log(`[Email] Approval sent to: ${hostEmail}`);
+    return { success: true };
+  } catch (error) {
+    console.error("[Email] Approval email error:", error);
+    return { success: false, error };
+  }
+}
+
+export async function sendHostRejectionEmail(hostEmail: string, hostName: string) {
+  const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
+  if (!apiKey || apiKey === "your_resend_api_key") {
+    console.log("[Email] Skipped — RESEND_API_KEY not configured. Would send rejection to:", hostEmail);
+    return { success: true, demo: true };
+  }
+
+  try {
+    const { Resend } = await import("resend");
+    const resend = new Resend(apiKey);
+
+    const DEFAULT_FROM = "PeaksNature <onboarding@resend.dev>";
+    const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
+    const fromEmail = cleaned
+      ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
+      : DEFAULT_FROM;
+
+    await resend.emails.send({
+      from: fromEmail,
+      to: hostEmail,
+      subject: "PeaksNature — แจ้งผลการสมัครบัญชีโฮสต์",
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: #6b7280; padding: 24px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 20px;">แจ้งผลการสมัคร</h1>
+          </div>
+          <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: 0; border-radius: 0 0 12px 12px;">
+            <p style="font-size: 16px; margin-top: 0;">สวัสดีคุณ ${hostName},</p>
+            <p>ขออภัย บัญชีโฮสต์ของคุณไม่ผ่านการอนุมัติในครั้งนี้ หากมีข้อสงสัย กรุณาติดต่อทีมงาน</p>
+            <p style="color: #6b7280;">Unfortunately, your host application was not approved at this time. If you have questions, please contact our team.</p>
+          </div>
+        </div>
+      `,
+    });
+    console.log(`[Email] Rejection sent to: ${hostEmail}`);
+    return { success: true };
+  } catch (error) {
+    console.error("[Email] Rejection email error:", error);
+    return { success: false, error };
+  }
+}

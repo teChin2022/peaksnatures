@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
@@ -75,6 +76,33 @@ export async function middleware(request: NextRequest) {
     url.pathname = "/login";
     url.searchParams.set("next", request.nextUrl.pathname);
     return NextResponse.redirect(url);
+  }
+
+  // Redirect pending hosts to /dashboard/pending (except if already there)
+  const isDashboard = request.nextUrl.pathname.startsWith("/dashboard");
+  const isPendingPage = request.nextUrl.pathname === "/dashboard/pending";
+
+  if (isDashboard && user && !isPendingPage) {
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (serviceRoleKey && supabaseUrl) {
+      try {
+        const sc = createClient(supabaseUrl, serviceRoleKey, {
+          auth: { autoRefreshToken: false, persistSession: false },
+        });
+        const { data: host } = await sc
+          .from("hosts")
+          .select("status")
+          .eq("user_id", user.id)
+          .single();
+        if (host && (host as { status: string }).status === "pending") {
+          const url = request.nextUrl.clone();
+          url.pathname = "/dashboard/pending";
+          return NextResponse.redirect(url);
+        }
+      } catch {
+        // If check fails, allow through — don't block approved hosts
+      }
+    }
   }
 
   // Redirect authenticated users away from /login and /register (but not admin users)

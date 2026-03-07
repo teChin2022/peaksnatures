@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { notifyAdminsNewHostRegistration } from "@/lib/notifications";
 import type { Database } from "@/types/database";
 import type { EmailOtpType } from "@supabase/supabase-js";
 
@@ -87,10 +88,17 @@ export async function GET(req: NextRequest) {
               email: user.email!,
               phone: null,
               promptpay_id: "",
+              status: "pending",
             } as never);
 
           if (hostError) {
             console.error("Host record creation error:", hostError);
+          } else {
+            // Fire-and-forget: notify platform admins about new registration
+            notifyAdminsNewHostRegistration({
+              hostName: name,
+              hostEmail: user.email!,
+            }).catch((err) => console.error("[Admin Notify] Failed:", err));
           }
         }
       }

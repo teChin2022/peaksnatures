@@ -225,6 +225,7 @@
     "promptpayHint": "Used for receiving guest payments",
     "checkEmailTitle": "Check Your Email",
     "checkEmailDesc": "We sent a verification link to {email}. Click the link to activate your account.",
+    "pendingApprovalNote": "After verifying your email, your account will be reviewed by our team before you can access the dashboard.",
     "backToSignIn": "Back to Sign In",
     "fullNamePlaceholder": "Full Name",
     "confirmPassword": "Confirm Password",
