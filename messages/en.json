@@ -61,7 +61,15 @@
     "contactLine": "LINE Official",
     "contactLineValue": "@peaksnature",
     "contactHours": "Support Hours",
-    "contactHoursValue": "Monday – Sunday, 9:00 AM – 9:00 PM (Bangkok Time)"
+    "contactHoursValue": "Monday – Sunday, 9:00 AM – 9:00 PM (Bangkok Time)",
+    "contactFormName": "Your Name",
+    "contactFormEmail": "Your Email",
+    "contactFormSubject": "Subject",
+    "contactFormMessage": "Message",
+    "contactFormSend": "Send Message",
+    "contactFormSending": "Sending...",
+    "contactFormSuccess": "Message sent successfully! We'll get back to you soon.",
+    "contactFormError": "Failed to send message. Please try again."
   },
   "about": {
     "title": "About this place",
