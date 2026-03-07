@@ -1,16 +1,128 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState, useCallback } from "react";
 import Image from "next/image";
 import type { Room, RoomSeasonalPrice } from "@/types/database";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, BedDouble, CalendarDays } from "lucide-react";
+import { Users, BedDouble, CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { getPriceRange } from "@/lib/calculate-price";
 import { HTMLContent } from "@/components/ui/html-content";
+
+function RoomImageCarousel({ images, name, themeColor }: { images: string[]; name: string; themeColor: string }) {
+  const [current, setCurrent] = useState(0);
+  const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
+
+  const prev = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrent((c) => (c > 0 ? c - 1 : images.length - 1));
+  }, [images.length]);
+
+  const next = useCallback((e: React.MouseEvent) => {
+    e.stopPropagation();
+    setCurrent((c) => (c < images.length - 1 ? c + 1 : 0));
+  }, [images.length]);
+
+  if (!images.length) return null;
+
+  return (
+    <>
+      <div className="relative aspect-[16/10] overflow-hidden cursor-pointer" onClick={() => setLightboxIndex(current)}>
+        <Image
+          src={images[current]}
+          alt={`${name} ${current + 1}`}
+          fill
+          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+        />
+        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/50 to-transparent" />
+        <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between">
+          <h3 className="text-base font-semibold text-white drop-shadow-sm">{name}</h3>
+        </div>
+
+        {images.length > 1 && (
+          <>
+            <button
+              onClick={prev}
+              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/60"
+            >
+              <ChevronLeft className="h-4 w-4" />
+            </button>
+            <button
+              onClick={next}
+              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/60"
+            >
+              <ChevronRight className="h-4 w-4" />
+            </button>
+            <div className="absolute bottom-3 right-4 flex gap-1">
+              {images.map((_, i) => (
+                <span
+                  key={i}
+                  className={`h-1.5 w-1.5 rounded-full transition-colors ${i === current ? "bg-white" : "bg-white/40"}`}
+                />
+              ))}
+            </div>
+          </>
+        )}
+      </div>
+
+      {/* Lightbox */}
+      {lightboxIndex !== null && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-4 top-4 text-white hover:bg-white/20"
+            onClick={() => setLightboxIndex(null)}
+          >
+            <X className="h-6 w-6" />
+          </Button>
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute left-4 text-white hover:bg-white/20"
+            onClick={() =>
+              setLightboxIndex(
+                lightboxIndex > 0 ? lightboxIndex - 1 : images.length - 1
+              )
+            }
+          >
+            <ChevronLeft className="h-8 w-8" />
+          </Button>
+
+          <Image
+            src={images[lightboxIndex]}
+            alt={`${name} ${lightboxIndex + 1}`}
+            width={1200}
+            height={800}
+            className="max-h-[80vh] max-w-[90vw] rounded-lg object-contain"
+          />
+
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-4 text-white hover:bg-white/20"
+            onClick={() =>
+              setLightboxIndex(
+                lightboxIndex < images.length - 1 ? lightboxIndex + 1 : 0
+              )
+            }
+          >
+            <ChevronRight className="h-8 w-8" />
+          </Button>
+
+          <div className="absolute bottom-6 text-sm text-white/70">
+            {lightboxIndex + 1} / {images.length}
+          </div>
+        </div>
+      )}
+    </>
+  );
+}
 
 interface RoomsSectionProps {
   rooms: Room[];
@@ -52,21 +164,7 @@ export function RoomsSection({ rooms, themeColor = "#16a34a", seasonalPrices = [
               key={room.id}
               className="group overflow-hidden border transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
             >
-              {room.images[0] && (
-                <div className="relative aspect-[16/10] overflow-hidden">
-                  <Image
-                    src={room.images[0]}
-                    alt={room.name}
-                    fill
-                    sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                    className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                  />
-                  <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/50 to-transparent" />
-                  <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between">
-                    <h3 className="text-base font-semibold text-white drop-shadow-sm">{room.name}</h3>
-                  </div>
-                </div>
-              )}
+              <RoomImageCarousel images={room.images} name={room.name} themeColor={themeColor} />
               <CardContent className="p-4">
                 {(() => {
                   const roomSeasons = seasonsByRoom[room.id] || [];
