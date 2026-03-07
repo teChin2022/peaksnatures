@@ -79,7 +79,8 @@
     "title": "Rooms & Pricing",
     "subtitle": "Choose from our available room types",
     "available": "{count} available",
-    "fromPrice": "From"
+    "fromPrice": "From",
+    "bookRoom": "Book"
   },
   "booking": {
     "title": "Book Your Stay",

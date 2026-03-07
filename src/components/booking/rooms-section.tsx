@@ -1,11 +1,14 @@
+"use client";
+
 import { useMemo } from "react";
 import Image from "next/image";
 import type { Room, RoomSeasonalPrice } from "@/types/database";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, BedDouble } from "lucide-react";
+import { Users, BedDouble, CalendarDays } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useTranslations } from "next-intl";
+import { Button } from "@/components/ui/button";
 import { getPriceRange } from "@/lib/calculate-price";
 import { HTMLContent } from "@/components/ui/html-content";
 
@@ -103,6 +106,19 @@ export function RoomsSection({ rooms, themeColor = "#16a34a", seasonalPrices = [
                     {t("available", { count: room.quantity })}
                   </Badge>
                 </div>
+                <Button
+                  size="sm"
+                  className="mt-3 w-full rounded-full text-white hover:brightness-90"
+                  style={{ backgroundColor: themeColor }}
+                  onClick={() => {
+                    document.dispatchEvent(
+                      new CustomEvent("book-room", { detail: { roomId: room.id } })
+                    );
+                  }}
+                >
+                  <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+                  {t("bookRoom")}
+                </Button>
               </CardContent>
             </Card>
           ))}

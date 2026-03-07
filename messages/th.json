@@ -79,7 +79,8 @@
     "title": "ห้องพัก & ราคา",
     "subtitle": "เลือกจากประเภทห้องพักที่มี",
     "available": "ว่าง {count} ห้อง",
-    "fromPrice": "เริ่มต้น"
+    "fromPrice": "เริ่มต้น",
+    "bookRoom": "จองห้องนี้"
   },
   "booking": {
     "title": "จองที่พัก",

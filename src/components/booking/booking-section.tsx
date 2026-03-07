@@ -168,6 +168,23 @@ export function BookingSection({
     };
   }, [step, paymentPhase, slipFile, phoneSlipReceived, uploadSessionId]);
 
+  // Listen for "book-room" custom event dispatched from RoomsSection
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { roomId } = (e as CustomEvent<{ roomId: string }>).detail;
+      if (roomId && rooms.some((r) => r.id === roomId)) {
+        handleRoomChange(roomId);
+        setStep("dates");
+        setTimeout(() => {
+          document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
+      }
+    };
+    document.addEventListener("book-room", handler);
+    return () => document.removeEventListener("book-room", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rooms]);
+
   // Live booked ranges fetched client-side to stay up-to-date
   const [liveBookedRanges, setLiveBookedRanges] = useState<BookedRange[]>(bookedRanges);
 
