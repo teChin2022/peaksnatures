@@ -1,9 +1,9 @@
 "use client";
 
-import { useMemo, useState, useCallback } from "react";
+import { useMemo, useState } from "react";
 import Image from "next/image";
 import type { Room, RoomSeasonalPrice } from "@/types/database";
-import { Card, CardContent } from "@/components/ui/card";
+
 import { Badge } from "@/components/ui/badge";
 import { Users, BedDouble, CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
@@ -12,61 +12,30 @@ import { Button } from "@/components/ui/button";
 import { getPriceRange } from "@/lib/calculate-price";
 import { HTMLContent } from "@/components/ui/html-content";
 
-function RoomImageCarousel({ images, name, themeColor }: { images: string[]; name: string; themeColor: string }) {
-  const [current, setCurrent] = useState(0);
+function RoomImageGallery({ images, name }: { images: string[]; name: string }) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
-
-  const prev = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCurrent((c) => (c > 0 ? c - 1 : images.length - 1));
-  }, [images.length]);
-
-  const next = useCallback((e: React.MouseEvent) => {
-    e.stopPropagation();
-    setCurrent((c) => (c < images.length - 1 ? c + 1 : 0));
-  }, [images.length]);
 
   if (!images.length) return null;
 
   return (
     <>
-      <div className="relative aspect-[16/10] overflow-hidden cursor-pointer" onClick={() => setLightboxIndex(current)}>
-        <Image
-          src={images[current]}
-          alt={`${name} ${current + 1}`}
-          fill
-          sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-          className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-        />
-        <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/50 to-transparent" />
-        <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between">
-          <h3 className="text-base font-semibold text-white drop-shadow-sm">{name}</h3>
-        </div>
-
-        {images.length > 1 && (
-          <>
-            <button
-              onClick={prev}
-              className="absolute left-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/60"
-            >
-              <ChevronLeft className="h-4 w-4" />
-            </button>
-            <button
-              onClick={next}
-              className="absolute right-2 top-1/2 -translate-y-1/2 rounded-full bg-black/40 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100 hover:bg-black/60"
-            >
-              <ChevronRight className="h-4 w-4" />
-            </button>
-            <div className="absolute bottom-3 right-4 flex gap-1">
-              {images.map((_, i) => (
-                <span
-                  key={i}
-                  className={`h-1.5 w-1.5 rounded-full transition-colors ${i === current ? "bg-white" : "bg-white/40"}`}
-                />
-              ))}
-            </div>
-          </>
-        )}
+      <div className="grid grid-cols-2 gap-2 sm:grid-cols-4 sm:gap-3">
+        {images.map((img, i) => (
+          <button
+            key={i}
+            onClick={() => setLightboxIndex(i)}
+            className="group relative aspect-[4/3] overflow-hidden rounded-lg"
+          >
+            <Image
+              src={img}
+              alt={`${name} photo ${i + 1}`}
+              fill
+              sizes="(max-width: 640px) 50vw, 25vw"
+              className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
+            />
+            <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
+          </button>
+        ))}
       </div>
 
       {/* Lightbox */}
@@ -96,7 +65,7 @@ function RoomImageCarousel({ images, name, themeColor }: { images: string[]; nam
 
           <Image
             src={images[lightboxIndex]}
-            alt={`${name} ${lightboxIndex + 1}`}
+            alt={`${name} photo ${lightboxIndex + 1}`}
             width={1200}
             height={800}
             className="max-h-[80vh] max-w-[90vw] rounded-lg object-contain"
@@ -158,20 +127,35 @@ export function RoomsSection({ rooms, themeColor = "#16a34a", seasonalPrices = [
           {t("subtitle")}
         </p>
 
-        <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-          {rooms.map((room) => (
-            <Card
-              key={room.id}
-              className="group overflow-hidden border transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
-            >
-              <RoomImageCarousel images={room.images} name={room.name} themeColor={themeColor} />
-              <CardContent className="p-4">
-                {(() => {
-                  const roomSeasons = seasonsByRoom[room.id] || [];
-                  const { min, max } = getPriceRange(room.price_per_night, roomSeasons);
-                  const hasRange = min !== max;
-                  return (
-                    <div className="flex items-center gap-1" style={{ borderLeftColor: themeColor }}>
+        <div className="mt-6 space-y-8">
+          {rooms.map((room) => {
+            const roomSeasons = seasonsByRoom[room.id] || [];
+            const { min, max } = getPriceRange(room.price_per_night, roomSeasons);
+            const hasRange = min !== max;
+            return (
+              <div key={room.id}>
+                <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="flex-1">
+                    <h3 className="text-lg font-semibold text-gray-900">{room.name}</h3>
+                    {room.description && (
+                      <HTMLContent content={room.description} className="mt-1 text-sm leading-relaxed text-gray-500" />
+                    )}
+                    <div className="mt-2 flex items-center gap-4 text-xs text-gray-500">
+                      <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1">
+                        <Users className="h-3.5 w-3.5" />
+                        {tc("guests")} {room.max_guests}
+                      </span>
+                      <Badge
+                        variant="secondary"
+                        className="text-xs font-normal"
+                        style={{ backgroundColor: themeColor + "12", color: themeColor }}
+                      >
+                        {t("available", { count: room.quantity })}
+                      </Badge>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3 sm:flex-col sm:items-end">
+                    <div className="flex items-center gap-1">
                       {hasRange ? (
                         <>
                           <span className="text-xs text-gray-400 self-end mb-1">{t("fromPrice")}</span>
@@ -186,40 +170,32 @@ export function RoomsSection({ rooms, themeColor = "#16a34a", seasonalPrices = [
                       )}
                       <span className="text-xs text-gray-400 self-end mb-1">{tc("perNight")}</span>
                     </div>
-                  );
-                })()}
-                {room.description && (
-                  <HTMLContent content={room.description} className="mt-2 text-sm leading-relaxed text-gray-500 line-clamp-2" />
-                )}
-                <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
-                  <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1">
-                    <Users className="h-3.5 w-3.5" />
-                    {tc("guests")} {room.max_guests}
-                  </span>
-                  <Badge
-                    variant="secondary"
-                    className="text-xs font-normal"
-                    style={{ backgroundColor: themeColor + "12", color: themeColor }}
-                  >
-                    {t("available", { count: room.quantity })}
-                  </Badge>
+                    <Button
+                      size="sm"
+                      className="rounded-full text-white hover:brightness-90"
+                      style={{ backgroundColor: themeColor }}
+                      onClick={() => {
+                        document.dispatchEvent(
+                          new CustomEvent("book-room", { detail: { roomId: room.id } })
+                        );
+                      }}
+                    >
+                      <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+                      {t("bookRoom")}
+                    </Button>
+                  </div>
                 </div>
-                <Button
-                  size="sm"
-                  className="mt-3 w-full rounded-full text-white hover:brightness-90"
-                  style={{ backgroundColor: themeColor }}
-                  onClick={() => {
-                    document.dispatchEvent(
-                      new CustomEvent("book-room", { detail: { roomId: room.id } })
-                    );
-                  }}
-                >
-                  <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
-                  {t("bookRoom")}
-                </Button>
-              </CardContent>
-            </Card>
-          ))}
+                {room.images.length > 0 && (
+                  <div className="mt-4">
+                    <RoomImageGallery images={room.images} name={room.name} />
+                  </div>
+                )}
+                {rooms.indexOf(room) < rooms.length - 1 && (
+                  <Separator className="mt-8" />
+                )}
+              </div>
+            );
+          })}
         </div>
 
         <Separator className="mt-10" />
