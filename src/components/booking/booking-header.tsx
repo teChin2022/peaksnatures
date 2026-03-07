@@ -13,9 +13,10 @@ interface BookingHeaderProps {
   homestayId: string;
   promptpayId?: string;
   hostName?: string;
+  cancellationDays?: number;
 }
 
-export function BookingHeader({ homestayName, themeColor, logoUrl, homestayId, promptpayId, hostName }: BookingHeaderProps) {
+export function BookingHeader({ homestayName, themeColor, logoUrl, homestayId, promptpayId, hostName, cancellationDays }: BookingHeaderProps) {
   const t = useTranslations("dashboardTheme");
   return (
     <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-md">
@@ -50,7 +51,7 @@ export function BookingHeader({ homestayName, themeColor, logoUrl, homestayId, p
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <BookingSearchDialog homestayId={homestayId} themeColor={themeColor} promptpayId={promptpayId} hostName={hostName} />
+          <BookingSearchDialog homestayId={homestayId} themeColor={themeColor} promptpayId={promptpayId} hostName={hostName} cancellationDays={cancellationDays} />
           <Button
             size="sm"
             className="shrink-0 rounded-full text-white hover:brightness-90 shadow-sm"

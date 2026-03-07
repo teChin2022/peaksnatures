@@ -25,6 +25,7 @@ import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
 import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice } from "@/types/database";
 import { calculateTotalPrice, getPriceRange } from "@/lib/calculate-price";
+import { getDepositForMonth } from "@/lib/get-deposit";
 import { ReviewsSection } from "@/components/booking/reviews-section";
 import { THAI_PROVINCES, getProvinceLabel } from "@/lib/provinces";
 import generatePayload from "promptpay-qr";
@@ -167,6 +168,23 @@ export function BookingSection({
     };
   }, [step, paymentPhase, slipFile, phoneSlipReceived, uploadSessionId]);
 
+  // Listen for "book-room" custom event dispatched from RoomsSection
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { roomId } = (e as CustomEvent<{ roomId: string }>).detail;
+      if (roomId && rooms.some((r) => r.id === roomId)) {
+        handleRoomChange(roomId);
+        setStep("dates");
+        setTimeout(() => {
+          document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" });
+        }, 100);
+      }
+    };
+    document.addEventListener("book-room", handler);
+    return () => document.removeEventListener("book-room", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rooms]);
+
   // Live booked ranges fetched client-side to stay up-to-date
   const [liveBookedRanges, setLiveBookedRanges] = useState<BookedRange[]>(bookedRanges);
 
@@ -304,14 +322,18 @@ export function BookingSection({
 
   const totalPrice = priceResult?.total ?? 0;
 
-  const depositAvailable = host.deposit_amount > 0 && host.deposit_amount < totalPrice;
+  const resolvedDeposit = useMemo(() => {
+    return getDepositForMonth(host, dateRange?.from);
+  }, [host, dateRange?.from]);
+
+  const depositAvailable = resolvedDeposit > 0 && resolvedDeposit < totalPrice;
 
   const paymentAmount = useMemo(() => {
     if (paymentOption === "deposit" && depositAvailable) {
-      return host.deposit_amount;
+      return resolvedDeposit;
     }
     return totalPrice;
-  }, [paymentOption, depositAvailable, host.deposit_amount, totalPrice]);
+  }, [paymentOption, depositAvailable, resolvedDeposit, totalPrice]);
 
   const handleSaveQr = useCallback(() => {
     const container = qrContainerRef.current;
@@ -1027,6 +1049,16 @@ export function BookingSection({
                   onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)}
                 />
 
+                {/* Cancellation policy note */}
+                {host.cancellation_days > 0 && paymentPhase === "qr" && (
+                  <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-3 py-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                    <p className="text-xs text-green-700">
+                      {t("cancellationPolicyNote", { days: host.cancellation_days })}
+                    </p>
+                  </div>
+                )}
+
                 {/* Payment option selector (deposit vs full) */}
                 {depositAvailable && paymentPhase === "qr" && (
                   <div className="rounded-xl border p-3 space-y-2">
@@ -1052,7 +1084,7 @@ export function BookingSection({
                         onClick={() => setPaymentOption("deposit")}
                       >
                         <p className="font-semibold">{t("payDeposit")}</p>
-                        <p className="text-lg font-bold">฿{host.deposit_amount.toLocaleString()}</p>
+                        <p className="text-lg font-bold">฿{resolvedDeposit.toLocaleString()}</p>
                         <p className="text-xs text-gray-400 mt-0.5">{t("depositSelected")}</p>
                       </button>
                     </div>
@@ -1475,7 +1507,7 @@ export function BookingSection({
             </div>
             {depositAvailable && (
               <div className="flex justify-between text-xs text-gray-400">
-                <span>{t("payDeposit")}: ฿{host.deposit_amount.toLocaleString()}</span>
+                <span>{t("payDeposit")}: ฿{resolvedDeposit.toLocaleString()}</span>
                 <span>{t("payFull")}: ฿{totalPrice.toLocaleString()}</span>
               </div>
             )}

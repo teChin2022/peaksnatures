@@ -28,6 +28,8 @@ export interface Database {
           line_user_id: string | null;
           line_channel_access_token: string | null;
           deposit_amount: number;
+          deposit_by_month: Record<string, number> | null;
+          cancellation_days: number;
           notification_preference: string;
           security_pin_hash: string | null;
           created_at: string;
@@ -42,6 +44,8 @@ export interface Database {
           line_user_id?: string | null;
           line_channel_access_token?: string | null;
           deposit_amount?: number;
+          deposit_by_month?: Record<string, number> | null;
+          cancellation_days?: number;
           notification_preference?: string;
           security_pin_hash?: string | null;
           created_at?: string;
@@ -56,6 +60,8 @@ export interface Database {
           line_user_id?: string | null;
           line_channel_access_token?: string | null;
           deposit_amount?: number;
+          deposit_by_month?: Record<string, number> | null;
+          cancellation_days?: number;
           notification_preference?: string;
           security_pin_hash?: string | null;
           created_at?: string;
@@ -185,6 +191,8 @@ export interface Database {
           amount_paid: number;
           checked_in_at: string | null;
           checked_out_at: string | null;
+          cancelled_by: string | null;
+          cancelled_at: string | null;
           created_at: string;
         };
         Insert: {
@@ -210,6 +218,8 @@ export interface Database {
           amount_paid?: number;
           checked_in_at?: string | null;
           checked_out_at?: string | null;
+          cancelled_by?: string | null;
+          cancelled_at?: string | null;
           created_at?: string;
         };
         Update: {
@@ -235,6 +245,8 @@ export interface Database {
           amount_paid?: number;
           checked_in_at?: string | null;
           checked_out_at?: string | null;
+          cancelled_by?: string | null;
+          cancelled_at?: string | null;
           created_at?: string;
         };
       };

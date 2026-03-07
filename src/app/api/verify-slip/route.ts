@@ -110,8 +110,8 @@ export async function POST(req: NextRequest) {
 
     const { data: signedUrlData } = await supabase.storage
       .from("payment-slips")
-      .createSignedUrl(slipPath, 60 * 60 * 24); // 24 hours instead of 1 year
-    const paymentSlipUrl = signedUrlData?.signedUrl || null;
+      .createSignedUrl(slipPath, 60 * 60); // 1 hour for immediate preview
+    const paymentSlipSignedUrl = signedUrlData?.signedUrl || null;
 
     // --- Demo mode (must be explicitly enabled) ---
     // if (process.env.DEMO_MODE === "true" && (!apiKey || apiKey === "your_easyslip_api_key")) {
@@ -164,7 +164,8 @@ export async function POST(req: NextRequest) {
         verified: false,
         message: "Slip verification failed. The payment slip could not be verified.",
         slip_hash: slipHash,
-        payment_slip_url: paymentSlipUrl,
+        payment_slip_url: slipPath,
+        payment_slip_signed_url: paymentSlipSignedUrl,
         easyslip_response: easySlipData,
       });
     }
@@ -180,7 +181,8 @@ export async function POST(req: NextRequest) {
         verified: false,
         message: "Payment slip is too old or has an invalid date. Please use a recent transfer slip (within 1 hour).",
         slip_hash: slipHash,
-        payment_slip_url: paymentSlipUrl,
+        payment_slip_url: slipPath,
+        payment_slip_signed_url: paymentSlipSignedUrl,
         easyslip_response: easySlipData,
       });
     }
@@ -242,7 +244,8 @@ export async function POST(req: NextRequest) {
         verified: false,
         message: `Verification mismatch. ${!amountMatch ? `Amount: expected ฿${expectedAmount}, got ฿${slipAmount}.` : ""} ${!receiverMatch ? "Receiver account does not match." : ""}`.trim(),
         slip_hash: slipHash,
-        payment_slip_url: paymentSlipUrl,
+        payment_slip_url: slipPath,
+        payment_slip_signed_url: paymentSlipSignedUrl,
         easyslip_response: easySlipData,
         // Debug details logged server-side only
         ...(process.env.NODE_ENV === "development" ? {
@@ -265,7 +268,8 @@ export async function POST(req: NextRequest) {
       message: "Payment verified!",
       slip_hash: slipHash,
       slip_trans_ref: transRef || null,
-      payment_slip_url: paymentSlipUrl,
+      payment_slip_url: slipPath,
+      payment_slip_signed_url: paymentSlipSignedUrl,
       easyslip_response: easySlipData,
     });
   } catch (error) {

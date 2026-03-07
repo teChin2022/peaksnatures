@@ -52,9 +52,10 @@ interface BookingSearchDialogProps {
   themeColor: string;
   promptpayId?: string;
   hostName?: string;
+  cancellationDays?: number;
 }
 
-export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostName }: BookingSearchDialogProps) {
+export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostName, cancellationDays: propCancellationDays }: BookingSearchDialogProps) {
   const t = useTranslations("bookingSearch");
   const tr = useTranslations("reviews");
   const locale = useLocale();
@@ -75,6 +76,10 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
   const [balanceSlipPreview, setBalanceSlipPreview] = useState<string | null>(null);
   const [submittingBalance, setSubmittingBalance] = useState(false);
   const balanceFileRef = useRef<HTMLInputElement>(null);
+  const [cancellationDays, setCancellationDays] = useState(propCancellationDays || 0);
+  const [cancellingId, setCancellingId] = useState<string | null>(null);
+  const [cancelReason, setCancelReason] = useState("");
+  const [submittingCancel, setSubmittingCancel] = useState(false);
 
   const handleCheckin = async (bookingId: string, guestEmail: string, action: "checkin" | "checkout") => {
     setCheckingIn(bookingId);
@@ -264,6 +269,41 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
     }
   };
 
+  const handleCancelBooking = async (bookingId: string) => {
+    setSubmittingCancel(true);
+    try {
+      const res = await fetch("/api/bookings/cancel", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          booking_id: bookingId,
+          reason: cancelReason.trim() || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.error === "TOO_LATE") {
+          toast.error(t("cancelTooLate", { days: data.cancellation_days }));
+        } else if (data.error === "CANCELLATION_DISABLED") {
+          toast.error(t("cancelNotAllowed"));
+        } else {
+          toast.error(data.message || t("cancelError"));
+        }
+        return;
+      }
+      toast.success(t("cancelSuccess"));
+      setResults((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, status: "cancelled" } : b))
+      );
+    } catch {
+      toast.error(t("cancelError"));
+    } finally {
+      setSubmittingCancel(false);
+      setCancellingId(null);
+      setCancelReason("");
+    }
+  };
+
   const handleSearch = async () => {
     if (!query.trim()) return;
     setLoading(true);
@@ -272,6 +312,9 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
       const res = await fetch(`/api/bookings/search?query=${encodeURIComponent(query.trim())}&homestay_id=${homestayId}`);
       const data = await res.json();
       setResults(data.bookings || []);
+      if (data.cancellation_days !== undefined) {
+        setCancellationDays(data.cancellation_days);
+      }
     } catch {
       setResults([]);
     } finally {
@@ -384,9 +427,9 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
                     ID: {booking.id}
                   </p>
 
-                  {/* Check-in button: confirmed + not checked in yet */}
+                  {/* Check-in + Cancel buttons: confirmed + not checked in yet */}
                   {booking.status === "confirmed" && !booking.checked_in_at && (
-                    <div className="mt-2 pt-2 border-t border-gray-200">
+                    <div className="mt-2 pt-2 border-t border-gray-200 space-y-2">
                       <Button
                         size="sm"
                         className="w-full text-white hover:brightness-90"
@@ -401,6 +444,64 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
                         )}
                         {t("checkIn")}
                       </Button>
+
+                      {/* Cancel button — show when cancellation is enabled and within window */}
+                      {cancellationDays > 0 && (() => {
+                        const today = new Date();
+                        today.setHours(0, 0, 0, 0);
+                        const checkInDate = new Date(booking.check_in);
+                        checkInDate.setHours(0, 0, 0, 0);
+                        const daysUntil = Math.floor((checkInDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24));
+                        return daysUntil >= cancellationDays;
+                      })() && (
+                        cancellingId === booking.id ? (
+                          <div className="space-y-2 rounded-lg border border-red-200 bg-red-50 p-2.5">
+                            <p className="text-xs font-medium text-red-700">{t("cancelConfirmDesc")}</p>
+                            <Textarea
+                              value={cancelReason}
+                              onChange={(e) => setCancelReason(e.target.value)}
+                              placeholder={t("cancelReasonPlaceholder")}
+                              rows={2}
+                              className="text-sm"
+                            />
+                            <div className="flex gap-2">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="flex-1"
+                                onClick={() => { setCancellingId(null); setCancelReason(""); }}
+                                disabled={submittingCancel}
+                              >
+                                {t("cancelKeepBooking")}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="destructive"
+                                className="flex-1"
+                                onClick={() => handleCancelBooking(booking.id)}
+                                disabled={submittingCancel}
+                              >
+                                {submittingCancel ? (
+                                  <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                                )}
+                                {t("cancelConfirmButton")}
+                              </Button>
+                            </div>
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                            onClick={() => setCancellingId(booking.id)}
+                          >
+                            <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                            {t("cancelBooking")}
+                          </Button>
+                        )
+                      )}
                     </div>
                   )}
 

@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
-import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key, Lock, Eye, EyeOff, Bell, BellOff, Trash2, AlertTriangle, ShieldCheck, Unlock } from "lucide-react";
+import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key, Lock, Eye, EyeOff, Bell, BellOff, Trash2, AlertTriangle, ShieldCheck, Unlock, Calendar } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -32,6 +32,8 @@ function maskPromptpay(id: string): string {
   return "x-xxxx-xx" + id.slice(-3);
 }
 
+const MONTH_KEYS = ["1","2","3","4","5","6","7","8","9","10","11","12"] as const;
+
 interface HostData {
   id: string;
   name: string;
@@ -41,6 +43,8 @@ interface HostData {
   line_channel_access_token: string | null;
   promptpay_id: string;
   deposit_amount: number;
+  deposit_by_month: Record<string, number> | null;
+  cancellation_days: number;
   notification_preference: string;
 }
 
@@ -60,6 +64,8 @@ export default function ProfilePage() {
   const [lineTokenMasked, setLineTokenMasked] = useState(false);
   const [promptpayId, setPromptpayId] = useState("");
   const [depositAmount, setDepositAmount] = useState(0);
+  const [depositByMonth, setDepositByMonth] = useState<Record<string, number>>({});
+  const [cancellationDays, setCancellationDays] = useState(0);
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -90,7 +96,7 @@ export default function ProfilePage() {
 
       const { data } = await supabase
         .from("hosts")
-        .select("id, name, email, phone, line_user_id, line_channel_access_token, promptpay_id, deposit_amount, notification_preference, security_pin_hash")
+        .select("id, name, email, phone, line_user_id, line_channel_access_token, promptpay_id, deposit_amount, deposit_by_month, cancellation_days, notification_preference, security_pin_hash")
         .eq("user_id", user.id)
         .single();
 
@@ -114,6 +120,8 @@ export default function ProfilePage() {
         }
         setPromptpayId(maskPromptpay(h.promptpay_id));
         setDepositAmount(h.deposit_amount || 0);
+        setDepositByMonth(h.deposit_by_month || {});
+        setCancellationDays(h.cancellation_days || 0);
         setNotificationPreference(h.notification_preference || "push");
 
         // Check push support and subscription status
@@ -145,6 +153,8 @@ export default function ProfilePage() {
         line_user_id: lineUserId.trim() || null,
         ...(lineTokenMasked ? {} : { line_channel_access_token: lineChannelToken.trim() || null }),
         deposit_amount: depositAmount,
+        deposit_by_month: Object.keys(depositByMonth).length > 0 ? depositByMonth : null,
+        cancellation_days: cancellationDays,
         notification_preference: notificationPreference,
       };
 
@@ -432,20 +442,103 @@ export default function ProfilePage() {
             </div>
           </div>
 
-          <div className="space-y-2">
-            <Label htmlFor="host-deposit" className="flex items-center gap-2">
-              <CreditCard className="h-3.5 w-3.5" />
-              {t("depositAmount")}
-            </Label>
-            <Input
-              id="host-deposit"
-              type="number"
-              min={0}
-              value={depositAmount || ""}
-              onChange={(e) => setDepositAmount(parseInt(e.target.value) || 0)}
-              placeholder={t("depositPlaceholder")}
-            />
-            <p className="text-xs text-gray-500">{t("depositHint")}</p>
+          <div className="rounded-lg border border-gray-200 p-4 space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <Calendar className="h-4 w-4" style={{ color: themeColor }} />
+              {t("depositSettings")}
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="host-deposit" className="flex items-center gap-2">
+                <CreditCard className="h-3.5 w-3.5" />
+                {t("defaultDeposit")}
+              </Label>
+              <Input
+                id="host-deposit"
+                type="number"
+                min={0}
+                value={depositAmount || ""}
+                onChange={(e) => setDepositAmount(parseInt(e.target.value) || 0)}
+                placeholder={t("depositPlaceholder")}
+              />
+              <p className="text-xs text-gray-500">{t("defaultDepositHint")}</p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">{t("monthlyDeposit")}</Label>
+                <button
+                  type="button"
+                  className="text-xs font-medium hover:opacity-80 transition-opacity"
+                  style={{ color: themeColor }}
+                  onClick={() => {
+                    const filled: Record<string, number> = {};
+                    MONTH_KEYS.forEach((m) => { filled[m] = depositAmount; });
+                    setDepositByMonth(filled);
+                  }}
+                >
+                  {t("applyToAll")}
+                </button>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {MONTH_KEYS.map((m) => (
+                  <div key={m} className="space-y-1">
+                    <label className="text-[11px] text-gray-500 block text-center">
+                      {t(`month${m}`)}
+                    </label>
+                    <Input
+                      type="number"
+                      min={0}
+                      className="h-8 text-center text-sm px-1"
+                      value={depositByMonth[m] ?? ""}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        setDepositByMonth((prev) => {
+                          const next = { ...prev };
+                          if (val > 0) {
+                            next[m] = val;
+                          } else {
+                            delete next[m];
+                          }
+                          return next;
+                        });
+                      }}
+                      placeholder={depositAmount > 0 ? String(depositAmount) : "0"}
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500">{t("monthlyDepositHint")}</p>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-gray-200 p-4 space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <AlertTriangle className="h-4 w-4" style={{ color: themeColor }} />
+              {t("cancellationPolicy")}
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm">{t("cancellationDays")}</Label>
+              <div className="flex flex-wrap gap-2">
+                {[0, 3, 7, 15, 30].map((days) => (
+                  <button
+                    key={days}
+                    type="button"
+                    className="rounded-full px-3 py-1.5 text-sm font-medium border transition-colors"
+                    style={
+                      cancellationDays === days
+                        ? { backgroundColor: themeColor, color: "white", borderColor: themeColor }
+                        : { borderColor: "#d1d5db", color: "#374151" }
+                    }
+                    onClick={() => setCancellationDays(days)}
+                  >
+                    {days === 0 ? t("cancellationDisabled") : t("cancellationDaysLabel", { days })}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500">{t("cancellationDaysHint")}</p>
+            </div>
           </div>
 
           <Button

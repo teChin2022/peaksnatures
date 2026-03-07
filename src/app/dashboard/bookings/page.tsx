@@ -62,6 +62,8 @@ interface BookingRow {
   guest_province: string | null;
   checked_in_at: string | null;
   checked_out_at: string | null;
+  cancelled_by: string | null;
+  cancel_reason: string | null;
   created_at: string;
 }
 
@@ -71,6 +73,50 @@ interface DisplayBooking extends BookingRow {
 }
 
 const PAGE_SIZE = 20;
+
+/**
+ * Converts a storage path (or legacy signed URL) stored in payment_slip_url
+ * into a fresh signed URL. Returns null if no path is stored.
+ */
+function extractStoragePath(value: string | null): string | null {
+  if (!value) return null;
+  // New format: plain storage path like "pending/xxx/slip.jpg"
+  if (!value.startsWith("http")) return value;
+  // Legacy format: full signed URL — extract path after "/payment-slips/"
+  const match = value.match(/\/payment-slips\/([^?]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+async function resolveSlipUrls(
+  rows: BookingRow[],
+  supabase: ReturnType<typeof createClient>
+): Promise<BookingRow[]> {
+  const paths = rows
+    .map((r) => ({ id: r.id, path: extractStoragePath(r.payment_slip_url) }))
+    .filter((p): p is { id: string; path: string } => p.path !== null);
+
+  if (paths.length === 0) return rows;
+
+  const { data } = await supabase.storage
+    .from("payment-slips")
+    .createSignedUrls(
+      paths.map((p) => p.path),
+      60 * 60 // 1 hour
+    );
+
+  if (!data) return rows;
+
+  const urlMap = new Map<string, string>();
+  paths.forEach((p, i) => {
+    const signed = data[i]?.signedUrl;
+    if (signed) urlMap.set(p.id, signed);
+  });
+
+  return rows.map((r) => ({
+    ...r,
+    payment_slip_url: urlMap.get(r.id) ?? r.payment_slip_url,
+  }));
+}
 
 const statusConfig: Record<
   BookingStatus,
@@ -173,7 +219,8 @@ export default function BookingsPage() {
     setTotalPendingCount(pendingCnt || 0);
     setTotalConfirmedCount(confirmedCnt || 0);
 
-    const rows = (bookingRows as unknown as BookingRow[]) || [];
+    const rawRows = (bookingRows as unknown as BookingRow[]) || [];
+    const rows = await resolveSlipUrls(rawRows, supabase);
     setBookings(toDisplay(rows));
     setHasMore(rows.length === PAGE_SIZE && rows.length < (total || 0));
     setLoading(false);
@@ -198,7 +245,8 @@ export default function BookingsPage() {
       .order("created_at", { ascending: false })
       .range(from, to);
 
-    const rows = (bookingRows as unknown as BookingRow[]) || [];
+    const rawRows = (bookingRows as unknown as BookingRow[]) || [];
+    const rows = await resolveSlipUrls(rawRows, supabase);
     const newBookings = toDisplay(rows);
     setBookings((prev) => [...prev, ...newBookings]);
     setHasMore(rows.length === PAGE_SIZE && from + rows.length < totalCount);
@@ -266,36 +314,31 @@ export default function BookingsPage() {
 
   const handleConfirmCancel = async () => {
     if (!cancelTarget) return;
-    // Use new API for pending/verified bookings to send guest email
-    if (cancelTarget.status === "pending" || cancelTarget.status === "verified") {
-      setUpdatingStatus(true);
-      try {
-        const res = await fetch("/api/bookings/update-status", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            booking_id: cancelTarget.id,
-            status: "cancelled",
-            reason: cancelReason.trim() || undefined,
-            locale,
-          }),
-        });
-        if (!res.ok) {
-          const data = await res.json();
-          toast.error(data.error || t("errorUpdate"));
-          return;
-        }
-        setBookings((prev) =>
-          prev.map((b) => (b.id === cancelTarget.id ? { ...b, status: "cancelled" as BookingStatus } : b))
-        );
-        toast.success(t("cancel") + "!");
-      } catch {
-        toast.error(t("errorUpdate"));
-      } finally {
-        setUpdatingStatus(false);
+    setUpdatingStatus(true);
+    try {
+      const res = await fetch("/api/bookings/update-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          booking_id: cancelTarget.id,
+          status: "cancelled",
+          reason: cancelReason.trim() || undefined,
+          locale,
+        }),
+      });
+      if (!res.ok) {
+        const data = await res.json();
+        toast.error(data.error || t("errorUpdate"));
+        return;
       }
-    } else {
-      await updateStatus(cancelTarget.id, "cancelled");
+      setBookings((prev) =>
+        prev.map((b) => (b.id === cancelTarget.id ? { ...b, status: "cancelled" as BookingStatus, cancelled_by: "host" } : b))
+      );
+      toast.success(t("cancel") + "!");
+    } catch {
+      toast.error(t("errorUpdate"));
+    } finally {
+      setUpdatingStatus(false);
     }
     setCancelDialogOpen(false);
     setCancelTarget(null);
@@ -410,6 +453,11 @@ export default function BookingsPage() {
                                 <StatusIcon className="mr-1 h-3 w-3" />
                                 {t(config.labelKey)}
                               </Badge>
+                              {booking.status === "cancelled" && booking.cancelled_by && (
+                                <Badge variant="secondary" className="bg-red-50 text-red-600 text-[11px]">
+                                  {booking.cancelled_by === "guest" ? t("cancelledByGuest") : t("cancelledByHost")}
+                                </Badge>
+                              )}
                               {booking.easyslip_verified && (
                                 <Badge
                                   variant="secondary"
@@ -769,20 +817,18 @@ export default function BookingsPage() {
               {t("cancelConfirmDesc", { guest: cancelTarget?.guest_name || "" })}
             </DialogDescription>
           </DialogHeader>
-          {(cancelTarget?.status === "pending" || cancelTarget?.status === "verified") && (
-            <div>
-              <Label htmlFor="cancel-reason">{t("cancelReason")}</Label>
-              <Textarea
-                id="cancel-reason"
-                value={cancelReason}
-                onChange={(e) => setCancelReason(e.target.value)}
-                placeholder={t("cancelReasonPlaceholder")}
-                rows={2}
-                className="mt-1"
-              />
-              <p className="mt-1 text-xs text-gray-400">{t("cancelReasonHint")}</p>
-            </div>
-          )}
+          <div>
+            <Label htmlFor="cancel-reason">{t("cancelReason")}</Label>
+            <Textarea
+              id="cancel-reason"
+              value={cancelReason}
+              onChange={(e) => setCancelReason(e.target.value)}
+              placeholder={t("cancelReasonPlaceholder")}
+              rows={2}
+              className="mt-1"
+            />
+            <p className="mt-1 text-xs text-gray-400">{t("cancelReasonHint")}</p>
+          </div>
           <DialogFooter className="flex gap-2 sm:justify-end">
             <Button
               variant="outline"

@@ -5,6 +5,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendBookingConfirmationEmail, sendHostLineNotification, sendHostPushNotification } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room, RoomSeasonalPrice } from "@/types/database";
 import { calculateTotalPrice } from "@/lib/calculate-price";
+import { getDepositForMonth } from "@/lib/get-deposit";
 
 const bookingSchema = z.object({
   homestay_id: z.string().uuid(),
@@ -158,7 +159,7 @@ export async function POST(req: NextRequest) {
 
     // Validate payment_type and amount_paid
     if (data.payment_type === "deposit") {
-      // Fetch host deposit_amount for validation
+      // Fetch host deposit config for validation
       const { data: homestayRow } = await supabase
         .from("homestays")
         .select("host_id")
@@ -168,18 +169,20 @@ export async function POST(req: NextRequest) {
       if (homestayRow) {
         const { data: hostRow } = await supabase
           .from("hosts")
-          .select("deposit_amount")
+          .select("deposit_amount, deposit_by_month")
           .eq("id", (homestayRow as unknown as { host_id: string }).host_id)
           .single();
 
-        const hostDeposit = (hostRow as unknown as { deposit_amount: number } | null)?.deposit_amount || 0;
+        const hostData = hostRow as unknown as { deposit_amount: number; deposit_by_month: Record<string, number> | null } | null;
+        const checkInDate = new Date(data.check_in);
+        const hostDeposit = hostData ? getDepositForMonth(hostData, checkInDate) : 0;
         if (hostDeposit <= 0) {
           return NextResponse.json(
             { error: "Deposit payment is not enabled for this homestay" },
             { status: 400 }
           );
         }
-        // Server enforces the host's deposit amount
+        // Server enforces the host's deposit amount for the check-in month
         data.amount_paid = hostDeposit;
       }
     } else {
