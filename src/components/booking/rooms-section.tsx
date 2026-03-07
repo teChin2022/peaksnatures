@@ -12,6 +12,41 @@ import { Button } from "@/components/ui/button";
 import { getPriceRange } from "@/lib/calculate-price";
 import { HTMLContent } from "@/components/ui/html-content";
 
+const BLUR_DATA_URL =
+  "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI4MDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2UyZThmMCIvPjwvc3ZnPg==";
+
+function RoomCardImage({ src, name, eager, onClick }: { src: string; name: string; eager?: boolean; onClick: () => void }) {
+  const [loaded, setLoaded] = useState(false);
+
+  return (
+    <div
+      className="relative aspect-[16/10] cursor-pointer overflow-hidden"
+      onClick={onClick}
+    >
+      <Image
+        src={src}
+        alt={name}
+        fill
+        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
+        loading={eager ? "eager" : "lazy"}
+        placeholder="blur"
+        blurDataURL={BLUR_DATA_URL}
+        className={`h-full w-full object-cover transition-all duration-500 group-hover:scale-105 ${
+          loaded ? "opacity-100" : "opacity-0"
+        }`}
+        onLoad={() => setLoaded(true)}
+      />
+      {!loaded && (
+        <div className="absolute inset-0 animate-pulse bg-gray-200" />
+      )}
+      <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/50 to-transparent" />
+      <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between">
+        <h3 className="text-base font-semibold text-white drop-shadow-sm">{name}</h3>
+      </div>
+    </div>
+  );
+}
+
 function RoomLightbox({ images, name, startIndex, onClose }: { images: string[]; name: string; startIndex: number; onClose: () => void }) {
   const [index, setIndex] = useState(startIndex);
 
@@ -109,28 +144,18 @@ function RoomCards({ rooms, themeColor, seasonsByRoom }: { rooms: Room[]; themeC
   return (
     <>
       <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {rooms.map((room) => (
+        {rooms.map((room, index) => (
           <Card
             key={room.id}
             className="group overflow-hidden border transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
           >
             {room.images[0] && (
-              <div
-                className="relative aspect-[16/10] cursor-pointer overflow-hidden"
+              <RoomCardImage
+                src={room.images[0]}
+                name={room.name}
+                eager={index === 0}
                 onClick={() => setLightbox({ images: room.images, name: room.name })}
-              >
-                <Image
-                  src={room.images[0]}
-                  alt={room.name}
-                  fill
-                  sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                  className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                />
-                <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/50 to-transparent" />
-                <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between">
-                  <h3 className="text-base font-semibold text-white drop-shadow-sm">{room.name}</h3>
-                </div>
-              </div>
+              />
             )}
             <CardContent className="p-4">
               {(() => {
