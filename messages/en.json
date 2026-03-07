@@ -71,6 +71,10 @@
     "contactFormSuccess": "Message sent successfully! We'll get back to you soon.",
     "contactFormError": "Failed to send message. Please try again."
   },
+  "gallery": {
+    "title": "Gallery",
+    "showAll": "Show all photos"
+  },
   "about": {
     "title": "About this place",
     "amenities": "Amenities",
