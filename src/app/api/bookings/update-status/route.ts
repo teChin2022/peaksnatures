@@ -39,18 +39,30 @@ export async function POST(req: NextRequest) {
 
     const booking = bookingRow as unknown as Booking;
 
-    // Only pending or verified bookings can be confirmed/cancelled via this route
-    if (booking.status !== "pending" && booking.status !== "verified") {
+    // Confirmed bookings can only be cancelled (not re-confirmed)
+    if (booking.status === "confirmed" && status !== "cancelled") {
       return NextResponse.json(
-        { error: "INVALID_STATUS", message: "Only pending or verified bookings can be updated" },
+        { error: "INVALID_STATUS", message: "Confirmed bookings can only be cancelled" },
+        { status: 400 }
+      );
+    }
+
+    // Only pending, verified, or confirmed bookings can be updated via this route
+    if (booking.status !== "pending" && booking.status !== "verified" && booking.status !== "confirmed") {
+      return NextResponse.json(
+        { error: "INVALID_STATUS", message: "Only pending, verified, or confirmed bookings can be updated" },
         { status: 400 }
       );
     }
 
     // Update the booking status
     const updateData: Record<string, unknown> = { status };
-    if (status === "cancelled" && reason) {
-      updateData.cancel_reason = reason;
+    if (status === "cancelled") {
+      updateData.cancelled_by = "host";
+      updateData.cancelled_at = new Date().toISOString();
+      if (reason) {
+        updateData.cancel_reason = reason;
+      }
     }
 
     const { error: updateError } = await supabase

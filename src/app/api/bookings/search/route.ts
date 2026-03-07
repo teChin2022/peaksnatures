@@ -56,6 +56,24 @@ export async function GET(request: NextRequest) {
 
   const sliced = unique.slice(0, 10);
 
+  // Fetch cancellation_days from host via homestay
+  let cancellationDays = 0;
+  const { data: homestayRow } = await supabase
+    .from("homestays")
+    .select("host_id")
+    .eq("id", homestayId)
+    .single();
+  if (homestayRow) {
+    const { data: hostRow } = await supabase
+      .from("hosts")
+      .select("cancellation_days")
+      .eq("id", (homestayRow as { host_id: string }).host_id)
+      .single();
+    if (hostRow) {
+      cancellationDays = (hostRow as { cancellation_days: number }).cancellation_days || 0;
+    }
+  }
+
   // Fetch existing reviews for completed bookings to show has_review flag
   const completedIds = sliced.filter((b) => b.status === "completed").map((b) => b.id);
   let reviewedSet = new Set<string>();
@@ -75,5 +93,5 @@ export async function GET(request: NextRequest) {
     has_review: reviewedSet.has(b.id),
   }));
 
-  return NextResponse.json({ bookings: results });
+  return NextResponse.json({ bookings: results, cancellation_days: cancellationDays });
 }

@@ -1049,6 +1049,16 @@ export function BookingSection({
                   onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)}
                 />
 
+                {/* Cancellation policy note */}
+                {host.cancellation_days > 0 && paymentPhase === "qr" && (
+                  <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-3 py-2">
+                    <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
+                    <p className="text-xs text-green-700">
+                      {t("cancellationPolicyNote", { days: host.cancellation_days })}
+                    </p>
+                  </div>
+                )}
+
                 {/* Payment option selector (deposit vs full) */}
                 {depositAvailable && paymentPhase === "qr" && (
                   <div className="rounded-xl border p-3 space-y-2">

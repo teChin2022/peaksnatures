@@ -325,6 +325,74 @@ export async function sendHostPushNotification(
 // ============================================================
 // LINE NOTIFICATION (LINE Messaging API)
 // ============================================================
+export async function sendHostCancellationLineNotification(
+  details: BookingDetails,
+  reason?: string
+) {
+  const channelToken = details.host.line_channel_access_token;
+  const lineUserId = details.host.line_user_id;
+
+  if (!channelToken || !lineUserId) {
+    console.log("[Skip] Host LINE not configured for cancellation:", details.host.name);
+    return { success: false, error: "Host LINE credentials not configured" };
+  }
+
+  try {
+    const { booking, homestay, room } = details;
+
+    const checkIn = new Date(booking.check_in);
+    const checkOut = new Date(booking.check_out);
+    const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+
+    const messageText = [
+      `❌ แขกยกเลิกการจอง`,
+      `━━━━━━━━━━━━━━━━`,
+      ``,
+      `🏠 โฮมสเตย์: ${homestay.name}`,
+      `🔑 Booking ID: ${booking.id.slice(0, 8)}...`,
+      ``,
+      `👤 ข้อมูลผู้จอง`,
+      `   ชื่อ: ${booking.guest_name}`,
+      `   อีเมล: ${booking.guest_email}`,
+      `   โทร: ${booking.guest_phone}`,
+      ``,
+      `📋 รายละเอียดการจอง`,
+      `   🛏️ ห้อง: ${room?.name || "Standard"}`,
+      `   📅 เช็คอิน: ${formatBookingDate(booking.check_in, "th")}`,
+      `   📅 เช็คเอาท์: ${formatBookingDate(booking.check_out, "th")}`,
+      `   🌙 จำนวน: ${nights} คืน`,
+      `   💰 ยอดรวม: ฿${booking.total_price.toLocaleString()}`,
+      ...(reason ? [``, `📝 เหตุผล: ${reason}`] : []),
+      ``,
+      `━━━━━━━━━━━━━━━━`,
+      `วันที่ดังกล่าวเปิดให้จองอีกครั้งแล้ว`,
+    ].join("\n");
+
+    const response = await fetch("https://api.line.me/v2/bot/message/push", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${channelToken}`,
+      },
+      body: JSON.stringify({
+        to: lineUserId,
+        messages: [{ type: "text", text: messageText }],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("LINE cancellation notification error:", errorData);
+      return { success: false, error: errorData };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("LINE cancellation notification error:", error);
+    return { success: false, error };
+  }
+}
+
 export async function sendHostLineNotification(
   details: BookingDetails,
   type: "confirmed" | "flagged" = "confirmed"

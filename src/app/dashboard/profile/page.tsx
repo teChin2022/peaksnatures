@@ -44,6 +44,7 @@ interface HostData {
   promptpay_id: string;
   deposit_amount: number;
   deposit_by_month: Record<string, number> | null;
+  cancellation_days: number;
   notification_preference: string;
 }
 
@@ -64,6 +65,7 @@ export default function ProfilePage() {
   const [promptpayId, setPromptpayId] = useState("");
   const [depositAmount, setDepositAmount] = useState(0);
   const [depositByMonth, setDepositByMonth] = useState<Record<string, number>>({});
+  const [cancellationDays, setCancellationDays] = useState(0);
   const [oldPassword, setOldPassword] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
@@ -94,7 +96,7 @@ export default function ProfilePage() {
 
       const { data } = await supabase
         .from("hosts")
-        .select("id, name, email, phone, line_user_id, line_channel_access_token, promptpay_id, deposit_amount, deposit_by_month, notification_preference, security_pin_hash")
+        .select("id, name, email, phone, line_user_id, line_channel_access_token, promptpay_id, deposit_amount, deposit_by_month, cancellation_days, notification_preference, security_pin_hash")
         .eq("user_id", user.id)
         .single();
 
@@ -119,6 +121,7 @@ export default function ProfilePage() {
         setPromptpayId(maskPromptpay(h.promptpay_id));
         setDepositAmount(h.deposit_amount || 0);
         setDepositByMonth(h.deposit_by_month || {});
+        setCancellationDays(h.cancellation_days || 0);
         setNotificationPreference(h.notification_preference || "push");
 
         // Check push support and subscription status
@@ -151,6 +154,7 @@ export default function ProfilePage() {
         ...(lineTokenMasked ? {} : { line_channel_access_token: lineChannelToken.trim() || null }),
         deposit_amount: depositAmount,
         deposit_by_month: Object.keys(depositByMonth).length > 0 ? depositByMonth : null,
+        cancellation_days: cancellationDays,
         notification_preference: notificationPreference,
       };
 
@@ -505,6 +509,35 @@ export default function ProfilePage() {
                 ))}
               </div>
               <p className="text-xs text-gray-500">{t("monthlyDepositHint")}</p>
+            </div>
+          </div>
+
+          <div className="rounded-lg border border-gray-200 p-4 space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <AlertTriangle className="h-4 w-4" style={{ color: themeColor }} />
+              {t("cancellationPolicy")}
+            </div>
+
+            <div className="space-y-2">
+              <Label className="text-sm">{t("cancellationDays")}</Label>
+              <div className="flex flex-wrap gap-2">
+                {[0, 3, 7, 15, 30].map((days) => (
+                  <button
+                    key={days}
+                    type="button"
+                    className="rounded-full px-3 py-1.5 text-sm font-medium border transition-colors"
+                    style={
+                      cancellationDays === days
+                        ? { backgroundColor: themeColor, color: "white", borderColor: themeColor }
+                        : { borderColor: "#d1d5db", color: "#374151" }
+                    }
+                    onClick={() => setCancellationDays(days)}
+                  >
+                    {days === 0 ? t("cancellationDisabled") : t("cancellationDaysLabel", { days })}
+                  </button>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500">{t("cancellationDaysHint")}</p>
             </div>
           </div>
 
