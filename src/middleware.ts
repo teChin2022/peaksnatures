@@ -7,7 +7,7 @@ export async function middleware(request: NextRequest) {
 
   // If Supabase env vars are missing, fail closed in production — block protected routes
   if (!supabaseUrl || !supabaseAnonKey) {
-    if (request.nextUrl.pathname.startsWith("/dashboard")) {
+    if (request.nextUrl.pathname.startsWith("/dashboard") || request.nextUrl.pathname.startsWith("/admin")) {
       return new NextResponse("Service unavailable — authentication not configured", { status: 503 });
     }
     return NextResponse.next({ request });
@@ -52,6 +52,23 @@ export async function middleware(request: NextRequest) {
     user = null;
   }
 
+  // Protect /admin/* (except /admin/login) — redirect to /admin/login if not authenticated
+  const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
+  const isAdminLogin = request.nextUrl.pathname === "/admin/login";
+
+  if (isAdminRoute && !isAdminLogin && !user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin/login";
+    return NextResponse.redirect(url);
+  }
+
+  // Redirect authenticated users away from /admin/login
+  if (isAdminLogin && user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin";
+    return NextResponse.redirect(url);
+  }
+
   // Protect /dashboard — redirect to /login if not authenticated
   if (request.nextUrl.pathname.startsWith("/dashboard") && !user) {
     const url = request.nextUrl.clone();
@@ -60,9 +77,10 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from /login and /register
+  // Redirect authenticated users away from /login and /register (but not admin users)
   if (
     user &&
+    !isAdminRoute &&
     (request.nextUrl.pathname === "/login" ||
       request.nextUrl.pathname === "/register")
   ) {
@@ -75,5 +93,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/login", "/register", "/forgot-password", "/reset-password"],
+  matcher: ["/dashboard/:path*", "/admin/:path*", "/login", "/register", "/forgot-password", "/reset-password"],
 };

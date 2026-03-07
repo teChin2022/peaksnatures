@@ -59,29 +59,39 @@ export async function GET(req: NextRequest) {
     } = await supabase.auth.getUser();
 
     if (user) {
-      // Create host record if it doesn't exist yet (first-time email verification)
       const serviceClient = createServiceRoleClient();
-      const { data: existingHost } = await serviceClient
-        .from("hosts")
+
+      // Skip host creation for platform admins
+      const { data: adminRecord } = await serviceClient
+        .from("platform_admins")
         .select("id")
         .eq("user_id", user.id)
         .single();
 
-      if (!existingHost) {
-        const name =
-          user.user_metadata?.name || user.email?.split("@")[0] || "Host";
-        const { error: hostError } = await serviceClient
+      if (!adminRecord) {
+        // Create host record if it doesn't exist yet (first-time email verification)
+        const { data: existingHost } = await serviceClient
           .from("hosts")
-          .insert({
-            user_id: user.id,
-            name,
-            email: user.email!,
-            phone: null,
-            promptpay_id: "",
-          } as never);
+          .select("id")
+          .eq("user_id", user.id)
+          .single();
 
-        if (hostError) {
-          console.error("Host record creation error:", hostError);
+        if (!existingHost) {
+          const name =
+            user.user_metadata?.name || user.email?.split("@")[0] || "Host";
+          const { error: hostError } = await serviceClient
+            .from("hosts")
+            .insert({
+              user_id: user.id,
+              name,
+              email: user.email!,
+              phone: null,
+              promptpay_id: "",
+            } as never);
+
+          if (hostError) {
+            console.error("Host record creation error:", hostError);
+          }
         }
       }
     }
