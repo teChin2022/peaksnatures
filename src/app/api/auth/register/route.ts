@@ -93,13 +93,22 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    const { error: signUpError } = await supabase.auth.signUp({
+    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
         data: { name },
         emailRedirectTo: `${origin}/api/auth/callback?next=/dashboard`,
       },
+    });
+
+    console.log("[Register] signUp result:", {
+      hasUser: !!signUpData?.user,
+      userId: signUpData?.user?.id,
+      hasSession: !!signUpData?.session,
+      identities: signUpData?.user?.identities?.length,
+      emailRedirectTo: `${origin}/api/auth/callback?next=/dashboard`,
+      error: signUpError?.message,
     });
 
     if (signUpError) {
