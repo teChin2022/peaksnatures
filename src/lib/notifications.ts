@@ -499,6 +499,7 @@ export async function sendHostLineNotification(
 interface NewHostInfo {
   hostName: string;
   hostEmail: string;
+  appUrl?: string;
 }
 
 export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
@@ -519,7 +520,8 @@ export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
       return;
     }
 
-    const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+    const appUrl = info.appUrl || process.env.NEXT_PUBLIC_APP_URL || "";
+    const reviewLink = appUrl ? `${appUrl}/admin/hosts?status=pending` : "";
 
     for (const admin of admins as { email: string; line_user_id: string | null; line_channel_access_token: string | null }[]) {
       // Send LINE if configured
@@ -533,6 +535,7 @@ export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
             `📧 อีเมล: ${info.hostEmail}`,
             ``,
             `กรุณาตรวจสอบและอนุมัติที่ Admin Panel`,
+            ...(reviewLink ? [`🔗 ${reviewLink}`] : []),
           ].join("\n");
 
           await fetch("https://api.line.me/v2/bot/message/push", {
@@ -583,7 +586,7 @@ export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
                   <tr><td style="padding: 8px 0; color: #6b7280;">Name</td><td style="padding: 8px 0; font-weight: bold;">${info.hostName}</td></tr>
                   <tr><td style="padding: 8px 0; color: #6b7280;">Email</td><td style="padding: 8px 0;">${info.hostEmail}</td></tr>
                 </table>
-                ${appUrl ? `<a href="${appUrl}/admin/hosts?status=pending" style="display: inline-block; margin-top: 16px; background: #1e293b; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Review in Admin Panel</a>` : ""}
+                ${reviewLink ? `<a href="${reviewLink}" style="display: inline-block; margin-top: 16px; background: #1e293b; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Review in Admin Panel</a>` : ""}
               </div>
             </div>
           `,

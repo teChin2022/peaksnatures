@@ -98,6 +98,7 @@ export async function GET(req: NextRequest) {
             notifyAdminsNewHostRegistration({
               hostName: name,
               hostEmail: user.email!,
+              appUrl: origin,
             }).catch((err) => console.error("[Admin Notify] Failed:", err));
           }
         }
