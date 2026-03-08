@@ -2,7 +2,7 @@ import type { Metadata } from "next";
 import { DashboardShell } from "@/components/dashboard/dashboard-shell";
 
 export const metadata: Metadata = {
-  title: "Host Dashboard — PeaksNature",
+  title: "Host Dashboard — Peaksnature",
   description: "Manage your homestay bookings, view payments, and track revenue.",
 };
 

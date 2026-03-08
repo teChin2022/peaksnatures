@@ -31,7 +31,7 @@ export async function POST(request: Request) {
     const { Resend } = await import("resend");
     const resend = new Resend(apiKey);
 
-    const DEFAULT_FROM = "PeaksNature <onboarding@resend.dev>";
+    const DEFAULT_FROM = "Peaksnature <onboarding@resend.dev>";
     const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
     const fromEmail = cleaned
       ? cleaned.replace(/<([^>]+)>/, (_, e: string) => `<${e.replace(/\s+/g, "")}>`)
@@ -55,7 +55,7 @@ export async function POST(request: Request) {
             </table>
             <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 16px 0;" />
             <p style="color: #374151; white-space: pre-wrap;">${message}</p>
-            <p style="color: #9ca3af; font-size: 12px; margin-top: 24px;">Sent from PeaksNature contact form</p>
+            <p style="color: #9ca3af; font-size: 12px; margin-top: 24px;">Sent from Peaksnature contact form</p>
           </div>
         </div>
       `,

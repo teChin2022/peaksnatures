@@ -51,7 +51,7 @@ export async function POST(req: NextRequest) {
 
     const { Resend } = await import("resend");
     const resend = new Resend(apiKey);
-    const DEFAULT_FROM = "PeaksNature <onboarding@resend.dev>";
+    const DEFAULT_FROM = "Peaksnature <onboarding@resend.dev>";
     const cleaned = (process.env.RESEND_FROM_EMAIL || "")
       .replace(/["'\r\n]/g, "")
       .trim();
@@ -65,22 +65,22 @@ export async function POST(req: NextRequest) {
     const locale = req.cookies.get("locale")?.value === "en" ? "en" : "th";
     const emailT = {
       en: {
-        subject: "Your PeaksNature Login Link",
+        subject: "Your Peaksnature Login Link",
         heading: "🔐 Login Link",
-        body: "Click the button below to sign in to your PeaksNature account:",
-        button: "Sign In to PeaksNature",
+        body: "Click the button below to sign in to your Peaksnature account:",
+        button: "Sign In to Peaksnature",
         expiry:
           "This link expires in 24 hours. If you didn't request this, you can safely ignore this email.",
-        footer: "PeaksNature — Nature Homestays in Thailand",
+        footer: "Peaksnature — Nature Homestays in Thailand",
       },
       th: {
-        subject: "ลิงก์เข้าสู่ระบบ PeaksNature",
+        subject: "ลิงก์เข้าสู่ระบบ Peaksnature",
         heading: "🔐 ลิงก์เข้าสู่ระบบ",
-        body: "กดปุ่มด้านล่างเพื่อเข้าสู่ระบบบัญชี PeaksNature ของคุณ:",
-        button: "เข้าสู่ระบบ PeaksNature",
+        body: "กดปุ่มด้านล่างเพื่อเข้าสู่ระบบบัญชี Peaksnature ของคุณ:",
+        button: "เข้าสู่ระบบ Peaksnature",
         expiry:
           "ลิงก์นี้จะหมดอายุใน 24 ชั่วโมง หากคุณไม่ได้ขอลิงก์นี้ สามารถเพิกเฉยอีเมลนี้ได้",
-        footer: "PeaksNature — โฮมสเตย์ธรรมชาติในประเทศไทย",
+        footer: "Peaksnature — โฮมสเตย์ธรรมชาติในประเทศไทย",
       },
     }[locale];
 

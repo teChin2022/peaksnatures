@@ -1,5 +1,5 @@
 -- ============================================================
--- PeaksNature — Full Database Schema
+-- Peaksnature — Full Database Schema
 -- Combined from migrations 001–024 for one-shot production setup.
 -- Run this in Supabase SQL Editor on a fresh project.
 -- ============================================================

@@ -17,7 +17,7 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "PeaksNature — Homestay Booking",
+  title: "Peaksnature — Homestay Booking",
   description:
     "Book unique nature homestays in Thailand. Mountain retreats, riverside escapes, and forest hideaways.",
   icons: {

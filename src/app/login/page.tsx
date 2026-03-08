@@ -167,7 +167,7 @@ export default function LoginPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2">
           <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.png" alt="PeaksNature" width={32} height={32} className="h-8 w-8 rounded" />
+            <Image src="/logo.png" alt="Peaksnature" width={32} height={32} className="h-8 w-8 rounded" />
             <span className="text-2xl font-bold text-green-800">{t('signIn')}</span>
           </Link>
           <p className="text-sm text-gray-500">{t("hostDashboard")}</p>

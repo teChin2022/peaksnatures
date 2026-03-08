@@ -1,4 +1,4 @@
--- PeaksNature Seed Data
+-- Peaksnature Seed Data
 -- Run after migrations to populate sample data for development
 
 -- NOTE: Replace 'AUTH_USER_ID' with an actual auth.users UUID after creating a test user

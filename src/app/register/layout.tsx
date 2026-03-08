@@ -1,8 +1,8 @@
 import type { Metadata } from "next";
 
 export const metadata: Metadata = {
-  title: "Register — PeaksNature Host Dashboard",
-  description: "Create a host account to list your homestay on PeaksNature.",
+  title: "Register — Peaksnature Host Dashboard",
+  description: "Create a host account to list your homestay on Peaksnature.",
 };
 
 export default function RegisterLayout({ children }: { children: React.ReactNode }) {

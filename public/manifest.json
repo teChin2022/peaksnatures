@@ -1,6 +1,6 @@
 {
-  "name": "PeaksNature",
-  "short_name": "PeaksNature",
+  "name": "Peaksnature",
+  "short_name": "Peaksnature",
   "description": "Nature Homestay Booking Platform",
   "start_url": "/",
   "display": "standalone",

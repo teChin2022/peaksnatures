@@ -42,7 +42,7 @@ interface SidebarProps {
   themeColor?: string;
 }
 
-export function Sidebar({ collapsed, onToggle, brandName = "PeaksNature", brandLogo, themeColor = "#16a34a" }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandLogo, themeColor = "#16a34a" }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const t = useTranslations("dashboardNav");
@@ -146,7 +146,7 @@ export function Sidebar({ collapsed, onToggle, brandName = "PeaksNature", brandL
 export function MobileSidebar({
   open,
   onClose,
-  brandName = "PeaksNature",
+  brandName = "Peaksnature",
   brandLogo,
   themeColor = "#16a34a",
 }: {

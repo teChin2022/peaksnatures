@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useRef, useEffect } from "react";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import Image from "next/image";
 import { format, eachDayOfInterval, parseISO, subDays } from "date-fns";
@@ -28,6 +28,13 @@ const BLUR_DATA_URL =
 
 function RoomCardImage({ src, name, eager, onClick }: { src: string; name: string; eager?: boolean; onClick: () => void }) {
   const [loaded, setLoaded] = useState(false);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    if (imgRef.current?.complete && imgRef.current.naturalWidth > 0) {
+      setLoaded(true);
+    }
+  }, [src]);
 
   return (
     <div
@@ -35,6 +42,7 @@ function RoomCardImage({ src, name, eager, onClick }: { src: string; name: strin
       onClick={onClick}
     >
       <Image
+        ref={imgRef}
         src={src}
         alt={name}
         fill
@@ -42,8 +50,8 @@ function RoomCardImage({ src, name, eager, onClick }: { src: string; name: strin
         loading={eager ? "eager" : "lazy"}
         placeholder="blur"
         blurDataURL={BLUR_DATA_URL}
-        className={`h-full w-full object-cover transition-all duration-500 group-hover:scale-105 ${
-          loaded ? "opacity-100" : "opacity-0"
+        className={`h-full w-full object-cover group-hover:scale-105 ${
+          loaded ? "opacity-100 transition-transform duration-500" : "opacity-0"
         }`}
         onLoad={() => setLoaded(true)}
       />
@@ -82,12 +90,26 @@ function RoomLightbox({ images, name, startIndex, onClose }: { images: string[];
       </Button>
 
       <Image
+        key={images[index]}
         src={images[index]}
         alt={`${name} photo ${index + 1}`}
         width={1200}
         height={800}
+        priority
         className="max-h-[80vh] max-w-[90vw] rounded-lg object-contain"
       />
+
+      {/* Preload adjacent images */}
+      {images.length > 1 && (
+        <div className="hidden">
+          {index > 0 && (
+            <Image src={images[index - 1]} alt="" width={32} height={32} />
+          )}
+          {index < images.length - 1 && (
+            <Image src={images[index + 1]} alt="" width={32} height={32} />
+          )}
+        </div>
+      )}
 
       <Button
         variant="ghost"

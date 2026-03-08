@@ -1,4 +1,4 @@
-// PeaksNature Service Worker — Web Push Notifications
+// Peaksnature Service Worker — Web Push Notifications
 self.addEventListener("push", (event) => {
   if (!event.data) return;
 
@@ -7,12 +7,12 @@ self.addEventListener("push", (event) => {
     payload = event.data.json();
   } catch {
     payload = {
-      title: "PeaksNature",
+      title: "Peaksnature",
       body: event.data.text(),
     };
   }
 
-  const { title = "PeaksNature", body = "", icon, url, tag } = payload;
+  const { title = "Peaksnature", body = "", icon, url, tag } = payload;
 
   event.waitUntil(
     self.registration.showNotification(title, {

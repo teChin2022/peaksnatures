@@ -111,7 +111,7 @@ export async function POST(req: NextRequest) {
     if (apiKey && apiKey !== "your_resend_api_key") {
       try {
         const resend = getResendClient(apiKey);
-        const DEFAULT_FROM = "PeaksNature <onboarding@resend.dev>";
+        const DEFAULT_FROM = "Peaksnature <onboarding@resend.dev>";
         const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
         const fromEmail = cleaned
           ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
@@ -120,7 +120,7 @@ export async function POST(req: NextRequest) {
         const { data, error: sendError } = await resend.emails.send({
           from: fromEmail,
           to: email,
-          subject: "Your PeaksNature Login Code",
+          subject: "Your Peaksnature Login Code",
           html: `
             <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
               <div style="background: #16a34a; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
                 <p style="font-size: 14px; color: #6b7280;">This code expires in <strong>5 minutes</strong>.</p>
                 <p style="font-size: 13px; color: #9ca3af; margin-top: 24px;">If you didn't request this code, you can safely ignore this email.</p>
                 <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
-                <p style="color: #9ca3af; font-size: 12px; margin-bottom: 0;">PeaksNature — Nature Homestays in Thailand</p>
+                <p style="color: #9ca3af; font-size: 12px; margin-bottom: 0;">Peaksnature — Nature Homestays in Thailand</p>
               </div>
             </div>
           `,

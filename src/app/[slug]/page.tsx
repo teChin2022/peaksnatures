@@ -111,12 +111,12 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const data = await getHomestayData(slug);
 
   if (!data) {
-    return { title: "Not Found — PeaksNature" };
+    return { title: "Not Found — Peaksnature" };
   }
 
   const { homestay } = data;
   return {
-    title: `${homestay.name} — Book Now | PeaksNature`,
+    title: `${homestay.name} — Book Now | Peaksnature`,
     description: `${homestay.description.slice(0, 155)}...`,
     openGraph: {
       title: homestay.name,
