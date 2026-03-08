@@ -123,6 +123,9 @@ export default function RegisterPage() {
               <p className="text-center text-sm text-gray-500">
                 {t("checkEmailDesc", { email })}
               </p>
+              <p className="text-center text-xs text-amber-600 bg-amber-50 rounded-lg px-4 py-2">
+                {t("pendingApprovalNote")}
+              </p>
               <Link
                 href="/login"
                 className="mt-2 text-sm font-medium text-green-600 hover:text-green-700"

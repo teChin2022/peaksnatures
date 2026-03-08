@@ -32,6 +32,7 @@ export interface Database {
           cancellation_days: number;
           notification_preference: string;
           security_pin_hash: string | null;
+          status: string;
           created_at: string;
         };
         Insert: {
@@ -48,6 +49,7 @@ export interface Database {
           cancellation_days?: number;
           notification_preference?: string;
           security_pin_hash?: string | null;
+          status?: string;
           created_at?: string;
         };
         Update: {
@@ -64,6 +66,7 @@ export interface Database {
           cancellation_days?: number;
           notification_preference?: string;
           security_pin_hash?: string | null;
+          status?: string;
           created_at?: string;
         };
       };
@@ -412,6 +415,41 @@ export interface Database {
           created_at?: string;
         };
       };
+      platform_admins: {
+        Row: {
+          id: string;
+          user_id: string;
+          email: string;
+          name: string;
+          phone: string | null;
+          promptpay_id: string | null;
+          line_user_id: string | null;
+          line_channel_access_token: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          user_id: string;
+          email: string;
+          name: string;
+          phone?: string | null;
+          promptpay_id?: string | null;
+          line_user_id?: string | null;
+          line_channel_access_token?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          user_id?: string;
+          email?: string;
+          name?: string;
+          phone?: string | null;
+          promptpay_id?: string | null;
+          line_user_id?: string | null;
+          line_channel_access_token?: string | null;
+          created_at?: string;
+        };
+      };
     };
   };
 }
@@ -424,3 +462,4 @@ export type BlockedDate = Database["public"]["Tables"]["blocked_dates"]["Row"];
 export type BookingHold = Database["public"]["Tables"]["booking_holds"]["Row"];
 export type Review = Database["public"]["Tables"]["reviews"]["Row"];
 export type RoomSeasonalPrice = Database["public"]["Tables"]["room_seasonal_prices"]["Row"];
+export type PlatformAdmin = Database["public"]["Tables"]["platform_admins"]["Row"];

@@ -28,6 +28,7 @@ import { calculateTotalPrice, getPriceRange } from "@/lib/calculate-price";
 import { getDepositForMonth } from "@/lib/get-deposit";
 import { ReviewsSection } from "@/components/booking/reviews-section";
 import { THAI_PROVINCES, getProvinceLabel } from "@/lib/provinces";
+import { useIsMobile } from "@/lib/use-is-mobile";
 import generatePayload from "promptpay-qr";
 import { QRCodeSVG } from "qrcode.react";
 import { HTMLContent } from "@/components/ui/html-content";
@@ -86,6 +87,7 @@ export function BookingSection({
   const [guestProvince, setGuestProvince] = useState("");
   const [guestNote, setGuestNote] = useState("");
   const locale = useLocale();
+  const isMobile = useIsMobile();
   const provinceLabel = (v: string) => getProvinceLabel(v, locale);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [slipFile, setSlipFile] = useState<File | null>(null);
@@ -1266,46 +1268,52 @@ export function BookingSection({
                                 <p className="text-xs text-gray-400">{t("clickUpload")}</p>
                               </div>
                             </button>
-                            <button
-                              type="button"
-                              onClick={() => cameraInputRef.current?.click()}
-                              className="flex w-full cursor-pointer items-center gap-4 rounded-xl border-2 border-dashed border-gray-300 p-5 text-left transition-colors active:bg-gray-50"
-                              onMouseEnter={(e) => { e.currentTarget.style.borderColor = themeColor + '99'; e.currentTarget.style.backgroundColor = themeColor + '0d'; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
-                            >
-                              <div className="rounded-lg bg-gray-100 p-3">
-                                <Camera className="h-6 w-6 text-gray-500" />
-                              </div>
-                              <div>
-                                <p className="text-sm font-medium text-gray-700">{t("takePhoto")}</p>
-                                <p className="text-xs text-gray-400">{t("clickUpload")}</p>
-                              </div>
-                            </button>
+                            {isMobile && (
+                              <button
+                                type="button"
+                                onClick={() => cameraInputRef.current?.click()}
+                                className="flex w-full cursor-pointer items-center gap-4 rounded-xl border-2 border-dashed border-gray-300 p-5 text-left transition-colors active:bg-gray-50"
+                                onMouseEnter={(e) => { e.currentTarget.style.borderColor = themeColor + '99'; e.currentTarget.style.backgroundColor = themeColor + '0d'; }}
+                                onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
+                              >
+                                <div className="rounded-lg bg-gray-100 p-3">
+                                  <Camera className="h-6 w-6 text-gray-500" />
+                                </div>
+                                <div>
+                                  <p className="text-sm font-medium text-gray-700">{t("takePhoto")}</p>
+                                  <p className="text-xs text-gray-400">{t("clickUpload")}</p>
+                                </div>
+                              </button>
+                            )}
                           </div>
 
-                          {/* Cross-device upload: scan QR from phone */}
-                          <div className="relative flex items-center gap-3 py-1">
-                            <div className="flex-1 border-t border-gray-200" />
-                            <span className="text-xs font-medium text-gray-400">{t("orUploadFromPhone")}</span>
-                            <div className="flex-1 border-t border-gray-200" />
-                          </div>
+                          {/* Cross-device upload: scan QR from phone (desktop only) */}
+                          {!isMobile && (
+                            <>
+                              <div className="relative flex items-center gap-3 py-1">
+                                <div className="flex-1 border-t border-gray-200" />
+                                <span className="text-xs font-medium text-gray-400">{t("orUploadFromPhone")}</span>
+                                <div className="flex-1 border-t border-gray-200" />
+                              </div>
 
-                          <div className="rounded-xl border bg-gray-50 p-4 text-center">
-                            <p className="mb-3 text-xs text-gray-500">
-                              {t("scanToUpload")}
-                            </p>
-                            <div className="mx-auto flex h-36 w-36 items-center justify-center rounded-lg border bg-white p-2">
-                              <QRCodeSVG
-                                value={`${typeof window !== "undefined" ? window.location.origin : ""}/upload-slip/${uploadSessionId}`}
-                                size={120}
-                                level="M"
-                              />
-                            </div>
-                            <div className="mt-3 flex items-center justify-center gap-2 text-xs text-gray-400">
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                              {t("waitingForPhoneUpload")}
-                            </div>
-                          </div>
+                              <div className="rounded-xl border bg-gray-50 p-4 text-center">
+                                <p className="mb-3 text-xs text-gray-500">
+                                  {t("scanToUpload")}
+                                </p>
+                                <div className="mx-auto flex h-36 w-36 items-center justify-center rounded-lg border bg-white p-2">
+                                  <QRCodeSVG
+                                    value={`${typeof window !== "undefined" ? window.location.origin : ""}/upload-slip/${uploadSessionId}`}
+                                    size={120}
+                                    level="M"
+                                  />
+                                </div>
+                                <div className="mt-3 flex items-center justify-center gap-2 text-xs text-gray-400">
+                                  <Loader2 className="h-3 w-3 animate-spin" />
+                                  {t("waitingForPhoneUpload")}
+                                </div>
+                              </div>
+                            </>
+                          )}
                         </div>
                       )}
 

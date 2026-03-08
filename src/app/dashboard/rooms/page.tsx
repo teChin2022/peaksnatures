@@ -211,14 +211,14 @@ export default function RoomsPage() {
     if (!files || !homestayId) return;
 
     // Check if already at limit
-    if (roomImages.length >= 4) {
+    if (roomImages.length >= 15) {
       toast.error(t("errorImageLimitReached"));
       if (fileInputRef.current) fileInputRef.current.value = "";
       return;
     }
 
     // Calculate remaining slots
-    const remainingSlots = 4 - roomImages.length;
+    const remainingSlots = 15 - roomImages.length;
     const filesToUpload = Array.from(files).slice(0, remainingSlots);
 
     // Show warning if trying to upload more than allowed

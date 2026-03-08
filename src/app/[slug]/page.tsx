@@ -163,7 +163,7 @@ export default async function HomestayPage({ params }: PageProps) {
           themeColor={homestay.theme_color}
         />
         
-        <RoomsSection rooms={rooms} themeColor={homestay.theme_color} seasonalPrices={seasonalPrices} />
+        <RoomsSection rooms={rooms} themeColor={homestay.theme_color} seasonalPrices={seasonalPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} />
 
         <MapRulesSection
           mapEmbedUrl={homestay.map_embed_url}

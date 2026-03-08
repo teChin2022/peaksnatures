@@ -22,6 +22,20 @@ export async function DELETE() {
 
     const serviceClient = createServiceRoleClient();
 
+    // Block platform admin self-deletion — admins must be removed via script/DB
+    const { data: adminRecord } = await serviceClient
+      .from("platform_admins")
+      .select("id")
+      .eq("user_id", user.id)
+      .single();
+
+    if (adminRecord) {
+      return NextResponse.json(
+        { error: "Admin accounts cannot be deleted through the dashboard" },
+        { status: 403 }
+      );
+    }
+
     // Look up host record
     const { data: host } = await serviceClient
       .from("hosts")

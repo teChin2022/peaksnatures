@@ -1,4 +1,5 @@
 import { createServerClient } from "@supabase/ssr";
+import { createClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
 
 export async function middleware(request: NextRequest) {
@@ -7,7 +8,7 @@ export async function middleware(request: NextRequest) {
 
   // If Supabase env vars are missing, fail closed in production — block protected routes
   if (!supabaseUrl || !supabaseAnonKey) {
-    if (request.nextUrl.pathname.startsWith("/dashboard")) {
+    if (request.nextUrl.pathname.startsWith("/dashboard") || request.nextUrl.pathname.startsWith("/admin")) {
       return new NextResponse("Service unavailable — authentication not configured", { status: 503 });
     }
     return NextResponse.next({ request });
@@ -52,6 +53,23 @@ export async function middleware(request: NextRequest) {
     user = null;
   }
 
+  // Protect /admin/* (except /admin/login) — redirect to /admin/login if not authenticated
+  const isAdminRoute = request.nextUrl.pathname.startsWith("/admin");
+  const isAdminLogin = request.nextUrl.pathname === "/admin/login";
+
+  if (isAdminRoute && !isAdminLogin && !user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin/login";
+    return NextResponse.redirect(url);
+  }
+
+  // Redirect authenticated users away from /admin/login
+  if (isAdminLogin && user) {
+    const url = request.nextUrl.clone();
+    url.pathname = "/admin";
+    return NextResponse.redirect(url);
+  }
+
   // Protect /dashboard — redirect to /login if not authenticated
   if (request.nextUrl.pathname.startsWith("/dashboard") && !user) {
     const url = request.nextUrl.clone();
@@ -60,9 +78,43 @@ export async function middleware(request: NextRequest) {
     return NextResponse.redirect(url);
   }
 
-  // Redirect authenticated users away from /login and /register
+  // Redirect pending hosts to /dashboard/pending, and approved hosts away from it
+  const isDashboard = request.nextUrl.pathname.startsWith("/dashboard");
+  const isPendingPage = request.nextUrl.pathname === "/dashboard/pending";
+
+  if (isDashboard && user) {
+    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+    if (serviceRoleKey && supabaseUrl) {
+      try {
+        const sc = createClient(supabaseUrl, serviceRoleKey, {
+          auth: { autoRefreshToken: false, persistSession: false },
+        });
+        const { data: host } = await sc
+          .from("hosts")
+          .select("status")
+          .eq("user_id", user.id)
+          .single();
+        const status = (host as { status: string } | null)?.status;
+        if (status === "pending" && !isPendingPage) {
+          const url = request.nextUrl.clone();
+          url.pathname = "/dashboard/pending";
+          return NextResponse.redirect(url);
+        }
+        if (status !== "pending" && isPendingPage) {
+          const url = request.nextUrl.clone();
+          url.pathname = "/dashboard";
+          return NextResponse.redirect(url);
+        }
+      } catch {
+        // If check fails, allow through — don't block approved hosts
+      }
+    }
+  }
+
+  // Redirect authenticated users away from /login and /register (but not admin users)
   if (
     user &&
+    !isAdminRoute &&
     (request.nextUrl.pathname === "/login" ||
       request.nextUrl.pathname === "/register")
   ) {
@@ -75,5 +127,5 @@ export async function middleware(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/login", "/register", "/forgot-password", "/reset-password"],
+  matcher: ["/dashboard/:path*", "/admin/:path*", "/login", "/register", "/forgot-password", "/reset-password"],
 };
