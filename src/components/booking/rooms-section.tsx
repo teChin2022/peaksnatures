@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useEffect } from "react";
+import { useMemo, useState } from "react";
+import { useIsMobile } from "@/lib/use-is-mobile";
 import Image from "next/image";
 import { format, eachDayOfInterval, parseISO, subDays } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
@@ -154,17 +155,7 @@ export function RoomsSection({ rooms, themeColor = "#16a34a", seasonalPrices = [
   );
 }
 
-function useIsMobile() {
-  const [isMobile, setIsMobile] = useState(false);
-  useEffect(() => {
-    const mql = window.matchMedia("(max-width: 767px)");
-    setIsMobile(mql.matches);
-    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
-    mql.addEventListener("change", handler);
-    return () => mql.removeEventListener("change", handler);
-  }, []);
-  return isMobile;
-}
+// useIsMobile moved to @/lib/use-is-mobile
 
 function getFullyBookedDates(roomId: string, rooms: Room[], bookedRanges: BookedRange[]) {
   const roomObj = rooms.find((r) => r.id === roomId);
