@@ -92,7 +92,11 @@
     "subtitle": "Choose from our available room types",
     "available": "{count} available",
     "fromPrice": "From",
-    "bookRoom": "Book"
+    "bookRoom": "Book",
+    "viewCalendar": "Calendar",
+    "availabilityTitle": "Room Availability",
+    "legendBooked": "Booked",
+    "legendAvailable": "Available"
   },
   "booking": {
     "title": "Book Your Stay",

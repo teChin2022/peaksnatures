@@ -1,16 +1,25 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useMemo, useState, useEffect } from "react";
 import Image from "next/image";
-import type { Room, RoomSeasonalPrice } from "@/types/database";
+import { format, eachDayOfInterval, parseISO, subDays } from "date-fns";
+import type { Room, RoomSeasonalPrice, BlockedDate } from "@/types/database";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
-import { Users, BedDouble, CalendarDays, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Users, BedDouble, CalendarDays, CalendarSearch, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { getPriceRange } from "@/lib/calculate-price";
 import { HTMLContent } from "@/components/ui/html-content";
+import { Calendar } from "@/components/ui/calendar";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 const BLUR_DATA_URL =
   "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI4MDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2UyZThmMCIvPjwvc3ZnPg==";
@@ -94,13 +103,21 @@ function RoomLightbox({ images, name, startIndex, onClose }: { images: string[];
   );
 }
 
+interface BookedRange {
+  room_id: string | null;
+  check_in: string;
+  check_out: string;
+}
+
 interface RoomsSectionProps {
   rooms: Room[];
   themeColor?: string;
   seasonalPrices?: RoomSeasonalPrice[];
+  bookedRanges?: BookedRange[];
+  blockedDates?: BlockedDate[];
 }
 
-export function RoomsSection({ rooms, themeColor = "#16a34a", seasonalPrices = [] }: RoomsSectionProps) {
+export function RoomsSection({ rooms, themeColor = "#16a34a", seasonalPrices = [], bookedRanges = [], blockedDates = [] }: RoomsSectionProps) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
 
@@ -128,7 +145,7 @@ export function RoomsSection({ rooms, themeColor = "#16a34a", seasonalPrices = [
           {t("subtitle")}
         </p>
 
-        <RoomCards rooms={rooms} themeColor={themeColor} seasonsByRoom={seasonsByRoom} />
+        <RoomCards rooms={rooms} themeColor={themeColor} seasonsByRoom={seasonsByRoom} bookedRanges={bookedRanges} blockedDates={blockedDates} />
 
         <Separator className="mt-10" />
       </div>
@@ -136,10 +153,65 @@ export function RoomsSection({ rooms, themeColor = "#16a34a", seasonalPrices = [
   );
 }
 
-function RoomCards({ rooms, themeColor, seasonsByRoom }: { rooms: Room[]; themeColor: string; seasonsByRoom: Record<string, RoomSeasonalPrice[]> }) {
+function useIsMobile() {
+  const [isMobile, setIsMobile] = useState(false);
+  useEffect(() => {
+    const mql = window.matchMedia("(max-width: 767px)");
+    setIsMobile(mql.matches);
+    const handler = (e: MediaQueryListEvent) => setIsMobile(e.matches);
+    mql.addEventListener("change", handler);
+    return () => mql.removeEventListener("change", handler);
+  }, []);
+  return isMobile;
+}
+
+function getFullyBookedDates(roomId: string, rooms: Room[], bookedRanges: BookedRange[]) {
+  const roomObj = rooms.find((r) => r.id === roomId);
+  const qty = roomObj?.quantity || 1;
+  const dateCountMap = new Map<string, number>();
+  bookedRanges
+    .filter((b) => b.room_id === roomId)
+    .forEach((b) => {
+      try {
+        const start = parseISO(b.check_in);
+        const end = subDays(parseISO(b.check_out), 1);
+        if (end < start) return;
+        const days = eachDayOfInterval({ start, end });
+        days.forEach((d) => {
+          const key = format(d, "yyyy-MM-dd");
+          dateCountMap.set(key, (dateCountMap.get(key) || 0) + 1);
+        });
+      } catch {
+        // Skip malformed dates
+      }
+    });
+  const fullyBooked = new Set<string>();
+  dateCountMap.forEach((count, date) => {
+    if (count >= qty) fullyBooked.add(date);
+  });
+  return fullyBooked;
+}
+
+function RoomCards({ rooms, themeColor, seasonsByRoom, bookedRanges, blockedDates }: { rooms: Room[]; themeColor: string; seasonsByRoom: Record<string, RoomSeasonalPrice[]>; bookedRanges: BookedRange[]; blockedDates: BlockedDate[] }) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
   const [lightbox, setLightbox] = useState<{ images: string[]; name: string } | null>(null);
+  const [calendarRoomId, setCalendarRoomId] = useState<string | null>(null);
+  const isMobile = useIsMobile();
+
+  const calendarRoom = calendarRoomId ? rooms.find((r) => r.id === calendarRoomId) : null;
+
+  const disabledDates = useMemo(() => {
+    if (!calendarRoomId) return [];
+    const fullyBooked = getFullyBookedDates(calendarRoomId, rooms, bookedRanges);
+    const blocked = new Set(
+      blockedDates
+        .filter((d) => d.room_id === null || d.room_id === calendarRoomId)
+        .map((d) => d.date)
+    );
+    const allDisabled = new Set([...fullyBooked, ...blocked]);
+    return Array.from(allDisabled).map((d) => parseISO(d));
+  }, [calendarRoomId, rooms, bookedRanges, blockedDates]);
 
   return (
     <>
@@ -196,19 +268,31 @@ function RoomCards({ rooms, themeColor, seasonsByRoom }: { rooms: Room[]; themeC
                   {t("available", { count: room.quantity })}
                 </Badge>
               </div>
-              <Button
-                size="sm"
-                className="mt-3 w-full rounded-full text-white hover:brightness-90"
-                style={{ backgroundColor: themeColor }}
-                onClick={() => {
-                  document.dispatchEvent(
-                    new CustomEvent("book-room", { detail: { roomId: room.id } })
-                  );
-                }}
-              >
-                <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
-                {t("bookRoom")}
-              </Button>
+              <div className="mt-3 flex gap-2">
+                <Button
+                  size="sm"
+                  className="flex-1 rounded-full text-white hover:brightness-90"
+                  style={{ backgroundColor: themeColor }}
+                  onClick={() => {
+                    document.dispatchEvent(
+                      new CustomEvent("book-room", { detail: { roomId: room.id } })
+                    );
+                  }}
+                >
+                  <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+                  {t("bookRoom")}
+                </Button>
+                <Button
+                  size="icon"
+                  variant="outline"
+                  className="h-8 w-8 shrink-0 rounded-full"
+                  style={{ borderColor: themeColor, color: themeColor }}
+                  onClick={() => setCalendarRoomId(room.id)}
+                  title={t("viewCalendar")}
+                >
+                  <CalendarSearch className="h-3.5 w-3.5" />
+                </Button>
+              </div>
             </CardContent>
           </Card>
         ))}
@@ -222,6 +306,42 @@ function RoomCards({ rooms, themeColor, seasonsByRoom }: { rooms: Room[]; themeC
           onClose={() => setLightbox(null)}
         />
       )}
+
+      <Dialog open={!!calendarRoomId} onOpenChange={(open) => { if (!open) setCalendarRoomId(null); }}>
+        <DialogContent className="max-w-fit overflow-y-auto max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>{t("availabilityTitle")}</DialogTitle>
+            <DialogDescription>
+              {calendarRoom?.name}
+            </DialogDescription>
+          </DialogHeader>
+          <Calendar
+            mode="single"
+            numberOfMonths={isMobile ? 1 : 2}
+            disabled={[
+              { before: new Date() },
+              ...disabledDates,
+            ]}
+            modifiers={{
+              booked: disabledDates,
+            }}
+            modifiersClassNames={{
+              booked: "!bg-red-100 !text-red-400 !opacity-100",
+            }}
+            className="rounded-md border"
+          />
+          <div className="flex items-center justify-center gap-4 text-xs text-gray-500">
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-sm bg-red-100 border border-red-200" />
+              {t("legendBooked")}
+            </span>
+            <span className="flex items-center gap-1.5">
+              <span className="inline-block h-3 w-3 rounded-sm bg-white border border-gray-200" />
+              {t("legendAvailable")}
+            </span>
+          </div>
+        </DialogContent>
+      </Dialog>
     </>
   );
 }
