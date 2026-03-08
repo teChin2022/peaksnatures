@@ -250,14 +250,14 @@ export default function HomestayPage() {
     if (!files || !hostId) return;
 
     // Check if already at limit
-    if (gallery.length >= 12) {
+    if (gallery.length >= 15) {
       toast.error(t("errorImageLimitReached"));
       if (galleryInputRef.current) galleryInputRef.current.value = "";
       return;
     }
 
     // Calculate remaining slots
-    const remainingSlots = 12 - gallery.length;
+    const remainingSlots = 15 - gallery.length;
     const filesToUpload = Array.from(files).slice(0, remainingSlots);
 
     // Show warning if trying to upload more than allowed
