@@ -2,7 +2,7 @@
 
 import { useMemo, useState, useEffect } from "react";
 import Image from "next/image";
-import { format, eachDayOfInterval, parseISO, subDays, addYears } from "date-fns";
+import { format, eachDayOfInterval, parseISO, subDays } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
 import type { Room, RoomSeasonalPrice, BlockedDate } from "@/types/database";
 import { Card, CardContent } from "@/components/ui/card";
@@ -320,15 +320,13 @@ function RoomCards({ rooms, themeColor, seasonsByRoom, bookedRanges, blockedDate
           <Calendar
             mode="single"
             numberOfMonths={isMobile ? 1 : 2}
-            captionLayout="dropdown"
-            startMonth={new Date()}
-            endMonth={addYears(new Date(), 1)}
             locale={locale === "th" ? thLocale : undefined}
             formatters={locale === "th" ? {
-              formatMonthDropdown: (date) =>
-                date.toLocaleDateString("th-TH", { month: "long" }),
-              formatYearDropdown: (date) =>
-                String(date.getFullYear() + 543),
+              formatCaption: (date) => {
+                const month = date.toLocaleDateString("th-TH", { month: "long" });
+                const beYear = date.getFullYear() + 543;
+                return `${month} ${beYear}`;
+              },
             } : undefined}
             disabled={[
               { before: new Date() },
@@ -340,7 +338,7 @@ function RoomCards({ rooms, themeColor, seasonsByRoom, bookedRanges, blockedDate
             modifiersClassNames={{
               booked: "!bg-red-100 !text-red-400 !opacity-100",
             }}
-            className="rounded-md border"
+            className="rounded-md border w-full"
           />
           <div className="flex items-center justify-center gap-4 text-xs text-gray-500">
             <span className="flex items-center gap-1.5">
