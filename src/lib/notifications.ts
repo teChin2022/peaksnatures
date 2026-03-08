@@ -26,8 +26,7 @@ function formatBookingDate(dateStr: string, locale: string): string {
 // ============================================================
 export async function sendBookingConfirmationEmail(details: BookingDetails, locale: string = "th", type: "confirmed" | "pending" = "confirmed") {
   const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
-  if (!apiKey || apiKey === "your_resend_api_key") {
-    console.log("[Email] Skipped — RESEND_API_KEY not configured. Would send to:", details.booking.guest_email);
+  if (!apiKey) {
     return { success: true, demo: true };
   }
 
@@ -37,12 +36,11 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
 
     const { booking, homestay, room } = details;
 
-    const DEFAULT_FROM = "PeaksNature <onboarding@resend.dev>";
+    const DEFAULT_FROM = "Peaksnature <onboarding@resend.dev>";
     const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
     const fromEmail = cleaned
       ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
       : DEFAULT_FROM;
-    console.log(`[Email] Sending to: ${booking.guest_email}, from: ${fromEmail}, locale: ${locale}`);
     const checkInFmt = formatBookingDate(booking.check_in, locale);
     const checkOutFmt = formatBookingDate(booking.check_out, locale);
     const isTh = locale === "th";
@@ -92,7 +90,6 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
       return { success: false, error };
     }
 
-    console.log("[Email] Sent successfully, id:", data?.id);
     return { success: true, data };
   } catch (error) {
     console.error("[Email] Exception:", error);
@@ -110,7 +107,7 @@ export async function sendBookingStatusUpdateEmail(
   reason?: string
 ) {
   const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
-  if (!apiKey || apiKey === "your_resend_api_key") {
+  if (!apiKey) {
     console.log("[Email] Skipped — RESEND_API_KEY not configured. Would send status update to:", details.booking.guest_email);
     return { success: true, demo: true };
   }
@@ -121,7 +118,7 @@ export async function sendBookingStatusUpdateEmail(
 
     const { booking, homestay, room } = details;
 
-    const DEFAULT_FROM = "PeaksNature <onboarding@resend.dev>";
+    const DEFAULT_FROM = "Peaksnature <onboarding@resend.dev>";
     const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
     const fromEmail = cleaned
       ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
@@ -150,8 +147,6 @@ export async function sendBookingStatusUpdateEmail(
            <p style="margin: 4px 0 0; font-size: 14px; color: #7f1d1d;">${reason}</p>
          </div>`
       : "";
-
-    console.log(`[Email] Sending status update (${newStatus}) to: ${booking.guest_email}, locale: ${locale}`);
 
     const { data, error } = await resend.emails.send({
       from: fromEmail,
@@ -188,7 +183,6 @@ export async function sendBookingStatusUpdateEmail(
       return { success: false, error };
     }
 
-    console.log("[Email] Status update sent successfully, id:", data?.id);
     return { success: true, data };
   } catch (error) {
     console.error("[Email] Status update exception:", error);
@@ -214,7 +208,7 @@ export async function sendHostPushNotification(
   try {
     const webpush = await import("web-push");
     webpush.setVapidDetails(
-      "mailto:notification@peaksnature.com",
+      "mailto:team@peaksnature.com",
       vapidPublicKey,
       vapidPrivateKey
     );
@@ -297,7 +291,6 @@ export async function sendHostPushNotification(
           payload
         );
         sent++;
-        console.log("[Push] Sent to:", sub.endpoint.slice(0, 60));
       } catch (err: unknown) {
         const pushErr = err as { statusCode?: number };
         if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
@@ -311,10 +304,8 @@ export async function sendHostPushNotification(
     // Clean up expired subscriptions
     if (expired.length > 0) {
       await supabase.from("push_subscriptions" as never).delete().in("id", expired);
-      console.log(`[Push] Cleaned ${expired.length} expired subscriptions`);
     }
 
-    console.log(`[Push] Result: sent=${sent}, total=${subs.length}, expired=${expired.length}`);
     return { success: true, data: { sent, total: subs.length, expired: expired.length } };
   } catch (error) {
     console.error("[Push] Exception:", error);
@@ -558,14 +549,14 @@ export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
       // Always send email
       try {
         const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
-        if (!apiKey || apiKey === "your_resend_api_key") {
+        if (!apiKey) {
           console.log(`[Admin Notify] Email skipped — RESEND_API_KEY not configured. Would send to: ${admin.email}`);
           continue;
         }
         const { Resend } = await import("resend");
         const resend = new Resend(apiKey);
 
-        const DEFAULT_FROM = "PeaksNature <onboarding@resend.dev>";
+        const DEFAULT_FROM = "Peaksnature <onboarding@resend.dev>";
         const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
         const fromEmail = cleaned
           ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
@@ -607,7 +598,7 @@ export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
 
 export async function sendHostApprovalEmail(hostEmail: string, hostName: string) {
   const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
-  if (!apiKey || apiKey === "your_resend_api_key") {
+  if (!apiKey) {
     console.log("[Email] Skipped — RESEND_API_KEY not configured. Would send approval to:", hostEmail);
     return { success: true, demo: true };
   }
@@ -616,7 +607,7 @@ export async function sendHostApprovalEmail(hostEmail: string, hostName: string)
     const { Resend } = await import("resend");
     const resend = new Resend(apiKey);
 
-    const DEFAULT_FROM = "PeaksNature <onboarding@resend.dev>";
+    const DEFAULT_FROM = "Peaksnature <onboarding@resend.dev>";
     const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
     const fromEmail = cleaned
       ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
@@ -652,7 +643,7 @@ export async function sendHostApprovalEmail(hostEmail: string, hostName: string)
 
 export async function sendHostRejectionEmail(hostEmail: string, hostName: string) {
   const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
-  if (!apiKey || apiKey === "your_resend_api_key") {
+  if (!apiKey) {
     console.log("[Email] Skipped — RESEND_API_KEY not configured. Would send rejection to:", hostEmail);
     return { success: true, demo: true };
   }
@@ -661,7 +652,7 @@ export async function sendHostRejectionEmail(hostEmail: string, hostName: string
     const { Resend } = await import("resend");
     const resend = new Resend(apiKey);
 
-    const DEFAULT_FROM = "PeaksNature <onboarding@resend.dev>";
+    const DEFAULT_FROM = "Peaksnature <onboarding@resend.dev>";
     const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
     const fromEmail = cleaned
       ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
@@ -684,7 +675,6 @@ export async function sendHostRejectionEmail(hostEmail: string, hostName: string
         </div>
       `,
     });
-    console.log(`[Email] Rejection sent to: ${hostEmail}`);
     return { success: true };
   } catch (error) {
     console.error("[Email] Rejection email error:", error);
