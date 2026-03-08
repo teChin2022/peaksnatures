@@ -2,13 +2,14 @@
 
 import { useMemo, useState, useEffect } from "react";
 import Image from "next/image";
-import { format, eachDayOfInterval, parseISO, subDays } from "date-fns";
+import { format, eachDayOfInterval, parseISO, subDays, addYears } from "date-fns";
+import { th as thLocale } from "date-fns/locale";
 import type { Room, RoomSeasonalPrice, BlockedDate } from "@/types/database";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, BedDouble, CalendarDays, CalendarSearch, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { getPriceRange } from "@/lib/calculate-price";
 import { HTMLContent } from "@/components/ui/html-content";
@@ -198,6 +199,7 @@ function RoomCards({ rooms, themeColor, seasonsByRoom, bookedRanges, blockedDate
   const [lightbox, setLightbox] = useState<{ images: string[]; name: string } | null>(null);
   const [calendarRoomId, setCalendarRoomId] = useState<string | null>(null);
   const isMobile = useIsMobile();
+  const locale = useLocale();
 
   const calendarRoom = calendarRoomId ? rooms.find((r) => r.id === calendarRoomId) : null;
 
@@ -308,7 +310,7 @@ function RoomCards({ rooms, themeColor, seasonsByRoom, bookedRanges, blockedDate
       )}
 
       <Dialog open={!!calendarRoomId} onOpenChange={(open) => { if (!open) setCalendarRoomId(null); }}>
-        <DialogContent className="max-w-fit overflow-y-auto max-h-[90vh]">
+        <DialogContent className="sm:max-w-2xl overflow-y-auto max-h-[90vh]">
           <DialogHeader>
             <DialogTitle>{t("availabilityTitle")}</DialogTitle>
             <DialogDescription>
@@ -318,6 +320,16 @@ function RoomCards({ rooms, themeColor, seasonsByRoom, bookedRanges, blockedDate
           <Calendar
             mode="single"
             numberOfMonths={isMobile ? 1 : 2}
+            captionLayout="dropdown"
+            startMonth={new Date()}
+            endMonth={addYears(new Date(), 1)}
+            locale={locale === "th" ? thLocale : undefined}
+            formatters={locale === "th" ? {
+              formatMonthDropdown: (date) =>
+                date.toLocaleDateString("th-TH", { month: "long" }),
+              formatYearDropdown: (date) =>
+                String(date.getFullYear() + 543),
+            } : undefined}
             disabled={[
               { before: new Date() },
               ...disabledDates,
