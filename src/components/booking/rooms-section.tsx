@@ -178,7 +178,6 @@ export function RoomsSection({ rooms, themeColor = "#16a34a", seasonalPrices = [
 }
 
 // useIsMobile moved to @/lib/use-is-mobile
-
 function getFullyBookedDates(roomId: string, rooms: Room[], bookedRanges: BookedRange[]) {
   const roomObj = rooms.find((r) => r.id === roomId);
   const qty = roomObj?.quantity || 1;
