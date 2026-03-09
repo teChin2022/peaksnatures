@@ -457,12 +457,14 @@ export default function RoomsPage() {
           .update({ ...payload, updated_by: userId } as never)
           .eq("id", editingSeason.id);
         if (error) { toast.error(t("errorSeasonSave")); console.error(error); return; }
+        logClientEvent({ homestay_id: homestayId, entity_type: "room", entity_id: editingRoom.id, event_type: "PRICE_UPDATED", data: { season_id: editingSeason.id, name: payload.name, price_per_night: payload.price_per_night, start_date: payload.start_date, end_date: payload.end_date } });
         toast.success(t("seasonUpdated"));
       } else {
         const { error } = await supabase
           .from("room_seasonal_prices")
           .insert({ ...payload, created_by: userId } as never);
         if (error) { toast.error(t("errorSeasonSave")); console.error(error); return; }
+        logClientEvent({ homestay_id: homestayId, entity_type: "room", entity_id: editingRoom.id, event_type: "PRICE_UPDATED", data: { action: "created", name: payload.name, price_per_night: payload.price_per_night, start_date: payload.start_date, end_date: payload.end_date } });
         toast.success(t("seasonCreated"));
       }
 

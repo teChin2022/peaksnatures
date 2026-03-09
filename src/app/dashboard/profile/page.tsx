@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useThemeColor } from "@/components/dashboard/theme-context";
+import { logClientEvent } from "@/lib/history-log-client";
 
 import { isPushSupported, isPushSubscribed, subscribeHostToPush, unsubscribeFromPush } from "@/lib/push-notifications";
 import { SecurityPinDialog } from "@/components/security-pin-dialog";
@@ -191,6 +192,13 @@ export default function ProfilePage() {
           return;
         }
       }
+
+      logClientEvent({
+        entity_type: "host",
+        entity_id: host.id,
+        event_type: "PROFILE_UPDATED",
+        data: { fields_updated: Object.keys(nonSensitiveUpdate).filter(k => k !== "updated_by"), sensitive: false },
+      });
 
       toast.success(t("saved"));
     } catch {

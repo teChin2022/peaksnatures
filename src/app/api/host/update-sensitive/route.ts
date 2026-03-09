@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import bcrypt from "bcryptjs";
+import { logEvent, EventType } from "@/lib/history-log";
 
 function maskEmail(email: string): string {
   const [local, domain] = email.split("@");
@@ -18,7 +19,7 @@ function maskPromptpay(id: string): string {
   return "x-xxxx-xx" + id.slice(-3);
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -76,6 +77,17 @@ export async function POST(req: Request) {
       console.error("Update sensitive error:", error);
       return NextResponse.json({ error: "Failed to update" }, { status: 500 });
     }
+
+    // Log sensitive profile update (fire-and-forget)
+    logEvent({
+      entityType: "host",
+      entityId: host.id,
+      eventType: EventType.PROFILE_UPDATED,
+      actorType: "host",
+      actorId: user.id,
+      data: { fields_updated: Object.keys(updateData).filter(k => k !== "updated_by"), sensitive: true },
+      req,
+    }).catch(() => {});
 
     // Return masked values
     const result: Record<string, string> = {};

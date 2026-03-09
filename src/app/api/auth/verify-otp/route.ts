@@ -26,6 +26,16 @@ export async function POST(req: NextRequest) {
       .single() as { data: { id: string; expires_at: string } | null; error: unknown };
 
     if (otpError || !otpRecord) {
+      logEvent({
+        entityType: "host",
+        entityId: email,
+        eventType: EventType.FAILED_LOGIN,
+        actorType: "host",
+        actorId: null,
+        data: { email, reason: "invalid_code" },
+        req,
+      }).catch(() => {});
+
       return NextResponse.json(
         { error: "invalid_code" },
         { status: 401 }
@@ -37,6 +47,17 @@ export async function POST(req: NextRequest) {
     if (new Date(record.expires_at) < new Date()) {
       // Clean up expired code
       await serviceClient.from("login_otps").delete().eq("id", record.id);
+
+      logEvent({
+        entityType: "host",
+        entityId: email,
+        eventType: EventType.FAILED_LOGIN,
+        actorType: "host",
+        actorId: null,
+        data: { email, reason: "code_expired" },
+        req,
+      }).catch(() => {});
+
       return NextResponse.json(
         { error: "code_expired" },
         { status: 401 }
