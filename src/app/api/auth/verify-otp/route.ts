@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import {
   createServerSupabaseClient,
   createServiceRoleClient,
@@ -26,15 +26,17 @@ export async function POST(req: NextRequest) {
       .single() as { data: { id: string; expires_at: string } | null; error: unknown };
 
     if (otpError || !otpRecord) {
-      logEvent({
-        entityType: "host",
-        entityId: email,
-        eventType: EventType.FAILED_LOGIN,
-        actorType: "host",
-        actorId: null,
-        data: { email, reason: "invalid_code" },
-        req,
-      }).catch(() => {});
+      after(async () => {
+        await logEvent({
+          entityType: "host",
+          entityId: email,
+          eventType: EventType.FAILED_LOGIN,
+          actorType: "host",
+          actorId: null,
+          data: { email, reason: "invalid_code" },
+          req,
+        });
+      });
 
       return NextResponse.json(
         { error: "invalid_code" },
@@ -48,15 +50,17 @@ export async function POST(req: NextRequest) {
       // Clean up expired code
       await serviceClient.from("login_otps").delete().eq("id", record.id);
 
-      logEvent({
-        entityType: "host",
-        entityId: email,
-        eventType: EventType.FAILED_LOGIN,
-        actorType: "host",
-        actorId: null,
-        data: { email, reason: "code_expired" },
-        req,
-      }).catch(() => {});
+      after(async () => {
+        await logEvent({
+          entityType: "host",
+          entityId: email,
+          eventType: EventType.FAILED_LOGIN,
+          actorType: "host",
+          actorId: null,
+          data: { email, reason: "code_expired" },
+          req,
+        });
+      });
 
       return NextResponse.json(
         { error: "code_expired" },
@@ -81,16 +85,18 @@ export async function POST(req: NextRequest) {
     // Delete used OTP and any other codes for this email
     await serviceClient.from("login_otps").delete().eq("email", email);
 
-    // Log host login (fire-and-forget)
-    logEvent({
-      entityType: "host",
-      entityId: email,
-      eventType: EventType.HOST_LOGIN,
-      actorType: "host",
-      actorId: null,
-      data: { email },
-      req,
-    }).catch(() => {});
+    // Log host login in background
+    after(async () => {
+      await logEvent({
+        entityType: "host",
+        entityId: email,
+        eventType: EventType.HOST_LOGIN,
+        actorType: "host",
+        actorId: null,
+        data: { email },
+        req,
+      });
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

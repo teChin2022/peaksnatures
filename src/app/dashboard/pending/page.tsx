@@ -5,12 +5,15 @@ import { Clock, LogOut } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { createClient } from "@/lib/supabase/client";
+import { logClientEvent } from "@/lib/history-log-client";
 
 export default function PendingApprovalPage() {
   const router = useRouter();
 
   const handleSignOut = async () => {
     const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    logClientEvent({ entity_type: "host", entity_id: user?.id || "unknown", event_type: "HOST_LOGOUT", data: { email: user?.email } });
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();

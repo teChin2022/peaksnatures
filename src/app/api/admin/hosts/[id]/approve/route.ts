@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import {
   createServerSupabaseClient,
   createServiceRoleClient,
@@ -53,16 +53,18 @@ export async function PATCH(
       return NextResponse.json({ error: "Failed to approve" }, { status: 500 });
     }
 
-    // Log + send approval email (fire-and-forget)
-    logEvent({
-      entityType: "host",
-      entityId: id,
-      eventType: EventType.HOST_APPROVED,
-      actorType: "admin",
-      actorId: user.id,
-      data: { host_name: hostRow.name, host_email: hostRow.email },
-      req,
-    }).catch(() => {});
+    // Log + send approval email in background
+    after(async () => {
+      await logEvent({
+        entityType: "host",
+        entityId: id,
+        eventType: EventType.HOST_APPROVED,
+        actorType: "admin",
+        actorId: user.id,
+        data: { host_name: hostRow.name, host_email: hostRow.email },
+        req,
+      });
+    });
 
     sendHostApprovalEmail(hostRow.email, hostRow.name).catch((err) =>
       console.error("[Admin Approve] email error:", err)

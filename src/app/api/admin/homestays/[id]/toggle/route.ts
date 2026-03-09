@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import {
   createServerSupabaseClient,
   createServiceRoleClient,
@@ -48,17 +48,19 @@ export async function PATCH(
       return NextResponse.json({ error: "Failed to update" }, { status: 500 });
     }
 
-    // Log toggle (fire-and-forget)
-    logEvent({
-      homestayId: id,
-      entityType: "homestay",
-      entityId: id,
-      eventType: EventType.PROPERTY_TOGGLED,
-      actorType: "admin",
-      actorId: user.id,
-      data: { previous_is_active: current.is_active, new_is_active: newStatus },
-      req,
-    }).catch(() => {});
+    // Log toggle in background
+    after(async () => {
+      await logEvent({
+        homestayId: id,
+        entityType: "homestay",
+        entityId: id,
+        eventType: EventType.PROPERTY_TOGGLED,
+        actorType: "admin",
+        actorId: user.id,
+        data: { previous_is_active: current.is_active, new_is_active: newStatus },
+        req,
+      });
+    });
 
     return NextResponse.json({ id, is_active: newStatus });
   } catch (error) {

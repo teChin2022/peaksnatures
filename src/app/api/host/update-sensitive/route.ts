@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import bcrypt from "bcryptjs";
 import { logEvent, EventType } from "@/lib/history-log";
@@ -78,16 +78,18 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to update" }, { status: 500 });
     }
 
-    // Log sensitive profile update (fire-and-forget)
-    logEvent({
-      entityType: "host",
-      entityId: host.id,
-      eventType: EventType.PROFILE_UPDATED,
-      actorType: "host",
-      actorId: user.id,
-      data: { fields_updated: Object.keys(updateData).filter(k => k !== "updated_by"), sensitive: true },
-      req,
-    }).catch(() => {});
+    // Log sensitive profile update in background
+    after(async () => {
+      await logEvent({
+        entityType: "host",
+        entityId: host.id,
+        eventType: EventType.PROFILE_UPDATED,
+        actorType: "host",
+        actorId: user.id,
+        data: { fields_updated: Object.keys(updateData).filter(k => k !== "updated_by"), sensitive: true },
+        req,
+      });
+    });
 
     // Return masked values
     const result: Record<string, string> = {};

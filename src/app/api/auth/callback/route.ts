@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { notifyAdminsNewHostRegistration } from "@/lib/notifications";
@@ -96,16 +96,18 @@ export async function GET(req: NextRequest) {
           if (hostError) {
             console.error("Host record creation error:", hostError);
           } else {
-            // Log host registration (fire-and-forget)
-            logEvent({
-              entityType: "host",
-              entityId: user.id,
-              eventType: EventType.HOST_REGISTERED,
-              actorType: "host",
-              actorId: user.id,
-              data: { name, email: user.email },
-              req,
-            }).catch(() => {});
+            // Log host registration in background
+            after(async () => {
+              await logEvent({
+                entityType: "host",
+                entityId: user.id,
+                eventType: EventType.HOST_REGISTERED,
+                actorType: "host",
+                actorId: user.id,
+                data: { name, email: user.email },
+                req,
+              });
+            });
 
             // Fire-and-forget: notify platform admins about new registration
             notifyAdminsNewHostRegistration({
