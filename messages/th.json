@@ -266,7 +266,7 @@
     "otpResendIn": "ส่งอีกครั้งใน {seconds} วินาที",
     "otpExpired": "รหัสหมดอายุ กรุณาขอรหัสใหม่",
     "otpInvalid": "รหัสไม่ถูกต้อง กรุณาลองใหม่",
-    "pdpaConsent": "ฉันยอมรับ<privacy>นโยบายความเป็นส่วนตัว</privacy>และ<terms>ข้อกำหนดการใช้งาน</terms>"
+    "pdpaConsent": "ฉันยอมรับ <privacy>นโยบายความเป็นส่วนตัว</privacy> และ <terms>ข้อกำหนดการใช้งาน</terms>"
   },
   "dashboard": {
     "confirmed": "ยืนยันแล้ว",
