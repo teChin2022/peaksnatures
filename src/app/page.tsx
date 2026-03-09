@@ -178,7 +178,7 @@ export default async function Home() {
             <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {HOMESTAYS.map((h) => (
                 <Link key={h.slug} href={`/${h.slug}`}>
-                  <Card className="group overflow-hidden border transition-shadow hover:shadow-lg">
+                  <Card className="group overflow-hidden border py-0 gap-0 transition-shadow hover:shadow-lg">
                     <div className="relative aspect-[4/3] overflow-hidden">
                       <Image
                         src={h.hero_image_url || "/placeholder.svg"}

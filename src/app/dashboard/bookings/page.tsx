@@ -635,7 +635,7 @@ export default function BookingsPage() {
 
       {/* Booking detail dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-2xl">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {t("bookingDetails")}
@@ -652,154 +652,160 @@ export default function BookingsPage() {
           </DialogHeader>
           {detailTarget && (
             <div className="space-y-4">
-              {/* Payment Slip */}
-              {detailTarget.payment_slip_url ? (
-                <div className="space-y-2">
-                  <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
-                      <CreditCard className="h-4 w-4" />
-                      {t("paymentSlip")}
-                    </h4>
-                    {detailTarget.easyslip_verified ? (
-                      <Badge variant="secondary" style={{ backgroundColor: themeColor + '0d', color: themeColor }}>
-                        <ShieldCheck className="mr-1 h-3 w-3" />
-                        {t("paymentVerified")}
-                      </Badge>
-                    ) : (
-                      <Badge variant="secondary" className="bg-amber-50 text-amber-700">
-                        <ShieldAlert className="mr-1 h-3 w-3" />
-                        {t("paymentPending")}
-                      </Badge>
+              <div className="flex flex-col gap-4 sm:flex-row">
+                {/* Payment Slip — left column */}
+                <div className="w-full sm:w-1/2 shrink-0">
+                  {detailTarget.payment_slip_url ? (
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                          <CreditCard className="h-4 w-4" />
+                          {t("paymentSlip")}
+                        </h4>
+                        {detailTarget.easyslip_verified ? (
+                          <Badge variant="secondary" style={{ backgroundColor: themeColor + '0d', color: themeColor }}>
+                            <ShieldCheck className="mr-1 h-3 w-3" />
+                            {t("paymentVerified")}
+                          </Badge>
+                        ) : (
+                          <Badge variant="secondary" className="bg-amber-50 text-amber-700">
+                            <ShieldAlert className="mr-1 h-3 w-3" />
+                            {t("paymentPending")}
+                          </Badge>
+                        )}
+                      </div>
+                      <div className="rounded-lg border bg-gray-50 p-2">
+                        <Image
+                          src={detailTarget.payment_slip_url}
+                          alt="Payment slip"
+                          width={400}
+                          height={600}
+                          className="w-full rounded-lg object-contain"
+                        />
+                      </div>
+                    </div>
+                  ) : (
+                    <div className="flex h-full items-center justify-center gap-2 rounded-lg border border-dashed border-gray-200 p-4 text-sm text-gray-400">
+                      <ImageIcon className="h-5 w-5" />
+                      {t("noSlip")}
+                    </div>
+                  )}
+                </div>
+
+                {/* Booking Info — right column */}
+                <div className="flex-1 min-w-0 space-y-3">
+                  <div className="rounded-lg border bg-gray-50 p-4 space-y-2 text-sm">
+                    <div className="flex items-center gap-2">
+                      <User className="h-4 w-4 text-gray-400" />
+                      <span className="font-medium text-gray-900">{detailTarget.guest_name}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Mail className="h-4 w-4 text-gray-400" />
+                      <span className="text-gray-600">{detailTarget.guest_email}</span>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Phone className="h-4 w-4 text-gray-400" />
+                      <span className="text-gray-600">{detailTarget.guest_phone}</span>
+                    </div>
+                    {detailTarget.guest_province && (
+                      <div className="flex items-center gap-2">
+                        <MapPin className="h-4 w-4 text-gray-400" />
+                        <span className="text-gray-600">{getProvinceLabel(detailTarget.guest_province, locale)}</span>
+                      </div>
                     )}
+                    <div className="border-t border-gray-200 pt-2 mt-2 space-y-1">
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">{t("room")}</span>
+                        <span className="font-medium">{detailTarget.room_name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">{t("dates")}</span>
+                        <span>{fmtDateStr(detailTarget.check_in, "d MMM yyyy", locale)} → {fmtDateStr(detailTarget.check_out, "d MMM yyyy", locale)}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">{t("guests")}</span>
+                        <span>{detailTarget.num_guests}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">{t("total")}</span>
+                        <span className="font-bold" style={{ color: themeColor }}>฿{detailTarget.total_price.toLocaleString()}</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-400 pt-1">ID: {detailTarget.id}</p>
                   </div>
-                  <div className="rounded-lg border bg-gray-50 p-2">
-                    <Image
-                      src={detailTarget.payment_slip_url}
-                      alt="Payment slip"
-                      width={400}
-                      height={320}
-                      className="mx-auto max-h-80 rounded-lg object-contain"
-                    />
-                  </div>
-                </div>
-              ) : (
-                <div className="flex items-center gap-2 rounded-lg border border-dashed border-gray-200 p-4 text-sm text-gray-400">
-                  <ImageIcon className="h-5 w-5" />
-                  {t("noSlip")}
-                </div>
-              )}
 
-              {/* Booking Info */}
-              <div className="rounded-lg border bg-gray-50 p-4 space-y-2 text-sm">
-                <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-gray-400" />
-                  <span className="font-medium text-gray-900">{detailTarget.guest_name}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-gray-400" />
-                  <span className="text-gray-600">{detailTarget.guest_email}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-gray-400" />
-                  <span className="text-gray-600">{detailTarget.guest_phone}</span>
-                </div>
-                {detailTarget.guest_province && (
-                  <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-gray-400" />
-                    <span className="text-gray-600">{getProvinceLabel(detailTarget.guest_province, locale)}</span>
-                  </div>
-                )}
-                <div className="border-t border-gray-200 pt-2 mt-2 space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">{t("room")}</span>
-                    <span className="font-medium">{detailTarget.room_name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">{t("dates")}</span>
-                    <span>{fmtDateStr(detailTarget.check_in, "d MMM yyyy", locale)} → {fmtDateStr(detailTarget.check_out, "d MMM yyyy", locale)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">{t("guests")}</span>
-                    <span>{detailTarget.num_guests}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">{t("total")}</span>
-                    <span className="font-bold" style={{ color: themeColor }}>฿{detailTarget.total_price.toLocaleString()}</span>
-                  </div>
-                </div>
-                <p className="text-xs text-gray-400 pt-1">ID: {detailTarget.id}</p>
-              </div>
-
-              {/* Action buttons */}
-              {(detailTarget.status === "pending" || detailTarget.status === "verified") && !detailTarget.easyslip_verified && (
-                <DialogFooter className="gap-2 sm:gap-0">
-                  <Button
-                    variant="destructive"
-                    onClick={() => {
-                      setDetailDialogOpen(false);
-                      handleCancelClick(detailTarget);
-                    }}
-                  >
-                    {t("cancel")}
-                  </Button>
-                  <Button
-                    className="hover:brightness-90"
-                    style={{ backgroundColor: themeColor }}
-                    disabled={updatingStatus}
-                    onClick={async () => {
-                      if (detailTarget.status === "pending" || detailTarget.status === "verified") {
-                        setUpdatingStatus(true);
-                        try {
-                          const res = await fetch("/api/bookings/update-status", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              booking_id: detailTarget.id,
-                              status: "confirmed",
-                              locale,
-                            }),
-                          });
-                          if (!res.ok) {
-                            const data = await res.json();
-                            toast.error(data.error || t("errorUpdate"));
-                            return;
+                  {/* Action buttons */}
+                  {(detailTarget.status === "pending" || detailTarget.status === "verified") && !detailTarget.easyslip_verified && (
+                    <DialogFooter className="gap-2 sm:gap-0">
+                      <Button
+                        variant="destructive"
+                        onClick={() => {
+                          setDetailDialogOpen(false);
+                          handleCancelClick(detailTarget);
+                        }}
+                      >
+                        {t("cancel")}
+                      </Button>
+                      <Button
+                        className="hover:brightness-90"
+                        style={{ backgroundColor: themeColor }}
+                        disabled={updatingStatus}
+                        onClick={async () => {
+                          if (detailTarget.status === "pending" || detailTarget.status === "verified") {
+                            setUpdatingStatus(true);
+                            try {
+                              const res = await fetch("/api/bookings/update-status", {
+                                method: "POST",
+                                headers: { "Content-Type": "application/json" },
+                                body: JSON.stringify({
+                                  booking_id: detailTarget.id,
+                                  status: "confirmed",
+                                  locale,
+                                }),
+                              });
+                              if (!res.ok) {
+                                const data = await res.json();
+                                toast.error(data.error || t("errorUpdate"));
+                                return;
+                              }
+                              setBookings((prev) =>
+                                prev.map((b) => (b.id === detailTarget.id ? { ...b, status: "confirmed" as BookingStatus } : b))
+                              );
+                              setDetailTarget((prev) => prev ? { ...prev, status: "confirmed" } : null);
+                              toast.success(t("confirm") + "!");
+                            } catch {
+                              toast.error(t("errorUpdate"));
+                            } finally {
+                              setUpdatingStatus(false);
+                            }
+                          } else {
+                            await updateStatus(detailTarget.id, "confirmed");
+                            setDetailTarget((prev) => prev ? { ...prev, status: "confirmed" } : null);
                           }
-                          setBookings((prev) =>
-                            prev.map((b) => (b.id === detailTarget.id ? { ...b, status: "confirmed" as BookingStatus } : b))
-                          );
-                          setDetailTarget((prev) => prev ? { ...prev, status: "confirmed" } : null);
-                          toast.success(t("confirm") + "!");
-                        } catch {
-                          toast.error(t("errorUpdate"));
-                        } finally {
-                          setUpdatingStatus(false);
-                        }
-                      } else {
-                        await updateStatus(detailTarget.id, "confirmed");
-                        setDetailTarget((prev) => prev ? { ...prev, status: "confirmed" } : null);
-                      }
-                      setDetailDialogOpen(false);
-                    }}
-                  >
-                    {t("confirm")}
-                  </Button>
-                </DialogFooter>
-              )}
-              {detailTarget.status === "confirmed" && new Date(detailTarget.check_out) <= new Date() && (
-                <DialogFooter>
-                  <Button
-                    className="hover:brightness-90 text-white"
-                    style={{ backgroundColor: themeColor }}
-                    onClick={() => {
-                      setDetailDialogOpen(false);
-                      handleCompleteClick(detailTarget);
-                    }}
-                  >
-                    <CheckCircle2 className="mr-1 h-4 w-4" />
-                    {t("markCompleted")}
-                  </Button>
-                </DialogFooter>
-              )}
+                          setDetailDialogOpen(false);
+                        }}
+                      >
+                        {t("confirm")}
+                      </Button>
+                    </DialogFooter>
+                  )}
+                  {detailTarget.status === "confirmed" && new Date(detailTarget.check_out) <= new Date() && (
+                    <DialogFooter>
+                      <Button
+                        className="hover:brightness-90 text-white"
+                        style={{ backgroundColor: themeColor }}
+                        onClick={() => {
+                          setDetailDialogOpen(false);
+                          handleCompleteClick(detailTarget);
+                        }}
+                      >
+                        <CheckCircle2 className="mr-1 h-4 w-4" />
+                        {t("markCompleted")}
+                      </Button>
+                    </DialogFooter>
+                  )}
+                </div>
+              </div>
             </div>
           )}
         </DialogContent>

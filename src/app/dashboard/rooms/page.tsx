@@ -551,83 +551,82 @@ export default function RoomsPage() {
       ) : (
         <div className="space-y-4">
           {rooms.map((room) => (
-            <Card key={room.id} className={room.is_active ? "" : "opacity-50"}>
-              <CardContent className="p-4">
-                <div className="flex gap-4">
+            <Card key={room.id} className={`overflow-hidden py-0 gap-0 ${room.is_active ? "" : "opacity-50"}`}>
+              <div className="flex">
+                <div className="relative w-36 shrink-0 sm:w-40">
                   {room.images[0] ? (
                     <Image
                       src={room.images[0]}
                       alt={room.name}
-                      width={128}
-                      height={96}
-                      className="h-24 w-32 shrink-0 rounded-lg object-cover"
+                      fill
+                      sizes="160px"
+                      className="object-cover"
                     />
                   ) : (
-                    <div className="flex h-24 w-32 shrink-0 items-center justify-center rounded-lg bg-gray-100">
+                    <div className="flex h-full w-full items-center justify-center bg-gray-100">
                       <ImageIcon className="h-8 w-8 text-gray-300" />
                     </div>
                   )}
-
-                  <div className="flex-1 min-w-0">
-                    <div className="flex items-start justify-between">
-                      <div>
-                        <div className="flex items-center gap-2">
-                          <h3 className="font-semibold text-gray-900">{room.name}</h3>
-                          {!room.is_active && (
-                            <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
-                              {t("inactive")}
-                            </span>
-                          )}
-                        </div>
-                        {room.description && (
-                          <p className="mt-0.5 text-sm text-gray-500 line-clamp-1">
-                            {room.description}
-                          </p>
+                </div>
+                <div className="flex-1 min-w-0 p-4">
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <div className="flex items-center gap-2">
+                        <h3 className="font-semibold text-gray-900">{room.name}</h3>
+                        {!room.is_active && (
+                          <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                            {t("inactive")}
+                          </span>
                         )}
                       </div>
-                      <div className="flex items-center gap-1">
-                        <Switch
-                          checked={room.is_active}
-                          onCheckedChange={(checked) => handleToggleActive(room.id, checked)}
-                          className="data-[state=checked]:bg-green-500"
-                        />
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8"
-                          onClick={() => openEditDialog(room)}
-                        >
-                          <Pencil className="h-3.5 w-3.5" />
-                        </Button>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-8 w-8 text-red-500 hover:text-red-700"
-                          onClick={() => handleDeleteRoom(room.id)}
-                        >
-                          <Trash2 className="h-3.5 w-3.5" />
-                        </Button>
-                      </div>
+                      {room.description && (
+                        <p className="mt-0.5 text-sm text-gray-500 line-clamp-1">
+                          {room.description}
+                        </p>
+                      )}
                     </div>
-                    <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
-                      <span className="font-medium" style={{ color: themeColor }}>
-                        ฿{room.price_per_night.toLocaleString()}{tc("perNight")}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <Users className="h-3.5 w-3.5" />
-                        {room.max_guests}
-                      </span>
-                      <span>
-                        {room.quantity} {t("available")}
-                      </span>
-                      <span className="flex items-center gap-1">
-                        <ImageIcon className="h-3.5 w-3.5" />
-                        {room.images.length}
-                      </span>
+                    <div className="flex items-center gap-1">
+                      <Switch
+                        checked={room.is_active}
+                        onCheckedChange={(checked) => handleToggleActive(room.id, checked)}
+                        className="data-[state=checked]:bg-green-500"
+                      />
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8"
+                        onClick={() => openEditDialog(room)}
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-8 w-8 text-red-500 hover:text-red-700"
+                        onClick={() => handleDeleteRoom(room.id)}
+                      >
+                        <Trash2 className="h-3.5 w-3.5" />
+                      </Button>
                     </div>
                   </div>
+                  <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
+                    <span className="font-medium" style={{ color: themeColor }}>
+                      ฿{room.price_per_night.toLocaleString()}{tc("perNight")}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <Users className="h-3.5 w-3.5" />
+                      {room.max_guests}
+                    </span>
+                    <span>
+                      {room.quantity} {t("available")}
+                    </span>
+                    <span className="flex items-center gap-1">
+                      <ImageIcon className="h-3.5 w-3.5" />
+                      {room.images.length}
+                    </span>
+                  </div>
                 </div>
-              </CardContent>
+              </div>
             </Card>
           ))}
         </div>
