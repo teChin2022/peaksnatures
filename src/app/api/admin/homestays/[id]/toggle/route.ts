@@ -39,7 +39,7 @@ export async function PATCH(
 
     const { error: updateError } = await sc
       .from("homestays")
-      .update({ is_active: newStatus } as never)
+      .update({ is_active: newStatus, updated_by: user.id } as never)
       .eq("id", id);
 
     if (updateError) {

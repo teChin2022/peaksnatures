@@ -34,6 +34,9 @@ export interface Database {
           security_pin_hash: string | null;
           status: string;
           created_at: string;
+          created_by: string;
+          updated_at: string;
+          updated_by: string;
         };
         Insert: {
           id?: string;
@@ -51,6 +54,9 @@ export interface Database {
           security_pin_hash?: string | null;
           status?: string;
           created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
         };
         Update: {
           id?: string;
@@ -68,6 +74,9 @@ export interface Database {
           security_pin_hash?: string | null;
           status?: string;
           created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
         };
       };
       homestays: {
@@ -91,6 +100,9 @@ export interface Database {
           theme_color: string;
           is_active: boolean;
           created_at: string;
+          created_by: string;
+          updated_at: string;
+          updated_by: string;
         };
         Insert: {
           id?: string;
@@ -112,6 +124,9 @@ export interface Database {
           theme_color?: string;
           is_active?: boolean;
           created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
         };
         Update: {
           id?: string;
@@ -133,6 +148,9 @@ export interface Database {
           theme_color?: string;
           is_active?: boolean;
           created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
         };
       };
       rooms: {
@@ -146,6 +164,10 @@ export interface Database {
           quantity: number;
           images: string[];
           is_active: boolean;
+          created_at: string;
+          created_by: string;
+          updated_at: string;
+          updated_by: string;
         };
         Insert: {
           id?: string;
@@ -157,6 +179,10 @@ export interface Database {
           quantity?: number;
           images?: string[];
           is_active?: boolean;
+          created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
         };
         Update: {
           id?: string;
@@ -168,6 +194,10 @@ export interface Database {
           quantity?: number;
           images?: string[];
           is_active?: boolean;
+          created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
         };
       };
       bookings: {
@@ -197,6 +227,9 @@ export interface Database {
           cancelled_by: string | null;
           cancelled_at: string | null;
           created_at: string;
+          created_by: string;
+          updated_at: string;
+          updated_by: string;
         };
         Insert: {
           id?: string;
@@ -224,6 +257,9 @@ export interface Database {
           cancelled_by?: string | null;
           cancelled_at?: string | null;
           created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
         };
         Update: {
           id?: string;
@@ -251,6 +287,9 @@ export interface Database {
           cancelled_by?: string | null;
           cancelled_at?: string | null;
           created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
         };
       };
       blocked_dates: {
@@ -260,6 +299,10 @@ export interface Database {
           date: string;
           reason: string | null;
           room_id: string | null;
+          created_at: string;
+          created_by: string;
+          updated_at: string;
+          updated_by: string;
         };
         Insert: {
           id?: string;
@@ -267,6 +310,10 @@ export interface Database {
           date: string;
           reason?: string | null;
           room_id?: string | null;
+          created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
         };
         Update: {
           id?: string;
@@ -274,6 +321,10 @@ export interface Database {
           date?: string;
           reason?: string | null;
           room_id?: string | null;
+          created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
         };
       };
       booking_holds: {
@@ -314,6 +365,9 @@ export interface Database {
           rating: number;
           comment: string | null;
           created_at: string;
+          created_by: string;
+          updated_at: string;
+          updated_by: string;
         };
         Insert: {
           id?: string;
@@ -323,6 +377,9 @@ export interface Database {
           rating: number;
           comment?: string | null;
           created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
         };
         Update: {
           id?: string;
@@ -332,6 +389,9 @@ export interface Database {
           rating?: number;
           comment?: string | null;
           created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
         };
       };
       push_subscriptions: {
@@ -343,6 +403,9 @@ export interface Database {
           auth: string;
           user_agent: string | null;
           created_at: string;
+          created_by: string;
+          updated_at: string;
+          updated_by: string;
         };
         Insert: {
           id?: string;
@@ -352,6 +415,9 @@ export interface Database {
           auth: string;
           user_agent?: string | null;
           created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
         };
         Update: {
           id?: string;
@@ -361,6 +427,9 @@ export interface Database {
           auth?: string;
           user_agent?: string | null;
           created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
         };
       };
       login_otps: {
@@ -395,6 +464,9 @@ export interface Database {
           end_date: string;
           price_per_night: number;
           created_at: string;
+          created_by: string;
+          updated_at: string;
+          updated_by: string;
         };
         Insert: {
           id?: string;
@@ -404,6 +476,9 @@ export interface Database {
           end_date: string;
           price_per_night: number;
           created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
         };
         Update: {
           id?: string;
@@ -413,6 +488,9 @@ export interface Database {
           end_date?: string;
           price_per_night?: number;
           created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
         };
       };
       platform_admins: {
@@ -426,6 +504,9 @@ export interface Database {
           line_user_id: string | null;
           line_channel_access_token: string | null;
           created_at: string;
+          created_by: string;
+          updated_at: string;
+          updated_by: string;
         };
         Insert: {
           id?: string;
@@ -437,6 +518,9 @@ export interface Database {
           line_user_id?: string | null;
           line_channel_access_token?: string | null;
           created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
         };
         Update: {
           id?: string;
@@ -448,6 +532,9 @@ export interface Database {
           line_user_id?: string | null;
           line_channel_access_token?: string | null;
           created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
         };
       };
     };

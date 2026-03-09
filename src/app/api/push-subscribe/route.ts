@@ -25,6 +25,7 @@ export async function POST(req: NextRequest) {
           p256dh,
           auth,
           user_agent: user_agent || null,
+          created_by: host_id,
         } as never,
         { onConflict: "host_id,endpoint" }
       );

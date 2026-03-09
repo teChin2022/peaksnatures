@@ -92,6 +92,7 @@ export async function POST(req: NextRequest) {
       .update({
         amount_paid: booking.total_price,
         payment_type: "full",
+        updated_by: "guest",
       } as never)
       .eq("id", data.booking_id);
 

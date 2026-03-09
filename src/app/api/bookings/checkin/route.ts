@@ -78,7 +78,7 @@ export async function POST(request: NextRequest) {
 
       const { error: updateError } = await supabase
         .from("bookings")
-        .update({ checked_in_at: new Date().toISOString() } as never)
+        .update({ checked_in_at: new Date().toISOString(), updated_by: "guest" } as never)
         .eq("id", booking_id);
 
       if (updateError) {
@@ -119,6 +119,7 @@ export async function POST(request: NextRequest) {
       .update({
         checked_out_at: new Date().toISOString(),
         status: "completed",
+        updated_by: "guest",
       } as never)
       .eq("id", booking_id);
 

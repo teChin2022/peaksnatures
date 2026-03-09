@@ -65,6 +65,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }
 
+    updateData.updated_by = user.id;
+
     const { error } = await serviceClient
       .from("hosts")
       .update(updateData as never)

@@ -108,6 +108,7 @@ export async function POST(req: NextRequest) {
       status: "cancelled",
       cancelled_by: "guest",
       cancelled_at: new Date().toISOString(),
+      updated_by: "guest",
     };
     if (reason) {
       updateData.cancel_reason = reason;

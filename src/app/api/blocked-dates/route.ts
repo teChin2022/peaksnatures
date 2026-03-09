@@ -56,6 +56,7 @@ export async function POST(req: NextRequest) {
       date,
       reason: reason || null,
       room_id: room_id || null,
+      created_by: user.id,
     }));
 
     // Use insert + on-conflict handling; for room-specific blocks the unique index

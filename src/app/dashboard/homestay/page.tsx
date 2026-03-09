@@ -72,6 +72,7 @@ export default function HomestayPage() {
   const themeColor = useThemeColor();
   const [homestay, setHomestay] = useState<HomestayData | null>(null);
   const [hostId, setHostId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isNew, setIsNew] = useState(false);
@@ -107,6 +108,7 @@ export default function HomestayPage() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
+      setUserId(user.id);
 
       const { data: hostRow } = await supabase
         .from("hosts")
@@ -364,7 +366,7 @@ export default function HomestayPage() {
       if (isNew) {
         const { data, error } = await supabase
           .from("homestays")
-          .insert(payload as never)
+          .insert({ ...payload, created_by: userId } as never)
           .select()
           .single();
         if (error) {
@@ -380,12 +382,12 @@ export default function HomestayPage() {
         if (slug.trim() !== homestay.slug) {
           await supabase
             .from("homestay_slug_redirects" as never)
-            .upsert({ homestay_id: homestay.id, old_slug: homestay.slug } as never, { onConflict: "old_slug" });
+            .upsert({ homestay_id: homestay.id, old_slug: homestay.slug, created_by: userId } as never, { onConflict: "old_slug" });
         }
 
         const { error } = await supabase
           .from("homestays")
-          .update(payload as never)
+          .update({ ...payload, updated_by: userId } as never)
           .eq("id", homestay.id);
         if (error) {
           toast.error(t("errorSave"));

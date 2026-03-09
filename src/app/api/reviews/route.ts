@@ -113,6 +113,7 @@ export async function POST(request: NextRequest) {
         guest_name: booking.guest_name,
         rating: Math.round(rating),
         comment: comment?.trim() || null,
+        created_by: "guest",
       })
       .select()
       .single();

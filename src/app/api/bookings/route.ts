@@ -215,6 +215,7 @@ export async function POST(req: NextRequest) {
           p_notes: data.notes || null,
           p_payment_type: data.payment_type || "full",
           p_amount_paid: data.amount_paid || data.total_price,
+          p_created_by: "guest",
         } as never
       );
 
@@ -282,6 +283,7 @@ export async function POST(req: NextRequest) {
         notes: data.notes || null,
         payment_type: data.payment_type || "full",
         amount_paid: data.amount_paid || data.total_price,
+        created_by: "guest",
       } as never)
       .select()
       .single();

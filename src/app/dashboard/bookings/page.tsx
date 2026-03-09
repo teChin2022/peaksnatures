@@ -157,12 +157,15 @@ export default function BookingsPage() {
     []
   );
 
+  const [userId, setUserId] = useState<string | null>(null);
+
   const fetchBookings = async () => {
     const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
+    setUserId(user.id);
 
     // Get host
     const { data: hostRow } = await supabase
@@ -257,7 +260,7 @@ export default function BookingsPage() {
     const supabase = createClient();
     const { error } = await supabase
       .from("bookings")
-      .update({ status } as never)
+      .update({ status, updated_by: userId } as never)
       .eq("id", id);
 
     if (error) {

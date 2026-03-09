@@ -44,7 +44,7 @@ export async function PATCH(
     // Update status
     const { error: updateError } = await sc
       .from("hosts")
-      .update({ status: "approved" } as never)
+      .update({ status: "approved", updated_by: user.id } as never)
       .eq("id", id);
 
     if (updateError) {

@@ -53,6 +53,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const themeColor = useThemeColor();
   const [host, setHost] = useState<HostData | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -93,6 +94,7 @@ export default function ProfilePage() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
+      setUserId(user.id);
 
       const { data } = await supabase
         .from("hosts")
@@ -156,6 +158,7 @@ export default function ProfilePage() {
         deposit_by_month: Object.keys(depositByMonth).length > 0 ? depositByMonth : null,
         cancellation_days: cancellationDays,
         notification_preference: notificationPreference,
+        updated_by: userId,
       };
 
       const { error } = await supabase

@@ -68,6 +68,7 @@ export default function RoomsPage() {
   const themeColor = useThemeColor();
   const [rooms, setRooms] = useState<RoomData[]>([]);
   const [homestayId, setHomestayId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
@@ -88,7 +89,7 @@ export default function RoomsPage() {
   const [seasonForm, setSeasonForm] = useState<SeasonFormData>({ name: "", start_date: "", end_date: "", price_per_night: "" });
   const [editingSeason, setEditingSeason] = useState<RoomSeasonalPrice | null>(null);
   const [savingSeason, setSavingSeason] = useState(false);
-  const [pendingSeasons, setPendingSeasons] = useState<Omit<RoomSeasonalPrice, "id" | "room_id" | "created_at">[]>([]);
+  const [pendingSeasons, setPendingSeasons] = useState<Omit<RoomSeasonalPrice, "id" | "room_id" | "created_at" | "created_by" | "updated_at" | "updated_by">[]>([]);
 
   // Format date with Thai BE year when locale is Thai
   const fmtDate = (dateStr: string) => {
@@ -122,6 +123,7 @@ export default function RoomsPage() {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
+    setUserId(user.id);
 
     const hostQuery = supabase.from("hosts").select("id").eq("user_id", user.id);
     const { data: hostRow } = await hostQuery.maybeSingle();
@@ -290,7 +292,7 @@ export default function RoomsPage() {
       if (editingRoom) {
         const { error } = await supabase
           .from("rooms")
-          .update(payload as never)
+          .update({ ...payload, updated_by: userId } as never)
           .eq("id", editingRoom.id);
         if (error) {
           toast.error(t("errorSave"));
@@ -301,7 +303,7 @@ export default function RoomsPage() {
       } else {
         const { data: newRoom, error } = await supabase
           .from("rooms")
-          .insert(payload as never)
+          .insert({ ...payload, created_by: userId } as never)
           .select("id")
           .single();
         if (error || !newRoom) {
@@ -318,6 +320,7 @@ export default function RoomsPage() {
             start_date: s.start_date,
             end_date: s.end_date,
             price_per_night: s.price_per_night,
+            created_by: userId,
           }));
           const { error: seasonError } = await supabase
             .from("room_seasonal_prices")
@@ -345,7 +348,7 @@ export default function RoomsPage() {
       const supabase = createClient();
       const { error } = await supabase
         .from("rooms")
-        .update({ is_active: isActive } as never)
+        .update({ is_active: isActive, updated_by: userId } as never)
         .eq("id", roomId);
       if (error) {
         toast.error(t("errorToggle"));
@@ -447,14 +450,14 @@ export default function RoomsPage() {
       if (editingSeason) {
         const { error } = await supabase
           .from("room_seasonal_prices")
-          .update(payload as never)
+          .update({ ...payload, updated_by: userId } as never)
           .eq("id", editingSeason.id);
         if (error) { toast.error(t("errorSeasonSave")); console.error(error); return; }
         toast.success(t("seasonUpdated"));
       } else {
         const { error } = await supabase
           .from("room_seasonal_prices")
-          .insert(payload as never);
+          .insert({ ...payload, created_by: userId } as never);
         if (error) { toast.error(t("errorSeasonSave")); console.error(error); return; }
         toast.success(t("seasonCreated"));
       }

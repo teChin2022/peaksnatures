@@ -89,6 +89,7 @@ export async function GET(req: NextRequest) {
               phone: null,
               promptpay_id: "",
               status: "pending",
+              created_by: user.id,
             } as never);
 
           if (hostError) {

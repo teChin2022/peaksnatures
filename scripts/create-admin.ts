@@ -91,6 +91,7 @@ async function main() {
     name: name.trim(),
     phone: phone.trim() || null,
     promptpay_id: promptpayId.trim() || null,
+    created_by: "system",
   });
 
   if (insertError) {

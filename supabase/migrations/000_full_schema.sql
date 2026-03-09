@@ -1,6 +1,6 @@
 -- ============================================================
 -- Peaksnature — Full Database Schema
--- Combined from migrations 001–024 for one-shot production setup.
+-- Combined from migrations 001–027 for one-shot production setup.
 -- Run this in Supabase SQL Editor on a fresh project.
 -- ============================================================
 
@@ -28,6 +28,9 @@ CREATE TABLE hosts (
   cancellation_days INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'pending',
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by TEXT NOT NULL DEFAULT 'system',
   UNIQUE(user_id)
 );
 
@@ -57,7 +60,10 @@ CREATE TABLE homestays (
   gallery JSONB NOT NULL DEFAULT '[]',
   theme_color TEXT NOT NULL DEFAULT '#16a34a',
   is_active BOOLEAN NOT NULL DEFAULT true,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by TEXT NOT NULL DEFAULT 'system'
 );
 
 CREATE INDEX idx_homestays_slug ON homestays(slug);
@@ -70,7 +76,10 @@ CREATE TABLE homestay_slug_redirects (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
   homestay_id UUID NOT NULL REFERENCES homestays(id) ON DELETE CASCADE,
   old_slug TEXT NOT NULL UNIQUE,
-  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by TEXT NOT NULL DEFAULT 'system'
 );
 
 CREATE INDEX idx_slug_redirects_old_slug ON homestay_slug_redirects(old_slug);
@@ -87,7 +96,11 @@ CREATE TABLE rooms (
   max_guests INTEGER NOT NULL DEFAULT 2,
   quantity INTEGER NOT NULL DEFAULT 1,
   images JSONB NOT NULL DEFAULT '[]',
-  is_active BOOLEAN NOT NULL DEFAULT true
+  is_active BOOLEAN NOT NULL DEFAULT true,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by TEXT NOT NULL DEFAULT 'system'
 );
 
 CREATE INDEX idx_rooms_homestay_id ON rooms(homestay_id);
@@ -134,6 +147,9 @@ CREATE TABLE bookings (
   cancelled_by TEXT,
   cancelled_at TIMESTAMPTZ,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by TEXT NOT NULL DEFAULT 'system',
   CONSTRAINT check_dates CHECK (check_out > check_in)
 );
 
@@ -151,7 +167,11 @@ CREATE TABLE blocked_dates (
   homestay_id UUID NOT NULL REFERENCES homestays(id) ON DELETE CASCADE,
   date DATE NOT NULL,
   reason TEXT,
-  room_id UUID REFERENCES rooms(id) ON DELETE CASCADE
+  room_id UUID REFERENCES rooms(id) ON DELETE CASCADE,
+  created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by TEXT NOT NULL DEFAULT 'system'
 );
 
 CREATE INDEX idx_blocked_dates_homestay_id ON blocked_dates(homestay_id);
@@ -190,6 +210,9 @@ CREATE TABLE reviews (
   rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
   comment TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by TEXT NOT NULL DEFAULT 'system',
   UNIQUE(booking_id)
 );
 
@@ -219,6 +242,9 @@ CREATE TABLE room_seasonal_prices (
   end_date DATE NOT NULL,
   price_per_night INTEGER NOT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by TEXT NOT NULL DEFAULT 'system',
   CONSTRAINT check_date_range CHECK (end_date >= start_date)
 );
 
@@ -509,7 +535,8 @@ CREATE OR REPLACE FUNCTION create_booking_atomic(
   p_session_id TEXT DEFAULT NULL,
   p_notes TEXT DEFAULT NULL,
   p_payment_type TEXT DEFAULT 'full',
-  p_amount_paid INT DEFAULT 0
+  p_amount_paid INT DEFAULT 0,
+  p_created_by TEXT DEFAULT 'guest'
 ) RETURNS UUID AS $$
 DECLARE
   v_room_qty INT;
@@ -550,12 +577,14 @@ BEGIN
     homestay_id, room_id, guest_name, guest_email, guest_phone,
     guest_province, check_in, check_out, num_guests, total_price,
     status, easyslip_verified, payment_slip_hash, slip_trans_ref,
-    payment_slip_url, easyslip_response, notes, payment_type, amount_paid
+    payment_slip_url, easyslip_response, notes, payment_type, amount_paid,
+    created_by
   ) VALUES (
     p_homestay_id, p_room_id, p_guest_name, p_guest_email, p_guest_phone,
     p_guest_province, p_check_in, p_check_out, p_num_guests, p_total_price,
     p_status, p_easyslip_verified, p_payment_slip_hash, p_slip_trans_ref,
-    p_payment_slip_url, p_easyslip_response, p_notes, p_payment_type, p_amount_paid
+    p_payment_slip_url, p_easyslip_response, p_notes, p_payment_type, p_amount_paid,
+    p_created_by
   ) RETURNING id INTO v_booking_id;
 
   IF p_session_id IS NOT NULL THEN
@@ -583,6 +612,9 @@ CREATE TABLE platform_admins (
   line_user_id TEXT,
   line_channel_access_token TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  created_by TEXT NOT NULL DEFAULT 'system',
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  updated_by TEXT NOT NULL DEFAULT 'system',
   UNIQUE(user_id)
 );
 
@@ -590,3 +622,35 @@ CREATE INDEX idx_platform_admins_user_id ON platform_admins(user_id);
 
 ALTER TABLE platform_admins ENABLE ROW LEVEL SECURITY;
 -- No RLS policies = service-role only access
+
+-- ============================================================
+-- AUDIT: auto-set updated_at trigger
+-- ============================================================
+CREATE OR REPLACE FUNCTION set_updated_at()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = NOW();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER trg_hosts_updated_at
+  BEFORE UPDATE ON hosts FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_homestays_updated_at
+  BEFORE UPDATE ON homestays FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_homestay_slug_redirects_updated_at
+  BEFORE UPDATE ON homestay_slug_redirects FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_rooms_updated_at
+  BEFORE UPDATE ON rooms FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_bookings_updated_at
+  BEFORE UPDATE ON bookings FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_blocked_dates_updated_at
+  BEFORE UPDATE ON blocked_dates FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_reviews_updated_at
+  BEFORE UPDATE ON reviews FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_push_subscriptions_updated_at
+  BEFORE UPDATE ON push_subscriptions FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_room_seasonal_prices_updated_at
+  BEFORE UPDATE ON room_seasonal_prices FOR EACH ROW EXECUTE FUNCTION set_updated_at();
+CREATE TRIGGER trg_platform_admins_updated_at
+  BEFORE UPDATE ON platform_admins FOR EACH ROW EXECUTE FUNCTION set_updated_at();

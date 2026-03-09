@@ -56,7 +56,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Update the booking status
-    const updateData: Record<string, unknown> = { status };
+    const updateData: Record<string, unknown> = { status, updated_by: "system" };
     if (status === "cancelled") {
       updateData.cancelled_by = "host";
       updateData.cancelled_at = new Date().toISOString();

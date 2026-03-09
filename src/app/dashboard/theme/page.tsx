@@ -39,6 +39,7 @@ interface HomestayThemeData {
 export default function ThemePage() {
   const t = useTranslations("dashboardTheme");
   const [homestay, setHomestay] = useState<HomestayThemeData | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [themeColor, setThemeColor] = useState("#16a34a");
@@ -50,6 +51,7 @@ export default function ThemePage() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
+      setUserId(user.id);
 
       const hostQuery = supabase.from("hosts").select("id").eq("user_id", user.id);
       const { data: hostRow } = await hostQuery.maybeSingle();
@@ -85,7 +87,7 @@ export default function ThemePage() {
       const supabase = createClient();
       const { error } = await supabase
         .from("homestays")
-        .update({ theme_color: themeColor } as never)
+        .update({ theme_color: themeColor, updated_by: userId } as never)
         .eq("id", homestay.id);
 
       if (error) {
