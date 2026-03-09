@@ -18,12 +18,12 @@ const nextConfig: NextConfig = {
     return [
       {
         source: "/privacy",
-        destination: "/legal/privacy",
+        destination: "/legal#privacy",
         permanent: true,
       },
       {
         source: "/terms",
-        destination: "/legal/terms",
+        destination: "/legal#terms",
         permanent: true,
       },
     ];

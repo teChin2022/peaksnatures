@@ -195,7 +195,7 @@
     "seasonRate": "{name}",
     "baseRate": "ราคาพื้นฐาน",
     "perNightRate": "฿{price}/คืน",
-    "pdpaConsent": "ฉันยอมรับ<link>กฎหมาย & นโยบาย</link>รวมถึงนโยบายความเป็นส่วนตัวและข้อกำหนดการใช้งาน"
+    "pdpaConsent": "ฉันยอมรับ<privacy>นโยบายความเป็นส่วนตัว</privacy>และ<terms>ข้อกำหนดการใช้งาน</terms>"
   },
   "chat": {
     "title": "ผู้ช่วยจองที่พัก",
@@ -266,7 +266,7 @@
     "otpResendIn": "ส่งอีกครั้งใน {seconds} วินาที",
     "otpExpired": "รหัสหมดอายุ กรุณาขอรหัสใหม่",
     "otpInvalid": "รหัสไม่ถูกต้อง กรุณาลองใหม่",
-    "pdpaConsent": "ฉันยอมรับ<link>กฎหมาย & นโยบาย</link>รวมถึงนโยบายความเป็นส่วนตัวและข้อกำหนดการใช้งาน"
+    "pdpaConsent": "ฉันยอมรับ<privacy>นโยบายความเป็นส่วนตัว</privacy>และ<terms>ข้อกำหนดการใช้งาน</terms>"
   },
   "dashboard": {
     "confirmed": "ยืนยันแล้ว",
@@ -794,7 +794,7 @@
     "browseAll": "ดูที่พักทั้งหมด"
   },
   "footer": {
-    "company": "บริษัท",
+    "company": "Peaksnature",
     "about": "เกี่ยวกับเรา",
     "trustSafety": "ความปลอดภัย & ความน่าเชื่อถือ",
     "legalPolicies": "กฎหมาย & นโยบาย",

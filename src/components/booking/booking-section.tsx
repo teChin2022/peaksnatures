@@ -885,9 +885,19 @@ export function BookingSection({
                   />
                   <span className="text-xs text-gray-600">
                     {t.rich("pdpaConsent", {
-                      link: (chunks) => (
+                      privacy: (chunks) => (
                         <a
-                          href="/legal"
+                          href="/legal#privacy"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-green-600 underline hover:text-green-700"
+                        >
+                          {chunks}
+                        </a>
+                      ),
+                      terms: (chunks) => (
+                        <a
+                          href="/legal#terms"
                           target="_blank"
                           rel="noopener noreferrer"
                           className="font-medium text-green-600 underline hover:text-green-700"
