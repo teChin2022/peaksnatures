@@ -5,6 +5,7 @@ import {
 } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { sendHostApprovalEmail } from "@/lib/notifications";
+import { logEvent, EventType } from "@/lib/history-log";
 
 export async function PATCH(
   req: NextRequest,
@@ -52,7 +53,17 @@ export async function PATCH(
       return NextResponse.json({ error: "Failed to approve" }, { status: 500 });
     }
 
-    // Send approval email (fire-and-forget)
+    // Log + send approval email (fire-and-forget)
+    logEvent({
+      entityType: "host",
+      entityId: id,
+      eventType: EventType.HOST_APPROVED,
+      actorType: "admin",
+      actorId: user.id,
+      data: { host_name: hostRow.name, host_email: hostRow.email },
+      req,
+    }).catch(() => {});
+
     sendHostApprovalEmail(hostRow.email, hostRow.name).catch((err) =>
       console.error("[Admin Approve] email error:", err)
     );

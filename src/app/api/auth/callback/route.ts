@@ -4,6 +4,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { notifyAdminsNewHostRegistration } from "@/lib/notifications";
 import type { Database } from "@/types/database";
 import type { EmailOtpType } from "@supabase/supabase-js";
+import { logEvent, EventType } from "@/lib/history-log";
 
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url);
@@ -95,6 +96,17 @@ export async function GET(req: NextRequest) {
           if (hostError) {
             console.error("Host record creation error:", hostError);
           } else {
+            // Log host registration (fire-and-forget)
+            logEvent({
+              entityType: "host",
+              entityId: user.id,
+              eventType: EventType.HOST_REGISTERED,
+              actorType: "host",
+              actorId: user.id,
+              data: { name, email: user.email },
+              req,
+            }).catch(() => {});
+
             // Fire-and-forget: notify platform admins about new registration
             notifyAdminsNewHostRegistration({
               hostName: name,

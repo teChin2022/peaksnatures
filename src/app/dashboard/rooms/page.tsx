@@ -40,6 +40,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { useThemeColor } from "@/components/dashboard/theme-context";
+import { logClientEvent } from "@/lib/history-log-client";
 
 interface RoomData {
   id: string;
@@ -299,6 +300,7 @@ export default function RoomsPage() {
           console.error("Update room error:", error);
           return;
         }
+        logClientEvent({ homestay_id: homestayId, entity_type: "room", entity_id: editingRoom.id, event_type: "ROOM_UPDATED", data: { name: payload.name, price_per_night: payload.price_per_night } });
         toast.success(t("updated"));
       } else {
         const { data: newRoom, error } = await supabase
@@ -330,6 +332,7 @@ export default function RoomsPage() {
           }
         }
 
+        logClientEvent({ homestay_id: homestayId, entity_type: "room", entity_id: (newRoom as { id: string }).id, event_type: "ROOM_CREATED", data: { name: payload.name, price_per_night: payload.price_per_night } });
         toast.success(t("created"));
       }
 
@@ -374,6 +377,7 @@ export default function RoomsPage() {
           console.error("Delete room error:", error);
           return;
         }
+        logClientEvent({ homestay_id: homestayId, entity_type: "room", entity_id: roomId, event_type: "ROOM_DELETED", data: {} });
         setRooms((prev) => prev.filter((r) => r.id !== roomId));
         toast.success(t("deleted"));
       } catch {

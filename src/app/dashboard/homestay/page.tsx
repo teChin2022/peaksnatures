@@ -31,6 +31,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { toast } from "sonner";
 import { useThemeColor } from "@/components/dashboard/theme-context";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { logClientEvent } from "@/lib/history-log-client";
 
 interface HomestayData {
   id: string;
@@ -376,6 +377,7 @@ export default function HomestayPage() {
         }
         setHomestay(data as unknown as HomestayData);
         setIsNew(false);
+        logClientEvent({ homestay_id: (data as unknown as { id: string }).id, entity_type: "homestay", entity_id: (data as unknown as { id: string }).id, event_type: "PROPERTY_CREATED", data: { name: name.trim(), slug: slug.trim() } });
         toast.success(t("created"));
       } else if (homestay) {
         // Save old slug to redirects table before updating
@@ -394,6 +396,7 @@ export default function HomestayPage() {
           console.error("Update homestay error:", error);
           return;
         }
+        logClientEvent({ homestay_id: homestay.id, entity_type: "homestay", entity_id: homestay.id, event_type: "PROPERTY_UPDATED", data: { name: name.trim(), slug: slug.trim() } });
         setHomestay({ ...homestay, ...payload } as HomestayData);
         toast.success(t("saved"));
       }

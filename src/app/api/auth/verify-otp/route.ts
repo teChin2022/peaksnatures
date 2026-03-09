@@ -3,6 +3,7 @@ import {
   createServerSupabaseClient,
   createServiceRoleClient,
 } from "@/lib/supabase/server";
+import { logEvent, EventType } from "@/lib/history-log";
 
 export async function POST(req: NextRequest) {
   try {
@@ -58,6 +59,17 @@ export async function POST(req: NextRequest) {
 
     // Delete used OTP and any other codes for this email
     await serviceClient.from("login_otps").delete().eq("email", email);
+
+    // Log host login (fire-and-forget)
+    logEvent({
+      entityType: "host",
+      entityId: email,
+      eventType: EventType.HOST_LOGIN,
+      actorType: "host",
+      actorId: null,
+      data: { email },
+      req,
+    }).catch(() => {});
 
     return NextResponse.json({ success: true });
   } catch (error) {

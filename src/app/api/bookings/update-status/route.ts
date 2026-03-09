@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendBookingStatusUpdateEmail } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room } from "@/types/database";
+import { logEvent, EventType } from "@/lib/history-log";
 
 export async function POST(req: NextRequest) {
   try {
@@ -78,8 +79,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Send guest email notification in background
+    // Log event + send guest email notification in background
     after(async () => {
+      await logEvent({
+        homestayId: booking.homestay_id,
+        entityType: "booking",
+        entityId: booking_id,
+        eventType: status === "confirmed" ? EventType.BOOKING_CONFIRMED : EventType.BOOKING_CANCELLED,
+        actorType: "host",
+        actorId: null,
+        data: { previous_status: booking.status, new_status: status, ...(reason ? { reason } : {}) },
+        req,
+      });
+
       try {
         const { data: homestay } = await supabase
           .from("homestays")

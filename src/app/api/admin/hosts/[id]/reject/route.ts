@@ -5,6 +5,7 @@ import {
 } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { sendHostRejectionEmail } from "@/lib/notifications";
+import { logEvent, EventType } from "@/lib/history-log";
 
 export async function DELETE(
   req: NextRequest,
@@ -37,7 +38,17 @@ export async function DELETE(
 
     const hostRow = host as { id: string; user_id: string; name: string; email: string; status: string };
 
-    // Send rejection email before deleting (fire-and-forget)
+    // Log + send rejection email before deleting (fire-and-forget)
+    logEvent({
+      entityType: "host",
+      entityId: id,
+      eventType: EventType.HOST_REJECTED,
+      actorType: "admin",
+      actorId: user.id,
+      data: { host_name: hostRow.name, host_email: hostRow.email },
+      req,
+    }).catch(() => {});
+
     sendHostRejectionEmail(hostRow.email, hostRow.name).catch((err) =>
       console.error("[Admin Reject] email error:", err)
     );

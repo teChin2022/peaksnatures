@@ -537,6 +537,44 @@ export interface Database {
           updated_by?: string;
         };
       };
+      history_logs: {
+        Row: {
+          id: string;
+          homestay_id: string | null;
+          entity_type: string;
+          entity_id: string;
+          event_type: string;
+          actor_type: string;
+          actor_id: string | null;
+          data: Json;
+          ip_address: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          homestay_id?: string | null;
+          entity_type: string;
+          entity_id: string;
+          event_type: string;
+          actor_type: string;
+          actor_id?: string | null;
+          data?: Json;
+          ip_address?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          homestay_id?: string | null;
+          entity_type?: string;
+          entity_id?: string;
+          event_type?: string;
+          actor_type?: string;
+          actor_id?: string | null;
+          data?: Json;
+          ip_address?: string | null;
+          created_at?: string;
+        };
+      };
     };
   };
 }
@@ -550,3 +588,4 @@ export type BookingHold = Database["public"]["Tables"]["booking_holds"]["Row"];
 export type Review = Database["public"]["Tables"]["reviews"]["Row"];
 export type RoomSeasonalPrice = Database["public"]["Tables"]["room_seasonal_prices"]["Row"];
 export type PlatformAdmin = Database["public"]["Tables"]["platform_admins"]["Row"];
+export type HistoryLog = Database["public"]["Tables"]["history_logs"]["Row"];

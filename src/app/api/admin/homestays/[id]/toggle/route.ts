@@ -4,6 +4,7 @@ import {
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
+import { logEvent, EventType } from "@/lib/history-log";
 
 export async function PATCH(
   req: NextRequest,
@@ -46,6 +47,18 @@ export async function PATCH(
       console.error("[Admin Toggle] update error:", updateError);
       return NextResponse.json({ error: "Failed to update" }, { status: 500 });
     }
+
+    // Log toggle (fire-and-forget)
+    logEvent({
+      homestayId: id,
+      entityType: "homestay",
+      entityId: id,
+      eventType: EventType.PROPERTY_TOGGLED,
+      actorType: "admin",
+      actorId: user.id,
+      data: { previous_is_active: current.is_active, new_is_active: newStatus },
+      req,
+    }).catch(() => {});
 
     return NextResponse.json({ id, is_active: newStatus });
   } catch (error) {

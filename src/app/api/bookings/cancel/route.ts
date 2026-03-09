@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendHostCancellationLineNotification } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room } from "@/types/database";
+import { logEvent, EventType } from "@/lib/history-log";
 
 export async function POST(req: NextRequest) {
   try {
@@ -127,8 +128,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Notify host in background
+    // Log + notify host in background
     after(async () => {
+      await logEvent({
+        homestayId: booking.homestay_id,
+        entityType: "booking",
+        entityId: booking_id,
+        eventType: EventType.BOOKING_CANCELLED,
+        actorType: "guest",
+        actorId: null,
+        data: { guest_name: booking.guest_name, ...(reason ? { reason } : {}) },
+        req,
+      });
+
       try {
         let room = undefined;
         if (booking.room_id) {
