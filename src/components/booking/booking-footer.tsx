@@ -65,7 +65,7 @@ export function BookingFooter({
               href="/legal"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-gray-500 hover:text-green-700 underline"
+              className="text-xs text-gray-500 hover:text-green-700"
             >
               {tc("legalPolicies")}
             </a>

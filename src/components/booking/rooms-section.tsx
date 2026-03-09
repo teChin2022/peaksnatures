@@ -234,7 +234,7 @@ function RoomCards({ rooms, themeColor, seasonsByRoom, bookedRanges, blockedDate
         {rooms.map((room, index) => (
           <Card
             key={room.id}
-            className="group overflow-hidden border transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
+            className="group overflow-hidden border py-0 gap-0 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
           >
             {room.images[0] && (
               <RoomCardImage
