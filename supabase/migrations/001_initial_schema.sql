@@ -1,4 +1,4 @@
--- PeaksNature Initial Schema
+-- Peaksnature Initial Schema
 -- Run this in Supabase SQL Editor to set up the database
 
 -- Enable UUID extension

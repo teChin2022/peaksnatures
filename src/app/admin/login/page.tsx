@@ -153,7 +153,7 @@ export default function AdminLoginPage() {
           <div className="flex items-center gap-2">
             <Image
               src="/logo.png"
-              alt="PeaksNature"
+              alt="Peaksnature"
               width={32}
               height={32}
               className="h-8 w-8 rounded"

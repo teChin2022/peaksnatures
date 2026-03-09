@@ -26,6 +26,7 @@ export default function RegisterPage() {
   const [confirmPasswordWarning, setConfirmPasswordWarning] = useState<string | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileError, setTurnstileError] = useState(false);
+  const [pdpaConsent, setPdpaConsent] = useState(false);
   const turnstileRef = useRef<TurnstileInstance>(null);
 
   const passwordRegex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[_#@]).{6,}$/;
@@ -105,7 +106,7 @@ export default function RegisterPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2">
           <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.png" alt="PeaksNature" width={32} height={32} className="h-8 w-8 rounded" />
+            <Image src="/logo.png" alt="Peaksnature" width={32} height={32} className="h-8 w-8 rounded" />
             <span className="text-2xl font-bold text-green-800">{t('register')}</span>
           </Link>
           <p className="text-sm text-gray-500">{t("registerAs")}</p>
@@ -254,10 +255,42 @@ export default function RegisterPage() {
                 </div>
               </CardContent>
               <CardFooter className="flex flex-col gap-3">
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={pdpaConsent}
+                    onChange={(e) => setPdpaConsent(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                  />
+                  <span className="text-xs text-gray-600">
+                    {t.rich("pdpaConsent", {
+                      privacy: (chunks) => (
+                        <a
+                          href="/legal#privacy"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-green-600 underline hover:text-green-700"
+                        >
+                          {chunks}
+                        </a>
+                      ),
+                      terms: (chunks) => (
+                        <a
+                          href="/legal#terms"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-green-600 underline hover:text-green-700"
+                        >
+                          {chunks}
+                        </a>
+                      ),
+                    })}
+                  </span>
+                </label>
                 <Button
                   type="submit"
                   className="w-full bg-green-600 hover:bg-green-700"
-                  disabled={loading || (!turnstileToken && !turnstileError)}
+                  disabled={loading || (!turnstileToken && !turnstileError) || !pdpaConsent}
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {t("createAccount")}

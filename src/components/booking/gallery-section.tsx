@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useEffect } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -28,10 +28,18 @@ function GalleryImage({
   onClick: () => void;
 }) {
   const [loaded, setLoaded] = useState(false);
+  const imgRef = useRef<HTMLImageElement | null>(null);
+
+  useEffect(() => {
+    if (imgRef.current?.complete && imgRef.current.naturalWidth > 0) {
+      setLoaded(true);
+    }
+  }, [src]);
 
   return (
     <button onClick={onClick} className="group relative h-full w-full overflow-hidden">
       <Image
+        ref={imgRef}
         src={src}
         alt={alt}
         fill
@@ -39,8 +47,8 @@ function GalleryImage({
         loading={eager ? "eager" : "lazy"}
         placeholder="blur"
         blurDataURL={BLUR_DATA_URL}
-        className={`h-full w-full object-cover transition-all duration-500 group-hover:scale-105 ${
-          loaded ? "opacity-100" : "opacity-0"
+        className={`h-full w-full object-cover group-hover:scale-105 ${
+          loaded ? "opacity-100 transition-transform duration-500" : "opacity-0"
         }`}
         onLoad={() => setLoaded(true)}
       />
@@ -162,13 +170,27 @@ export function GallerySection({ images, name }: GallerySectionProps) {
 
           <div className="relative max-h-[85vh] max-w-[90vw]">
             <Image
+              key={images[lightboxIndex]}
               src={images[lightboxIndex]}
               alt={`${name} photo ${lightboxIndex + 1}`}
               width={1200}
               height={800}
+              priority
               className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain"
             />
           </div>
+
+          {/* Preload adjacent images */}
+          {images.length > 1 && (
+            <div className="hidden">
+              {lightboxIndex > 0 && (
+                <Image src={images[lightboxIndex - 1]} alt="" width={32} height={32} />
+              )}
+              {lightboxIndex < images.length - 1 && (
+                <Image src={images[lightboxIndex + 1]} alt="" width={32} height={32} />
+              )}
+            </div>
+          )}
 
           <Button
             variant="ghost"

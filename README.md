@@ -1,4 +1,4 @@
-# PeaksNature — Homestay Booking App
+# Peaksnature — Homestay Booking App
 
 Multi-tenant white-label booking platform for nature homestays in Thailand, featuring an AI chat assistant powered by Supabase MCP.
 

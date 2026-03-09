@@ -15,7 +15,7 @@ interface DashboardShellProps {
 export function DashboardShell({ children }: DashboardShellProps) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const [brandName, setBrandName] = useState("PeaksNature");
+  const [brandName, setBrandName] = useState("Peaksnature");
   const [brandLogo, setBrandLogo] = useState<string | null>(null);
   const [themeColor, setThemeColor] = useState("#16a34a");
 

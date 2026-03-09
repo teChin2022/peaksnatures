@@ -101,6 +101,7 @@ export function BookingSection({
   const [holdTimeLeft, setHoldTimeLeft] = useState<number>(0);
   const [showHeldModal, setShowHeldModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [pdpaConsent, setPdpaConsent] = useState(false);
   const holdTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [phoneSlipReceived, setPhoneSlipReceived] = useState(false);
   const [phoneSlipUrl, setPhoneSlipUrl] = useState<string | null>(null);
@@ -875,12 +876,44 @@ export function BookingSection({
                   </Card>
                 )}
 
+                <label className="flex items-start gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={pdpaConsent}
+                    onChange={(e) => setPdpaConsent(e.target.checked)}
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                  />
+                  <span className="text-xs text-gray-600">
+                    {t.rich("pdpaConsent", {
+                      privacy: (chunks) => (
+                        <a
+                          href="/legal#privacy"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-green-600 underline hover:text-green-700"
+                        >
+                          {chunks}
+                        </a>
+                      ),
+                      terms: (chunks) => (
+                        <a
+                          href="/legal#terms"
+                          target="_blank"
+                          rel="noopener noreferrer"
+                          className="font-medium text-green-600 underline hover:text-green-700"
+                        >
+                          {chunks}
+                        </a>
+                      ),
+                    })}
+                  </span>
+                </label>
                 <Button
                   className="w-full hover:brightness-90"
                   size="lg"
                   style={{ backgroundColor: themeColor }}
                   onClick={handleProceedToDetails}
-                  disabled={!dateRange?.from || !dateRange?.to || !selectedRoomId}
+                  disabled={!dateRange?.from || !dateRange?.to || !selectedRoomId || !pdpaConsent}
                 >
                   {t("continueDetails")}
                 </Button>

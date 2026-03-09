@@ -9,7 +9,7 @@ export default async function NotFound() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 text-center">
       {/* <Mountain className="h-12 w-12 text-gray-300" /> */}
-      <Image src="/logo.png" alt="PeaksNature" width={32} height={32} className="h-8 w-8 rounded" />
+      <Image src="/logo.png" alt="Peaksnature" width={32} height={32} className="h-8 w-8 rounded" />
       <h1 className="text-2xl font-bold text-gray-900">{t("title")}</h1>
       <p className="text-gray-500">
         {t("description")}
