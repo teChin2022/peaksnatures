@@ -195,7 +195,7 @@
     "seasonRate": "{name}",
     "baseRate": "ราคาพื้นฐาน",
     "perNightRate": "฿{price}/คืน",
-    "pdpaConsent": "ฉันยอมรับ<privacy>นโยบายความเป็นส่วนตัว</privacy>และ<terms>ข้อกำหนดการใช้งาน</terms>"
+    "pdpaConsent": "ฉันยอมรับ <privacy>นโยบายความเป็นส่วนตัว</privacy> และ <terms>ข้อกำหนดการใช้งาน</terms>"
   },
   "chat": {
     "title": "ผู้ช่วยจองที่พัก",
