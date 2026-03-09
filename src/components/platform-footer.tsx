@@ -68,7 +68,7 @@ export async function PlatformFooter() {
             <div className="flex items-center gap-2">
               <Image src="/logo.png" alt="Peaksnature" width={20} height={20} className="h-5 w-5 rounded" />
               <span className="text-sm text-gray-500">
-                {`Copyright \u00A9 ${new Date().getFullYear()} ${tc("brand")}. ${tc("copyright")}`}
+                {`\u00A9 ${new Date().getFullYear()} ${tc("brand")}.com ${tc("copyright")}`}
               </span>
             </div>
           </div>
