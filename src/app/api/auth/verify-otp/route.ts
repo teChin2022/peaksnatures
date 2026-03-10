@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import {
   createServerSupabaseClient,
   createServiceRoleClient,
 } from "@/lib/supabase/server";
+import { logEvent, EventType } from "@/lib/history-log";
 
 export async function POST(req: NextRequest) {
   try {
@@ -25,6 +26,18 @@ export async function POST(req: NextRequest) {
       .single() as { data: { id: string; expires_at: string } | null; error: unknown };
 
     if (otpError || !otpRecord) {
+      after(async () => {
+        await logEvent({
+          entityType: "host",
+          entityId: email,
+          eventType: EventType.FAILED_LOGIN,
+          actorType: "host",
+          actorId: null,
+          data: { email, reason: "invalid_code" },
+          req,
+        });
+      });
+
       return NextResponse.json(
         { error: "invalid_code" },
         { status: 401 }
@@ -36,6 +49,19 @@ export async function POST(req: NextRequest) {
     if (new Date(record.expires_at) < new Date()) {
       // Clean up expired code
       await serviceClient.from("login_otps").delete().eq("id", record.id);
+
+      after(async () => {
+        await logEvent({
+          entityType: "host",
+          entityId: email,
+          eventType: EventType.FAILED_LOGIN,
+          actorType: "host",
+          actorId: null,
+          data: { email, reason: "code_expired" },
+          req,
+        });
+      });
+
       return NextResponse.json(
         { error: "code_expired" },
         { status: 401 }
@@ -58,6 +84,19 @@ export async function POST(req: NextRequest) {
 
     // Delete used OTP and any other codes for this email
     await serviceClient.from("login_otps").delete().eq("email", email);
+
+    // Log host login in background
+    after(async () => {
+      await logEvent({
+        entityType: "host",
+        entityId: email,
+        eventType: EventType.HOST_LOGIN,
+        actorType: "host",
+        actorId: null,
+        data: { email },
+        req,
+      });
+    });
 
     return NextResponse.json({ success: true });
   } catch (error) {

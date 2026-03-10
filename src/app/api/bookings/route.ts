@@ -6,6 +6,7 @@ import { sendBookingConfirmationEmail, sendHostLineNotification, sendHostPushNot
 import type { Booking, Homestay, Host, Room, RoomSeasonalPrice } from "@/types/database";
 import { calculateTotalPrice } from "@/lib/calculate-price";
 import { getDepositForMonth } from "@/lib/get-deposit";
+import { logEvent, EventType } from "@/lib/history-log";
 
 const bookingSchema = z.object({
   homestay_id: z.string().uuid(),
@@ -215,6 +216,7 @@ export async function POST(req: NextRequest) {
           p_notes: data.notes || null,
           p_payment_type: data.payment_type || "full",
           p_amount_paid: data.amount_paid || data.total_price,
+          p_created_by: "guest",
         } as never
       );
 
@@ -253,8 +255,20 @@ export async function POST(req: NextRequest) {
         .eq("id", bookingId as string)
         .single();
 
-      // Send notifications in background — response returns immediately
-      after(() => sendNotifications(bookingId as string, supabase, data.locale || "th", data.easyslip_verified));
+      // Log + notify in background — response returns immediately
+      after(async () => {
+        await logEvent({
+          homestayId: data.homestay_id,
+          entityType: "booking",
+          entityId: bookingId as string,
+          eventType: data.easyslip_verified ? EventType.BOOKING_CONFIRMED : EventType.BOOKING_CREATED,
+          actorType: "guest",
+          actorId: null,
+          data: { guest_name: data.guest_name, check_in: data.check_in, check_out: data.check_out, total_price: data.total_price, room_id: data.room_id, payment_type: data.payment_type },
+          req,
+        });
+        await sendNotifications(bookingId as string, supabase, data.locale || "th", data.easyslip_verified);
+      });
 
       return NextResponse.json({ booking }, { status: 201 });
     }
@@ -282,6 +296,7 @@ export async function POST(req: NextRequest) {
         notes: data.notes || null,
         payment_type: data.payment_type || "full",
         amount_paid: data.amount_paid || data.total_price,
+        created_by: "guest",
       } as never)
       .select()
       .single();
@@ -294,8 +309,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Send notifications in background — response returns immediately
-    after(() => sendNotifications((booking as unknown as Booking).id, supabase, data.locale || "th", data.easyslip_verified));
+    // Log + notify in background — response returns immediately
+    after(async () => {
+      await logEvent({
+        homestayId: data.homestay_id,
+        entityType: "booking",
+        entityId: (booking as unknown as Booking).id,
+        eventType: data.easyslip_verified ? EventType.BOOKING_CONFIRMED : EventType.BOOKING_CREATED,
+        actorType: "guest",
+        actorId: null,
+        data: { guest_name: data.guest_name, check_in: data.check_in, check_out: data.check_out, total_price: data.total_price, payment_type: data.payment_type },
+        req,
+      });
+      await sendNotifications((booking as unknown as Booking).id, supabase, data.locale || "th", data.easyslip_verified);
+    });
 
     return NextResponse.json({ booking }, { status: 201 });
   } catch (error) {

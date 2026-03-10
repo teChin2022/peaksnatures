@@ -40,7 +40,7 @@ export async function POST(req: Request) {
 
     const { error } = await serviceClient
       .from("hosts")
-      .update({ security_pin_hash: hash } as never)
+      .update({ security_pin_hash: hash, updated_by: user.id } as never)
       .eq("id", host.id);
 
     if (error) {
@@ -101,7 +101,7 @@ export async function PUT(req: Request) {
 
     const { error } = await serviceClient
       .from("hosts")
-      .update({ security_pin_hash: hash } as never)
+      .update({ security_pin_hash: hash, updated_by: user.id } as never)
       .eq("id", host.id);
 
     if (error) {

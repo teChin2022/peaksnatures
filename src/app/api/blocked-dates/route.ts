@@ -1,5 +1,6 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { logEvent, EventType } from "@/lib/history-log";
 
 export async function POST(req: NextRequest) {
   try {
@@ -56,6 +57,7 @@ export async function POST(req: NextRequest) {
       date,
       reason: reason || null,
       room_id: room_id || null,
+      created_by: user.id,
     }));
 
     // Use insert + on-conflict handling; for room-specific blocks the unique index
@@ -86,6 +88,20 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Log in background
+    after(async () => {
+      await logEvent({
+        homestayId: homestay_id,
+        entityType: "blocked_date",
+        entityId: homestay_id,
+        eventType: EventType.BLOCKED_DATE_ADDED,
+        actorType: "host",
+        actorId: user.id,
+        data: { dates, reason: reason || null, room_id: room_id || null },
+        req,
+      });
+    });
 
     return NextResponse.json({ blocked: inserted }, { status: 201 });
   } catch (error) {
@@ -166,6 +182,20 @@ export async function DELETE(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Log in background
+    after(async () => {
+      await logEvent({
+        homestayId: homestay_id,
+        entityType: "blocked_date",
+        entityId: homestay_id,
+        eventType: EventType.BLOCKED_DATE_REMOVED,
+        actorType: "host",
+        actorId: user.id,
+        data: { dates, room_id: room_id || null },
+        req,
+      });
+    });
 
     return NextResponse.json({ unblocked: dates }, { status: 200 });
   } catch (error) {

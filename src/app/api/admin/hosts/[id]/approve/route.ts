@@ -1,10 +1,11 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import {
   createServerSupabaseClient,
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { sendHostApprovalEmail } from "@/lib/notifications";
+import { logEvent, EventType } from "@/lib/history-log";
 
 export async function PATCH(
   req: NextRequest,
@@ -44,7 +45,7 @@ export async function PATCH(
     // Update status
     const { error: updateError } = await sc
       .from("hosts")
-      .update({ status: "approved" } as never)
+      .update({ status: "approved", updated_by: user.id } as never)
       .eq("id", id);
 
     if (updateError) {
@@ -52,7 +53,19 @@ export async function PATCH(
       return NextResponse.json({ error: "Failed to approve" }, { status: 500 });
     }
 
-    // Send approval email (fire-and-forget)
+    // Log + send approval email in background
+    after(async () => {
+      await logEvent({
+        entityType: "host",
+        entityId: id,
+        eventType: EventType.HOST_APPROVED,
+        actorType: "admin",
+        actorId: user.id,
+        data: { host_name: hostRow.name, host_email: hostRow.email },
+        req,
+      });
+    });
+
     sendHostApprovalEmail(hostRow.email, hostRow.name).catch((err) =>
       console.error("[Admin Approve] email error:", err)
     );

@@ -41,6 +41,7 @@ import type { BookingStatus } from "@/types/database";
 import { toast } from "sonner";
 import { fmtDateStr } from "@/lib/format-date";
 import { useThemeColor } from "@/components/dashboard/theme-context";
+import { logClientEvent } from "@/lib/history-log-client";
 import { getProvinceLabel } from "@/lib/provinces";
 
 interface BookingRow {
@@ -157,12 +158,15 @@ export default function BookingsPage() {
     []
   );
 
+  const [userId, setUserId] = useState<string | null>(null);
+
   const fetchBookings = async () => {
     const supabase = createClient();
     const {
       data: { user },
     } = await supabase.auth.getUser();
     if (!user) return;
+    setUserId(user.id);
 
     // Get host
     const { data: hostRow } = await supabase
@@ -257,7 +261,7 @@ export default function BookingsPage() {
     const supabase = createClient();
     const { error } = await supabase
       .from("bookings")
-      .update({ status } as never)
+      .update({ status, updated_by: userId } as never)
       .eq("id", id);
 
     if (error) {
@@ -265,6 +269,15 @@ export default function BookingsPage() {
       console.error("Update booking error:", error);
       return;
     }
+
+    const booking = bookings.find((b) => b.id === id);
+    logClientEvent({
+      homestay_id: booking?.homestay_id,
+      entity_type: "booking",
+      entity_id: id,
+      event_type: status === "confirmed" ? "BOOKING_CONFIRMED" : status === "cancelled" ? "BOOKING_CANCELLED" : "CHECKOUT",
+      data: { previous_status: booking?.status, new_status: status },
+    });
 
     setBookings((prev) =>
       prev.map((b) => (b.id === id ? { ...b, status } : b))

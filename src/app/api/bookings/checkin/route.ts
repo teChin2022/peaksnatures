@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { after } from "next/server";
+import { logEvent, EventType } from "@/lib/history-log";
 
 /**
  * POST /api/bookings/checkin
@@ -78,13 +80,29 @@ export async function POST(request: NextRequest) {
 
       const { error: updateError } = await supabase
         .from("bookings")
-        .update({ checked_in_at: new Date().toISOString() } as never)
+        .update({ checked_in_at: new Date().toISOString(), updated_by: "guest" } as never)
         .eq("id", booking_id);
 
       if (updateError) {
         console.error("[CheckIn] Update error:", updateError);
         return NextResponse.json({ error: "Failed to check in" }, { status: 500 });
       }
+
+      // Log checkin in background
+      after(async () => {
+        const { data: bRow } = await supabase.from("bookings").select("homestay_id").eq("id", booking_id).single();
+        const homestayId = (bRow as { homestay_id: string } | null)?.homestay_id || null;
+        await logEvent({
+          homestayId,
+          entityType: "booking",
+          entityId: booking_id,
+          eventType: EventType.CHECKIN,
+          actorType: "guest",
+          actorId: null,
+          data: { guest_email },
+          req: request,
+        });
+      });
 
       return NextResponse.json({ success: true, action: "checkin" });
     }
@@ -119,6 +137,7 @@ export async function POST(request: NextRequest) {
       .update({
         checked_out_at: new Date().toISOString(),
         status: "completed",
+        updated_by: "guest",
       } as never)
       .eq("id", booking_id);
 
@@ -126,6 +145,22 @@ export async function POST(request: NextRequest) {
       console.error("[CheckOut] Update error:", updateError);
       return NextResponse.json({ error: "Failed to check out" }, { status: 500 });
     }
+
+    // Log checkout in background
+    after(async () => {
+      const { data: bRow } = await supabase.from("bookings").select("homestay_id").eq("id", booking_id).single();
+      const homestayId = (bRow as { homestay_id: string } | null)?.homestay_id || null;
+      await logEvent({
+        homestayId,
+        entityType: "booking",
+        entityId: booking_id,
+        eventType: EventType.CHECKOUT,
+        actorType: "guest",
+        actorId: null,
+        data: { guest_email },
+        req: request,
+      });
+    });
 
     return NextResponse.json({ success: true, action: "checkout" });
   } catch {

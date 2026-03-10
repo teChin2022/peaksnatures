@@ -31,6 +31,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, Di
 import { toast } from "sonner";
 import { useThemeColor } from "@/components/dashboard/theme-context";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { logClientEvent } from "@/lib/history-log-client";
 
 interface HomestayData {
   id: string;
@@ -72,6 +73,7 @@ export default function HomestayPage() {
   const themeColor = useThemeColor();
   const [homestay, setHomestay] = useState<HomestayData | null>(null);
   const [hostId, setHostId] = useState<string | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isNew, setIsNew] = useState(false);
@@ -107,6 +109,7 @@ export default function HomestayPage() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
+      setUserId(user.id);
 
       const { data: hostRow } = await supabase
         .from("hosts")
@@ -364,7 +367,7 @@ export default function HomestayPage() {
       if (isNew) {
         const { data, error } = await supabase
           .from("homestays")
-          .insert(payload as never)
+          .insert({ ...payload, created_by: userId } as never)
           .select()
           .single();
         if (error) {
@@ -374,24 +377,26 @@ export default function HomestayPage() {
         }
         setHomestay(data as unknown as HomestayData);
         setIsNew(false);
+        logClientEvent({ homestay_id: (data as unknown as { id: string }).id, entity_type: "homestay", entity_id: (data as unknown as { id: string }).id, event_type: "PROPERTY_CREATED", data: { name: name.trim(), slug: slug.trim() } });
         toast.success(t("created"));
       } else if (homestay) {
         // Save old slug to redirects table before updating
         if (slug.trim() !== homestay.slug) {
           await supabase
             .from("homestay_slug_redirects" as never)
-            .upsert({ homestay_id: homestay.id, old_slug: homestay.slug } as never, { onConflict: "old_slug" });
+            .upsert({ homestay_id: homestay.id, old_slug: homestay.slug, created_by: userId } as never, { onConflict: "old_slug" });
         }
 
         const { error } = await supabase
           .from("homestays")
-          .update(payload as never)
+          .update({ ...payload, updated_by: userId } as never)
           .eq("id", homestay.id);
         if (error) {
           toast.error(t("errorSave"));
           console.error("Update homestay error:", error);
           return;
         }
+        logClientEvent({ homestay_id: homestay.id, entity_type: "homestay", entity_id: homestay.id, event_type: "PROPERTY_UPDATED", data: { name: name.trim(), slug: slug.trim() } });
         setHomestay({ ...homestay, ...payload } as HomestayData);
         toast.success(t("saved"));
       }

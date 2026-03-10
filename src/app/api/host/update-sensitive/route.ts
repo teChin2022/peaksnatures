@@ -1,6 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import bcrypt from "bcryptjs";
+import { logEvent, EventType } from "@/lib/history-log";
 
 function maskEmail(email: string): string {
   const [local, domain] = email.split("@");
@@ -18,7 +19,7 @@ function maskPromptpay(id: string): string {
   return "x-xxxx-xx" + id.slice(-3);
 }
 
-export async function POST(req: Request) {
+export async function POST(req: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient();
     const { data: { user } } = await supabase.auth.getUser();
@@ -65,6 +66,8 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }
 
+    updateData.updated_by = user.id;
+
     const { error } = await serviceClient
       .from("hosts")
       .update(updateData as never)
@@ -74,6 +77,19 @@ export async function POST(req: Request) {
       console.error("Update sensitive error:", error);
       return NextResponse.json({ error: "Failed to update" }, { status: 500 });
     }
+
+    // Log sensitive profile update in background
+    after(async () => {
+      await logEvent({
+        entityType: "host",
+        entityId: host.id,
+        eventType: EventType.PROFILE_UPDATED,
+        actorType: "host",
+        actorId: user.id,
+        data: { fields_updated: Object.keys(updateData).filter(k => k !== "updated_by"), sensitive: true },
+        req,
+      });
+    });
 
     // Return masked values
     const result: Record<string, string> = {};

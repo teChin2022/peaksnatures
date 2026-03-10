@@ -22,6 +22,7 @@ import { Button } from "@/components/ui/button";
 import { cn, getInitials } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
+import { logClientEvent } from "@/lib/history-log-client";
 
 const NAV_ITEMS = [
   { key: "overview", href: "/dashboard", icon: LayoutDashboard },
@@ -50,6 +51,8 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
 
   const handleSignOut = async () => {
     const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    await logClientEvent({ entity_type: "host", entity_id: user?.id || "unknown", event_type: "HOST_LOGOUT", data: { email: user?.email } });
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();
@@ -163,6 +166,8 @@ export function MobileSidebar({
 
   const handleSignOut = async () => {
     const supabase = createClient();
+    const { data: { user } } = await supabase.auth.getUser();
+    await logClientEvent({ entity_type: "host", entity_id: user?.id || "unknown", event_type: "HOST_LOGOUT", data: { email: user?.email } });
     await supabase.auth.signOut();
     router.push("/login");
     router.refresh();

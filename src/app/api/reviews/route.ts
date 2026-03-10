@@ -1,6 +1,7 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import type { Review } from "@/types/database";
+import { logEvent, EventType } from "@/lib/history-log";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
@@ -113,6 +114,7 @@ export async function POST(request: NextRequest) {
         guest_name: booking.guest_name,
         rating: Math.round(rating),
         comment: comment?.trim() || null,
+        created_by: "guest",
       })
       .select()
       .single();
@@ -126,6 +128,20 @@ export async function POST(request: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Log in background
+    after(async () => {
+      await logEvent({
+        homestayId: booking.homestay_id,
+        entityType: "review",
+        entityId: review?.id || booking_id,
+        eventType: EventType.REVIEW_SUBMITTED,
+        actorType: "guest",
+        actorId: null,
+        data: { booking_id, rating: Math.round(rating), guest_name: booking.guest_name },
+        req: request,
+      });
+    });
 
     return NextResponse.json({ review });
   } catch {

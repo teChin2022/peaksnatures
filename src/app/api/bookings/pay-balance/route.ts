@@ -1,6 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { after } from "next/server";
+import { logEvent, EventType } from "@/lib/history-log";
 
 const payBalanceSchema = z.object({
   booking_id: z.string().uuid(),
@@ -92,6 +94,7 @@ export async function POST(req: NextRequest) {
       .update({
         amount_paid: booking.total_price,
         payment_type: "full",
+        updated_by: "guest",
       } as never)
       .eq("id", data.booking_id);
 
@@ -102,6 +105,28 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Log in background
+    after(async () => {
+      // Fetch homestay_id for the log
+      const { data: bRow } = await supabase
+        .from("bookings")
+        .select("homestay_id")
+        .eq("id", data.booking_id)
+        .single();
+      const homestayId = (bRow as { homestay_id: string } | null)?.homestay_id || null;
+
+      await logEvent({
+        homestayId,
+        entityType: "booking",
+        entityId: data.booking_id,
+        eventType: EventType.BALANCE_PAID,
+        actorType: "guest",
+        actorId: null,
+        data: { method: data.method, previous_amount_paid: booking.amount_paid, new_amount_paid: booking.total_price },
+        req,
+      });
+    });
 
     return NextResponse.json({
       success: true,

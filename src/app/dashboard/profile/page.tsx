@@ -12,6 +12,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { useThemeColor } from "@/components/dashboard/theme-context";
+import { logClientEvent } from "@/lib/history-log-client";
 
 import { isPushSupported, isPushSubscribed, subscribeHostToPush, unsubscribeFromPush } from "@/lib/push-notifications";
 import { SecurityPinDialog } from "@/components/security-pin-dialog";
@@ -53,6 +54,7 @@ export default function ProfilePage() {
   const router = useRouter();
   const themeColor = useThemeColor();
   const [host, setHost] = useState<HostData | null>(null);
+  const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
 
@@ -93,6 +95,7 @@ export default function ProfilePage() {
         data: { user },
       } = await supabase.auth.getUser();
       if (!user) return;
+      setUserId(user.id);
 
       const { data } = await supabase
         .from("hosts")
@@ -156,6 +159,7 @@ export default function ProfilePage() {
         deposit_by_month: Object.keys(depositByMonth).length > 0 ? depositByMonth : null,
         cancellation_days: cancellationDays,
         notification_preference: notificationPreference,
+        updated_by: userId,
       };
 
       const { error } = await supabase
@@ -188,6 +192,13 @@ export default function ProfilePage() {
           return;
         }
       }
+
+      logClientEvent({
+        entity_type: "host",
+        entity_id: host.id,
+        event_type: "PROFILE_UPDATED",
+        data: { fields_updated: Object.keys(nonSensitiveUpdate).filter(k => k !== "updated_by"), sensitive: false },
+      });
 
       toast.success(t("saved"));
     } catch {
