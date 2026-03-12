@@ -1,24 +1,10 @@
-import Link from "next/link";
-import Image from "next/image";
-import {
-  Mountain,
-  TreePine,
-  Waves,
-  MapPin,
-  Users,
-  Search,
-  MessageCircle,
-} from "lucide-react";
-import { getTranslations } from "next-intl/server";
-import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
-import { Input } from "@/components/ui/input";
-import { Badge } from "@/components/ui/badge";
-import { ContactForm } from "@/components/contact-form";
-import { LanguageSwitcher } from "@/components/language-switcher";
-import { PlatformFooter } from "@/components/platform-footer";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import type { Homestay, Room } from "@/types/database";
+import { LandingNavbar } from "@/components/landing/navbar";
+import { LandingHero } from "@/components/landing/hero";
+import { WhyPeaksnature } from "@/components/landing/why-peaksnature";
+import { UniqueHomestays } from "@/components/landing/unique-homestays";
+import { LandingFooter } from "@/components/landing/footer";
 
 export default async function Home() {
   const supabase = createServiceRoleClient();
@@ -48,231 +34,47 @@ export default async function Home() {
     }
   }
 
-  const HOMESTAYS = homestays;
+  // Fetch review stats per homestay
+  const { data: reviewRows } = homestayIds.length
+    ? await supabase
+        .from("reviews")
+        .select("homestay_id, rating")
+        .in("homestay_id", homestayIds)
+    : { data: [] };
+  const reviewData = (reviewRows as { homestay_id: string; rating: number }[]) || [];
+  const reviewCountMap = new Map<string, number>();
+  const reviewSumMap = new Map<string, number>();
+  for (const rv of reviewData) {
+    reviewCountMap.set(rv.homestay_id, (reviewCountMap.get(rv.homestay_id) || 0) + 1);
+    reviewSumMap.set(rv.homestay_id, (reviewSumMap.get(rv.homestay_id) || 0) + rv.rating);
+  }
 
-  const t = await getTranslations("home");
-  const tc = await getTranslations("common");
+  const homestayData = homestays.map((h) => {
+    const count = reviewCountMap.get(h.id) || 0;
+    const sum = reviewSumMap.get(h.id) || 0;
+    return {
+      slug: h.slug,
+      name: h.name,
+      location: h.location,
+      hero_image_url: h.hero_image_url,
+      gallery: h.gallery || [],
+      min_price: minPriceMap.get(h.id) ?? null,
+      max_guests: h.max_guests,
+      tagline: h.tagline,
+      review_count: count,
+      average_rating: count > 0 ? Math.round((sum / count) * 10) / 10 : 0,
+    };
+  });
 
   return (
-    <div className="min-h-screen bg-white">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-md">
-        <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.png" alt="Peaksnature" width={32} height={32} className="h-8 w-8 rounded" />
-            <span className="text-xl font-bold text-green-800">
-              {tc("brand")}
-            </span>
-          </Link>
-          <nav className="flex items-center gap-4 md:gap-6">
-            <Link
-              href="#homestays"
-              className="hidden text-sm font-medium text-gray-600 hover:text-green-700 md:block"
-            >
-              {t("featured")}
-            </Link>
-            <Link
-              href="#about"
-              className="hidden text-sm font-medium text-gray-600 hover:text-green-700 md:block"
-            >
-              {t("whyTitle")}
-            </Link>
-            <LanguageSwitcher />
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/dashboard">{tc("hostLogin")}</Link>
-            </Button>
-          </nav>
-        </div>
-      </header>
-
-      {/* Hero Section */}
-      <section className="relative overflow-hidden bg-gradient-to-br from-green-50 via-emerald-50 to-teal-50">
-        <div className="mx-auto max-w-7xl px-4 py-20 sm:px-6 md:py-32">
-          <div className="mx-auto max-w-3xl text-center">
-            <Badge
-              variant="secondary"
-              className="mb-4 bg-green-100 text-green-700"
-            >
-              <TreePine className="mr-1 h-3 w-3" /> {t("badge")}
-            </Badge>
-            <h1 className="text-4xl font-bold tracking-tight text-gray-900 sm:text-5xl md:text-6xl">
-              {t("title")}{" "}
-              <span className="text-green-600">{t("titleHighlight")}</span>
-            </h1>
-            <p className="mt-4 text-lg text-gray-600 sm:text-xl">
-              {t("subtitle")}
-            </p>
-
-            {/* Search Bar */}
-            <div className="mt-8 flex items-center gap-2 rounded-full border bg-white p-2 shadow-lg sm:mx-auto sm:max-w-lg">
-              <Search className="ml-3 h-5 w-5 shrink-0 text-gray-400" />
-              <Input
-                placeholder={t("searchPlaceholder")}
-                className="border-0 bg-transparent shadow-none focus-visible:ring-0"
-              />
-              <Button className="rounded-full bg-green-600 hover:bg-green-700">
-                {tc("search")}
-              </Button>
-            </div>
-          </div>
-        </div>
-
-        {/* Decorative */}
-        <div className="absolute -bottom-1 left-0 right-0">
-          <svg viewBox="0 0 1440 60" className="w-full text-white">
-            <path
-              fill="currentColor"
-              d="M0,32L80,37.3C160,43,320,53,480,53.3C640,53,800,43,960,37.3C1120,32,1280,32,1360,32L1440,32L1440,64L1360,64C1280,64,1120,64,960,64C800,64,640,64,480,64C320,64,160,64,80,64L0,64Z"
-            />
-          </svg>
-        </div>
-      </section>
-
-      {/* Features */}
-      <section className="py-12">
-        <div className="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 sm:grid-cols-3 sm:px-6">
-          {[
-            {
-              icon: Mountain,
-              title: t("featureMountain"),
-              desc: t("featureMountainDesc"),
-            },
-            {
-              icon: Waves,
-              title: t("featureRiver"),
-              desc: t("featureRiverDesc"),
-            },
-            {
-              icon: TreePine,
-              title: t("featureForest"),
-              desc: t("featureForestDesc"),
-            },
-          ].map((f) => (
-            <div
-              key={f.title}
-              className="flex items-start gap-4 rounded-xl border p-5"
-            >
-              <div className="rounded-lg bg-green-100 p-2.5">
-                <f.icon className="h-5 w-5 text-green-600" />
-              </div>
-              <div>
-                <h3 className="font-semibold text-gray-900">{f.title}</h3>
-                <p className="mt-1 text-sm text-gray-500">{f.desc}</p>
-              </div>
-            </div>
-          ))}
-        </div>
-      </section>
-
-      {/* Homestay Grid */}
-      <section id="homestays" className="py-12">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-            {t("featured")}
-          </h2>
-          <p className="mt-2 text-gray-600">
-            {t("featuredSub")}
-          </p>
-
-          {HOMESTAYS.length > 0 ? (
-            <div className="mt-8 grid grid-cols-1 gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {HOMESTAYS.map((h) => (
-                <Link key={h.slug} href={`/${h.slug}`}>
-                  <Card className="group overflow-hidden border py-0 gap-0 transition-shadow hover:shadow-lg">
-                    <div className="relative aspect-[4/3] overflow-hidden">
-                      <Image
-                        src={h.hero_image_url || "/placeholder.svg"}
-                        alt={h.name}
-                        fill
-                        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-                        className="h-full w-full object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                      <div className="absolute right-3 top-3">
-                        {minPriceMap.has(h.id) && (
-                          <Badge className="bg-white/90 text-gray-900 backdrop-blur-sm">
-                            {tc("from")} ฿{minPriceMap.get(h.id)!.toLocaleString()}{tc("perNight")}
-                          </Badge>
-                        )}
-                      </div>
-                    </div>
-                    <CardContent className="p-4">
-                      <h3 className="font-semibold text-gray-900">{h.name}</h3>
-                      <p className="mt-0.5 text-sm italic text-gray-500">
-                        {h.tagline}
-                      </p>
-                      <div className="mt-2 flex items-center gap-3 text-sm text-gray-500">
-                        <span className="flex items-center gap-1">
-                          <MapPin className="h-3.5 w-3.5" />
-                          {h.location}
-                        </span>
-                      </div>
-                      <div className="mt-3 flex items-center justify-end">
-                        <div className="flex items-center gap-1 text-sm text-gray-500">
-                          <Users className="h-3.5 w-3.5" />
-                          {t("upTo")} {h.max_guests}
-                        </div>
-                      </div>
-                      <div className="mt-3 flex flex-wrap gap-1.5">
-                        {h.amenities.slice(0, 3).map((a) => (
-                          <Badge
-                            key={a}
-                            variant="secondary"
-                            className="text-xs"
-                          >
-                            {a}
-                          </Badge>
-                        ))}
-                      </div>
-                    </CardContent>
-                  </Card>
-                </Link>
-              ))}
-            </div>
-          ) : (
-            <div className="mt-8 flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 py-16 text-center">
-              <Mountain className="h-12 w-12 text-gray-300" />
-              <p className="mt-4 text-lg font-medium text-gray-500">
-                No homestays listed yet
-              </p>
-              <p className="mt-1 text-sm text-gray-400">
-                Check back soon — new properties are being added.
-              </p>
-            </div>
-          )}
-        </div>
-      </section>
-
-      {/* About */}
-      <section
-        id="about"
-        className="border-t bg-gradient-to-b from-green-50 to-white py-16"
-      >
-        <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
-          <h2 className="text-2xl font-bold text-gray-900 sm:text-3xl">
-            {t("whyTitle")}
-          </h2>
-          <p className="mt-4 text-gray-600">
-            {t("whyText")}
-          </p>
-        </div>
-      </section>
-
-      {/* Contact */}
-      <section id="contact" className="border-t py-16">
-        <div className="mx-auto max-w-3xl px-4 sm:px-6">
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-green-100 p-2.5">
-              <MessageCircle className="h-5 w-5 text-green-600" />
-            </div>
-            <h2 className="text-2xl font-bold text-gray-900">{t("contactTitle")}</h2>
-          </div>
-          <p className="mt-4 text-gray-600">{t("contactIntro")}</p>
-          <ContactForm />
-        </div>
-      </section>
-
-      {/* Footer */}
-      <PlatformFooter />
+    <div className="min-h-screen bg-white font-sans text-gray-900 selection:bg-gray-200">
+      <LandingNavbar />
+      <main>
+        <LandingHero />
+        <WhyPeaksnature />
+        <UniqueHomestays homestays={homestayData} />
+      </main>
+      <LandingFooter />
     </div>
   );
 }

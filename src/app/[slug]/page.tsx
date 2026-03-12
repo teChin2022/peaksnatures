@@ -10,6 +10,7 @@ import { BookingSection } from "@/components/booking/booking-section";
 import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingFooter } from "@/components/booking/booking-footer";
 import { MapRulesSection } from "@/components/booking/map-rules-section";
+import { ReviewsSection } from "@/components/booking/reviews-section";
 import { ChatWidget } from "@/components/chat/chat-widget";
 
 
@@ -143,14 +144,13 @@ export default async function HomestayPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-white">
-      <BookingHeader homestayName={homestay.name} themeColor={homestay.theme_color} logoUrl={homestay.logo_url} homestayId={homestay.id} promptpayId={homestay.host.promptpay_id} hostName={homestay.host.name} cancellationDays={homestay.host.cancellation_days} />
+      <BookingHeader homestayName={homestay.name} logoUrl={homestay.logo_url} homestayId={homestay.id} promptpayId={homestay.host.promptpay_id} hostName={homestay.host.name} cancellationDays={homestay.host.cancellation_days} />
 
       <main>
         <HeroSection
           name={homestay.name}
           tagline={homestay.tagline}
           heroImageUrl={homestay.hero_image_url}
-          themeColor={homestay.theme_color}
         />
 
         <GallerySection images={homestay.gallery} name={homestay.name} />
@@ -160,40 +160,41 @@ export default async function HomestayPage({ params }: PageProps) {
           amenities={homestay.amenities}
           maxGuests={homestay.max_guests}
           location={homestay.location}
-          themeColor={homestay.theme_color}
+          prohibitions={homestay.prohibitions}
         />
         
-        <RoomsSection rooms={rooms} themeColor={homestay.theme_color} seasonalPrices={seasonalPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} />
+        <RoomsSection rooms={rooms} seasonalPrices={seasonalPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} />
 
         <MapRulesSection
           mapEmbedUrl={homestay.map_embed_url}
           location={homestay.location}
           prohibitions={homestay.prohibitions}
-          themeColor={homestay.theme_color}
         />
 
-        {/* Booking Form */}
+        {/* Reviews */}
         <section className="py-10">
           <div className="mx-auto max-w-7xl px-4 sm:px-6">
-            <BookingSection
-              homestay={homestay}
-              rooms={rooms}
-              blockedDates={blockedDates}
-              bookedRanges={bookedRanges}
-              host={homestay.host}
-              embedded
+            <ReviewsSection
               reviews={reviews}
               averageRating={averageRating}
-              reviewCount={reviewCount}
-              seasonalPrices={seasonalPrices}
+              totalCount={reviewCount}
+              homestayId={homestay.id}
             />
           </div>
         </section>
       </main>
 
+      <BookingSection
+        homestay={homestay}
+        rooms={rooms}
+        blockedDates={blockedDates}
+        bookedRanges={bookedRanges}
+        host={homestay.host}
+        seasonalPrices={seasonalPrices}
+      />
+
       <BookingFooter
         homestayName={homestay.name}
-        themeColor={homestay.theme_color}
         logoUrl={homestay.logo_url}
         location={homestay.location}
         hostName={homestay.host.name}

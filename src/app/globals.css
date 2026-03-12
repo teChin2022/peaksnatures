@@ -9,6 +9,18 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
+  --font-serif: var(--font-playfair);
+
+  --color-earth-50: #faf8f5;
+  --color-earth-100: #f0ebe4;
+  --color-earth-200: #e0d5c8;
+  --color-earth-300: #c9b9a6;
+  --color-earth-400: #a89279;
+  --color-earth-500: #8d7560;
+  --color-earth-600: #75604e;
+  --color-earth-700: #5f4d40;
+  --color-earth-800: #4a3b32;
+  --color-earth-900: #3a2e27;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -180,4 +192,28 @@
   color: #9ca3af;
   pointer-events: none;
   height: 0;
+}
+
+/* Landing page utilities */
+.glass-nav {
+  background: rgba(255, 255, 255, 0.85);
+  backdrop-filter: blur(20px);
+  -webkit-backdrop-filter: blur(20px);
+}
+
+.card-hover {
+  transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.card-hover:hover {
+  transform: scale(1.02);
+}
+
+.scrollbar-hide::-webkit-scrollbar {
+  display: none;
+}
+
+.scrollbar-hide {
+  -ms-overflow-style: none;
+  scrollbar-width: none;
 }

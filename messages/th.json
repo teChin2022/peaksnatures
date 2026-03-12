@@ -18,7 +18,10 @@
     "legalPolicies": "กฎ & นโยบาย",
     "delete": "ลบ",
     "cancel": "ยกเลิก",
-    "loading": "กำลังโหลด..."
+    "loading": "กำลังโหลด...",
+    "amenities": "สิ่งอำนวยความสะดวก",
+    "houseRules": "กฎของที่พัก",
+    "done": "เสร็จสิ้น"
   },
   "home": {
     "badge": "โฮมสเตย์ธรรมชาติในประเทศไทย",
@@ -82,7 +85,8 @@
     "upToGuests": "รองรับสูงสุด {count} ท่าน",
     "maxGuests": "สูงสุด {count} ท่าน",
     "location": "ที่ตั้ง",
-    "mapTitle": "แผนที่"
+    "mapTitle": "แผนที่",
+    "rules": "กฎของที่พัก"
   },
   "prohibitions": {
     "title": "กฎของที่พัก",
@@ -185,6 +189,7 @@
     "checkInTime": "เช็คอินหลัง {time} น.",
     "checkOutTime": "เช็คเอาท์ก่อน {time} น.",
     "payFull": "ชำระเต็มจำนวน",
+    "cancellationPolicy": "นโยบายการยกเลิก",
     "cancellationPolicyNote": "ยกเลิกฟรีล่วงหน้า {days} วันก่อนเช็คอิน",
     "payDeposit": "ชำระมัดจำ",
     "amountPaid": "ยอดที่ชำระ",
@@ -787,7 +792,10 @@
     "tapToRate": "แตะดาวเพื่อให้คะแนน",
     "loadMore": "โหลดรีวิวเพิ่มเติม",
     "loadingMore": "กำลังโหลด...",
-    "showingCount": "แสดง {count} จาก {total}"
+    "showingCount": "แสดง {count} จาก {total}",
+    "viewAll": "ดูรีวิวทั้งหมด",
+    "viewAllTitle": "รีวิวทั้งหมด",
+    "readMore": "อ่านเพิ่มเติม"
   },
   "notFound": {
     "title": "ไม่พบที่พัก",

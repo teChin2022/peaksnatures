@@ -18,7 +18,10 @@
     "legalPolicies": "Legal & Policies",
     "delete": "Delete",
     "cancel": "Cancel",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "amenities": "Amenities",
+    "houseRules": "House Rules",
+    "done": "Done"
   },
   "home": {
     "badge": "Nature Homestays in Thailand",
@@ -82,7 +85,8 @@
     "upToGuests": "Up to {count} guests",
     "maxGuests": "Max {count} guests",
     "location": "Location",
-    "mapTitle": "Map"
+    "mapTitle": "Map",
+    "rules": "House Rules"
   },
   "prohibitions": {
     "title": "House Rules",
@@ -185,6 +189,7 @@
     "checkInTime": "Check-in after {time}",
     "checkOutTime": "Check-out before {time}",
     "payFull": "Pay Full Amount",
+    "cancellationPolicy": "Cancellation Policy",
     "cancellationPolicyNote": "Free cancellation up to {days} days before check-in",
     "payDeposit": "Pay Deposit",
     "amountPaid": "Amount Paid",
@@ -787,7 +792,10 @@
     "tapToRate": "Tap a star to rate",
     "loadMore": "Load More Reviews",
     "loadingMore": "Loading...",
-    "showingCount": "Showing {count} of {total}"
+    "showingCount": "Showing {count} of {total}",
+    "viewAll": "View All Reviews",
+    "viewAllTitle": "All Reviews",
+    "readMore": "Read More"
   },
   "notFound": {
     "title": "Homestay Not Found",

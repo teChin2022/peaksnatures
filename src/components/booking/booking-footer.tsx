@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 
 interface BookingFooterProps {
   homestayName: string;
-  themeColor: string;
   logoUrl?: string | null;
   location: string;
   hostName: string;
@@ -13,7 +12,6 @@ interface BookingFooterProps {
 
 export function BookingFooter({
   homestayName,
-  themeColor,
   logoUrl,
   location,
   hostName,
@@ -23,12 +21,7 @@ export function BookingFooter({
 
   return (
     <footer className="border-t bg-gray-50/80">
-      <div
-        className="h-0.5 w-full"
-        style={{
-          background: `linear-gradient(90deg, ${themeColor}, ${themeColor}66, transparent)`,
-        }}
-      />
+      <div className="h-0.5 w-full bg-gradient-to-r from-gray-400 via-gray-200 to-transparent" />
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-between sm:text-left">
           {/* Left: Brand */}

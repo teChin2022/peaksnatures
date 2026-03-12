@@ -49,13 +49,12 @@ const statusConfig: Record<string, { color: string; icon: React.ElementType }> =
 
 interface BookingSearchDialogProps {
   homestayId: string;
-  themeColor: string;
   promptpayId?: string;
   hostName?: string;
   cancellationDays?: number;
 }
 
-export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostName, cancellationDays: propCancellationDays }: BookingSearchDialogProps) {
+export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancellationDays: propCancellationDays }: BookingSearchDialogProps) {
   const t = useTranslations("bookingSearch");
   const tr = useTranslations("reviews");
   const locale = useLocale();
@@ -373,8 +372,7 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
             <Button
               onClick={handleSearch}
               disabled={loading || !query.trim()}
-              className="hover:brightness-90 text-white"
-              style={{ backgroundColor: themeColor }}
+              className="bg-[#4A90E2] text-white hover:bg-[#357ABD]"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("search")}
             </Button>
@@ -419,7 +417,7 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
                       {fmtDateStr(booking.check_in, "d MMM yyyy", locale)} → {fmtDateStr(booking.check_out, "d MMM yyyy", locale)}
                     </span>
                     <span>{booking.room_name}</span>
-                    <span className="font-medium" style={{ color: themeColor }}>
+                    <span className="font-medium text-gray-900">
                       ฿{booking.total_price.toLocaleString()}
                     </span>
                   </div>
@@ -432,8 +430,7 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
                     <div className="mt-2 pt-2 border-t border-gray-200 space-y-2">
                       <Button
                         size="sm"
-                        className="w-full text-white hover:brightness-90"
-                        style={{ backgroundColor: themeColor }}
+                        className="w-full bg-[#4A90E2] text-white hover:bg-[#357ABD]"
                         onClick={() => handleCheckin(booking.id, booking.guest_email, "checkin")}
                         disabled={checkingIn === booking.id}
                       >
@@ -562,7 +559,7 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
                                       />
                                     </div>
                                   </div>
-                                  <p className="text-center text-sm font-bold" style={{ color: themeColor }}>
+                                  <p className="text-center text-sm font-bold text-gray-900">
                                     ฿{(booking.total_price - (booking.amount_paid || 0)).toLocaleString()}
                                   </p>
                                   <input
@@ -581,8 +578,7 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
                                       <img src={balanceSlipPreview} alt="Slip" className="mx-auto max-h-32 rounded-lg" />
                                       <Button
                                         size="sm"
-                                        className="mt-2 w-full text-white hover:brightness-90"
-                                        style={{ backgroundColor: themeColor }}
+                                        className="mt-2 w-full bg-[#4A90E2] text-white hover:bg-[#357ABD]"
                                         onClick={() => handlePayBalance(booking)}
                                         disabled={submittingBalance}
                                       >
@@ -611,13 +607,12 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
                               {/* Cash flow */}
                               {balancePayMethod === "cash" && (
                                 <div className="space-y-2">
-                                  <p className="text-center text-sm font-bold" style={{ color: themeColor }}>
+                                  <p className="text-center text-sm font-bold text-gray-900">
                                     ฿{(booking.total_price - (booking.amount_paid || 0)).toLocaleString()}
                                   </p>
                                   <Button
                                     size="sm"
-                                    className="w-full text-white hover:brightness-90"
-                                    style={{ backgroundColor: themeColor }}
+                                    className="w-full bg-[#4A90E2] text-white hover:bg-[#357ABD]"
                                     onClick={() => handlePayCash(booking)}
                                     disabled={submittingBalance}
                                   >
@@ -634,8 +629,7 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
                           ) : (
                             <Button
                               size="sm"
-                              className="w-full text-white hover:brightness-90 mt-1"
-                              style={{ backgroundColor: themeColor }}
+                              className="w-full bg-[#4A90E2] text-white hover:bg-[#357ABD] mt-1"
                               onClick={() => { setPayingBalanceId(booking.id); setBalancePayMethod(null); }}
                             >
                               <CreditCard className="mr-1.5 h-3.5 w-3.5" />
@@ -649,8 +643,7 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
                       {booking.total_price - (booking.amount_paid || 0) <= 0 && (
                         <Button
                           size="sm"
-                          className="w-full text-white hover:brightness-90"
-                          style={{ backgroundColor: themeColor }}
+                          className="w-full bg-[#4A90E2] text-white hover:bg-[#357ABD]"
                           onClick={() => handleCheckin(booking.id, booking.guest_email, "checkout")}
                           disabled={checkingIn === booking.id}
                         >
@@ -691,8 +684,8 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
                                   <Star
                                     className="h-5 w-5"
                                     style={{
-                                      fill: star <= (reviewHover || reviewRating) ? themeColor : "transparent",
-                                      color: star <= (reviewHover || reviewRating) ? themeColor : "#d1d5db",
+                                      fill: star <= (reviewHover || reviewRating) ? "#374151" : "transparent",
+                                      color: star <= (reviewHover || reviewRating) ? "#374151" : "#d1d5db",
                                     }}
                                   />
                                 </button>
@@ -726,8 +719,7 @@ export function BookingSearchDialog({ homestayId, themeColor, promptpayId, hostN
                             </Button>
                             <Button
                               size="sm"
-                              className="flex-1 text-white hover:brightness-90"
-                              style={{ backgroundColor: themeColor }}
+                              className="flex-1 bg-[#4A90E2] text-white hover:bg-[#357ABD]"
                               onClick={() => handleSubmitReview(booking.id, booking.guest_email)}
                               disabled={reviewRating === 0 || submittingReview}
                             >

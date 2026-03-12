@@ -1,13 +1,13 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { format, differenceInDays, eachDayOfInterval, parseISO, subDays } from "date-fns";
+import { format, differenceInDays, eachDayOfInterval, parseISO, subDays, startOfToday, addMonths } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
 import { fmtDate } from "@/lib/format-date";
 import type { DateRange } from "react-day-picker";
 import { Calendar } from "@/components/ui/calendar";
+import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
@@ -20,13 +20,17 @@ import {
 } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
-import { CalendarDays, Users, CreditCard, Upload, CheckCircle2, Loader2, Camera, ImageIcon, X, Smartphone, ArrowRight, Clock, AlertTriangle, Download } from "lucide-react";
+import {
+  Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope,
+  CalendarDays, Calendar as CalendarIcon, Users, CreditCard, Upload, CheckCircle2, Loader2,
+  Camera, ImageIcon, X, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle,
+  Download, MapPin, Ban, Shield, Check, Minus, Plus, User, Mail, Phone,
+} from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
-import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice } from "@/types/database";
+import type { Homestay, Room, BlockedDate, Host, RoomSeasonalPrice } from "@/types/database";
 import { calculateTotalPrice, getPriceRange } from "@/lib/calculate-price";
 import { getDepositForMonth } from "@/lib/get-deposit";
-import { ReviewsSection } from "@/components/booking/reviews-section";
 import { THAI_PROVINCES, getProvinceLabel } from "@/lib/provinces";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import generatePayload from "promptpay-qr";
@@ -40,6 +44,12 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+
+const AMENITY_ICONS: Record<string, React.ElementType> = {
+  WiFi: Wifi, Parking: Car, Kitchen: UtensilsCrossed, Garden: TreePine,
+  BBQ: Flame, Kayaking: Waves, Fishing: Fish, Restaurant: UtensilsCrossed,
+  Swimming: Waves, Telescope: Telescope, Fireplace: Flame, Library: BookOpen,
+};
 interface BookedRange {
   room_id: string | null;
   check_in: string;
@@ -52,10 +62,6 @@ interface BookingSectionProps {
   blockedDates: BlockedDate[];
   bookedRanges?: BookedRange[];
   host: Host;
-  embedded?: boolean;
-  reviews?: Review[];
-  averageRating?: number;
-  reviewCount?: number;
   seasonalPrices?: RoomSeasonalPrice[];
 }
 
@@ -67,16 +73,13 @@ export function BookingSection({
   blockedDates,
   bookedRanges = [],
   host,
-  embedded = false,
-  reviews = [],
-  averageRating = 0,
-  reviewCount = 0,
   seasonalPrices = [],
 }: BookingSectionProps) {
   const t = useTranslations("booking");
   const tc = useTranslations("common");
-  const themeColor = homestay.theme_color || "#16a34a";
+  const themeColor = "#4A90E2";
   const [mounted, setMounted] = useState(false);
+  const [open, setOpen] = useState(false);
   const [step, setStep] = useState<BookingStep>("dates");
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
@@ -101,6 +104,7 @@ export function BookingSection({
   const [holdTimeLeft, setHoldTimeLeft] = useState<number>(0);
   const [showHeldModal, setShowHeldModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showCalendar, setShowCalendar] = useState(false);
   const [pdpaConsent, setPdpaConsent] = useState(false);
   const holdTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [phoneSlipReceived, setPhoneSlipReceived] = useState(false);
@@ -178,9 +182,7 @@ export function BookingSection({
       if (roomId && rooms.some((r) => r.id === roomId)) {
         handleRoomChange(roomId);
         setStep("dates");
-        setTimeout(() => {
-          document.getElementById("booking")?.scrollIntoView({ behavior: "smooth" });
-        }, 100);
+        setOpen(true);
       }
     };
     document.addEventListener("book-room", handler);
@@ -637,963 +639,787 @@ export function BookingSection({
   const steps: BookingStep[] = ["dates", "details", "payment", "confirmed"];
   const currentStepIndex = steps.indexOf(step);
 
-  const stepIndicator = (
-    <div className="flex items-center justify-between">
-      {steps.map((s, i) => {
-        const isActive = step === s;
-        const isCompleted = currentStepIndex > i;
-        return (
-          <div key={s} className={`flex items-center ${i < steps.length - 1 ? 'flex-1' : ''}`}>
-            <div className="flex flex-col items-center gap-1">
-              <div
-                className="flex h-8 w-8 items-center justify-center rounded-full text-xs font-bold transition-colors"
-                style={{
-                  backgroundColor: isActive ? themeColor : isCompleted ? themeColor : '#f3f4f6',
-                  color: isActive || isCompleted ? '#fff' : '#9ca3af',
-                }}
-              >
-                {isCompleted ? (
-                  <CheckCircle2 className="h-4 w-4" />
-                ) : (
-                  i + 1
-                )}
-              </div>
-              <span
-                className="text-[11px] font-medium whitespace-nowrap"
-                style={{ color: isActive ? themeColor : isCompleted ? themeColor : '#9ca3af' }}
-              >
-                {t(`step${s.charAt(0).toUpperCase() + s.slice(1)}`)}
-              </span>
-            </div>
-            {i < steps.length - 1 && (
-              <div
-                className="mx-1 h-px flex-1 self-start mt-4"
-                style={{ backgroundColor: currentStepIndex > i ? themeColor : '#e5e7eb' }}
-              />
-            )}
-          </div>
-        );
-      })}
-    </div>
-  );
+  const roomSeasons = selectedRoom ? (seasonsByRoom[selectedRoom.id] || []) : [];
+  const { min: priceMin, max: priceMax } = selectedRoom
+    ? getPriceRange(selectedRoom.price_per_night, roomSeasons)
+    : { min: 0, max: 0 };
+  const priceLabel = selectedRoom
+    ? priceMin !== priceMax
+      ? `฿${priceMin.toLocaleString()}–฿${priceMax.toLocaleString()}`
+      : `฿${selectedRoom.price_per_night.toLocaleString()}`
+    : "";
 
-  const content = (
+  const handleClose = () => {
+    if (step !== "payment") {
+      setOpen(false);
+      setShowCalendar(false);
+      setShowConfirmModal(false);
+    }
+  };
+
+  const resetBooking = () => {
+    setStep("dates");
+    setPaymentPhase("qr");
+    setPaymentOption("full");
+    setSlipVerified(false);
+    setDateRange(undefined);
+    setSelectedRoomId("");
+    setGuestName("");
+    setGuestEmail("");
+    setGuestPhone("");
+    setGuestProvince("");
+    setGuestNote("");
+    handleRemoveSlip();
+    setBookingId(null);
+    setPdpaConsent(false);
+    setShowCalendar(false);
+    setShowConfirmModal(false);
+  };
+
+  if (!open) return null;
+
+  return (
     <>
-      <div className="grid grid-cols-1 gap-6 lg:grid-cols-[1fr_1.2fr]">
-        {/* Left: Reviews (always visible) */}
-        <div className="order-2 lg:order-1">
-          <ReviewsSection
-            reviews={reviews}
-            averageRating={averageRating}
-            totalCount={reviewCount}
-            themeColor={themeColor}
-            homestayId={homestay.id}
-          />
-        </div>
-
-        {/* Right: Booking form */}
-        <div className="order-1 lg:order-2 space-y-4">
-          {/* Booking header & stepper */}
-          <div className="flex items-center gap-2.5">
-            <div
-              className="flex h-9 w-9 items-center justify-center rounded-xl"
-              style={{ backgroundColor: themeColor + '15' }}
-            >
-              <CalendarDays className="h-4.5 w-4.5" style={{ color: themeColor }} />
+      {/* Full-screen overlay */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        exit={{ opacity: 0 }}
+        className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm"
+        onClick={handleClose}
+      >
+        <motion.div
+          initial={{ scale: 0.95, y: 20 }}
+          animate={{ scale: 1, y: 0 }}
+          exit={{ scale: 0.95, y: 20 }}
+          className="bg-white w-full max-w-4xl rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row h-[95vh] md:h-auto md:max-h-[90vh]"
+          onClick={(e) => e.stopPropagation()}
+        >
+          {/* ── Left: Info Panel ── */}
+          <div className="md:w-5/12 bg-gray-50 p-6 md:p-10 overflow-y-auto border-r border-gray-100 relative hidden md:block">
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-gray-900">{homestay.name}</h2>
+              <p className="flex items-center gap-1.5 text-sm text-gray-500 mt-1">
+                <MapPin size={14} /> {homestay.location}
+              </p>
             </div>
-            <div>
-              <h2 className="text-xl font-semibold text-gray-900">{t("title")}</h2>
-              <p className="text-sm text-gray-500">{t("subtitle")}</p>
-            </div>
-          </div>
-          {stepIndicator}
 
-          {/* Step 1: Room & Date Selection */}
-          {step === "dates" && (
-            <div className="space-y-4">
-              {/* Room & Guests */}
-              <Card className="shadow-sm">
-                <CardHeader>
-                  <CardTitle className="text-base">{t("selectRoom")}</CardTitle>
-                </CardHeader>
-                <CardContent className="space-y-3">
-                  <Select value={selectedRoomId} onValueChange={handleRoomChange}>
-                    <SelectTrigger className="w-full">
-                      <SelectValue placeholder={t("choosePlaceholder")} />
-                    </SelectTrigger>
-                    <SelectContent>
-                      {rooms.map((room) => {
-                        const roomSeasons = seasonsByRoom[room.id] || [];
-                        const { min, max } = getPriceRange(room.price_per_night, roomSeasons);
-                        const priceLabel = min !== max
-                          ? `฿${min.toLocaleString()}–฿${max.toLocaleString()}`
-                          : `฿${room.price_per_night.toLocaleString()}`;
-                        return (
-                          <SelectItem key={room.id} value={room.id}>
-                            {room.name} — {priceLabel}/{tc('night')}
-                          </SelectItem>
-                        );
-                      })}
-                    </SelectContent>
-                  </Select>
-
-                  {selectedRoom && (
-                    <div className="text-sm text-gray-500">
-                      <HTMLContent content={selectedRoom.description || ""} className="inline" />
-                      {selectedRoom.description && " · "}
-                      {tc("guests", { count: selectedRoom.max_guests })}
-                    </div>
-                  )}
-
-                  <div>
-                    <Label>{t("numGuests")}</Label>
-                    <Select value={numGuests} onValueChange={setNumGuests}>
-                      <SelectTrigger className="mt-1 w-full">
-                        <SelectValue />
-                      </SelectTrigger>
-                      <SelectContent>
-                        {Array.from(
-                          { length: selectedRoom?.max_guests || homestay.max_guests },
-                          (_, i) => (
-                            <SelectItem key={i + 1} value={String(i + 1)}>
-                              {i + 1} {tc("guests")}
-                            </SelectItem>
-                          )
-                        )}
-                      </SelectContent>
-                    </Select>
+            {/* Selected room */}
+            {selectedRoom && (
+              <div className="mb-6 rounded-2xl bg-white p-4">
+                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("room")}</p>
+                <p className="text-base font-bold text-gray-900 mt-1">{selectedRoom.name}</p>
+                <p className="text-sm text-[#4A90E2] font-semibold mt-0.5">{priceLabel}/{tc("night")}</p>
+                {selectedRoom.description && (
+                  <div className="mt-2 text-xs text-gray-500">
+                    <HTMLContent content={selectedRoom.description} className="inline" />
                   </div>
-                </CardContent>
-              </Card>
-
-              {/* Calendar */}
-              <Card className="shadow-sm">
-                <CardHeader>
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <CalendarDays className="h-5 w-5" style={{ color: themeColor }} />
-                    {t("selectDates")}
-                  </CardTitle>
-                </CardHeader>
-                <CardContent>
-                  {mounted ? (
-                    <Calendar
-                      mode="range"
-                      selected={dateRange}
-                      onSelect={handleDateSelect}
-                      locale={locale === "th" ? thLocale : undefined}
-                      formatters={locale === "th" ? {
-                        formatCaption: (date) => {
-                          const month = date.toLocaleDateString("th-TH", { month: "long" });
-                          const beYear = date.getFullYear() + 543;
-                          return `${month} ${beYear}`;
-                        },
-                      } : undefined}
-                      disabled={[
-                        { before: new Date() },
-                        (date: Date) => {
-                          const key = format(date, "yyyy-MM-dd");
-                          if (blockedDateSet.has(key)) return true;
-                          if (bookedDatesForRoom.has(key)) {
-                            return key !== allowedCheckoutKey;
-                          }
-                          if (checkoutBarrierTime !== null && date.getTime() > checkoutBarrierTime) return true;
-                          return false;
-                        },
-                      ]}
-                      numberOfMonths={2}
-                      className={`rounded-md border w-full ${!selectedRoomId ? "pointer-events-none opacity-50" : ""}`}
-                    />
-                  ) : (
-                    <div className="flex h-[300px] items-center justify-center rounded-md border">
-                      <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
-                    </div>
-                  )}
-                  {dateRange?.from && dateRange?.to && (
-                    <div className="mt-2 text-sm text-gray-600">
-                      <span className="font-medium">
-                        {fmtDate(dateRange.from, "MMM d", locale)} —{" "}
-                        {fmtDate(dateRange.to, "MMM d, yyyy", locale)}
-                      </span>
-                      <span className="text-gray-400"> · {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-
-              {/* Price Summary & Continue */}
-              <div className="space-y-3">
-                {totalPrice > 0 && priceResult && (
-                  <Card style={{ borderColor: themeColor + '40', backgroundColor: themeColor + '0d' }}>
-                    <CardContent className="p-4 space-y-2">
-                      {(() => {
-                        const hasSeasons = priceResult.breakdown.some((b) => b.seasonName);
-                        if (!hasSeasons) {
-                          return (
-                            <div className="flex items-center justify-between text-sm">
-                              <span className="text-gray-600">
-                                ฿{selectedRoom?.price_per_night.toLocaleString()} × {nights} {nights > 1 ? tc("nights") : tc("night")}
-                              </span>
-                              <span className="text-lg font-bold" style={{ color: themeColor }}>
-                                ฿{totalPrice.toLocaleString()}
-                              </span>
-                            </div>
-                          );
-                        }
-                        // Group consecutive nights by rate
-                        const groups: { label: string; price: number; count: number }[] = [];
-                        for (const b of priceResult.breakdown) {
-                          const label = b.seasonName || t("baseRate");
-                          const last = groups[groups.length - 1];
-                          if (last && last.label === label && last.price === b.price) {
-                            last.count++;
-                          } else {
-                            groups.push({ label, price: b.price, count: 1 });
-                          }
-                        }
-                        return (
-                          <>
-                            {groups.map((g, i) => (
-                              <div key={i} className="flex items-center justify-between text-sm">
-                                <span className="text-gray-600">
-                                  {g.label}: ฿{g.price.toLocaleString()} × {g.count} {g.count > 1 ? tc("nights") : tc("night")}
-                                </span>
-                                <span className="font-medium text-gray-700">
-                                  ฿{(g.price * g.count).toLocaleString()}
-                                </span>
-                              </div>
-                            ))}
-                            <Separator />
-                            <div className="flex items-center justify-between">
-                              <span className="text-sm font-medium text-gray-700">{tc("total")}</span>
-                              <span className="text-lg font-bold" style={{ color: themeColor }}>
-                                ฿{totalPrice.toLocaleString()}
-                              </span>
-                            </div>
-                          </>
-                        );
-                      })()}
-                    </CardContent>
-                  </Card>
                 )}
-
-                <label className="flex items-start gap-2 cursor-pointer">
-                  <input
-                    type="checkbox"
-                    checked={pdpaConsent}
-                    onChange={(e) => setPdpaConsent(e.target.checked)}
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
-                  />
-                  <span className="text-xs text-gray-600">
-                    {t.rich("pdpaConsent", {
-                      privacy: (chunks) => (
-                        <a
-                          href="/legal#privacy"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-medium text-green-600 underline hover:text-green-700"
-                        >
-                          {chunks}
-                        </a>
-                      ),
-                      terms: (chunks) => (
-                        <a
-                          href="/legal#terms"
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          className="font-medium text-green-600 underline hover:text-green-700"
-                        >
-                          {chunks}
-                        </a>
-                      ),
-                    })}
-                  </span>
-                </label>
-                <Button
-                  className="w-full hover:brightness-90"
-                  size="lg"
-                  style={{ backgroundColor: themeColor }}
-                  onClick={handleProceedToDetails}
-                  disabled={!dateRange?.from || !dateRange?.to || !selectedRoomId || !pdpaConsent}
-                >
-                  {t("continueDetails")}
-                </Button>
               </div>
+            )}
+
+            <div className="space-y-6">
+              {/* Amenities */}
+              {homestay.amenities?.length > 0 && (
+                <section>
+                  <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <Check size={16} className="text-gray-400" />
+                    {tc("amenities")}
+                  </h3>
+                  <ul className="grid grid-cols-2 gap-2 text-xs text-gray-600">
+                    {homestay.amenities.map((a) => {
+                      const Icon = AMENITY_ICONS[a] || Check;
+                      return (
+                        <li key={a} className="flex items-center gap-1.5">
+                          <Icon size={14} className="text-gray-400 shrink-0" /> {a}
+                        </li>
+                      );
+                    })}
+                  </ul>
+                </section>
+              )}
+
+              {/* House Rules */}
+              {homestay.prohibitions?.length > 0 && (
+                <section>
+                  <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <Ban size={16} className="text-gray-400" />
+                    {tc("houseRules")}
+                  </h3>
+                  <ul className="space-y-2 text-xs text-gray-600">
+                    {(homestay.check_in_time || homestay.check_out_time) && (
+                      <>
+                        {homestay.check_in_time && (
+                          <li className="flex items-start gap-2">
+                            <span className="w-1 h-1 rounded-full bg-gray-400 mt-1.5 shrink-0" />
+                            {t("checkInTime", { time: homestay.check_in_time })}
+                          </li>
+                        )}
+                        {homestay.check_out_time && (
+                          <li className="flex items-start gap-2">
+                            <span className="w-1 h-1 rounded-full bg-gray-400 mt-1.5 shrink-0" />
+                            {t("checkOutTime", { time: homestay.check_out_time })}
+                          </li>
+                        )}
+                      </>
+                    )}
+                    {homestay.prohibitions.map((rule, i) => (
+                      <li key={i} className="flex items-start gap-2">
+                        <span className="w-1 h-1 rounded-full bg-gray-400 mt-1.5 shrink-0" />
+                        {rule}
+                      </li>
+                    ))}
+                  </ul>
+                </section>
+              )}
+
+              {/* Cancellation Policy */}
+              {host.cancellation_days > 0 && (
+                <section>
+                  <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
+                    <Shield size={16} className="text-gray-400" />
+                    {t("cancellationPolicy")}
+                  </h3>
+                  <div className="bg-white p-3 rounded-xl text-xs text-gray-600">
+                    <p>{t("cancellationPolicyNote", { days: host.cancellation_days })}</p>
+                  </div>
+                </section>
+              )}
             </div>
-          )}
 
-          {/* Step 2: Guest Details */}
-          {step === "details" && (
-            <Card className="shadow-sm overflow-hidden">
-              <div className="h-1 w-full" style={{ backgroundColor: themeColor }} />
-              <CardHeader>
-                <CardTitle className="flex items-center gap-2 text-base">
-                  <Users className="h-5 w-5" style={{ color: themeColor }} />
-                  {t("guestInfo")}
-                </CardTitle>
-              </CardHeader>
-              <CardContent className="space-y-4">
-                <div>
-                  <Label htmlFor="name">{t("fullName")} *</Label>
-                  <Input
-                    id="name"
-                    ref={nameInputRef}
-                    value={guestName}
-                    onChange={(e) => setGuestName(e.target.value)}
-                    placeholder={t("fullNamePlaceholder")}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="email">{t("email")} *</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    value={guestEmail}
-                    onChange={(e) => setGuestEmail(e.target.value)}
-                    placeholder={t("emailPlaceholder")}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label htmlFor="phone">{t("phone")} *</Label>
-                  <Input
-                    id="phone"
-                    value={guestPhone}
-                    onChange={(e) => setGuestPhone(e.target.value)}
-                    placeholder={t("phonePlaceholder")}
-                    className="mt-1"
-                  />
-                </div>
-                <div>
-                  <Label>{t("province")}</Label>
-                  <Select value={guestProvince} onValueChange={setGuestProvince}>
-                    <SelectTrigger className="mt-1 w-full">
-                      <SelectValue placeholder={t("provincePlaceholder")} />
-                    </SelectTrigger>
-                    <SelectContent className="max-h-60">
-                      {THAI_PROVINCES.map((p) => (
-                        <SelectItem key={p.value} value={p.value}>
-                          {locale === "th" ? p.labelTh : p.labelEn}
-                        </SelectItem>
-                      ))}
-                    </SelectContent>
-                  </Select>
-                </div>
-                <div>
-                  <Label htmlFor="notes">{t("notes")}</Label>
-                  <Textarea
-                    id="notes"
-                    value={guestNote}
-                    onChange={(e) => setGuestNote(e.target.value)}
-                    placeholder={t("notesPlaceholder")}
-                    className="mt-1"
-                    rows={3}
-                  />
-                </div>
+            <button
+              onClick={handleClose}
+              className="absolute top-4 left-4 p-2 rounded-full bg-white text-gray-400 shadow-sm border border-gray-100 hover:bg-gray-100 hover:text-gray-900 transition-all md:hidden"
+            >
+              <X size={18} />
+            </button>
+          </div>
 
-                <Separator />
+          {/* ── Right: Booking Form ── */}
+          <div className="md:w-7/12 p-5 md:p-8 relative flex flex-col overflow-hidden">
+            <button
+              onClick={handleClose}
+              className="absolute top-4 right-4 p-2 rounded-full text-gray-400 hover:bg-gray-100 transition-all z-10"
+            >
+              <X size={22} />
+            </button>
 
-                <div className="rounded-lg bg-gray-50 p-3 text-sm text-gray-600">
-                  <p>
-                    <strong>{t("room")}:</strong> {selectedRoom?.name}
-                  </p>
-                  <p>
-                    <strong>{t("dates")}:</strong>{" "}
-                    {dateRange?.from && fmtDate(dateRange.from, "MMM d", locale)} —{" "}
-                    {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy", locale)}
-                  </p>
-                  <p>
-                    <strong>{tc("guests")}:</strong> {numGuests}
-                  </p>
-                  {(homestay.check_in_time || homestay.check_out_time) && (
-                    <div className="mt-2 flex gap-3 text-xs text-gray-500">
-                      {homestay.check_in_time && <span>{t("checkInTime", { time: homestay.check_in_time })}</span>}
-                      {homestay.check_out_time && <span>{t("checkOutTime", { time: homestay.check_out_time })}</span>}
-                    </div>
-                  )}
-                  <p className="mt-1 text-base font-bold" style={{ color: themeColor }}>
-                    {tc("total")}: ฿{totalPrice.toLocaleString()}
-                  </p>
-                </div>
-
-                <div className="flex gap-2">
-                  <Button
-                    variant="outline"
-                    className="flex-1"
-                    onClick={() => setStep("dates")}
-                  >
-                    {tc("back")}
-                  </Button>
-                  <Button
-                    className="flex-1 hover:brightness-90"
-                    style={{ backgroundColor: themeColor }}
-                    onClick={() => {
-                      if (!guestName || !guestEmail || !guestPhone) {
-                        toast.error(t("errorFillFields"));
-                        return;
-                      }
-                      setShowConfirmModal(true);
-                    }}
-                  >
-                    {t("continuePayment")}
-                  </Button>
-                </div>
-              </CardContent>
-            </Card>
-          )}
-
-          {/* Step 3: Payment */}
-          {step === "payment" && (
-            <Card className="shadow-sm overflow-hidden">
-              <div className="h-1 w-full" style={{ backgroundColor: themeColor }} />
-              <CardHeader>
-                <div className="flex items-center justify-between">
-                  <CardTitle className="flex items-center gap-2 text-base">
-                    <CreditCard className="h-5 w-5" style={{ color: themeColor }} />
-                    {t("paymentTitle")}
-                  </CardTitle>
-                  {holdTimeLeft > 0 && (
-                    <div className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
+            {/* Step indicator (compact) */}
+            <div className="flex items-center gap-1 mb-6 pr-10">
+              {steps.map((s, i) => {
+                const isActive = step === s;
+                const isCompleted = currentStepIndex > i;
+                return (
+                  <div key={s} className={`flex items-center ${i < steps.length - 1 ? 'flex-1' : ''}`}>
+                    <div
+                      className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-colors"
                       style={{
-                        backgroundColor: holdTimeLeft <= 60 ? '#fef2f2' : themeColor + '15',
-                        color: holdTimeLeft <= 60 ? '#dc2626' : themeColor,
+                        backgroundColor: isActive ? '#4A90E2' : isCompleted ? '#4A90E2' : '#f3f4f6',
+                        color: isActive || isCompleted ? '#fff' : '#9ca3af',
                       }}
                     >
-                      <Clock className="h-3.5 w-3.5" />
-                      {Math.floor(holdTimeLeft / 60)}:{String(holdTimeLeft % 60).padStart(2, '0')}
+                      {isCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
                     </div>
-                  )}
-                </div>
-              </CardHeader>
-              <CardContent className="space-y-4">
-
-                {/* Hidden file inputs (always rendered) */}
-                <input
-                  ref={galleryInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)}
-                />
-                <input
-                  ref={cameraInputRef}
-                  type="file"
-                  accept="image/*"
-                  capture="environment"
-                  className="hidden"
-                  onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)}
-                />
-
-                {/* Cancellation policy note */}
-                {host.cancellation_days > 0 && paymentPhase === "qr" && (
-                  <div className="flex items-center gap-2 rounded-lg bg-green-50 border border-green-200 px-3 py-2">
-                    <CheckCircle2 className="h-4 w-4 text-green-600 shrink-0" />
-                    <p className="text-xs text-green-700">
-                      {t("cancellationPolicyNote", { days: host.cancellation_days })}
-                    </p>
+                    {i < steps.length - 1 && (
+                      <div className="mx-1 h-px flex-1" style={{ backgroundColor: currentStepIndex > i ? '#4A90E2' : '#e5e7eb' }} />
+                    )}
                   </div>
-                )}
+                );
+              })}
+            </div>
 
-                {/* Payment option selector (deposit vs full) */}
-                {depositAvailable && paymentPhase === "qr" && (
-                  <div className="rounded-xl border p-3 space-y-2">
-                    <div className="flex gap-2">
-                      <button
-                        type="button"
-                        className={`flex-1 rounded-lg border-2 p-3 text-left text-sm transition-all ${
-                          paymentOption === "full" ? "border-current shadow-sm" : "border-gray-200"
-                        }`}
-                        style={{ color: paymentOption === "full" ? themeColor : undefined }}
-                        onClick={() => setPaymentOption("full")}
-                      >
-                        <p className="font-semibold">{t("payFull")}</p>
-                        <p className="text-lg font-bold">฿{totalPrice.toLocaleString()}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{t("fullSelected")}</p>
-                      </button>
-                      <button
-                        type="button"
-                        className={`flex-1 rounded-lg border-2 p-3 text-left text-sm transition-all ${
-                          paymentOption === "deposit" ? "border-current shadow-sm" : "border-gray-200"
-                        }`}
-                        style={{ color: paymentOption === "deposit" ? themeColor : undefined }}
-                        onClick={() => setPaymentOption("deposit")}
-                      >
-                        <p className="font-semibold">{t("payDeposit")}</p>
-                        <p className="text-lg font-bold">฿{resolvedDeposit.toLocaleString()}</p>
-                        <p className="text-xs text-gray-400 mt-0.5">{t("depositSelected")}</p>
-                      </button>
-                    </div>
-                  </div>
-                )}
+            {/* Hidden file inputs */}
+            <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)} />
+            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)} />
 
-                {/* Phase 1: QR Code + Instructions */}
-                {paymentPhase === "qr" && (
-                  <>
-                    <div className="text-center">
-                      <p className="text-sm text-gray-500">
-                        {t("scanQr")}
-                      </p>
-                      <div ref={qrContainerRef} className="mx-auto mt-4 flex h-52 w-52 items-center justify-center rounded-lg border bg-white p-3">
-                        <QRCodeSVG
-                          value={generatePayload(host.promptpay_id, { amount: paymentAmount })}
-                          size={180}
-                          level="M"
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={handleSaveQr}
-                        className="mx-auto mt-3 flex items-center gap-1.5 rounded-full px-4 py-1.5 text-xs font-medium transition-colors hover:opacity-80"
-                        style={{ backgroundColor: themeColor + '15', color: themeColor }}
-                      >
-                        <Download className="h-3.5 w-3.5" />
-                        {t("saveQrImage")}
-                      </button>
-                      <p className="mt-3 text-2xl font-bold" style={{ color: themeColor }}>
-                        ฿{paymentAmount.toLocaleString()}
-                      </p>
-                      {paymentOption === "deposit" && depositAvailable && (
-                        <p className="mt-1 text-xs text-amber-600">
-                          {t("balanceDue")}: ฿{(totalPrice - paymentAmount).toLocaleString()} — {t("payOnArrival")}
-                        </p>
-                      )}
-                      <p className="mt-1 text-sm font-medium text-gray-700">
-                        {host.name}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        {t("promptpayId")}: {host.promptpay_id}
-                      </p>
-                    </div>
-
-                    <Separator />
-
-                    {/* Step-by-step instructions */}
-                    <div className="rounded-xl border bg-gray-50 p-4">
-                      <div className="space-y-3">
-                        {[
-                          { num: 1, icon: Smartphone, text: t("payStep1") },
-                          { num: 2, icon: ArrowRight, text: t("payStep2") },
-                          { num: 3, icon: CreditCard, text: t("payStep3") },
-                          { num: 4, icon: Upload, text: t("payStep4") },
-                        ].map((s) => (
-                          <div key={s.num} className="flex items-center gap-3">
-                            <div
-                              className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                              style={{ backgroundColor: themeColor }}
-                            >
-                              {s.num}
-                            </div>
-                            <s.icon className="h-4 w-4 shrink-0 text-gray-400" />
-                            <p className="text-sm text-gray-600">{s.text}</p>
-                          </div>
-                        ))}
-                      </div>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => { releaseHold(); setStep("details"); setPaymentPhase("qr"); }}
-                      >
-                        {tc("back")}
-                      </Button>
-                      <Button
-                        className="flex-1 hover:brightness-90"
-                        style={{ backgroundColor: themeColor }}
-                        onClick={() => setPaymentPhase("upload")}
-                      >
-                        <CheckCircle2 className="mr-2 h-4 w-4" />
-                        {t("iveTransferred")}
-                      </Button>
-                    </div>
-                  </>
-                )}
-
-                {/* Phase 2: Upload Slip */}
-                {paymentPhase === "upload" && (
-                  <>
-                    <div className="text-center">
-                      {showWelcomeBack ? (
-                        <div
-                          className="mb-3 rounded-lg px-4 py-2.5 text-sm font-medium"
-                          style={{ backgroundColor: themeColor + '15', color: themeColor }}
-                        >
-                          {t("welcomeBack")}
+            <div className="flex-1 overflow-y-auto pr-1">
+              <AnimatePresence mode="wait">
+                {/* ═══ Step 1: Dates ═══ */}
+                {step === "dates" && (
+                  <motion.div key="step-dates" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
+                    <div className="flex justify-between items-center">
+                      <h3 className="text-xl font-bold text-gray-900">{t("selectDates")}</h3>
+                      {selectedRoom && (
+                        <div className="text-right">
+                          <span className="text-xl font-bold text-gray-900">{priceLabel}</span>
+                          <span className="text-gray-500 text-xs"> / {tc("night")}</span>
                         </div>
-                      ) : null}
-                      <Upload className="mx-auto h-10 w-10 text-gray-300" />
-                      <h3 className="mt-2 text-lg font-semibold text-gray-900">
-                        {t("waitingForSlip")}
-                      </h3>
-                      <p className="mt-1 text-sm text-gray-500">
-                        {t("waitingForSlipDesc")}
-                      </p>
-                      <p className="mt-2 text-lg font-bold" style={{ color: themeColor }}>
-                        ฿{paymentAmount.toLocaleString()}
-                      </p>
-                      {paymentOption === "deposit" && depositAvailable && (
-                        <p className="mt-1 text-xs text-amber-600">
-                          {t("balanceDue")}: ฿{(totalPrice - paymentAmount).toLocaleString()} — {t("payOnArrival")}
-                        </p>
                       )}
                     </div>
 
-                    <div>
-                      {slipPreview ? (
-                        /* Preview uploaded slip */
-                        <div className="rounded-lg border bg-gray-50 p-3">
-                          {phoneSlipReceived && (
-                            <div
-                              className="mb-3 rounded-lg px-3 py-2 text-center text-sm font-medium"
-                              style={{ backgroundColor: themeColor + '15', color: themeColor }}
-                            >
-                              <CheckCircle2 className="mr-1.5 inline h-4 w-4" />
-                              {t("slipReceived")}
-                            </div>
-                          )}
-                          <p className="mb-2 text-center text-xs font-medium text-gray-500">
-                            {t("slipPreview")}
-                          </p>
-                          <div className="relative mx-auto w-fit">
-                            <img
-                              src={slipPreview}
-                              alt={t("slipPreview")}
-                              className="mx-auto max-h-64 rounded-lg object-contain"
-                            />
-                            <button
-                              type="button"
-                              onClick={handleRemoveSlip}
-                              className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white shadow-md hover:bg-red-600"
-                            >
-                              <X className="h-3.5 w-3.5" />
-                            </button>
-                          </div>
-                          <div className="mt-3 flex justify-center gap-2">
-                            <Button
-                              type="button"
-                              variant="outline"
-                              size="sm"
-                              onClick={() => galleryInputRef.current?.click()}
-                            >
-                              <ImageIcon className="mr-1.5 h-3.5 w-3.5" />
-                              {t("changeSlip")}
-                            </Button>
-                          </div>
+                    {/* Mobile: show room name */}
+                    <div className="md:hidden rounded-xl bg-gray-50 p-3 text-sm">
+                      <p className="font-bold text-gray-900">{selectedRoom?.name}</p>
+                      <p className="text-xs text-gray-500">{homestay.name} · {homestay.location}</p>
+                    </div>
+
+                    {/* Date picker toggle */}
+                    <div className="space-y-2 relative">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("selectDates")}</label>
+                      <button
+                        onClick={() => setShowCalendar(!showCalendar)}
+                        className="w-full flex items-center justify-between p-3.5 rounded-xl border border-gray-200 hover:border-gray-400 transition-all text-sm font-medium text-gray-900 bg-white"
+                      >
+                        <div className="flex items-center gap-2.5">
+                          <CalendarIcon size={16} className="text-gray-400" />
+                          <span>
+                            {dateRange?.from ? (
+                              <>
+                                {fmtDate(dateRange.from, "MMM d, yyyy", locale)}
+                                {dateRange.to && dateRange.to.getTime() !== dateRange.from.getTime() && ` — ${fmtDate(dateRange.to, "MMM d, yyyy", locale)}`}
+                              </>
+                            ) : t("selectDates")}
+                          </span>
                         </div>
-                      ) : (
-                        /* Upload zone: local upload + cross-device QR */
-                        <div className="space-y-3">
-                          {/* Local upload buttons */}
-                          <div className="space-y-2">
-                            <button
-                              type="button"
-                              onClick={() => galleryInputRef.current?.click()}
-                              className="flex w-full cursor-pointer items-center gap-4 rounded-xl border-2 border-dashed border-gray-300 p-5 text-left transition-colors active:bg-gray-50"
-                              onMouseEnter={(e) => { e.currentTarget.style.borderColor = themeColor + '99'; e.currentTarget.style.backgroundColor = themeColor + '0d'; }}
-                              onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
-                            >
-                              <div className="rounded-lg bg-gray-100 p-3">
-                                <ImageIcon className="h-6 w-6 text-gray-500" />
+                        <span className="text-gray-400 text-xs">
+                          {nights > 0 ? `${nights} ${nights > 1 ? tc("nights") : tc("night")}` : ""}
+                        </span>
+                      </button>
+
+                      <AnimatePresence>
+                        {showCalendar && (
+                          <motion.div
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            exit={{ opacity: 0, y: 8 }}
+                            className="absolute top-full left-0 right-0 mt-1 bg-white rounded-2xl p-3 z-50 border border-gray-100"
+                          >
+                            {mounted ? (
+                              <Calendar
+                                mode="range"
+                                selected={dateRange}
+                                onSelect={handleDateSelect}
+                                locale={locale === "th" ? thLocale : undefined}
+                                captionLayout="dropdown"
+                                startMonth={startOfToday()}
+                                endMonth={addMonths(startOfToday(), 12)}
+                                formatters={locale === "th" ? {
+                                  formatMonthDropdown: (date) =>
+                                    date.toLocaleDateString("th-TH", { month: "long" }),
+                                  formatYearDropdown: (date) =>
+                                    String(date.getFullYear() + 543),
+                                } : undefined}
+                                disabled={[
+                                  { before: startOfToday() },
+                                  (date: Date) => {
+                                    const key = format(date, "yyyy-MM-dd");
+                                    if (blockedDateSet.has(key)) return true;
+                                    if (bookedDatesForRoom.has(key)) return key !== allowedCheckoutKey;
+                                    if (checkoutBarrierTime !== null && date.getTime() > checkoutBarrierTime) return true;
+                                    return false;
+                                  },
+                                ]}
+                                numberOfMonths={1}
+                                className="w-full"
+                              />
+                            ) : (
+                              <div className="flex h-[280px] items-center justify-center">
+                                <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
                               </div>
-                              <div>
-                                <p className="text-sm font-medium text-gray-700">{t("chooseFromGallery")}</p>
-                                <p className="text-xs text-gray-400">{t("clickUpload")}</p>
-                              </div>
-                            </button>
-                            {isMobile && (
+                            )}
+                            <div className="flex justify-end mt-3 pt-3 border-t border-gray-100">
                               <button
-                                type="button"
-                                onClick={() => cameraInputRef.current?.click()}
-                                className="flex w-full cursor-pointer items-center gap-4 rounded-xl border-2 border-dashed border-gray-300 p-5 text-left transition-colors active:bg-gray-50"
-                                onMouseEnter={(e) => { e.currentTarget.style.borderColor = themeColor + '99'; e.currentTarget.style.backgroundColor = themeColor + '0d'; }}
-                                onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
+                                onClick={() => setShowCalendar(false)}
+                                className="bg-[#4A90E2] text-white px-5 py-2 rounded-full text-sm font-bold hover:bg-[#357ABD] transition-colors"
                               >
-                                <div className="rounded-lg bg-gray-100 p-3">
-                                  <Camera className="h-6 w-6 text-gray-500" />
-                                </div>
-                                <div>
-                                  <p className="text-sm font-medium text-gray-700">{t("takePhoto")}</p>
-                                  <p className="text-xs text-gray-400">{t("clickUpload")}</p>
-                                </div>
+                                {tc("done")}
                               </button>
+                            </div>
+                          </motion.div>
+                        )}
+                      </AnimatePresence>
+                    </div>
+
+                    {/* Guests */}
+                    <div className="space-y-2">
+                      <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("numGuests")}</label>
+                      <div className="flex items-center justify-between p-3 rounded-xl border border-gray-200">
+                        <span className="text-sm font-medium text-gray-700">{numGuests} {tc("guests")}</span>
+                        <div className="flex items-center gap-3">
+                          <button
+                            onClick={() => setNumGuests(String(Math.max(1, parseInt(numGuests) - 1)))}
+                            className="p-1 rounded-full border border-gray-200 hover:bg-gray-100 text-gray-400"
+                          >
+                            <Minus size={14} />
+                          </button>
+                          <button
+                            onClick={() => setNumGuests(String(Math.min(selectedRoom?.max_guests || homestay.max_guests, parseInt(numGuests) + 1)))}
+                            className="p-1 rounded-full border border-gray-200 hover:bg-gray-100 text-gray-400"
+                          >
+                            <Plus size={14} />
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* Price breakdown */}
+                    {totalPrice > 0 && priceResult && (
+                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="pt-4 border-t border-gray-100 space-y-2">
+                        {(() => {
+                          const hasSeasons = priceResult.breakdown.some((b) => b.seasonName);
+                          if (!hasSeasons) {
+                            return (
+                              <div className="flex justify-between text-sm text-gray-600">
+                                <span>฿{selectedRoom?.price_per_night.toLocaleString()} × {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
+                                <span>฿{totalPrice.toLocaleString()}</span>
+                              </div>
+                            );
+                          }
+                          const groups: { label: string; price: number; count: number }[] = [];
+                          for (const b of priceResult.breakdown) {
+                            const label = b.seasonName || t("baseRate");
+                            const last = groups[groups.length - 1];
+                            if (last && last.label === label && last.price === b.price) last.count++;
+                            else groups.push({ label, price: b.price, count: 1 });
+                          }
+                          return (
+                            <>
+                              {groups.map((g, i) => (
+                                <div key={i} className="flex justify-between text-sm text-gray-600">
+                                  <span>{g.label}: ฿{g.price.toLocaleString()} × {g.count}</span>
+                                  <span>฿{(g.price * g.count).toLocaleString()}</span>
+                                </div>
+                              ))}
+                            </>
+                          );
+                        })()}
+                        <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-100">
+                          <span>{tc("total")}</span>
+                          <span>฿{totalPrice.toLocaleString()}</span>
+                        </div>
+                      </motion.div>
+                    )}
+
+                    {/* PDPA */}
+                    <label className="flex items-start gap-2 cursor-pointer">
+                      <input type="checkbox" checked={pdpaConsent} onChange={(e) => setPdpaConsent(e.target.checked)} className="mt-1 h-4 w-4 rounded border-gray-300 text-[#4A90E2] focus:ring-[#4A90E2]" />
+                      <span className="text-xs text-gray-600">
+                        {t.rich("pdpaConsent", {
+                          privacy: (chunks) => <a href="/legal#privacy" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-gray-900">{chunks}</a>,
+                          terms: (chunks) => <a href="/legal#terms" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-gray-900">{chunks}</a>,
+                        })}
+                      </span>
+                    </label>
+
+                    <button
+                      onClick={handleProceedToDetails}
+                      disabled={!dateRange?.from || !dateRange?.to || !selectedRoomId || !pdpaConsent}
+                      className="w-full bg-[#4A90E2] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#357ABD] transition-all shadow-lg shadow-[#4A90E2]/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                    >
+                      {t("continueDetails")} <ArrowRight size={18} />
+                    </button>
+                    <p className="text-center text-[11px] text-gray-400">{t("subtitle")}</p>
+                  </motion.div>
+                )}
+
+                {/* ═══ Step 2: Guest Details ═══ */}
+                {step === "details" && (
+                  <motion.div key="step-details" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
+                    <AnimatePresence mode="wait">
+                      {!showConfirmModal ? (
+                        <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-5">
+                          <div className="flex items-center gap-3">
+                            <button onClick={() => setStep("dates")} className="p-2 rounded-full hover:bg-gray-100 text-gray-400"><ArrowLeft size={18} /></button>
+                            <h3 className="text-xl font-bold text-gray-900">{t("guestInfo")}</h3>
+                          </div>
+
+                          <div className="space-y-4">
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("fullName")} *</label>
+                              <div className="relative">
+                                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                <Input ref={nameInputRef} value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder={t("fullNamePlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-[#4A90E2]" />
+                              </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("email")} *</label>
+                              <div className="relative">
+                                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                <Input type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder={t("emailPlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-[#4A90E2]" />
+                              </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("phone")} *</label>
+                              <div className="relative">
+                                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                                <Input value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder={t("phonePlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-[#4A90E2]" />
+                              </div>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("province")}</label>
+                              <Select value={guestProvince} onValueChange={setGuestProvince}>
+                                <SelectTrigger className="!w-full p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-[#4A90E2]">
+                                  <SelectValue placeholder={t("provincePlaceholder")} />
+                                </SelectTrigger>
+                                <SelectContent className="max-h-60 z-[70]">
+                                  {THAI_PROVINCES.map((p) => (
+                                    <SelectItem key={p.value} value={p.value}>
+                                      {locale === "th" ? p.labelTh : p.labelEn}
+                                    </SelectItem>
+                                  ))}
+                                </SelectContent>
+                              </Select>
+                            </div>
+
+                            <div className="space-y-1.5">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("notes")}</label>
+                              <Textarea value={guestNote} onChange={(e) => setGuestNote(e.target.value)} placeholder={t("notesPlaceholder")} className="p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-[#4A90E2]" rows={2} />
+                            </div>
+                          </div>
+
+                          <button
+                            onClick={() => {
+                              if (!guestName || !guestEmail || !guestPhone) { toast.error(t("errorFillFields")); return; }
+                              setShowConfirmModal(true);
+                            }}
+                            className="w-full bg-[#4A90E2] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#357ABD] transition-all shadow-lg shadow-[#4A90E2]/20 flex items-center justify-center gap-2"
+                          >
+                            {t("continuePayment")} <ArrowRight size={18} />
+                          </button>
+                        </motion.div>
+                      ) : (
+                        <motion.div key="confirm" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
+                          <div className="flex items-center gap-3">
+                            <button onClick={() => setShowConfirmModal(false)} className="p-2 rounded-full hover:bg-gray-100 text-gray-400"><ArrowLeft size={18} /></button>
+                            <h3 className="text-xl font-bold text-gray-900">{t("confirmTitle")}</h3>
+                          </div>
+                          <p className="text-sm text-gray-500">{t("confirmDesc")}</p>
+                          <div className="space-y-3 rounded-xl bg-gray-50 p-4 text-sm">
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">{t("room")}</span>
+                              <span className="font-medium text-gray-900">{selectedRoom?.name}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">{t("dates")}</span>
+                              <span className="font-medium text-gray-900">
+                                {dateRange?.from && fmtDate(dateRange.from, "MMM d", locale)} — {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy", locale)}
+                              </span>
+                            </div>
+                            {(homestay.check_in_time || homestay.check_out_time) && (
+                              <div className="flex justify-between text-xs">
+                                <span className="text-gray-400">{homestay.check_in_time && t("checkInTime", { time: homestay.check_in_time })}</span>
+                                <span className="text-gray-400">{homestay.check_out_time && t("checkOutTime", { time: homestay.check_out_time })}</span>
+                              </div>
+                            )}
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">{tc("guests")}</span>
+                              <span className="font-medium text-gray-900">{numGuests}</span>
+                            </div>
+                            <Separator />
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">{t("fullName")}</span>
+                              <span className="font-medium text-gray-900">{guestName}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">{t("email")}</span>
+                              <span className="font-medium text-gray-900">{guestEmail}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">{t("phone")}</span>
+                              <span className="font-medium text-gray-900">{guestPhone}</span>
+                            </div>
+                            {guestProvince && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">{t("province")}</span>
+                                <span className="font-medium text-gray-900">{provinceLabel(guestProvince)}</span>
+                              </div>
+                            )}
+                            {guestNote && (
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">{t("notes")}</span>
+                                <span className="font-medium text-gray-900 text-right max-w-[200px]">{guestNote}</span>
+                              </div>
+                            )}
+                            <Separator />
+                            <div className="flex justify-between">
+                              <span className="font-semibold text-gray-900">{tc("total")}</span>
+                              <span className="text-lg font-bold text-gray-900">฿{totalPrice.toLocaleString()}</span>
+                            </div>
+                            {depositAvailable && (
+                              <div className="flex justify-between text-xs text-gray-400">
+                                <span>{t("payDeposit")}: ฿{resolvedDeposit.toLocaleString()}</span>
+                                <span>{t("payFull")}: ฿{totalPrice.toLocaleString()}</span>
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex gap-3">
+                            <button
+                              onClick={() => setShowConfirmModal(false)}
+                              className="flex-1 py-3 rounded-2xl font-bold text-sm border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all"
+                            >
+                              {t("confirmEdit")}
+                            </button>
+                            <button
+                              disabled={isSubmitting}
+                              onClick={() => { setShowConfirmModal(false); handleProceedToPayment(); }}
+                              className="flex-1 bg-[#4A90E2] text-white py-3 rounded-2xl font-bold text-sm hover:bg-[#357ABD] transition-all shadow-lg shadow-[#4A90E2]/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                            >
+                              {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("confirmProceed")}</>) : <>{t("confirmProceed")} <ArrowRight size={18} /></>}
+                            </button>
+                          </div>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
+                  </motion.div>
+                )}
+
+                {/* ═══ Step 3: Payment ═══ */}
+                {step === "payment" && (
+                  <motion.div key="step-payment" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
+                    <div className="flex items-center justify-between">
+                      <div className="flex items-center gap-3">
+                        {paymentPhase === "qr" && (
+                          <button onClick={() => { releaseHold(); setStep("details"); setPaymentPhase("qr"); }} className="p-2 rounded-full hover:bg-gray-100 text-gray-400"><ArrowLeft size={18} /></button>
+                        )}
+                        {paymentPhase === "upload" && (
+                          <button onClick={() => setPaymentPhase("qr")} className="p-2 rounded-full hover:bg-gray-100 text-gray-400"><ArrowLeft size={18} /></button>
+                        )}
+                        <h3 className="text-xl font-bold text-gray-900">{t("paymentTitle")}</h3>
+                      </div>
+                      {holdTimeLeft > 0 && (
+                        <div className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
+                          style={{ backgroundColor: holdTimeLeft <= 60 ? '#fef2f2' : '#f3f4f6', color: holdTimeLeft <= 60 ? '#dc2626' : '#4A90E2' }}
+                        >
+                          <Clock className="h-3.5 w-3.5" />
+                          {Math.floor(holdTimeLeft / 60)}:{String(holdTimeLeft % 60).padStart(2, '0')}
+                        </div>
+                      )}
+                    </div>
+
+                    {/* Deposit vs Full */}
+                    {depositAvailable && paymentPhase === "qr" && (
+                      <div className="grid grid-cols-2 gap-3">
+                        <button type="button" onClick={() => setPaymentOption("full")}
+                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "full" ? "border-[#4A90E2] bg-blue-50" : "border-gray-100 hover:border-gray-300"}`}>
+                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "full" ? "bg-[#4A90E2] text-white" : "bg-gray-100 text-gray-400"}`}><CreditCard size={18} /></div>
+                          <p className="font-bold text-gray-900">{t("payFull")}</p>
+                          <p className="text-xs text-gray-500">฿{totalPrice.toLocaleString()}</p>
+                        </button>
+                        <button type="button" onClick={() => setPaymentOption("deposit")}
+                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "deposit" ? "border-[#4A90E2] bg-blue-50" : "border-gray-100 hover:border-gray-300"}`}>
+                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "deposit" ? "bg-[#4A90E2] text-white" : "bg-gray-100 text-gray-400"}`}><CreditCard size={18} /></div>
+                          <p className="font-bold text-gray-900">{t("payDeposit")}</p>
+                          <p className="text-xs text-gray-500">฿{resolvedDeposit.toLocaleString()}</p>
+                        </button>
+                      </div>
+                    )}
+
+                    <AnimatePresence mode="wait">
+                      {/* QR Phase */}
+                      {paymentPhase === "qr" && (
+                        <motion.div key="qr" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-4">
+                          <div className="flex flex-col items-center p-5 bg-gray-50 rounded-2xl border border-gray-100">
+                            <p className="text-sm text-gray-500 mb-3">{t("scanQr")}</p>
+                            <div ref={qrContainerRef} className="bg-white p-3 rounded-2xl shadow-sm">
+                              <QRCodeSVG value={generatePayload(host.promptpay_id, { amount: paymentAmount })} size={160} level="M" />
+                            </div>
+                            <button type="button" onClick={handleSaveQr} className="mt-3 flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-medium text-gray-700 border border-gray-200 hover:bg-gray-50">
+                              <Download className="h-3.5 w-3.5" />{t("saveQrImage")}
+                            </button>
+                            <p className="mt-3 text-2xl font-bold text-gray-900">฿{paymentAmount.toLocaleString()}</p>
+                            {paymentOption === "deposit" && depositAvailable && (
+                              <p className="mt-1 text-xs text-amber-600">{t("balanceDue")}: ฿{(totalPrice - paymentAmount).toLocaleString()} — {t("payOnArrival")}</p>
+                            )}
+                            <p className="mt-1 text-sm font-medium text-gray-700">{host.name}</p>
+                            <p className="text-xs text-gray-400">{t("promptpayId")}: {host.promptpay_id}</p>
+                          </div>
+
+                          {/* Instructions */}
+                          <div className="rounded-2xl border bg-gray-50 p-4">
+                            <div className="space-y-2.5">
+                              {[
+                                { num: 1, icon: Smartphone, text: t("payStep1") },
+                                { num: 2, icon: ArrowRight, text: t("payStep2") },
+                                { num: 3, icon: CreditCard, text: t("payStep3") },
+                                { num: 4, icon: Upload, text: t("payStep4") },
+                              ].map((s) => (
+                                <div key={s.num} className="flex items-center gap-2.5">
+                                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#4A90E2] text-[10px] font-bold text-white">{s.num}</div>
+                                  <s.icon className="h-3.5 w-3.5 shrink-0 text-gray-400" />
+                                  <p className="text-xs text-gray-600">{s.text}</p>
+                                </div>
+                              ))}
+                            </div>
+                          </div>
+
+                          <button onClick={() => setPaymentPhase("upload")}
+                            className="w-full bg-[#4A90E2] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#357ABD] transition-all shadow-lg shadow-[#4A90E2]/20 flex items-center justify-center gap-2">
+                            <CheckCircle2 className="h-4 w-4" />{t("iveTransferred")}
+                          </button>
+                        </motion.div>
+                      )}
+
+                      {/* Upload Phase */}
+                      {paymentPhase === "upload" && (
+                        <motion.div key="upload" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-4">
+                          <div className="text-center">
+                            {showWelcomeBack && <div className="mb-3 rounded-xl bg-gray-100 px-4 py-2.5 text-sm font-medium text-gray-900">{t("welcomeBack")}</div>}
+                            <Upload className="mx-auto h-8 w-8 text-gray-300" />
+                            <h4 className="mt-2 text-base font-bold text-gray-900">{t("waitingForSlip")}</h4>
+                            <p className="mt-1 text-xs text-gray-500">{t("waitingForSlipDesc")}</p>
+                            <p className="mt-2 text-lg font-bold text-gray-900">฿{paymentAmount.toLocaleString()}</p>
+                            {paymentOption === "deposit" && depositAvailable && (
+                              <p className="mt-1 text-xs text-amber-600">{t("balanceDue")}: ฿{(totalPrice - paymentAmount).toLocaleString()} — {t("payOnArrival")}</p>
                             )}
                           </div>
 
-                          {/* Cross-device upload: scan QR from phone (desktop only) */}
-                          {!isMobile && (
-                            <>
-                              <div className="relative flex items-center gap-3 py-1">
-                                <div className="flex-1 border-t border-gray-200" />
-                                <span className="text-xs font-medium text-gray-400">{t("orUploadFromPhone")}</span>
-                                <div className="flex-1 border-t border-gray-200" />
-                              </div>
-
-                              <div className="rounded-xl border bg-gray-50 p-4 text-center">
-                                <p className="mb-3 text-xs text-gray-500">
-                                  {t("scanToUpload")}
-                                </p>
-                                <div className="mx-auto flex h-36 w-36 items-center justify-center rounded-lg border bg-white p-2">
-                                  <QRCodeSVG
-                                    value={`${typeof window !== "undefined" ? window.location.origin : ""}/upload-slip/${uploadSessionId}`}
-                                    size={120}
-                                    level="M"
-                                  />
+                          {slipPreview ? (
+                            <div className="rounded-2xl border bg-gray-50 p-3">
+                              {phoneSlipReceived && (
+                                <div className="mb-3 rounded-xl bg-gray-100 px-3 py-2 text-center text-sm font-medium text-gray-900">
+                                  <CheckCircle2 className="mr-1.5 inline h-4 w-4" />{t("slipReceived")}
                                 </div>
-                                <div className="mt-3 flex items-center justify-center gap-2 text-xs text-gray-400">
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                  {t("waitingForPhoneUpload")}
-                                </div>
+                              )}
+                              <p className="mb-2 text-center text-xs font-medium text-gray-500">{t("slipPreview")}</p>
+                              <div className="relative mx-auto w-fit">
+                                <img src={slipPreview} alt={t("slipPreview")} className="mx-auto max-h-52 rounded-xl object-contain" />
+                                <button type="button" onClick={handleRemoveSlip} className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white shadow-md hover:bg-red-600"><X className="h-3 w-3" /></button>
                               </div>
-                            </>
+                              <div className="mt-3 flex justify-center">
+                                <Button type="button" variant="outline" size="sm" onClick={() => galleryInputRef.current?.click()} className="rounded-full">
+                                  <ImageIcon className="mr-1.5 h-3.5 w-3.5" />{t("changeSlip")}
+                                </Button>
+                              </div>
+                            </div>
+                          ) : (
+                            <div className="space-y-3">
+                              <button type="button" onClick={() => galleryInputRef.current?.click()}
+                                className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-gray-300 p-4 text-left transition-colors hover:border-gray-400 hover:bg-gray-50">
+                                <div className="rounded-xl bg-gray-100 p-2.5"><ImageIcon className="h-5 w-5 text-gray-500" /></div>
+                                <div>
+                                  <p className="text-sm font-medium text-gray-700">{t("chooseFromGallery")}</p>
+                                  <p className="text-xs text-gray-400">{t("clickUpload")}</p>
+                                </div>
+                              </button>
+                              {isMobile && (
+                                <button type="button" onClick={() => cameraInputRef.current?.click()}
+                                  className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-gray-300 p-4 text-left transition-colors hover:border-gray-400 hover:bg-gray-50">
+                                  <div className="rounded-xl bg-gray-100 p-2.5"><Camera className="h-5 w-5 text-gray-500" /></div>
+                                  <div>
+                                    <p className="text-sm font-medium text-gray-700">{t("takePhoto")}</p>
+                                    <p className="text-xs text-gray-400">{t("clickUpload")}</p>
+                                  </div>
+                                </button>
+                              )}
+                              {!isMobile && (
+                                <>
+                                  <div className="relative flex items-center gap-3 py-1">
+                                    <div className="flex-1 border-t border-gray-200" />
+                                    <span className="text-xs font-medium text-gray-400">{t("orUploadFromPhone")}</span>
+                                    <div className="flex-1 border-t border-gray-200" />
+                                  </div>
+                                  <div className="rounded-2xl border bg-gray-50 p-4 text-center">
+                                    <p className="mb-3 text-xs text-gray-500">{t("scanToUpload")}</p>
+                                    <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-xl border bg-white p-2">
+                                      <QRCodeSVG value={`${typeof window !== "undefined" ? window.location.origin : ""}/upload-slip/${uploadSessionId}`} size={100} level="M" />
+                                    </div>
+                                    <div className="mt-3 flex items-center justify-center gap-2 text-xs text-gray-400">
+                                      <Loader2 className="h-3 w-3 animate-spin" />{t("waitingForPhoneUpload")}
+                                    </div>
+                                  </div>
+                                </>
+                              )}
+                            </div>
                           )}
-                        </div>
+                          <p className="text-xs text-gray-400 text-center">{t("slipVerify")}</p>
+
+                          <button onClick={handleSubmitBooking} disabled={isSubmitting || !slipFile}
+                            className="w-full bg-[#4A90E2] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#357ABD] transition-all shadow-lg shadow-[#4A90E2]/20 disabled:opacity-50 disabled:cursor-not-allowed">
+                            {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin inline" />{t("verifying")}</>) : t("submitBooking")}
+                          </button>
+                        </motion.div>
                       )}
-
-                      <p className="mt-2 text-xs text-gray-400">
-                        {t("slipVerify")}
-                      </p>
-                    </div>
-
-                    <div className="flex gap-2">
-                      <Button
-                        variant="outline"
-                        className="flex-1"
-                        onClick={() => setPaymentPhase("qr")}
-                      >
-                        {tc("back")}
-                      </Button>
-                      <Button
-                        className="flex-1 hover:brightness-90"
-                        style={{ backgroundColor: themeColor }}
-                        onClick={handleSubmitBooking}
-                        disabled={isSubmitting || !slipFile}
-                      >
-                        {isSubmitting ? (
-                          <>
-                            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                            {t("verifying")}
-                          </>
-                        ) : (
-                          t("submitBooking")
-                        )}
-                      </Button>
-                    </div>
-                  </>
+                    </AnimatePresence>
+                  </motion.div>
                 )}
 
-              </CardContent>
-            </Card>
-          )}
+                {/* ═══ Step 4: Confirmed ═══ */}
+                {step === "confirmed" && (
+                  <motion.div key="step-confirmed" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center text-center py-6">
+                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${slipVerified ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"}`}>
+                      <CheckCircle2 size={36} />
+                    </div>
+                    <h3 className="text-2xl font-bold text-gray-900 mb-2">
+                      {slipVerified ? t("confirmedTitle") : t("confirmedTitlePending")}
+                    </h3>
+                    <p className="text-sm text-gray-500 mb-4">
+                      {slipVerified ? t("confirmedText") : t("confirmedTextPending")}
+                    </p>
+                    {bookingId && (
+                      <Badge className="mb-4 bg-blue-50 text-[#4A90E2]" variant="secondary">
+                        {t("bookingId")}: {bookingId}
+                      </Badge>
+                    )}
 
-          {/* Step 4: Confirmation */}
-          {step === "confirmed" && (
-            <Card className="shadow-sm overflow-hidden" style={{ borderColor: themeColor + '40' }}>
-              <div className="h-1 w-full" style={{ backgroundColor: themeColor }} />
-              <CardContent className="p-8 text-center">
-                <CheckCircle2 className="mx-auto h-16 w-16" style={{ color: slipVerified ? themeColor : '#f59e0b' }} />
-                <h3 className="mt-4 text-xl font-semibold text-gray-900">
-                  {slipVerified ? t("confirmedTitle") : t("confirmedTitlePending")}
-                </h3>
-                <p className="mt-2 text-gray-600">
-                  {slipVerified ? t("confirmedText") : t("confirmedTextPending")}
-                </p>
-                {bookingId && (
-                  <Badge className="mt-4" variant="secondary" style={{ backgroundColor: themeColor + '1a', color: themeColor }}>
-                    {t("bookingId")}: {bookingId}
-                  </Badge>
+                    <div className="bg-gray-50 p-5 rounded-2xl w-full text-left space-y-2.5 text-sm">
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">{t("homestay")}</span>
+                        <span className="font-bold text-gray-900">{homestay.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">{t("room")}</span>
+                        <span className="font-bold text-gray-900">{selectedRoom?.name}</span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">{t("dates")}</span>
+                        <span className="font-bold text-gray-900">
+                          {dateRange?.from && fmtDate(dateRange.from, "MMM d", locale)} — {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy", locale)}
+                        </span>
+                      </div>
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">{t("guestInfo")}</span>
+                        <span className="font-bold text-gray-900">{guestName}</span>
+                      </div>
+                      <Separator />
+                      <div className="flex justify-between">
+                        <span className="text-gray-400">{tc("total")}</span>
+                        <span className="text-lg font-bold text-gray-900">฿{totalPrice.toLocaleString()}</span>
+                      </div>
+                      {paymentOption === "deposit" && depositAvailable && (
+                        <>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-gray-400">{t("amountPaid")}</span>
+                            <span className="text-gray-900">฿{paymentAmount.toLocaleString()}</span>
+                          </div>
+                          <div className="flex justify-between text-xs">
+                            <span className="text-amber-600">{t("balanceDue")}</span>
+                            <span className="text-amber-600">฿{(totalPrice - paymentAmount).toLocaleString()}</span>
+                          </div>
+                        </>
+                      )}
+                    </div>
+
+                    <button onClick={() => { resetBooking(); setOpen(false); }}
+                      className="mt-6 bg-[#4A90E2] text-white px-8 py-3 rounded-full font-bold text-sm hover:bg-[#357ABD] transition-all">
+                      {t("bookAnother")}
+                    </button>
+                  </motion.div>
                 )}
-
-                <div className="mt-6 rounded-lg bg-gray-50 p-4 text-left text-sm text-gray-600">
-                  <p><strong>{t("homestay")}:</strong> {homestay.name}</p>
-                  <p><strong>{t("room")}:</strong> {selectedRoom?.name}</p>
-                  <p>
-                    <strong>{t("dates")}:</strong>{" "}
-                    {dateRange?.from && fmtDate(dateRange.from, "MMM d", locale)} —{" "}
-                    {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy", locale)}
-                  </p>
-                  <p><strong>{tc("guests")}:</strong> {numGuests}</p>
-                  <p><strong>{t("guestInfo")}:</strong> {guestName}</p>
-                  {guestNote && (
-                    <p><strong>{t("notes")}:</strong> {guestNote}</p>
-                  )}
-                  <p className="mt-2 text-base font-bold" style={{ color: themeColor }}>
-                    {tc("total")}: ฿{totalPrice.toLocaleString()}
-                  </p>
-                  {paymentOption === "deposit" && depositAvailable && (
-                    <>
-                      <p className="text-sm" style={{ color: themeColor }}>
-                        {t("amountPaid")}: ฿{paymentAmount.toLocaleString()}
-                      </p>
-                      <p className="text-sm text-amber-600">
-                        {t("balanceDue")}: ฿{(totalPrice - paymentAmount).toLocaleString()} — {t("payOnArrival")}
-                      </p>
-                    </>
-                  )}
-                </div>
-
-                <Button
-                  className="mt-6 hover:brightness-90"
-                  style={{ backgroundColor: themeColor }}
-                  onClick={() => {
-                    setStep("dates");
-                    setPaymentPhase("qr");
-                    setPaymentOption("full");
-                    setSlipVerified(false);
-                    setDateRange(undefined);
-                    setSelectedRoomId("");
-                    setGuestName("");
-                    setGuestEmail("");
-                    setGuestPhone("");
-                    setGuestProvince("");
-                    setGuestNote("");
-                    handleRemoveSlip();
-                    setBookingId(null);
-                  }}
-                >
-                  {t("bookAnother")}
-                </Button>
-              </CardContent>
-            </Card>
-          )}
-        </div>
-      </div>
+              </AnimatePresence>
+            </div>
+          </div>
+        </motion.div>
+      </motion.div>
 
       {/* Dates Held Modal */}
-      <Dialog open={showHeldModal} onOpenChange={(open) => { if (!open) handleHeldModalClose(); }}>
+      <Dialog open={showHeldModal} onOpenChange={(o) => { if (!o) handleHeldModalClose(); }}>
         <DialogContent showCloseButton={false}>
           <DialogHeader>
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
               <AlertTriangle className="h-6 w-6 text-amber-600" />
             </div>
             <DialogTitle className="text-center">{t("datesHeldTitle")}</DialogTitle>
-            <DialogDescription className="text-center">
-              {t("datesHeldDesc")}
-            </DialogDescription>
+            <DialogDescription className="text-center">{t("datesHeldDesc")}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button
-              className="w-full hover:brightness-90"
-              style={{ backgroundColor: themeColor }}
-              onClick={handleHeldModalClose}
-            >
-              {t("chooseDifferentDates")}
-            </Button>
+            <Button className="w-full bg-[#4A90E2] text-white hover:bg-[#357ABD]" onClick={handleHeldModalClose}>{t("chooseDifferentDates")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
 
-      {/* Confirm Details Modal */}
-      <Dialog open={showConfirmModal} onOpenChange={setShowConfirmModal}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full" style={{ backgroundColor: themeColor + '15' }}>
-              <Users className="h-6 w-6" style={{ color: themeColor }} />
-            </div>
-            <DialogTitle className="text-center">{t("confirmTitle")}</DialogTitle>
-            <DialogDescription className="text-center">
-              {t("confirmDesc")}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="space-y-3 rounded-lg bg-gray-50 p-4 text-sm">
-            <div className="flex justify-between">
-              <span className="text-gray-500">{t("room")}</span>
-              <span className="font-medium text-gray-900">{selectedRoom?.name}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">{t("dates")}</span>
-              <span className="font-medium text-gray-900">
-                {dateRange?.from && fmtDate(dateRange.from, "MMM d", locale)} — {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy", locale)}
-              </span>
-            </div>
-            {(homestay.check_in_time || homestay.check_out_time) && (
-              <div className="flex justify-between text-xs">
-                <span className="text-gray-400">{homestay.check_in_time && t("checkInTime", { time: homestay.check_in_time })}</span>
-                <span className="text-gray-400">{homestay.check_out_time && t("checkOutTime", { time: homestay.check_out_time })}</span>
-              </div>
-            )}
-            <div className="flex justify-between">
-              <span className="text-gray-500">{tc("guests")}</span>
-              <span className="font-medium text-gray-900">{numGuests}</span>
-            </div>
-            <Separator />
-            <div className="flex justify-between">
-              <span className="text-gray-500">{t("fullName")}</span>
-              <span className="font-medium text-gray-900">{guestName}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">{t("email")}</span>
-              <span className="font-medium text-gray-900">{guestEmail}</span>
-            </div>
-            <div className="flex justify-between">
-              <span className="text-gray-500">{t("phone")}</span>
-              <span className="font-medium text-gray-900">{guestPhone}</span>
-            </div>
-            {guestProvince && (
-              <div className="flex justify-between">
-                <span className="text-gray-500">{t("province")}</span>
-                <span className="font-medium text-gray-900">{provinceLabel(guestProvince)}</span>
-              </div>
-            )}
-            {guestNote && (
-              <div className="flex justify-between">
-                <span className="text-gray-500">{t("notes")}</span>
-                <span className="font-medium text-gray-900 text-right max-w-[200px]">{guestNote}</span>
-              </div>
-            )}
-            <Separator />
-            <div className="flex justify-between">
-              <span className="font-semibold text-gray-900">{tc("total")}</span>
-              <span className="text-lg font-bold" style={{ color: themeColor }}>฿{totalPrice.toLocaleString()}</span>
-            </div>
-            {depositAvailable && (
-              <div className="flex justify-between text-xs text-gray-400">
-                <span>{t("payDeposit")}: ฿{resolvedDeposit.toLocaleString()}</span>
-                <span>{t("payFull")}: ฿{totalPrice.toLocaleString()}</span>
-              </div>
-            )}
-          </div>
-          <DialogFooter className="flex gap-2 sm:gap-2">
-            <Button
-              variant="outline"
-              className="flex-1"
-              onClick={() => setShowConfirmModal(false)}
-            >
-              {t("confirmEdit")}
-            </Button>
-            <Button
-              className="flex-1 hover:brightness-90"
-              style={{ backgroundColor: themeColor }}
-              disabled={isSubmitting}
-              onClick={() => {
-                setShowConfirmModal(false);
-                handleProceedToPayment();
-              }}
-            >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  {t("confirmProceed")}
-                </>
-              ) : (
-                t("confirmProceed")
-              )}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </>
-  );
-
-  if (embedded) {
-    return <div id="booking">{content}</div>;
-  }
-
-  return (
-    <section id="booking" className="py-8">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        {content}
-      </div>
-    </section>
   );
 }
