@@ -692,111 +692,11 @@ export function BookingSection({
           initial={{ scale: 0.95, y: 20 }}
           animate={{ scale: 1, y: 0 }}
           exit={{ scale: 0.95, y: 20 }}
-          className="bg-white w-full max-w-4xl rounded-3xl overflow-hidden shadow-2xl flex flex-col md:flex-row h-[95vh] md:h-auto md:max-h-[90vh]"
+          className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col h-[95vh] md:h-auto md:max-h-[90vh]"
           onClick={(e) => e.stopPropagation()}
         >
-          {/* ── Left: Info Panel ── */}
-          <div className="md:w-5/12 bg-gray-50 p-6 md:p-10 overflow-y-auto border-r border-gray-100 relative hidden md:block">
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-gray-900">{homestay.name}</h2>
-              <p className="flex items-center gap-1.5 text-sm text-gray-500 mt-1">
-                <MapPin size={14} /> {homestay.location}
-              </p>
-            </div>
-
-            {/* Selected room */}
-            {selectedRoom && (
-              <div className="mb-6 rounded-2xl bg-white p-4">
-                <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("room")}</p>
-                <p className="text-base font-bold text-gray-900 mt-1">{selectedRoom.name}</p>
-                <p className="text-sm text-[#4A90E2] font-semibold mt-0.5">{priceLabel}/{tc("night")}</p>
-                {selectedRoom.description && (
-                  <div className="mt-2 text-xs text-gray-500">
-                    <HTMLContent content={selectedRoom.description} className="inline" />
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="space-y-6">
-              {/* Amenities */}
-              {homestay.amenities?.length > 0 && (
-                <section>
-                  <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                    <Check size={16} className="text-gray-400" />
-                    {tc("amenities")}
-                  </h3>
-                  <ul className="grid grid-cols-2 gap-2 text-xs text-gray-600">
-                    {homestay.amenities.map((a) => {
-                      const Icon = AMENITY_ICONS[a] || Check;
-                      return (
-                        <li key={a} className="flex items-center gap-1.5">
-                          <Icon size={14} className="text-gray-400 shrink-0" /> {a}
-                        </li>
-                      );
-                    })}
-                  </ul>
-                </section>
-              )}
-
-              {/* House Rules */}
-              {homestay.prohibitions?.length > 0 && (
-                <section>
-                  <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                    <Ban size={16} className="text-gray-400" />
-                    {tc("houseRules")}
-                  </h3>
-                  <ul className="space-y-2 text-xs text-gray-600">
-                    {(homestay.check_in_time || homestay.check_out_time) && (
-                      <>
-                        {homestay.check_in_time && (
-                          <li className="flex items-start gap-2">
-                            <span className="w-1 h-1 rounded-full bg-gray-400 mt-1.5 shrink-0" />
-                            {t("checkInTime", { time: homestay.check_in_time })}
-                          </li>
-                        )}
-                        {homestay.check_out_time && (
-                          <li className="flex items-start gap-2">
-                            <span className="w-1 h-1 rounded-full bg-gray-400 mt-1.5 shrink-0" />
-                            {t("checkOutTime", { time: homestay.check_out_time })}
-                          </li>
-                        )}
-                      </>
-                    )}
-                    {homestay.prohibitions.map((rule, i) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <span className="w-1 h-1 rounded-full bg-gray-400 mt-1.5 shrink-0" />
-                        {rule}
-                      </li>
-                    ))}
-                  </ul>
-                </section>
-              )}
-
-              {/* Cancellation Policy */}
-              {host.cancellation_days > 0 && (
-                <section>
-                  <h3 className="text-sm font-bold text-gray-900 mb-3 flex items-center gap-2">
-                    <Shield size={16} className="text-gray-400" />
-                    {t("cancellationPolicy")}
-                  </h3>
-                  <div className="bg-white p-3 rounded-xl text-xs text-gray-600">
-                    <p>{t("cancellationPolicyNote", { days: host.cancellation_days })}</p>
-                  </div>
-                </section>
-              )}
-            </div>
-
-            <button
-              onClick={handleClose}
-              className="absolute top-4 left-4 p-2 rounded-full bg-white text-gray-400 shadow-sm border border-gray-100 hover:bg-gray-100 hover:text-gray-900 transition-all md:hidden"
-            >
-              <X size={18} />
-            </button>
-          </div>
-
-          {/* ── Right: Booking Form ── */}
-          <div className="md:w-7/12 p-5 md:p-8 relative flex flex-col overflow-hidden">
+          {/* ── Booking Form ── */}
+          <div className="p-5 md:p-8 relative flex flex-col">
             <button
               onClick={handleClose}
               className="absolute top-4 right-4 p-2 rounded-full text-gray-400 hover:bg-gray-100 transition-all z-10"
@@ -837,25 +737,26 @@ export function BookingSection({
                 {/* ═══ Step 1: Dates ═══ */}
                 {step === "dates" && (
                   <motion.div key="step-dates" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
-                    <div className="flex justify-between items-center">
-                      <h3 className="text-xl font-bold text-gray-900">{t("selectDates")}</h3>
-                      {selectedRoom && (
-                        <div className="text-right">
-                          <span className="text-xl font-bold text-gray-900">{priceLabel}</span>
-                          <span className="text-gray-500 text-xs"> / {tc("night")}</span>
+                    {/* Room detail */}
+                    {selectedRoom && (
+                      <div className="rounded-xl bg-gray-50 p-3">
+                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("room")}</p>
+                        <div className="flex items-baseline justify-between mt-1">
+                          <p className="text-base font-bold text-gray-900">{selectedRoom.name}</p>
+                          <p className="text-sm text-[#4A90E2] font-semibold">{priceLabel}/{tc("night")}</p>
                         </div>
-                      )}
-                    </div>
+                        {selectedRoom.description && (
+                          <div className="mt-2 text-xs text-gray-500">
+                            <HTMLContent content={selectedRoom.description} className="inline" />
+                          </div>
+                        )}
+                      </div>
+                    )}
 
-                    {/* Mobile: show room name */}
-                    <div className="md:hidden rounded-xl bg-gray-50 p-3 text-sm">
-                      <p className="font-bold text-gray-900">{selectedRoom?.name}</p>
-                      <p className="text-xs text-gray-500">{homestay.name} · {homestay.location}</p>
-                    </div>
+                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("selectDates")}</label>
 
                     {/* Date picker toggle */}
                     <div className="space-y-2 relative">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("selectDates")}</label>
                       <button
                         onClick={() => setShowCalendar(!showCalendar)}
                         className="w-full flex items-center justify-between p-3.5 rounded-xl border border-gray-200 hover:border-gray-400 transition-all text-sm font-medium text-gray-900 bg-white"
@@ -882,7 +783,7 @@ export function BookingSection({
                             initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 8 }}
-                            className="absolute top-full left-0 right-0 mt-1 bg-white rounded-2xl p-3 z-50 border border-gray-100"
+                            className="absolute top-full left-0 right-0 mt-1 bg-white rounded-2xl p-3 z-[60] border border-gray-100 shadow-lg"
                           >
                             {mounted ? (
                               <Calendar

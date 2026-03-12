@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useCallback } from "react";
-import { Star, MessageSquare, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
+import { useState, useCallback, useRef } from "react";
+import { Star, MessageSquare, Loader2 } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
@@ -14,7 +14,7 @@ import { createClient } from "@/lib/supabase/client";
 import type { Review } from "@/types/database";
 import { fmtDateStr } from "@/lib/format-date";
 
-const GRID_LIMIT = 6;
+const GRID_LIMIT = 9;
 const MODAL_PAGE_SIZE = 20;
 
 interface ReviewsSectionProps {
@@ -99,19 +99,18 @@ export function ReviewsSection({
   // View All modal state
   const [modalOpen, setModalOpen] = useState(false);
   const [modalReviews, setModalReviews] = useState<Review[]>([]);
-  const [modalPage, setModalPage] = useState(1);
   const [modalLoading, setModalLoading] = useState(false);
   const [modalTotal, setModalTotal] = useState(totalCount);
-
-  const totalModalPages = Math.ceil(modalTotal / MODAL_PAGE_SIZE);
+  const modalOffsetRef = useRef(0);
 
   const gridReviews = initialReviews.slice(0, GRID_LIMIT);
   const hasMore = totalCount > GRID_LIMIT;
+  const hasMoreInModal = modalReviews.length < modalTotal;
 
-  const fetchModalPage = useCallback(async (page: number) => {
+  const fetchMoreModal = useCallback(async (reset: boolean) => {
     setModalLoading(true);
     const supabase = createClient();
-    const from = (page - 1) * MODAL_PAGE_SIZE;
+    const from = reset ? 0 : modalOffsetRef.current;
     const to = from + MODAL_PAGE_SIZE - 1;
 
     const { data, count } = await supabase
@@ -122,16 +121,21 @@ export function ReviewsSection({
       .range(from, to);
 
     const rows = (data as unknown as Review[]) || [];
-    setModalReviews(rows);
-    setModalPage(page);
+    if (reset) {
+      setModalReviews(rows);
+    } else {
+      setModalReviews((prev) => [...prev, ...rows]);
+    }
+    modalOffsetRef.current = (reset ? 0 : modalOffsetRef.current) + rows.length;
     if (count !== null) setModalTotal(count);
     setModalLoading(false);
   }, [homestayId]);
 
   const openModal = useCallback(() => {
     setModalOpen(true);
-    fetchModalPage(1);
-  }, [fetchModalPage]);
+    modalOffsetRef.current = 0;
+    fetchMoreModal(true);
+  }, [fetchMoreModal]);
 
   return (
     <>
@@ -198,77 +202,62 @@ export function ReviewsSection({
           </DialogHeader>
 
           <div className="flex-1 overflow-y-auto pr-1">
-            {modalLoading ? (
+            {modalReviews.length === 0 && modalLoading ? (
               <div className="flex items-center justify-center py-16">
                 <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
               </div>
             ) : (
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                {modalReviews.map((review) => (
-                  <div key={review.id} className="rounded-xl bg-white p-4 shadow-sm">
-                    <div className="flex items-center justify-between">
-                      <span className="text-sm font-medium text-gray-900">
-                        {review.guest_name}
-                      </span>
-                      <StarRating rating={review.rating} size={13} />
-                    </div>
-                    {review.comment && (
-                      <p className="mt-2 text-sm leading-relaxed text-gray-600">
-                        {review.comment}
+              <>
+                <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                  {modalReviews.map((review) => (
+                    <div key={review.id} className="rounded-xl bg-white p-4 shadow-sm">
+                      <div className="flex items-center justify-between">
+                        <span className="text-sm font-medium text-gray-900">
+                          {review.guest_name}
+                        </span>
+                        <StarRating rating={review.rating} size={13} />
+                      </div>
+                      {review.comment && (
+                        <p className="mt-2 text-sm leading-relaxed text-gray-600">
+                          {review.comment}
+                        </p>
+                      )}
+                      <p className="mt-2 text-xs text-gray-400">
+                        {fmtDateStr(review.created_at.split("T")[0], "d MMM yyyy", locale)}
                       </p>
-                    )}
-                    <p className="mt-2 text-xs text-gray-400">
-                      {fmtDateStr(review.created_at.split("T")[0], "d MMM yyyy", locale)}
-                    </p>
-                  </div>
-                ))}
-              </div>
+                    </div>
+                  ))}
+                </div>
+
+                {/* Load More / Count */}
+                <div className="flex flex-col items-center gap-2 pt-4">
+                  <p className="text-xs text-gray-500">
+                    {t("showingCount", {
+                      count: modalReviews.length,
+                      total: modalTotal,
+                    })}
+                  </p>
+                  {hasMoreInModal && (
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      disabled={modalLoading}
+                      onClick={() => fetchMoreModal(false)}
+                    >
+                      {modalLoading ? (
+                        <>
+                          <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                          {t("loadingMore")}
+                        </>
+                      ) : (
+                        t("loadMore")
+                      )}
+                    </Button>
+                  )}
+                </div>
+              </>
             )}
           </div>
-
-          {/* Pagination */}
-          {totalModalPages > 1 && (
-            <div className="flex items-center justify-between border-t pt-4 mt-2">
-              <p className="text-xs text-gray-500">
-                {t("showingCount", {
-                  count: `${(modalPage - 1) * MODAL_PAGE_SIZE + 1}–${Math.min(modalPage * MODAL_PAGE_SIZE, modalTotal)}`,
-                  total: modalTotal,
-                })}
-              </p>
-              <div className="flex items-center gap-1">
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  disabled={modalPage <= 1 || modalLoading}
-                  onClick={() => fetchModalPage(modalPage - 1)}
-                >
-                  <ChevronLeft className="h-4 w-4" />
-                </Button>
-                {Array.from({ length: totalModalPages }, (_, i) => i + 1).map((p) => (
-                  <Button
-                    key={p}
-                    variant={p === modalPage ? "default" : "outline"}
-                    size="icon"
-                    className={`h-8 w-8 text-xs ${p === modalPage ? "bg-[#4A90E2] text-white hover:bg-[#357ABD]" : ""}`}
-                    disabled={modalLoading}
-                    onClick={() => fetchModalPage(p)}
-                  >
-                    {p}
-                  </Button>
-                ))}
-                <Button
-                  variant="outline"
-                  size="icon"
-                  className="h-8 w-8"
-                  disabled={modalPage >= totalModalPages || modalLoading}
-                  onClick={() => fetchModalPage(modalPage + 1)}
-                >
-                  <ChevronRight className="h-4 w-4" />
-                </Button>
-              </div>
-            </div>
-          )}
         </DialogContent>
       </Dialog>
 

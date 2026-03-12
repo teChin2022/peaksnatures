@@ -86,7 +86,8 @@
     "maxGuests": "สูงสุด {count} ท่าน",
     "location": "ที่ตั้ง",
     "mapTitle": "แผนที่",
-    "rules": "กฎของที่พัก"
+    "rules": "กฎของที่พัก",
+    "readMore": "อ่านเพิ่มเติม"
   },
   "prohibitions": {
     "title": "กฎของที่พัก",
@@ -101,7 +102,8 @@
     "viewCalendar": "ปฏิทิน",
     "availabilityTitle": "ตารางจอง",
     "legendBooked": "จองแล้ว",
-    "legendAvailable": "ว่าง"
+    "legendAvailable": "ว่าง",
+    "readMore": "อ่านเพิ่มเติม"
   },
   "booking": {
     "title": "จองที่พัก",

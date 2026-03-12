@@ -86,7 +86,8 @@
     "maxGuests": "Max {count} guests",
     "location": "Location",
     "mapTitle": "Map",
-    "rules": "House Rules"
+    "rules": "House Rules",
+    "readMore": "Read more"
   },
   "prohibitions": {
     "title": "House Rules",
@@ -101,7 +102,8 @@
     "viewCalendar": "Calendar",
     "availabilityTitle": "Room Availability",
     "legendBooked": "Booked",
-    "legendAvailable": "Available"
+    "legendAvailable": "Available",
+    "readMore": "Read more"
   },
   "booking": {
     "title": "Book Your Stay",

@@ -54,15 +54,26 @@ export function BookingFooter({
 
           {/* Right: Legal & Copyright */}
           <div className="flex flex-col items-center gap-1.5 sm:items-end">
-            <a
-              href="/legal"
-              target="_blank"
-              rel="noopener noreferrer"
-              className="text-xs text-gray-500 hover:text-green-700"
-            >
-              {tc("legalPolicies")}
-            </a>
             <p className="text-xs text-gray-400">{`\u00A9 ${new Date().getFullYear()} ${tc("copyright")}`}</p>
+            <div className="flex items-center gap-3">
+              <a
+                href="/legal#privacy"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-gray-500 hover:text-gray-900"
+              >
+                {tc("privacy")}
+              </a>
+              <span className="text-xs text-gray-300">|</span>
+              <a
+                href="/legal#terms"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-xs text-gray-500 hover:text-gray-900"
+              >
+                {tc("terms")}
+              </a>
+            </div>
           </div>
         </div>
       </div>

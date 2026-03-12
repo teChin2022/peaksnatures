@@ -53,7 +53,7 @@ async function getHomestayData(slug: string) {
   const homestay = homestayRow as unknown as Homestay;
 
   // Parallel fetch: all queries below are independent of each other
-  const INITIAL_REVIEWS = 5;
+  const INITIAL_REVIEWS = 9;
   const [
     { data: hostRow },
     { data: roomRows },

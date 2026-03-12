@@ -6,7 +6,6 @@ import Image from "next/image";
 import { format, eachDayOfInterval, parseISO, subDays, startOfToday, addMonths } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
 import type { Room, RoomSeasonalPrice, BlockedDate } from "@/types/database";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, BedDouble, CalendarDays, CalendarSearch, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
@@ -211,11 +210,42 @@ function getFullyBookedDates(roomId: string, rooms: Room[], bookedRanges: Booked
   return fullyBooked;
 }
 
+function RoomDescriptionWithReadMore({ content, onReadMore }: { content: string; onReadMore: () => void }) {
+  const t = useTranslations("rooms");
+  const ref = useRef<HTMLDivElement>(null);
+  const [overflows, setOverflows] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (el) {
+      setOverflows(el.scrollHeight > el.clientHeight);
+    }
+  }, [content]);
+
+  return (
+    <>
+      <div ref={ref} className="line-clamp-5">
+        <HTMLContent content={content} className="mt-2 text-sm leading-relaxed text-gray-500" />
+      </div>
+      {overflows && (
+        <button
+          type="button"
+          className="mt-1 text-sm font-medium text-gray-900 underline underline-offset-4 hover:text-gray-600"
+          onClick={onReadMore}
+        >
+          {t("readMore")}
+        </button>
+      )}
+    </>
+  );
+}
+
 function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms: Room[]; seasonsByRoom: Record<string, RoomSeasonalPrice[]>; bookedRanges: BookedRange[]; blockedDates: BlockedDate[] }) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
   const [lightbox, setLightbox] = useState<{ images: string[]; name: string } | null>(null);
   const [calendarRoomId, setCalendarRoomId] = useState<string | null>(null);
+  const [descRoomId, setDescRoomId] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const locale = useLocale();
 
@@ -244,9 +274,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: index * 0.1 }}
           >
-          <Card
-            className="group overflow-hidden border-0 py-0 gap-0 shadow-none bg-transparent"
-          >
+          <div className="group">
             {room.images[0] && (
               <RoomCardImage
                 src={room.images[0]}
@@ -255,7 +283,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
                 onClick={() => setLightbox({ images: room.images, name: room.name })}
               />
             )}
-            <CardContent className="p-4">
+            <div className="mt-3">
               {(() => {
                 const roomSeasons = seasonsByRoom[room.id] || [];
                 const { min, max } = getPriceRange(room.price_per_night, roomSeasons);
@@ -279,7 +307,10 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
                 );
               })()}
               {room.description && (
-                <HTMLContent content={room.description} className="mt-2 text-sm leading-relaxed text-gray-500 line-clamp-2" />
+                <RoomDescriptionWithReadMore
+                  content={room.description}
+                  onReadMore={() => setDescRoomId(room.id)}
+                />
               )}
               <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1">
@@ -293,32 +324,30 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
                   {t("available", { count: room.quantity })}
                 </Badge>
               </div>
-              <div className="mt-3 flex">
-                <div className="flex w-full rounded-full overflow-hidden shadow-sm">
-                  <Button
-                    size="sm"
-                    className="flex-1 rounded-none rounded-l-full bg-[#4A90E2] text-white hover:bg-[#357ABD] border-0"
-                    onClick={() => {
-                      document.dispatchEvent(
-                        new CustomEvent("book-room", { detail: { roomId: room.id } })
-                      );
-                    }}
-                  >
-                    <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
-                    {t("bookRoom")}
-                  </Button>
-                  <button
-                    type="button"
-                    className="flex items-center justify-center px-2.5 bg-[#4A90E2] hover:bg-[#357ABD] border-l border-white/30 transition-colors"
-                    onClick={(e) => { e.stopPropagation(); setCalendarRoomId(room.id); }}
-                    title={t("viewCalendar")}
-                  >
-                    <CalendarSearch className="h-3.5 w-3.5 text-white" />
-                  </button>
-                </div>
+              <div className="mt-3 flex w-full rounded-xl overflow-hidden shadow-sm">
+                <Button
+                  size="sm"
+                  className="flex-1 rounded-none rounded-l-xl bg-[#4A90E2] text-white hover:bg-[#357ABD] border-0"
+                  onClick={() => {
+                    document.dispatchEvent(
+                      new CustomEvent("book-room", { detail: { roomId: room.id } })
+                    );
+                  }}
+                >
+                  <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+                  {t("bookRoom")}
+                </Button>
+                <button
+                  type="button"
+                  className="flex items-center justify-center px-2.5 rounded-r-xl bg-[#4A90E2] hover:bg-[#357ABD] border-l border-white/30 transition-colors"
+                  onClick={(e) => { e.stopPropagation(); setCalendarRoomId(room.id); }}
+                  title={t("viewCalendar")}
+                >
+                  <CalendarSearch className="h-3.5 w-3.5 text-white" />
+                </button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
           </motion.div>
         ))}
       </div>
@@ -331,6 +360,24 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
           onClose={() => setLightbox(null)}
         />
       )}
+
+      {/* Room Description Modal */}
+      <Dialog open={!!descRoomId} onOpenChange={(open) => { if (!open) setDescRoomId(null); }}>
+        <DialogContent className="sm:max-w-2xl overflow-y-auto max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>{descRoomId ? rooms.find((r) => r.id === descRoomId)?.name : ""}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {descRoomId ? rooms.find((r) => r.id === descRoomId)?.name : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {descRoomId && rooms.find((r) => r.id === descRoomId)?.description && (
+            <HTMLContent
+              content={rooms.find((r) => r.id === descRoomId)!.description!}
+              className="leading-relaxed text-gray-600"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Dialog open={!!calendarRoomId} onOpenChange={(open) => { if (!open) setCalendarRoomId(null); }}>
         <DialogContent className="sm:max-w-2xl overflow-y-auto max-h-[90vh]">
