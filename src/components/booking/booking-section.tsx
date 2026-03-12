@@ -77,7 +77,6 @@ export function BookingSection({
 }: BookingSectionProps) {
   const t = useTranslations("booking");
   const tc = useTranslations("common");
-  const themeColor = "#4A90E2";
   const [mounted, setMounted] = useState(false);
   const [open, setOpen] = useState(false);
   const [step, setStep] = useState<BookingStep>("dates");
@@ -743,7 +742,7 @@ export function BookingSection({
                         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("room")}</p>
                         <div className="flex items-baseline justify-between mt-1">
                           <p className="text-base font-bold text-gray-900">{selectedRoom.name}</p>
-                          <p className="text-sm text-[#4A90E2] font-semibold">{priceLabel}/{tc("night")}</p>
+                          <p className="text-sm font-semibold">{priceLabel}/{tc("night")}</p>
                         </div>
                         {selectedRoom.description && (
                           <div className="mt-2 text-xs text-gray-500">
@@ -783,7 +782,7 @@ export function BookingSection({
                             initial={{ opacity: 0, y: 8 }}
                             animate={{ opacity: 1, y: 0 }}
                             exit={{ opacity: 0, y: 8 }}
-                            className="absolute top-full left-0 right-0 mt-1 bg-white rounded-2xl p-3 z-[60] border border-gray-100 shadow-lg"
+                            className="absolute top-full left-0 right-0 mt-1 bg-white rounded-2xl p-3 z-[60] border border-gray-100"
                           >
                             {mounted ? (
                               <Calendar
@@ -1320,7 +1319,6 @@ export function BookingSection({
           </DialogFooter>
         </DialogContent>
       </Dialog>
-
     </>
   );
 }
