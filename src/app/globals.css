@@ -217,8 +217,3 @@
   -ms-overflow-style: none;
   scrollbar-width: none;
 }
-
-/* Calendar day cells — equal-width columns for perfect square cells */
-[data-slot="calendar"] table {
-  table-layout: fixed;
-}
