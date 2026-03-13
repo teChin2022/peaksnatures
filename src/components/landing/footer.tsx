@@ -62,7 +62,7 @@ export function LandingFooter() {
         </div>
 
         <div className="pt-12 border-t border-zinc-200 flex flex-col md:flex-row justify-between items-center gap-6 text-[10px] font-bold uppercase tracking-widest text-zinc-400">
-          <p>&copy; {new Date().getFullYear()} PEAKSNATURE. ALL RIGHTS RESERVED.</p>
+          <p>&copy; {new Date().getFullYear()} PEAKSNATURE.COM ALL RIGHTS RESERVED.</p>
           <div className="flex gap-8">
             <span className="hover:text-zinc-900 cursor-pointer transition-colors">
               Privacy Policy

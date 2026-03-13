@@ -928,7 +928,7 @@ export function BookingSection({
                               <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("fullName")} *</label>
                               <div className="relative">
                                 <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                <Input ref={nameInputRef} value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder={t("fullNamePlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-[#4A90E2]" />
+                                <Input ref={nameInputRef} value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder={t("fullNamePlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400" />
                               </div>
                             </div>
 
@@ -936,7 +936,7 @@ export function BookingSection({
                               <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("email")} *</label>
                               <div className="relative">
                                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                <Input type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder={t("emailPlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-[#4A90E2]" />
+                                <Input type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder={t("emailPlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400" />
                               </div>
                             </div>
 
@@ -944,14 +944,14 @@ export function BookingSection({
                               <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("phone")} *</label>
                               <div className="relative">
                                 <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
-                                <Input value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder={t("phonePlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-[#4A90E2]" />
+                                <Input type="number" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder={t("phonePlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400" />
                               </div>
                             </div>
 
                             <div className="space-y-1.5">
                               <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("province")}</label>
                               <Select value={guestProvince} onValueChange={setGuestProvince}>
-                                <SelectTrigger className="!w-full p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-[#4A90E2]">
+                                <SelectTrigger className="!w-full p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400">
                                   <SelectValue placeholder={t("provincePlaceholder")} />
                                 </SelectTrigger>
                                 <SelectContent className="max-h-60 z-[70]">
@@ -966,13 +966,13 @@ export function BookingSection({
 
                             <div className="space-y-1.5">
                               <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("notes")}</label>
-                              <Textarea value={guestNote} onChange={(e) => setGuestNote(e.target.value)} placeholder={t("notesPlaceholder")} className="p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-[#4A90E2]" rows={2} />
+                              <Textarea value={guestNote} onChange={(e) => setGuestNote(e.target.value)} placeholder={t("notesPlaceholder")} className="p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400" rows={2} />
                             </div>
                           </div>
 
                           <button
                             onClick={() => {
-                              if (!guestName || !guestEmail || !guestPhone) { toast.error(t("errorFillFields")); return; }
+                              if (!guestName || !guestEmail || !guestPhone || !guestProvince) { toast.error(t("errorFillFields")); return; }
                               setShowConfirmModal(true);
                             }}
                             className="w-full bg-[#4A90E2] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#357ABD] transition-all shadow-lg shadow-[#4A90E2]/20 flex items-center justify-center gap-2"

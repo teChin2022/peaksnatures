@@ -20,11 +20,11 @@ export function LandingNavbar() {
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         <div className="flex items-center gap-2">
-          <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-white">
+          {/* <div className="w-10 h-10 bg-gray-800 rounded-full flex items-center justify-center text-white">
             <Mountain size={20} />
-          </div>
+          </div> */}
           <span
-            className={`text-xl font-serif font-semibold tracking-tight ${
+            className={`text-2xl font-serif font-bold tracking-tight ${
               scrolled ? "text-gray-900" : "text-white"
             }`}
           >
@@ -32,7 +32,7 @@ export function LandingNavbar() {
           </span>
         </div>
 
-        <div
+        {/* <div
           className={`hidden md:flex items-center gap-8 font-medium text-sm ${
             scrolled ? "text-gray-700" : "text-white/90"
           }`}
@@ -55,16 +55,16 @@ export function LandingNavbar() {
           >
             Sustainability
           </a>
-        </div>
+        </div> */}
 
         <div className="flex items-center gap-4">
-          <button
+          {/* <button
             className={`p-2 rounded-full hover:bg-white/10 transition-colors ${
               scrolled ? "text-gray-900" : "text-white"
             }`}
           >
             <Globe size={20} />
-          </button>
+          </button> */}
           <div
             className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${
               scrolled
