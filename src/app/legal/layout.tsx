@@ -20,7 +20,7 @@ export default async function LegalLayout({
             <span className="text-xl font-bold text-gray-900">{tc("brand")}</span>
           </Link>
           <nav className="flex items-center gap-4">
-            <Button variant="outline" size="sm" asChild>
+            <Button variant="outline" asChild className="px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase shadow-lg hover:shadow-xl">
               <Link href="/">
                 <ArrowLeft className="mr-1 h-4 w-4" />
                 {tc("back")}

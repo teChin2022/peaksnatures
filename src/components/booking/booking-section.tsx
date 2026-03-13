@@ -852,7 +852,7 @@ export function BookingSection({
                           <button
                             onClick={handleProceedToDetails}
                             disabled={!dateRange?.from || !dateRange?.to || !selectedRoomId || !pdpaConsent}
-                            className="w-full bg-gray-900 text-white py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {t("continueDetails")} <ArrowRight size={18} />
                           </button>
@@ -915,7 +915,7 @@ export function BookingSection({
 
                           <button
                             onClick={() => setShowCalendar(false)}
-                            className="w-full bg-gray-900 text-white py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                            className="w-full bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                           >
                             {tc("done")}
                           </button>
@@ -988,7 +988,7 @@ export function BookingSection({
                               if (!guestName || !guestEmail || !guestPhone || !guestProvince) { toast.error(t("errorFillFields")); return; }
                               setShowConfirmModal(true);
                             }}
-                            className="w-full bg-gray-900 text-white py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                            className="w-full bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                           >
                             {t("continuePayment")} <ArrowRight size={18} />
                           </button>
@@ -1068,7 +1068,7 @@ export function BookingSection({
                             <button
                               disabled={isSubmitting}
                               onClick={() => { setShowConfirmModal(false); handleProceedToPayment(); }}
-                              className="flex-1 bg-gray-900 text-white py-3 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50"
+                              className="flex-1 bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                               {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("confirmProceed")}</>) : <>{t("confirmProceed")} <ArrowRight size={18} /></>}
                             </button>
@@ -1159,7 +1159,7 @@ export function BookingSection({
                           </div>
 
                           <button onClick={() => setPaymentPhase("upload")}
-                            className="w-full bg-gray-900 text-white py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
+                            className="w-full bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
                             <CheckCircle2 className="h-4 w-4" />{t("iveTransferred")}
                           </button>
                         </motion.div>
@@ -1240,7 +1240,7 @@ export function BookingSection({
                           <p className="text-xs text-gray-400 text-center">{t("slipVerify")}</p>
 
                           <button onClick={handleSubmitBooking} disabled={isSubmitting || !slipFile}
-                            className="w-full bg-gray-900 text-white py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
+                            className="w-full bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
                             {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin inline" />{t("verifying")}</>) : t("submitBooking")}
                           </button>
                         </motion.div>

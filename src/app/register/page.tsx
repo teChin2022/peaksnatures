@@ -294,7 +294,7 @@ export default function RegisterPage() {
                 </label>
                 <Button
                   type="submit"
-                  className="w-full bg-gray-900 text-white py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl"
+                  className="w-full bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl"
                   disabled={loading || (!turnstileToken && !turnstileError) || !pdpaConsent}
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
