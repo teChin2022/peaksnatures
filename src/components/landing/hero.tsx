@@ -37,11 +37,21 @@ export function LandingHero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8 }}
-          className="text-4xl md:text-7xl text-white font-serif mb-8 md:mb-12 leading-tight"
+          className="text-4xl md:text-7xl text-white font-serif mb-4 md:mb-6 leading-tight"
         >
-          Reconnect with <br />{" "}
-          <span className="italic">Nature&apos;s Luxury</span>
+          พักผ่อนท่ามกลางภูเขา
+          <br />
+          <span className="italic">และธรรมชาติ</span>
         </motion.h1>
+
+        <motion.p
+          initial={{ opacity: 0, y: 20 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.8, delay: 0.1 }}
+          className="text-lg md:text-xl text-white/80 font-light mb-8 md:mb-12 max-w-2xl"
+        >
+          ค้นพบโฮมสเตย์ท่ามกลางหมอก ป่า และวิวภูเขาที่สวยงาม
+        </motion.p>
 
         <motion.div
           initial={{ opacity: 0, y: 20 }}
@@ -58,12 +68,12 @@ export function LandingHero() {
                   className="text-gray-400 group-hover:text-gray-800 transition-colors"
                 />
                 <div className="flex-1">
-                  <label className="block text-[9px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-0.5">
-                    Location
+                  <label className="block text-[12px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-0.5">
+                    สถานที่
                   </label>
                   <input
                     type="text"
-                    placeholder="Where are you going?"
+                    placeholder="คุณกำลังจะไปไหน?"
                     className="w-full text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-300 bg-transparent"
                   />
                 </div>
@@ -82,8 +92,8 @@ export function LandingHero() {
                     className="text-gray-400 group-hover:text-gray-800 transition-colors"
                   />
                   <div className="flex-1">
-                    <label className="block text-[9px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-0.5">
-                      Dates
+                    <label className="block text-[12px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-0.5">
+                      วันที่
                     </label>
                     <p
                       className={`text-sm font-semibold ${
@@ -103,12 +113,17 @@ export function LandingHero() {
                     className="text-gray-400 group-hover:text-gray-800 transition-colors"
                   />
                   <div className="flex-1">
-                    <label className="block text-[9px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-0.5">
-                      Guests
+                    <label className="block text-[12px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-0.5">
+                      จำนวน
                     </label>
-                    <p className="text-sm font-semibold text-gray-300">
-                      Add guests
-                    </p>
+                    {/* <p className="text-sm font-semibold text-gray-300">
+                      จำนวน
+                    </p> */}
+                    <input
+                      type="number"
+                      placeholder="จำนวน?"
+                      className="w-full text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-300 bg-transparent"
+                    />
                   </div>
                 </div>
               </div>

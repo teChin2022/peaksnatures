@@ -372,7 +372,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
             <Button
               onClick={handleSearch}
               disabled={loading || !query.trim()}
-              className="bg-[#4A90E2] text-white hover:bg-[#357ABD]"
+              className="bg-gray-900 text-white hover:bg-black"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("search")}
             </Button>
@@ -430,7 +430,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                     <div className="mt-2 pt-2 border-t border-gray-200 space-y-2">
                       <Button
                         size="sm"
-                        className="w-full bg-[#4A90E2] text-white hover:bg-[#357ABD]"
+                        className="w-full bg-gray-900 text-white hover:bg-black"
                         onClick={() => handleCheckin(booking.id, booking.guest_email, "checkin")}
                         disabled={checkingIn === booking.id}
                       >
@@ -578,7 +578,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                       <img src={balanceSlipPreview} alt="Slip" className="mx-auto max-h-32 rounded-lg" />
                                       <Button
                                         size="sm"
-                                        className="mt-2 w-full bg-[#4A90E2] text-white hover:bg-[#357ABD]"
+                                        className="mt-2 w-full bg-gray-900 text-white hover:bg-black"
                                         onClick={() => handlePayBalance(booking)}
                                         disabled={submittingBalance}
                                       >
@@ -612,7 +612,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                   </p>
                                   <Button
                                     size="sm"
-                                    className="w-full bg-[#4A90E2] text-white hover:bg-[#357ABD]"
+                                    className="w-full bg-gray-900 text-white hover:bg-black"
                                     onClick={() => handlePayCash(booking)}
                                     disabled={submittingBalance}
                                   >
@@ -629,7 +629,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                           ) : (
                             <Button
                               size="sm"
-                              className="w-full bg-[#4A90E2] text-white hover:bg-[#357ABD] mt-1"
+                              className="w-full bg-gray-900 text-white hover:bg-black mt-1"
                               onClick={() => { setPayingBalanceId(booking.id); setBalancePayMethod(null); }}
                             >
                               <CreditCard className="mr-1.5 h-3.5 w-3.5" />
@@ -643,7 +643,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                       {booking.total_price - (booking.amount_paid || 0) <= 0 && (
                         <Button
                           size="sm"
-                          className="w-full bg-[#4A90E2] text-white hover:bg-[#357ABD]"
+                          className="w-full bg-gray-900 text-white hover:bg-black"
                           onClick={() => handleCheckin(booking.id, booking.guest_email, "checkout")}
                           disabled={checkingIn === booking.id}
                         >
@@ -719,7 +719,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                             </Button>
                             <Button
                               size="sm"
-                              className="flex-1 bg-[#4A90E2] text-white hover:bg-[#357ABD]"
+                              className="flex-1 bg-gray-900 text-white hover:bg-black"
                               onClick={() => handleSubmitReview(booking.id, booking.guest_email)}
                               disabled={reviewRating === 0 || submittingReview}
                             >

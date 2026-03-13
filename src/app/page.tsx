@@ -5,6 +5,7 @@ import { LandingHero } from "@/components/landing/hero";
 import { WhyPeaksnature } from "@/components/landing/why-peaksnature";
 import { UniqueHomestays } from "@/components/landing/unique-homestays";
 import { LandingFooter } from "@/components/landing/footer";
+import { ForHosts } from "@/components/landing/for-hosts";
 
 export default async function Home() {
   const supabase = createServiceRoleClient();
@@ -73,6 +74,7 @@ export default async function Home() {
         <LandingHero />
         <WhyPeaksnature />
         <UniqueHomestays homestays={homestayData} />
+        <ForHosts />
       </main>
       <LandingFooter />
     </div>

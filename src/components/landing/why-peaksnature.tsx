@@ -7,21 +7,21 @@ export function WhyPeaksnature() {
   const features = [
     {
       icon: <Leaf className="text-gray-600" size={24} />,
-      title: "Sustainable Luxury",
+      title: "ความหรูหราที่เคารพธรรมชาติ",
       description:
-        "Eco-conscious architecture that blends seamlessly with the surrounding wilderness.",
+        "ที่พักที่ออกแบบให้กลมกลืนกับภูเขา ป่า และธรรมชาติ เพื่อให้คุณได้พักผ่อนอย่างสงบและยั่งยืน",
     },
     {
       icon: <Shield className="text-gray-600" size={24} />,
-      title: "Absolute Privacy",
+      title: "ความเป็นส่วนตัวอย่างแท้จริง",
       description:
-        "Secluded locations designed for deep reconnection and undisturbed peace.",
+        "สถานที่พักผ่อนในทำเลเงียบสงบ ให้คุณได้หลีกหนีความวุ่นวายของเมือง",
     },
     {
       icon: <Compass className="text-gray-600" size={24} />,
-      title: "Curated Discovery",
+      title: "ประสบการณ์ที่คัดสรรแล้ว",
       description:
-        "Hand-picked experiences that reveal the hidden secrets of the natural world.",
+        "โฮมสเตย์และสถานที่พักที่เราคัดเลือก เพื่อให้คุณได้ค้นพบธรรมชาติในมุมที่พิเศษ",
     },
   ];
 
@@ -33,27 +33,37 @@ export function WhyPeaksnature() {
             <motion.span
               initial={{ opacity: 0 }}
               whileInView={{ opacity: 1 }}
-              className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400 block mb-4"
+              className="text-sm font-bold uppercase tracking-[0.3em] text-gray-400 block mb-4"
             >
-              The Peaksnature Philosophy
+              ปรัชญาของ Peaksnature
             </motion.span>
             <motion.h2
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               className="text-4xl md:text-5xl font-serif text-gray-900 mb-6"
             >
-              Why we choose <span className="italic">the wild</span>
+              ทำไมเราถึงเลือก<span className="italic">ธรรมชาติ</span>
             </motion.h2>
-            <motion.p
+            <motion.div
               initial={{ opacity: 0, y: 20 }}
               whileInView={{ opacity: 1, y: 0 }}
               transition={{ delay: 0.1 }}
-              className="text-gray-600 leading-relaxed text-lg"
+              className="text-gray-600 leading-relaxed text-lg space-y-4"
             >
-              We believe that true luxury isn&apos;t found in excess, but in the
-              rare opportunity to be fully present. Our spaces are crafted to
-              facilitate this connection.
-            </motion.p>
+              <p>
+                เพราะเรามองว่าความหรูหราที่แท้จริง
+                ไม่ได้อยู่ในความฟุ่มเฟือย
+              </p>
+              <p>
+                แต่อยู่ในช่วงเวลาที่เราได้หยุดพัก
+                สูดอากาศบริสุทธิ์ และใช้เวลากับธรรมชาติอย่างแท้จริง
+              </p>
+              <p>
+                ที่พักของเราถูกสร้างขึ้น
+                เพื่อให้คุณได้พักผ่อนอย่างเรียบง่าย
+                ท่ามกลางภูเขา ป่า และความเงียบสงบ
+              </p>
+            </motion.div>
           </div>
 
           <div className="grid md:grid-cols-3 gap-12">

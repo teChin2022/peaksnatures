@@ -112,8 +112,8 @@ export default function RegisterPage() {
         {emailSent ? (
           <Card>
             <CardContent className="flex flex-col items-center gap-4 py-8">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
-                <Mail className="h-8 w-8 text-[#4A90E2]" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
+                <Mail className="h-8 w-8 text-gray-900" />
               </div>
               <h2 className="text-xl font-semibold text-gray-900">
                 {t("checkEmailTitle")}
@@ -265,7 +265,7 @@ export default function RegisterPage() {
                     type="checkbox"
                     checked={pdpaConsent}
                     onChange={(e) => setPdpaConsent(e.target.checked)}
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-[#4A90E2] focus:ring-[#4A90E2]"
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
                   />
                   <span className="text-xs text-gray-600">
                     {t.rich("pdpaConsent", {
@@ -294,7 +294,7 @@ export default function RegisterPage() {
                 </label>
                 <Button
                   type="submit"
-                  className="w-full bg-[#4A90E2] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#357ABD] transition-all shadow-lg shadow-[#4A90E2]/20"
+                  className="w-full bg-gray-900 text-white py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl"
                   disabled={loading || (!turnstileToken && !turnstileError) || !pdpaConsent}
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

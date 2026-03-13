@@ -249,7 +249,7 @@ export default function LoginPage() {
             <CardFooter className="flex flex-col gap-3">
               <Button
                 type="submit"
-                className="w-full bg-[#4A90E2] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#357ABD] transition-all shadow-lg shadow-[#4A90E2]/20"
+                className="w-full bg-gray-900 text-white py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl"
                 disabled={loading || (!turnstileToken && !turnstileError)}
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

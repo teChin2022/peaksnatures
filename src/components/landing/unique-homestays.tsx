@@ -18,13 +18,13 @@ export function UniqueHomestays({ homestays }: { homestays: HomestayData[] }) {
   return (
     <section id="unique-homestays" className="py-24 bg-gray-50">
       <div className="max-w-7xl mx-auto px-4">
-        <div className="flex flex-col md:flex-row justify-between items-end mb-12 gap-6">
+        <div className="flex flex-col items-center mb-12 gap-6 text-center">
           <div className="max-w-xl">
-            <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-gray-400 block mb-4">
-              Curated Collection
+            <span className="text-sm font-bold uppercase tracking-[0.3em] text-gray-400 block mb-4">
+              ที่พักที่คัดสรรแล้ว
             </span>
             <h2 className="text-4xl md:text-5xl font-serif text-gray-900">
-              Unique <span className="italic">Homestays</span>
+              โฮมสเตย์กลางธรรมชาติ
             </h2>
           </div>
           {homestays.length > 12 && (

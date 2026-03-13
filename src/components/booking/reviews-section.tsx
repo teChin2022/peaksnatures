@@ -74,7 +74,7 @@ function ReviewCard({
           <button
             type="button"
             onClick={() => onReadMore(review)}
-            className="text-xs font-medium text-[#4A90E2] hover:text-[#357ABD] transition-colors"
+            className="text-xs font-medium text-gray-900 hover:text-black transition-colors"
           >
             {readMoreLabel}
           </button>

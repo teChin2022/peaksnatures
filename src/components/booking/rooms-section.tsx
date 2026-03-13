@@ -327,7 +327,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
               <div className="mt-3 flex w-full rounded-xl overflow-hidden shadow-sm">
                 <Button
                   size="sm"
-                  className="flex-1 rounded-none rounded-l-xl bg-[#4A90E2] text-white hover:bg-[#357ABD] border-0"
+                  className="flex-1 rounded-none rounded-l-xl bg-gray-900 text-white hover:bg-black border-0"
                   onClick={() => {
                     document.dispatchEvent(
                       new CustomEvent("book-room", { detail: { roomId: room.id } })
@@ -339,7 +339,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
                 </Button>
                 <button
                   type="button"
-                  className="flex items-center justify-center px-2.5 rounded-r-xl bg-[#4A90E2] hover:bg-[#357ABD] border-l border-white/30 transition-colors"
+                  className="flex items-center justify-center px-2.5 rounded-r-xl bg-gray-900 hover:bg-black border-l border-white/30 transition-colors"
                   onClick={(e) => { e.stopPropagation(); setCalendarRoomId(room.id); }}
                   title={t("viewCalendar")}
                 >

@@ -713,14 +713,14 @@ export function BookingSection({
                     <div
                       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-colors"
                       style={{
-                        backgroundColor: isActive ? '#4A90E2' : isCompleted ? '#4A90E2' : '#f3f4f6',
+                        backgroundColor: isActive ? '#111827' : isCompleted ? '#111827' : '#f3f4f6',
                         color: isActive || isCompleted ? '#fff' : '#9ca3af',
                       }}
                     >
                       {isCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
                     </div>
                     {i < steps.length - 1 && (
-                      <div className="mx-1 h-px flex-1" style={{ backgroundColor: currentStepIndex > i ? '#4A90E2' : '#e5e7eb' }} />
+                      <div className="mx-1 h-px flex-1" style={{ backgroundColor: currentStepIndex > i ? '#111827' : '#e5e7eb' }} />
                     )}
                   </div>
                 );
@@ -840,7 +840,7 @@ export function BookingSection({
 
                           {/* PDPA */}
                           <label className="flex items-start gap-2 cursor-pointer">
-                            <input type="checkbox" checked={pdpaConsent} onChange={(e) => setPdpaConsent(e.target.checked)} className="mt-1 h-4 w-4 rounded border-gray-300 text-[#4A90E2] focus:ring-[#4A90E2]" />
+                            <input type="checkbox" checked={pdpaConsent} onChange={(e) => setPdpaConsent(e.target.checked)} className="mt-1 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900" />
                             <span className="text-xs text-gray-600">
                               {t.rich("pdpaConsent", {
                                 privacy: (chunks) => <a href="/legal#privacy" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-gray-900">{chunks}</a>,
@@ -852,7 +852,7 @@ export function BookingSection({
                           <button
                             onClick={handleProceedToDetails}
                             disabled={!dateRange?.from || !dateRange?.to || !selectedRoomId || !pdpaConsent}
-                            className="w-full bg-[#4A90E2] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#357ABD] transition-all shadow-lg shadow-[#4A90E2]/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-gray-900 text-white py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {t("continueDetails")} <ArrowRight size={18} />
                           </button>
@@ -915,7 +915,7 @@ export function BookingSection({
 
                           <button
                             onClick={() => setShowCalendar(false)}
-                            className="w-full bg-[#4A90E2] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#357ABD] transition-all shadow-lg shadow-[#4A90E2]/20 flex items-center justify-center gap-2"
+                            className="w-full bg-gray-900 text-white py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                           >
                             {tc("done")}
                           </button>
@@ -988,7 +988,7 @@ export function BookingSection({
                               if (!guestName || !guestEmail || !guestPhone || !guestProvince) { toast.error(t("errorFillFields")); return; }
                               setShowConfirmModal(true);
                             }}
-                            className="w-full bg-[#4A90E2] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#357ABD] transition-all shadow-lg shadow-[#4A90E2]/20 flex items-center justify-center gap-2"
+                            className="w-full bg-gray-900 text-white py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                           >
                             {t("continuePayment")} <ArrowRight size={18} />
                           </button>
@@ -1068,7 +1068,7 @@ export function BookingSection({
                             <button
                               disabled={isSubmitting}
                               onClick={() => { setShowConfirmModal(false); handleProceedToPayment(); }}
-                              className="flex-1 bg-[#4A90E2] text-white py-3 rounded-2xl font-bold text-sm hover:bg-[#357ABD] transition-all shadow-lg shadow-[#4A90E2]/20 flex items-center justify-center gap-2 disabled:opacity-50"
+                              className="flex-1 bg-gray-900 text-white py-3 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                               {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("confirmProceed")}</>) : <>{t("confirmProceed")} <ArrowRight size={18} /></>}
                             </button>
@@ -1094,7 +1094,7 @@ export function BookingSection({
                       </div>
                       {holdTimeLeft > 0 && (
                         <div className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
-                          style={{ backgroundColor: holdTimeLeft <= 60 ? '#fef2f2' : '#f3f4f6', color: holdTimeLeft <= 60 ? '#dc2626' : '#4A90E2' }}
+                          style={{ backgroundColor: holdTimeLeft <= 60 ? '#fef2f2' : '#f3f4f6', color: holdTimeLeft <= 60 ? '#dc2626' : '#111827' }}
                         >
                           <Clock className="h-3.5 w-3.5" />
                           {Math.floor(holdTimeLeft / 60)}:{String(holdTimeLeft % 60).padStart(2, '0')}
@@ -1106,14 +1106,14 @@ export function BookingSection({
                     {depositAvailable && paymentPhase === "qr" && (
                       <div className="grid grid-cols-2 gap-3">
                         <button type="button" onClick={() => setPaymentOption("full")}
-                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "full" ? "border-[#4A90E2] bg-blue-50" : "border-gray-100 hover:border-gray-300"}`}>
-                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "full" ? "bg-[#4A90E2] text-white" : "bg-gray-100 text-gray-400"}`}><CreditCard size={18} /></div>
+                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "full" ? "border-gray-900 bg-gray-50" : "border-gray-100 hover:border-gray-300"}`}>
+                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "full" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-400"}`}><CreditCard size={18} /></div>
                           <p className="font-bold text-gray-900">{t("payFull")}</p>
                           <p className="text-xs text-gray-500">฿{totalPrice.toLocaleString()}</p>
                         </button>
                         <button type="button" onClick={() => setPaymentOption("deposit")}
-                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "deposit" ? "border-[#4A90E2] bg-blue-50" : "border-gray-100 hover:border-gray-300"}`}>
-                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "deposit" ? "bg-[#4A90E2] text-white" : "bg-gray-100 text-gray-400"}`}><CreditCard size={18} /></div>
+                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "deposit" ? "border-gray-900 bg-gray-50" : "border-gray-100 hover:border-gray-300"}`}>
+                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "deposit" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-400"}`}><CreditCard size={18} /></div>
                           <p className="font-bold text-gray-900">{t("payDeposit")}</p>
                           <p className="text-xs text-gray-500">฿{resolvedDeposit.toLocaleString()}</p>
                         </button>
@@ -1150,7 +1150,7 @@ export function BookingSection({
                                 { num: 4, icon: Upload, text: t("payStep4") },
                               ].map((s) => (
                                 <div key={s.num} className="flex items-center gap-2.5">
-                                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-[#4A90E2] text-[10px] font-bold text-white">{s.num}</div>
+                                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-900 text-[10px] font-bold text-white">{s.num}</div>
                                   <s.icon className="h-3.5 w-3.5 shrink-0 text-gray-400" />
                                   <p className="text-xs text-gray-600">{s.text}</p>
                                 </div>
@@ -1159,7 +1159,7 @@ export function BookingSection({
                           </div>
 
                           <button onClick={() => setPaymentPhase("upload")}
-                            className="w-full bg-[#4A90E2] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#357ABD] transition-all shadow-lg shadow-[#4A90E2]/20 flex items-center justify-center gap-2">
+                            className="w-full bg-gray-900 text-white py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
                             <CheckCircle2 className="h-4 w-4" />{t("iveTransferred")}
                           </button>
                         </motion.div>
@@ -1240,7 +1240,7 @@ export function BookingSection({
                           <p className="text-xs text-gray-400 text-center">{t("slipVerify")}</p>
 
                           <button onClick={handleSubmitBooking} disabled={isSubmitting || !slipFile}
-                            className="w-full bg-[#4A90E2] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#357ABD] transition-all shadow-lg shadow-[#4A90E2]/20 disabled:opacity-50 disabled:cursor-not-allowed">
+                            className="w-full bg-gray-900 text-white py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
                             {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin inline" />{t("verifying")}</>) : t("submitBooking")}
                           </button>
                         </motion.div>
@@ -1262,7 +1262,7 @@ export function BookingSection({
                       {slipVerified ? t("confirmedText") : t("confirmedTextPending")}
                     </p>
                     {bookingId && (
-                      <Badge className="mb-4 bg-blue-50 text-[#4A90E2]" variant="secondary">
+                      <Badge className="mb-4 bg-gray-100 text-gray-900" variant="secondary">
                         {t("bookingId")}: {bookingId}
                       </Badge>
                     )}
@@ -1306,7 +1306,7 @@ export function BookingSection({
                     </div>
 
                     <button onClick={() => { resetBooking(); setOpen(false); }}
-                      className="mt-6 bg-[#4A90E2] text-white px-8 py-3 rounded-full font-bold text-sm hover:bg-[#357ABD] transition-all">
+                      className="mt-6 bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl">
                       {t("bookAnother")}
                     </button>
                   </motion.div>
@@ -1328,7 +1328,7 @@ export function BookingSection({
             <DialogDescription className="text-center">{t("datesHeldDesc")}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button className="w-full bg-[#4A90E2] text-white hover:bg-[#357ABD]" onClick={handleHeldModalClose}>{t("chooseDifferentDates")}</Button>
+            <Button className="w-full bg-gray-900 text-white hover:bg-black" onClick={handleHeldModalClose}>{t("chooseDifferentDates")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

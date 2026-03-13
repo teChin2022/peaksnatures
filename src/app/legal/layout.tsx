@@ -1,9 +1,7 @@
 import Link from "next/link";
-import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
-import { LanguageSwitcher } from "@/components/language-switcher";
 import { PlatformFooter } from "@/components/platform-footer";
 
 export default async function LegalLayout({
@@ -19,11 +17,9 @@ export default async function LegalLayout({
       <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.png" alt="Peaksnature" width={32} height={32} className="h-8 w-8 rounded" />
-            <span className="text-xl font-bold text-green-800">{tc("brand")}</span>
+            <span className="text-xl font-bold text-gray-900">{tc("brand")}</span>
           </Link>
           <nav className="flex items-center gap-4">
-            <LanguageSwitcher />
             <Button variant="outline" size="sm" asChild>
               <Link href="/">
                 <ArrowLeft className="mr-1 h-4 w-4" />

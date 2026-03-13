@@ -15,8 +15,8 @@ export default async function LegalPage() {
       <div className="mx-auto max-w-3xl px-4 sm:px-6">
         {/* Header */}
         <div className="text-center">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
-            <Scale className="h-7 w-7 text-green-600" />
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
+            <Scale className="h-7 w-7 text-gray-900" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl">{t("title")}</h1>
           <p className="mt-2 text-gray-600">{t("subtitle")}</p>
@@ -27,8 +27,8 @@ export default async function LegalPage() {
           {/* 1. Privacy Policy */}
           <div id="privacy">
             <div className="flex items-center gap-3 mb-4">
-              <div className="rounded-lg bg-green-100 p-2.5">
-                <Shield className="h-5 w-5 text-green-600" />
+              <div className="rounded-lg bg-gray-100 p-2.5">
+                <Shield className="h-5 w-5 text-gray-900" />
               </div>
               <h2 className="text-xl font-bold text-gray-900">{t("privacyPolicy")}</h2>
             </div>
@@ -131,8 +131,8 @@ export default async function LegalPage() {
           {/* 2. Terms of Service */}
           <div id="terms">
             <div className="flex items-center gap-3 mb-4">
-              <div className="rounded-lg bg-green-100 p-2.5">
-                <FileText className="h-5 w-5 text-green-600" />
+              <div className="rounded-lg bg-gray-100 p-2.5">
+                <FileText className="h-5 w-5 text-gray-900" />
               </div>
               <h2 className="text-xl font-bold text-gray-900">{t("termsOfService")}</h2>
             </div>
@@ -249,15 +249,15 @@ export default async function LegalPage() {
           {/* 3. Cancellation Policy */}
           <div id="cancellation">
             <div className="flex items-center gap-3 mb-4">
-              <div className="rounded-lg bg-green-100 p-2.5">
-                <ScrollText className="h-5 w-5 text-green-600" />
+              <div className="rounded-lg bg-gray-100 p-2.5">
+                <ScrollText className="h-5 w-5 text-gray-900" />
               </div>
               <h2 className="text-xl font-bold text-gray-900">{t("cancellationPolicy")}</h2>
             </div>
             <div className="space-y-4 text-sm text-gray-600">
               <p>นโยบายการยกเลิกการจองของ Peaksnature มีวัตถุประสงค์เพื่อสร้างความชัดเจนระหว่างผู้เข้าพักและเจ้าของที่พัก โดยมีเงื่อนไขดังต่อไปนี้</p>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">1.1 การยกเลิกโดยผู้เข้าพัก</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">1. การยกเลิกโดยผู้เข้าพัก</h3>
               <p>ผู้เข้าพักสามารถยกเลิกการจองได้ตามเงื่อนไขที่เจ้าของที่พักกำหนด ซึ่งอาจแตกต่างกันไปในแต่ละที่พัก</p>
               <p>ตัวอย่างเงื่อนไขที่พักอาจกำหนด เช่น</p>
               <ul className="ml-6 list-disc space-y-1">
@@ -267,7 +267,7 @@ export default async function LegalPage() {
               </ul>
               <p>ผู้เข้าพักควรตรวจสอบนโยบายของแต่ละที่พักก่อนทำการจอง</p>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">1.2 การยกเลิกโดยเจ้าของที่พัก</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">2. การยกเลิกโดยเจ้าของที่พัก</h3>
               <p>ในบางกรณี เจ้าของที่พักอาจจำเป็นต้องยกเลิกการจอง เช่น</p>
               <ul className="ml-6 list-disc space-y-1">
                 <li>ที่พักไม่พร้อมให้บริการ</li>
@@ -276,7 +276,7 @@ export default async function LegalPage() {
               </ul>
               <p>ในกรณีดังกล่าว เจ้าของที่พักควรแจ้งผู้เข้าพักโดยเร็วที่สุด และดำเนินการคืนเงินตามที่ตกลงกัน</p>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">1.3 การยกเลิกโดยระบบ</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">3. การยกเลิกโดยระบบ</h3>
               <p>Peaksnature อาจยกเลิกการจองในกรณีต่อไปนี้</p>
               <ul className="ml-6 list-disc space-y-1">
                 <li>ตรวจพบสลิปปลอมหรือสลิปซ้ำ</li>
@@ -284,7 +284,7 @@ export default async function LegalPage() {
                 <li>ตรวจพบพฤติกรรมที่เข้าข่ายการทุจริต</li>
               </ul>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">1.4 การคืนเงิน</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">4. การคืนเงิน</h3>
               <p>การคืนเงิน (ถ้ามี) จะเป็นไปตามเงื่อนไขของเจ้าของที่พัก และอาจใช้ระยะเวลาในการดำเนินการตามช่องทางการชำระเงิน</p>
             </div>
           </div>
@@ -294,18 +294,18 @@ export default async function LegalPage() {
           {/* 4. Cookie Policy */}
           <div id="cookies">
             <div className="flex items-center gap-3 mb-4">
-              <div className="rounded-lg bg-green-100 p-2.5">
-                <Cookie className="h-5 w-5 text-green-600" />
+              <div className="rounded-lg bg-gray-100 p-2.5">
+                <Cookie className="h-5 w-5 text-gray-900" />
               </div>
               <h2 className="text-xl font-bold text-gray-900">{t("cookiePolicy")}</h2>
             </div>
             <div className="space-y-4 text-sm text-gray-600">
               <p>เว็บไซต์ Peaksnature ใช้คุกกี้และเทคโนโลยีที่คล้ายกันเพื่อปรับปรุงประสบการณ์ของผู้ใช้งาน</p>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">2.1 คุกกี้คืออะไร</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">1. คุกกี้คืออะไร</h3>
               <p>คุกกี้คือไฟล์ขนาดเล็กที่ถูกบันทึกลงในอุปกรณ์ของผู้ใช้งานเมื่อเข้าชมเว็บไซต์ เพื่อช่วยให้เว็บไซต์สามารถจดจำการตั้งค่าหรือพฤติกรรมการใช้งานได้</p>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">2.2 ประเภทของคุกกี้ที่เราใช้</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">2. ประเภทของคุกกี้ที่เราใช้</h3>
               <p><strong>1. Essential Cookies</strong></p>
               <p>จำเป็นสำหรับการทำงานของเว็บไซต์ เช่น การเข้าสู่ระบบและการจองที่พัก</p>
               <p><strong>2. Analytics Cookies</strong></p>
@@ -313,7 +313,7 @@ export default async function LegalPage() {
               <p><strong>3. Preference Cookies</strong></p>
               <p>ใช้จดจำการตั้งค่าของผู้ใช้งาน เช่น ภาษา หรือการตั้งค่าคุกกี้</p>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">2.3 การจัดการคุกกี้</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">3. การจัดการคุกกี้</h3>
               <p>ผู้ใช้สามารถ</p>
               <ul className="ml-6 list-disc space-y-1">
                 <li>ยอมรับคุกกี้ทั้งหมด</li>
@@ -328,15 +328,15 @@ export default async function LegalPage() {
           {/* 5. Fraud Prevention Policy */}
           <div id="fraud-prevention">
             <div className="flex items-center gap-3 mb-4">
-              <div className="rounded-lg bg-green-100 p-2.5">
-                <AlertTriangle className="h-5 w-5 text-green-600" />
+              <div className="rounded-lg bg-gray-100 p-2.5">
+                <AlertTriangle className="h-5 w-5 text-gray-900" />
               </div>
               <h2 className="text-xl font-bold text-gray-900">{t("fraudPrevention")}</h2>
             </div>
             <div className="space-y-4 text-sm text-gray-600">
               <p>Peaksnature ให้ความสำคัญกับความปลอดภัยของผู้ใช้งานทุกฝ่าย จึงมีมาตรการป้องกันการทุจริตในการใช้งานแพลตฟอร์ม</p>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">1.1 การตรวจสอบการชำระเงิน</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">1. การตรวจสอบการชำระเงิน</h3>
               <p>เพื่อป้องกันการทุจริต ระบบอาจทำการตรวจสอบหลักฐานการชำระเงินโดย</p>
               <ul className="ml-6 list-disc space-y-1">
                 <li>การตรวจสอบด้วยระบบอัตโนมัติ</li>
@@ -350,7 +350,7 @@ export default async function LegalPage() {
                 <li>สลิปที่ไม่ตรงกับยอดเงิน</li>
               </ul>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">1.2 การใช้งานที่ถือเป็นการทุจริต</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">2. การใช้งานที่ถือเป็นการทุจริต</h3>
               <p>การกระทำต่อไปนี้ถือว่าเป็นการละเมิดนโยบาย</p>
               <ul className="ml-6 list-disc space-y-1">
                 <li>อัปโหลดสลิปปลอม</li>
@@ -359,7 +359,7 @@ export default async function LegalPage() {
                 <li>พยายามแฮกระบบหรือเข้าถึงข้อมูลโดยไม่ได้รับอนุญาต</li>
               </ul>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">1.3 มาตรการของแพลตฟอร์ม</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">3. มาตรการของแพลตฟอร์ม</h3>
               <p>หากตรวจพบการกระทำที่เข้าข่ายทุจริต Peaksnature มีสิทธิ์</p>
               <ul className="ml-6 list-disc space-y-1">
                 <li>ระงับหรือยกเลิกการจอง</li>
@@ -368,7 +368,7 @@ export default async function LegalPage() {
                 <li>แจ้งหน่วยงานที่เกี่ยวข้องตามกฎหมาย</li>
               </ul>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">1.4 การตรวจสอบเพิ่มเติม</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">4. การตรวจสอบเพิ่มเติม</h3>
               <p>ในบางกรณี ระบบอาจขอข้อมูลเพิ่มเติม เช่น</p>
               <ul className="ml-6 list-disc space-y-1">
                 <li>หลักฐานการโอนเงินเพิ่มเติม</li>
@@ -383,15 +383,15 @@ export default async function LegalPage() {
           {/* 6. Dispute Resolution Policy */}
           <div id="dispute-resolution">
             <div className="flex items-center gap-3 mb-4">
-              <div className="rounded-lg bg-green-100 p-2.5">
-                <Handshake className="h-5 w-5 text-green-600" />
+              <div className="rounded-lg bg-gray-100 p-2.5">
+                <Handshake className="h-5 w-5 text-gray-900" />
               </div>
               <h2 className="text-xl font-bold text-gray-900">{t("disputeResolution")}</h2>
             </div>
             <div className="space-y-4 text-sm text-gray-600">
               <p>Peaksnature มีระบบช่วยเหลือในการแก้ไขปัญหาระหว่างผู้เข้าพักและเจ้าของที่พัก</p>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">2.1 การติดต่อกันโดยตรง</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">1. การติดต่อกันโดยตรง</h3>
               <p>หากเกิดปัญหา ผู้เข้าพักและเจ้าของที่พักควรพยายามแก้ไขปัญหาร่วมกันก่อน</p>
               <p>ตัวอย่างปัญหา เช่น</p>
               <ul className="ml-6 list-disc space-y-1">
@@ -400,7 +400,7 @@ export default async function LegalPage() {
                 <li>ความเข้าใจผิดเกี่ยวกับการชำระเงิน</li>
               </ul>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">2.2 การแจ้งแพลตฟอร์ม</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">2. การแจ้งแพลตฟอร์ม</h3>
               <p>หากไม่สามารถแก้ไขปัญหาได้ ผู้ใช้สามารถแจ้งปัญหากับ Peaksnature โดย</p>
               <ul className="ml-6 list-disc space-y-1">
                 <li>ส่งข้อความผ่านระบบ</li>
@@ -413,7 +413,7 @@ export default async function LegalPage() {
                 <li>บันทึกการใช้งานระบบ</li>
               </ul>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">2.3 บทบาทของแพลตฟอร์ม</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">3. บทบาทของแพลตฟอร์ม</h3>
               <p>Peaksnature ทำหน้าที่เป็น ผู้ประสานงาน (Mediator) เท่านั้น</p>
               <p>แพลตฟอร์มจะช่วย</p>
               <ul className="ml-6 list-disc space-y-1">
@@ -422,7 +422,7 @@ export default async function LegalPage() {
               </ul>
               <p>แต่ไม่รับประกันผลลัพธ์ของการตกลงระหว่างคู่กรณี</p>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">2.4 กรณีข้อพิพาทร้ายแรง</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">4. กรณีข้อพิพาทร้ายแรง</h3>
               <p>หากข้อพิพาทไม่สามารถแก้ไขได้</p>
               <p>คู่กรณีอาจต้องดำเนินการตามกระบวนการทางกฎหมายตามกฎหมายที่เกี่ยวข้อง</p>
             </div>
@@ -433,15 +433,15 @@ export default async function LegalPage() {
           {/* 7. Content & Review Policy */}
           <div id="content-review">
             <div className="flex items-center gap-3 mb-4">
-              <div className="rounded-lg bg-green-100 p-2.5">
-                <MessageSquare className="h-5 w-5 text-green-600" />
+              <div className="rounded-lg bg-gray-100 p-2.5">
+                <MessageSquare className="h-5 w-5 text-gray-900" />
               </div>
               <h2 className="text-xl font-bold text-gray-900">{t("contentReview")}</h2>
             </div>
             <div className="space-y-4 text-sm text-gray-600">
               <p>เพื่อให้แพลตฟอร์มมีข้อมูลที่ถูกต้องและเป็นประโยชน์ต่อผู้ใช้งาน Peaksnature มีข้อกำหนดเกี่ยวกับเนื้อหาและรีวิวดังต่อไปนี้</p>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">3.1 เนื้อหาที่เจ้าของที่พักเผยแพร่</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">1. เนื้อหาที่เจ้าของที่พักเผยแพร่</h3>
               <p>เจ้าของที่พักต้องรับรองว่า</p>
               <ul className="ml-6 list-disc space-y-1">
                 <li>รูปภาพที่พักเป็นภาพจริง</li>
@@ -455,7 +455,7 @@ export default async function LegalPage() {
                 <li>โฆษณาเกินจริง</li>
               </ul>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">3.2 รีวิวจากผู้เข้าพัก</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">2. รีวิวจากผู้เข้าพัก</h3>
               <p>ผู้เข้าพักสามารถให้คะแนนหรือรีวิวหลังจากเข้าพักได้</p>
               <p>รีวิวควรเป็น</p>
               <ul className="ml-6 list-disc space-y-1">
@@ -464,7 +464,7 @@ export default async function LegalPage() {
                 <li>ภาษาที่สุภาพ</li>
               </ul>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">3.3 เนื้อหาที่ไม่อนุญาต</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">3. เนื้อหาที่ไม่อนุญาต</h3>
               <p>Peaksnature ไม่อนุญาตเนื้อหาที่</p>
               <ul className="ml-6 list-disc space-y-1">
                 <li>หมิ่นประมาท</li>
@@ -474,7 +474,7 @@ export default async function LegalPage() {
                 <li>ละเมิดความเป็นส่วนตัวของผู้อื่น</li>
               </ul>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">3.4 สิทธิ์ของแพลตฟอร์ม</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">4. สิทธิ์ของแพลตฟอร์ม</h3>
               <p>Peaksnature มีสิทธิ์</p>
               <ul className="ml-6 list-disc space-y-1">
                 <li>ลบหรือแก้ไขเนื้อหาที่ไม่เหมาะสม</li>
@@ -489,15 +489,15 @@ export default async function LegalPage() {
           {/* 8. Host Agreement */}
           <div id="host-agreement">
             <div className="flex items-center gap-3 mb-4">
-              <div className="rounded-lg bg-green-100 p-2.5">
-                <ScrollText className="h-5 w-5 text-green-600" />
+              <div className="rounded-lg bg-gray-100 p-2.5">
+                <ScrollText className="h-5 w-5 text-gray-900" />
               </div>
               <h2 className="text-xl font-bold text-gray-900">{t("hostAgreement")}</h2>
             </div>
             <div className="space-y-4 text-sm text-gray-600">
               <p>เจ้าของที่พักที่ลงทะเบียนในแพลตฟอร์ม Peaksnature ต้องยอมรับข้อตกลงดังต่อไปนี้</p>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">4.1 ความถูกต้องของข้อมูล</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">1. ความถูกต้องของข้อมูล</h3>
               <p>เจ้าของที่พักต้องให้ข้อมูลที่ถูกต้องเกี่ยวกับ</p>
               <ul className="ml-6 list-disc space-y-1">
                 <li>รายละเอียดที่พัก</li>
@@ -507,7 +507,7 @@ export default async function LegalPage() {
               </ul>
               <p>ห้ามใช้ข้อมูลเท็จหรือทำให้ผู้เข้าพักเข้าใจผิด</p>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">4.2 การจัดการการจอง</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">2. การจัดการการจอง</h3>
               <p>เจ้าของที่พักต้อง</p>
               <ul className="ml-6 list-disc space-y-1">
                 <li>อัปเดตปฏิทินวันว่างให้ถูกต้อง</li>
@@ -515,7 +515,7 @@ export default async function LegalPage() {
                 <li>ติดต่อผู้เข้าพักเมื่อจำเป็น</li>
               </ul>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">4.3 ความรับผิดชอบต่อผู้เข้าพัก</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">3. ความรับผิดชอบต่อผู้เข้าพัก</h3>
               <p>เจ้าของที่พักต้องรับผิดชอบต่อ</p>
               <ul className="ml-6 list-disc space-y-1">
                 <li>ความสะอาดของที่พัก</li>
@@ -523,7 +523,7 @@ export default async function LegalPage() {
                 <li>การให้บริการตามรายละเอียดที่ระบุในระบบ</li>
               </ul>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">4.4 การกำหนดราคา</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">4. การกำหนดราคา</h3>
               <p>เจ้าของที่พักสามารถกำหนด</p>
               <ul className="ml-6 list-disc space-y-1">
                 <li>ราคาปกติ</li>
@@ -532,7 +532,7 @@ export default async function LegalPage() {
               </ul>
               <p>แต่ต้องแสดงข้อมูลราคาอย่างชัดเจน</p>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">4.5 การยกเลิกการจอง</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">5. การยกเลิกการจอง</h3>
               <p>เจ้าของที่พักไม่ควรยกเลิกการจองโดยไม่มีเหตุผลอันสมควร</p>
               <p>การยกเลิกบ่อยครั้งอาจทำให้แพลตฟอร์ม</p>
               <ul className="ml-6 list-disc space-y-1">
@@ -540,7 +540,7 @@ export default async function LegalPage() {
                 <li>ระงับบัญชีผู้ใช้</li>
               </ul>
 
-              <h3 className="text-base font-semibold text-gray-900 pt-2">4.6 บทบาทของแพลตฟอร์ม</h3>
+              <h3 className="text-base font-semibold text-gray-900 pt-2">6. บทบาทของแพลตฟอร์ม</h3>
               <p>Peaksnature เป็นเพียงแพลตฟอร์มตัวกลางในการเชื่อมต่อผู้เข้าพักกับเจ้าของที่พัก</p>
               <p>Peaksnature ไม่รับผิดชอบต่อความเสียหายที่เกิดขึ้นจากการเข้าพัก</p>
             </div>
