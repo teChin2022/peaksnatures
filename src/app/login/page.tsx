@@ -166,10 +166,7 @@ export default function LoginPage() {
       )}
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2">
-          <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.png" alt="Peaksnature" width={32} height={32} className="h-8 w-8 rounded" />
-            <span className="text-2xl font-bold text-green-800">{t('signIn')}</span>
-          </Link>
+          <span className="text-2xl font-bold text-gray-900">{t('signIn')}</span>
           <p className="text-sm text-gray-500">{t("hostDashboard")}</p>
         </div>
 
@@ -187,24 +184,28 @@ export default function LoginPage() {
                   {error}
                 </div>
               )}
-              <div className="space-y-2">
-                <Label htmlFor="email">{t("email")}</Label>
-                <Input
-                  id="email"
-                  type="email"
-                  placeholder={t("emailPlaceholder")}
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  required
-                  autoComplete="email"
-                />
+              <div className="space-y-1.5">
+                <label htmlFor="email" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("email")}</label>
+                <div className="relative">
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                  <Input
+                    id="email"
+                    type="email"
+                    placeholder={t("emailPlaceholder")}
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    required
+                    autoComplete="email"
+                    className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400"
+                  />
+                </div>
               </div>
-              <div className="space-y-2">
+              <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <Label htmlFor="password">{t("password")}</Label>
+                  <label htmlFor="password" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("password")}</label>
                   <Link
                     href="/forgot-password"
-                    className="text-xs font-medium text-green-600 hover:text-green-700"
+                    className="text-xs font-medium text-gray-600 hover:text-gray-900"
                   >
                     {t("forgotPassword")}
                   </Link>
@@ -218,7 +219,7 @@ export default function LoginPage() {
                     onChange={(e) => setPassword(e.target.value)}
                     required
                     autoComplete="current-password"
-                    className="pr-10"
+                    className="pr-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400"
                   />
                   <button
                     type="button"
@@ -248,60 +249,18 @@ export default function LoginPage() {
             <CardFooter className="flex flex-col gap-3">
               <Button
                 type="submit"
-                className="w-full bg-green-600 hover:bg-green-700"
+                className="w-full bg-[#4A90E2] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#357ABD] transition-all shadow-lg shadow-[#4A90E2]/20"
                 disabled={loading || (!turnstileToken && !turnstileError)}
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {t("signInButton")}
               </Button>
 
-              {/* <div className="relative my-1">
-                <div className="absolute inset-0 flex items-center">
-                  <span className="w-full border-t" />
-                </div>
-                <div className="relative flex justify-center text-xs uppercase">
-                  <span className="bg-white px-2 text-gray-400">{t("or")}</span>
-                </div>
-              </div> */}
-
-              {/* {magicLinkSent ? (
-                <div className="rounded-lg border border-green-200 bg-green-50 px-3 py-3 text-center text-sm text-green-700">
-                  {t("magicLinkSent")}
-                </div>
-              ) : (
-                <div className="space-y-2">
-                  <Input
-                    type="email"
-                    placeholder={t("emailPlaceholder")}
-                    value={magicLinkEmail}
-                    onChange={(e) => setMagicLinkEmail(e.target.value)}
-                    autoComplete="email"
-                  />
-                  {magicLinkError && (
-                    <p className="text-xs text-red-600">{magicLinkError}</p>
-                  )}
-                  <Button
-                    type="button"
-                    variant="outline"
-                    className="w-full"
-                    disabled={magicLinkLoading || !magicLinkEmail.trim()}
-                    onClick={handleMagicLink}
-                  >
-                    {magicLinkLoading ? (
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    ) : (
-                      <Mail className="mr-2 h-4 w-4" />
-                    )}
-                    {t("magicLinkButton")}
-                  </Button>
-                </div>
-              )} */}
-
               <p className="text-center text-sm text-gray-500">
                 {t("noAccount")}{" "}
                 <Link
                   href="/register"
-                  className="font-medium text-green-600 hover:text-green-700"
+                  className="font-medium text-gray-900 hover:text-gray-700"
                 >
                   {t("register")}
                 </Link>

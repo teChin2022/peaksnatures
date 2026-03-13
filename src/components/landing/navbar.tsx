@@ -1,15 +1,32 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Mountain, Globe, Menu, User } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import Link from "next/link";
+import { User } from "lucide-react";
+import { useTranslations } from "next-intl";
+import { AnimatePresence, motion } from "motion/react";
 
 export function LandingNavbar() {
+  const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const t = useTranslations("common");
+
+  const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > 50);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
+  }, []);
+
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (menuRef.current && !menuRef.current.contains(event.target as Node)) {
+        setIsMenuOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
   return (
@@ -65,18 +82,39 @@ export function LandingNavbar() {
           >
             <Globe size={20} />
           </button> */}
-          <div
-            className={`flex items-center gap-2 px-3 py-1.5 rounded-full border transition-all ${
-              scrolled
-                ? "bg-white border-gray-200 text-gray-900"
-                : "bg-white/10 border-white/20 text-white"
-            }`}
-          >
-            <Menu size={18} />
-            <div className="w-7 h-7 bg-gray-400 rounded-full flex items-center justify-center text-white">
-              <User size={14} />
-            </div>
+
+          <div className="relative" ref={menuRef}>
+            <button 
+              onClick={() => setIsMenuOpen(!isMenuOpen)}
+              className={`p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${scrolled ? 'text-earth-900' : 'text-white'}`}
+            >
+              <User size={20} />
+            </button>
+            
+            <AnimatePresence>
+              {isMenuOpen && (
+                <motion.div
+                  initial={{ opacity: 0, y: 10, scale: 0.95 }}
+                  animate={{ opacity: 1, y: 0, scale: 1 }}
+                  exit={{ opacity: 0, y: 10, scale: 0.95 }}
+                  transition={{ duration: 0.2 }}
+                  className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-earth-100 overflow-hidden py-2"
+                >
+                  <button className="w-full text-left px-4 py-3 text-sm font-medium text-earth-900 hover:bg-gray-50 transition-colors">
+                    <Link href="/register" className="cursor-pointer">
+                      {t("hostRegister")}
+                    </Link>
+                  </button>
+                  <button className="w-full text-left px-4 py-3 text-sm font-medium text-earth-900 hover:bg-gray-50 transition-colors">
+                    <Link href="/login" className="cursor-pointer">
+                      {t("hostLogin")}
+                    </Link>
+                  </button>
+                </motion.div>
+              )}
+            </AnimatePresence>
           </div>
+
         </div>
       </div>
     </nav>

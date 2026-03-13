@@ -691,11 +691,11 @@ export function BookingSection({
           initial={{ scale: 0.95, y: 20 }}
           animate={{ scale: 1, y: 0 }}
           exit={{ scale: 0.95, y: 20 }}
-          className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col h-[95vh] md:h-auto md:max-h-[90vh]"
+          className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col h-[95vh] md:max-h-[90vh]"
           onClick={(e) => e.stopPropagation()}
         >
           {/* ── Booking Form ── */}
-          <div className="p-5 md:p-8 relative flex flex-col">
+          <div className="p-5 md:p-8 relative flex flex-col h-full">
             <button
               onClick={handleClose}
               className="absolute top-4 right-4 p-2 rounded-full text-gray-400 hover:bg-gray-100 transition-all z-10"
@@ -735,55 +735,149 @@ export function BookingSection({
               <AnimatePresence mode="wait">
                 {/* ═══ Step 1: Dates ═══ */}
                 {step === "dates" && (
-                  <motion.div key="step-dates" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
-                    {/* Room detail */}
-                    {selectedRoom && (
-                      <div className="rounded-xl bg-gray-50 p-3">
-                        <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("room")}</p>
-                        <div className="flex items-baseline justify-between mt-1">
-                          <p className="text-base font-bold text-gray-900">{selectedRoom.name}</p>
-                          <p className="text-sm font-semibold">{priceLabel}/{tc("night")}</p>
-                        </div>
-                        {selectedRoom.description && (
-                          <div className="mt-2 text-xs text-gray-500">
-                            <HTMLContent content={selectedRoom.description} className="inline" />
+                  <motion.div key="step-dates" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
+                    <AnimatePresence mode="wait">
+                      {!showCalendar ? (
+                        <motion.div key="dates-form" initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.25 }} className="space-y-5">
+                          {/* Room detail */}
+                          {selectedRoom && (
+                            <div className="rounded-xl bg-gray-50 p-3">
+                              <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("room")}</p>
+                              <div className="flex items-baseline justify-between mt-1">
+                                <p className="text-base font-bold text-gray-900">{selectedRoom.name}</p>
+                                <p className="text-sm font-semibold">{priceLabel}/{tc("night")}</p>
+                              </div>
+                              {selectedRoom.description && (
+                                <div className="mt-2 text-xs text-gray-500">
+                                  <HTMLContent content={selectedRoom.description} className="inline" />
+                                </div>
+                              )}
+                            </div>
+                          )}
+
+                          <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("selectDates")}</label>
+
+                          {/* Date picker toggle */}
+                          <button
+                            onClick={() => setShowCalendar(true)}
+                            className="w-full flex items-center justify-between p-3.5 rounded-xl border border-gray-200 hover:border-gray-400 transition-all text-sm font-medium text-gray-900 bg-white"
+                          >
+                            <div className="flex items-center gap-2.5">
+                              <CalendarIcon size={16} className="text-gray-400" />
+                              <span>
+                                {dateRange?.from ? (
+                                  <>
+                                    {fmtDate(dateRange.from, "MMM d, yyyy", locale)}
+                                    {dateRange.to && dateRange.to.getTime() !== dateRange.from.getTime() && ` — ${fmtDate(dateRange.to, "MMM d, yyyy", locale)}`}
+                                  </>
+                                ) : t("selectDates")}
+                              </span>
+                            </div>
+                            <span className="text-gray-400 text-xs">
+                              {nights > 0 ? `${nights} ${nights > 1 ? tc("nights") : tc("night")}` : ""}
+                            </span>
+                          </button>
+
+                          {/* Guests */}
+                          <div className="space-y-2">
+                            <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("numGuests")}</label>
+                            <div className="flex items-center justify-between p-3 rounded-xl border border-gray-200">
+                              <span className="text-sm font-medium text-gray-700">{numGuests} {tc("guests")}</span>
+                              <div className="flex items-center gap-3">
+                                <button
+                                  onClick={() => setNumGuests(String(Math.max(1, parseInt(numGuests) - 1)))}
+                                  className="p-1 rounded-full border border-gray-200 hover:bg-gray-100 text-gray-400"
+                                >
+                                  <Minus size={14} />
+                                </button>
+                                <button
+                                  onClick={() => setNumGuests(String(Math.min(selectedRoom?.max_guests || homestay.max_guests, parseInt(numGuests) + 1)))}
+                                  className="p-1 rounded-full border border-gray-200 hover:bg-gray-100 text-gray-400"
+                                >
+                                  <Plus size={14} />
+                                </button>
+                              </div>
+                            </div>
                           </div>
-                        )}
-                      </div>
-                    )}
 
-                    <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("selectDates")}</label>
+                          {/* Price breakdown */}
+                          {totalPrice > 0 && priceResult && (
+                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="pt-4 border-t border-gray-100 space-y-2">
+                              {(() => {
+                                const hasSeasons = priceResult.breakdown.some((b) => b.seasonName);
+                                if (!hasSeasons) {
+                                  return (
+                                    <div className="flex justify-between text-sm text-gray-600">
+                                      <span>฿{selectedRoom?.price_per_night.toLocaleString()} × {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
+                                      <span>฿{totalPrice.toLocaleString()}</span>
+                                    </div>
+                                  );
+                                }
+                                const groups: { label: string; price: number; count: number }[] = [];
+                                for (const b of priceResult.breakdown) {
+                                  const label = b.seasonName || t("baseRate");
+                                  const last = groups[groups.length - 1];
+                                  if (last && last.label === label && last.price === b.price) last.count++;
+                                  else groups.push({ label, price: b.price, count: 1 });
+                                }
+                                return (
+                                  <>
+                                    {groups.map((g, i) => (
+                                      <div key={i} className="flex justify-between text-sm text-gray-600">
+                                        <span>{g.label}: ฿{g.price.toLocaleString()} × {g.count}</span>
+                                        <span>฿{(g.price * g.count).toLocaleString()}</span>
+                                      </div>
+                                    ))}
+                                  </>
+                                );
+                              })()}
+                              <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-100">
+                                <span>{tc("total")}</span>
+                                <span>฿{totalPrice.toLocaleString()}</span>
+                              </div>
+                            </motion.div>
+                          )}
 
-                    {/* Date picker toggle */}
-                    <div className="space-y-2 relative">
-                      <button
-                        onClick={() => setShowCalendar(!showCalendar)}
-                        className="w-full flex items-center justify-between p-3.5 rounded-xl border border-gray-200 hover:border-gray-400 transition-all text-sm font-medium text-gray-900 bg-white"
-                      >
-                        <div className="flex items-center gap-2.5">
-                          <CalendarIcon size={16} className="text-gray-400" />
-                          <span>
-                            {dateRange?.from ? (
-                              <>
+                          {/* PDPA */}
+                          <label className="flex items-start gap-2 cursor-pointer">
+                            <input type="checkbox" checked={pdpaConsent} onChange={(e) => setPdpaConsent(e.target.checked)} className="mt-1 h-4 w-4 rounded border-gray-300 text-[#4A90E2] focus:ring-[#4A90E2]" />
+                            <span className="text-xs text-gray-600">
+                              {t.rich("pdpaConsent", {
+                                privacy: (chunks) => <a href="/legal#privacy" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-gray-900">{chunks}</a>,
+                                terms: (chunks) => <a href="/legal#terms" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-gray-900">{chunks}</a>,
+                              })}
+                            </span>
+                          </label>
+
+                          <button
+                            onClick={handleProceedToDetails}
+                            disabled={!dateRange?.from || !dateRange?.to || !selectedRoomId || !pdpaConsent}
+                            className="w-full bg-[#4A90E2] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#357ABD] transition-all shadow-lg shadow-[#4A90E2]/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                          >
+                            {t("continueDetails")} <ArrowRight size={18} />
+                          </button>
+                          <p className="text-center text-[11px] text-gray-400">{t("subtitle")}</p>
+                        </motion.div>
+                      ) : (
+                        <motion.div key="dates-calendar" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.25 }} className="space-y-4">
+                          <div className="flex items-center gap-3">
+                            <button onClick={() => setShowCalendar(false)} className="p-2 rounded-full hover:bg-gray-100 text-gray-400"><ArrowLeft size={18} /></button>
+                            <h3 className="text-xl font-bold text-gray-900">{t("selectDates")}</h3>
+                          </div>
+
+                          {/* Selected dates summary */}
+                          {dateRange?.from && (
+                            <div className="rounded-xl bg-gray-50 px-3 py-2 text-sm text-gray-700 flex items-center gap-2">
+                              <CalendarIcon size={14} className="text-gray-400" />
+                              <span>
                                 {fmtDate(dateRange.from, "MMM d, yyyy", locale)}
                                 {dateRange.to && dateRange.to.getTime() !== dateRange.from.getTime() && ` — ${fmtDate(dateRange.to, "MMM d, yyyy", locale)}`}
-                              </>
-                            ) : t("selectDates")}
-                          </span>
-                        </div>
-                        <span className="text-gray-400 text-xs">
-                          {nights > 0 ? `${nights} ${nights > 1 ? tc("nights") : tc("night")}` : ""}
-                        </span>
-                      </button>
+                              </span>
+                              {nights > 0 && <span className="ml-auto text-xs text-gray-400">{nights} {nights > 1 ? tc("nights") : tc("night")}</span>}
+                            </div>
+                          )}
 
-                      <AnimatePresence>
-                        {showCalendar && (
-                          <motion.div
-                            initial={{ opacity: 0, y: 8 }}
-                            animate={{ opacity: 1, y: 0 }}
-                            exit={{ opacity: 0, y: 8 }}
-                            className="absolute top-full left-0 right-0 mt-1 bg-white rounded-2xl p-3 z-[60] border border-gray-100"
-                          >
+                          <div className="bg-white rounded-2xl p-3 border border-gray-100">
                             {mounted ? (
                               <Calendar
                                 mode="range"
@@ -817,98 +911,17 @@ export function BookingSection({
                                 <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
                               </div>
                             )}
-                            <div className="flex justify-end mt-3 pt-3 border-t border-gray-100">
-                              <button
-                                onClick={() => setShowCalendar(false)}
-                                className="bg-[#4A90E2] text-white px-5 py-2 rounded-full text-sm font-bold hover:bg-[#357ABD] transition-colors"
-                              >
-                                {tc("done")}
-                              </button>
-                            </div>
-                          </motion.div>
-                        )}
-                      </AnimatePresence>
-                    </div>
+                          </div>
 
-                    {/* Guests */}
-                    <div className="space-y-2">
-                      <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("numGuests")}</label>
-                      <div className="flex items-center justify-between p-3 rounded-xl border border-gray-200">
-                        <span className="text-sm font-medium text-gray-700">{numGuests} {tc("guests")}</span>
-                        <div className="flex items-center gap-3">
                           <button
-                            onClick={() => setNumGuests(String(Math.max(1, parseInt(numGuests) - 1)))}
-                            className="p-1 rounded-full border border-gray-200 hover:bg-gray-100 text-gray-400"
+                            onClick={() => setShowCalendar(false)}
+                            className="w-full bg-[#4A90E2] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#357ABD] transition-all shadow-lg shadow-[#4A90E2]/20 flex items-center justify-center gap-2"
                           >
-                            <Minus size={14} />
+                            {tc("done")}
                           </button>
-                          <button
-                            onClick={() => setNumGuests(String(Math.min(selectedRoom?.max_guests || homestay.max_guests, parseInt(numGuests) + 1)))}
-                            className="p-1 rounded-full border border-gray-200 hover:bg-gray-100 text-gray-400"
-                          >
-                            <Plus size={14} />
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-
-                    {/* Price breakdown */}
-                    {totalPrice > 0 && priceResult && (
-                      <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="pt-4 border-t border-gray-100 space-y-2">
-                        {(() => {
-                          const hasSeasons = priceResult.breakdown.some((b) => b.seasonName);
-                          if (!hasSeasons) {
-                            return (
-                              <div className="flex justify-between text-sm text-gray-600">
-                                <span>฿{selectedRoom?.price_per_night.toLocaleString()} × {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
-                                <span>฿{totalPrice.toLocaleString()}</span>
-                              </div>
-                            );
-                          }
-                          const groups: { label: string; price: number; count: number }[] = [];
-                          for (const b of priceResult.breakdown) {
-                            const label = b.seasonName || t("baseRate");
-                            const last = groups[groups.length - 1];
-                            if (last && last.label === label && last.price === b.price) last.count++;
-                            else groups.push({ label, price: b.price, count: 1 });
-                          }
-                          return (
-                            <>
-                              {groups.map((g, i) => (
-                                <div key={i} className="flex justify-between text-sm text-gray-600">
-                                  <span>{g.label}: ฿{g.price.toLocaleString()} × {g.count}</span>
-                                  <span>฿{(g.price * g.count).toLocaleString()}</span>
-                                </div>
-                              ))}
-                            </>
-                          );
-                        })()}
-                        <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-100">
-                          <span>{tc("total")}</span>
-                          <span>฿{totalPrice.toLocaleString()}</span>
-                        </div>
-                      </motion.div>
-                    )}
-
-                    {/* PDPA */}
-                    <label className="flex items-start gap-2 cursor-pointer">
-                      <input type="checkbox" checked={pdpaConsent} onChange={(e) => setPdpaConsent(e.target.checked)} className="mt-1 h-4 w-4 rounded border-gray-300 text-[#4A90E2] focus:ring-[#4A90E2]" />
-                      <span className="text-xs text-gray-600">
-                        {t.rich("pdpaConsent", {
-                          privacy: (chunks) => <a href="/legal#privacy" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-gray-900">{chunks}</a>,
-                          terms: (chunks) => <a href="/legal#terms" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-gray-900">{chunks}</a>,
-                        })}
-                      </span>
-                    </label>
-
-                    <button
-                      onClick={handleProceedToDetails}
-                      disabled={!dateRange?.from || !dateRange?.to || !selectedRoomId || !pdpaConsent}
-                      className="w-full bg-[#4A90E2] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#357ABD] transition-all shadow-lg shadow-[#4A90E2]/20 flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                    >
-                      {t("continueDetails")} <ArrowRight size={18} />
-                    </button>
-                    <p className="text-center text-[11px] text-gray-400">{t("subtitle")}</p>
+                        </motion.div>
+                      )}
+                    </AnimatePresence>
                   </motion.div>
                 )}
 

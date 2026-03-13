@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Mountain, Loader2, Eye, EyeOff, Mail } from "lucide-react";
+import { Mountain, Loader2, Eye, EyeOff, Mail, User } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { Button } from "@/components/ui/button";
@@ -105,18 +105,15 @@ export default function RegisterPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2">
-          <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.png" alt="Peaksnature" width={32} height={32} className="h-8 w-8 rounded" />
-            <span className="text-2xl font-bold text-green-800">{t('register')}</span>
-          </Link>
+          <span className="text-2xl font-bold text-gray-900">{t('register')}</span>
           <p className="text-sm text-gray-500">{t("registerAs")}</p>
         </div>
 
         {emailSent ? (
           <Card>
             <CardContent className="flex flex-col items-center gap-4 py-8">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-                <Mail className="h-8 w-8 text-green-600" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-blue-100">
+                <Mail className="h-8 w-8 text-[#4A90E2]" />
               </div>
               <h2 className="text-xl font-semibold text-gray-900">
                 {t("checkEmailTitle")}
@@ -129,7 +126,7 @@ export default function RegisterPage() {
               </p>
               <Link
                 href="/login"
-                className="mt-2 text-sm font-medium text-green-600 hover:text-green-700"
+                className="mt-2 text-sm font-medium text-gray-900 hover:text-gray-700"
               >
                 {t("backToSignIn")}
               </Link>
@@ -150,31 +147,39 @@ export default function RegisterPage() {
                     {error}
                   </div>
                 )}
-                <div className="space-y-2">
-                  <Label htmlFor="name">{t("fullName")}</Label>
-                  <Input
-                    id="name"
-                    type="text"
-                    placeholder={t("fullNamePlaceholder")}
-                    value={name}
-                    onChange={(e) => setName(e.target.value)}
-                    required
-                  />
+                <div className="space-y-1.5">
+                  <label htmlFor="name" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("fullName")}</label>
+                  <div className="relative">
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <Input
+                      id="name"
+                      type="text"
+                      placeholder={t("fullNamePlaceholder")}
+                      value={name}
+                      onChange={(e) => setName(e.target.value)}
+                      required
+                      className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="email">{t("email")}</Label>
-                  <Input
-                    id="email"
-                    type="email"
-                    placeholder={t("emailPlaceholder")}
-                    value={email}
-                    onChange={(e) => setEmail(e.target.value)}
-                    required
-                    autoComplete="email"
-                  />
+                <div className="space-y-1.5">
+                  <label htmlFor="email" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("email")}</label>
+                  <div className="relative">
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <Input
+                      id="email"
+                      type="email"
+                      placeholder={t("emailPlaceholder")}
+                      value={email}
+                      onChange={(e) => setEmail(e.target.value)}
+                      required
+                      autoComplete="email"
+                      className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400"
+                    />
+                  </div>
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="password">{t("password")}</Label>
+                <div className="space-y-1.5">
+                  <label htmlFor="password" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("password")}</label>
                   <div className="relative">
                     <Input
                       id="password"
@@ -189,7 +194,7 @@ export default function RegisterPage() {
                       required
                       minLength={6}
                       autoComplete="new-password"
-                      className="pr-10"
+                      className="pr-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400"
                     />
                     <button
                       type="button"
@@ -208,8 +213,8 @@ export default function RegisterPage() {
                     <p className="text-xs text-amber-600 mt-1">{passwordWarning}</p>
                   )}
                 </div>
-                <div className="space-y-2">
-                  <Label htmlFor="confirmPassword">{t("confirmPassword")}</Label>
+                <div className="space-y-1.5">
+                  <label htmlFor="confirmPassword" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("confirmPassword")}</label>
                   <div className="relative">
                     <Input
                       id="confirmPassword"
@@ -224,7 +229,7 @@ export default function RegisterPage() {
                       required
                       minLength={6}
                       autoComplete="new-password"
-                      className="pr-10"
+                      className="pr-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400"
                     />
                     <button
                       type="button"
@@ -260,7 +265,7 @@ export default function RegisterPage() {
                     type="checkbox"
                     checked={pdpaConsent}
                     onChange={(e) => setPdpaConsent(e.target.checked)}
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-green-600 focus:ring-green-500"
+                    className="mt-1 h-4 w-4 rounded border-gray-300 text-[#4A90E2] focus:ring-[#4A90E2]"
                   />
                   <span className="text-xs text-gray-600">
                     {t.rich("pdpaConsent", {
@@ -269,7 +274,7 @@ export default function RegisterPage() {
                           href="/legal#privacy"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-medium text-green-600 underline hover:text-green-700"
+                          className="font-medium underline hover:text-gray-900"
                         >
                           {chunks}
                         </a>
@@ -279,7 +284,7 @@ export default function RegisterPage() {
                           href="/legal#terms"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-medium text-green-600 underline hover:text-green-700"
+                          className="font-medium underline hover:text-gray-900"
                         >
                           {chunks}
                         </a>
@@ -289,7 +294,7 @@ export default function RegisterPage() {
                 </label>
                 <Button
                   type="submit"
-                  className="w-full bg-green-600 hover:bg-green-700"
+                  className="w-full bg-[#4A90E2] text-white py-3.5 rounded-2xl font-bold text-sm hover:bg-[#357ABD] transition-all shadow-lg shadow-[#4A90E2]/20"
                   disabled={loading || (!turnstileToken && !turnstileError) || !pdpaConsent}
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -299,7 +304,7 @@ export default function RegisterPage() {
                   {t("haveAccount")}{" "}
                   <Link
                     href="/login"
-                    className="font-medium text-green-600 hover:text-green-700"
+                    className="font-medium text-gray-900 hover:text-gray-700"
                   >
                     {t("signIn")}
                   </Link>
