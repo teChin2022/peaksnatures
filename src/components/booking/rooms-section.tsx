@@ -408,7 +408,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
               booked: disabledDates,
             }}
             modifiersClassNames={{
-              booked: "!bg-red-100 !text-red-400 !opacity-100 !rounded-lg",
+              booked: "[&_.day-btn]:bg-red-100! [&_.day-btn]:hover:bg-red-100! [&_.day-btn]:text-red-400! [&_.day-btn]:opacity-100! [&_.day-btn]:rounded-full",
             }}
             className="rounded-md border w-full"
           />
