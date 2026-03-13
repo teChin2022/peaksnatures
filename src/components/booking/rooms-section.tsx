@@ -3,14 +3,14 @@
 import { useMemo, useState, useRef, useEffect } from "react";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import Image from "next/image";
-import { format, eachDayOfInterval, parseISO, subDays } from "date-fns";
+import { format, eachDayOfInterval, parseISO, subDays, startOfToday, addMonths } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
 import type { Room, RoomSeasonalPrice, BlockedDate } from "@/types/database";
-import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Users, BedDouble, CalendarDays, CalendarSearch, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { Separator } from "@/components/ui/separator";
 import { useTranslations, useLocale } from "next-intl";
+import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { getPriceRange } from "@/lib/calculate-price";
 import { HTMLContent } from "@/components/ui/html-content";
@@ -38,7 +38,7 @@ function RoomCardImage({ src, name, eager, onClick }: { src: string; name: strin
 
   return (
     <div
-      className="relative aspect-[16/10] cursor-pointer overflow-hidden"
+      className="relative aspect-[4/3] cursor-pointer overflow-hidden rounded-2xl"
       onClick={onClick}
     >
       <Image
@@ -50,8 +50,8 @@ function RoomCardImage({ src, name, eager, onClick }: { src: string; name: strin
         loading={eager ? "eager" : "lazy"}
         placeholder="blur"
         blurDataURL={BLUR_DATA_URL}
-        className={`h-full w-full object-cover group-hover:scale-105 ${
-          loaded ? "opacity-100 transition-transform duration-500" : "opacity-0"
+        className={`h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 ${
+          loaded ? "opacity-100" : "opacity-0"
         }`}
         onLoad={() => setLoaded(true)}
       />
@@ -135,13 +135,12 @@ interface BookedRange {
 
 interface RoomsSectionProps {
   rooms: Room[];
-  themeColor?: string;
   seasonalPrices?: RoomSeasonalPrice[];
   bookedRanges?: BookedRange[];
   blockedDates?: BlockedDate[];
 }
 
-export function RoomsSection({ rooms, themeColor = "#16a34a", seasonalPrices = [], bookedRanges = [], blockedDates = [] }: RoomsSectionProps) {
+export function RoomsSection({ rooms, seasonalPrices = [], bookedRanges = [], blockedDates = [] }: RoomsSectionProps) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
 
@@ -160,16 +159,22 @@ export function RoomsSection({ rooms, themeColor = "#16a34a", seasonalPrices = [
     <section className="py-10">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="flex items-center gap-2">
-          <BedDouble className="h-5 w-5" style={{ color: themeColor }} />
-          <h2 className="text-xl font-semibold text-gray-900">
+          <BedDouble className="h-5 w-5 text-gray-600" />
+          <motion.h2
+            initial={{ opacity: 0, y: 15 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="text-xl font-semibold text-gray-900"
+          >
             {t("title")}
-          </h2>
+          </motion.h2>
         </div>
         <p className="mt-1 text-sm text-gray-500">
           {t("subtitle")}
         </p>
 
-        <RoomCards rooms={rooms} themeColor={themeColor} seasonsByRoom={seasonsByRoom} bookedRanges={bookedRanges} blockedDates={blockedDates} />
+        <RoomCards rooms={rooms} seasonsByRoom={seasonsByRoom} bookedRanges={bookedRanges} blockedDates={blockedDates} />
 
         <Separator className="mt-10" />
       </div>
@@ -205,11 +210,42 @@ function getFullyBookedDates(roomId: string, rooms: Room[], bookedRanges: Booked
   return fullyBooked;
 }
 
-function RoomCards({ rooms, themeColor, seasonsByRoom, bookedRanges, blockedDates }: { rooms: Room[]; themeColor: string; seasonsByRoom: Record<string, RoomSeasonalPrice[]>; bookedRanges: BookedRange[]; blockedDates: BlockedDate[] }) {
+function RoomDescriptionWithReadMore({ content, onReadMore }: { content: string; onReadMore: () => void }) {
+  const t = useTranslations("rooms");
+  const ref = useRef<HTMLDivElement>(null);
+  const [overflows, setOverflows] = useState(false);
+
+  useEffect(() => {
+    const el = ref.current;
+    if (el) {
+      setOverflows(el.scrollHeight > el.clientHeight);
+    }
+  }, [content]);
+
+  return (
+    <>
+      <div ref={ref} className="line-clamp-5">
+        <HTMLContent content={content} className="mt-2 text-sm leading-relaxed text-gray-500" />
+      </div>
+      {overflows && (
+        <button
+          type="button"
+          className="mt-1 text-sm font-medium text-gray-900 underline underline-offset-4 hover:text-gray-600"
+          onClick={onReadMore}
+        >
+          {t("readMore")}
+        </button>
+      )}
+    </>
+  );
+}
+
+function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms: Room[]; seasonsByRoom: Record<string, RoomSeasonalPrice[]>; bookedRanges: BookedRange[]; blockedDates: BlockedDate[] }) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
   const [lightbox, setLightbox] = useState<{ images: string[]; name: string } | null>(null);
   const [calendarRoomId, setCalendarRoomId] = useState<string | null>(null);
+  const [descRoomId, setDescRoomId] = useState<string | null>(null);
   const isMobile = useIsMobile();
   const locale = useLocale();
 
@@ -229,12 +265,16 @@ function RoomCards({ rooms, themeColor, seasonsByRoom, bookedRanges, blockedDate
 
   return (
     <>
-      <div className="mt-6 grid grid-cols-1 gap-5 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="mt-6 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
         {rooms.map((room, index) => (
-          <Card
+          <motion.div
             key={room.id}
-            className="group overflow-hidden border py-0 gap-0 transition-all duration-300 hover:shadow-lg hover:-translate-y-0.5"
+            initial={{ opacity: 0, scale: 0.95 }}
+            whileInView={{ opacity: 1, scale: 1 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5, delay: index * 0.1 }}
           >
+          <div className="group">
             {room.images[0] && (
               <RoomCardImage
                 src={room.images[0]}
@@ -243,22 +283,22 @@ function RoomCards({ rooms, themeColor, seasonsByRoom, bookedRanges, blockedDate
                 onClick={() => setLightbox({ images: room.images, name: room.name })}
               />
             )}
-            <CardContent className="p-4">
+            <div className="mt-3">
               {(() => {
                 const roomSeasons = seasonsByRoom[room.id] || [];
                 const { min, max } = getPriceRange(room.price_per_night, roomSeasons);
                 const hasRange = min !== max;
                 return (
-                  <div className="flex items-center gap-1" style={{ borderLeftColor: themeColor }}>
+                  <div className="flex items-center gap-1">
                     {hasRange ? (
                       <>
                         <span className="text-xs text-gray-400 self-end mb-1">{t("fromPrice")}</span>
-                        <span className="text-2xl font-bold" style={{ color: themeColor }}>
+                        <span className="text-2xl font-bold text-gray-900">
                           ฿{min.toLocaleString()}
                         </span>
                       </>
                     ) : (
-                      <span className="text-2xl font-bold" style={{ color: themeColor }}>
+                      <span className="text-2xl font-bold text-gray-900">
                         ฿{room.price_per_night.toLocaleString()}
                       </span>
                     )}
@@ -267,7 +307,10 @@ function RoomCards({ rooms, themeColor, seasonsByRoom, bookedRanges, blockedDate
                 );
               })()}
               {room.description && (
-                <HTMLContent content={room.description} className="mt-2 text-sm leading-relaxed text-gray-500 line-clamp-2" />
+                <RoomDescriptionWithReadMore
+                  content={room.description}
+                  onReadMore={() => setDescRoomId(room.id)}
+                />
               )}
               <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1">
@@ -276,17 +319,14 @@ function RoomCards({ rooms, themeColor, seasonsByRoom, bookedRanges, blockedDate
                 </span>
                 <Badge
                   variant="secondary"
-                  className="text-xs font-normal"
-                  style={{ backgroundColor: themeColor + "12", color: themeColor }}
+                  className="text-xs font-normal bg-gray-100 text-gray-700"
                 >
                   {t("available", { count: room.quantity })}
                 </Badge>
               </div>
-              <div className="mt-3 flex gap-2">
+              <div className="mt-3 flex w-full rounded-full overflow-hidden shadow-lg hover:shadow-xl transition-all">
                 <Button
-                  size="sm"
-                  className="flex-1 rounded-full text-white hover:brightness-90"
-                  style={{ backgroundColor: themeColor }}
+                  className="flex-1 rounded-none rounded-l-full bg-gray-900 text-white px-10 py-4 font-bold text-sm tracking-widest uppercase hover:bg-black border-0"
                   onClick={() => {
                     document.dispatchEvent(
                       new CustomEvent("book-room", { detail: { roomId: room.id } })
@@ -296,19 +336,18 @@ function RoomCards({ rooms, themeColor, seasonsByRoom, bookedRanges, blockedDate
                   <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
                   {t("bookRoom")}
                 </Button>
-                <Button
-                  size="icon"
-                  variant="outline"
-                  className="h-8 w-8 shrink-0 rounded-full"
-                  style={{ borderColor: themeColor, color: themeColor }}
-                  onClick={() => setCalendarRoomId(room.id)}
+                <button
+                  type="button"
+                  className="flex items-center justify-center px-4 rounded-r-full bg-gray-900 hover:bg-black border-l border-white/30 transition-colors"
+                  onClick={(e) => { e.stopPropagation(); setCalendarRoomId(room.id); }}
                   title={t("viewCalendar")}
                 >
-                  <CalendarSearch className="h-3.5 w-3.5" />
-                </Button>
+                  <CalendarSearch className="h-3.5 w-3.5 text-white" />
+                </button>
               </div>
-            </CardContent>
-          </Card>
+            </div>
+          </div>
+          </motion.div>
         ))}
       </div>
 
@@ -321,6 +360,24 @@ function RoomCards({ rooms, themeColor, seasonsByRoom, bookedRanges, blockedDate
         />
       )}
 
+      {/* Room Description Modal */}
+      <Dialog open={!!descRoomId} onOpenChange={(open) => { if (!open) setDescRoomId(null); }}>
+        <DialogContent className="sm:max-w-2xl overflow-y-auto max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>{descRoomId ? rooms.find((r) => r.id === descRoomId)?.name : ""}</DialogTitle>
+            <DialogDescription className="sr-only">
+              {descRoomId ? rooms.find((r) => r.id === descRoomId)?.name : ""}
+            </DialogDescription>
+          </DialogHeader>
+          {descRoomId && rooms.find((r) => r.id === descRoomId)?.description && (
+            <HTMLContent
+              content={rooms.find((r) => r.id === descRoomId)!.description!}
+              className="leading-relaxed text-gray-600"
+            />
+          )}
+        </DialogContent>
+      </Dialog>
+
       <Dialog open={!!calendarRoomId} onOpenChange={(open) => { if (!open) setCalendarRoomId(null); }}>
         <DialogContent className="sm:max-w-2xl overflow-y-auto max-h-[90vh]">
           <DialogHeader>
@@ -331,14 +388,16 @@ function RoomCards({ rooms, themeColor, seasonsByRoom, bookedRanges, blockedDate
           </DialogHeader>
           <Calendar
             mode="single"
-            numberOfMonths={isMobile ? 1 : 2}
+            numberOfMonths={1}
             locale={locale === "th" ? thLocale : undefined}
+            captionLayout="dropdown"
+            startMonth={startOfToday()}
+            endMonth={addMonths(startOfToday(), 12)}
             formatters={locale === "th" ? {
-              formatCaption: (date) => {
-                const month = date.toLocaleDateString("th-TH", { month: "long" });
-                const beYear = date.getFullYear() + 543;
-                return `${month} ${beYear}`;
-              },
+              formatMonthDropdown: (date) =>
+                date.toLocaleDateString("th-TH", { month: "long" }),
+              formatYearDropdown: (date) =>
+                String(date.getFullYear() + 543),
             } : undefined}
             disabled={[
               { before: new Date() },
@@ -348,7 +407,7 @@ function RoomCards({ rooms, themeColor, seasonsByRoom, bookedRanges, blockedDate
               booked: disabledDates,
             }}
             modifiersClassNames={{
-              booked: "!bg-red-100 !text-red-400 !opacity-100",
+              booked: "[&_.day-btn]:bg-red-100! [&_.day-btn]:hover:bg-red-100! [&_.day-btn]:text-red-400! [&_.day-btn]:opacity-100! [&_.day-btn]:rounded-full",
             }}
             className="rounded-md border w-full"
           />

@@ -87,7 +87,7 @@ export default function ForgotPasswordPage() {
               </p>
               <Link
                 href="/login"
-                className="mt-2 text-sm font-medium text-green-600 hover:text-green-700"
+                className="mt-2 text-sm font-medium text-gray-900 hover:text-gray-700"
               >
                 {t("backToSignIn")}
               </Link>
@@ -134,7 +134,7 @@ export default function ForgotPasswordPage() {
               <CardFooter className="flex flex-col gap-3">
                 <Button
                   type="submit"
-                  className="w-full bg-green-600 hover:bg-green-700"
+                  className="w-full bg-gray-900 text-white py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl"
                   disabled={loading || (!turnstileToken && !turnstileError)}
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -142,7 +142,7 @@ export default function ForgotPasswordPage() {
                 </Button>
                 <Link
                   href="/login"
-                  className="flex items-center gap-1 text-sm font-medium text-green-600 hover:text-green-700"
+                  className="flex items-center gap-1 text-sm font-medium text-gray-900 hover:text-gray-700"
                 >
                   <ArrowLeft className="h-3 w-3" />
                   {t("backToSignIn")}

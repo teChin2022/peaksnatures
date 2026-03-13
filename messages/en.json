@@ -11,6 +11,7 @@
     "from": "From",
     "total": "Total",
     "hostLogin": "Host Login",
+    "hostRegister": "Host Register",
     "privacy": "Privacy",
     "terms": "Terms",
     "contact": "Contact",
@@ -18,7 +19,10 @@
     "legalPolicies": "Legal & Policies",
     "delete": "Delete",
     "cancel": "Cancel",
-    "loading": "Loading..."
+    "loading": "Loading...",
+    "amenities": "Amenities",
+    "houseRules": "House Rules",
+    "done": "Done"
   },
   "home": {
     "badge": "Nature Homestays in Thailand",
@@ -82,7 +86,9 @@
     "upToGuests": "Up to {count} guests",
     "maxGuests": "Max {count} guests",
     "location": "Location",
-    "mapTitle": "Map"
+    "mapTitle": "Map",
+    "rules": "House Rules",
+    "readMore": "Read more"
   },
   "prohibitions": {
     "title": "House Rules",
@@ -97,7 +103,8 @@
     "viewCalendar": "Calendar",
     "availabilityTitle": "Room Availability",
     "legendBooked": "Booked",
-    "legendAvailable": "Available"
+    "legendAvailable": "Available",
+    "readMore": "Read more"
   },
   "booking": {
     "title": "Book Your Stay",
@@ -122,8 +129,8 @@
     "email": "Email",
     "emailPlaceholder": "your@email.com",
     "phone": "Phone",
-    "phonePlaceholder": "081-xxx-xxxx",
-    "province": "Province (optional)",
+    "phonePlaceholder": "Phone Number",
+    "province": "Province",
     "provincePlaceholder": "Select your province",
     "notes": "Notes (optional)",
     "notesPlaceholder": "Any special requests or notes for the host...",
@@ -185,6 +192,7 @@
     "checkInTime": "Check-in after {time}",
     "checkOutTime": "Check-out before {time}",
     "payFull": "Pay Full Amount",
+    "cancellationPolicy": "Cancellation Policy",
     "cancellationPolicyNote": "Free cancellation up to {days} days before check-in",
     "payDeposit": "Pay Deposit",
     "amountPaid": "Amount Paid",
@@ -225,7 +233,7 @@
     "emailPlaceholder": "Email",
     "password": "Password",
     "passwordPlaceholder": "Password",
-    "phonePlaceholder": "081-234-5678",
+    "phonePlaceholder": "Phone Number",
     "promptpayId": "PromptPay ID",
     "promptpayPlaceholder": "Phone number or national ID",
     "promptpayHint": "Used for receiving guest payments",
@@ -336,7 +344,7 @@
     "title": "Complete Your Profile",
     "description": "Please add your phone number and PromptPay ID to start receiving bookings.",
     "phone": "Phone Number",
-    "phonePlaceholder": "081-234-5678",
+    "phonePlaceholder": "Phone Number",
     "promptpay": "PromptPay ID",
     "promptpayPlaceholder": "Phone number or national ID",
     "promptpayHint": "Used for receiving guest payments",
@@ -446,7 +454,7 @@
     "email": "Email",
     "emailPlaceholder": "you@example.com",
     "phone": "Phone Number",
-    "phonePlaceholder": "081-234-5678",
+    "phonePlaceholder": "Phone Number",
     "lineUserId": "LINE User ID",
     "lineUserIdPlaceholder": "Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
     "lineUserIdHint": "Your LINE User ID for receiving booking notifications",
@@ -787,7 +795,10 @@
     "tapToRate": "Tap a star to rate",
     "loadMore": "Load More Reviews",
     "loadingMore": "Loading...",
-    "showingCount": "Showing {count} of {total}"
+    "showingCount": "Showing {count} of {total}",
+    "viewAll": "View All Reviews",
+    "viewAllTitle": "All Reviews",
+    "readMore": "Read More"
   },
   "notFound": {
     "title": "Homestay Not Found",

@@ -11,6 +11,7 @@
     "from": "เริ่มต้น",
     "total": "รวม",
     "hostLogin": "เข้าสู่ระบบเจ้าของที่พัก",
+    "hostRegister": "ลงทะเบียนเจ้าของที่พัก",
     "privacy": "นโยบายความเป็นส่วนตัว",
     "terms": "ข้อกำหนด",
     "contact": "ติดต่อ",
@@ -18,7 +19,10 @@
     "legalPolicies": "กฎ & นโยบาย",
     "delete": "ลบ",
     "cancel": "ยกเลิก",
-    "loading": "กำลังโหลด..."
+    "loading": "กำลังโหลด...",
+    "amenities": "สิ่งอำนวยความสะดวก",
+    "houseRules": "กฎของที่พัก",
+    "done": "เสร็จสิ้น"
   },
   "home": {
     "badge": "โฮมสเตย์ธรรมชาติในประเทศไทย",
@@ -82,7 +86,9 @@
     "upToGuests": "รองรับสูงสุด {count} ท่าน",
     "maxGuests": "สูงสุด {count} ท่าน",
     "location": "ที่ตั้ง",
-    "mapTitle": "แผนที่"
+    "mapTitle": "แผนที่",
+    "rules": "กฎของที่พัก",
+    "readMore": "อ่านเพิ่มเติม"
   },
   "prohibitions": {
     "title": "กฎของที่พัก",
@@ -97,7 +103,8 @@
     "viewCalendar": "ปฏิทิน",
     "availabilityTitle": "ตารางจอง",
     "legendBooked": "จองแล้ว",
-    "legendAvailable": "ว่าง"
+    "legendAvailable": "ว่าง",
+    "readMore": "อ่านเพิ่มเติม"
   },
   "booking": {
     "title": "จองที่พัก",
@@ -120,10 +127,10 @@
     "fullName": "ชื่อ-นามสกุล",
     "fullNamePlaceholder": "ชื่อเต็มของคุณ",
     "email": "อีเมล",
-    "emailPlaceholder": "your@email.com",
+    "emailPlaceholder": "อีเมล",
     "phone": "เบอร์โทรศัพท์",
-    "phonePlaceholder": "081-xxx-xxxx",
-    "province": "จังหวัด (ไม่บังคับ)",
+    "phonePlaceholder": "เบอร์โทรศัพท์",
+    "province": "จังหวัด",
     "provincePlaceholder": "เลือกจังหวัดของคุณ",
     "notes": "หมายเหตุ (ไม่บังคับ)",
     "notesPlaceholder": "คำขอพิเศษหรือข้อความถึงเจ้าของที่พัก...",
@@ -185,6 +192,7 @@
     "checkInTime": "เช็คอินหลัง {time} น.",
     "checkOutTime": "เช็คเอาท์ก่อน {time} น.",
     "payFull": "ชำระเต็มจำนวน",
+    "cancellationPolicy": "นโยบายการยกเลิก",
     "cancellationPolicyNote": "ยกเลิกฟรีล่วงหน้า {days} วันก่อนเช็คอิน",
     "payDeposit": "ชำระมัดจำ",
     "amountPaid": "ยอดที่ชำระ",
@@ -225,7 +233,7 @@
     "emailPlaceholder": "อีเมล",
     "password": "รหัสผ่าน",
     "passwordPlaceholder": "รหัสผ่าน",
-    "phonePlaceholder": "081-234-5678",
+    "phonePlaceholder": "เบอร์โทรศัพท์",
     "promptpayId": "หมายเลข PromptPay",
     "promptpayPlaceholder": "เบอร์โทรศัพท์หรือเลขบัตรประชาชน",
     "promptpayHint": "ใช้สำหรับรับชำระเงินจากผู้เข้าพัก",
@@ -336,7 +344,7 @@
     "title": "กรอกข้อมูลโปรไฟล์",
     "description": "กรุณาเพิ่มเบอร์โทรศัพท์และหมายเลข PromptPay เพื่อเริ่มรับการจอง",
     "phone": "เบอร์โทรศัพท์",
-    "phonePlaceholder": "081-234-5678",
+    "phonePlaceholder": "เบอร์โทรศัพท์",
     "promptpay": "หมายเลข PromptPay",
     "promptpayPlaceholder": "เบอร์โทรศัพท์หรือเลขบัตรประชาชน",
     "promptpayHint": "ใช้สำหรับรับชำระเงินจากผู้เข้าพัก",
@@ -444,9 +452,9 @@
     "name": "ชื่อ-นามสกุล",
     "namePlaceholder": "ชื่อเต็มของคุณ",
     "email": "อีเมล",
-    "emailPlaceholder": "you@example.com",
+    "emailPlaceholder": "อีเมล",
     "phone": "เบอร์โทรศัพท์",
-    "phonePlaceholder": "081-234-5678",
+    "phonePlaceholder": "เบอร์โทรศัพท์",
     "lineUserId": "LINE User ID",
     "lineUserIdPlaceholder": "Uxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxxx",
     "lineUserIdHint": "LINE User ID ของคุณสำหรับรับแจ้งเตือนการจอง",
@@ -787,7 +795,10 @@
     "tapToRate": "แตะดาวเพื่อให้คะแนน",
     "loadMore": "โหลดรีวิวเพิ่มเติม",
     "loadingMore": "กำลังโหลด...",
-    "showingCount": "แสดง {count} จาก {total}"
+    "showingCount": "แสดง {count} จาก {total}",
+    "viewAll": "ดูรีวิวทั้งหมด",
+    "viewAllTitle": "รีวิวทั้งหมด",
+    "readMore": "อ่านเพิ่มเติม"
   },
   "notFound": {
     "title": "ไม่พบที่พัก",

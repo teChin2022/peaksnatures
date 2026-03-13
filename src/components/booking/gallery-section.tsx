@@ -4,6 +4,7 @@ import { useState, useCallback, useEffect, useRef } from "react";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 
 const BLUR_DATA_URL =
@@ -37,7 +38,7 @@ function GalleryImage({
   }, [src]);
 
   return (
-    <button onClick={onClick} className="group relative h-full w-full overflow-hidden">
+    <button onClick={onClick} className="group relative h-full w-full overflow-hidden rounded-xl">
       <Image
         ref={imgRef}
         src={src}
@@ -94,11 +95,24 @@ export function GallerySection({ images, name }: GallerySectionProps) {
     <>
       <section className="py-8">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <h2 className="mb-4 text-xl font-semibold text-gray-900">{t("title")}</h2>
+          <motion.h2
+            initial={{ opacity: 0, y: 15 }}
+            whileInView={{ opacity: 1, y: 0 }}
+            viewport={{ once: true }}
+            transition={{ duration: 0.5 }}
+            className="mb-4 text-xl font-semibold text-gray-900"
+          >
+            {t("title")}
+          </motion.h2>
 
           {hasEnoughForSpecialLayout ? (
-            <div className="overflow-hidden rounded-xl">
-              <div className="grid grid-cols-2 gap-1.5 md:grid-cols-4 md:grid-rows-2">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+            >
+              <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:grid-rows-2">
                 {/* Main large image */}
                 <div className="col-span-2 row-span-2 aspect-[4/3] md:aspect-auto">
                   <GalleryImage
@@ -112,7 +126,7 @@ export function GallerySection({ images, name }: GallerySectionProps) {
 
                 {/* 4 smaller images */}
                 {displayImages.slice(1, 5).map((img, i) => (
-                  <div key={i + 1} className="aspect-[4/3]">
+                  <div key={i + 1} className="aspect-[4/3] overflow-hidden rounded-xl">
                     <GalleryImage
                       src={img}
                       alt={`${name} photo ${i + 2}`}
@@ -123,12 +137,17 @@ export function GallerySection({ images, name }: GallerySectionProps) {
                   </div>
                 ))}
               </div>
-            </div>
+            </motion.div>
           ) : (
-            <div className="overflow-hidden rounded-xl">
-              <div className="grid grid-cols-2 gap-1.5 sm:grid-cols-4">
+            <motion.div
+              initial={{ opacity: 0, y: 20 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.6, delay: 0.1 }}
+            >
+              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {images.map((img, i) => (
-                  <div key={i} className="aspect-[4/3]">
+                  <div key={i} className="aspect-[4/3] overflow-hidden rounded-xl">
                     <GalleryImage
                       src={img}
                       alt={`${name} photo ${i + 1}`}
@@ -139,7 +158,7 @@ export function GallerySection({ images, name }: GallerySectionProps) {
                   </div>
                 ))}
               </div>
-            </div>
+            </motion.div>
           )}
         </div>
       </section>
