@@ -641,6 +641,232 @@ export async function sendHostApprovalEmail(hostEmail: string, hostName: string)
   }
 }
 
+// ============================================================
+// DATE CHANGE — LINE Notification to Host
+// ============================================================
+export async function sendDateChangeLineNotification(
+  details: BookingDetails,
+  oldCheckIn: string,
+  oldCheckOut: string,
+  newCheckIn: string,
+  newCheckOut: string,
+  priceDifference: number,
+  newTotalPrice: number,
+) {
+  const channelToken = details.host.line_channel_access_token;
+  const lineUserId = details.host.line_user_id;
+
+  if (!channelToken || !lineUserId) {
+    console.log("[Skip] Host LINE not configured for date change:", details.host.name);
+    return { success: false, error: "Host LINE credentials not configured" };
+  }
+
+  try {
+    const { booking, homestay, room } = details;
+
+    const oldNights = Math.round((new Date(oldCheckOut).getTime() - new Date(oldCheckIn).getTime()) / (1000 * 60 * 60 * 24));
+    const newNights = Math.round((new Date(newCheckOut).getTime() - new Date(newCheckIn).getTime()) / (1000 * 60 * 60 * 24));
+
+    const priceLine = priceDifference > 0
+      ? `   💰 ส่วนต่าง: +฿${priceDifference.toLocaleString()} (ชำระแล้ว)`
+      : priceDifference < 0
+        ? `   💰 ส่วนต่าง: -฿${Math.abs(priceDifference).toLocaleString()}`
+        : `   💰 ราคาเท่าเดิม`;
+
+    const messageText = [
+      `📅 แขกขอเปลี่ยนวันเข้าพัก`,
+      `━━━━━━━━━━━━━━━━`,
+      ``,
+      `🏠 โฮมสเตย์: ${homestay.name}`,
+      `🔑 Booking ID: ${booking.id.slice(0, 8)}...`,
+      ``,
+      `👤 ผู้จอง: ${booking.guest_name}`,
+      `🛏️ ห้อง: ${room?.name || "Standard"}`,
+      ``,
+      `📋 วันเดิม`,
+      `   📅 ${formatBookingDate(oldCheckIn, "th")} → ${formatBookingDate(oldCheckOut, "th")} (${oldNights} คืน)`,
+      ``,
+      `📋 วันใหม่ที่ขอ`,
+      `   📅 ${formatBookingDate(newCheckIn, "th")} → ${formatBookingDate(newCheckOut, "th")} (${newNights} คืน)`,
+      ``,
+      `💰 ยอดรวมใหม่: ฿${newTotalPrice.toLocaleString()}`,
+      priceLine,
+      ``,
+      `━━━━━━━━━━━━━━━━`,
+      `กรุณาอนุมัติหรือปฏิเสธใน Dashboard`,
+    ].join("\n");
+
+    const response = await fetch("https://api.line.me/v2/bot/message/push", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${channelToken}`,
+      },
+      body: JSON.stringify({
+        to: lineUserId,
+        messages: [{ type: "text", text: messageText }],
+      }),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json();
+      console.error("LINE date change notification error:", errorData);
+      return { success: false, error: errorData };
+    }
+
+    return { success: true };
+  } catch (error) {
+    console.error("LINE date change notification error:", error);
+    return { success: false, error };
+  }
+}
+
+// ============================================================
+// DATE CHANGE — Email to Guest (approved/rejected)
+// ============================================================
+export async function sendDateChangeEmailToGuest(
+  details: BookingDetails,
+  status: "approved" | "rejected",
+  oldCheckIn: string,
+  oldCheckOut: string,
+  newCheckIn: string,
+  newCheckOut: string,
+  newTotalPrice: number,
+  locale: string = "th",
+  rejectReason?: string,
+) {
+  const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
+  if (!apiKey) {
+    return { success: true, demo: true };
+  }
+
+  try {
+    const { Resend } = await import("resend");
+    const resend = new Resend(apiKey);
+
+    const { booking, homestay } = details;
+    const isTh = locale === "th";
+
+    const DEFAULT_FROM = "Peaksnature <onboarding@resend.dev>";
+    const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
+    const fromEmail = cleaned
+      ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
+      : DEFAULT_FROM;
+
+    const isApproved = status === "approved";
+    const subject = isApproved
+      ? (isTh ? `✅ อนุมัติเปลี่ยนวันเข้าพักแล้ว — ${homestay.name}` : `✅ Date Change Approved — ${homestay.name}`)
+      : (isTh ? `❌ ปฏิเสธการเปลี่ยนวันเข้าพัก — ${homestay.name}` : `❌ Date Change Rejected — ${homestay.name}`);
+
+    const { data, error } = await resend.emails.send({
+      from: fromEmail,
+      to: booking.guest_email,
+      subject,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: ${isApproved ? "#16a34a" : "#6b7280"}; padding: 24px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 20px;">${isApproved
+              ? (isTh ? "✅ อนุมัติเปลี่ยนวันเข้าพักแล้ว" : "✅ Date Change Approved")
+              : (isTh ? "❌ ปฏิเสธการเปลี่ยนวันเข้าพัก" : "❌ Date Change Rejected")}</h1>
+          </div>
+          <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: 0; border-radius: 0 0 12px 12px;">
+            <p style="font-size: 16px; margin-top: 0;">${isTh ? `สวัสดีคุณ ${booking.guest_name}` : `Hi ${booking.guest_name}`},</p>
+            <h2 style="margin-top: 0;">${homestay.name}</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "รหัสการจอง" : "Booking ID"}</td><td style="padding: 8px 0; font-weight: bold;">${booking.id}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "วันเดิม" : "Original Dates"}</td><td style="padding: 8px 0; text-decoration: line-through; color: #9ca3af;">${formatBookingDate(oldCheckIn, locale)} → ${formatBookingDate(oldCheckOut, locale)}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "วันใหม่" : "New Dates"}</td><td style="padding: 8px 0; font-weight: bold; color: ${isApproved ? "#16a34a" : "#6b7280"};">${formatBookingDate(newCheckIn, locale)} → ${formatBookingDate(newCheckOut, locale)}</td></tr>
+              ${isApproved ? `<tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "ยอดรวมใหม่" : "New Total"}</td><td style="padding: 8px 0; font-weight: bold;">฿${newTotalPrice.toLocaleString()}</td></tr>` : ""}
+            </table>
+            ${!isApproved && rejectReason ? `<p style="margin-top: 16px; padding: 12px; background: #f3f4f6; border-radius: 8px; color: #6b7280;">${isTh ? "เหตุผล" : "Reason"}: ${rejectReason}</p>` : ""}
+            <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 16px 0;" />
+            <p style="color: #6b7280; font-size: 14px;">${isApproved
+              ? (isTh ? "วันเข้าพักของคุณได้รับการอัปเดตเรียบร้อยแล้ว" : "Your booking dates have been updated successfully.")
+              : (isTh ? "วันเข้าพักเดิมของคุณยังคงเดิม" : "Your original dates remain unchanged.")}</p>
+          </div>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error("[Email] Date change email error:", JSON.stringify(error));
+      return { success: false, error };
+    }
+    return { success: true, data };
+  } catch (error) {
+    console.error("[Email] Date change email exception:", error);
+    return { success: false, error };
+  }
+}
+
+// ============================================================
+// DATE CHANGE — Email to Guest (host-initiated direct change)
+// ============================================================
+export async function sendDateChangeByHostEmail(
+  details: BookingDetails,
+  oldCheckIn: string,
+  oldCheckOut: string,
+  newCheckIn: string,
+  newCheckOut: string,
+  newTotalPrice: number,
+  locale: string = "th",
+) {
+  const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
+  if (!apiKey) {
+    return { success: true, demo: true };
+  }
+
+  try {
+    const { Resend } = await import("resend");
+    const resend = new Resend(apiKey);
+
+    const { booking, homestay } = details;
+    const isTh = locale === "th";
+
+    const DEFAULT_FROM = "Peaksnature <onboarding@resend.dev>";
+    const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
+    const fromEmail = cleaned
+      ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
+      : DEFAULT_FROM;
+
+    const { data, error } = await resend.emails.send({
+      from: fromEmail,
+      to: booking.guest_email,
+      subject: isTh
+        ? `📅 วันเข้าพักของคุณถูกเปลี่ยนแล้ว — ${homestay.name}`
+        : `📅 Your Dates Have Been Changed — ${homestay.name}`,
+      html: `
+        <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
+          <div style="background: #2563eb; padding: 24px; border-radius: 12px 12px 0 0;">
+            <h1 style="color: white; margin: 0; font-size: 20px;">${isTh ? "📅 วันเข้าพักถูกเปลี่ยนแล้ว" : "📅 Your Dates Have Been Changed"}</h1>
+          </div>
+          <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: 0; border-radius: 0 0 12px 12px;">
+            <p style="font-size: 16px; margin-top: 0;">${isTh ? `สวัสดีคุณ ${booking.guest_name}` : `Hi ${booking.guest_name}`},</p>
+            <p>${isTh ? `เจ้าของที่พักได้เปลี่ยนวันเข้าพักของคุณที่ ${homestay.name}` : `The host has changed your booking dates at ${homestay.name}`}</p>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "รหัสการจอง" : "Booking ID"}</td><td style="padding: 8px 0; font-weight: bold;">${booking.id}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "วันเดิม" : "Original Dates"}</td><td style="padding: 8px 0; text-decoration: line-through; color: #9ca3af;">${formatBookingDate(oldCheckIn, locale)} → ${formatBookingDate(oldCheckOut, locale)}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "วันใหม่" : "New Dates"}</td><td style="padding: 8px 0; font-weight: bold; color: #2563eb;">${formatBookingDate(newCheckIn, locale)} → ${formatBookingDate(newCheckOut, locale)}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "ยอดรวมใหม่" : "New Total"}</td><td style="padding: 8px 0; font-weight: bold;">฿${newTotalPrice.toLocaleString()}</td></tr>
+            </table>
+            <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 16px 0;" />
+            <p style="color: #6b7280; font-size: 14px;">${isTh ? "หากมีข้อสงสัย กรุณาติดต่อเจ้าของที่พัก" : "If you have any questions, please contact the host."}</p>
+          </div>
+        </div>
+      `,
+    });
+
+    if (error) {
+      console.error("[Email] Date change by host email error:", JSON.stringify(error));
+      return { success: false, error };
+    }
+    return { success: true, data };
+  } catch (error) {
+    console.error("[Email] Date change by host email exception:", error);
+    return { success: false, error };
+  }
+}
+
 export async function sendHostRejectionEmail(hostEmail: string, hostName: string) {
   const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
   if (!apiKey) {

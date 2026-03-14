@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useRef, useCallback } from "react";
-import { Search, CalendarDays, Clock, CheckCircle2, XCircle, Loader2, Star, MessageSquare, LogIn, LogOut, Upload, CreditCard, ImageIcon, Camera, Download, AlertTriangle } from "lucide-react";
+import { useState, useRef } from "react";
+import { Search, CalendarDays, Clock, CheckCircle2, XCircle, Loader2, Star, MessageSquare, LogIn, LogOut, Upload, CreditCard, Download, AlertTriangle, ArrowRightLeft } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import type { DateRange } from "react-day-picker";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -36,6 +39,14 @@ interface SearchResult {
   checked_out_at: string | null;
   created_at: string;
   has_review: boolean;
+  pending_date_change: {
+    id: string;
+    new_check_in: string;
+    new_check_out: string;
+    new_total_price: number;
+    price_difference: number;
+    status: string;
+  } | null;
 }
 
 const statusConfig: Record<string, { color: string; icon: React.ElementType }> = {
@@ -79,6 +90,13 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
   const [cancellingId, setCancellingId] = useState<string | null>(null);
   const [cancelReason, setCancelReason] = useState("");
   const [submittingCancel, setSubmittingCancel] = useState(false);
+  const [changingDatesId, setChangingDatesId] = useState<string | null>(null);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
+  const [submittingDateChange, setSubmittingDateChange] = useState(false);
+  const [dateChangePriceInfo, setDateChangePriceInfo] = useState<{ new_total_price: number; price_difference: number } | null>(null);
+  const [dateChangeSlipFile, setDateChangeSlipFile] = useState<File | null>(null);
+  const [dateChangeSlipPreview, setDateChangeSlipPreview] = useState<string | null>(null);
+  const dateChangeFileRef = useRef<HTMLInputElement>(null);
 
   const handleCheckin = async (bookingId: string, guestEmail: string, action: "checkin" | "checkout") => {
     setCheckingIn(bookingId);
@@ -303,6 +321,113 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
     }
   };
 
+  const handleDateChangeSubmit = async (booking: SearchResult) => {
+    if (!dateRange?.from || !dateRange?.to) return;
+    setSubmittingDateChange(true);
+    try {
+      const newCheckIn = format(dateRange.from, "yyyy-MM-dd");
+      const newCheckOut = format(dateRange.to, "yyyy-MM-dd");
+
+      // Build body — include slip data if price increased and slip uploaded
+      const body: Record<string, unknown> = {
+        booking_id: booking.id,
+        new_check_in: newCheckIn,
+        new_check_out: newCheckOut,
+      };
+
+      // If price increased and user uploaded a slip, verify it first
+      if (dateChangePriceInfo && dateChangePriceInfo.price_difference > 0 && dateChangeSlipFile && promptpayId) {
+        const verifyForm = new FormData();
+        verifyForm.append("file", dateChangeSlipFile);
+        verifyForm.append("expected_amount", dateChangePriceInfo.price_difference.toString());
+        verifyForm.append("expected_receiver", promptpayId);
+
+        const verifyRes = await fetch("/api/verify-slip", { method: "POST", body: verifyForm });
+        const verifyData = await verifyRes.json();
+
+        if (verifyRes.status === 409 && verifyData.duplicate) {
+          toast.error(t("errorSlipDuplicate"));
+          setDateChangeSlipFile(null);
+          setDateChangeSlipPreview(null);
+          setSubmittingDateChange(false);
+          return;
+        }
+        if (!verifyData.verified) {
+          toast.error(verifyData.message || t("errorSlipVerify"));
+          setDateChangeSlipFile(null);
+          setDateChangeSlipPreview(null);
+          setSubmittingDateChange(false);
+          return;
+        }
+
+        body.slip_hash = verifyData.slip_hash;
+        body.slip_trans_ref = verifyData.slip_trans_ref || null;
+        body.payment_slip_url = verifyData.payment_slip_url || null;
+        body.easyslip_response = verifyData.easyslip_response || null;
+        body.easyslip_verified = verifyData.verified;
+      }
+
+      const res = await fetch("/api/bookings/change-dates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+
+      if (!res.ok) {
+        if (data.error === "PAYMENT_REQUIRED") {
+          // Show price info so user can upload slip
+          setDateChangePriceInfo({ new_total_price: data.new_total_price, price_difference: data.price_difference });
+          setSubmittingDateChange(false);
+          return;
+        }
+        if (data.error === "PENDING_EXISTS") {
+          toast.error(t("pendingExists"));
+        } else if (data.error === "DATES_UNAVAILABLE") {
+          toast.error(t("datesUnavailable"));
+        } else if (data.error === "DATES_BLOCKED") {
+          toast.error(t("datesBlocked"));
+        } else {
+          toast.error(data.message || t("dateChangeError"));
+        }
+        return;
+      }
+
+      toast.success(t("dateChangeSuccess"));
+      // Update local state to show pending
+      setResults((prev) =>
+        prev.map((b) =>
+          b.id === booking.id
+            ? {
+                ...b,
+                pending_date_change: {
+                  id: data.request?.id || "",
+                  new_check_in: newCheckIn,
+                  new_check_out: newCheckOut,
+                  new_total_price: data.new_total_price,
+                  price_difference: data.price_difference,
+                  status: "pending",
+                },
+              }
+            : b
+        )
+      );
+      resetDateChangeState();
+    } catch {
+      toast.error(t("dateChangeError"));
+    } finally {
+      setSubmittingDateChange(false);
+    }
+  };
+
+  const resetDateChangeState = () => {
+    setChangingDatesId(null);
+    setDateRange(undefined);
+    setDateChangePriceInfo(null);
+    setDateChangeSlipFile(null);
+    setDateChangeSlipPreview(null);
+  };
+
   const handleSearch = async () => {
     if (!query.trim()) return;
     setLoading(true);
@@ -496,6 +621,170 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                           >
                             <XCircle className="mr-1.5 h-3.5 w-3.5" />
                             {t("cancelBooking")}
+                          </Button>
+                        )
+                      )}
+
+                      {/* Pending date change badge */}
+                      {booking.pending_date_change && (
+                        <div className="rounded-lg border border-blue-200 bg-blue-50 p-2.5">
+                          <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700 mb-1">
+                            <Clock className="h-3.5 w-3.5" />
+                            {t("dateChangePending")}
+                          </div>
+                          <p className="text-xs text-blue-600">
+                            {t("dateChangePendingDesc", {
+                              checkIn: fmtDateStr(booking.pending_date_change.new_check_in, "d MMM yyyy", locale),
+                              checkOut: fmtDateStr(booking.pending_date_change.new_check_out, "d MMM yyyy", locale),
+                            })}
+                          </p>
+                        </div>
+                      )}
+
+                      {/* Change Dates button — only if no pending request */}
+                      {!booking.pending_date_change && (
+                        changingDatesId === booking.id ? (
+                          <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-2.5">
+                            <p className="text-xs font-medium text-blue-700">{t("changeDatesDesc")}</p>
+
+                            {/* Date picker */}
+                            <div className="flex justify-center">
+                              <Calendar
+                                mode="range"
+                                selected={dateRange}
+                                onSelect={(range) => {
+                                  setDateRange(range);
+                                  setDateChangePriceInfo(null);
+                                  setDateChangeSlipFile(null);
+                                  setDateChangeSlipPreview(null);
+                                }}
+                                disabled={{ before: new Date() }}
+                                numberOfMonths={1}
+                                className="rounded-md border bg-white"
+                              />
+                            </div>
+
+                            {/* Show selected dates summary */}
+                            {dateRange?.from && dateRange?.to && (
+                              <div className="space-y-2">
+                                <div className="grid grid-cols-2 gap-2 text-xs">
+                                  <div className="rounded bg-white p-2 border">
+                                    <span className="text-gray-500">{t("currentDates")}</span>
+                                    <p className="font-medium text-gray-700">
+                                      {fmtDateStr(booking.check_in, "d MMM", locale)} → {fmtDateStr(booking.check_out, "d MMM", locale)}
+                                    </p>
+                                  </div>
+                                  <div className="rounded bg-white p-2 border">
+                                    <span className="text-gray-500">{t("newDates")}</span>
+                                    <p className="font-medium text-blue-700">
+                                      {format(dateRange.from, "d MMM")} → {format(dateRange.to, "d MMM")}
+                                    </p>
+                                  </div>
+                                </div>
+
+                                {/* Price info if returned from server */}
+                                {dateChangePriceInfo && (
+                                  <div className="rounded bg-white p-2 border text-xs space-y-1">
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-500">{t("originalPrice")}</span>
+                                      <span>฿{booking.total_price.toLocaleString()}</span>
+                                    </div>
+                                    <div className="flex justify-between">
+                                      <span className="text-gray-500">{t("newPrice")}</span>
+                                      <span className="font-medium">฿{dateChangePriceInfo.new_total_price.toLocaleString()}</span>
+                                    </div>
+                                    {dateChangePriceInfo.price_difference !== 0 && (
+                                      <div className="flex justify-between font-medium">
+                                        <span className="text-gray-500">{t("priceDifference")}</span>
+                                        <span className={dateChangePriceInfo.price_difference > 0 ? "text-red-600" : "text-green-600"}>
+                                          {dateChangePriceInfo.price_difference > 0 ? "+" : ""}฿{dateChangePriceInfo.price_difference.toLocaleString()}
+                                        </span>
+                                      </div>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Slip upload for price increase */}
+                                {dateChangePriceInfo && dateChangePriceInfo.price_difference > 0 && promptpayId && (
+                                  <div className="space-y-2">
+                                    <p className="text-xs font-medium text-red-600">
+                                      {t("additionalPayment", { amount: dateChangePriceInfo.price_difference.toLocaleString() })}
+                                    </p>
+                                    <div className="flex justify-center">
+                                      <div className="rounded-lg border bg-white p-2">
+                                        <QRCodeSVG
+                                          value={generatePayload(promptpayId, { amount: dateChangePriceInfo.price_difference })}
+                                          size={100}
+                                          level="M"
+                                        />
+                                      </div>
+                                    </div>
+                                    <input
+                                      ref={dateChangeFileRef}
+                                      type="file"
+                                      accept="image/*"
+                                      className="hidden"
+                                      onChange={(e) => {
+                                        const f = e.target.files?.[0] || null;
+                                        setDateChangeSlipFile(f);
+                                        setDateChangeSlipPreview(f ? URL.createObjectURL(f) : null);
+                                      }}
+                                    />
+                                    {dateChangeSlipPreview ? (
+                                      <div className="text-center">
+                                        <img src={dateChangeSlipPreview} alt="Slip" className="mx-auto max-h-24 rounded-lg" />
+                                      </div>
+                                    ) : (
+                                      <Button
+                                        size="sm"
+                                        variant="outline"
+                                        className="w-full"
+                                        onClick={() => dateChangeFileRef.current?.click()}
+                                      >
+                                        <Upload className="mr-1.5 h-3.5 w-3.5" />
+                                        {t("uploadSlip")}
+                                      </Button>
+                                    )}
+                                  </div>
+                                )}
+
+                                {/* Action buttons */}
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1"
+                                    onClick={resetDateChangeState}
+                                    disabled={submittingDateChange}
+                                  >
+                                    {t("cancelDateChange")}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
+                                    onClick={() => handleDateChangeSubmit(booking)}
+                                    disabled={submittingDateChange || (dateChangePriceInfo !== null && dateChangePriceInfo.price_difference > 0 && !dateChangeSlipFile)}
+                                  >
+                                    {submittingDateChange ? (
+                                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                    ) : (
+                                      <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
+                                    )}
+                                    {t("submitDateChange")}
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
+                          </div>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="w-full text-blue-600 border-blue-200 hover:bg-blue-50"
+                            onClick={() => setChangingDatesId(booking.id)}
+                          >
+                            <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
+                            {t("changeDates")}
                           </Button>
                         )
                       )}

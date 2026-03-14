@@ -72,6 +72,7 @@ export function LandingHero() {
                     สถานที่
                   </label>
                   <input
+                    disabled={true}
                     type="text"
                     placeholder="คุณกำลังจะไปไหน?"
                     className="w-full text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-300 bg-transparent"
@@ -84,7 +85,7 @@ export function LandingHero() {
             <div className="flex flex-row md:contents">
               <div
                 className="flex-1 px-7 py-4 md:py-3 text-left border-b md:border-b-0 md:border-r border-gray-100/50 cursor-pointer hover:bg-gray-50/50 transition-colors group"
-                onClick={() => setShowCalendar(!showCalendar)}
+                // onClick={() => setShowCalendar(!showCalendar)}
               >
                 <div className="flex items-center gap-3">
                   <CalendarIcon
@@ -120,6 +121,7 @@ export function LandingHero() {
                       จำนวน
                     </p> */}
                     <input
+                      disabled={true}
                       type="number"
                       placeholder="จำนวน?"
                       className="w-full text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-300 bg-transparent"

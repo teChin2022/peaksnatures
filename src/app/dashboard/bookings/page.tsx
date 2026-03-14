@@ -21,7 +21,11 @@ import {
   Phone,
   Mail,
   CreditCard,
+  ArrowRightLeft,
 } from "lucide-react";
+import { Calendar } from "@/components/ui/calendar";
+import type { DateRange } from "react-day-picker";
+import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -66,6 +70,22 @@ interface BookingRow {
   cancelled_by: string | null;
   cancel_reason: string | null;
   created_at: string;
+}
+
+interface DateChangeRequestRow {
+  id: string;
+  booking_id: string;
+  old_check_in: string;
+  old_check_out: string;
+  new_check_in: string;
+  new_check_out: string;
+  old_total_price: number;
+  new_total_price: number;
+  price_difference: number;
+  status: string;
+  requested_by: string;
+  easyslip_verified: boolean;
+  payment_slip_url: string | null;
 }
 
 interface DisplayBooking extends BookingRow {
@@ -227,6 +247,24 @@ export default function BookingsPage() {
     const rows = await resolveSlipUrls(rawRows, supabase);
     setBookings(toDisplay(rows));
     setHasMore(rows.length === PAGE_SIZE && rows.length < (total || 0));
+
+    // Fetch pending date change requests for these bookings
+    const bookingIds = rows.map((b) => b.id);
+    if (bookingIds.length > 0) {
+      const { data: dcrRows } = await supabase
+        .from("date_change_requests")
+        .select("id, booking_id, old_check_in, old_check_out, new_check_in, new_check_out, old_total_price, new_total_price, price_difference, status, requested_by, easyslip_verified, payment_slip_url")
+        .in("booking_id", bookingIds)
+        .eq("status", "pending");
+      if (dcrRows) {
+        const map: Record<string, DateChangeRequestRow> = {};
+        for (const row of dcrRows as unknown as DateChangeRequestRow[]) {
+          map[row.booking_id] = row;
+        }
+        setDateChangeRequests(map);
+      }
+    }
+
     setLoading(false);
   };
 
@@ -307,6 +345,16 @@ export default function BookingsPage() {
   const [detailTarget, setDetailTarget] = useState<DisplayBooking | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
+  // Date change state
+  const [dateChangeRequests, setDateChangeRequests] = useState<Record<string, DateChangeRequestRow>>({});
+  const [dateChangeDialogOpen, setDateChangeDialogOpen] = useState(false);
+  const [dateChangeTarget, setDateChangeTarget] = useState<DisplayBooking | null>(null);
+  const [dateChangeRange, setDateChangeRange] = useState<DateRange | undefined>(undefined);
+  const [submittingDateChange, setSubmittingDateChange] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState<DateChangeRequestRow | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+
   const handleCancelClick = (booking: DisplayBooking) => {
     setCancelTarget(booking);
     setCancelReason("");
@@ -356,6 +404,141 @@ export default function BookingsPage() {
     setCancelDialogOpen(false);
     setCancelTarget(null);
     setCancelReason("");
+  };
+
+  const handleApproveDateChange = async (dcr: DateChangeRequestRow) => {
+    setSubmittingDateChange(true);
+    try {
+      const res = await fetch("/api/bookings/change-dates/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ request_id: dcr.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.error === "DATES_UNAVAILABLE") {
+          toast.error(t("dateChangeDatesUnavailable"));
+        } else if (data.error === "DATES_BLOCKED") {
+          toast.error(t("dateChangeDatesBlocked"));
+        } else {
+          toast.error(data.error || t("dateChangeApproveFailed"));
+        }
+        return;
+      }
+      toast.success(t("dateChangeApproved"));
+      // Update local state
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === dcr.booking_id
+            ? { ...b, check_in: dcr.new_check_in, check_out: dcr.new_check_out, total_price: dcr.new_total_price }
+            : b
+        )
+      );
+      setDateChangeRequests((prev) => {
+        const next = { ...prev };
+        delete next[dcr.booking_id];
+        return next;
+      });
+      logClientEvent({
+        homestay_id: bookings.find((b) => b.id === dcr.booking_id)?.homestay_id,
+        entity_type: "booking",
+        entity_id: dcr.booking_id,
+        event_type: "BOOKING_DATE_CHANGE_APPROVED",
+        data: { request_id: dcr.id },
+      });
+    } catch {
+      toast.error(t("dateChangeApproveFailed"));
+    } finally {
+      setSubmittingDateChange(false);
+    }
+  };
+
+  const handleRejectDateChange = async () => {
+    if (!rejectTarget) return;
+    setSubmittingDateChange(true);
+    try {
+      const res = await fetch("/api/bookings/change-dates/reject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ request_id: rejectTarget.id, reason: rejectReason.trim() || undefined }),
+      });
+      if (!res.ok) {
+        toast.error(t("dateChangeRejectFailed"));
+        return;
+      }
+      toast.success(t("dateChangeRejected"));
+      setDateChangeRequests((prev) => {
+        const next = { ...prev };
+        delete next[rejectTarget.booking_id];
+        return next;
+      });
+      logClientEvent({
+        homestay_id: bookings.find((b) => b.id === rejectTarget.booking_id)?.homestay_id,
+        entity_type: "booking",
+        entity_id: rejectTarget.booking_id,
+        event_type: "BOOKING_DATE_CHANGE_REJECTED",
+        data: { request_id: rejectTarget.id, reason: rejectReason.trim() || undefined },
+      });
+    } catch {
+      toast.error(t("dateChangeRejectFailed"));
+    } finally {
+      setSubmittingDateChange(false);
+      setRejectDialogOpen(false);
+      setRejectTarget(null);
+      setRejectReason("");
+    }
+  };
+
+  const handleHostChangeDates = async () => {
+    if (!dateChangeTarget || !dateChangeRange?.from || !dateChangeRange?.to) return;
+    setSubmittingDateChange(true);
+    try {
+      const newCheckIn = format(dateChangeRange.from, "yyyy-MM-dd");
+      const newCheckOut = format(dateChangeRange.to, "yyyy-MM-dd");
+
+      const res = await fetch("/api/bookings/change-dates/host", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          booking_id: dateChangeTarget.id,
+          new_check_in: newCheckIn,
+          new_check_out: newCheckOut,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.error === "DATES_UNAVAILABLE") {
+          toast.error(t("dateChangeDatesUnavailable"));
+        } else if (data.error === "DATES_BLOCKED") {
+          toast.error(t("dateChangeDatesBlocked"));
+        } else {
+          toast.error(data.error || t("dateChangeDirectFailed"));
+        }
+        return;
+      }
+      toast.success(t("dateChangeDirect"));
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === dateChangeTarget.id
+            ? { ...b, check_in: newCheckIn, check_out: newCheckOut, total_price: data.new_total_price }
+            : b
+        )
+      );
+      logClientEvent({
+        homestay_id: dateChangeTarget.homestay_id,
+        entity_type: "booking",
+        entity_id: dateChangeTarget.id,
+        event_type: "BOOKING_DATE_CHANGE_APPROVED",
+        data: { host_initiated: true, new_check_in: newCheckIn, new_check_out: newCheckOut },
+      });
+      setDateChangeDialogOpen(false);
+      setDateChangeTarget(null);
+      setDateChangeRange(undefined);
+    } catch {
+      toast.error(t("dateChangeDirectFailed"));
+    } finally {
+      setSubmittingDateChange(false);
+    }
   };
 
   if (loading) {
@@ -532,6 +715,58 @@ export default function BookingsPage() {
                               ID: {booking.id.slice(0, 8)}… ·{" "}
                               {booking.guest_email} · {booking.guest_phone}
                             </p>
+
+                            {/* Pending date change request banner */}
+                            {dateChangeRequests[booking.id] && (
+                              <div className="rounded-lg border border-blue-200 bg-blue-50 p-2.5 mt-1">
+                                <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700 mb-1">
+                                  <ArrowRightLeft className="h-3.5 w-3.5" />
+                                  {t("dateChangeRequest")}
+                                  <span className="text-blue-500 font-normal">({dateChangeRequests[booking.id].requested_by})</span>
+                                </div>
+                                <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-blue-600 mb-2">
+                                  <span>{t("dateChangeFrom")}: {fmtDateStr(dateChangeRequests[booking.id].old_check_in, "d MMM yyyy", locale)}</span>
+                                  <span>{t("dateChangeTo")}: {fmtDateStr(dateChangeRequests[booking.id].new_check_in, "d MMM yyyy", locale)} → {fmtDateStr(dateChangeRequests[booking.id].new_check_out, "d MMM yyyy", locale)}</span>
+                                  {dateChangeRequests[booking.id].price_difference !== 0 && (
+                                    <span className={dateChangeRequests[booking.id].price_difference > 0 ? "text-red-600 font-medium" : "text-green-600 font-medium"}>
+                                      {t("dateChangePriceDiff")}: {dateChangeRequests[booking.id].price_difference > 0 ? "+" : ""}฿{dateChangeRequests[booking.id].price_difference.toLocaleString()}
+                                    </span>
+                                  )}
+                                  {dateChangeRequests[booking.id].easyslip_verified && (
+                                    <Badge variant="secondary" className="bg-green-100 text-green-700 text-[10px] py-0">
+                                      <ShieldCheck className="mr-0.5 h-2.5 w-2.5" />
+                                      {t("dateChangeSlipVerified")}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    className="flex-1 hover:brightness-90 text-white"
+                                    style={{ backgroundColor: themeColor }}
+                                    onClick={() => handleApproveDateChange(dateChangeRequests[booking.id])}
+                                    disabled={submittingDateChange}
+                                  >
+                                    {submittingDateChange ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
+                                    {t("dateChangeApprove")}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+                                    onClick={() => {
+                                      setRejectTarget(dateChangeRequests[booking.id]);
+                                      setRejectReason("");
+                                      setRejectDialogOpen(true);
+                                    }}
+                                    disabled={submittingDateChange}
+                                  >
+                                    <XCircle className="mr-1 h-3 w-3" />
+                                    {t("dateChangeReject")}
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
                           </div>
 
                           <div className="flex shrink-0 items-center gap-2">
@@ -600,6 +835,20 @@ export default function BookingsPage() {
                                   >
                                     <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
                                     {t("markCompleted")}
+                                  </Button>
+                                )}
+                                {!booking.checked_in_at && (
+                                  <Button
+                                    variant="outline"
+                                    size="sm"
+                                    onClick={() => {
+                                      setDateChangeTarget(booking);
+                                      setDateChangeRange(undefined);
+                                      setDateChangeDialogOpen(true);
+                                    }}
+                                  >
+                                    <ArrowRightLeft className="mr-1 h-3.5 w-3.5" />
+                                    {t("changeDates")}
                                   </Button>
                                 )}
                                 <Button
@@ -859,6 +1108,111 @@ export default function BookingsPage() {
             >
               {updatingStatus && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
               {t("cancelConfirmButton")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Date change reject dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-red-500" />
+              {t("dateChangeReject")}
+            </DialogTitle>
+          </DialogHeader>
+          <div>
+            <Label>{t("dateChangeRejectReason")}</Label>
+            <Textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder={t("dateChangeRejectReasonPlaceholder")}
+              rows={2}
+              className="mt-1"
+            />
+          </div>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => { setRejectDialogOpen(false); setRejectTarget(null); }}
+              disabled={submittingDateChange}
+            >
+              {t("cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRejectDateChange}
+              disabled={submittingDateChange}
+            >
+              {submittingDateChange && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+              {t("dateChangeReject")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Host-initiated date change dialog */}
+      <Dialog open={dateChangeDialogOpen} onOpenChange={setDateChangeDialogOpen}>
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <ArrowRightLeft className="h-5 w-5" style={{ color: themeColor }} />
+              {t("changeDatesTitle")}
+            </DialogTitle>
+            <DialogDescription>
+              {t("changeDatesDesc")}
+            </DialogDescription>
+          </DialogHeader>
+          {dateChangeTarget && (
+            <div className="space-y-4">
+              <div className="text-sm text-gray-600">
+                <span className="font-medium text-gray-900">{dateChangeTarget.guest_name}</span>
+                {" · "}
+                {fmtDateStr(dateChangeTarget.check_in, "d MMM yyyy", locale)} → {fmtDateStr(dateChangeTarget.check_out, "d MMM yyyy", locale)}
+              </div>
+              <div className="flex justify-center">
+                <Calendar
+                  mode="range"
+                  selected={dateChangeRange}
+                  onSelect={setDateChangeRange}
+                  disabled={{ before: new Date() }}
+                  numberOfMonths={1}
+                  className="rounded-md border"
+                />
+              </div>
+              {dateChangeRange?.from && dateChangeRange?.to && (
+                <div className="rounded-lg border bg-gray-50 p-3 text-sm space-y-1">
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">{t("dates")}</span>
+                    <span className="font-medium">
+                      {format(dateChangeRange.from, "d MMM yyyy")} → {format(dateChangeRange.to, "d MMM yyyy")}
+                    </span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => { setDateChangeDialogOpen(false); setDateChangeTarget(null); }}
+              disabled={submittingDateChange}
+            >
+              {t("cancel")}
+            </Button>
+            <Button
+              className="hover:brightness-90 text-white"
+              style={{ backgroundColor: themeColor }}
+              onClick={handleHostChangeDates}
+              disabled={submittingDateChange || !dateChangeRange?.from || !dateChangeRange?.to}
+            >
+              {submittingDateChange ? (
+                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+              ) : (
+                <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
+              )}
+              {t("changeDates")}
             </Button>
           </DialogFooter>
         </DialogContent>

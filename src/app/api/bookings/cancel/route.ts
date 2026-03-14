@@ -128,6 +128,13 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Auto-reject any pending date change requests for this booking
+    await supabase
+      .from("date_change_requests")
+      .update({ status: "rejected", reject_reason: "Booking cancelled", updated_by: "system" } as never)
+      .eq("booking_id", booking_id)
+      .eq("status", "pending");
+
     // Log + notify host in background
     after(async () => {
       await logEvent({
