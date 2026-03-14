@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Search, CalendarDays, Clock, CheckCircle2, XCircle, Loader2, Star, MessageSquare, LogIn, LogOut, Upload, CreditCard, Download, AlertTriangle, ArrowRightLeft } from "lucide-react";
 import { Calendar } from "@/components/ui/calendar";
 import type { DateRange } from "react-day-picker";
@@ -19,6 +19,7 @@ import {
 import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
 import { fmtDateStr } from "@/lib/format-date";
+import { useIsMobile } from "@/lib/use-is-mobile";
 import generatePayload from "promptpay-qr";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -97,6 +98,11 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
   const [dateChangeSlipFile, setDateChangeSlipFile] = useState<File | null>(null);
   const [dateChangeSlipPreview, setDateChangeSlipPreview] = useState<string | null>(null);
   const dateChangeFileRef = useRef<HTMLInputElement>(null);
+  const [noRefundConfirmed, setNoRefundConfirmed] = useState(false);
+  const isMobile = useIsMobile();
+  const [dcUploadSessionId] = useState(() => crypto.randomUUID());
+  const [dcPhoneSlipReceived, setDcPhoneSlipReceived] = useState(false);
+  const dcPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   const handleCheckin = async (bookingId: string, guestEmail: string, action: "checkin" | "checkout") => {
     setCheckingIn(bookingId);
@@ -426,7 +432,53 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
     setDateChangePriceInfo(null);
     setDateChangeSlipFile(null);
     setDateChangeSlipPreview(null);
+    setNoRefundConfirmed(false);
+    setDcPhoneSlipReceived(false);
+    if (dcPollingRef.current) {
+      clearInterval(dcPollingRef.current);
+      dcPollingRef.current = null;
+    }
   };
+
+  // Poll for phone slip upload (date change additional payment)
+  useEffect(() => {
+    if (
+      dateChangePriceInfo &&
+      dateChangePriceInfo.price_difference > 0 &&
+      !dateChangeSlipFile &&
+      !dcPhoneSlipReceived &&
+      !isMobile
+    ) {
+      dcPollingRef.current = setInterval(async () => {
+        try {
+          const res = await fetch(`/api/slip-upload/${dcUploadSessionId}`);
+          const data = await res.json();
+          if (data.uploaded && data.url) {
+            setDcPhoneSlipReceived(true);
+            // Convert URL to a File-like object for the submit handler
+            const response = await fetch(data.url);
+            const blob = await response.blob();
+            const file = new File([blob], "phone-slip.jpg", { type: blob.type });
+            setDateChangeSlipFile(file);
+            setDateChangeSlipPreview(data.url);
+            toast.success(t("slipReceivedFromPhone"));
+            if (dcPollingRef.current) {
+              clearInterval(dcPollingRef.current);
+              dcPollingRef.current = null;
+            }
+          }
+        } catch {
+          // ignore polling errors
+        }
+      }, 3000);
+    }
+    return () => {
+      if (dcPollingRef.current) {
+        clearInterval(dcPollingRef.current);
+        dcPollingRef.current = null;
+      }
+    };
+  }, [dateChangePriceInfo, dateChangeSlipFile, dcPhoneSlipReceived, isMobile, dcUploadSessionId, t]);
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -657,6 +709,8 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                   setDateChangePriceInfo(null);
                                   setDateChangeSlipFile(null);
                                   setDateChangeSlipPreview(null);
+                                  setNoRefundConfirmed(false);
+                                  setDcPhoneSlipReceived(false);
                                 }}
                                 disabled={{ before: new Date() }}
                                 numberOfMonths={1}
@@ -704,6 +758,28 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                   </div>
                                 )}
 
+                                {/* No-refund warning for price decrease */}
+                                {dateChangePriceInfo && dateChangePriceInfo.price_difference < 0 && !noRefundConfirmed && (
+                                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+                                    <div className="flex items-start gap-2">
+                                      <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                                      <div className="space-y-2">
+                                        <p className="text-xs text-amber-700">
+                                          {t("noRefundWarning", { amount: Math.abs(dateChangePriceInfo.price_difference).toLocaleString() })}
+                                        </p>
+                                        <Button
+                                          size="sm"
+                                          className="w-full bg-amber-600 text-white hover:bg-amber-700"
+                                          onClick={() => setNoRefundConfirmed(true)}
+                                        >
+                                          <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                                          {t("submitDateChange")}
+                                        </Button>
+                                      </div>
+                                    </div>
+                                  </div>
+                                )}
+
                                 {/* Slip upload for price increase */}
                                 {dateChangePriceInfo && dateChangePriceInfo.price_difference > 0 && promptpayId && (
                                   <div className="space-y-2">
@@ -735,15 +811,35 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                         <img src={dateChangeSlipPreview} alt="Slip" className="mx-auto max-h-24 rounded-lg" />
                                       </div>
                                     ) : (
-                                      <Button
-                                        size="sm"
-                                        variant="outline"
-                                        className="w-full"
-                                        onClick={() => dateChangeFileRef.current?.click()}
-                                      >
-                                        <Upload className="mr-1.5 h-3.5 w-3.5" />
-                                        {t("uploadSlip")}
-                                      </Button>
+                                      <>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="w-full"
+                                          onClick={() => dateChangeFileRef.current?.click()}
+                                        >
+                                          <Upload className="mr-1.5 h-3.5 w-3.5" />
+                                          {t("uploadSlip")}
+                                        </Button>
+                                        {!isMobile && (
+                                          <>
+                                            <div className="relative flex items-center gap-3 py-1">
+                                              <div className="flex-1 border-t border-gray-200" />
+                                              <span className="text-[10px] font-medium text-gray-400">{t("orUploadFromPhone")}</span>
+                                              <div className="flex-1 border-t border-gray-200" />
+                                            </div>
+                                            <div className="rounded-lg border bg-white p-3 text-center">
+                                              <p className="mb-2 text-[10px] text-gray-500">{t("scanToUpload")}</p>
+                                              <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-lg border bg-white p-1">
+                                                <QRCodeSVG value={`${typeof window !== "undefined" ? window.location.origin : ""}/upload-slip/${dcUploadSessionId}`} size={80} level="M" />
+                                              </div>
+                                              <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-gray-400">
+                                                <Loader2 className="h-2.5 w-2.5 animate-spin" />{t("waitingForPhoneUpload")}
+                                              </div>
+                                            </div>
+                                          </>
+                                        )}
+                                      </>
                                     )}
                                   </div>
                                 )}
@@ -763,7 +859,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                     size="sm"
                                     className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
                                     onClick={() => handleDateChangeSubmit(booking)}
-                                    disabled={submittingDateChange || (dateChangePriceInfo !== null && dateChangePriceInfo.price_difference > 0 && !dateChangeSlipFile)}
+                                    disabled={submittingDateChange || (dateChangePriceInfo !== null && dateChangePriceInfo.price_difference > 0 && !dateChangeSlipFile) || (dateChangePriceInfo !== null && dateChangePriceInfo.price_difference < 0 && !noRefundConfirmed)}
                                   >
                                     {submittingDateChange ? (
                                       <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
