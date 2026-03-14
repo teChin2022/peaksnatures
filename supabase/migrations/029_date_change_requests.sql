@@ -31,6 +31,41 @@ CREATE INDEX idx_date_change_status ON date_change_requests (status);
 
 ALTER TABLE date_change_requests ENABLE ROW LEVEL SECURITY;
 
+-- Hosts can view date change requests for bookings at their homestays
+CREATE POLICY "Hosts can view date change requests for own homestays"
+  ON date_change_requests FOR SELECT
+  USING (
+    booking_id IN (
+      SELECT b.id FROM bookings b
+      WHERE b.homestay_id IN (
+        SELECT h.id FROM homestays h
+        WHERE h.host_id IN (
+          SELECT ho.id FROM hosts ho WHERE ho.user_id = auth.uid()
+        )
+      )
+    )
+  );
+
+-- Hosts can update date change requests (approve/reject) for their homestays
+CREATE POLICY "Hosts can manage date change requests for own homestays"
+  ON date_change_requests FOR UPDATE
+  USING (
+    booking_id IN (
+      SELECT b.id FROM bookings b
+      WHERE b.homestay_id IN (
+        SELECT h.id FROM homestays h
+        WHERE h.host_id IN (
+          SELECT ho.id FROM hosts ho WHERE ho.user_id = auth.uid()
+        )
+      )
+    )
+  );
+
+-- Anyone can insert a date change request (guest-initiated via service role, but allow for safety)
+CREATE POLICY "Anyone can insert date change requests"
+  ON date_change_requests FOR INSERT
+  WITH CHECK (true);
+
 CREATE TRIGGER trg_date_change_requests_updated_at
   BEFORE UPDATE ON date_change_requests FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
