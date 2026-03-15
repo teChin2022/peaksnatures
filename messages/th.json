@@ -781,6 +781,7 @@
     "priceSame": "ราคาเท่าเดิม",
     "submitDateChange": "ส่งคำขอเปลี่ยนวัน",
     "cancelDateChange": "ยกเลิก",
+    "saveQrImage": "บันทึก QR",
     "dateChangeSuccess": "ส่งคำขอเปลี่ยนวันแล้ว! รอเจ้าของที่พักอนุมัติ",
     "dateChangeError": "ส่งคำขอเปลี่ยนวันไม่สำเร็จ",
     "dateChangePending": "รอเปลี่ยนวันเข้าพัก",

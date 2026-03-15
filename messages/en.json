@@ -781,6 +781,7 @@
     "priceSame": "Price is the same",
     "submitDateChange": "Submit Date Change Request",
     "cancelDateChange": "Cancel",
+    "saveQrImage": "Save QR Image",
     "dateChangeSuccess": "Date change request submitted! Waiting for host approval.",
     "dateChangeError": "Failed to submit date change request.",
     "dateChangePending": "Pending Date Change",

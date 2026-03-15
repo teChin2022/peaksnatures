@@ -1,7 +1,9 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Search, CalendarDays, Clock, CheckCircle2, XCircle, Loader2, Star, MessageSquare, LogIn, LogOut, Upload, CreditCard, Download, AlertTriangle, ArrowRightLeft } from "lucide-react";
+import { Search, CalendarDays, Clock, CheckCircle2, XCircle, Loader2, Star, MessageSquare, LogIn, LogOut, Upload, CreditCard, Download, AlertTriangle, ArrowRightLeft, ArrowLeft } from "lucide-react";
+import { motion, AnimatePresence } from "motion/react";
+import { createClient } from "@/lib/supabase/client";
 import { Calendar } from "@/components/ui/calendar";
 import type { DateRange } from "react-day-picker";
 import { format } from "date-fns";
@@ -35,6 +37,7 @@ interface SearchResult {
   amount_paid: number;
   payment_type: string;
   status: string;
+  room_id: string | null;
   room_name: string;
   checked_in_at: string | null;
   checked_out_at: string | null;
@@ -103,6 +106,9 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
   const [dcUploadSessionId] = useState(() => crypto.randomUUID());
   const [dcPhoneSlipReceived, setDcPhoneSlipReceived] = useState(false);
   const dcPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const [dcDisabledDates, setDcDisabledDates] = useState<Set<string>>(new Set());
+  const [dcLoadingAvailability, setDcLoadingAvailability] = useState(false);
+  const dcQrRef = useRef<HTMLDivElement>(null);
 
   const handleCheckin = async (bookingId: string, guestEmail: string, action: "checkin" | "checkout") => {
     setCheckingIn(bookingId);
@@ -426,6 +432,60 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
     }
   };
 
+  const fetchDisabledDates = async (booking: SearchResult) => {
+    setDcLoadingAvailability(true);
+    try {
+      // Fetch booked ranges
+      const availRes = await fetch(`/api/bookings/availability?homestay_id=${homestayId}`);
+      const availData = await availRes.json();
+      const bookedRanges: { room_id: string | null; check_in: string; check_out: string }[] = availData.bookedRanges || [];
+
+      // Fetch blocked dates via Supabase client (public RLS)
+      const supabase = createClient();
+      const { data: blockedRows } = await supabase
+        .from("blocked_dates")
+        .select("date, room_id")
+        .eq("homestay_id", homestayId);
+
+      const disabled = new Set<string>();
+
+      // Add blocked dates (matching room or homestay-wide)
+      (blockedRows || []).forEach((d: { date: string; room_id: string | null }) => {
+        if (d.room_id === null || d.room_id === booking.room_id) {
+          disabled.add(d.date);
+        }
+      });
+
+      // Add fully booked dates for this room
+      // Current booking's own dates should NOT be disabled
+      const ownCheckIn = booking.check_in;
+      const ownCheckOut = booking.check_out;
+      const ownDates = new Set<string>();
+      const ownStart = new Date(ownCheckIn);
+      const ownEnd = new Date(ownCheckOut);
+      for (let d = new Date(ownStart); d < ownEnd; d.setDate(d.getDate() + 1)) {
+        ownDates.add(d.toISOString().split("T")[0]);
+      }
+
+      bookedRanges
+        .filter((b) => b.room_id === booking.room_id)
+        .forEach((b) => {
+          const start = new Date(b.check_in);
+          const end = new Date(b.check_out);
+          for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+            const key = d.toISOString().split("T")[0];
+            if (!ownDates.has(key)) disabled.add(key);
+          }
+        });
+
+      setDcDisabledDates(disabled);
+    } catch {
+      // Fail silently — calendar will just not show disabled dates
+    } finally {
+      setDcLoadingAvailability(false);
+    }
+  };
+
   const resetDateChangeState = () => {
     setChangingDatesId(null);
     setDateRange(undefined);
@@ -434,6 +494,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
     setDateChangeSlipPreview(null);
     setNoRefundConfirmed(false);
     setDcPhoneSlipReceived(false);
+    setDcDisabledDates(new Set());
     if (dcPollingRef.current) {
       clearInterval(dcPollingRef.current);
       dcPollingRef.current = null;
@@ -577,8 +638,11 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
               return (
                 <div
                   key={booking.id}
-                  className="rounded-lg border bg-gray-50 p-3 space-y-1.5"
+                  className="rounded-lg border bg-gray-50 overflow-hidden"
                 >
+                 <AnimatePresence mode="wait" initial={false}>
+                  {changingDatesId !== booking.id ? (
+                  <motion.div key="details" exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.2 }} className="p-3 space-y-1.5">
                   <div className="flex items-center justify-between">
                     <span className="font-medium text-gray-900 text-sm">
                       {booking.guest_name}
@@ -694,195 +758,19 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                       )}
 
                       {/* Change Dates button — only if no pending request */}
-                      {!booking.pending_date_change && (
-                        changingDatesId === booking.id ? (
-                          <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50 p-2.5">
-                            <p className="text-xs font-medium text-blue-700">{t("changeDatesDesc")}</p>
-
-                            {/* Date picker */}
-                            <div className="flex justify-center">
-                              <Calendar
-                                mode="range"
-                                selected={dateRange}
-                                onSelect={(range) => {
-                                  setDateRange(range);
-                                  setDateChangePriceInfo(null);
-                                  setDateChangeSlipFile(null);
-                                  setDateChangeSlipPreview(null);
-                                  setNoRefundConfirmed(false);
-                                  setDcPhoneSlipReceived(false);
-                                }}
-                                disabled={{ before: new Date() }}
-                                numberOfMonths={1}
-                                className="rounded-md border bg-white"
-                              />
-                            </div>
-
-                            {/* Show selected dates summary */}
-                            {dateRange?.from && dateRange?.to && (
-                              <div className="space-y-2">
-                                <div className="grid grid-cols-2 gap-2 text-xs">
-                                  <div className="rounded bg-white p-2 border">
-                                    <span className="text-gray-500">{t("currentDates")}</span>
-                                    <p className="font-medium text-gray-700">
-                                      {fmtDateStr(booking.check_in, "d MMM", locale)} → {fmtDateStr(booking.check_out, "d MMM", locale)}
-                                    </p>
-                                  </div>
-                                  <div className="rounded bg-white p-2 border">
-                                    <span className="text-gray-500">{t("newDates")}</span>
-                                    <p className="font-medium text-blue-700">
-                                      {format(dateRange.from, "d MMM")} → {format(dateRange.to, "d MMM")}
-                                    </p>
-                                  </div>
-                                </div>
-
-                                {/* Price info if returned from server */}
-                                {dateChangePriceInfo && (
-                                  <div className="rounded bg-white p-2 border text-xs space-y-1">
-                                    <div className="flex justify-between">
-                                      <span className="text-gray-500">{t("originalPrice")}</span>
-                                      <span>฿{booking.total_price.toLocaleString()}</span>
-                                    </div>
-                                    <div className="flex justify-between">
-                                      <span className="text-gray-500">{t("newPrice")}</span>
-                                      <span className="font-medium">฿{dateChangePriceInfo.new_total_price.toLocaleString()}</span>
-                                    </div>
-                                    {dateChangePriceInfo.price_difference !== 0 && (
-                                      <div className="flex justify-between font-medium">
-                                        <span className="text-gray-500">{t("priceDifference")}</span>
-                                        <span className={dateChangePriceInfo.price_difference > 0 ? "text-red-600" : "text-green-600"}>
-                                          {dateChangePriceInfo.price_difference > 0 ? "+" : ""}฿{dateChangePriceInfo.price_difference.toLocaleString()}
-                                        </span>
-                                      </div>
-                                    )}
-                                  </div>
-                                )}
-
-                                {/* No-refund warning for price decrease */}
-                                {dateChangePriceInfo && dateChangePriceInfo.price_difference < 0 && !noRefundConfirmed && (
-                                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5">
-                                    <div className="flex items-start gap-2">
-                                      <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                                      <div className="space-y-2">
-                                        <p className="text-xs text-amber-700">
-                                          {t("noRefundWarning", { amount: Math.abs(dateChangePriceInfo.price_difference).toLocaleString() })}
-                                        </p>
-                                        <Button
-                                          size="sm"
-                                          className="w-full bg-amber-600 text-white hover:bg-amber-700"
-                                          onClick={() => setNoRefundConfirmed(true)}
-                                        >
-                                          <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                                          {t("submitDateChange")}
-                                        </Button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-
-                                {/* Slip upload for price increase */}
-                                {dateChangePriceInfo && dateChangePriceInfo.price_difference > 0 && promptpayId && (
-                                  <div className="space-y-2">
-                                    <p className="text-xs font-medium text-red-600">
-                                      {t("additionalPayment", { amount: dateChangePriceInfo.price_difference.toLocaleString() })}
-                                    </p>
-                                    <div className="flex justify-center">
-                                      <div className="rounded-lg border bg-white p-2">
-                                        <QRCodeSVG
-                                          value={generatePayload(promptpayId, { amount: dateChangePriceInfo.price_difference })}
-                                          size={100}
-                                          level="M"
-                                        />
-                                      </div>
-                                    </div>
-                                    <input
-                                      ref={dateChangeFileRef}
-                                      type="file"
-                                      accept="image/*"
-                                      className="hidden"
-                                      onChange={(e) => {
-                                        const f = e.target.files?.[0] || null;
-                                        setDateChangeSlipFile(f);
-                                        setDateChangeSlipPreview(f ? URL.createObjectURL(f) : null);
-                                      }}
-                                    />
-                                    {dateChangeSlipPreview ? (
-                                      <div className="text-center">
-                                        <img src={dateChangeSlipPreview} alt="Slip" className="mx-auto max-h-24 rounded-lg" />
-                                      </div>
-                                    ) : (
-                                      <>
-                                        <Button
-                                          size="sm"
-                                          variant="outline"
-                                          className="w-full"
-                                          onClick={() => dateChangeFileRef.current?.click()}
-                                        >
-                                          <Upload className="mr-1.5 h-3.5 w-3.5" />
-                                          {t("uploadSlip")}
-                                        </Button>
-                                        {!isMobile && (
-                                          <>
-                                            <div className="relative flex items-center gap-3 py-1">
-                                              <div className="flex-1 border-t border-gray-200" />
-                                              <span className="text-[10px] font-medium text-gray-400">{t("orUploadFromPhone")}</span>
-                                              <div className="flex-1 border-t border-gray-200" />
-                                            </div>
-                                            <div className="rounded-lg border bg-white p-3 text-center">
-                                              <p className="mb-2 text-[10px] text-gray-500">{t("scanToUpload")}</p>
-                                              <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-lg border bg-white p-1">
-                                                <QRCodeSVG value={`${typeof window !== "undefined" ? window.location.origin : ""}/upload-slip/${dcUploadSessionId}`} size={80} level="M" />
-                                              </div>
-                                              <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-gray-400">
-                                                <Loader2 className="h-2.5 w-2.5 animate-spin" />{t("waitingForPhoneUpload")}
-                                              </div>
-                                            </div>
-                                          </>
-                                        )}
-                                      </>
-                                    )}
-                                  </div>
-                                )}
-
-                                {/* Action buttons */}
-                                <div className="flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="flex-1"
-                                    onClick={resetDateChangeState}
-                                    disabled={submittingDateChange}
-                                  >
-                                    {t("cancelDateChange")}
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    className="flex-1 bg-blue-600 text-white hover:bg-blue-700"
-                                    onClick={() => handleDateChangeSubmit(booking)}
-                                    disabled={submittingDateChange || (dateChangePriceInfo !== null && dateChangePriceInfo.price_difference > 0 && !dateChangeSlipFile) || (dateChangePriceInfo !== null && dateChangePriceInfo.price_difference < 0 && !noRefundConfirmed)}
-                                  >
-                                    {submittingDateChange ? (
-                                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                                    ) : (
-                                      <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
-                                    )}
-                                    {t("submitDateChange")}
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
-                        ) : (
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="w-full text-blue-600 border-blue-200 hover:bg-blue-50"
-                            onClick={() => setChangingDatesId(booking.id)}
-                          >
-                            <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
-                            {t("changeDates")}
-                          </Button>
-                        )
+                      {!booking.pending_date_change && changingDatesId !== booking.id && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="w-full text-gray-600 border-gray-200 hover:bg-gray-50"
+                          onClick={() => {
+                            setChangingDatesId(booking.id);
+                            fetchDisabledDates(booking);
+                          }}
+                        >
+                          <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
+                          {t("changeDates")}
+                        </Button>
                       )}
                     </div>
                   )}
@@ -1129,6 +1017,225 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                       )}
                     </div>
                   )}
+                  </motion.div>
+                  ) : (
+                  <motion.div key="calendar" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.25 }} className="p-3 space-y-2">
+                    <div className="flex items-center gap-3 mb-1">
+                      <button onClick={resetDateChangeState} className="p-1.5 rounded-full hover:bg-gray-200 text-gray-400 transition-colors"><ArrowLeft size={16} /></button>
+                      <p className="text-xs font-medium text-gray-700">{t("changeDatesDesc")}</p>
+                    </div>
+
+                    {dcLoadingAvailability && (
+                      <div className="flex items-center justify-center gap-2 py-4 text-xs text-gray-500">
+                        <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                      </div>
+                    )}
+                    <div className="flex justify-center">
+                      <Calendar
+                        mode="range"
+                        selected={dateRange}
+                        onSelect={(range) => {
+                          setDateRange(range);
+                          setDateChangePriceInfo(null);
+                          setDateChangeSlipFile(null);
+                          setDateChangeSlipPreview(null);
+                          setNoRefundConfirmed(false);
+                          setDcPhoneSlipReceived(false);
+                        }}
+                        disabled={[
+                          { before: new Date() },
+                          (date: Date) => {
+                            const dateStr = date.toISOString().split("T")[0];
+                            return dcDisabledDates.has(dateStr);
+                          },
+                        ]}
+                        numberOfMonths={1}
+                        className="rounded-md border bg-white"
+                      />
+                    </div>
+
+                    {dateRange?.from && dateRange?.to && (
+                      <div className="space-y-2">
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="rounded bg-white p-2 border">
+                            <span className="text-gray-500">{t("currentDates")}</span>
+                            <p className="font-medium text-gray-700">
+                              {fmtDateStr(booking.check_in, "d MMM", locale)} → {fmtDateStr(booking.check_out, "d MMM", locale)}
+                            </p>
+                          </div>
+                          <div className="rounded bg-white p-2 border">
+                            <span className="text-gray-500">{t("newDates")}</span>
+                            <p className="font-medium text-gray-900">
+                              {format(dateRange.from, "d MMM")} → {format(dateRange.to, "d MMM")}
+                            </p>
+                          </div>
+                        </div>
+
+                        {dateChangePriceInfo && (
+                          <div className="rounded bg-white p-2 border text-xs space-y-1">
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">{t("originalPrice")}</span>
+                              <span>฿{booking.total_price.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">{t("newPrice")}</span>
+                              <span className="font-medium">฿{dateChangePriceInfo.new_total_price.toLocaleString()}</span>
+                            </div>
+                            {dateChangePriceInfo.price_difference !== 0 && (
+                              <div className="flex justify-between font-medium">
+                                <span className="text-gray-500">{t("priceDifference")}</span>
+                                <span className={dateChangePriceInfo.price_difference > 0 ? "text-red-600" : "text-green-600"}>
+                                  {dateChangePriceInfo.price_difference > 0 ? "+" : ""}฿{dateChangePriceInfo.price_difference.toLocaleString()}
+                                </span>
+                              </div>
+                            )}
+                          </div>
+                        )}
+
+                        {dateChangePriceInfo && dateChangePriceInfo.price_difference < 0 && !noRefundConfirmed && (
+                          <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5">
+                            <div className="flex items-start gap-2">
+                              <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
+                              <div className="space-y-2">
+                                <p className="text-xs text-amber-700">
+                                  {t("noRefundWarning", { amount: Math.abs(dateChangePriceInfo.price_difference).toLocaleString() })}
+                                </p>
+                                <Button
+                                  size="sm"
+                                  className="w-full bg-amber-600 text-white hover:bg-amber-700"
+                                  onClick={() => setNoRefundConfirmed(true)}
+                                >
+                                  <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
+                                  {t("submitDateChange")}
+                                </Button>
+                              </div>
+                            </div>
+                          </div>
+                        )}
+
+                        {dateChangePriceInfo && dateChangePriceInfo.price_difference > 0 && promptpayId && (
+                          <div className="space-y-2">
+                            <p className="text-xs font-medium text-red-600">
+                              {t("additionalPayment", { amount: dateChangePriceInfo.price_difference.toLocaleString() })}
+                            </p>
+                            <div className="flex flex-col items-center gap-2">
+                              <div ref={dcQrRef} className="rounded-lg border bg-white p-2">
+                                <QRCodeSVG
+                                  value={generatePayload(promptpayId, { amount: dateChangePriceInfo.price_difference })}
+                                  size={100}
+                                  level="M"
+                                />
+                              </div>
+                              {isMobile && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    const container = dcQrRef.current;
+                                    if (!container) return;
+                                    const svgEl = container.querySelector("svg");
+                                    if (!svgEl) return;
+                                    const svgData = new XMLSerializer().serializeToString(svgEl);
+                                    const canvas = document.createElement("canvas");
+                                    const ctx = canvas.getContext("2d");
+                                    if (!ctx) return;
+                                    const img = new Image();
+                                    img.onload = () => {
+                                      canvas.width = img.width * 2;
+                                      canvas.height = img.height * 2;
+                                      ctx.fillStyle = "#ffffff";
+                                      ctx.fillRect(0, 0, canvas.width, canvas.height);
+                                      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                      const link = document.createElement("a");
+                                      link.download = `promptpay-${dateChangePriceInfo.price_difference}.png`;
+                                      link.href = canvas.toDataURL("image/png");
+                                      link.click();
+                                    };
+                                    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+                                  }}
+                                  className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[11px] font-medium text-gray-700 border border-gray-200 hover:bg-gray-50"
+                                >
+                                  <Download className="h-3 w-3" />{t("saveQrImage")}
+                                </button>
+                              )}
+                            </div>
+                            <input
+                              ref={dateChangeFileRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => {
+                                const f = e.target.files?.[0] || null;
+                                setDateChangeSlipFile(f);
+                                setDateChangeSlipPreview(f ? URL.createObjectURL(f) : null);
+                              }}
+                            />
+                            {dateChangeSlipPreview ? (
+                              <div className="text-center">
+                                <img src={dateChangeSlipPreview} alt="Slip" className="mx-auto max-h-24 rounded-lg" />
+                              </div>
+                            ) : (
+                              <>
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="w-full"
+                                  onClick={() => dateChangeFileRef.current?.click()}
+                                >
+                                  <Upload className="mr-1.5 h-3.5 w-3.5" />
+                                  {t("uploadSlip")}
+                                </Button>
+                                {!isMobile && (
+                                  <>
+                                    <div className="relative flex items-center gap-3 py-1">
+                                      <div className="flex-1 border-t border-gray-200" />
+                                      <span className="text-[10px] font-medium text-gray-400">{t("orUploadFromPhone")}</span>
+                                      <div className="flex-1 border-t border-gray-200" />
+                                    </div>
+                                    <div className="rounded-lg border bg-white p-3 text-center">
+                                      <p className="mb-2 text-[10px] text-gray-500">{t("scanToUpload")}</p>
+                                      <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-lg border bg-white p-1">
+                                        <QRCodeSVG value={`${typeof window !== "undefined" ? window.location.origin : ""}/upload-slip/${dcUploadSessionId}`} size={80} level="M" />
+                                      </div>
+                                      <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-gray-400">
+                                        <Loader2 className="h-2.5 w-2.5 animate-spin" />{t("waitingForPhoneUpload")}
+                                      </div>
+                                    </div>
+                                  </>
+                                )}
+                              </>
+                            )}
+                          </div>
+                        )}
+
+                        <div className="flex gap-2">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="flex-1"
+                            onClick={resetDateChangeState}
+                            disabled={submittingDateChange}
+                          >
+                            {t("cancelDateChange")}
+                          </Button>
+                          <Button
+                            size="sm"
+                            className="flex-1 bg-gray-800 text-white hover:bg-gray-900"
+                            onClick={() => handleDateChangeSubmit(booking)}
+                            disabled={submittingDateChange || (dateChangePriceInfo !== null && dateChangePriceInfo.price_difference > 0 && !dateChangeSlipFile) || (dateChangePriceInfo !== null && dateChangePriceInfo.price_difference < 0 && !noRefundConfirmed)}
+                          >
+                            {submittingDateChange ? (
+                              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
+                            )}
+                            {t("submitDateChange")}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </motion.div>
+                  )}
+                 </AnimatePresence>
                 </div>
               );
             })}
