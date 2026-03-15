@@ -1,6 +1,7 @@
 import { Scale, Shield, FileText, Cookie, AlertTriangle, Handshake, MessageSquare, ScrollText } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import type { Metadata } from "next";
+import { LandingFooter } from "@/components/landing/footer";
 
 export const metadata: Metadata = {
   title: "Legal & Policies — Peaksnature",
@@ -11,8 +12,9 @@ export default async function LegalPage() {
   const t = await getTranslations("legalPage");
 
   return (
-    <section className="py-16">
-      <div className="mx-auto max-w-3xl px-4 sm:px-6">
+    <div className="min-h-screen bg-white font-sans text-gray-900">
+      <section className="py-16">
+        <div className="mx-auto max-w-3xl px-4 sm:px-6">
         {/* Header */}
         <div className="text-center">
           <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-gray-100">
@@ -547,7 +549,9 @@ export default async function LegalPage() {
           </div>
 
         </div>
-      </div>
-    </section>
+        </div>
+      </section>
+      <LandingFooter />
+    </div>
   );
 }
