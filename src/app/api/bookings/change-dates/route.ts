@@ -11,6 +11,7 @@ const changeDatesSchema = z.object({
   booking_id: z.string().uuid(),
   new_check_in: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
   new_check_out: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
+  preview: z.boolean().optional().default(false),
   // Slip verification data (required only when price increases)
   slip_hash: z.string().optional(),
   slip_trans_ref: z.string().nullable().optional(),
@@ -117,6 +118,18 @@ export async function POST(req: NextRequest) {
     }
 
     const priceDifference = newTotalPrice - booking.total_price;
+
+    // Preview mode: return price info without creating the request
+    if (data.preview) {
+      return NextResponse.json({
+        preview: true,
+        new_total_price: newTotalPrice,
+        old_total_price: booking.total_price,
+        price_difference: priceDifference,
+        amount_paid: booking.amount_paid,
+        payment_type: booking.payment_type,
+      });
+    }
 
     // If price increased, slip verification is required
     if (priceDifference > 0 && !data.slip_hash) {
