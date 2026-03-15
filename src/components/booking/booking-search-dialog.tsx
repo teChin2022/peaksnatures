@@ -14,6 +14,8 @@ import { Textarea } from "@/components/ui/textarea";
 import {
   Dialog,
   DialogContent,
+  DialogDescription,
+  DialogFooter,
   DialogHeader,
   DialogTitle,
   DialogTrigger,
@@ -111,6 +113,8 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
   const [dcRooms, setDcRooms] = useState<{ id: string; name: string }[]>([]);
   const [dcSelectedRoomId, setDcSelectedRoomId] = useState<string | null>(null);
   const dcQrRef = useRef<HTMLDivElement>(null);
+  const [dcUnavailableModal, setDcUnavailableModal] = useState<"unavailable" | "blocked" | null>(null);
+  const dcUnavailableBookingRef = useRef<SearchResult | null>(null);
 
   // Client-side validation: check every night in the selected range against disabled dates
   const isDcRangeValid = useMemo(() => {
@@ -416,16 +420,11 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
         if (data.error === "PENDING_EXISTS") {
           toast.error(t("pendingExists"));
         } else if (data.error === "DATES_UNAVAILABLE") {
-          toast.error(t("datesUnavailable"));
-          // Refresh disabled dates and reset selection (race condition)
-          fetchDisabledDates(booking, dcSelectedRoomId || undefined);
-          setDateRange(undefined);
-          setDateChangePriceInfo(null);
+          dcUnavailableBookingRef.current = booking;
+          setDcUnavailableModal("unavailable");
         } else if (data.error === "DATES_BLOCKED") {
-          toast.error(t("datesBlocked"));
-          fetchDisabledDates(booking, dcSelectedRoomId || undefined);
-          setDateRange(undefined);
-          setDateChangePriceInfo(null);
+          dcUnavailableBookingRef.current = booking;
+          setDcUnavailableModal("blocked");
         } else {
           toast.error(data.message || t("dateChangeError"));
         }
@@ -547,6 +546,21 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
     }
   };
 
+  const handleDcUnavailableClose = () => {
+    const booking = dcUnavailableBookingRef.current;
+    setDcUnavailableModal(null);
+    dcUnavailableBookingRef.current = null;
+    if (booking) {
+      fetchDisabledDates(booking, dcSelectedRoomId || undefined);
+    }
+    setDateRange(undefined);
+    setDateChangePriceInfo(null);
+    setDateChangeSlipFile(null);
+    setDateChangeSlipPreview(null);
+    setNoRefundConfirmed(false);
+    setDcPhoneSlipReceived(false);
+  };
+
   const resetDateChangeState = () => {
     setChangingDatesId(null);
     setDateRange(undefined);
@@ -640,7 +654,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
   };
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <><Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
         <Button
           size="sm"
@@ -1355,5 +1369,28 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
         </div>
       </DialogContent>
     </Dialog>
+
+    {/* Dates Unavailable / Blocked Modal */}
+    <Dialog open={dcUnavailableModal !== null} onOpenChange={(o) => { if (!o) handleDcUnavailableClose(); }}>
+      <DialogContent showCloseButton={false} className="z-[70]" overlayClassName="z-[70]">
+        <DialogHeader>
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+            <AlertTriangle className="h-6 w-6 text-amber-600" />
+          </div>
+          <DialogTitle className="text-center">
+            {dcUnavailableModal === "blocked" ? t("dcBlockedTitle") : t("dcUnavailableTitle")}
+          </DialogTitle>
+          <DialogDescription className="text-center">
+            {dcUnavailableModal === "blocked" ? t("dcBlockedDesc") : t("dcUnavailableDesc")}
+          </DialogDescription>
+        </DialogHeader>
+        <DialogFooter>
+          <Button className="w-full bg-brand text-white hover:bg-brand-hover" onClick={handleDcUnavailableClose}>
+            {t("dcChooseDifferentDates")}
+          </Button>
+        </DialogFooter>
+      </DialogContent>
+    </Dialog>
+  </>
   );
 }
