@@ -1319,7 +1319,7 @@ export function BookingSection({
 
       {/* Dates Held Modal */}
       <Dialog open={showHeldModal} onOpenChange={(o) => { if (!o) handleHeldModalClose(); }}>
-        <DialogContent showCloseButton={false}>
+        <DialogContent showCloseButton={false} className="z-[70]" overlayClassName="z-[70]">
           <DialogHeader>
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
               <AlertTriangle className="h-6 w-6 text-amber-600" />
