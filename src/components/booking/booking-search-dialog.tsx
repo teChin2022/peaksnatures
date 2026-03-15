@@ -472,7 +472,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
         const ownStart = new Date(booking.check_in);
         const ownEnd = new Date(booking.check_out);
         for (let d = new Date(ownStart); d < ownEnd; d.setDate(d.getDate() + 1)) {
-          ownDates.add(d.toISOString().split("T")[0]);
+          ownDates.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
         }
       }
 
@@ -495,7 +495,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
           const start = new Date(b.check_in);
           const end = new Date(b.check_out);
           for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
-            const key = d.toISOString().split("T")[0];
+            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
             if (!ownDates.has(key)) {
               dateCountMap.set(key, (dateCountMap.get(key) || 0) + 1);
             }
@@ -1123,7 +1123,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                         disabled={[
                           { before: new Date() },
                           (date: Date) => {
-                            const dateStr = date.toISOString().split("T")[0];
+                            const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
                             return dcDisabledDates.has(dateStr);
                           },
                         ]}
