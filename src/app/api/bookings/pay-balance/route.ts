@@ -46,13 +46,14 @@ export async function POST(req: NextRequest) {
     // Fetch the booking
     const { data: bookingRow, error: bookingError } = await supabase
       .from("bookings")
-      .select("id, status, guest_email, total_price, amount_paid, payment_type")
+      .select("id, status, guest_name, guest_email, total_price, amount_paid, payment_type")
       .eq("id", data.booking_id)
       .single();
 
     const booking = bookingRow as unknown as {
       id: string;
       status: string;
+      guest_name: string;
       guest_email: string;
       total_price: number;
       amount_paid: number;
@@ -94,7 +95,7 @@ export async function POST(req: NextRequest) {
       .update({
         amount_paid: booking.total_price,
         payment_type: "full",
-        updated_by: "guest",
+        updated_by: booking.guest_name,
       } as never)
       .eq("id", data.booking_id);
 

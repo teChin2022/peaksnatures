@@ -159,7 +159,7 @@ export default function ProfilePage() {
         deposit_by_month: Object.keys(depositByMonth).length > 0 ? depositByMonth : null,
         cancellation_days: cancellationDays,
         notification_preference: notificationPreference,
-        updated_by: userId,
+        updated_by: host.name,
       };
 
       const { error } = await supabase

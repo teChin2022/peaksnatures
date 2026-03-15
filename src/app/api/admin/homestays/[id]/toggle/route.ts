@@ -24,6 +24,14 @@ export async function PATCH(
     const { id } = await params;
     const sc = createServiceRoleClient();
 
+    // Fetch admin name for audit trail
+    const { data: adminRow } = await sc
+      .from("platform_admins")
+      .select("name")
+      .eq("user_id", user.id)
+      .single();
+    const adminName = (adminRow as { name: string } | null)?.name || user.id;
+
     // Get current status
     const { data: homestay, error: fetchError } = await sc
       .from("homestays")
@@ -40,7 +48,7 @@ export async function PATCH(
 
     const { error: updateError } = await sc
       .from("homestays")
-      .update({ is_active: newStatus, updated_by: user.id } as never)
+      .update({ is_active: newStatus, updated_by: adminName } as never)
       .eq("id", id);
 
     if (updateError) {

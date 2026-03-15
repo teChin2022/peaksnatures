@@ -40,6 +40,7 @@ export default function ThemePage() {
   const t = useTranslations("dashboardTheme");
   const [homestay, setHomestay] = useState<HomestayThemeData | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [hostName, setHostName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [themeColor, setThemeColor] = useState("#16a34a");
@@ -53,14 +54,15 @@ export default function ThemePage() {
       if (!user) return;
       setUserId(user.id);
 
-      const hostQuery = supabase.from("hosts").select("id").eq("user_id", user.id);
+      const hostQuery = supabase.from("hosts").select("id, name").eq("user_id", user.id);
       const { data: hostRow } = await hostQuery.maybeSingle();
 
-      const host = hostRow as { id: string } | null;
+      const host = hostRow as { id: string; name: string } | null;
       if (!host) {
         setLoading(false);
         return;
       }
+      setHostName(host.name);
 
       const { data } = await supabase
         .from("homestays")
@@ -87,7 +89,7 @@ export default function ThemePage() {
       const supabase = createClient();
       const { error } = await supabase
         .from("homestays")
-        .update({ theme_color: themeColor, updated_by: userId } as never)
+        .update({ theme_color: themeColor, updated_by: hostName || userId } as never)
         .eq("id", homestay.id);
 
       if (error) {

@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
     // Update request to rejected
     const updateData: Record<string, unknown> = {
       status: "rejected",
-      updated_by: user.id,
+      updated_by: host.name,
     };
     if (reason) {
       updateData.reject_reason = reason;

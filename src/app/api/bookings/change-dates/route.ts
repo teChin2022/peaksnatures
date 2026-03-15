@@ -158,8 +158,8 @@ export async function POST(req: NextRequest) {
         payment_slip_url: data.payment_slip_url || null,
         easyslip_response: data.easyslip_response || null,
         easyslip_verified: priceDifference > 0 ? (data.easyslip_verified || false) : false,
-        created_by: "guest",
-        updated_by: "guest",
+        created_by: booking.guest_name,
+        updated_by: booking.guest_name,
       } as never)
       .select()
       .single();

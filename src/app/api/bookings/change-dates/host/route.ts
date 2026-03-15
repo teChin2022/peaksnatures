@@ -153,8 +153,8 @@ export async function POST(req: NextRequest) {
         price_difference: priceDifference,
         status: "pending",
         requested_by: host.name,
-        created_by: user.id,
-        updated_by: user.id,
+        created_by: host.name,
+        updated_by: host.name,
       } as never)
       .select()
       .single();
@@ -181,7 +181,7 @@ export async function POST(req: NextRequest) {
       // Clean up the request on failure
       await supabase
         .from("date_change_requests")
-        .update({ status: "rejected", reject_reason: rpcError.message, updated_by: user.id } as never)
+        .update({ status: "rejected", reject_reason: rpcError.message, updated_by: host.name } as never)
         .eq("id", requestId);
 
       if (rpcError.message?.includes("DATES_UNAVAILABLE")) {

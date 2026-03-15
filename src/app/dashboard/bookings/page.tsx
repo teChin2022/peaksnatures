@@ -179,6 +179,7 @@ export default function BookingsPage() {
   );
 
   const [userId, setUserId] = useState<string | null>(null);
+  const [hostName, setHostName] = useState<string | null>(null);
 
   const fetchBookings = async () => {
     const supabase = createClient();
@@ -191,14 +192,15 @@ export default function BookingsPage() {
     // Get host
     const { data: hostRow } = await supabase
       .from("hosts")
-      .select("id")
+      .select("id, name")
       .eq("user_id", user.id)
       .single();
-    const host = hostRow as { id: string } | null;
+    const host = hostRow as { id: string; name: string } | null;
     if (!host) {
       setLoading(false);
       return;
     }
+    setHostName(host.name);
 
     // Get homestays for this host
     const { data: homestayRows } = await supabase
@@ -299,7 +301,7 @@ export default function BookingsPage() {
     const supabase = createClient();
     const { error } = await supabase
       .from("bookings")
-      .update({ status, updated_by: userId } as never)
+      .update({ status, updated_by: hostName || userId } as never)
       .eq("id", id);
 
     if (error) {
@@ -393,7 +395,7 @@ export default function BookingsPage() {
         return;
       }
       setBookings((prev) =>
-        prev.map((b) => (b.id === cancelTarget.id ? { ...b, status: "cancelled" as BookingStatus, cancelled_by: "host" } : b))
+        prev.map((b) => (b.id === cancelTarget.id ? { ...b, status: "cancelled" as BookingStatus, cancelled_by: hostName || "host" } : b))
       );
       toast.success(t("cancel") + "!");
     } catch {
@@ -653,7 +655,7 @@ export default function BookingsPage() {
                               </Badge>
                               {booking.status === "cancelled" && booking.cancelled_by && (
                                 <Badge variant="secondary" className="bg-red-50 text-red-600 text-[11px]">
-                                  {booking.cancelled_by === "guest" ? t("cancelledByGuest") : t("cancelledByHost")}
+                                  {booking.cancelled_by === booking.guest_name ? t("cancelledByGuest") : t("cancelledByHost")}
                                 </Badge>
                               )}
                               {booking.easyslip_verified && (

@@ -74,6 +74,7 @@ export default function HomestayPage() {
   const [homestay, setHomestay] = useState<HomestayData | null>(null);
   const [hostId, setHostId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
+  const [hostName, setHostName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isNew, setIsNew] = useState(false);
@@ -113,17 +114,18 @@ export default function HomestayPage() {
 
       const { data: hostRow } = await supabase
         .from("hosts")
-        .select("id")
+        .select("id, name")
         .eq("user_id", user.id)
         .single();
 
-      const host = hostRow as { id: string } | null;
+      const host = hostRow as { id: string; name: string } | null;
       if (!host) {
         setLoading(false);
         return;
       }
 
       setHostId(host.id);
+      setHostName(host.name);
 
       const { data } = await supabase
         .from("homestays")
@@ -367,7 +369,7 @@ export default function HomestayPage() {
       if (isNew) {
         const { data, error } = await supabase
           .from("homestays")
-          .insert({ ...payload, created_by: userId } as never)
+          .insert({ ...payload, created_by: hostName || userId } as never)
           .select()
           .single();
         if (error) {
@@ -384,12 +386,12 @@ export default function HomestayPage() {
         if (slug.trim() !== homestay.slug) {
           await supabase
             .from("homestay_slug_redirects" as never)
-            .upsert({ homestay_id: homestay.id, old_slug: homestay.slug, created_by: userId } as never, { onConflict: "old_slug" });
+            .upsert({ homestay_id: homestay.id, old_slug: homestay.slug, created_by: hostName || userId } as never, { onConflict: "old_slug" });
         }
 
         const { error } = await supabase
           .from("homestays")
-          .update({ ...payload, updated_by: userId } as never)
+          .update({ ...payload, updated_by: hostName || userId } as never)
           .eq("id", homestay.id);
         if (error) {
           toast.error(t("errorSave"));

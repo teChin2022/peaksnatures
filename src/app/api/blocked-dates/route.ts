@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
 
     const { data: hostRow } = await supabase
       .from("hosts")
-      .select("id")
+      .select("id, name")
       .eq("user_id", user.id)
       .eq("id", homestay.host_id)
       .single();
@@ -51,13 +51,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    const hostName = (hostRow as { id: string; name: string }).name;
+
     // Insert blocked dates (upsert to avoid duplicates)
     const rows = dates.map((date: string) => ({
       homestay_id,
       date,
       reason: reason || null,
       room_id: room_id || null,
-      created_by: user.id,
+      created_by: hostName,
     }));
 
     // Use insert + on-conflict handling; for room-specific blocks the unique index
@@ -152,7 +154,7 @@ export async function DELETE(req: NextRequest) {
 
     const { data: hostRow } = await supabase
       .from("hosts")
-      .select("id")
+      .select("id, name")
       .eq("user_id", user.id)
       .eq("id", homestay.host_id)
       .single();

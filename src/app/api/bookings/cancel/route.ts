@@ -107,9 +107,9 @@ export async function POST(req: NextRequest) {
     // Cancel the booking
     const updateData: Record<string, unknown> = {
       status: "cancelled",
-      cancelled_by: "guest",
+      cancelled_by: booking.guest_name,
       cancelled_at: new Date().toISOString(),
-      updated_by: "guest",
+      updated_by: booking.guest_name,
     };
     if (reason) {
       updateData.cancel_reason = reason;

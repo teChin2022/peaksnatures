@@ -37,11 +37,11 @@ export async function POST(req: NextRequest) {
 
     const { data: hostRow } = await serviceClient
       .from("hosts")
-      .select("id, security_pin_hash")
+      .select("id, name, security_pin_hash")
       .eq("user_id", user.id)
       .single();
 
-    const host = hostRow as { id: string; security_pin_hash: string | null } | null;
+    const host = hostRow as { id: string; name: string; security_pin_hash: string | null } | null;
 
     if (!host) {
       return NextResponse.json({ error: "Host not found" }, { status: 404 });
@@ -66,7 +66,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }
 
-    updateData.updated_by = user.id;
+    updateData.updated_by = host.name;
 
     const { error } = await serviceClient
       .from("hosts")

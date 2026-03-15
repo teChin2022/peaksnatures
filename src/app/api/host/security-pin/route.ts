@@ -22,11 +22,11 @@ export async function POST(req: Request) {
     // Check that the host exists and doesn't already have a PIN
     const { data: hostRow } = await serviceClient
       .from("hosts")
-      .select("id, security_pin_hash")
+      .select("id, name, security_pin_hash")
       .eq("user_id", user.id)
       .single();
 
-    const host = hostRow as { id: string; security_pin_hash: string | null } | null;
+    const host = hostRow as { id: string; name: string; security_pin_hash: string | null } | null;
 
     if (!host) {
       return NextResponse.json({ error: "Host not found" }, { status: 404 });
@@ -40,7 +40,7 @@ export async function POST(req: Request) {
 
     const { error } = await serviceClient
       .from("hosts")
-      .update({ security_pin_hash: hash, updated_by: user.id } as never)
+      .update({ security_pin_hash: hash, updated_by: host.name } as never)
       .eq("id", host.id);
 
     if (error) {
@@ -78,11 +78,11 @@ export async function PUT(req: Request) {
 
     const { data: hostRow } = await serviceClient
       .from("hosts")
-      .select("id, security_pin_hash")
+      .select("id, name, security_pin_hash")
       .eq("user_id", user.id)
       .single();
 
-    const host = hostRow as { id: string; security_pin_hash: string | null } | null;
+    const host = hostRow as { id: string; name: string; security_pin_hash: string | null } | null;
 
     if (!host) {
       return NextResponse.json({ error: "Host not found" }, { status: 404 });
@@ -101,7 +101,7 @@ export async function PUT(req: Request) {
 
     const { error } = await serviceClient
       .from("hosts")
-      .update({ security_pin_hash: hash, updated_by: user.id } as never)
+      .update({ security_pin_hash: hash, updated_by: host.name } as never)
       .eq("id", host.id);
 
     if (error) {
