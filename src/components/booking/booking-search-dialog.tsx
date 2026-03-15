@@ -1118,46 +1118,6 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                             <p className="text-xs font-medium text-red-600">
                               {t("additionalPayment", { amount: dateChangePriceInfo.price_difference.toLocaleString() })}
                             </p>
-                            <div className="flex flex-col items-center gap-2">
-                              <div ref={dcQrRef} className="rounded-lg border bg-white p-2">
-                                <QRCodeSVG
-                                  value={generatePayload(promptpayId, { amount: dateChangePriceInfo.price_difference })}
-                                  size={100}
-                                  level="M"
-                                />
-                              </div>
-                              {isMobile && (
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    const container = dcQrRef.current;
-                                    if (!container) return;
-                                    const svgEl = container.querySelector("svg");
-                                    if (!svgEl) return;
-                                    const svgData = new XMLSerializer().serializeToString(svgEl);
-                                    const canvas = document.createElement("canvas");
-                                    const ctx = canvas.getContext("2d");
-                                    if (!ctx) return;
-                                    const img = new Image();
-                                    img.onload = () => {
-                                      canvas.width = img.width * 2;
-                                      canvas.height = img.height * 2;
-                                      ctx.fillStyle = "#ffffff";
-                                      ctx.fillRect(0, 0, canvas.width, canvas.height);
-                                      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                                      const link = document.createElement("a");
-                                      link.download = `promptpay-${dateChangePriceInfo.price_difference}.png`;
-                                      link.href = canvas.toDataURL("image/png");
-                                      link.click();
-                                    };
-                                    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
-                                  }}
-                                  className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[11px] font-medium text-gray-700 border border-gray-200 hover:bg-gray-50"
-                                >
-                                  <Download className="h-3 w-3" />{t("saveQrImage")}
-                                </button>
-                              )}
-                            </div>
                             <input
                               ref={dateChangeFileRef}
                               type="file"
@@ -1169,39 +1129,93 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                 setDateChangeSlipPreview(f ? URL.createObjectURL(f) : null);
                               }}
                             />
-                            {dateChangeSlipPreview ? (
-                              <div className="text-center">
-                                <img src={dateChangeSlipPreview} alt="Slip" className="mx-auto max-h-24 rounded-lg" />
-                              </div>
-                            ) : (
-                              <>
+                            {dateChangeSlipPreview || dcPhoneSlipReceived ? (
+                              <div className="text-center space-y-2">
+                                {dateChangeSlipPreview && (
+                                  <img src={dateChangeSlipPreview} alt="Slip" className="mx-auto max-h-32 rounded-lg" />
+                                )}
                                 <Button
                                   size="sm"
                                   variant="outline"
-                                  className="w-full"
-                                  onClick={() => dateChangeFileRef.current?.click()}
+                                  className="text-xs"
+                                  onClick={() => {
+                                    setDateChangeSlipFile(null);
+                                    setDateChangeSlipPreview(null);
+                                    setDcPhoneSlipReceived(false);
+                                  }}
                                 >
-                                  <Upload className="mr-1.5 h-3.5 w-3.5" />
                                   {t("uploadSlip")}
                                 </Button>
-                                {!isMobile && (
-                                  <>
-                                    <div className="relative flex items-center gap-3 py-1">
-                                      <div className="flex-1 border-t border-gray-200" />
-                                      <span className="text-[10px] font-medium text-gray-400">{t("orUploadFromPhone")}</span>
-                                      <div className="flex-1 border-t border-gray-200" />
-                                    </div>
-                                    <div className="rounded-lg border bg-white p-3 text-center">
-                                      <p className="mb-2 text-[10px] text-gray-500">{t("scanToUpload")}</p>
-                                      <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-lg border bg-white p-1">
-                                        <QRCodeSVG value={`${typeof window !== "undefined" ? window.location.origin : ""}/upload-slip/${dcUploadSessionId}`} size={80} level="M" />
-                                      </div>
-                                      <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-gray-400">
-                                        <Loader2 className="h-2.5 w-2.5 animate-spin" />{t("waitingForPhoneUpload")}
-                                      </div>
-                                    </div>
-                                  </>
+                              </div>
+                            ) : (
+                              <>
+                              <div className="flex flex-col items-center gap-2">
+                                <div ref={dcQrRef} className="rounded-lg border bg-white p-2">
+                                  <QRCodeSVG
+                                    value={generatePayload(promptpayId, { amount: dateChangePriceInfo.price_difference })}
+                                    size={100}
+                                    level="M"
+                                  />
+                                </div>
+                                {isMobile && (
+                                  <button
+                                    type="button"
+                                    onClick={() => {
+                                      const container = dcQrRef.current;
+                                      if (!container) return;
+                                      const svgEl = container.querySelector("svg");
+                                      if (!svgEl) return;
+                                      const svgData = new XMLSerializer().serializeToString(svgEl);
+                                      const canvas = document.createElement("canvas");
+                                      const ctx = canvas.getContext("2d");
+                                      if (!ctx) return;
+                                      const img = new Image();
+                                      img.onload = () => {
+                                        canvas.width = img.width * 2;
+                                        canvas.height = img.height * 2;
+                                        ctx.fillStyle = "#ffffff";
+                                        ctx.fillRect(0, 0, canvas.width, canvas.height);
+                                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                        const link = document.createElement("a");
+                                        link.download = `promptpay-${dateChangePriceInfo.price_difference}.png`;
+                                        link.href = canvas.toDataURL("image/png");
+                                        link.click();
+                                      };
+                                      img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+                                    }}
+                                    className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[11px] font-medium text-gray-700 border border-gray-200 hover:bg-gray-50"
+                                  >
+                                    <Download className="h-3 w-3" />{t("saveQrImage")}
+                                  </button>
                                 )}
+                              </div>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="w-full"
+                                onClick={() => dateChangeFileRef.current?.click()}
+                              >
+                                <Upload className="mr-1.5 h-3.5 w-3.5" />
+                                {t("uploadSlip")}
+                              </Button>
+                              {!isMobile && (
+                                <>
+                                  <div className="relative flex items-center gap-3 py-1">
+                                    <div className="flex-1 border-t border-gray-200" />
+                                    <span className="text-[10px] font-medium text-gray-400">{t("orUploadFromPhone")}</span>
+                                    <div className="flex-1 border-t border-gray-200" />
+                                  </div>
+                                  <div className="rounded-lg border bg-white p-3 text-center">
+                                    <p className="mb-2 text-[10px] text-gray-500">{t("scanToUpload")}</p>
+                                    <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-lg border bg-white p-1">
+                                      <QRCodeSVG value={`${typeof window !== "undefined" ? window.location.origin : ""}/upload-slip/${dcUploadSessionId}`} size={80} level="M" />
+                                    </div>
+                                    <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-gray-400">
+                                      <Loader2 className="h-2.5 w-2.5 animate-spin" />{t("waitingForPhoneUpload")}
+                                    </div>
+                                  </div>
+                                </>
+                              )}
                               </>
                             )}
                           </div>

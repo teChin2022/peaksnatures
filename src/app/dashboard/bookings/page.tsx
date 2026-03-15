@@ -583,7 +583,7 @@ export default function BookingsPage() {
             {t("allBookings")} ({totalCount})
           </TabsTrigger>
           <TabsTrigger value="pending">
-            {t("pending")} ({totalPendingCount})
+            {t("pending")} ({totalPendingCount + Object.keys(dateChangeRequests).filter(bid => { const b = bookings.find(bk => bk.id === bid); return b && b.status !== "pending" && b.status !== "verified"; }).length})
           </TabsTrigger>
           <TabsTrigger value="confirmed">
             {t("confirmedTab")} ({totalConfirmedCount})
@@ -592,7 +592,7 @@ export default function BookingsPage() {
 
         {(["all", "pending", "confirmed"] as const).map((tab) => {
           const filtered = bookings.filter(
-            (b) => tab === "all" || b.status === tab || (tab === "pending" && b.status === "verified")
+            (b) => tab === "all" || b.status === tab || (tab === "pending" && b.status === "verified") || (tab === "pending" && dateChangeRequests[b.id])
           );
           return (
             <TabsContent key={tab} value={tab} className="mt-4 space-y-3">
