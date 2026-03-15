@@ -743,6 +743,7 @@ export async function sendDateChangeLineNotification(
   newCheckOut: string,
   priceDifference: number,
   newTotalPrice: number,
+  newRoomName?: string,
 ) {
   const channelToken = details.host.line_channel_access_token;
   const lineUserId = details.host.line_user_id;
@@ -764,15 +765,19 @@ export async function sendDateChangeLineNotification(
         ? `   💰 ส่วนต่าง: -฿${Math.abs(priceDifference).toLocaleString()}`
         : `   💰 ราคาเท่าเดิม`;
 
+    const roomChangeLine = newRoomName
+      ? `🛏️ ห้องใหม่: ${newRoomName} (เดิม: ${room?.name || "Standard"})`
+      : `🛏️ ห้อง: ${room?.name || "Standard"}`;
+
     const messageText = [
-      `📅 แขกขอเปลี่ยนวันเข้าพัก`,
+      `📅 แขกขอเปลี่ยน${newRoomName ? "ห้อง/วันเข้าพัก" : "วันเข้าพัก"}`,
       `━━━━━━━━━━━━━━━━`,
       ``,
       `🏠 โฮมสเตย์: ${homestay.name}`,
       `🔑 Booking ID: ${booking.id.slice(0, 8)}...`,
       ``,
       `👤 ผู้จอง: ${booking.guest_name}`,
-      `🛏️ ห้อง: ${room?.name || "Standard"}`,
+      roomChangeLine,
       ``,
       `📋 วันเดิม`,
       `   📅 ${formatBookingDate(oldCheckIn, "th")} → ${formatBookingDate(oldCheckOut, "th")} (${oldNights} คืน)`,
@@ -826,6 +831,7 @@ export async function sendDateChangeEmailToGuest(
   newTotalPrice: number,
   locale: string = "th",
   rejectReason?: string,
+  roomChangeInfo?: { oldRoomName: string; newRoomName: string },
 ) {
   const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
   if (!apiKey) {
@@ -867,6 +873,8 @@ export async function sendDateChangeEmailToGuest(
                 <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "รหัสการจอง" : "Booking ID"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${booking.id}</td></tr>
                 <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "วันเดิม" : "Original Dates"}</td><td style="padding: 8px 0; color: #9ca3af; font-size: 14px; text-decoration: line-through;">${formatBookingDate(oldCheckIn, locale)} - ${formatBookingDate(oldCheckOut, locale)}</td></tr>
                 <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "วันใหม่" : "New Dates"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${formatBookingDate(newCheckIn, locale)} - ${formatBookingDate(newCheckOut, locale)}</td></tr>
+                ${roomChangeInfo ? `<tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ห้องเดิม" : "Original Room"}</td><td style="padding: 8px 0; color: #9ca3af; font-size: 14px; text-decoration: line-through;">${roomChangeInfo.oldRoomName}</td></tr>
+                <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ห้องใหม่" : "New Room"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${roomChangeInfo.newRoomName}</td></tr>` : ""}
                 <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ยอดรวมใหม่" : "New Total"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 700;">฿${newTotalPrice.toLocaleString()}</td></tr>
               </table>
             </div>
@@ -925,89 +933,6 @@ export async function sendDateChangeEmailToGuest(
     return { success: true, data };
   } catch (error) {
     console.error("[Email] Date change email exception:", error);
-    return { success: false, error };
-  }
-}
-
-// ============================================================
-// DATE CHANGE — Email to Guest (host-initiated direct change)
-// ============================================================
-export async function sendDateChangeByHostEmail(
-  details: BookingDetails,
-  oldCheckIn: string,
-  oldCheckOut: string,
-  newCheckIn: string,
-  newCheckOut: string,
-  newTotalPrice: number,
-  locale: string = "th",
-  newAmountPaid?: number,
-) {
-  const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
-  if (!apiKey) {
-    return { success: true, demo: true };
-  }
-
-  try {
-    const { Resend } = await import("resend");
-    const resend = new Resend(apiKey);
-
-    const { booking, homestay } = details;
-    const isTh = locale === "th";
-
-    const DEFAULT_FROM = "Peaksnature <onboarding@resend.dev>";
-    const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
-    const fromEmail = cleaned
-      ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
-      : DEFAULT_FROM;
-
-    const balanceSection = newAmountPaid !== undefined && newAmountPaid < newTotalPrice ? `
-            <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 16px; margin-bottom: 24px;">
-              <p style="margin: 0 0 4px; font-weight: 600; color: #111827; font-size: 14px;">${isTh ? "ยอดค้างชำระ" : "Balance Due"}</p>
-              <p style="margin: 0; color: #374151; font-size: 14px;">${isTh ? `คุณมียอดค้างชำระ ฿${(newTotalPrice - newAmountPaid).toLocaleString()} กรุณาค้นหาการจองด้วยรหัส ${booking.id} เพื่อชำระเงิน` : `You have a remaining balance of ฿${(newTotalPrice - newAmountPaid).toLocaleString()}. Please search your booking with ID ${booking.id} to make the payment.`}</p>
-            </div>` : "";
-
-    const { data, error } = await resend.emails.send({
-      from: fromEmail,
-      to: booking.guest_email,
-      subject: isTh
-        ? `วันเข้าพักของคุณถูกเปลี่ยนแล้ว – ${homestay.name}`
-        : `Your Dates Have Been Changed – ${homestay.name}`,
-      html: `
-        <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
-          <div style="background: #f9fafb; padding: 32px 24px; border-bottom: 1px solid #e5e7eb;">
-            <h1 style="color: #111827; margin: 0; font-size: 22px; font-weight: 700;">${isTh ? "วันเข้าพักถูกเปลี่ยนแล้ว" : "Your Dates Have Been Changed"}</h1>
-          </div>
-          <div style="padding: 32px 24px;">
-            <p style="font-size: 16px; color: #111827; margin: 0 0 16px;">${isTh ? `เรียน คุณ${booking.guest_name}` : `Dear ${booking.guest_name}`},</p>
-            <p style="font-size: 14px; color: #374151; margin: 0 0 24px;">${isTh ? `เจ้าของที่พักได้เปลี่ยนวันเข้าพักของคุณที่ ${homestay.name}` : `The host has changed your booking dates at ${homestay.name}.`}</p>
-            <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
-              <h2 style="color: #111827; font-size: 16px; font-weight: 700; margin: 0 0 16px;">${isTh ? "รายละเอียด" : "Details"}</h2>
-              <table style="width: 100%; border-collapse: collapse;">
-                <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "รหัสการจอง" : "Booking ID"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${booking.id}</td></tr>
-                <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "วันเดิม" : "Original Dates"}</td><td style="padding: 8px 0; color: #9ca3af; font-size: 14px; text-decoration: line-through;">${formatBookingDate(oldCheckIn, locale)} - ${formatBookingDate(oldCheckOut, locale)}</td></tr>
-                <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "วันใหม่" : "New Dates"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${formatBookingDate(newCheckIn, locale)} - ${formatBookingDate(newCheckOut, locale)}</td></tr>
-                <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ยอดรวมใหม่" : "New Total"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 700;">฿${newTotalPrice.toLocaleString()}</td></tr>
-              </table>
-            </div>
-            ${balanceSection}
-            <div style="border-top: 1px solid #e5e7eb; padding-top: 24px;">
-              <p style="font-size: 14px; color: #374151; margin: 0 0 16px;">${isTh ? "หากท่านมีข้อสงสัยเพิ่มเติม สามารถติดต่อเจ้าของที่พักหรือทีมงานของเราได้ทุกเมื่อ" : "If you have any questions, feel free to contact the property host or our team at any time."}</p>
-              <p style="font-size: 14px; color: #374151; margin: 0;">${isTh ? "ด้วยความเคารพ" : "Best regards,"}</p>
-              <p style="font-size: 14px; color: #111827; font-weight: 700; margin: 4px 0 0;">${homestay.name}</p>
-              <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Nature Homestays in Thailand</p>
-            </div>
-          </div>
-        </div>
-      `,
-    });
-
-    if (error) {
-      console.error("[Email] Date change by host email error:", JSON.stringify(error));
-      return { success: false, error };
-    }
-    return { success: true, data };
-  } catch (error) {
-    console.error("[Email] Date change by host email exception:", error);
     return { success: false, error };
   }
 }

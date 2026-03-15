@@ -23,9 +23,6 @@ import {
   CreditCard,
   ArrowRightLeft,
 } from "lucide-react";
-import { Calendar } from "@/components/ui/calendar";
-import type { DateRange } from "react-day-picker";
-import { format } from "date-fns";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -47,8 +44,6 @@ import { fmtDateStr } from "@/lib/format-date";
 import { useThemeColor } from "@/components/dashboard/theme-context";
 import { logClientEvent } from "@/lib/history-log-client";
 import { getProvinceLabel } from "@/lib/provinces";
-import { calculateTotalPrice } from "@/lib/calculate-price";
-import type { SeasonEntry } from "@/lib/calculate-price";
 
 interface BookingRow {
   id: string;
@@ -351,14 +346,7 @@ export default function BookingsPage() {
 
   // Date change state
   const [dateChangeRequests, setDateChangeRequests] = useState<Record<string, DateChangeRequestRow>>({});
-  const [dateChangeDialogOpen, setDateChangeDialogOpen] = useState(false);
-  const [dateChangeTarget, setDateChangeTarget] = useState<DisplayBooking | null>(null);
-  const [dateChangeRange, setDateChangeRange] = useState<DateRange | undefined>(undefined);
   const [submittingDateChange, setSubmittingDateChange] = useState(false);
-  const [dcDisabledDates, setDcDisabledDates] = useState<Set<string>>(new Set());
-  const [dcLoadingData, setDcLoadingData] = useState(false);
-  const [dcRoomPricing, setDcRoomPricing] = useState<{ basePricePerNight: number; seasons: SeasonEntry[] } | null>(null);
-  const [dcPriceInfo, setDcPriceInfo] = useState<{ new_total_price: number; price_difference: number; new_balance: number } | null>(null);
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<DateChangeRequestRow | null>(null);
   const [rejectReason, setRejectReason] = useState("");
@@ -494,170 +482,6 @@ export default function BookingsPage() {
       setRejectDialogOpen(false);
       setRejectTarget(null);
       setRejectReason("");
-    }
-  };
-
-  const fetchHostDcData = async (booking: DisplayBooking) => {
-    setDcLoadingData(true);
-    setDcDisabledDates(new Set());
-    setDcRoomPricing(null);
-    setDcPriceInfo(null);
-    try {
-      const supabase = createClient();
-
-      // Fetch booked ranges
-      const availRes = await fetch(`/api/bookings/availability?homestay_id=${booking.homestay_id}`);
-      const availData = await availRes.json();
-      const bookedRanges: { room_id: string | null; check_in: string; check_out: string }[] = availData.bookedRanges || [];
-
-      // Fetch blocked dates
-      const { data: blockedRows } = await supabase
-        .from("blocked_dates")
-        .select("date, room_id")
-        .eq("homestay_id", booking.homestay_id);
-
-      const disabled = new Set<string>();
-
-      // Add blocked dates (matching room or homestay-wide)
-      (blockedRows || []).forEach((d: { date: string; room_id: string | null }) => {
-        if (d.room_id === null || d.room_id === booking.room_id) {
-          disabled.add(d.date);
-        }
-      });
-
-      // Add fully booked dates for this room (respecting room quantity)
-      // Current booking's own dates should NOT count toward the tally
-      const ownStart = new Date(booking.check_in);
-      const ownEnd = new Date(booking.check_out);
-      const ownDates = new Set<string>();
-      for (let d = new Date(ownStart); d < ownEnd; d.setDate(d.getDate() + 1)) {
-        ownDates.add(d.toISOString().split("T")[0]);
-      }
-
-      // Fetch room quantity
-      let roomQty = 1;
-      if (booking.room_id) {
-        const { data: qtyRow } = await supabase
-          .from("rooms")
-          .select("quantity")
-          .eq("id", booking.room_id)
-          .single();
-        if (qtyRow) roomQty = (qtyRow as { quantity: number }).quantity || 1;
-      }
-
-      // Count bookings per date (excluding own booking's dates)
-      const dateCountMap = new Map<string, number>();
-      bookedRanges
-        .filter((b) => b.room_id === booking.room_id)
-        .forEach((b) => {
-          const start = new Date(b.check_in);
-          const end = new Date(b.check_out);
-          for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
-            const key = d.toISOString().split("T")[0];
-            if (!ownDates.has(key)) {
-              dateCountMap.set(key, (dateCountMap.get(key) || 0) + 1);
-            }
-          }
-        });
-      dateCountMap.forEach((count, date) => {
-        if (count >= roomQty) disabled.add(date);
-      });
-
-      setDcDisabledDates(disabled);
-
-      // Fetch room pricing for price calculation
-      if (booking.room_id) {
-        const { data: roomRow } = await supabase
-          .from("rooms")
-          .select("price_per_night")
-          .eq("id", booking.room_id)
-          .single();
-
-        const { data: seasonRows } = await supabase
-          .from("room_seasonal_prices")
-          .select("start_date, end_date, price_per_night, name")
-          .eq("room_id", booking.room_id);
-
-        if (roomRow) {
-          setDcRoomPricing({
-            basePricePerNight: (roomRow as { price_per_night: number }).price_per_night,
-            seasons: (seasonRows as SeasonEntry[]) || [],
-          });
-        }
-      }
-    } catch {
-      // Fail silently
-    } finally {
-      setDcLoadingData(false);
-    }
-  };
-
-  // Calculate price when date range changes
-  useEffect(() => {
-    if (!dateChangeRange?.from || !dateChangeRange?.to || !dateChangeTarget || !dcRoomPricing) {
-      setDcPriceInfo(null);
-      return;
-    }
-    const { total } = calculateTotalPrice(
-      dcRoomPricing.basePricePerNight,
-      dateChangeRange.from,
-      dateChangeRange.to,
-      dcRoomPricing.seasons
-    );
-    const diff = total - dateChangeTarget.total_price;
-    const newBalance = total - dateChangeTarget.amount_paid;
-    setDcPriceInfo({ new_total_price: total, price_difference: diff, new_balance: newBalance });
-  }, [dateChangeRange, dateChangeTarget, dcRoomPricing]);
-
-  const handleHostChangeDates = async () => {
-    if (!dateChangeTarget || !dateChangeRange?.from || !dateChangeRange?.to) return;
-    setSubmittingDateChange(true);
-    try {
-      const newCheckIn = format(dateChangeRange.from, "yyyy-MM-dd");
-      const newCheckOut = format(dateChangeRange.to, "yyyy-MM-dd");
-
-      const res = await fetch("/api/bookings/change-dates/host", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          booking_id: dateChangeTarget.id,
-          new_check_in: newCheckIn,
-          new_check_out: newCheckOut,
-        }),
-      });
-      const data = await res.json();
-      if (!res.ok) {
-        if (data.error === "DATES_UNAVAILABLE") {
-          toast.error(t("dateChangeDatesUnavailable"));
-        } else if (data.error === "DATES_BLOCKED") {
-          toast.error(t("dateChangeDatesBlocked"));
-        } else {
-          toast.error(data.error || t("dateChangeDirectFailed"));
-        }
-        return;
-      }
-      toast.success(t("dateChangeDirect"));
-      setBookings((prev) =>
-        prev.map((b) =>
-          b.id === dateChangeTarget.id
-            ? { ...b, check_in: newCheckIn, check_out: newCheckOut, total_price: data.new_total_price, amount_paid: data.new_amount_paid ?? b.amount_paid }
-            : b
-        )
-      );
-      logClientEvent({
-        homestay_id: dateChangeTarget.homestay_id,
-        entity_type: "booking",
-        entity_id: dateChangeTarget.id,
-        event_type: "BOOKING_DATE_CHANGE_APPROVED",
-        data: { host_initiated: true, new_check_in: newCheckIn, new_check_out: newCheckOut },
-      });
-      setDateChangeDialogOpen(false);
-      setDateChangeTarget(null);
-      setDateChangeRange(undefined);
-    } catch {
-      toast.error(t("dateChangeDirectFailed"));
-    } finally {
-      setSubmittingDateChange(false);
     }
   };
 
@@ -957,22 +781,6 @@ export default function BookingsPage() {
                                     {t("markCompleted")}
                                   </Button>
                                 )}
-                                {!booking.checked_in_at && (
-                                  <Button
-                                    variant="outline"
-                                    size="sm"
-                                    onClick={() => {
-                                      setDateChangeTarget(booking);
-                                      setDateChangeRange(undefined);
-                                      setDcPriceInfo(null);
-                                      setDateChangeDialogOpen(true);
-                                      fetchHostDcData(booking);
-                                    }}
-                                  >
-                                    <ArrowRightLeft className="mr-1 h-3.5 w-3.5" />
-                                    {t("changeDates")}
-                                  </Button>
-                                )}
                                 <Button
                                   variant="outline"
                                   size="sm"
@@ -1269,127 +1077,6 @@ export default function BookingsPage() {
             >
               {submittingDateChange && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
               {t("dateChangeReject")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Host-initiated date change dialog */}
-      <Dialog open={dateChangeDialogOpen} onOpenChange={setDateChangeDialogOpen}>
-        <DialogContent className="max-w-md">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <ArrowRightLeft className="h-5 w-5" style={{ color: themeColor }} />
-              {t("changeDatesTitle")}
-            </DialogTitle>
-            <DialogDescription>
-              {t("changeDatesDesc")}
-            </DialogDescription>
-          </DialogHeader>
-          {dateChangeTarget && (
-            <div className="space-y-4">
-              <div className="text-sm text-gray-600">
-                <span className="font-medium text-gray-900">{dateChangeTarget.guest_name}</span>
-                {" · "}
-                {fmtDateStr(dateChangeTarget.check_in, "d MMM yyyy", locale)} → {fmtDateStr(dateChangeTarget.check_out, "d MMM yyyy", locale)}
-              </div>
-              {dcLoadingData && (
-                <div className="flex items-center justify-center gap-2 py-4 text-xs text-gray-500">
-                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                </div>
-              )}
-              <div className="flex justify-center">
-                <Calendar
-                  mode="range"
-                  selected={dateChangeRange}
-                  onSelect={(range) => {
-                    setDateChangeRange(range);
-                    setDcPriceInfo(null);
-                  }}
-                  disabled={[
-                    { before: new Date() },
-                    (date: Date) => {
-                      const dateStr = date.toISOString().split("T")[0];
-                      return dcDisabledDates.has(dateStr);
-                    },
-                  ]}
-                  numberOfMonths={1}
-                  className="rounded-md border"
-                />
-              </div>
-              {dateChangeRange?.from && dateChangeRange?.to && dcPriceInfo && (
-                <div className="rounded-lg border bg-gray-50 p-3 text-sm space-y-1.5">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">{t("dates")}</span>
-                    <span className="font-medium">
-                      {format(dateChangeRange.from, "d MMM yyyy")} → {format(dateChangeRange.to, "d MMM yyyy")}
-                    </span>
-                  </div>
-                  <div className="border-t border-gray-200 pt-1.5 space-y-1">
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">{t("dcOriginalPrice")}</span>
-                      <span>฿{dateChangeTarget.total_price.toLocaleString()}</span>
-                    </div>
-                    <div className="flex justify-between">
-                      <span className="text-gray-500">{t("dcNewPrice")}</span>
-                      <span className="font-medium">฿{dcPriceInfo.new_total_price.toLocaleString()}</span>
-                    </div>
-                    {dcPriceInfo.price_difference !== 0 && (
-                      <div className="flex justify-between font-medium">
-                        <span className="text-gray-500">{t("dcPriceDiff")}</span>
-                        <span className={dcPriceInfo.price_difference > 0 ? "text-red-600" : "text-green-600"}>
-                          {dcPriceInfo.price_difference > 0 ? "+" : ""}฿{dcPriceInfo.price_difference.toLocaleString()}
-                        </span>
-                      </div>
-                    )}
-                    <div className="border-t border-gray-200 pt-1.5 space-y-1">
-                      <div className="flex justify-between text-xs">
-                        <span className="text-gray-400">{t("dcAmountPaid")}</span>
-                        <span>฿{dateChangeTarget.amount_paid.toLocaleString()}{dateChangeTarget.payment_type === "deposit" ? ` (${t("paymentDeposit")})` : ""}</span>
-                      </div>
-                      {dcPriceInfo.new_balance > 0 && (
-                        <div className="flex justify-between text-xs font-medium">
-                          <span className="text-gray-400">{t("dcNewBalance")}</span>
-                          <span className="text-red-600">฿{dcPriceInfo.new_balance.toLocaleString()}</span>
-                        </div>
-                      )}
-                    </div>
-                  </div>
-                  {dcPriceInfo.price_difference > 0 && (
-                    <div className="rounded border border-amber-200 bg-amber-50 p-2 text-xs text-amber-700 flex items-start gap-1.5">
-                      <AlertTriangle className="h-3.5 w-3.5 mt-0.5 shrink-0" />
-                      <span>{t("dcGuestMustPay", { amount: dcPriceInfo.new_balance.toLocaleString() })}</span>
-                    </div>
-                  )}
-                  {dcPriceInfo.price_difference < 0 && (
-                    <div className="rounded border border-blue-200 bg-blue-50 p-2 text-xs text-blue-700">
-                      {t("dcPriceLowerNote", { amount: Math.abs(dcPriceInfo.price_difference).toLocaleString() })}
-                    </div>
-                  )}
-                </div>
-              )}
-            </div>
-          )}
-          <DialogFooter className="flex gap-2 sm:justify-end">
-            <Button
-              variant="outline"
-              onClick={() => { setDateChangeDialogOpen(false); setDateChangeTarget(null); }}
-              disabled={submittingDateChange}
-            >
-              {t("cancel")}
-            </Button>
-            <Button
-              className="hover:brightness-90 text-white"
-              style={{ backgroundColor: themeColor }}
-              onClick={handleHostChangeDates}
-              disabled={submittingDateChange || !dateChangeRange?.from || !dateChangeRange?.to}
-            >
-              {submittingDateChange ? (
-                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-              ) : (
-                <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
-              )}
-              {t("changeDates")}
             </Button>
           </DialogFooter>
         </DialogContent>

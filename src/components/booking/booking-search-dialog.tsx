@@ -108,6 +108,8 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
   const dcPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [dcDisabledDates, setDcDisabledDates] = useState<Set<string>>(new Set());
   const [dcLoadingAvailability, setDcLoadingAvailability] = useState(false);
+  const [dcRooms, setDcRooms] = useState<{ id: string; name: string }[]>([]);
+  const [dcSelectedRoomId, setDcSelectedRoomId] = useState<string | null>(null);
   const dcQrRef = useRef<HTMLDivElement>(null);
 
   const handleCheckin = async (bookingId: string, guestEmail: string, action: "checkin" | "checkout") => {
@@ -347,6 +349,11 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
         new_check_out: newCheckOut,
       };
 
+      // Include new_room_id if room was changed
+      if (dcSelectedRoomId && dcSelectedRoomId !== booking.room_id) {
+        body.new_room_id = dcSelectedRoomId;
+      }
+
       // If price increased and user uploaded a slip, verify it first
       if (dateChangePriceInfo && dateChangePriceInfo.price_difference > 0 && dateChangeSlipFile && promptpayId) {
         const verifyForm = new FormData();
@@ -432,7 +439,8 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
     }
   };
 
-  const fetchDisabledDates = async (booking: SearchResult) => {
+  const fetchDisabledDates = async (booking: SearchResult, overrideRoomId?: string) => {
+    const targetRoomId = overrideRoomId || booking.room_id;
     setDcLoadingAvailability(true);
     try {
       // Fetch booked ranges
@@ -449,37 +457,40 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
 
       const disabled = new Set<string>();
 
-      // Add blocked dates (matching room or homestay-wide)
+      // Add blocked dates (matching target room or homestay-wide)
       (blockedRows || []).forEach((d: { date: string; room_id: string | null }) => {
-        if (d.room_id === null || d.room_id === booking.room_id) {
+        if (d.room_id === null || d.room_id === targetRoomId) {
           disabled.add(d.date);
         }
       });
 
-      // Add fully booked dates for this room (respecting room quantity)
       // Current booking's own dates should NOT count toward the tally
+      // (only for the ORIGINAL room — if switching rooms, all dates on the new room count)
+      const isOriginalRoom = targetRoomId === booking.room_id;
       const ownDates = new Set<string>();
-      const ownStart = new Date(booking.check_in);
-      const ownEnd = new Date(booking.check_out);
-      for (let d = new Date(ownStart); d < ownEnd; d.setDate(d.getDate() + 1)) {
-        ownDates.add(d.toISOString().split("T")[0]);
+      if (isOriginalRoom) {
+        const ownStart = new Date(booking.check_in);
+        const ownEnd = new Date(booking.check_out);
+        for (let d = new Date(ownStart); d < ownEnd; d.setDate(d.getDate() + 1)) {
+          ownDates.add(d.toISOString().split("T")[0]);
+        }
       }
 
       // Fetch room quantity (rooms table has public SELECT RLS)
       let roomQty = 1;
-      if (booking.room_id) {
+      if (targetRoomId) {
         const { data: roomRow } = await supabase
           .from("rooms")
           .select("quantity")
-          .eq("id", booking.room_id)
+          .eq("id", targetRoomId)
           .single();
         if (roomRow) roomQty = (roomRow as { quantity: number }).quantity || 1;
       }
 
-      // Count bookings per date (excluding own booking's dates)
+      // Count bookings per date (excluding own booking's dates if same room)
       const dateCountMap = new Map<string, number>();
       bookedRanges
-        .filter((b) => b.room_id === booking.room_id)
+        .filter((b) => b.room_id === targetRoomId)
         .forEach((b) => {
           const start = new Date(b.check_in);
           const end = new Date(b.check_out);
@@ -502,6 +513,20 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
     }
   };
 
+  const fetchRoomsForHomestay = async () => {
+    try {
+      const supabase = createClient();
+      const { data: roomRows } = await supabase
+        .from("rooms")
+        .select("id, name")
+        .eq("homestay_id", homestayId)
+        .order("name");
+      setDcRooms((roomRows as { id: string; name: string }[]) || []);
+    } catch {
+      setDcRooms([]);
+    }
+  };
+
   const resetDateChangeState = () => {
     setChangingDatesId(null);
     setDateRange(undefined);
@@ -511,6 +536,8 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
     setNoRefundConfirmed(false);
     setDcPhoneSlipReceived(false);
     setDcDisabledDates(new Set());
+    setDcRooms([]);
+    setDcSelectedRoomId(null);
     if (dcPollingRef.current) {
       clearInterval(dcPollingRef.current);
       dcPollingRef.current = null;
@@ -781,7 +808,9 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                           className="w-full text-gray-600 border-gray-200 hover:bg-gray-50"
                           onClick={() => {
                             setChangingDatesId(booking.id);
+                            setDcSelectedRoomId(booking.room_id);
                             fetchDisabledDates(booking);
+                            fetchRoomsForHomestay();
                           }}
                         >
                           <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
@@ -1045,6 +1074,34 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                         </p>
                       </div>
                     </div>
+
+                    {/* Room selector */}
+                    {dcRooms.length > 1 && (
+                      <div className="px-1">
+                        <label className="text-[11px] font-medium text-gray-500 mb-1 block">{t("selectRoom")}</label>
+                        <select
+                          className="w-full rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-300"
+                          value={dcSelectedRoomId || ""}
+                          onChange={(e) => {
+                            const newRoomId = e.target.value;
+                            setDcSelectedRoomId(newRoomId);
+                            setDateRange(undefined);
+                            setDateChangePriceInfo(null);
+                            setDateChangeSlipFile(null);
+                            setDateChangeSlipPreview(null);
+                            setNoRefundConfirmed(false);
+                            setDcPhoneSlipReceived(false);
+                            fetchDisabledDates(booking, newRoomId);
+                          }}
+                        >
+                          {dcRooms.map((r) => (
+                            <option key={r.id} value={r.id}>
+                              {r.name}{r.id === booking.room_id ? ` (${t("currentRoom")})` : ""}
+                            </option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
 
                     {dcLoadingAvailability && (
                       <div className="flex items-center justify-center gap-2 py-4 text-xs text-gray-500">

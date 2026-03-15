@@ -713,6 +713,8 @@ CREATE TABLE date_change_requests (
   easyslip_response JSONB,
   easyslip_verified BOOLEAN DEFAULT FALSE,
   reject_reason     TEXT,
+  old_room_id       UUID REFERENCES rooms(id),
+  new_room_id       UUID REFERENCES rooms(id),
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_by        TEXT NOT NULL DEFAULT 'guest',
@@ -769,6 +771,7 @@ CREATE OR REPLACE FUNCTION approve_date_change_atomic(
 DECLARE
   v_req RECORD;
   v_booking RECORD;
+  v_target_room_id UUID;
   v_room_qty INT;
   v_overlap_count INT;
   v_blocked_count INT;
@@ -784,17 +787,26 @@ BEGIN
     RAISE EXCEPTION 'BOOKING_NOT_FOUND';
   END IF;
 
-  IF v_booking.room_id IS NOT NULL THEN
-    PERFORM pg_advisory_xact_lock(hashtext(v_booking.room_id::text));
+  -- Determine the target room (new_room_id if set, otherwise booking's current room)
+  v_target_room_id := COALESCE(v_req.new_room_id, v_booking.room_id);
 
-    SELECT quantity INTO v_room_qty FROM rooms WHERE id = v_booking.room_id;
+  IF v_target_room_id IS NOT NULL THEN
+    PERFORM pg_advisory_xact_lock(hashtext(v_target_room_id::text));
+
+    -- If room is changing, also lock the old room
+    IF v_req.new_room_id IS NOT NULL AND v_req.new_room_id != v_booking.room_id THEN
+      PERFORM pg_advisory_xact_lock(hashtext(v_booking.room_id::text));
+    END IF;
+
+    SELECT quantity INTO v_room_qty FROM rooms WHERE id = v_target_room_id;
     IF v_room_qty IS NULL THEN
       RAISE EXCEPTION 'ROOM_NOT_FOUND';
     END IF;
 
+    -- Check overlap on TARGET room (excluding current booking)
     SELECT COUNT(*) INTO v_overlap_count
     FROM bookings
-    WHERE room_id = v_booking.room_id
+    WHERE room_id = v_target_room_id
       AND id != v_booking.id
       AND status IN ('pending', 'confirmed', 'verified')
       AND check_in < v_req.new_check_out
@@ -804,12 +816,13 @@ BEGIN
       RAISE EXCEPTION 'DATES_UNAVAILABLE';
     END IF;
 
+    -- Check blocked dates on TARGET room
     SELECT COUNT(*) INTO v_blocked_count
     FROM blocked_dates
     WHERE homestay_id = v_booking.homestay_id
       AND date >= v_req.new_check_in
       AND date < v_req.new_check_out
-      AND (room_id IS NULL OR room_id = v_booking.room_id);
+      AND (room_id IS NULL OR room_id = v_target_room_id);
 
     IF v_blocked_count > 0 THEN
       RAISE EXCEPTION 'DATES_BLOCKED';
@@ -820,16 +833,17 @@ BEGIN
   IF v_req.price_difference > 0 AND v_req.easyslip_verified THEN
     v_new_amount_paid := v_booking.amount_paid + v_req.price_difference;
   END IF;
-  -- Cap amount_paid to new_total_price (handles price decrease)
   IF v_new_amount_paid > v_req.new_total_price THEN
     v_new_amount_paid := v_req.new_total_price;
   END IF;
 
+  -- Update the booking (including room_id if changed)
   UPDATE bookings
   SET check_in = v_req.new_check_in,
       check_out = v_req.new_check_out,
       total_price = v_req.new_total_price,
       amount_paid = v_new_amount_paid,
+      room_id = v_target_room_id,
       updated_by = p_approved_by
   WHERE id = v_booking.id;
 

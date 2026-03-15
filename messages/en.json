@@ -367,7 +367,9 @@
     "dcAmountPaid": "Paid",
     "dcNewBalance": "New Balance Due",
     "dcGuestMustPay": "Guest will need to pay ฿{amount} remaining balance",
-    "dcPriceLowerNote": "New price is ฿{amount} lower than original"
+    "dcPriceLowerNote": "New price is ฿{amount} lower than original",
+    "selectRoom": "Select Room",
+    "currentRoom": "current"
   },
   "setupProfile": {
     "title": "Complete Your Profile",
@@ -799,6 +801,8 @@
     "datesBlocked": "Some selected dates are blocked.",
     "pendingExists": "A date change request is already pending.",
     "selectDates": "Select dates",
+    "selectRoom": "Select Room",
+    "currentRoom": "current",
     "status": {
       "pending": "Pending",
       "verified": "Verified",

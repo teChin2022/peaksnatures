@@ -594,6 +594,8 @@ export interface Database {
           easyslip_response: Json | null;
           easyslip_verified: boolean;
           reject_reason: string | null;
+          old_room_id: string | null;
+          new_room_id: string | null;
           created_at: string;
           updated_at: string;
           created_by: string;
@@ -617,6 +619,8 @@ export interface Database {
           easyslip_response?: Json | null;
           easyslip_verified?: boolean;
           reject_reason?: string | null;
+          old_room_id?: string | null;
+          new_room_id?: string | null;
           created_at?: string;
           updated_at?: string;
           created_by?: string;
@@ -640,6 +644,8 @@ export interface Database {
           easyslip_response?: Json | null;
           easyslip_verified?: boolean;
           reject_reason?: string | null;
+          old_room_id?: string | null;
+          new_room_id?: string | null;
           created_at?: string;
           updated_at?: string;
           created_by?: string;

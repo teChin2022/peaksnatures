@@ -47,6 +47,8 @@ export async function POST(req: NextRequest) {
       new_total_price: number;
       price_difference: number;
       easyslip_verified: boolean;
+      old_room_id: string | null;
+      new_room_id: string | null;
     };
 
     // Fetch booking to verify host ownership
@@ -156,6 +158,27 @@ export async function POST(req: NextRequest) {
           room = (roomData as unknown as Room) || undefined;
         }
 
+        // Check if room was changed
+        let roomChangeInfo: { oldRoomName: string; newRoomName: string } | undefined;
+        if (dcr.new_room_id && dcr.old_room_id && dcr.new_room_id !== dcr.old_room_id) {
+          const { data: oldRoomData } = await supabase
+            .from("rooms")
+            .select("name")
+            .eq("id", dcr.old_room_id)
+            .single();
+          const { data: newRoomData } = await supabase
+            .from("rooms")
+            .select("name")
+            .eq("id", dcr.new_room_id)
+            .single();
+          if (oldRoomData && newRoomData) {
+            roomChangeInfo = {
+              oldRoomName: (oldRoomData as unknown as { name: string }).name,
+              newRoomName: (newRoomData as unknown as { name: string }).name,
+            };
+          }
+        }
+
         const details = { booking, homestay, host, room };
 
         await sendDateChangeEmailToGuest(
@@ -166,6 +189,9 @@ export async function POST(req: NextRequest) {
           dcr.new_check_in,
           dcr.new_check_out,
           dcr.new_total_price,
+          "th",
+          undefined,
+          roomChangeInfo,
         );
       } catch (error) {
         console.error("[ApproveDateChange] Notification error (non-blocking):", error);
