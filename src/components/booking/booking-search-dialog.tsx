@@ -610,7 +610,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
             <Button
               onClick={handleSearch}
               disabled={loading || !query.trim()}
-              className="bg-gray-900 text-white hover:bg-black"
+              className="bg-brand text-white hover:bg-brand-hover"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("search")}
             </Button>
@@ -671,7 +671,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                     <div className="mt-2 pt-2 border-t border-gray-200 space-y-2">
                       <Button
                         size="sm"
-                        className="w-full bg-gray-900 text-white hover:bg-black"
+                        className="w-full bg-brand text-white hover:bg-brand-hover"
                         onClick={() => handleCheckin(booking.id, booking.guest_email, "checkin")}
                         disabled={checkingIn === booking.id}
                       >
@@ -851,7 +851,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                       <img src={balanceSlipPreview} alt="Slip" className="mx-auto max-h-32 rounded-lg" />
                                       <Button
                                         size="sm"
-                                        className="mt-2 w-full bg-gray-900 text-white hover:bg-black"
+                                        className="mt-2 w-full bg-brand text-white hover:bg-brand-hover"
                                         onClick={() => handlePayBalance(booking)}
                                         disabled={submittingBalance}
                                       >
@@ -885,7 +885,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                   </p>
                                   <Button
                                     size="sm"
-                                    className="w-full bg-gray-900 text-white hover:bg-black"
+                                    className="w-full bg-brand text-white hover:bg-brand-hover"
                                     onClick={() => handlePayCash(booking)}
                                     disabled={submittingBalance}
                                   >
@@ -902,7 +902,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                           ) : (
                             <Button
                               size="sm"
-                              className="w-full bg-gray-900 text-white hover:bg-black mt-1"
+                              className="w-full bg-brand text-white hover:bg-brand-hover mt-1"
                               onClick={() => { setPayingBalanceId(booking.id); setBalancePayMethod(null); }}
                             >
                               <CreditCard className="mr-1.5 h-3.5 w-3.5" />
@@ -916,7 +916,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                       {booking.total_price - (booking.amount_paid || 0) <= 0 && (
                         <Button
                           size="sm"
-                          className="w-full bg-gray-900 text-white hover:bg-black"
+                          className="w-full bg-brand text-white hover:bg-brand-hover"
                           onClick={() => handleCheckin(booking.id, booking.guest_email, "checkout")}
                           disabled={checkingIn === booking.id}
                         >
@@ -935,7 +935,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                   {booking.status === "completed" && (
                     <div className="mt-2 pt-2 border-t border-gray-200">
                       {booking.has_review ? (
-                        <Badge variant="secondary" className="bg-green-100 text-green-700">
+                        <Badge variant="secondary" className="bg-brand-50 text-brand">
                           <CheckCircle2 className="mr-1 h-3 w-3" />
                           {tr("reviewed")}
                         </Badge>
@@ -992,7 +992,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                             </Button>
                             <Button
                               size="sm"
-                              className="flex-1 bg-gray-900 text-white hover:bg-black"
+                              className="flex-1 bg-brand text-white hover:bg-brand-hover"
                               onClick={() => handleSubmitReview(booking.id, booking.guest_email)}
                               disabled={reviewRating === 0 || submittingReview}
                             >
@@ -1233,7 +1233,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                           </Button>
                           <Button
                             size="sm"
-                            className="flex-1 bg-gray-800 text-white hover:bg-gray-900"
+                            className="flex-1 bg-brand text-white hover:bg-brand-hover"
                             onClick={() => handleDateChangeSubmit(booking)}
                             disabled={submittingDateChange || (dateChangePriceInfo !== null && dateChangePriceInfo.price_difference > 0 && !dateChangeSlipFile) || (dateChangePriceInfo !== null && dateChangePriceInfo.price_difference < 0 && !noRefundConfirmed)}
                           >

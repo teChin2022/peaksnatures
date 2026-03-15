@@ -86,7 +86,7 @@ export function LandingNavbar() {
           <div className="relative" ref={menuRef}>
             <button 
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className={`p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${scrolled ? 'text-earth-900' : 'text-white'}`}
+              className={`p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${scrolled ? 'text-[#111111]' : 'text-white'}`}
             >
               <User size={20} />
             </button>
@@ -98,14 +98,14 @@ export function LandingNavbar() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-earth-100 overflow-hidden py-2"
+                  className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden py-2"
                 >
-                  <button className="w-full text-left px-4 py-3 text-sm font-medium text-earth-900 hover:bg-gray-50 transition-colors">
+                  <button className="w-full text-left px-4 py-3 text-sm font-medium text-[#111111] hover:bg-gray-50 transition-colors">
                     <Link href="/register" className="cursor-pointer">
                       {t("hostRegister")}
                     </Link>
                   </button>
-                  <button className="w-full text-left px-4 py-3 text-sm font-medium text-earth-900 hover:bg-gray-50 transition-colors">
+                  <button className="w-full text-left px-4 py-3 text-sm font-medium text-[#111111] hover:bg-gray-50 transition-colors">
                     <Link href="/login" className="cursor-pointer">
                       {t("hostLogin")}
                     </Link>

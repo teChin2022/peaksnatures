@@ -7,7 +7,7 @@ export async function PlatformFooter() {
   const tc = await getTranslations("common");
 
   return (
-    <footer className="border-t bg-gray-50">
+    <footer className="border-t bg-section-alt">
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
         <div className="grid grid-cols-2 gap-8 sm:grid-cols-3 md:gap-12">
           {/* Company */}
@@ -15,17 +15,17 @@ export async function PlatformFooter() {
             <h3 className="text-sm font-semibold text-gray-900">{t("company")}</h3>
             <ul className="mt-3 space-y-2">
               <li>
-                <Link href="/about" className="text-sm text-gray-500 hover:text-green-700">
+                <Link href="/about" className="text-sm text-gray-500 hover:text-brand">
                   {t("about")}
                 </Link>
               </li>
               <li>
-                <Link href="/trust-safety" className="text-sm text-gray-500 hover:text-green-700">
+                <Link href="/trust-safety" className="text-sm text-gray-500 hover:text-brand">
                   {t("trustSafety")}
                 </Link>
               </li>
               <li>
-                <Link href="/legal" className="text-sm text-gray-500 hover:text-green-700">
+                <Link href="/legal" className="text-sm text-gray-500 hover:text-brand">
                   {t("legalPolicies")}
                 </Link>
               </li>
@@ -37,12 +37,12 @@ export async function PlatformFooter() {
             <h3 className="text-sm font-semibold text-gray-900">{t("hosts")}</h3>
             <ul className="mt-3 space-y-2">
               <li>
-                <Link href="/register" className="text-sm text-gray-500 hover:text-green-700">
+                <Link href="/register" className="text-sm text-gray-500 hover:text-brand">
                   {t("becomeHost")}
                 </Link>
               </li>
               <li>
-                <Link href="/host-guidelines" className="text-sm text-gray-500 hover:text-green-700">
+                <Link href="/host-guidelines" className="text-sm text-gray-500 hover:text-brand">
                   {t("hostGuidelines")}
                 </Link>
               </li>
@@ -54,7 +54,7 @@ export async function PlatformFooter() {
             <h3 className="text-sm font-semibold text-gray-900">{t("support")}</h3>
             <ul className="mt-3 space-y-2">
               <li>
-                <Link href="/#contact" className="text-sm text-gray-500 hover:text-green-700">
+                <Link href="/#contact" className="text-sm text-gray-500 hover:text-brand">
                   {t("contact")}
                 </Link>
               </li>

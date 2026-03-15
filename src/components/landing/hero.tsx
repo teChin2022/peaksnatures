@@ -134,7 +134,7 @@ export function LandingHero() {
 
           {/* Search Button */}
           <div className="p-1.5 md:p-0 md:pr-1.5">
-            <button className="w-full md:w-auto bg-gray-900 text-white px-8 py-4 md:p-5 rounded-2xl md:rounded-full hover:bg-black transition-all shadow-lg flex items-center justify-center gap-3 group">
+            <button className="w-full md:w-auto bg-brand text-white px-8 py-4 md:p-5 rounded-2xl md:rounded-full hover:bg-brand-hover transition-all shadow-lg flex items-center justify-center gap-3 group">
               <Search
                 size={20}
                 className="group-hover:scale-110 transition-transform"
@@ -167,7 +167,7 @@ export function LandingHero() {
                 <div className="flex justify-end mt-4 pt-4 border-t border-gray-100">
                   <button
                     onClick={() => setShowCalendar(false)}
-                    className="bg-gray-800 text-white px-6 py-2 rounded-full text-sm font-bold hover:bg-gray-900"
+                    className="bg-brand text-white px-6 py-2 rounded-full text-sm font-bold hover:bg-brand-hover"
                   >
                     Apply
                   </button>

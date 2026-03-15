@@ -82,8 +82,8 @@ export default function ResetPasswordPage() {
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2">
           <Link href="/" className="flex items-center gap-2">
-            <Mountain className="h-8 w-8 text-green-600" />
-            <span className="text-2xl font-bold text-green-800">Peaksnature</span>
+            <Mountain className="h-8 w-8 text-brand" />
+            <span className="text-2xl font-bold text-brand">Peaksnature</span>
           </Link>
           <p className="text-sm text-gray-500">{t("hostDashboard")}</p>
         </div>
@@ -91,8 +91,8 @@ export default function ResetPasswordPage() {
         {success ? (
           <Card>
             <CardContent className="flex flex-col items-center gap-4 py-8">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-                <CheckCircle className="h-8 w-8 text-green-600" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-50">
+                <CheckCircle className="h-8 w-8 text-brand" />
               </div>
               <h2 className="text-xl font-semibold text-gray-900">
                 {t("passwordUpdatedTitle")}
@@ -191,7 +191,7 @@ export default function ResetPasswordPage() {
               <CardFooter>
                 <Button
                   type="submit"
-                  className="w-full bg-gray-900 text-white py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl"
+                  className="w-full bg-brand text-white py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl"
                   disabled={loading}
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -96,7 +96,7 @@ export function ForHosts() {
           </p>
           <Link
             href="/register"
-            className="inline-block bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl"
+            className="inline-block bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl"
           >
             ลงทะเบียนเจ้าของที่พัก
           </Link>

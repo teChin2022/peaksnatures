@@ -72,8 +72,8 @@ export default function AdminDashboardPage() {
     { label: "Pending Hosts", value: stats.pendingHosts, icon: UserCheck, bg: "bg-amber-100", fg: "text-amber-600", href: "/admin/hosts?status=pending" },
     { label: "Total Homestays", value: stats.totalHomestays, icon: Home, bg: "bg-purple-100", fg: "text-purple-600" },
     { label: "Total Bookings", value: stats.totalBookings, icon: CalendarDays, bg: "bg-orange-100", fg: "text-orange-600" },
-    { label: "Total Revenue", value: `฿${stats.totalRevenue.toLocaleString()}`, icon: DollarSign, bg: "bg-green-100", fg: "text-green-600" },
-    { label: "Confirmed", value: stats.confirmedBookings, icon: CheckCircle2, bg: "bg-emerald-100", fg: "text-emerald-600" },
+    { label: "Total Revenue", value: `฿${stats.totalRevenue.toLocaleString()}`, icon: DollarSign, bg: "bg-brand-50", fg: "text-brand" },
+    { label: "Confirmed", value: stats.confirmedBookings, icon: CheckCircle2, bg: "bg-brand-50", fg: "text-brand" },
     { label: "Pending Bookings", value: stats.pendingBookings, icon: AlertTriangle, bg: "bg-yellow-100", fg: "text-yellow-600" },
   ];
 

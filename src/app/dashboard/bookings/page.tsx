@@ -683,7 +683,7 @@ export default function BookingsPage() {
                                   {t("paymentDeposit")}
                                 </Badge>
                               ) : booking.amount_paid >= booking.total_price ? (
-                                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">
+                                <Badge variant="secondary" className="bg-brand-50 text-brand">
                                   {t("paymentFull")}
                                 </Badge>
                               ) : null}
@@ -735,7 +735,7 @@ export default function BookingsPage() {
                                     </span>
                                   )}
                                   {dateChangeRequests[booking.id].easyslip_verified && (
-                                    <Badge variant="secondary" className="bg-green-100 text-green-700 text-[10px] py-0">
+                                    <Badge variant="secondary" className="bg-brand-50 text-brand text-[10px] py-0">
                                       <ShieldCheck className="mr-0.5 h-2.5 w-2.5" />
                                       {t("dateChangeSlipVerified")}
                                     </Badge>

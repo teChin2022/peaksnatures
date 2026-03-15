@@ -16,7 +16,7 @@ interface HomestayData {
 
 export function UniqueHomestays({ homestays }: { homestays: HomestayData[] }) {
   return (
-    <section id="unique-homestays" className="py-24 bg-gray-50">
+    <section id="unique-homestays" className="py-24 bg-section-alt">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex flex-col items-center mb-12 gap-6 text-center">
           <div className="max-w-xl">

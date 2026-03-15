@@ -126,8 +126,8 @@ export default function OtpModal({
           <X className="h-5 w-5" />
         </button>
         <CardHeader className="text-center pb-2">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
-            <ShieldCheck className="h-7 w-7 text-green-600" />
+          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-brand-50">
+            <ShieldCheck className="h-7 w-7 text-brand" />
           </div>
           <CardTitle className="text-lg">{t("otpTitle")}</CardTitle>
           <CardDescription>{t("otpDesc", { email })}</CardDescription>
@@ -155,7 +155,7 @@ export default function OtpModal({
                   onKeyDown={(e) => handleKeyDown(i, e)}
                   disabled={loading}
                   className="h-12 w-11 rounded-lg border border-gray-300 text-center text-xl font-bold
-                    focus:border-green-500 focus:outline-none focus:ring-2 focus:ring-green-500/20
+                    focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20
                     disabled:opacity-50"
                   autoComplete="one-time-code"
                 />
@@ -164,7 +164,7 @@ export default function OtpModal({
 
             <Button
               type="submit"
-              className="w-full bg-green-600 hover:bg-green-700"
+              className="w-full bg-brand hover:bg-brand-hover"
               disabled={loading || digits.join("").length < 6}
             >
               {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -180,7 +180,7 @@ export default function OtpModal({
                 <button
                   type="button"
                   onClick={handleResend}
-                  className="text-sm font-medium text-green-600 hover:text-green-700"
+                  className="text-sm font-medium text-brand hover:text-brand-hover"
                   disabled={loading}
                 >
                   {t("otpResend")}

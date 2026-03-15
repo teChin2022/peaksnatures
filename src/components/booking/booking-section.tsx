@@ -852,7 +852,7 @@ export function BookingSection({
                           <button
                             onClick={handleProceedToDetails}
                             disabled={!dateRange?.from || !dateRange?.to || !selectedRoomId || !pdpaConsent}
-                            className="w-full bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {t("continueDetails")} <ArrowRight size={18} />
                           </button>
@@ -915,7 +915,7 @@ export function BookingSection({
 
                           <button
                             onClick={() => setShowCalendar(false)}
-                            className="w-full bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                            className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                           >
                             {tc("done")}
                           </button>
@@ -988,7 +988,7 @@ export function BookingSection({
                               if (!guestName || !guestEmail || !guestPhone || !guestProvince) { toast.error(t("errorFillFields")); return; }
                               setShowConfirmModal(true);
                             }}
-                            className="w-full bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                            className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                           >
                             {t("continuePayment")} <ArrowRight size={18} />
                           </button>
@@ -1068,7 +1068,7 @@ export function BookingSection({
                             <button
                               disabled={isSubmitting}
                               onClick={() => { setShowConfirmModal(false); handleProceedToPayment(); }}
-                              className="flex-1 bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50"
+                              className="flex-1 bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                               {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("confirmProceed")}</>) : <>{t("confirmProceed")} <ArrowRight size={18} /></>}
                             </button>
@@ -1106,14 +1106,14 @@ export function BookingSection({
                     {depositAvailable && paymentPhase === "qr" && (
                       <div className="grid grid-cols-2 gap-3">
                         <button type="button" onClick={() => setPaymentOption("full")}
-                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "full" ? "border-gray-900 bg-gray-50" : "border-gray-100 hover:border-gray-300"}`}>
-                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "full" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-400"}`}><CreditCard size={18} /></div>
+                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "full" ? "border-brand bg-brand-50" : "border-gray-100 hover:border-gray-300"}`}>
+                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "full" ? "bg-brand text-white" : "bg-gray-100 text-gray-400"}`}><CreditCard size={18} /></div>
                           <p className="font-bold text-gray-900">{t("payFull")}</p>
                           <p className="text-xs text-gray-500">฿{totalPrice.toLocaleString()}</p>
                         </button>
                         <button type="button" onClick={() => setPaymentOption("deposit")}
-                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "deposit" ? "border-gray-900 bg-gray-50" : "border-gray-100 hover:border-gray-300"}`}>
-                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "deposit" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-400"}`}><CreditCard size={18} /></div>
+                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "deposit" ? "border-brand bg-brand-50" : "border-gray-100 hover:border-gray-300"}`}>
+                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "deposit" ? "bg-brand text-white" : "bg-gray-100 text-gray-400"}`}><CreditCard size={18} /></div>
                           <p className="font-bold text-gray-900">{t("payDeposit")}</p>
                           <p className="text-xs text-gray-500">฿{resolvedDeposit.toLocaleString()}</p>
                         </button>
@@ -1150,7 +1150,7 @@ export function BookingSection({
                                 { num: 4, icon: Upload, text: t("payStep4") },
                               ].map((s) => (
                                 <div key={s.num} className="flex items-center gap-2.5">
-                                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-900 text-[10px] font-bold text-white">{s.num}</div>
+                                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white">{s.num}</div>
                                   <s.icon className="h-3.5 w-3.5 shrink-0 text-gray-400" />
                                   <p className="text-xs text-gray-600">{s.text}</p>
                                 </div>
@@ -1159,7 +1159,7 @@ export function BookingSection({
                           </div>
 
                           <button onClick={() => setPaymentPhase("upload")}
-                            className="w-full bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
+                            className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
                             <CheckCircle2 className="h-4 w-4" />{t("iveTransferred")}
                           </button>
                         </motion.div>
@@ -1240,7 +1240,7 @@ export function BookingSection({
                           <p className="text-xs text-gray-400 text-center">{t("slipVerify")}</p>
 
                           <button onClick={handleSubmitBooking} disabled={isSubmitting || !slipFile}
-                            className="w-full bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
+                            className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
                             {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin inline" />{t("verifying")}</>) : t("submitBooking")}
                           </button>
                         </motion.div>
@@ -1306,7 +1306,7 @@ export function BookingSection({
                     </div>
 
                     <button onClick={() => { resetBooking(); setOpen(false); }}
-                      className="mt-6 bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl">
+                      className="mt-6 bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl">
                       {t("bookAnother")}
                     </button>
                   </motion.div>
@@ -1328,7 +1328,7 @@ export function BookingSection({
             <DialogDescription className="text-center">{t("datesHeldDesc")}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button className="w-full bg-gray-900 text-white hover:bg-black" onClick={handleHeldModalClose}>{t("chooseDifferentDates")}</Button>
+            <Button className="w-full bg-brand text-white hover:bg-brand-hover" onClick={handleHeldModalClose}>{t("chooseDifferentDates")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

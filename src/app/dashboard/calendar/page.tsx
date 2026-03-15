@@ -823,7 +823,7 @@ export default function CalendarPage() {
                         variant="outline"
                         className={`text-[10px] px-1.5 py-0 ${
                           bi.position === "start"
-                            ? "border-green-300 text-green-700 bg-green-50"
+                            ? "border-brand/30 text-brand bg-brand-50"
                             : bi.position === "end"
                             ? "border-orange-300 text-orange-700 bg-orange-50"
                             : "border-blue-300 text-blue-700 bg-blue-50"
@@ -846,8 +846,8 @@ export default function CalendarPage() {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="rounded-md bg-green-50 px-2.5 py-1.5">
-                      <p className="text-green-600 font-medium mb-0.5">{t("checkIn")}</p>
+                    <div className="rounded-md bg-brand-50 px-2.5 py-1.5">
+                      <p className="text-brand font-medium mb-0.5">{t("checkIn")}</p>
                       <p className="text-gray-900 font-semibold">{fmtDateStr(bi.booking.check_in, "d MMM yyyy", locale)}</p>
                     </div>
                     <div className="rounded-md bg-orange-50 px-2.5 py-1.5">
@@ -888,7 +888,7 @@ export default function CalendarPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Unlock className="h-5 w-5 text-green-600" />
+              <Unlock className="h-5 w-5 text-brand" />
               {t("unblockDate")}
             </DialogTitle>
             <DialogDescription>

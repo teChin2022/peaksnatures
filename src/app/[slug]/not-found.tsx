@@ -14,7 +14,7 @@ export default async function NotFound() {
       <p className="text-gray-500">
         {t("description")}
       </p>
-      <Button asChild className="mt-2 bg-green-600 hover:bg-green-700">
+      <Button asChild className="mt-2 bg-brand hover:bg-brand-hover">
         <Link href="/">{t("browseAll")}</Link>
       </Button>
     </div>

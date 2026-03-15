@@ -23,7 +23,7 @@ export default async function AboutPage() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2">
             <Image src="/logo.png" alt="Peaksnature" width={32} height={32} className="h-8 w-8 rounded" />
-            <span className="text-xl font-bold text-green-800">{tc("brand")}</span>
+            <span className="text-xl font-bold text-brand">{tc("brand")}</span>
           </Link>
           <nav className="flex items-center gap-4">
             <LanguageSwitcher />
@@ -38,13 +38,13 @@ export default async function AboutPage() {
       </header>
 
       {/* Hero */}
-      <section className="bg-gradient-to-b from-green-50 to-white py-16">
+      <section className="bg-gradient-to-b from-brand-50 to-white py-16">
         <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
-            <Mountain className="h-7 w-7 text-green-600" />
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-50">
+            <Mountain className="h-7 w-7 text-brand" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl">{t("title")}</h1>
-          <p className="mt-2 text-lg font-medium text-green-600">{t("tagline")}</p>
+          <p className="mt-2 text-lg font-medium text-brand">{t("tagline")}</p>
         </div>
       </section>
 
@@ -87,8 +87,8 @@ export default async function AboutPage() {
             <h2 className="text-2xl font-bold text-gray-900">{t("diffTitle")}</h2>
             <div className="mt-6 space-y-6">
               <div className="flex gap-4">
-                <div className="shrink-0 rounded-lg bg-green-100 p-2.5 h-fit">
-                  <TreePine className="h-5 w-5 text-green-600" />
+                <div className="shrink-0 rounded-lg bg-brand-50 p-2.5 h-fit">
+                  <TreePine className="h-5 w-5 text-brand" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">{t("diff1Title")}</h3>
@@ -96,8 +96,8 @@ export default async function AboutPage() {
                 </div>
               </div>
               <div className="flex gap-4">
-                <div className="shrink-0 rounded-lg bg-green-100 p-2.5 h-fit">
-                  <Home className="h-5 w-5 text-green-600" />
+                <div className="shrink-0 rounded-lg bg-brand-50 p-2.5 h-fit">
+                  <Home className="h-5 w-5 text-brand" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">{t("diff2Title")}</h3>
@@ -105,8 +105,8 @@ export default async function AboutPage() {
                 </div>
               </div>
               <div className="flex gap-4">
-                <div className="shrink-0 rounded-lg bg-green-100 p-2.5 h-fit">
-                  <Search className="h-5 w-5 text-green-600" />
+                <div className="shrink-0 rounded-lg bg-brand-50 p-2.5 h-fit">
+                  <Search className="h-5 w-5 text-brand" />
                 </div>
                 <div>
                   <h3 className="font-semibold text-gray-900">{t("diff3Title")}</h3>
@@ -164,7 +164,7 @@ export default async function AboutPage() {
               href="/#homestays"
               className="rounded-xl border p-6 text-center transition-shadow hover:shadow-md"
             >
-              <Users className="mx-auto h-8 w-8 text-green-600" />
+              <Users className="mx-auto h-8 w-8 text-brand" />
               <h3 className="mt-3 font-semibold text-gray-900">{t("exploreTitle")}</h3>
               <p className="mt-1 text-sm text-gray-500">{t("exploreDesc")}</p>
             </Link>
@@ -172,7 +172,7 @@ export default async function AboutPage() {
               href="/register"
               className="rounded-xl border p-6 text-center transition-shadow hover:shadow-md"
             >
-              <Home className="mx-auto h-8 w-8 text-green-600" />
+              <Home className="mx-auto h-8 w-8 text-brand" />
               <h3 className="mt-3 font-semibold text-gray-900">{t("becomeHostTitle")}</h3>
               <p className="mt-1 text-sm text-gray-500">{t("becomeHostDesc")}</p>
             </Link>

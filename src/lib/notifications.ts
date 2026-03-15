@@ -621,14 +621,14 @@ export async function sendHostApprovalEmail(hostEmail: string, hostName: string)
       subject: "✅ บัญชีโฮสต์ของคุณได้รับการอนุมัติแล้ว — Peaksnature",
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: #16a34a; padding: 24px; border-radius: 12px 12px 0 0;">
+          <div style="background: #2F5D50; padding: 24px; border-radius: 12px 12px 0 0;">
             <h1 style="color: white; margin: 0; font-size: 20px;">✅ บัญชีได้รับการอนุมัติแล้ว!</h1>
           </div>
           <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: 0; border-radius: 0 0 12px 12px;">
             <p style="font-size: 16px; margin-top: 0;">สวัสดีคุณ ${hostName},</p>
             <p>บัญชีโฮสต์ของคุณบน Peaksnature ได้รับการอนุมัติเรียบร้อยแล้ว คุณสามารถเข้าสู่ระบบและเริ่มจัดการโฮมสเตย์ของคุณได้ทันที</p>
             <p style="color: #6b7280;">Your host account on Peaksnature has been approved! You can now log in and start managing your homestay.</p>
-            ${appUrl ? `<a href="${appUrl}/login" style="display: inline-block; margin-top: 16px; background: #16a34a; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">เข้าสู่ระบบ / Log In</a>` : ""}
+            ${appUrl ? `<a href="${appUrl}/login" style="display: inline-block; margin-top: 16px; background: #2F5D50; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">เข้าสู่ระบบ / Log In</a>` : ""}
           </div>
         </div>
       `,
@@ -765,7 +765,7 @@ export async function sendDateChangeEmailToGuest(
       subject,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: ${isApproved ? "#16a34a" : "#6b7280"}; padding: 24px; border-radius: 12px 12px 0 0;">
+          <div style="background: ${isApproved ? "#2F5D50" : "#6b7280"}; padding: 24px; border-radius: 12px 12px 0 0;">
             <h1 style="color: white; margin: 0; font-size: 20px;">${isApproved
               ? (isTh ? "✅ อนุมัติเปลี่ยนวันเข้าพักแล้ว" : "✅ Date Change Approved")
               : (isTh ? "❌ ปฏิเสธการเปลี่ยนวันเข้าพัก" : "❌ Date Change Rejected")}</h1>
@@ -776,7 +776,7 @@ export async function sendDateChangeEmailToGuest(
             <table style="width: 100%; border-collapse: collapse;">
               <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "รหัสการจอง" : "Booking ID"}</td><td style="padding: 8px 0; font-weight: bold;">${booking.id}</td></tr>
               <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "วันเดิม" : "Original Dates"}</td><td style="padding: 8px 0; text-decoration: line-through; color: #9ca3af;">${formatBookingDate(oldCheckIn, locale)} → ${formatBookingDate(oldCheckOut, locale)}</td></tr>
-              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "วันใหม่" : "New Dates"}</td><td style="padding: 8px 0; font-weight: bold; color: ${isApproved ? "#16a34a" : "#6b7280"};">${formatBookingDate(newCheckIn, locale)} → ${formatBookingDate(newCheckOut, locale)}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "วันใหม่" : "New Dates"}</td><td style="padding: 8px 0; font-weight: bold; color: ${isApproved ? "#2F5D50" : "#6b7280"};">${formatBookingDate(newCheckIn, locale)} → ${formatBookingDate(newCheckOut, locale)}</td></tr>
               ${isApproved ? `<tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "ยอดรวมใหม่" : "New Total"}</td><td style="padding: 8px 0; font-weight: bold;">฿${newTotalPrice.toLocaleString()}</td></tr>` : ""}
             </table>
             ${!isApproved && rejectReason ? `<p style="margin-top: 16px; padding: 12px; background: #f3f4f6; border-radius: 8px; color: #6b7280;">${isTh ? "เหตุผล" : "Reason"}: ${rejectReason}</p>` : ""}
