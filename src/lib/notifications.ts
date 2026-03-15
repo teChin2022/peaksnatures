@@ -57,7 +57,7 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
                 <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ยอดค้างชำระ" : "Balance Due"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">฿${(booking.total_price - ((booking as Record<string, unknown>).amount_paid as number || 0)).toLocaleString()} (${isTh ? "ชำระเมื่อเข้าพัก" : "pay on arrival"})</td></tr>` : "";
 
       html = `
-        <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+        <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
           <div style="background: #f9fafb; padding: 32px 24px; border-bottom: 1px solid #e5e7eb;">
             <h1 style="color: #111827; margin: 0; font-size: 22px; font-weight: 700;">${isTh ? "การจองของคุณได้รับการยืนยันแล้ว" : "Your Booking Has Been Confirmed"}</h1>
           </div>
@@ -189,7 +189,7 @@ export async function sendBookingStatusUpdateEmail(
 
     if (isConfirmed) {
       statusHtml = `
-        <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+        <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
           <div style="background: #f9fafb; padding: 32px 24px; border-bottom: 1px solid #e5e7eb;">
             <h1 style="color: #111827; margin: 0; font-size: 22px; font-weight: 700;">${isTh ? "การจองของคุณได้รับการยืนยันแล้ว" : "Your Booking Has Been Confirmed"}</h1>
           </div>
@@ -647,7 +647,7 @@ export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
           to: admin.email,
           subject: `New host registration – ${info.hostName}`,
           html: `
-            <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+            <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
               <div style="background: #f9fafb; padding: 32px 24px; border-bottom: 1px solid #e5e7eb;">
                 <h1 style="color: #111827; margin: 0; font-size: 22px; font-weight: 700;">New Host Registration</h1>
               </div>
@@ -706,7 +706,7 @@ export async function sendHostApprovalEmail(hostEmail: string, hostName: string)
       to: hostEmail,
       subject: "บัญชีโฮสต์ของคุณได้รับการอนุมัติแล้ว – Peaksnature",
       html: `
-        <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+        <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
           <div style="background: #f9fafb; padding: 32px 24px; border-bottom: 1px solid #e5e7eb;">
             <h1 style="color: #111827; margin: 0; font-size: 22px; font-weight: 700;">บัญชีได้รับการอนุมัติแล้ว</h1>
           </div>
@@ -854,7 +854,7 @@ export async function sendDateChangeEmailToGuest(
 
     if (isApproved) {
       dcHtml = `
-        <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+        <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
           <div style="background: #f9fafb; padding: 32px 24px; border-bottom: 1px solid #e5e7eb;">
             <h1 style="color: #111827; margin: 0; font-size: 22px; font-weight: 700;">${isTh ? "อนุมัติเปลี่ยนวันเข้าพักแล้ว" : "Date Change Approved"}</h1>
           </div>
@@ -881,7 +881,7 @@ export async function sendDateChangeEmailToGuest(
         </div>`;
     } else {
       dcHtml = `
-        <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+        <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
           <div style="background: #f9fafb; padding: 32px 24px; border-bottom: 1px solid #e5e7eb;">
             <h1 style="color: #111827; margin: 0; font-size: 22px; font-weight: 700;">${isTh ? "ปฏิเสธการเปลี่ยนวันเข้าพัก" : "Date Change Rejected"}</h1>
           </div>
@@ -973,7 +973,7 @@ export async function sendDateChangeByHostEmail(
         ? `วันเข้าพักของคุณถูกเปลี่ยนแล้ว – ${homestay.name}`
         : `Your Dates Have Been Changed – ${homestay.name}`,
       html: `
-        <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+        <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
           <div style="background: #f9fafb; padding: 32px 24px; border-bottom: 1px solid #e5e7eb;">
             <h1 style="color: #111827; margin: 0; font-size: 22px; font-weight: 700;">${isTh ? "วันเข้าพักถูกเปลี่ยนแล้ว" : "Your Dates Have Been Changed"}</h1>
           </div>
@@ -1034,7 +1034,7 @@ export async function sendHostRejectionEmail(hostEmail: string, hostName: string
       to: hostEmail,
       subject: "แจ้งผลการสมัครบัญชีโฮสต์ – Peaksnature",
       html: `
-        <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff;">
+        <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
           <div style="background: #f9fafb; padding: 32px 24px; border-bottom: 1px solid #e5e7eb;">
             <h1 style="color: #111827; margin: 0; font-size: 22px; font-weight: 700;">แจ้งผลการสมัคร</h1>
           </div>
