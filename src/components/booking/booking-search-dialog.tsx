@@ -456,17 +456,28 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
         }
       });
 
-      // Add fully booked dates for this room
-      // Current booking's own dates should NOT be disabled
-      const ownCheckIn = booking.check_in;
-      const ownCheckOut = booking.check_out;
+      // Add fully booked dates for this room (respecting room quantity)
+      // Current booking's own dates should NOT count toward the tally
       const ownDates = new Set<string>();
-      const ownStart = new Date(ownCheckIn);
-      const ownEnd = new Date(ownCheckOut);
+      const ownStart = new Date(booking.check_in);
+      const ownEnd = new Date(booking.check_out);
       for (let d = new Date(ownStart); d < ownEnd; d.setDate(d.getDate() + 1)) {
         ownDates.add(d.toISOString().split("T")[0]);
       }
 
+      // Fetch room quantity (rooms table has public SELECT RLS)
+      let roomQty = 1;
+      if (booking.room_id) {
+        const { data: roomRow } = await supabase
+          .from("rooms")
+          .select("quantity")
+          .eq("id", booking.room_id)
+          .single();
+        if (roomRow) roomQty = (roomRow as { quantity: number }).quantity || 1;
+      }
+
+      // Count bookings per date (excluding own booking's dates)
+      const dateCountMap = new Map<string, number>();
       bookedRanges
         .filter((b) => b.room_id === booking.room_id)
         .forEach((b) => {
@@ -474,9 +485,14 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
           const end = new Date(b.check_out);
           for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
             const key = d.toISOString().split("T")[0];
-            if (!ownDates.has(key)) disabled.add(key);
+            if (!ownDates.has(key)) {
+              dateCountMap.set(key, (dateCountMap.get(key) || 0) + 1);
+            }
           }
         });
+      dateCountMap.forEach((count, date) => {
+        if (count >= roomQty) disabled.add(date);
+      });
 
       setDcDisabledDates(disabled);
     } catch {
@@ -588,7 +604,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
           {t("searchBooking")}
         </Button>
       </DialogTrigger>
-      <DialogContent className="max-w-md sm:max-w-lg">
+      <DialogContent className={`max-w-md ${changingDatesId ? "sm:max-w-xl" : "sm:max-w-lg"}`}>
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
         </DialogHeader>
@@ -617,7 +633,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
           </div>
 
           {/* Results */}
-          <div className="max-h-80 space-y-2 overflow-y-auto">
+          <div className={`${changingDatesId ? "max-h-[75vh]" : "max-h-80"} space-y-2 overflow-y-auto`}>
             {loading && (
               <div className="flex items-center justify-center py-8">
                 <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
@@ -1022,7 +1038,12 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                   <motion.div key="calendar" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.25 }} className="p-3 space-y-2">
                     <div className="flex items-center gap-3 mb-1">
                       <button onClick={resetDateChangeState} className="p-1.5 rounded-full hover:bg-gray-200 text-gray-400 transition-colors"><ArrowLeft size={16} /></button>
-                      <p className="text-xs font-medium text-gray-700">{t("changeDatesDesc")}</p>
+                      <div className="flex-1 min-w-0">
+                        <p className="text-xs font-medium text-gray-700">{t("changeDatesDesc")}</p>
+                        <p className="text-[11px] text-gray-400 truncate">
+                          {booking.room_name} · {fmtDateStr(booking.check_in, "d MMM", locale)} → {fmtDateStr(booking.check_out, "d MMM", locale)} · ฿{booking.total_price.toLocaleString()}
+                        </p>
+                      </div>
                     </div>
 
                     {dcLoadingAvailability && (

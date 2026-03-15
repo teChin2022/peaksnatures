@@ -525,7 +525,8 @@ export default function BookingsPage() {
         }
       });
 
-      // Add booked dates for this room, excluding the booking's own dates
+      // Add fully booked dates for this room (respecting room quantity)
+      // Current booking's own dates should NOT count toward the tally
       const ownStart = new Date(booking.check_in);
       const ownEnd = new Date(booking.check_out);
       const ownDates = new Set<string>();
@@ -533,6 +534,19 @@ export default function BookingsPage() {
         ownDates.add(d.toISOString().split("T")[0]);
       }
 
+      // Fetch room quantity
+      let roomQty = 1;
+      if (booking.room_id) {
+        const { data: qtyRow } = await supabase
+          .from("rooms")
+          .select("quantity")
+          .eq("id", booking.room_id)
+          .single();
+        if (qtyRow) roomQty = (qtyRow as { quantity: number }).quantity || 1;
+      }
+
+      // Count bookings per date (excluding own booking's dates)
+      const dateCountMap = new Map<string, number>();
       bookedRanges
         .filter((b) => b.room_id === booking.room_id)
         .forEach((b) => {
@@ -540,9 +554,14 @@ export default function BookingsPage() {
           const end = new Date(b.check_out);
           for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
             const key = d.toISOString().split("T")[0];
-            if (!ownDates.has(key)) disabled.add(key);
+            if (!ownDates.has(key)) {
+              dateCountMap.set(key, (dateCountMap.get(key) || 0) + 1);
+            }
           }
         });
+      dateCountMap.forEach((count, date) => {
+        if (count >= roomQty) disabled.add(date);
+      });
 
       setDcDisabledDates(disabled);
 
