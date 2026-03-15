@@ -360,7 +360,14 @@
     "dateChangeDirectFailed": "เปลี่ยนวันเข้าพักไม่สำเร็จ",
     "dateChangeDatesUnavailable": "วันที่เลือกไม่ว่าง",
     "dateChangeDatesBlocked": "บางวันที่เลือกถูกบล็อกไว้",
-    "pendingDateChange": "รอเปลี่ยนวันเข้าพัก"
+    "pendingDateChange": "รอเปลี่ยนวันเข้าพัก",
+    "dcOriginalPrice": "ราคาเดิม",
+    "dcNewPrice": "ราคาใหม่",
+    "dcPriceDiff": "ส่วนต่าง",
+    "dcAmountPaid": "ชำระแล้ว",
+    "dcNewBalance": "ยอดค้างชำระใหม่",
+    "dcGuestMustPay": "แขกจะต้องชำระยอดค้าง ฿{amount}",
+    "dcPriceLowerNote": "ราคาใหม่ต่ำกว่าเดิม ฿{amount}"
   },
   "setupProfile": {
     "title": "กรอกข้อมูลโปรไฟล์",

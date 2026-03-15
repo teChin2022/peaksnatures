@@ -200,6 +200,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Failed to change dates" }, { status: 500 });
     }
 
+    // amount_paid is capped by the RPC when price decreases
+    const newAmountPaid = Math.min(booking.amount_paid, newTotalPrice);
+
     // Log + notify guest in background
     after(async () => {
       await logEvent({
@@ -241,6 +244,8 @@ export async function POST(req: NextRequest) {
           data.new_check_in,
           data.new_check_out,
           newTotalPrice,
+          "th",
+          newAmountPaid,
         );
       } catch (error) {
         console.error("[HostChangeDates] Notification error (non-blocking):", error);
@@ -252,6 +257,7 @@ export async function POST(req: NextRequest) {
       new_check_in: data.new_check_in,
       new_check_out: data.new_check_out,
       new_total_price: newTotalPrice,
+      new_amount_paid: newAmountPaid,
       price_difference: priceDifference,
     });
   } catch (error) {

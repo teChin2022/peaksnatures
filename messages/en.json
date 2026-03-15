@@ -360,7 +360,14 @@
     "dateChangeDirectFailed": "Failed to change dates",
     "dateChangeDatesUnavailable": "The requested dates are not available",
     "dateChangeDatesBlocked": "Some requested dates are blocked",
-    "pendingDateChange": "Pending Date Change"
+    "pendingDateChange": "Pending Date Change",
+    "dcOriginalPrice": "Original Price",
+    "dcNewPrice": "New Price",
+    "dcPriceDiff": "Difference",
+    "dcAmountPaid": "Paid",
+    "dcNewBalance": "New Balance Due",
+    "dcGuestMustPay": "Guest will need to pay ฿{amount} remaining balance",
+    "dcPriceLowerNote": "New price is ฿{amount} lower than original"
   },
   "setupProfile": {
     "title": "Complete Your Profile",
