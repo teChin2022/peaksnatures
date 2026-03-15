@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useRef, useEffect, useCallback } from "react";
+import { useState, useRef, useEffect, useCallback, useMemo } from "react";
 import { Search, CalendarDays, Clock, CheckCircle2, XCircle, Loader2, Star, MessageSquare, LogIn, LogOut, Upload, CreditCard, Download, AlertTriangle, ArrowRightLeft, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { createClient } from "@/lib/supabase/client";
@@ -111,6 +111,19 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
   const [dcRooms, setDcRooms] = useState<{ id: string; name: string }[]>([]);
   const [dcSelectedRoomId, setDcSelectedRoomId] = useState<string | null>(null);
   const dcQrRef = useRef<HTMLDivElement>(null);
+
+  // Client-side validation: check every night in the selected range against disabled dates
+  const isDcRangeValid = useMemo(() => {
+    if (!dateRange?.from || !dateRange?.to) return false;
+    const start = new Date(dateRange.from);
+    const end = new Date(dateRange.to);
+    // Check each occupied night (check-in to check-out - 1)
+    for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
+      if (dcDisabledDates.has(key)) return false;
+    }
+    return true;
+  }, [dateRange, dcDisabledDates]);
 
   const handleCheckin = async (bookingId: string, guestEmail: string, action: "checkin" | "checkout") => {
     setCheckingIn(bookingId);
@@ -404,8 +417,15 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
           toast.error(t("pendingExists"));
         } else if (data.error === "DATES_UNAVAILABLE") {
           toast.error(t("datesUnavailable"));
+          // Refresh disabled dates and reset selection (race condition)
+          fetchDisabledDates(booking, dcSelectedRoomId || undefined);
+          setDateRange(undefined);
+          setDateChangePriceInfo(null);
         } else if (data.error === "DATES_BLOCKED") {
           toast.error(t("datesBlocked"));
+          fetchDisabledDates(booking, dcSelectedRoomId || undefined);
+          setDateRange(undefined);
+          setDateChangePriceInfo(null);
         } else {
           toast.error(data.message || t("dateChangeError"));
         }
@@ -1313,7 +1333,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                             size="sm"
                             className="flex-1 bg-brand text-white hover:bg-brand-hover"
                             onClick={() => handleDateChangeSubmit(booking)}
-                            disabled={submittingDateChange || (dateChangePriceInfo !== null && dateChangePriceInfo.price_difference > 0 && !dateChangeSlipFile) || (dateChangePriceInfo !== null && dateChangePriceInfo.price_difference < 0 && !noRefundConfirmed)}
+                            disabled={submittingDateChange || !isDcRangeValid || (dateChangePriceInfo !== null && dateChangePriceInfo.price_difference > 0 && !dateChangeSlipFile) || (dateChangePriceInfo !== null && dateChangePriceInfo.price_difference < 0 && !noRefundConfirmed)}
                           >
                             {submittingDateChange ? (
                               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
