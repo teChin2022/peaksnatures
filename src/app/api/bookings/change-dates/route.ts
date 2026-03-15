@@ -109,6 +109,83 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    // Check availability on the target room for new dates
+    if (targetRoomId) {
+      // Get room quantity
+      const { data: roomQtyRow } = await supabase
+        .from("rooms")
+        .select("quantity")
+        .eq("id", targetRoomId)
+        .single();
+      const roomQty = (roomQtyRow as unknown as { quantity: number })?.quantity || 1;
+
+      // Count overlapping confirmed bookings (exclude own booking if same room)
+      const { data: overlappingBookings } = await supabase
+        .from("bookings")
+        .select("id")
+        .eq("room_id", targetRoomId)
+        .in("status", ["pending", "confirmed", "verified"])
+        .lt("check_in", data.new_check_out)
+        .gt("check_out", data.new_check_in);
+
+      let bookingCount = (overlappingBookings || []).length;
+      // If same room, the current booking is already counted — subtract it
+      if (!roomChanged && overlappingBookings) {
+        const ownOverlap = (overlappingBookings as { id: string }[]).find((b) => b.id === booking.id);
+        if (ownOverlap) bookingCount -= 1;
+      }
+
+      if (bookingCount >= roomQty) {
+        return NextResponse.json(
+          { error: "DATES_UNAVAILABLE", message: "Selected dates are no longer available for this room" },
+          { status: 409 }
+        );
+      }
+
+      // Check blocked dates
+      const { data: blockedRows } = await supabase
+        .from("blocked_dates")
+        .select("date")
+        .eq("homestay_id", booking.homestay_id)
+        .or(`room_id.eq.${targetRoomId},room_id.is.null`)
+        .gte("date", data.new_check_in)
+        .lt("date", data.new_check_out);
+
+      if (blockedRows && blockedRows.length > 0) {
+        return NextResponse.json(
+          { error: "DATES_BLOCKED", message: "Some selected dates are blocked by the host" },
+          { status: 409 }
+        );
+      }
+
+      // Check active holds from other sessions
+      const { data: activeHolds } = await supabase
+        .from("booking_holds")
+        .select("id")
+        .eq("room_id", targetRoomId)
+        .gt("expires_at", new Date().toISOString())
+        .lt("check_in", data.new_check_out)
+        .gt("check_out", data.new_check_in);
+
+      // Check other pending date change requests on same room
+      const { data: pendingDcrs } = await supabase
+        .from("date_change_requests")
+        .select("id")
+        .eq("status", "pending")
+        .eq("new_room_id", targetRoomId)
+        .neq("booking_id", data.booking_id)
+        .lt("new_check_in", data.new_check_out)
+        .gt("new_check_out", data.new_check_in);
+
+      const totalConflicts = bookingCount + (activeHolds || []).length + (pendingDcrs || []).length;
+      if (totalConflicts >= roomQty) {
+        return NextResponse.json(
+          { error: "DATES_UNAVAILABLE", message: "Selected dates are no longer available for this room" },
+          { status: 409 }
+        );
+      }
+    }
+
     // Recalculate price for new dates using target room
     let newTotalPrice = booking.total_price;
     if (targetRoomId) {
