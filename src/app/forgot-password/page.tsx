@@ -66,10 +66,7 @@ export default function ForgotPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2">
-          <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.png" alt="Peaksnature" width={32} height={32} className="h-8 w-8 rounded" />
-            <span className="text-2xl font-bold text-green-800">{t('forgotPasswordTitle')}</span>
-          </Link>
+          <span className="text-2xl font-bold ">{t('forgotPasswordTitle')}</span>
           <p className="text-sm text-gray-500">{t("hostDashboard")}</p>
         </div>
 
