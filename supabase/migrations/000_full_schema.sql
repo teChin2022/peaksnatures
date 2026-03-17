@@ -715,6 +715,7 @@ CREATE TABLE date_change_requests (
   reject_reason     TEXT,
   old_room_id       UUID REFERENCES rooms(id),
   new_room_id       UUID REFERENCES rooms(id),
+  additional_payment INTEGER NOT NULL DEFAULT 0,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_by        TEXT NOT NULL DEFAULT 'guest',
@@ -830,8 +831,8 @@ BEGIN
   END IF;
 
   v_new_amount_paid := v_booking.amount_paid;
-  IF v_req.price_difference > 0 AND v_req.easyslip_verified THEN
-    v_new_amount_paid := v_booking.amount_paid + v_req.price_difference;
+  IF v_req.additional_payment > 0 AND v_req.easyslip_verified THEN
+    v_new_amount_paid := v_booking.amount_paid + v_req.additional_payment;
   END IF;
   IF v_new_amount_paid > v_req.new_total_price THEN
     v_new_amount_paid := v_req.new_total_price;

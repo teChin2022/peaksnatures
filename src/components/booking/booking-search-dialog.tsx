@@ -99,7 +99,8 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
   const [changingDatesId, setChangingDatesId] = useState<string | null>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>(undefined);
   const [submittingDateChange, setSubmittingDateChange] = useState(false);
-  const [dateChangePriceInfo, setDateChangePriceInfo] = useState<{ new_total_price: number; price_difference: number } | null>(null);
+  const [dateChangePriceInfo, setDateChangePriceInfo] = useState<{ new_total_price: number; price_difference: number; additional_payment: number; amount_paid: number; deposit_available: boolean; new_deposit: number; full_outstanding: number } | null>(null);
+  const [dcPaymentOption, setDcPaymentOption] = useState<"full" | "deposit">("deposit");
   const [dateChangeSlipFile, setDateChangeSlipFile] = useState<File | null>(null);
   const [dateChangeSlipPreview, setDateChangeSlipPreview] = useState<string | null>(null);
   const dateChangeFileRef = useRef<HTMLInputElement>(null);
@@ -128,6 +129,15 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
     }
     return true;
   }, [dateRange, dcDisabledDates]);
+
+  // Effective additional payment based on deposit/full toggle
+  const dcEffectiveAdditional = useMemo(() => {
+    if (!dateChangePriceInfo) return 0;
+    if (dateChangePriceInfo.deposit_available && dcPaymentOption === "deposit") {
+      return Math.max(0, dateChangePriceInfo.new_deposit - dateChangePriceInfo.amount_paid);
+    }
+    return dateChangePriceInfo.full_outstanding;
+  }, [dateChangePriceInfo, dcPaymentOption]);
 
   const handleCheckin = async (bookingId: string, guestEmail: string, action: "checkin" | "checkout") => {
     setCheckingIn(bookingId);
@@ -364,6 +374,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
         booking_id: booking.id,
         new_check_in: newCheckIn,
         new_check_out: newCheckOut,
+        payment_option: dcPaymentOption,
       };
 
       // Include new_room_id if room was changed
@@ -372,10 +383,10 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
       }
 
       // If price increased and user uploaded a slip, verify it first
-      if (dateChangePriceInfo && dateChangePriceInfo.price_difference > 0 && dateChangeSlipFile && promptpayId) {
+      if (dateChangePriceInfo && dcEffectiveAdditional > 0 && dateChangeSlipFile && promptpayId) {
         const verifyForm = new FormData();
         verifyForm.append("file", dateChangeSlipFile);
-        verifyForm.append("expected_amount", dateChangePriceInfo.price_difference.toString());
+        verifyForm.append("expected_amount", dcEffectiveAdditional.toString());
         verifyForm.append("expected_receiver", promptpayId);
 
         const verifyRes = await fetch("/api/verify-slip", { method: "POST", body: verifyForm });
@@ -413,7 +424,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
       if (!res.ok) {
         if (data.error === "PAYMENT_REQUIRED") {
           // Show price info so user can upload slip
-          setDateChangePriceInfo({ new_total_price: data.new_total_price, price_difference: data.price_difference });
+          setDateChangePriceInfo({ new_total_price: data.new_total_price, price_difference: data.price_difference, additional_payment: data.additional_payment, amount_paid: data.amount_paid, deposit_available: data.deposit_available || false, new_deposit: data.new_deposit || 0, full_outstanding: data.full_outstanding || 0 });
           setSubmittingDateChange(false);
           return;
         }
@@ -559,6 +570,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
     setDateChangeSlipPreview(null);
     setNoRefundConfirmed(false);
     setDcPhoneSlipReceived(false);
+    setDcPaymentOption("deposit");
   };
 
   const resetDateChangeState = () => {
@@ -569,6 +581,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
     setDateChangeSlipPreview(null);
     setNoRefundConfirmed(false);
     setDcPhoneSlipReceived(false);
+    setDcPaymentOption("deposit");
     setDcDisabledDates(new Set());
     setDcRooms([]);
     setDcSelectedRoomId(null);
@@ -582,7 +595,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
   useEffect(() => {
     if (
       dateChangePriceInfo &&
-      dateChangePriceInfo.price_difference > 0 &&
+      dcEffectiveAdditional > 0 &&
       !dateChangeSlipFile &&
       !dcPhoneSlipReceived &&
       !isMobile
@@ -616,7 +629,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
         dcPollingRef.current = null;
       }
     };
-  }, [dateChangePriceInfo, dateChangeSlipFile, dcPhoneSlipReceived, isMobile, dcUploadSessionId, t]);
+  }, [dateChangePriceInfo, dcEffectiveAdditional, dateChangeSlipFile, dcPhoneSlipReceived, isMobile, dcUploadSessionId, t]);
 
   const handleSearch = async () => {
     if (!query.trim()) return;
@@ -1194,27 +1207,90 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                         </div>
 
                         {dateChangePriceInfo && (
-                          <div className="rounded bg-white p-2 border text-xs space-y-1">
-                            <div className="flex justify-between">
-                              <span className="text-gray-500">{t("originalPrice")}</span>
-                              <span>฿{booking.total_price.toLocaleString()}</span>
+                          <div className="space-y-2">
+                            <div className="rounded bg-white p-2 border text-xs space-y-1">
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">{t("originalPrice")}</span>
+                                <span>฿{booking.total_price.toLocaleString()}</span>
+                              </div>
+                              <div className="flex justify-between">
+                                <span className="text-gray-500">{t("newPrice")}</span>
+                                <span className="font-medium">฿{dateChangePriceInfo.new_total_price.toLocaleString()}</span>
+                              </div>
+                              {dateChangePriceInfo.price_difference !== 0 && (
+                                <div className="flex justify-between font-medium">
+                                  <span className="text-gray-500">{t("priceDifference")}</span>
+                                  <span className={dateChangePriceInfo.price_difference > 0 ? "text-red-600" : "text-green-600"}>
+                                    {dateChangePriceInfo.price_difference > 0 ? "+" : ""}฿{dateChangePriceInfo.price_difference.toLocaleString()}
+                                  </span>
+                                </div>
+                              )}
+                              <div className="border-t border-gray-100 pt-1 mt-1">
+                                <div className="flex justify-between">
+                                  <span className="text-gray-500">{t("amountPaid")}</span>
+                                  <span>฿{dateChangePriceInfo.amount_paid.toLocaleString()}</span>
+                                </div>
+                                {dcEffectiveAdditional > 0 && (
+                                  <div className="flex justify-between font-medium text-red-600">
+                                    <span>{t("additionalPaymentShort")}</span>
+                                    <span>฿{dcEffectiveAdditional.toLocaleString()}</span>
+                                  </div>
+                                )}
+                                {Math.max(0, dateChangePriceInfo.new_total_price - dateChangePriceInfo.amount_paid - dcEffectiveAdditional) > 0 && (
+                                  <div className="flex justify-between font-medium">
+                                    <span className="text-gray-500">{t("remainingBalance")}</span>
+                                    <span>฿{Math.max(0, dateChangePriceInfo.new_total_price - dateChangePriceInfo.amount_paid - dcEffectiveAdditional).toLocaleString()}</span>
+                                  </div>
+                                )}
+                              </div>
                             </div>
-                            <div className="flex justify-between">
-                              <span className="text-gray-500">{t("newPrice")}</span>
-                              <span className="font-medium">฿{dateChangePriceInfo.new_total_price.toLocaleString()}</span>
-                            </div>
-                            {dateChangePriceInfo.price_difference !== 0 && (
-                              <div className="flex justify-between font-medium">
-                                <span className="text-gray-500">{t("priceDifference")}</span>
-                                <span className={dateChangePriceInfo.price_difference > 0 ? "text-red-600" : "text-green-600"}>
-                                  {dateChangePriceInfo.price_difference > 0 ? "+" : ""}฿{dateChangePriceInfo.price_difference.toLocaleString()}
-                                </span>
+                            {dateChangePriceInfo.deposit_available && dcEffectiveAdditional > 0 && (
+                              <div className="space-y-1.5">
+                                <p className="text-[11px] font-medium text-gray-600">{t("dcPaymentOptionTitle")}</p>
+                                <div className="grid grid-cols-2 gap-2">
+                                  <button type="button" onClick={() => { setDcPaymentOption("deposit"); setDateChangeSlipFile(null); setDateChangeSlipPreview(null); setDcPhoneSlipReceived(false); }}
+                                    className={`rounded-lg border-2 p-2 text-left text-xs transition-all ${dcPaymentOption === "deposit" ? "border-brand bg-brand/5" : "border-gray-100 hover:border-gray-300"}`}>
+                                    <p className="font-bold text-gray-900">{t("paymentDeposit")}</p>
+                                    <p className="font-semibold text-[11px] text-gray-700">฿{Math.max(0, dateChangePriceInfo.new_deposit - dateChangePriceInfo.amount_paid).toLocaleString()}</p>
+                                    <p className="text-[10px] text-gray-400 mt-0.5">{t("dcDepositDesc", { balance: Math.max(0, dateChangePriceInfo.new_total_price - dateChangePriceInfo.amount_paid - Math.max(0, dateChangePriceInfo.new_deposit - dateChangePriceInfo.amount_paid)).toLocaleString() })}</p>
+                                  </button>
+                                  <button type="button" onClick={() => { setDcPaymentOption("full"); setDateChangeSlipFile(null); setDateChangeSlipPreview(null); setDcPhoneSlipReceived(false); }}
+                                    className={`rounded-lg border-2 p-2 text-left text-xs transition-all ${dcPaymentOption === "full" ? "border-brand bg-brand/5" : "border-gray-100 hover:border-gray-300"}`}>
+                                    <p className="font-bold text-gray-900">{t("paymentFull")}</p>
+                                    <p className="font-semibold text-[11px] text-gray-700">฿{dateChangePriceInfo.full_outstanding.toLocaleString()}</p>
+                                    <p className="text-[10px] text-gray-400 mt-0.5">{t("dcFullDesc")}</p>
+                                  </button>
+                                </div>
+                              </div>
+                            )}
+                            {dcEffectiveAdditional > 0 && (
+                              <div className="rounded-lg border border-blue-100 bg-blue-50 p-2">
+                                <p className="text-[11px] text-blue-700">
+                                  {dateChangePriceInfo.deposit_available && dcPaymentOption === "deposit"
+                                    ? t("dcDepositNote", {
+                                        deposit: dateChangePriceInfo.new_deposit.toLocaleString(),
+                                        paid: dateChangePriceInfo.amount_paid.toLocaleString(),
+                                        due: dcEffectiveAdditional.toLocaleString(),
+                                        balance: Math.max(0, dateChangePriceInfo.new_total_price - dateChangePriceInfo.amount_paid - dcEffectiveAdditional).toLocaleString(),
+                                      })
+                                    : t("dcFullNote", {
+                                        total: dateChangePriceInfo.new_total_price.toLocaleString(),
+                                        paid: dateChangePriceInfo.amount_paid.toLocaleString(),
+                                        due: dcEffectiveAdditional.toLocaleString(),
+                                      })
+                                  }
+                                </p>
+                              </div>
+                            )}
+                            {dcEffectiveAdditional === 0 && dateChangePriceInfo.price_difference >= 0 && (
+                              <div className="rounded-lg border border-green-100 bg-green-50 p-2">
+                                <p className="text-[11px] text-green-700">{t("dcNoPaymentNeeded")}</p>
                               </div>
                             )}
                           </div>
                         )}
 
-                        {dateChangePriceInfo && dateChangePriceInfo.price_difference < 0 && !noRefundConfirmed && (
+                        {dateChangePriceInfo && dcEffectiveAdditional === 0 && dateChangePriceInfo.price_difference < 0 && !noRefundConfirmed && (
                           <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5">
                             <div className="flex items-start gap-2">
                               <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
@@ -1235,10 +1311,10 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                           </div>
                         )}
 
-                        {dateChangePriceInfo && dateChangePriceInfo.price_difference > 0 && promptpayId && (
+                        {dateChangePriceInfo && dcEffectiveAdditional > 0 && promptpayId && (
                           <div className="space-y-2">
                             <p className="text-xs font-medium text-red-600">
-                              {t("additionalPayment", { amount: dateChangePriceInfo.price_difference.toLocaleString() })}
+                              {t("additionalPayment", { amount: dcEffectiveAdditional.toLocaleString() })}
                             </p>
                             <input
                               ref={dateChangeFileRef}
@@ -1274,7 +1350,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                               <div className="flex flex-col items-center gap-2">
                                 <div ref={dcQrRef} className="rounded-lg border bg-white p-2">
                                   <QRCodeSVG
-                                    value={generatePayload(promptpayId, { amount: dateChangePriceInfo.price_difference })}
+                                    value={generatePayload(promptpayId, { amount: dcEffectiveAdditional })}
                                     size={100}
                                     level="M"
                                   />
@@ -1299,7 +1375,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                         ctx.fillRect(0, 0, canvas.width, canvas.height);
                                         ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
                                         const link = document.createElement("a");
-                                        link.download = `promptpay-${dateChangePriceInfo.price_difference}.png`;
+                                        link.download = `promptpay-${dcEffectiveAdditional}.png`;
                                         link.href = canvas.toDataURL("image/png");
                                         link.click();
                                       };
@@ -1357,7 +1433,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                             size="sm"
                             className="flex-1 bg-brand text-white hover:bg-brand-hover"
                             onClick={() => handleDateChangeSubmit(booking)}
-                            disabled={submittingDateChange || !isDcRangeValid || (dateChangePriceInfo !== null && dateChangePriceInfo.price_difference > 0 && !dateChangeSlipFile) || (dateChangePriceInfo !== null && dateChangePriceInfo.price_difference < 0 && !noRefundConfirmed)}
+                            disabled={submittingDateChange || !isDcRangeValid || (dateChangePriceInfo !== null && dcEffectiveAdditional > 0 && !dateChangeSlipFile && !dcPhoneSlipReceived) || (dateChangePriceInfo !== null && dcEffectiveAdditional === 0 && dateChangePriceInfo.price_difference < 0 && !noRefundConfirmed)}
                           >
                             {submittingDateChange ? (
                               <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />

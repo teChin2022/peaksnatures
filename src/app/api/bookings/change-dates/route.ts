@@ -5,6 +5,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendDateChangeLineNotification } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room, RoomSeasonalPrice } from "@/types/database";
 import { calculateTotalPrice } from "@/lib/calculate-price";
+import { getDepositForMonth } from "@/lib/get-deposit";
 import { logEvent, EventType } from "@/lib/history-log";
 
 const changeDatesSchema = z.object({
@@ -12,6 +13,7 @@ const changeDatesSchema = z.object({
   new_check_in: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
   new_check_out: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
   new_room_id: z.string().uuid().optional(),
+  payment_option: z.enum(["full", "deposit"]).optional(),
   preview: z.boolean().optional().default(false),
   // Slip verification data (required only when price increases)
   slip_hash: z.string().optional(),
@@ -213,6 +215,42 @@ export async function POST(req: NextRequest) {
 
     const priceDifference = newTotalPrice - booking.total_price;
 
+    // Calculate deposit-aware additional payment
+    let newDeposit = 0;
+    const fullOutstanding = Math.max(0, newTotalPrice - booking.amount_paid);
+
+    if (booking.payment_type === "deposit") {
+      // Fetch host deposit config for the new check-in month
+      const { data: homestayRow } = await supabase
+        .from("homestays")
+        .select("host_id")
+        .eq("id", booking.homestay_id)
+        .single();
+      if (homestayRow) {
+        const { data: hostRow } = await supabase
+          .from("hosts")
+          .select("deposit_amount, deposit_by_month")
+          .eq("id", (homestayRow as unknown as { host_id: string }).host_id)
+          .single();
+        if (hostRow) {
+          newDeposit = getDepositForMonth(
+            hostRow as unknown as { deposit_amount: number; deposit_by_month: Record<string, number> | null },
+            newCheckIn
+          );
+        }
+      }
+    }
+
+    // Determine additional payment based on payment option
+    const depositAvailable = booking.payment_type === "deposit" && newDeposit > 0 && newDeposit < newTotalPrice;
+    const paymentOption = data.payment_option || (depositAvailable ? "deposit" : "full");
+    let additionalPayment: number;
+    if (paymentOption === "deposit" && depositAvailable) {
+      additionalPayment = Math.max(0, newDeposit - booking.amount_paid);
+    } else {
+      additionalPayment = fullOutstanding;
+    }
+
     // Preview mode: return price info without creating the request
     if (data.preview) {
       return NextResponse.json({
@@ -220,15 +258,19 @@ export async function POST(req: NextRequest) {
         new_total_price: newTotalPrice,
         old_total_price: booking.total_price,
         price_difference: priceDifference,
+        additional_payment: additionalPayment,
         amount_paid: booking.amount_paid,
         payment_type: booking.payment_type,
+        deposit_available: depositAvailable,
+        new_deposit: newDeposit,
+        full_outstanding: fullOutstanding,
       });
     }
 
-    // If price increased, slip verification is required
-    if (priceDifference > 0 && !data.slip_hash) {
+    // If additional payment is required, slip verification is needed
+    if (additionalPayment > 0 && !data.slip_hash) {
       return NextResponse.json(
-        { error: "PAYMENT_REQUIRED", message: "Additional payment is required for higher price", price_difference: priceDifference, new_total_price: newTotalPrice },
+        { error: "PAYMENT_REQUIRED", message: "Additional payment is required", price_difference: priceDifference, additional_payment: additionalPayment, new_total_price: newTotalPrice, amount_paid: booking.amount_paid, deposit_available: depositAvailable, new_deposit: newDeposit, full_outstanding: fullOutstanding },
         { status: 402 }
       );
     }
@@ -245,6 +287,7 @@ export async function POST(req: NextRequest) {
         old_total_price: booking.total_price,
         new_total_price: newTotalPrice,
         price_difference: priceDifference,
+        additional_payment: additionalPayment,
         status: "pending",
         requested_by: booking.guest_name,
         old_room_id: booking.room_id,
@@ -253,7 +296,7 @@ export async function POST(req: NextRequest) {
         slip_trans_ref: data.slip_trans_ref || null,
         payment_slip_url: data.payment_slip_url || null,
         easyslip_response: data.easyslip_response || null,
-        easyslip_verified: priceDifference > 0 ? (data.easyslip_verified || false) : false,
+        easyslip_verified: additionalPayment > 0 ? (data.easyslip_verified || false) : false,
         created_by: booking.guest_name,
         updated_by: booking.guest_name,
       } as never)

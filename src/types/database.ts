@@ -596,6 +596,7 @@ export interface Database {
           reject_reason: string | null;
           old_room_id: string | null;
           new_room_id: string | null;
+          additional_payment: number;
           created_at: string;
           updated_at: string;
           created_by: string;
@@ -621,6 +622,7 @@ export interface Database {
           reject_reason?: string | null;
           old_room_id?: string | null;
           new_room_id?: string | null;
+          additional_payment?: number;
           created_at?: string;
           updated_at?: string;
           created_by?: string;
@@ -646,6 +648,7 @@ export interface Database {
           reject_reason?: string | null;
           old_room_id?: string | null;
           new_room_id?: string | null;
+          additional_payment?: number;
           created_at?: string;
           updated_at?: string;
           created_by?: string;
