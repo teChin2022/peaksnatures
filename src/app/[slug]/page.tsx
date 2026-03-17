@@ -171,6 +171,16 @@ export default async function HomestayPage({ params }: PageProps) {
 
         <RoomsSection rooms={rooms} seasonalPrices={seasonalPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} />
 
+        {/* Booking (inline) */}
+        <BookingSection
+          homestay={homestay}
+          rooms={rooms}
+          blockedDates={blockedDates}
+          bookedRanges={bookedRanges}
+          host={homestay.host}
+          seasonalPrices={seasonalPrices}
+        />
+
         {/* Reviews */}
         <section className="py-10">
           <div className="mx-auto max-w-7xl px-4 sm:px-6">
@@ -183,15 +193,6 @@ export default async function HomestayPage({ params }: PageProps) {
           </div>
         </section>
       </main>
-
-      <BookingSection
-        homestay={homestay}
-        rooms={rooms}
-        blockedDates={blockedDates}
-        bookedRanges={bookedRanges}
-        host={homestay.host}
-        seasonalPrices={seasonalPrices}
-      />
 
       <BookingFooter
         homestayName={homestay.name}

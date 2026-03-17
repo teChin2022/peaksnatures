@@ -204,7 +204,16 @@
     "seasonRate": "{name}",
     "baseRate": "ราคาพื้นฐาน",
     "perNightRate": "฿{price}/คืน",
-    "pdpaConsent": "ฉันยอมรับ <privacy>นโยบายความเป็นส่วนตัว</privacy> และ <terms>ข้อกำหนดการใช้งาน</terms>"
+    "pdpaConsent": "ฉันยอมรับ <privacy>นโยบายความเป็นส่วนตัว</privacy> และ <terms>ข้อกำหนดการใช้งาน</terms>",
+    "sectionLabel": "การจองที่พัก",
+    "sectionHeading": "เริ่มต้น",
+    "sectionHeadingAccent": "การพักผ่อน",
+    "sectionDesc": "พร้อมสัมผัสธรรมชาติที่ดีที่สุด? เลือกวันที่และห้องพัก แล้วเราจะจัดการที่เหลือให้",
+    "trustResponse": "ตอบกลับรวดเร็ว",
+    "trustResponseDesc": "เวลาตอบกลับโดยเฉลี่ย: 45 นาที",
+    "trustSecure": "ปลอดภัย & เป็นส่วนตัว",
+    "trustSecureDesc": "ข้อมูลของคุณถูกเข้ารหัสและเป็นความลับ",
+    "confirmedClose": "ปิด"
   },
   "chat": {
     "title": "ผู้ช่วยจองที่พัก",

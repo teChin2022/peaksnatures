@@ -204,7 +204,16 @@
     "seasonRate": "{name}",
     "baseRate": "Base Rate",
     "perNightRate": "฿{price}/night",
-    "pdpaConsent": "I agree to the <privacy>Privacy Policy</privacy> and <terms>Terms of Service</terms>"
+    "pdpaConsent": "I agree to the <privacy>Privacy Policy</privacy> and <terms>Terms of Service</terms>",
+    "sectionLabel": "RESERVATIONS",
+    "sectionHeading": "Begin Your Next",
+    "sectionHeadingAccent": "Escape",
+    "sectionDesc": "Ready to experience nature at its finest? Select your dates and room, and we'll take care of the rest.",
+    "trustResponse": "Priority Response",
+    "trustResponseDesc": "Average response time: 45 minutes",
+    "trustSecure": "Secure & Private",
+    "trustSecureDesc": "Your information is encrypted and confidential",
+    "confirmedClose": "Close"
   },
   "chat": {
     "title": "Booking Assistant",
