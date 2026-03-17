@@ -920,6 +920,16 @@ export default function BookingsPage() {
                     <span className="text-gray-500">{t("total")}</span>
                     <span className="font-bold" style={{ color: themeColor }}>฿{detailTarget.total_price.toLocaleString()}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">{t("amountPaid")}</span>
+                    <span className="font-medium text-gray-900">฿{detailTarget.amount_paid.toLocaleString()}</span>
+                  </div>
+                  {detailTarget.amount_paid < detailTarget.total_price && (
+                    <div className="flex justify-between">
+                      <span className="text-amber-600">{t("balanceDue", { amount: "" }).replace(/[:\s฿]+$/, "")}</span>
+                      <span className="font-medium text-amber-600">฿{(detailTarget.total_price - detailTarget.amount_paid).toLocaleString()}</span>
+                    </div>
+                  )}
                 </div>
                 <p className="text-xs text-gray-400 pt-1">ID: {detailTarget.id}</p>
               </div>

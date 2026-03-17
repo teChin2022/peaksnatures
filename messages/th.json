@@ -324,6 +324,7 @@
     "paymentFull": "ชำระครบ",
     "paymentDeposit": "มัดจำ",
     "balanceDue": "ค้าง: ฿{amount}",
+    "amountPaid": "ยอดที่ชำระแล้ว",
     "balanceDueWarning": "แขกมียอดค้างชำระ ฿{amount}",
     "errorUpdate": "อัปเดตการจองไม่สำเร็จ",
     "provinceStats": "การจองตามจังหวัด",

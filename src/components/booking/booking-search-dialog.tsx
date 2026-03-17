@@ -738,6 +738,16 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                     <span className="font-medium text-gray-900">
                       ฿{booking.total_price.toLocaleString()}
                     </span>
+                    {booking.payment_type === "deposit" && (
+                      <span className="text-gray-600">
+                        {t("amountPaid")}: ฿{(booking.amount_paid || 0).toLocaleString()}
+                      </span>
+                    )}
+                    {(booking.amount_paid || 0) < booking.total_price && (
+                      <span className="font-medium text-amber-600">
+                        {t("remainingBalance")}: ฿{(booking.total_price - (booking.amount_paid || 0)).toLocaleString()}
+                      </span>
+                    )}
                   </div>
                   <p className="text-xs text-gray-400 break-all">
                     ID: {booking.id}

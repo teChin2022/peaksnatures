@@ -324,6 +324,7 @@
     "paymentFull": "Paid Full",
     "paymentDeposit": "Deposit",
     "balanceDue": "Balance: ฿{amount}",
+    "amountPaid": "Amount Paid",
     "balanceDueWarning": "Guest has unpaid balance of ฿{amount}",
     "errorUpdate": "Failed to update booking",
     "provinceStats": "Bookings by Province",
