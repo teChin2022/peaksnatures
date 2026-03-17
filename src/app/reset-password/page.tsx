@@ -191,7 +191,7 @@ export default function ResetPasswordPage() {
               <CardFooter>
                 <Button
                   type="submit"
-                  className="w-full bg-brand text-white py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl"
+                  className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl"
                   disabled={loading}
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

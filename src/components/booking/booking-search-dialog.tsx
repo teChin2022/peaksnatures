@@ -686,25 +686,26 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
 
         <div className="space-y-4">
           {/* Search input */}
-          <div className="flex gap-2">
+          <div className="flex gap-2 items-center">
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-gray-400" />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
               <Input
                 placeholder={t("placeholder")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="pl-9"
+                className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400"
                 autoFocus
               />
             </div>
-            <Button
+            <button
+              type="button"
               onClick={handleSearch}
               disabled={loading || !query.trim()}
-              className="bg-brand text-white hover:bg-brand-hover"
+              className="bg-brand text-white px-6 py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
             >
               {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("search")}
-            </Button>
+            </button>
           </div>
 
           {/* Results */}
