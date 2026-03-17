@@ -326,7 +326,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
               </div>
               <div className="mt-3 flex w-full rounded-full overflow-hidden shadow-lg hover:shadow-xl transition-all">
                 <Button
-                  className="flex-1 rounded-none rounded-l-full bg-brand text-white px-10 py-4 font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0"
+                  className="flex-1 rounded-none rounded-l-full bg-brand text-white px-10 py-4 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0"
                   onClick={() => {
                     document.dispatchEvent(
                       new CustomEvent("book-room", { detail: { roomId: room.id } })
