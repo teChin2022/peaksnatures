@@ -733,7 +733,7 @@ export function BookingSection({
             <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)} />
             <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)} />
 
-            <div className="flex-1 overflow-y-auto pr-1">
+            <div className="min-h-[480px] max-h-[600px] overflow-y-auto pr-1">
               <AnimatePresence mode="wait">
                 {/* ═══ Step 1: Dates ═══ */}
                 {step === "dates" && (
@@ -1140,24 +1140,6 @@ export function BookingSection({
                             )}
                             <p className="mt-1 text-sm font-medium text-gray-700">{host.name}</p>
                             <p className="text-xs text-gray-400">{t("promptpayId")}: {host.promptpay_id}</p>
-                          </div>
-
-                          {/* Instructions */}
-                          <div className="rounded-2xl border bg-gray-50 p-4">
-                            <div className="space-y-2.5">
-                              {[
-                                { num: 1, icon: Smartphone, text: t("payStep1") },
-                                { num: 2, icon: ArrowRight, text: t("payStep2") },
-                                { num: 3, icon: CreditCard, text: t("payStep3") },
-                                { num: 4, icon: Upload, text: t("payStep4") },
-                              ].map((s) => (
-                                <div key={s.num} className="flex items-center gap-2.5">
-                                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-brand text-[10px] font-bold text-white">{s.num}</div>
-                                  <s.icon className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                                  <p className="text-xs text-gray-600">{s.text}</p>
-                                </div>
-                              ))}
-                            </div>
                           </div>
 
                           <button onClick={() => setPaymentPhase("upload")}
