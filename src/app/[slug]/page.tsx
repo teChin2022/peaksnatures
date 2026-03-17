@@ -163,13 +163,13 @@ export default async function HomestayPage({ params }: PageProps) {
           prohibitions={homestay.prohibitions}
         />
         
-        <RoomsSection rooms={rooms} seasonalPrices={seasonalPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} />
-
         <MapRulesSection
           mapEmbedUrl={homestay.map_embed_url}
           location={homestay.location}
           prohibitions={homestay.prohibitions}
         />
+
+        <RoomsSection rooms={rooms} seasonalPrices={seasonalPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} />
 
         {/* Reviews */}
         <section className="py-10">
