@@ -741,8 +741,8 @@ export function BookingSection({
                     <AnimatePresence mode="wait">
                       {!showCalendar ? (
                         <motion.div key="dates-form" initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.25 }} className="space-y-5">
-                          {/* Room detail */}
-                          {selectedRoom && (
+                          {/* Room detail or prompt */}
+                          {selectedRoom ? (
                             <div className="rounded-xl bg-gray-50 p-3">
                               <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("room")}</p>
                               <div className="flex items-baseline justify-between mt-1">
@@ -755,14 +755,20 @@ export function BookingSection({
                                 </div>
                               )}
                             </div>
+                          ) : (
+                            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
+                              <CalendarDays className="mx-auto h-8 w-8 text-gray-300 mb-2" />
+                              <p className="text-sm font-medium text-gray-500">{t("selectRoomFirst")}</p>
+                            </div>
                           )}
 
                           <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("selectDates")}</label>
 
                           {/* Date picker toggle */}
                           <button
-                            onClick={() => setShowCalendar(true)}
-                            className="w-full flex items-center justify-between p-3.5 rounded-xl border border-gray-200 hover:border-gray-400 transition-all text-sm font-medium text-gray-900 bg-white"
+                            onClick={() => selectedRoomId && setShowCalendar(true)}
+                            disabled={!selectedRoomId}
+                            className={`w-full flex items-center justify-between p-3.5 rounded-xl border border-gray-200 transition-all text-sm font-medium bg-white ${selectedRoomId ? "hover:border-gray-400 text-gray-900 cursor-pointer" : "opacity-50 cursor-not-allowed text-gray-400"}`}
                           >
                             <div className="flex items-center gap-2.5">
                               <CalendarIcon size={16} className="text-gray-400" />
