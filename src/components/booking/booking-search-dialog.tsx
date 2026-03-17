@@ -6,7 +6,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { createClient } from "@/lib/supabase/client";
 import { Calendar } from "@/components/ui/calendar";
 import type { DateRange } from "react-day-picker";
-import { format } from "date-fns";
+import { format, startOfToday, addMonths } from "date-fns";
+import { th as thLocale } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Badge } from "@/components/ui/badge";
@@ -22,7 +23,7 @@ import {
 } from "@/components/ui/dialog";
 import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
-import { fmtDateStr } from "@/lib/format-date";
+import { fmtDate, fmtDateStr } from "@/lib/format-date";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import generatePayload from "promptpay-qr";
 import { QRCodeSVG } from "qrcode.react";
@@ -1177,6 +1178,16 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                           setNoRefundConfirmed(false);
                           setDcPhoneSlipReceived(false);
                         }}
+                        locale={locale === "th" ? thLocale : undefined}
+                        captionLayout="dropdown"
+                        startMonth={startOfToday()}
+                        endMonth={addMonths(startOfToday(), 12)}
+                        formatters={locale === "th" ? {
+                          formatMonthDropdown: (date) =>
+                            date.toLocaleDateString("th-TH", { month: "long" }),
+                          formatYearDropdown: (date) =>
+                            String(date.getFullYear() + 543),
+                        } : undefined}
                         disabled={[
                           { before: new Date() },
                           (date: Date) => {
@@ -1201,7 +1212,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                           <div className="rounded bg-white p-2 border">
                             <span className="text-gray-500">{t("newDates")}</span>
                             <p className="font-medium text-gray-900">
-                              {format(dateRange.from, "d MMM")} → {format(dateRange.to, "d MMM")}
+                              {fmtDate(dateRange.from, "d MMM", locale)} → {fmtDate(dateRange.to, "d MMM", locale)}
                             </p>
                           </div>
                         </div>
