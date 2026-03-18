@@ -3,9 +3,19 @@ import {
   createServerSupabaseClient,
   createServiceRoleClient,
 } from "@/lib/supabase/server";
+import bcrypt from "bcryptjs";
 
-export async function DELETE() {
+export async function DELETE(req: Request) {
   try {
+    // Parse optional PIN from request body
+    let pin: string | undefined;
+    try {
+      const body = await req.json();
+      pin = body?.pin;
+    } catch {
+      // No body or invalid JSON — that's fine
+    }
+
     // Get authenticated user
     const supabase = await createServerSupabaseClient();
     const {
@@ -39,12 +49,29 @@ export async function DELETE() {
     // Look up host record
     const { data: host } = await serviceClient
       .from("hosts")
-      .select("id")
+      .select("id, security_pin_hash")
       .eq("user_id", user.id)
       .single();
 
     if (host) {
-      const hostRow = host as { id: string };
+      const hostRow = host as { id: string; security_pin_hash: string | null };
+
+      // If host has a PIN set, verify it before proceeding
+      if (hostRow.security_pin_hash) {
+        if (!pin) {
+          return NextResponse.json(
+            { error: "PIN is required to delete your account" },
+            { status: 403 }
+          );
+        }
+        const isValid = await bcrypt.compare(pin, hostRow.security_pin_hash);
+        if (!isValid) {
+          return NextResponse.json(
+            { error: "Incorrect PIN" },
+            { status: 403 }
+          );
+        }
+      }
 
       // Look up homestay
       const { data: homestay } = await serviceClient

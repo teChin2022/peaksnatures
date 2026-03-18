@@ -80,6 +80,8 @@ export default function ProfilePage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [deletePin, setDeletePin] = useState("");
+  const [showDeletePinDialog, setShowDeletePinDialog] = useState(false);
   const [sensitiveUnlocked, setSensitiveUnlocked] = useState(false);
   const [currentPin, setCurrentPin] = useState("");
   const [showPinDialog, setShowPinDialog] = useState(false);
@@ -235,6 +237,20 @@ export default function ProfilePage() {
     setPromptpayId(maskPromptpay(host.promptpay_id));
   };
 
+  const handleDeleteButtonClick = () => {
+    if (hasPinSet) {
+      setShowDeletePinDialog(true);
+    } else {
+      setShowDeleteConfirm(true);
+    }
+  };
+
+  const handleDeletePinVerified = (pin: string) => {
+    setDeletePin(pin);
+    setShowDeletePinDialog(false);
+    setShowDeleteConfirm(true);
+  };
+
   const handleDeleteAccount = async () => {
     if (deleteConfirmText !== "DELETE") {
       toast.error(t("deleteConfirmMismatch"));
@@ -245,6 +261,8 @@ export default function ProfilePage() {
     try {
       const res = await fetch("/api/auth/delete-account", {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: deletePin || undefined }),
       });
 
       if (!res.ok) {
@@ -872,7 +890,7 @@ export default function ProfilePage() {
             <Button
               variant="outline"
               className="w-full border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
-              onClick={() => setShowDeleteConfirm(true)}
+              onClick={handleDeleteButtonClick}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               {t("deleteAccount")}
@@ -890,7 +908,7 @@ export default function ProfilePage() {
                 <Button
                   variant="outline"
                   className="flex-1"
-                  onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(""); }}
+                  onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(""); setDeletePin(""); }}
                   disabled={deleting}
                 >
                   {t("cancelDelete")}
@@ -913,6 +931,13 @@ export default function ProfilePage() {
           )}
         </CardContent>
       </Card>
+
+      <SecurityPinDialog
+        open={showDeletePinDialog}
+        onClose={() => setShowDeletePinDialog(false)}
+        mode="verify"
+        onVerified={handleDeletePinVerified}
+      />
     </div>
   );
 }
