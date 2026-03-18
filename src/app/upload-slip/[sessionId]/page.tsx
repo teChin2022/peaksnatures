@@ -67,8 +67,8 @@ export default function UploadSlipPage({
     return (
       <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
         <div className="w-full max-w-sm text-center">
-          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-            <CheckCircle2 className="h-8 w-8 text-green-600" />
+          <div className="mx-auto flex h-16 w-16 items-center justify-center rounded-full bg-brand-50">
+            <CheckCircle2 className="h-8 w-8 text-brand" />
           </div>
           <h1 className="mt-4 text-xl font-semibold text-gray-900">
             Upload Complete!
@@ -141,7 +141,7 @@ export default function UploadSlipPage({
               <button
                 onClick={handleUpload}
                 disabled={uploading}
-                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-green-600 px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-green-700 disabled:opacity-50"
+                className="mt-4 flex w-full items-center justify-center gap-2 rounded-xl bg-brand px-6 py-3.5 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:opacity-50"
               >
                 {uploading ? (
                   <>

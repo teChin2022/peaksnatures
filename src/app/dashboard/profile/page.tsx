@@ -11,7 +11,6 @@ import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { useRouter } from "next/navigation";
-import { useThemeColor } from "@/components/dashboard/theme-context";
 import { logClientEvent } from "@/lib/history-log-client";
 
 import { isPushSupported, isPushSubscribed, subscribeHostToPush, unsubscribeFromPush } from "@/lib/push-notifications";
@@ -52,7 +51,6 @@ interface HostData {
 export default function ProfilePage() {
   const t = useTranslations("dashboardProfile");
   const router = useRouter();
-  const themeColor = useThemeColor();
   const [host, setHost] = useState<HostData | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
@@ -82,6 +80,8 @@ export default function ProfilePage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
+  const [deletePin, setDeletePin] = useState("");
+  const [showDeletePinDialog, setShowDeletePinDialog] = useState(false);
   const [sensitiveUnlocked, setSensitiveUnlocked] = useState(false);
   const [currentPin, setCurrentPin] = useState("");
   const [showPinDialog, setShowPinDialog] = useState(false);
@@ -159,7 +159,7 @@ export default function ProfilePage() {
         deposit_by_month: Object.keys(depositByMonth).length > 0 ? depositByMonth : null,
         cancellation_days: cancellationDays,
         notification_preference: notificationPreference,
-        updated_by: userId,
+        updated_by: host.name,
       };
 
       const { error } = await supabase
@@ -237,6 +237,20 @@ export default function ProfilePage() {
     setPromptpayId(maskPromptpay(host.promptpay_id));
   };
 
+  const handleDeleteButtonClick = () => {
+    if (hasPinSet) {
+      setShowDeletePinDialog(true);
+    } else {
+      setShowDeleteConfirm(true);
+    }
+  };
+
+  const handleDeletePinVerified = (pin: string) => {
+    setDeletePin(pin);
+    setShowDeletePinDialog(false);
+    setShowDeleteConfirm(true);
+  };
+
   const handleDeleteAccount = async () => {
     if (deleteConfirmText !== "DELETE") {
       toast.error(t("deleteConfirmMismatch"));
@@ -247,6 +261,8 @@ export default function ProfilePage() {
     try {
       const res = await fetch("/api/auth/delete-account", {
         method: "DELETE",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pin: deletePin || undefined }),
       });
 
       if (!res.ok) {
@@ -375,7 +391,7 @@ export default function ProfilePage() {
           <div className="rounded-lg border border-gray-200 p-4 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-medium">
-                <ShieldCheck className="h-4 w-4" style={{ color: themeColor }} />
+                <ShieldCheck className="h-4 w-4 text-brand" />
                 {t("sensitiveFields")}
               </div>
               {hasPinSet && (
@@ -455,7 +471,7 @@ export default function ProfilePage() {
 
           <div className="rounded-lg border border-gray-200 p-4 space-y-4">
             <div className="flex items-center gap-2 text-sm font-medium">
-              <Calendar className="h-4 w-4" style={{ color: themeColor }} />
+              <Calendar className="h-4 w-4 text-brand" />
               {t("depositSettings")}
             </div>
 
@@ -480,8 +496,7 @@ export default function ProfilePage() {
                 <Label className="text-sm">{t("monthlyDeposit")}</Label>
                 <button
                   type="button"
-                  className="text-xs font-medium hover:opacity-80 transition-opacity"
-                  style={{ color: themeColor }}
+                  className="text-xs font-medium hover:opacity-80 transition-opacity text-brand"
                   onClick={() => {
                     const filled: Record<string, number> = {};
                     MONTH_KEYS.forEach((m) => { filled[m] = depositAmount; });
@@ -525,7 +540,7 @@ export default function ProfilePage() {
 
           <div className="rounded-lg border border-gray-200 p-4 space-y-4">
             <div className="flex items-center gap-2 text-sm font-medium">
-              <AlertTriangle className="h-4 w-4" style={{ color: themeColor }} />
+              <AlertTriangle className="h-4 w-4 text-brand" />
               {t("cancellationPolicy")}
             </div>
 
@@ -539,7 +554,7 @@ export default function ProfilePage() {
                     className="rounded-full px-3 py-1.5 text-sm font-medium border transition-colors"
                     style={
                       cancellationDays === days
-                        ? { backgroundColor: themeColor, color: "white", borderColor: themeColor }
+                        ? { backgroundColor: "#2F5D50", color: "white", borderColor: "#2F5D50" }
                         : { borderColor: "#d1d5db", color: "#374151" }
                     }
                     onClick={() => setCancellationDays(days)}
@@ -555,8 +570,7 @@ export default function ProfilePage() {
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="w-full hover:brightness-90"
-            style={{ backgroundColor: themeColor }}
+            className="w-full hover:brightness-90 bg-brand"
           >
             {saving ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -594,7 +608,7 @@ export default function ProfilePage() {
                   }`}
                   style={
                     notificationPreference === option
-                      ? { backgroundColor: themeColor, borderColor: themeColor }
+                      ? { backgroundColor: "#2F5D50", borderColor: "#2F5D50" }
                       : undefined
                   }
                 >
@@ -610,7 +624,7 @@ export default function ProfilePage() {
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   {pushSubscribed ? (
-                    <Bell className="h-4 w-4" style={{ color: themeColor }} />
+                    <Bell className="h-4 w-4 text-brand" />
                   ) : (
                     <BellOff className="h-4 w-4 text-gray-400" />
                   )}
@@ -629,8 +643,7 @@ export default function ProfilePage() {
                   variant={pushSubscribed ? "outline" : "default"}
                   size="sm"
                   disabled={togglingPush}
-                  className="w-full hover:brightness-90"
-                  style={!pushSubscribed ? { backgroundColor: themeColor } : undefined}
+                  className={`w-full hover:brightness-90 ${!pushSubscribed ? "bg-brand" : ""}`}
                   onClick={async () => {
                     if (!host) return;
                     setTogglingPush(true);
@@ -715,8 +728,7 @@ export default function ProfilePage() {
           <Button
             onClick={handleSave}
             disabled={saving}
-            className="w-full hover:brightness-90"
-            style={{ backgroundColor: themeColor }}
+            className="w-full hover:brightness-90 bg-brand"
           >
             {saving ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -814,8 +826,7 @@ export default function ProfilePage() {
           <Button
             onClick={handleChangePassword}
             disabled={changingPassword || !oldPassword || !newPassword || !confirmPassword}
-            className="w-full hover:brightness-90"
-            style={{ backgroundColor: themeColor }}
+            className="w-full hover:brightness-90 bg-brand"
           >
             {changingPassword ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
@@ -879,7 +890,7 @@ export default function ProfilePage() {
             <Button
               variant="outline"
               className="w-full border-red-300 text-red-600 hover:bg-red-50 hover:text-red-700"
-              onClick={() => setShowDeleteConfirm(true)}
+              onClick={handleDeleteButtonClick}
             >
               <Trash2 className="mr-2 h-4 w-4" />
               {t("deleteAccount")}
@@ -897,7 +908,7 @@ export default function ProfilePage() {
                 <Button
                   variant="outline"
                   className="flex-1"
-                  onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(""); }}
+                  onClick={() => { setShowDeleteConfirm(false); setDeleteConfirmText(""); setDeletePin(""); }}
                   disabled={deleting}
                 >
                   {t("cancelDelete")}
@@ -920,6 +931,13 @@ export default function ProfilePage() {
           )}
         </CardContent>
       </Card>
+
+      <SecurityPinDialog
+        open={showDeletePinDialog}
+        onClose={() => setShowDeletePinDialog(false)}
+        mode="verify"
+        onVerified={handleDeletePinVerified}
+      />
     </div>
   );
 }

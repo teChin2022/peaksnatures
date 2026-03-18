@@ -169,7 +169,7 @@ export default function AdminHostsPage() {
                           <Badge
                             className={`text-[10px] ${
                               host.status === "approved"
-                                ? "bg-green-100 text-green-700"
+                                ? "bg-brand-50 text-brand"
                                 : "bg-amber-100 text-amber-700"
                             }`}
                           >
@@ -197,7 +197,7 @@ export default function AdminHostsPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-7 px-2 text-xs text-green-700 border-green-300 hover:bg-green-50"
+                                className="h-7 px-2 text-xs text-brand border-brand/30 hover:bg-brand-50"
                                 onClick={() => handleApprove(host.id)}
                                 disabled={actionLoading === host.id}
                               >

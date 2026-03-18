@@ -40,6 +40,11 @@ export const EventType = {
 
   // Reviews
   REVIEW_SUBMITTED: "REVIEW_SUBMITTED",
+
+  // Date change
+  BOOKING_DATE_CHANGE_REQUESTED: "BOOKING_DATE_CHANGE_REQUESTED",
+  BOOKING_DATE_CHANGE_APPROVED: "BOOKING_DATE_CHANGE_APPROVED",
+  BOOKING_DATE_CHANGE_REJECTED: "BOOKING_DATE_CHANGE_REJECTED",
 } as const;
 
 export type EventTypeValue = (typeof EventType)[keyof typeof EventType];

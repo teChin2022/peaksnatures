@@ -19,7 +19,6 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { SetupProfileModal } from "@/components/setup-profile-modal";
-import { useThemeColor } from "@/components/dashboard/theme-context";
 import { getProvinceLabel } from "@/lib/provinces";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -44,7 +43,6 @@ export default function DashboardPage() {
   const t = useTranslations("dashboard");
   const ta = useTranslations("auth");
   const tn = useTranslations("dashboardNav");
-  const themeColor = useThemeColor();
   const locale = useLocale();
   const [hostProfile, setHostProfile] = useState<HostProfile | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
@@ -236,8 +234,8 @@ export default function DashboardPage() {
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
             <Card>
               <CardContent className="flex items-center gap-4 p-4">
-                <div className="rounded-lg p-2.5" style={{ backgroundColor: themeColor + '1a' }}>
-                  <CheckCircle2 className="h-5 w-5" style={{ color: themeColor }} />
+                <div className="rounded-lg bg-brand/10 p-2.5">
+                  <CheckCircle2 className="h-5 w-5 text-brand" />
                 </div>
                 <div>
                   <p className="text-sm text-gray-500">{t("confirmed")}</p>
@@ -339,7 +337,7 @@ export default function DashboardPage() {
                       id="checkin-qr"
                       value={`${typeof window !== "undefined" ? window.location.origin : ""}/${stats.homestaySlug}`}
                       size={160}
-                      fgColor={themeColor}
+                      fgColor="#2F5D50"
                       level="M"
                     />
                   </div>
@@ -410,8 +408,8 @@ export default function DashboardPage() {
                           </div>
                           <div className="mt-0.5 h-1.5 w-full rounded-full bg-gray-100">
                             <div
-                              className="h-1.5 rounded-full transition-all"
-                              style={{ width: `${pct}%`, backgroundColor: themeColor }}
+                              className="h-1.5 rounded-full bg-brand transition-all"
+                              style={{ width: `${pct}%` }}
                             />
                           </div>
                         </div>

@@ -70,7 +70,7 @@ function RoomLightbox({ images, name, startIndex, onClose }: { images: string[];
   const [index, setIndex] = useState(startIndex);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-2xl p-4">
       <Button
         variant="ghost"
         size="icon"
@@ -89,15 +89,17 @@ function RoomLightbox({ images, name, startIndex, onClose }: { images: string[];
         <ChevronLeft className="h-8 w-8" />
       </Button>
 
-      <Image
-        key={images[index]}
-        src={images[index]}
-        alt={`${name} photo ${index + 1}`}
-        width={1200}
-        height={800}
-        priority
-        className="max-h-[80vh] max-w-[90vw] rounded-lg object-contain"
-      />
+      <div className="relative max-h-[85vh] max-w-[90vw]">
+        <Image
+          key={images[index]}
+          src={images[index]}
+          alt={`${name} photo ${index + 1}`}
+          width={1200}
+          height={800}
+          priority
+          className="max-h-[85vh] max-w-[90vw] rounded-2xl"
+        />
+      </div>
 
       {/* Preload adjacent images */}
       {images.length > 1 && (
@@ -274,7 +276,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: index * 0.1 }}
           >
-          <div className="group">
+          <div className="group flex flex-col h-full">
             {room.images[0] && (
               <RoomCardImage
                 src={room.images[0]}
@@ -283,7 +285,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
                 onClick={() => setLightbox({ images: room.images, name: room.name })}
               />
             )}
-            <div className="mt-3">
+            <div className="mt-3 flex flex-col flex-1">
               {(() => {
                 const roomSeasons = seasonsByRoom[room.id] || [];
                 const { min, max } = getPriceRange(room.price_per_night, roomSeasons);
@@ -312,7 +314,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
                   onReadMore={() => setDescRoomId(room.id)}
                 />
               )}
-              <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
+              <div className="mt-auto pt-3 flex items-center gap-4 text-xs text-gray-500">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1">
                   <Users className="h-3.5 w-3.5" />
                   {tc("guests")} {room.max_guests}
@@ -326,7 +328,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
               </div>
               <div className="mt-3 flex w-full rounded-full overflow-hidden shadow-lg hover:shadow-xl transition-all">
                 <Button
-                  className="flex-1 rounded-none rounded-l-full bg-gray-900 text-white px-10 py-4 font-bold text-sm tracking-widest uppercase hover:bg-black border-0"
+                  className="flex-1 rounded-none rounded-l-full bg-brand text-white px-10 py-4 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0"
                   onClick={() => {
                     document.dispatchEvent(
                       new CustomEvent("book-room", { detail: { roomId: room.id } })
@@ -338,7 +340,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
                 </Button>
                 <button
                   type="button"
-                  className="flex items-center justify-center px-4 rounded-r-full bg-gray-900 hover:bg-black border-l border-white/30 transition-colors"
+                  className="flex items-center justify-center px-4 rounded-r-full bg-brand hover:bg-brand-hover border-l border-white/30 transition-colors"
                   onClick={(e) => { e.stopPropagation(); setCalendarRoomId(room.id); }}
                   title={t("viewCalendar")}
                 >

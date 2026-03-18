@@ -21,6 +21,7 @@ import {
   Phone,
   Mail,
   CreditCard,
+  ArrowRightLeft,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -40,7 +41,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { BookingStatus } from "@/types/database";
 import { toast } from "sonner";
 import { fmtDateStr } from "@/lib/format-date";
-import { useThemeColor } from "@/components/dashboard/theme-context";
 import { logClientEvent } from "@/lib/history-log-client";
 import { getProvinceLabel } from "@/lib/provinces";
 
@@ -66,6 +66,22 @@ interface BookingRow {
   cancelled_by: string | null;
   cancel_reason: string | null;
   created_at: string;
+}
+
+interface DateChangeRequestRow {
+  id: string;
+  booking_id: string;
+  old_check_in: string;
+  old_check_out: string;
+  new_check_in: string;
+  new_check_out: string;
+  old_total_price: number;
+  new_total_price: number;
+  price_difference: number;
+  status: string;
+  requested_by: string;
+  easyslip_verified: boolean;
+  payment_slip_url: string | null;
 }
 
 interface DisplayBooking extends BookingRow {
@@ -133,7 +149,6 @@ const statusConfig: Record<
 
 export default function BookingsPage() {
   const t = useTranslations("dashboard");
-  const themeColor = useThemeColor();
   const locale = useLocale();
   const [bookings, setBookings] = useState<DisplayBooking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -159,6 +174,7 @@ export default function BookingsPage() {
   );
 
   const [userId, setUserId] = useState<string | null>(null);
+  const [hostName, setHostName] = useState<string | null>(null);
 
   const fetchBookings = async () => {
     const supabase = createClient();
@@ -171,14 +187,15 @@ export default function BookingsPage() {
     // Get host
     const { data: hostRow } = await supabase
       .from("hosts")
-      .select("id")
+      .select("id, name")
       .eq("user_id", user.id)
       .single();
-    const host = hostRow as { id: string } | null;
+    const host = hostRow as { id: string; name: string } | null;
     if (!host) {
       setLoading(false);
       return;
     }
+    setHostName(host.name);
 
     // Get homestays for this host
     const { data: homestayRows } = await supabase
@@ -227,6 +244,24 @@ export default function BookingsPage() {
     const rows = await resolveSlipUrls(rawRows, supabase);
     setBookings(toDisplay(rows));
     setHasMore(rows.length === PAGE_SIZE && rows.length < (total || 0));
+
+    // Fetch pending date change requests for these bookings
+    const bookingIds = rows.map((b) => b.id);
+    if (bookingIds.length > 0) {
+      const { data: dcrRows } = await supabase
+        .from("date_change_requests")
+        .select("id, booking_id, old_check_in, old_check_out, new_check_in, new_check_out, old_total_price, new_total_price, price_difference, status, requested_by, easyslip_verified, payment_slip_url")
+        .in("booking_id", bookingIds)
+        .eq("status", "pending");
+      if (dcrRows) {
+        const map: Record<string, DateChangeRequestRow> = {};
+        for (const row of dcrRows as unknown as DateChangeRequestRow[]) {
+          map[row.booking_id] = row;
+        }
+        setDateChangeRequests(map);
+      }
+    }
+
     setLoading(false);
   };
 
@@ -261,7 +296,7 @@ export default function BookingsPage() {
     const supabase = createClient();
     const { error } = await supabase
       .from("bookings")
-      .update({ status, updated_by: userId } as never)
+      .update({ status, updated_by: hostName || userId } as never)
       .eq("id", id);
 
     if (error) {
@@ -307,6 +342,13 @@ export default function BookingsPage() {
   const [detailTarget, setDetailTarget] = useState<DisplayBooking | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
+  // Date change state
+  const [dateChangeRequests, setDateChangeRequests] = useState<Record<string, DateChangeRequestRow>>({});
+  const [submittingDateChange, setSubmittingDateChange] = useState(false);
+  const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
+  const [rejectTarget, setRejectTarget] = useState<DateChangeRequestRow | null>(null);
+  const [rejectReason, setRejectReason] = useState("");
+
   const handleCancelClick = (booking: DisplayBooking) => {
     setCancelTarget(booking);
     setCancelReason("");
@@ -345,7 +387,7 @@ export default function BookingsPage() {
         return;
       }
       setBookings((prev) =>
-        prev.map((b) => (b.id === cancelTarget.id ? { ...b, status: "cancelled" as BookingStatus, cancelled_by: "host" } : b))
+        prev.map((b) => (b.id === cancelTarget.id ? { ...b, status: "cancelled" as BookingStatus, cancelled_by: hostName || "host" } : b))
       );
       toast.success(t("cancel") + "!");
     } catch {
@@ -356,6 +398,89 @@ export default function BookingsPage() {
     setCancelDialogOpen(false);
     setCancelTarget(null);
     setCancelReason("");
+  };
+
+  const handleApproveDateChange = async (dcr: DateChangeRequestRow) => {
+    setSubmittingDateChange(true);
+    try {
+      const res = await fetch("/api/bookings/change-dates/approve", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ request_id: dcr.id }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        if (data.error === "DATES_UNAVAILABLE") {
+          toast.error(t("dateChangeDatesUnavailable"));
+        } else if (data.error === "DATES_BLOCKED") {
+          toast.error(t("dateChangeDatesBlocked"));
+        } else {
+          toast.error(data.error || t("dateChangeApproveFailed"));
+        }
+        return;
+      }
+      toast.success(t("dateChangeApproved"));
+      // Update local state
+      setBookings((prev) =>
+        prev.map((b) =>
+          b.id === dcr.booking_id
+            ? { ...b, check_in: dcr.new_check_in, check_out: dcr.new_check_out, total_price: dcr.new_total_price }
+            : b
+        )
+      );
+      setDateChangeRequests((prev) => {
+        const next = { ...prev };
+        delete next[dcr.booking_id];
+        return next;
+      });
+      logClientEvent({
+        homestay_id: bookings.find((b) => b.id === dcr.booking_id)?.homestay_id,
+        entity_type: "booking",
+        entity_id: dcr.booking_id,
+        event_type: "BOOKING_DATE_CHANGE_APPROVED",
+        data: { request_id: dcr.id },
+      });
+    } catch {
+      toast.error(t("dateChangeApproveFailed"));
+    } finally {
+      setSubmittingDateChange(false);
+    }
+  };
+
+  const handleRejectDateChange = async () => {
+    if (!rejectTarget) return;
+    setSubmittingDateChange(true);
+    try {
+      const res = await fetch("/api/bookings/change-dates/reject", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ request_id: rejectTarget.id, reason: rejectReason.trim() || undefined }),
+      });
+      if (!res.ok) {
+        toast.error(t("dateChangeRejectFailed"));
+        return;
+      }
+      toast.success(t("dateChangeRejected"));
+      setDateChangeRequests((prev) => {
+        const next = { ...prev };
+        delete next[rejectTarget.booking_id];
+        return next;
+      });
+      logClientEvent({
+        homestay_id: bookings.find((b) => b.id === rejectTarget.booking_id)?.homestay_id,
+        entity_type: "booking",
+        entity_id: rejectTarget.booking_id,
+        event_type: "BOOKING_DATE_CHANGE_REJECTED",
+        data: { request_id: rejectTarget.id, reason: rejectReason.trim() || undefined },
+      });
+    } catch {
+      toast.error(t("dateChangeRejectFailed"));
+    } finally {
+      setSubmittingDateChange(false);
+      setRejectDialogOpen(false);
+      setRejectTarget(null);
+      setRejectReason("");
+    }
   };
 
   if (loading) {
@@ -400,7 +525,7 @@ export default function BookingsPage() {
             {t("allBookings")} ({totalCount})
           </TabsTrigger>
           <TabsTrigger value="pending">
-            {t("pending")} ({totalPendingCount})
+            {t("pending")} ({totalPendingCount + Object.keys(dateChangeRequests).filter(bid => { const b = bookings.find(bk => bk.id === bid); return b && b.status !== "pending" && b.status !== "verified"; }).length})
           </TabsTrigger>
           <TabsTrigger value="confirmed">
             {t("confirmedTab")} ({totalConfirmedCount})
@@ -409,7 +534,7 @@ export default function BookingsPage() {
 
         {(["all", "pending", "confirmed"] as const).map((tab) => {
           const filtered = bookings.filter(
-            (b) => tab === "all" || b.status === tab || (tab === "pending" && b.status === "verified")
+            (b) => tab === "all" || b.status === tab || (tab === "pending" && b.status === "verified") || (tab === "pending" && dateChangeRequests[b.id])
           );
           return (
             <TabsContent key={tab} value={tab} className="mt-4 space-y-3">
@@ -470,13 +595,13 @@ export default function BookingsPage() {
                               </Badge>
                               {booking.status === "cancelled" && booking.cancelled_by && (
                                 <Badge variant="secondary" className="bg-red-50 text-red-600 text-[11px]">
-                                  {booking.cancelled_by === "guest" ? t("cancelledByGuest") : t("cancelledByHost")}
+                                  {booking.cancelled_by === booking.guest_name ? t("cancelledByGuest") : t("cancelledByHost")}
                                 </Badge>
                               )}
                               {booking.easyslip_verified && (
                                 <Badge
                                   variant="secondary"
-                                  style={{ backgroundColor: themeColor + '0d', color: themeColor }}
+                                  className="bg-brand/5 text-brand"
                                 >
                                   ✓ EasySlip
                                 </Badge>
@@ -498,7 +623,7 @@ export default function BookingsPage() {
                                   {t("paymentDeposit")}
                                 </Badge>
                               ) : booking.amount_paid >= booking.total_price ? (
-                                <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">
+                                <Badge variant="secondary" className="bg-brand-50 text-brand">
                                   {t("paymentFull")}
                                 </Badge>
                               ) : null}
@@ -513,7 +638,7 @@ export default function BookingsPage() {
                                 <CalendarDays className="h-3.5 w-3.5" />
                                 {fmtDateStr(booking.check_in, "d MMM yyyy", locale)} → {fmtDateStr(booking.check_out, "d MMM yyyy", locale)}
                               </span>
-                              <span className="font-medium" style={{ color: themeColor }}>
+                              <span className="font-medium text-brand">
                                 ฿{booking.total_price.toLocaleString()}
                               </span>
                               {booking.amount_paid < booking.total_price && (
@@ -532,9 +657,60 @@ export default function BookingsPage() {
                               ID: {booking.id.slice(0, 8)}… ·{" "}
                               {booking.guest_email} · {booking.guest_phone}
                             </p>
+
+                            {/* Pending date change request banner */}
+                            {dateChangeRequests[booking.id] && (
+                              <div className="rounded-lg border border-blue-200 bg-blue-50 p-2.5 mt-1">
+                                <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700 mb-1">
+                                  <ArrowRightLeft className="h-3.5 w-3.5" />
+                                  {t("dateChangeRequest")}
+                                  <span className="text-blue-500 font-normal">({dateChangeRequests[booking.id].requested_by})</span>
+                                </div>
+                                <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-blue-600 mb-2">
+                                  <span>{t("dateChangeFrom")}: {fmtDateStr(dateChangeRequests[booking.id].old_check_in, "d MMM yyyy", locale)}</span>
+                                  <span>{t("dateChangeTo")}: {fmtDateStr(dateChangeRequests[booking.id].new_check_in, "d MMM yyyy", locale)} → {fmtDateStr(dateChangeRequests[booking.id].new_check_out, "d MMM yyyy", locale)}</span>
+                                  {dateChangeRequests[booking.id].price_difference !== 0 && (
+                                    <span className={dateChangeRequests[booking.id].price_difference > 0 ? "text-red-600 font-medium" : "text-green-600 font-medium"}>
+                                      {t("dateChangePriceDiff")}: {dateChangeRequests[booking.id].price_difference > 0 ? "+" : ""}฿{dateChangeRequests[booking.id].price_difference.toLocaleString()}
+                                    </span>
+                                  )}
+                                  {dateChangeRequests[booking.id].easyslip_verified && (
+                                    <Badge variant="secondary" className="bg-brand-50 text-brand text-[10px] py-0">
+                                      <ShieldCheck className="mr-0.5 h-2.5 w-2.5" />
+                                      {t("dateChangeSlipVerified")}
+                                    </Badge>
+                                  )}
+                                </div>
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    className="flex-1 hover:brightness-90 text-white bg-brand"
+                                    onClick={() => handleApproveDateChange(dateChangeRequests[booking.id])}
+                                    disabled={submittingDateChange}
+                                  >
+                                    {submittingDateChange ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
+                                    {t("dateChangeApprove")}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+                                    onClick={() => {
+                                      setRejectTarget(dateChangeRequests[booking.id]);
+                                      setRejectReason("");
+                                      setRejectDialogOpen(true);
+                                    }}
+                                    disabled={submittingDateChange}
+                                  >
+                                    <XCircle className="mr-1 h-3 w-3" />
+                                    {t("dateChangeReject")}
+                                  </Button>
+                                </div>
+                              </div>
+                            )}
                           </div>
 
-                          <div className="flex shrink-0 items-center gap-2">
+                          <div className="flex flex-wrap items-center gap-2">
                             <Button
                               variant="outline"
                               size="sm"
@@ -547,8 +723,7 @@ export default function BookingsPage() {
                               <>
                                 <Button
                                   size="sm"
-                                  className="hover:brightness-90"
-                                  style={{ backgroundColor: themeColor }}
+                                  className="hover:brightness-90 bg-brand"
                                   onClick={async () => {
                                     setUpdatingStatus(true);
                                     try {
@@ -594,8 +769,7 @@ export default function BookingsPage() {
                                 {new Date(booking.check_out) <= new Date() && (
                                   <Button
                                     size="sm"
-                                    className="hover:brightness-90 text-white"
-                                    style={{ backgroundColor: themeColor }}
+                                    className="hover:brightness-90 text-white bg-brand"
                                     onClick={() => handleCompleteClick(booking)}
                                   >
                                     <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
@@ -676,7 +850,7 @@ export default function BookingsPage() {
                       {t("paymentSlip")}
                     </h4>
                     {detailTarget.easyslip_verified ? (
-                      <Badge variant="secondary" style={{ backgroundColor: themeColor + '0d', color: themeColor }}>
+                      <Badge variant="secondary" className="bg-brand/5 text-brand">
                         <ShieldCheck className="mr-1 h-3 w-3" />
                         {t("paymentVerified")}
                       </Badge>
@@ -739,8 +913,18 @@ export default function BookingsPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">{t("total")}</span>
-                    <span className="font-bold" style={{ color: themeColor }}>฿{detailTarget.total_price.toLocaleString()}</span>
+                    <span className="font-bold text-brand">฿{detailTarget.total_price.toLocaleString()}</span>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-500">{t("amountPaid")}</span>
+                    <span className="font-medium text-gray-900">฿{detailTarget.amount_paid.toLocaleString()}</span>
+                  </div>
+                  {detailTarget.amount_paid < detailTarget.total_price && (
+                    <div className="flex justify-between">
+                      <span className="text-amber-600">{t("balanceDue", { amount: "" }).replace(/[:\s฿]+$/, "")}</span>
+                      <span className="font-medium text-amber-600">฿{(detailTarget.total_price - detailTarget.amount_paid).toLocaleString()}</span>
+                    </div>
+                  )}
                 </div>
                 <p className="text-xs text-gray-400 pt-1">ID: {detailTarget.id}</p>
               </div>
@@ -758,8 +942,7 @@ export default function BookingsPage() {
                     {t("cancel")}
                   </Button>
                   <Button
-                    className="hover:brightness-90"
-                    style={{ backgroundColor: themeColor }}
+                    className="hover:brightness-90 bg-brand"
                     disabled={updatingStatus}
                     onClick={async () => {
                       if (detailTarget.status === "pending" || detailTarget.status === "verified") {
@@ -803,8 +986,7 @@ export default function BookingsPage() {
               {detailTarget.status === "confirmed" && new Date(detailTarget.check_out) <= new Date() && (
                 <DialogFooter>
                   <Button
-                    className="hover:brightness-90 text-white"
-                    style={{ backgroundColor: themeColor }}
+                    className="hover:brightness-90 text-white bg-brand"
                     onClick={() => {
                       setDetailDialogOpen(false);
                       handleCompleteClick(detailTarget);
@@ -864,12 +1046,51 @@ export default function BookingsPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Date change reject dialog */}
+      <Dialog open={rejectDialogOpen} onOpenChange={setRejectDialogOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <XCircle className="h-5 w-5 text-red-500" />
+              {t("dateChangeReject")}
+            </DialogTitle>
+          </DialogHeader>
+          <div>
+            <Label>{t("dateChangeRejectReason")}</Label>
+            <Textarea
+              value={rejectReason}
+              onChange={(e) => setRejectReason(e.target.value)}
+              placeholder={t("dateChangeRejectReasonPlaceholder")}
+              rows={2}
+              className="mt-1"
+            />
+          </div>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => { setRejectDialogOpen(false); setRejectTarget(null); }}
+              disabled={submittingDateChange}
+            >
+              {t("cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={handleRejectDateChange}
+              disabled={submittingDateChange}
+            >
+              {submittingDateChange && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+              {t("dateChangeReject")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
       {/* Complete confirmation dialog */}
       <Dialog open={completeDialogOpen} onOpenChange={setCompleteDialogOpen}>
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5" style={{ color: themeColor }} />
+              <CheckCircle2 className="h-5 w-5 text-brand" />
               {t("completeConfirmTitle")}
             </DialogTitle>
             <DialogDescription>
@@ -884,8 +1105,7 @@ export default function BookingsPage() {
               {t("cancel")}
             </Button>
             <Button
-              className="hover:brightness-90 text-white"
-              style={{ backgroundColor: themeColor }}
+              className="hover:brightness-90 text-white bg-brand"
               onClick={handleConfirmComplete}
             >
               <CheckCircle2 className="mr-1 h-4 w-4" />

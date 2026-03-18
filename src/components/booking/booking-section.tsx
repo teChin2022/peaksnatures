@@ -10,7 +10,6 @@ import { motion, AnimatePresence } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
-import { Label } from "@/components/ui/label";
 import {
   Select,
   SelectContent,
@@ -24,7 +23,7 @@ import {
   Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope,
   CalendarDays, Calendar as CalendarIcon, Users, CreditCard, Upload, CheckCircle2, Loader2,
   Camera, ImageIcon, X, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle,
-  Download, MapPin, Ban, Shield, Check, Minus, Plus, User, Mail, Phone,
+  Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, Sparkles, FileText, Lock, MousePointerClick,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
@@ -65,7 +64,7 @@ interface BookingSectionProps {
   seasonalPrices?: RoomSeasonalPrice[];
 }
 
-type BookingStep = "dates" | "details" | "payment" | "confirmed";
+type BookingStep = "dates" | "details" | "payment";
 
 export function BookingSection({
   homestay,
@@ -78,8 +77,9 @@ export function BookingSection({
   const t = useTranslations("booking");
   const tc = useTranslations("common");
   const [mounted, setMounted] = useState(false);
-  const [open, setOpen] = useState(false);
   const [step, setStep] = useState<BookingStep>("dates");
+  const [showConfirmedModal, setShowConfirmedModal] = useState(false);
+  const sectionRef = useRef<HTMLElement>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
   const [numGuests, setNumGuests] = useState("2");
@@ -181,7 +181,7 @@ export function BookingSection({
       if (roomId && rooms.some((r) => r.id === roomId)) {
         handleRoomChange(roomId);
         setStep("dates");
-        setOpen(true);
+        sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
       }
     };
     document.addEventListener("book-room", handler);
@@ -626,7 +626,7 @@ export function BookingSection({
         body: uploadForm,
       }).catch(() => { });
 
-      setStep("confirmed");
+      setShowConfirmedModal(true);
       toast.success(t("successSubmitted"));
     } catch {
       toast.error(t("errorGeneric"));
@@ -635,7 +635,7 @@ export function BookingSection({
     }
   };
 
-  const steps: BookingStep[] = ["dates", "details", "payment", "confirmed"];
+  const steps: BookingStep[] = ["dates", "details", "payment"];
   const currentStepIndex = steps.indexOf(step);
 
   const roomSeasons = selectedRoom ? (seasonsByRoom[selectedRoom.id] || []) : [];
@@ -647,14 +647,6 @@ export function BookingSection({
       ? `฿${priceMin.toLocaleString()}–฿${priceMax.toLocaleString()}`
       : `฿${selectedRoom.price_per_night.toLocaleString()}`
     : "";
-
-  const handleClose = () => {
-    if (step !== "payment") {
-      setOpen(false);
-      setShowCalendar(false);
-      setShowConfirmModal(false);
-    }
-  };
 
   const resetBooking = () => {
     setStep("dates");
@@ -673,38 +665,66 @@ export function BookingSection({
     setPdpaConsent(false);
     setShowCalendar(false);
     setShowConfirmModal(false);
+    setShowConfirmedModal(false);
   };
-
-  if (!open) return null;
 
   return (
     <>
-      {/* Full-screen overlay */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        exit={{ opacity: 0 }}
-        className="fixed inset-0 z-[60] flex items-center justify-center p-2 sm:p-4 bg-black/60 backdrop-blur-sm"
-        onClick={handleClose}
-      >
-        <motion.div
-          initial={{ scale: 0.95, y: 20 }}
-          animate={{ scale: 1, y: 0 }}
-          exit={{ scale: 0.95, y: 20 }}
-          className="bg-white w-full max-w-lg rounded-3xl overflow-hidden shadow-2xl flex flex-col h-[95vh] md:max-h-[90vh]"
-          onClick={(e) => e.stopPropagation()}
-        >
-          {/* ── Booking Form ── */}
-          <div className="p-5 md:p-8 relative flex flex-col h-full">
-            <button
-              onClick={handleClose}
-              className="absolute top-4 right-4 p-2 rounded-full text-gray-400 hover:bg-gray-100 transition-all z-10"
-            >
-              <X size={22} />
-            </button>
+      <section ref={sectionRef} className="py-16 bg-section-alt">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6">
+          <div className="grid gap-10 lg:grid-cols-2 lg:gap-16 items-start">
+            {/* ── Left Column: Heading & Trust Badges ── */}
+            <div className="flex flex-col justify-center">
+              <p className="text-[10px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-4">{t("sectionLabel")}</p>
+              <h2 className="font-serif text-4xl font-normal text-gray-900 leading-tight sm:text-5xl">
+                {t("sectionHeading")}{" "}
+                <span className="italic text-brand">{t("sectionHeadingAccent")}</span>
+              </h2>
+              <p className="mt-4 text-base text-gray-500 leading-relaxed max-w-md">{t("sectionDesc")}</p>
+              <div className="mt-8 space-y-4">
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100">
+                    <Sparkles className="h-4.5 w-4.5 text-gray-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{t("trustResponse")}</p>
+                    <p className="text-xs text-gray-500">{t("trustResponseDesc")}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100">
+                    <FileText className="h-4.5 w-4.5 text-gray-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{t("trustData")}</p>
+                    <p className="text-xs text-gray-500">{t("trustDataDesc")}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100">
+                    <Lock className="h-4.5 w-4.5 text-gray-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{t("trustSecure")}</p>
+                    <p className="text-xs text-gray-500">{t("trustSecureDesc")}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100">
+                    <MousePointerClick className="h-4.5 w-4.5 text-gray-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{t("trustStep")}</p>
+                    <p className="text-xs text-gray-500">{t("trustStepDesc")}</p>
+                  </div>
+                </div>
+              </div>
+            </div>
 
+            {/* ── Right Column: Booking Form Card ── */}
+            <div className="bg-white rounded-3xl shadow-xl p-5 md:p-8 relative flex flex-col">
             {/* Step indicator (compact) */}
-            <div className="flex items-center gap-1 mb-6 pr-10">
+            <div className="flex items-center gap-1 mb-6">
               {steps.map((s, i) => {
                 const isActive = step === s;
                 const isCompleted = currentStepIndex > i;
@@ -713,7 +733,7 @@ export function BookingSection({
                     <div
                       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-colors"
                       style={{
-                        backgroundColor: isActive ? '#111827' : isCompleted ? '#111827' : '#f3f4f6',
+                        backgroundColor: isActive ? '#2F5D50' : isCompleted ? '#2F5D50' : '#f3f4f6',
                         color: isActive || isCompleted ? '#fff' : '#9ca3af',
                       }}
                     >
@@ -731,7 +751,7 @@ export function BookingSection({
             <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)} />
             <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)} />
 
-            <div className="flex-1 overflow-y-auto pr-1">
+            <div className="min-h-[480px] max-h-[600px] overflow-y-auto pr-1">
               <AnimatePresence mode="wait">
                 {/* ═══ Step 1: Dates ═══ */}
                 {step === "dates" && (
@@ -739,19 +759,24 @@ export function BookingSection({
                     <AnimatePresence mode="wait">
                       {!showCalendar ? (
                         <motion.div key="dates-form" initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.25 }} className="space-y-5">
-                          {/* Room detail */}
-                          {selectedRoom && (
+                          {/* Room detail or prompt */}
+                          {selectedRoom ? (
                             <div className="rounded-xl bg-gray-50 p-3">
                               <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("room")}</p>
                               <div className="flex items-baseline justify-between mt-1">
                                 <p className="text-base font-bold text-gray-900">{selectedRoom.name}</p>
                                 <p className="text-sm font-semibold">{priceLabel}/{tc("night")}</p>
                               </div>
-                              {selectedRoom.description && (
+                              {/* {selectedRoom.description && (
                                 <div className="mt-2 text-xs text-gray-500">
                                   <HTMLContent content={selectedRoom.description} className="inline" />
                                 </div>
-                              )}
+                              )} */}
+                            </div>
+                          ) : (
+                            <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
+                              <CalendarDays className="mx-auto h-8 w-8 text-gray-300 mb-2" />
+                              <p className="text-sm font-medium text-gray-500">{t("selectRoomFirst")}</p>
                             </div>
                           )}
 
@@ -759,8 +784,9 @@ export function BookingSection({
 
                           {/* Date picker toggle */}
                           <button
-                            onClick={() => setShowCalendar(true)}
-                            className="w-full flex items-center justify-between p-3.5 rounded-xl border border-gray-200 hover:border-gray-400 transition-all text-sm font-medium text-gray-900 bg-white"
+                            onClick={() => selectedRoomId && setShowCalendar(true)}
+                            disabled={!selectedRoomId}
+                            className={`w-full flex items-center justify-between p-3.5 rounded-xl border border-gray-200 transition-all text-sm font-medium bg-white ${selectedRoomId ? "hover:border-gray-400 text-gray-900 cursor-pointer" : "opacity-50 cursor-not-allowed text-gray-400"}`}
                           >
                             <div className="flex items-center gap-2.5">
                               <CalendarIcon size={16} className="text-gray-400" />
@@ -852,7 +878,7 @@ export function BookingSection({
                           <button
                             onClick={handleProceedToDetails}
                             disabled={!dateRange?.from || !dateRange?.to || !selectedRoomId || !pdpaConsent}
-                            className="w-full bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {t("continueDetails")} <ArrowRight size={18} />
                           </button>
@@ -915,7 +941,7 @@ export function BookingSection({
 
                           <button
                             onClick={() => setShowCalendar(false)}
-                            className="w-full bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                            className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                           >
                             {tc("done")}
                           </button>
@@ -967,7 +993,7 @@ export function BookingSection({
                                 <SelectTrigger className="!w-full p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400">
                                   <SelectValue placeholder={t("provincePlaceholder")} />
                                 </SelectTrigger>
-                                <SelectContent className="max-h-60 z-[70]">
+                                <SelectContent className="max-h-60 z-70">
                                   {THAI_PROVINCES.map((p) => (
                                     <SelectItem key={p.value} value={p.value}>
                                       {locale === "th" ? p.labelTh : p.labelEn}
@@ -988,7 +1014,7 @@ export function BookingSection({
                               if (!guestName || !guestEmail || !guestPhone || !guestProvince) { toast.error(t("errorFillFields")); return; }
                               setShowConfirmModal(true);
                             }}
-                            className="w-full bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                            className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                           >
                             {t("continuePayment")} <ArrowRight size={18} />
                           </button>
@@ -1068,7 +1094,7 @@ export function BookingSection({
                             <button
                               disabled={isSubmitting}
                               onClick={() => { setShowConfirmModal(false); handleProceedToPayment(); }}
-                              className="flex-1 bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50"
+                              className="flex-1 bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                               {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("confirmProceed")}</>) : <>{t("confirmProceed")} <ArrowRight size={18} /></>}
                             </button>
@@ -1106,14 +1132,14 @@ export function BookingSection({
                     {depositAvailable && paymentPhase === "qr" && (
                       <div className="grid grid-cols-2 gap-3">
                         <button type="button" onClick={() => setPaymentOption("full")}
-                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "full" ? "border-gray-900 bg-gray-50" : "border-gray-100 hover:border-gray-300"}`}>
-                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "full" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-400"}`}><CreditCard size={18} /></div>
+                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "full" ? "border-brand bg-brand-50" : "border-gray-100 hover:border-gray-300"}`}>
+                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "full" ? "bg-brand text-white" : "bg-gray-100 text-gray-400"}`}><CreditCard size={18} /></div>
                           <p className="font-bold text-gray-900">{t("payFull")}</p>
                           <p className="text-xs text-gray-500">฿{totalPrice.toLocaleString()}</p>
                         </button>
                         <button type="button" onClick={() => setPaymentOption("deposit")}
-                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "deposit" ? "border-gray-900 bg-gray-50" : "border-gray-100 hover:border-gray-300"}`}>
-                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "deposit" ? "bg-gray-900 text-white" : "bg-gray-100 text-gray-400"}`}><CreditCard size={18} /></div>
+                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "deposit" ? "border-brand bg-brand-50" : "border-gray-100 hover:border-gray-300"}`}>
+                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "deposit" ? "bg-brand text-white" : "bg-gray-100 text-gray-400"}`}><CreditCard size={18} /></div>
                           <p className="font-bold text-gray-900">{t("payDeposit")}</p>
                           <p className="text-xs text-gray-500">฿{resolvedDeposit.toLocaleString()}</p>
                         </button>
@@ -1140,26 +1166,8 @@ export function BookingSection({
                             <p className="text-xs text-gray-400">{t("promptpayId")}: {host.promptpay_id}</p>
                           </div>
 
-                          {/* Instructions */}
-                          <div className="rounded-2xl border bg-gray-50 p-4">
-                            <div className="space-y-2.5">
-                              {[
-                                { num: 1, icon: Smartphone, text: t("payStep1") },
-                                { num: 2, icon: ArrowRight, text: t("payStep2") },
-                                { num: 3, icon: CreditCard, text: t("payStep3") },
-                                { num: 4, icon: Upload, text: t("payStep4") },
-                              ].map((s) => (
-                                <div key={s.num} className="flex items-center gap-2.5">
-                                  <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-900 text-[10px] font-bold text-white">{s.num}</div>
-                                  <s.icon className="h-3.5 w-3.5 shrink-0 text-gray-400" />
-                                  <p className="text-xs text-gray-600">{s.text}</p>
-                                </div>
-                              ))}
-                            </div>
-                          </div>
-
                           <button onClick={() => setPaymentPhase("upload")}
-                            className="w-full bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
+                            className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
                             <CheckCircle2 className="h-4 w-4" />{t("iveTransferred")}
                           </button>
                         </motion.div>
@@ -1240,7 +1248,7 @@ export function BookingSection({
                           <p className="text-xs text-gray-400 text-center">{t("slipVerify")}</p>
 
                           <button onClick={handleSubmitBooking} disabled={isSubmitting || !slipFile}
-                            className="w-full bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
+                            className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
                             {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin inline" />{t("verifying")}</>) : t("submitBooking")}
                           </button>
                         </motion.div>
@@ -1249,77 +1257,89 @@ export function BookingSection({
                   </motion.div>
                 )}
 
-                {/* ═══ Step 4: Confirmed ═══ */}
-                {step === "confirmed" && (
-                  <motion.div key="step-confirmed" initial={{ opacity: 0, scale: 0.95 }} animate={{ opacity: 1, scale: 1 }} className="flex flex-col items-center text-center py-6">
-                    <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${slipVerified ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"}`}>
-                      <CheckCircle2 size={36} />
-                    </div>
-                    <h3 className="text-2xl font-bold text-gray-900 mb-2">
-                      {slipVerified ? t("confirmedTitle") : t("confirmedTitlePending")}
-                    </h3>
-                    <p className="text-sm text-gray-500 mb-4">
-                      {slipVerified ? t("confirmedText") : t("confirmedTextPending")}
-                    </p>
-                    {bookingId && (
-                      <Badge className="mb-4 bg-gray-100 text-gray-900" variant="secondary">
-                        {t("bookingId")}: {bookingId}
-                      </Badge>
-                    )}
-
-                    <div className="bg-gray-50 p-5 rounded-2xl w-full text-left space-y-2.5 text-sm">
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">{t("homestay")}</span>
-                        <span className="font-bold text-gray-900">{homestay.name}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">{t("room")}</span>
-                        <span className="font-bold text-gray-900">{selectedRoom?.name}</span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">{t("dates")}</span>
-                        <span className="font-bold text-gray-900">
-                          {dateRange?.from && fmtDate(dateRange.from, "MMM d", locale)} — {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy", locale)}
-                        </span>
-                      </div>
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">{t("guestInfo")}</span>
-                        <span className="font-bold text-gray-900">{guestName}</span>
-                      </div>
-                      <Separator />
-                      <div className="flex justify-between">
-                        <span className="text-gray-400">{tc("total")}</span>
-                        <span className="text-lg font-bold text-gray-900">฿{totalPrice.toLocaleString()}</span>
-                      </div>
-                      {paymentOption === "deposit" && depositAvailable && (
-                        <>
-                          <div className="flex justify-between text-xs">
-                            <span className="text-gray-400">{t("amountPaid")}</span>
-                            <span className="text-gray-900">฿{paymentAmount.toLocaleString()}</span>
-                          </div>
-                          <div className="flex justify-between text-xs">
-                            <span className="text-amber-600">{t("balanceDue")}</span>
-                            <span className="text-amber-600">฿{(totalPrice - paymentAmount).toLocaleString()}</span>
-                          </div>
-                        </>
-                      )}
-                    </div>
-
-                    <button onClick={() => { resetBooking(); setOpen(false); }}
-                      className="mt-6 bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl">
-                      {t("bookAnother")}
-                    </button>
-                  </motion.div>
-                )}
               </AnimatePresence>
             </div>
+            </div>{/* end form card */}
+          </div>{/* end grid */}
+        </div>{/* end max-w container */}
+      </section>
+
+      {/* ═══ Confirmed Booking Modal ═══ */}
+      <Dialog open={showConfirmedModal} onOpenChange={(o) => { if (!o) { resetBooking(); } }}>
+        <DialogContent className="sm:max-w-md">
+          <div className="flex flex-col items-center text-center py-4">
+            <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${slipVerified ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"}`}>
+              <CheckCircle2 size={36} />
+            </div>
+            <DialogHeader className="space-y-1">
+              <DialogTitle className="text-2xl font-bold text-gray-900 text-center">
+                {slipVerified ? t("confirmedTitle") : t("confirmedTitlePending")}
+              </DialogTitle>
+              <DialogDescription className="text-sm text-gray-500 text-center">
+                {slipVerified ? t("confirmedText") : t("confirmedTextPending")}
+              </DialogDescription>
+            </DialogHeader>
+            {bookingId && (
+              <Badge className="mt-3 mb-4 bg-gray-100 text-gray-900" variant="secondary">
+                {t("bookingId")}: {bookingId}
+              </Badge>
+            )}
+
+            <div className="bg-gray-50 p-5 rounded-2xl w-full text-left space-y-2.5 text-sm mt-2">
+              <div className="flex justify-between">
+                <span className="text-gray-400">{t("homestay")}</span>
+                <span className="font-bold text-gray-900">{homestay.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">{t("room")}</span>
+                <span className="font-bold text-gray-900">{selectedRoom?.name}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">{t("dates")}</span>
+                <span className="font-bold text-gray-900">
+                  {dateRange?.from && fmtDate(dateRange.from, "MMM d", locale)} — {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy", locale)}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">{t("guestInfo")}</span>
+                <span className="font-bold text-gray-900">{guestName}</span>
+              </div>
+              <Separator />
+              <div className="flex justify-between">
+                <span className="text-gray-400">{tc("total")}</span>
+                <span className="text-lg font-bold text-gray-900">฿{totalPrice.toLocaleString()}</span>
+              </div>
+              {paymentOption === "deposit" && depositAvailable && (
+                <>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-gray-400">{t("amountPaid")}</span>
+                    <span className="text-gray-900">฿{paymentAmount.toLocaleString()}</span>
+                  </div>
+                  <div className="flex justify-between text-xs">
+                    <span className="text-amber-600">{t("balanceDue")}</span>
+                    <span className="text-amber-600">฿{(totalPrice - paymentAmount).toLocaleString()}</span>
+                  </div>
+                </>
+              )}
+            </div>
+
+            <div className="flex gap-3 w-full mt-5">
+              <button onClick={() => { resetBooking(); }}
+                className="flex-1 bg-brand text-white px-6 py-3 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl">
+                {t("bookAnother")}
+              </button>
+              <button onClick={() => { setShowConfirmedModal(false); resetBooking(); }}
+                className="flex-1 py-3 rounded-full font-bold text-sm border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all">
+                {t("confirmedClose")}
+              </button>
+            </div>
           </div>
-        </motion.div>
-      </motion.div>
+        </DialogContent>
+      </Dialog>
 
       {/* Dates Held Modal */}
       <Dialog open={showHeldModal} onOpenChange={(o) => { if (!o) handleHeldModalClose(); }}>
-        <DialogContent showCloseButton={false}>
+        <DialogContent showCloseButton={false} className="z-70" overlayClassName="z-70">
           <DialogHeader>
             <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
               <AlertTriangle className="h-6 w-6 text-amber-600" />
@@ -1328,7 +1348,7 @@ export function BookingSection({
             <DialogDescription className="text-center">{t("datesHeldDesc")}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button className="w-full bg-gray-900 text-white hover:bg-black" onClick={handleHeldModalClose}>{t("chooseDifferentDates")}</Button>
+            <Button className="w-full bg-brand text-white hover:bg-brand-hover" onClick={handleHeldModalClose}>{t("chooseDifferentDates")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

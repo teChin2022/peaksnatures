@@ -22,7 +22,7 @@ export function ForHosts() {
       icon: <HandCoins className="text-gray-600" size={24} />,
       title: "ค่าบริการที่ยุติธรรม",
       description:
-        "ค่าคอมมิชชั่นโปร่งใส ออกแบบมาเพื่อสนับสนุนโฮมสเตย์ท้องถิ่น",
+        "เราเก็บค่าบริการเป็นแบบทั้งค่าคอมมิชชั่นและรายเดือน ออกแบบมาเพื่อสนับสนุนโฮมสเตย์ท้องถิ่น",
     },
   ];
 
@@ -92,11 +92,11 @@ export function ForHosts() {
             สมัคร<span className="italic">ฟรี</span>
           </h3>
           <p className="text-gray-500 leading-relaxed mb-8">
-            จ่ายค่าคอมมิชชั่นเฉพาะเมื่อมีการจอง
+            จ่ายเป็นค่าคอมมิชชั่นหรือจ่ายเป็นรายเดือน
           </p>
           <Link
             href="/register"
-            className="inline-block bg-gray-900 text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl"
+            className="inline-block bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl"
           >
             ลงทะเบียนเจ้าของที่พัก
           </Link>

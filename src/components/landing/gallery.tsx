@@ -15,10 +15,10 @@ export function LandingGallery() {
   return (
     <section id="gallery" className="py-24 bg-white overflow-hidden">
       <div className="max-w-7xl mx-auto px-4 mb-16 text-center">
-        <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-earth-400 block mb-4">
+        <span className="text-[10px] font-bold uppercase tracking-[0.3em] text-[#6B7280] block mb-4">
           Visual Journey
         </span>
-        <h2 className="text-4xl md:text-5xl font-serif text-earth-900">
+        <h2 className="text-4xl md:text-5xl font-serif text-[#111111]">
           Captured <span className="italic">Moments</span>
         </h2>
       </div>

@@ -56,10 +56,26 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Fetch host name for audit trail
+    const { data: hsRow } = await supabase
+      .from("homestays")
+      .select("host_id")
+      .eq("id", booking.homestay_id)
+      .single();
+    let hostName = "host";
+    if (hsRow) {
+      const { data: hRow } = await supabase
+        .from("hosts")
+        .select("name")
+        .eq("id", (hsRow as unknown as { host_id: string }).host_id)
+        .single();
+      if (hRow) hostName = (hRow as unknown as { name: string }).name;
+    }
+
     // Update the booking status
-    const updateData: Record<string, unknown> = { status, updated_by: "system" };
+    const updateData: Record<string, unknown> = { status, updated_by: hostName };
     if (status === "cancelled") {
-      updateData.cancelled_by = "host";
+      updateData.cancelled_by = hostName;
       updateData.cancelled_at = new Date().toISOString();
       if (reason) {
         updateData.cancel_reason = reason;
@@ -77,6 +93,15 @@ export async function POST(req: NextRequest) {
         { error: "Failed to update booking status" },
         { status: 500 }
       );
+    }
+
+    // Auto-reject any pending date change requests when booking is cancelled
+    if (status === "cancelled") {
+      await supabase
+        .from("date_change_requests")
+        .update({ status: "rejected", reject_reason: "Booking cancelled by host", updated_by: "system" } as never)
+        .eq("booking_id", booking_id)
+        .eq("status", "pending");
     }
 
     // Log event + send guest email notification in background

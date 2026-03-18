@@ -15,6 +15,14 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
+    // Fetch host name for audit trail
+    const { data: hostRow } = await supabase
+      .from("hosts")
+      .select("name")
+      .eq("id", host_id)
+      .single();
+    const hostName = (hostRow as { name: string } | null)?.name || host_id;
+
     // Upsert: if same host+endpoint exists, update keys
     const { error } = await supabase
       .from("push_subscriptions" as never)
@@ -25,7 +33,7 @@ export async function POST(req: NextRequest) {
           p256dh,
           auth,
           user_agent: user_agent || null,
-          created_by: host_id,
+          created_by: hostName,
         } as never,
         { onConflict: "host_id,endpoint" }
       );

@@ -87,10 +87,27 @@ export async function GET(request: NextRequest) {
     );
   }
 
+  // Fetch pending date change requests for these bookings
+  const bookingIds = sliced.map((b) => b.id);
+  let pendingDateChanges: Record<string, { id: string; new_check_in: string; new_check_out: string; new_total_price: number; price_difference: number; status: string }> = {};
+  if (bookingIds.length > 0) {
+    const { data: dcrRows } = await supabase
+      .from("date_change_requests")
+      .select("id, booking_id, new_check_in, new_check_out, new_total_price, price_difference, status, new_room_id")
+      .in("booking_id", bookingIds)
+      .eq("status", "pending");
+    if (dcrRows) {
+      for (const row of dcrRows as unknown as { id: string; booking_id: string; new_check_in: string; new_check_out: string; new_total_price: number; price_difference: number; status: string; new_room_id: string | null }[]) {
+        pendingDateChanges[row.booking_id] = row;
+      }
+    }
+  }
+
   const results = sliced.map((b) => ({
     ...b,
     room_name: b.room_id ? roomMap[b.room_id] || "—" : "—",
     has_review: reviewedSet.has(b.id),
+    pending_date_change: pendingDateChanges[b.id] || null,
   }));
 
   return NextResponse.json({ bookings: results, cancellation_days: cancellationDays });

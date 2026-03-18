@@ -4,7 +4,6 @@ import { useState, useEffect } from "react";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sidebar, MobileSidebar } from "./sidebar";
-import { ThemeProvider } from "./theme-context";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
@@ -17,7 +16,6 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const [mobileOpen, setMobileOpen] = useState(false);
   const [brandName, setBrandName] = useState("Peaksnature");
   const [brandLogo, setBrandLogo] = useState<string | null>(null);
-  const [themeColor, setThemeColor] = useState("#16a34a");
 
   useEffect(() => {
     const fetchBrand = async () => {
@@ -36,16 +34,15 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
       const { data: homestay } = await supabase
         .from("homestays")
-        .select("name, logo_url, theme_color")
+        .select("name, logo_url")
         .eq("host_id", hostRow.id)
         .limit(1)
         .single();
 
       if (homestay) {
-        const h = homestay as { name: string; logo_url: string | null; theme_color: string };
+        const h = homestay as { name: string; logo_url: string | null };
         setBrandName(h.name);
         setBrandLogo(h.logo_url);
-        setThemeColor(h.theme_color || "#16a34a");
       }
     };
     fetchBrand();
@@ -55,11 +52,11 @@ export function DashboardShell({ children }: DashboardShellProps) {
     <div className="min-h-screen bg-gray-50">
       {/* Desktop sidebar */}
       <div className="hidden lg:block">
-        <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} brandName={brandName} brandLogo={brandLogo} themeColor={themeColor} />
+        <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} brandName={brandName} brandLogo={brandLogo} />
       </div>
 
       {/* Mobile sidebar */}
-      <MobileSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} brandName={brandName} brandLogo={brandLogo} themeColor={themeColor} />
+      <MobileSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} brandName={brandName} brandLogo={brandLogo} />
 
       {/* Main content */}
       <div
@@ -84,7 +81,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
         </header>
 
         <main className="p-4 sm:p-6">
-          <ThemeProvider color={themeColor}>{children}</ThemeProvider>
+          {children}
         </main>
       </div>
     </div>

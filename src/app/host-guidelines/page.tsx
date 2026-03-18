@@ -36,7 +36,7 @@ export default async function HostGuidelinesPage() {
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
           <Link href="/" className="flex items-center gap-2">
             <Image src="/logo.png" alt="Peaksnature" width={32} height={32} className="h-8 w-8 rounded" />
-            <span className="text-xl font-bold text-green-800">{tc("brand")}</span>
+            <span className="text-xl font-bold text-brand">{tc("brand")}</span>
           </Link>
           <nav className="flex items-center gap-4">
             <LanguageSwitcher />
@@ -51,10 +51,10 @@ export default async function HostGuidelinesPage() {
       </header>
 
       {/* Hero */}
-      <section className="bg-gradient-to-b from-green-50 to-white py-16">
+      <section className="bg-gradient-to-b from-brand-50 to-white py-16">
         <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-green-100">
-            <BookOpen className="h-7 w-7 text-green-600" />
+          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-50">
+            <BookOpen className="h-7 w-7 text-brand" />
           </div>
           <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl">{t("title")}</h1>
           <p className="mt-2 text-gray-600">{t("subtitle")}</p>
@@ -86,10 +86,10 @@ export default async function HostGuidelinesPage() {
           </div>
 
           {/* CTA */}
-          <div className="mt-10 rounded-lg bg-green-50 p-6 text-center">
+          <div className="mt-10 rounded-lg bg-brand-50 p-6 text-center">
             <h2 className="text-xl font-bold text-gray-900">{t("ctaTitle")}</h2>
             <p className="mt-2 text-sm text-gray-600">{t("ctaDesc")}</p>
-            <Button className="mt-4 bg-green-600 hover:bg-green-700" asChild>
+            <Button className="mt-4 bg-brand hover:bg-brand-hover" asChild>
               <Link href="/register">{t("ctaTitle")}</Link>
             </Button>
           </div>

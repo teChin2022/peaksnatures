@@ -50,7 +50,6 @@ import {
   SelectValue,
 } from "@/components/ui/select";
 import { toast } from "sonner";
-import { useThemeColor } from "@/components/dashboard/theme-context";
 import type { BookingStatus } from "@/types/database";
 
 interface BookingRow {
@@ -98,7 +97,6 @@ const WEEKDAYS_TH = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.
 
 export default function CalendarPage() {
   const t = useTranslations("dashboardCalendar");
-  const themeColor = useThemeColor();
 
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
@@ -470,7 +468,7 @@ export default function CalendarPage() {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-gray-500">{t("available")}</p>
-            <p className="text-2xl font-bold" style={{ color: themeColor }}>
+            <p className="text-2xl font-bold text-brand">
               {monthStats.available}
             </p>
             <p className="text-xs text-gray-400">{monthStats.pct}%</p>
@@ -629,9 +627,9 @@ export default function CalendarPage() {
                   `}
                   style={{
                     borderColor: isSelected
-                      ? themeColor
+                      ? "#2F5D50"
                       : hasConfirmed && dayInfo.isCurrentMonth && !dayInfo.isBlocked
-                      ? themeColor
+                      ? "#2F5D50"
                       : undefined,
                   }}
                 >
@@ -641,7 +639,7 @@ export default function CalendarPage() {
                         ? "flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full text-white"
                         : ""
                     }`}
-                    style={dayInfo.isToday ? { backgroundColor: themeColor } : undefined}
+                    style={dayInfo.isToday ? { backgroundColor: "#2F5D50" } : undefined}
                   >
                     {format(dayInfo.date, "d")}
                   </span>
@@ -651,8 +649,8 @@ export default function CalendarPage() {
                     <div className="mt-auto flex w-full flex-col gap-0.5">
                       {dayInfo.bookings.slice(0, 2).map((bi) => {
                         const isPending = bi.booking.status === "pending";
-                        const barColor = isPending ? "#eab308" : themeColor;
-                        const barBg = isPending ? "rgba(234,179,8,0.15)" : `${themeColor}18`;
+                        const barColor = isPending ? "#eab308" : "#2F5D50";
+                        const barBg = isPending ? "rgba(234,179,8,0.15)" : "#2F5D5018";
                         return (
                           <div
                             key={bi.booking.id + bi.position}
@@ -698,8 +696,7 @@ export default function CalendarPage() {
           <div className="mt-4 flex flex-wrap items-center gap-4 border-t pt-4 text-xs text-gray-500">
             <div className="flex items-center gap-1.5">
               <span
-                className="inline-block h-3 w-3 rounded-full"
-                style={{ backgroundColor: themeColor }}
+                className="inline-block h-3 w-3 rounded-full bg-brand"
               />
               {t("legendBooked")}
             </div>
@@ -785,7 +782,7 @@ export default function CalendarPage() {
         <DialogContent className="max-w-md">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5" style={{ color: themeColor }} />
+              <CalendarDays className="h-5 w-5 text-brand" />
               {detailDay && fmtDate(detailDay.date, "EEE, d MMM yyyy", locale)}
             </DialogTitle>
             <DialogDescription>
@@ -823,7 +820,7 @@ export default function CalendarPage() {
                         variant="outline"
                         className={`text-[10px] px-1.5 py-0 ${
                           bi.position === "start"
-                            ? "border-green-300 text-green-700 bg-green-50"
+                            ? "border-brand/30 text-brand bg-brand-50"
                             : bi.position === "end"
                             ? "border-orange-300 text-orange-700 bg-orange-50"
                             : "border-blue-300 text-blue-700 bg-blue-50"
@@ -846,8 +843,8 @@ export default function CalendarPage() {
                     </div>
                   </div>
                   <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="rounded-md bg-green-50 px-2.5 py-1.5">
-                      <p className="text-green-600 font-medium mb-0.5">{t("checkIn")}</p>
+                    <div className="rounded-md bg-brand-50 px-2.5 py-1.5">
+                      <p className="text-brand font-medium mb-0.5">{t("checkIn")}</p>
                       <p className="text-gray-900 font-semibold">{fmtDateStr(bi.booking.check_in, "d MMM yyyy", locale)}</p>
                     </div>
                     <div className="rounded-md bg-orange-50 px-2.5 py-1.5">
@@ -860,7 +857,7 @@ export default function CalendarPage() {
                       {bi.booking.room_id ? roomMap[bi.booking.room_id] || "—" : "—"} · {bi.booking.num_guests} {t("guests")}
                     </span>
                     <div className="text-right">
-                      <span className="font-semibold text-sm" style={{ color: themeColor }}>
+                      <span className="font-semibold text-sm text-brand">
                         ฿{bi.booking.total_price.toLocaleString()}
                       </span>
                       {bi.booking.payment_type === "deposit" && bi.booking.amount_paid < bi.booking.total_price && (
@@ -888,7 +885,7 @@ export default function CalendarPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Unlock className="h-5 w-5 text-green-600" />
+              <Unlock className="h-5 w-5 text-brand" />
               {t("unblockDate")}
             </DialogTitle>
             <DialogDescription>
@@ -917,8 +914,7 @@ export default function CalendarPage() {
             <Button
               onClick={handleUnblockDates}
               disabled={saving}
-              className="hover:brightness-90"
-              style={{ backgroundColor: themeColor }}
+              className="hover:brightness-90 bg-brand"
             >
               {saving ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

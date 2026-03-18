@@ -66,18 +66,15 @@ export default function ForgotPasswordPage() {
     <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2">
-          <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.png" alt="Peaksnature" width={32} height={32} className="h-8 w-8 rounded" />
-            <span className="text-2xl font-bold text-green-800">{t('forgotPasswordTitle')}</span>
-          </Link>
+          <span className="text-2xl font-bold ">{t('forgotPasswordTitle')}</span>
           <p className="text-sm text-gray-500">{t("hostDashboard")}</p>
         </div>
 
         {emailSent ? (
           <Card>
             <CardContent className="flex flex-col items-center gap-4 py-8">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-green-100">
-                <Mail className="h-8 w-8 text-green-600" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-50">
+                <Mail className="h-8 w-8 text-brand" />
               </div>
               <h2 className="text-xl font-semibold text-gray-900">
                 {t("resetEmailTitle")}
@@ -134,7 +131,7 @@ export default function ForgotPasswordPage() {
               <CardFooter className="flex flex-col gap-3">
                 <Button
                   type="submit"
-                  className="w-full bg-gray-900 text-white py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-black transition-all shadow-lg hover:shadow-xl"
+                  className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl"
                   disabled={loading || (!turnstileToken && !turnstileError)}
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

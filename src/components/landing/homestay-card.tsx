@@ -86,7 +86,7 @@ export function HomestayCard({
                 <span className="text-lg font-bold">
                   ฿{minPrice.toLocaleString()}
                 </span>
-                <span className="text-gray-500"> / night</span>
+                <span className="text-gray-500"> / คืน</span>
               </p>
             )}
           </div>

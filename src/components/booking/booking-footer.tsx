@@ -20,7 +20,7 @@ export function BookingFooter({
   const tc = useTranslations("common");
 
   return (
-    <footer className="border-t bg-gray-50/80">
+    <footer className="border-t bg-section-alt">
       <div className="h-0.5 w-full bg-gradient-to-r from-gray-400 via-gray-200 to-transparent" />
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-between sm:text-left">
@@ -54,7 +54,7 @@ export function BookingFooter({
 
           {/* Right: Legal & Copyright */}
           <div className="flex flex-col items-center gap-1.5 sm:items-end">
-            <p className="text-xs text-gray-400">{`\u00A9 ${new Date().getFullYear()} ${tc("copyright")}`}</p>
+            <p className="text-xs text-gray-500">{`\u00A9 ${new Date().getFullYear()} ${tc("copyright")}`}</p>
             <div className="flex items-center gap-3">
               <a
                 href="/legal#privacy"

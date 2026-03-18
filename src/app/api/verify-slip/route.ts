@@ -99,6 +99,20 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Also check date_change_requests for duplicate slip hash
+    const { data: dcHashDuplicate } = await supabase
+      .from("date_change_requests")
+      .select("id")
+      .eq("slip_hash", slipHash)
+      .limit(1);
+
+    if ((dcHashDuplicate as unknown[] | null)?.length) {
+      return NextResponse.json(
+        { error: "This payment slip has already been used for another booking.", duplicate: true },
+        { status: 409 }
+      );
+    }
+
     // Upload slip to temporary storage (will be moved to booking path after booking creation)
     const tempId = crypto.randomUUID();
     const ext = file.name.split(".").pop() || "jpg";
@@ -197,6 +211,20 @@ export async function POST(req: NextRequest) {
         .limit(1);
 
       if ((transRefDuplicate as unknown[] | null)?.length) {
+        return NextResponse.json(
+          { error: "This payment transaction has already been used for another booking.", duplicate: true },
+          { status: 409 }
+        );
+      }
+
+      // Also check date_change_requests for duplicate transaction reference
+      const { data: dcTransRefDuplicate } = await supabase
+        .from("date_change_requests")
+        .select("id")
+        .eq("slip_trans_ref", transRef)
+        .limit(1);
+
+      if ((dcTransRefDuplicate as unknown[] | null)?.length) {
         return NextResponse.json(
           { error: "This payment transaction has already been used for another booking.", duplicate: true },
           { status: 409 }

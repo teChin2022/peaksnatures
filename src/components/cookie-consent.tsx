@@ -70,7 +70,7 @@ export function CookieConsent() {
             <Button
               size="sm"
               onClick={handleAccept}
-              className="rounded-full bg-gray-900 text-xs text-white hover:bg-gray-800"
+              className="rounded-full bg-brand text-xs text-white hover:bg-brand-hover"
             >
               {t("accept")}
             </Button>

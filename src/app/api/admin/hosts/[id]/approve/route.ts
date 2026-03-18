@@ -25,6 +25,14 @@ export async function PATCH(
     const { id } = await params;
     const sc = createServiceRoleClient();
 
+    // Fetch admin name for audit trail
+    const { data: adminRow } = await sc
+      .from("platform_admins")
+      .select("name")
+      .eq("user_id", user.id)
+      .single();
+    const adminName = (adminRow as { name: string } | null)?.name || user.id;
+
     // Get host
     const { data: host, error: fetchError } = await sc
       .from("hosts")
@@ -45,7 +53,7 @@ export async function PATCH(
     // Update status
     const { error: updateError } = await sc
       .from("hosts")
-      .update({ status: "approved", updated_by: user.id } as never)
+      .update({ status: "approved", updated_by: adminName } as never)
       .eq("id", id);
 
     if (updateError) {

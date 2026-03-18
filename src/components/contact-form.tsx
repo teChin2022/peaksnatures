@@ -91,7 +91,7 @@ export function ContactForm() {
       <Button
         type="submit"
         disabled={sending}
-        className="bg-green-600 hover:bg-green-700"
+        className="bg-brand hover:bg-brand-hover"
       >
         {sending ? (
           t("contactFormSending")

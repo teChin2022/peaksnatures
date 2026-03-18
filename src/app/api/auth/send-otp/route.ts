@@ -91,12 +91,12 @@ export async function POST(req: NextRequest) {
     const code = String(Math.floor(100000 + Math.random() * 900000));
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 minutes
 
-    // Store OTP in DB (delete old codes in parallel with insert)
+    // Store OTP in DB (delete old codes first, then insert new one)
     const serviceClient = createServiceRoleClient();
-    const [, { error: insertError }] = await Promise.all([
-      serviceClient.from("login_otps").delete().eq("email", email),
-      serviceClient.from("login_otps").insert({ email, code, expires_at: expiresAt } as never),
-    ]);
+    await serviceClient.from("login_otps").delete().eq("email", email);
+    const { error: insertError } = await serviceClient
+      .from("login_otps")
+      .insert({ email, code, expires_at: expiresAt } as never);
 
     if (insertError) {
       console.error("[OTP] Failed to store OTP:", insertError);
@@ -147,17 +147,12 @@ export async function POST(req: NextRequest) {
             { status: 500 }
           );
         }
-
-        console.log(`[OTP] Code sent to ${email}, id: ${data?.id}`);
       } catch (emailError) {
-        console.error("[OTP] Email send error:", emailError);
         return NextResponse.json(
           { error: "Failed to send verification email" },
           { status: 500 }
         );
       }
-    } else {
-      console.log(`[OTP] Resend not configured. Code for ${email}: ${code}`);
     }
 
     return NextResponse.json({ success: true });

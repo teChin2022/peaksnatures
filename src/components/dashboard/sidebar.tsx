@@ -9,7 +9,6 @@ import {
   User,
   Home,
   BedDouble,
-  Palette,
   CalendarDays,
   CalendarCheck,
   ChevronLeft,
@@ -30,7 +29,6 @@ const NAV_ITEMS = [
   { key: "rooms", href: "/dashboard/rooms", icon: BedDouble },
   { key: "bookings", href: "/dashboard/bookings", icon: CalendarDays },
   { key: "calendar", href: "/dashboard/calendar", icon: CalendarCheck },
-  { key: "theme", href: "/dashboard/theme", icon: Palette },
   { key: "guide", href: "/dashboard/guide", icon: BookOpen },
   { key: "profile", href: "/dashboard/profile", icon: User }
 ] as const;
@@ -40,10 +38,9 @@ interface SidebarProps {
   onToggle: () => void;
   brandName?: string;
   brandLogo?: string | null;
-  themeColor?: string;
 }
 
-export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandLogo, themeColor = "#16a34a" }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandLogo }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const t = useTranslations("dashboardNav");
@@ -80,7 +77,7 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
             // </div>
           )}
           {!collapsed && (
-            <span className="whitespace-nowrap font-bold truncate" style={{ color: themeColor }}>
+            <span className="whitespace-nowrap font-bold truncate text-brand">
               {brandName}
             </span>
           )}
@@ -115,10 +112,9 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
               className={cn(
                 "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                 isActive
-                  ? ""
+                  ? "bg-brand/5 text-brand"
                   : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
               )}
-              style={isActive ? { backgroundColor: themeColor + '0d', color: themeColor } : undefined}
               title={collapsed ? t(item.key) : undefined}
             >
               <Icon className="h-4.5 w-4.5 shrink-0" />
@@ -151,13 +147,11 @@ export function MobileSidebar({
   onClose,
   brandName = "Peaksnature",
   brandLogo,
-  themeColor = "#16a34a",
 }: {
   open: boolean;
   onClose: () => void;
   brandName?: string;
   brandLogo?: string | null;
-  themeColor?: string;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -191,13 +185,12 @@ export function MobileSidebar({
               <Image src={brandLogo} alt={brandName} width={24} height={24} className="h-6 w-6 shrink-0 rounded object-cover" />
             ) : (
               <div
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-bold text-white"
-                style={{ backgroundColor: themeColor }}
+                className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-brand text-[10px] font-bold text-white"
               >
                 {getInitials(brandName)}
               </div>
             )}
-            <span className="font-bold truncate" style={{ color: themeColor }}>{brandName}</span>
+            <span className="font-bold truncate text-brand">{brandName}</span>
           </Link>
           <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
             <X className="h-4 w-4" />
@@ -220,10 +213,9 @@ export function MobileSidebar({
                 className={cn(
                   "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
                   isActive
-                    ? ""
+                    ? "bg-brand/5 text-brand"
                     : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
                 )}
-                style={isActive ? { backgroundColor: themeColor + '0d', color: themeColor } : undefined}
               >
                 <Icon className="h-4.5 w-4.5 shrink-0" />
                 <span className="truncate">{t(item.key)}</span>

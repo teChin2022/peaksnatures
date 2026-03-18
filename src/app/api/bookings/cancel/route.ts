@@ -107,9 +107,9 @@ export async function POST(req: NextRequest) {
     // Cancel the booking
     const updateData: Record<string, unknown> = {
       status: "cancelled",
-      cancelled_by: "guest",
+      cancelled_by: booking.guest_name,
       cancelled_at: new Date().toISOString(),
-      updated_by: "guest",
+      updated_by: booking.guest_name,
     };
     if (reason) {
       updateData.cancel_reason = reason;
@@ -127,6 +127,13 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Auto-reject any pending date change requests for this booking
+    await supabase
+      .from("date_change_requests")
+      .update({ status: "rejected", reject_reason: "Booking cancelled", updated_by: "system" } as never)
+      .eq("booking_id", booking_id)
+      .eq("status", "pending");
 
     // Log + notify host in background
     after(async () => {
