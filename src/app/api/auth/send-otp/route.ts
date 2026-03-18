@@ -147,17 +147,12 @@ export async function POST(req: NextRequest) {
             { status: 500 }
           );
         }
-
-        console.log(`[OTP] Code sent to ${email}, id: ${data?.id}`);
       } catch (emailError) {
-        console.error("[OTP] Email send error:", emailError);
         return NextResponse.json(
           { error: "Failed to send verification email" },
           { status: 500 }
         );
       }
-    } else {
-      console.log(`[OTP] Resend not configured. Code for ${email}: ${code}`);
     }
 
     return NextResponse.json({ success: true });
