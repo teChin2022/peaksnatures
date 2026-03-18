@@ -400,6 +400,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
           toast.error(t("errorSlipDuplicate"));
           setDateChangeSlipFile(null);
           setDateChangeSlipPreview(null);
+          setDcPhoneSlipReceived(false);
           if (dateChangeFileRef.current) dateChangeFileRef.current.value = "";
           setSubmittingDateChange(false);
           return;
@@ -408,6 +409,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
           toast.error(verifyData.message || t("errorSlipVerify"));
           setDateChangeSlipFile(null);
           setDateChangeSlipPreview(null);
+          setDcPhoneSlipReceived(false);
           if (dateChangeFileRef.current) dateChangeFileRef.current.value = "";
           setSubmittingDateChange(false);
           return;
