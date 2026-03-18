@@ -749,11 +749,11 @@ export function BookingSection({
                                 <p className="text-base font-bold text-gray-900">{selectedRoom.name}</p>
                                 <p className="text-sm font-semibold">{priceLabel}/{tc("night")}</p>
                               </div>
-                              {selectedRoom.description && (
+                              {/* {selectedRoom.description && (
                                 <div className="mt-2 text-xs text-gray-500">
                                   <HTMLContent content={selectedRoom.description} className="inline" />
                                 </div>
-                              )}
+                              )} */}
                             </div>
                           ) : (
                             <div className="rounded-xl border border-dashed border-gray-300 bg-gray-50 p-4 text-center">
