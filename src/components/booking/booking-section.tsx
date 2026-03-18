@@ -964,7 +964,7 @@ export function BookingSection({
 
                           <div className="space-y-4">
                             <div className="space-y-1.5">
-                              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("fullName")} *</label>
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("fullName")} <span className="text-red-500">*</span></label>
                               <div className="relative">
                                 <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                                 <Input ref={nameInputRef} value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder={t("fullNamePlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400" />
@@ -972,7 +972,7 @@ export function BookingSection({
                             </div>
 
                             <div className="space-y-1.5">
-                              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("email")} *</label>
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("email")} <span className="text-red-500">*</span></label>
                               <div className="relative">
                                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                                 <Input type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder={t("emailPlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400" />
@@ -980,7 +980,7 @@ export function BookingSection({
                             </div>
 
                             <div className="space-y-1.5">
-                              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("phone")} *</label>
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("phone")} <span className="text-red-500">*</span></label>
                               <div className="relative">
                                 <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                                 <Input type="number" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder={t("phonePlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400" />
@@ -988,7 +988,7 @@ export function BookingSection({
                             </div>
 
                             <div className="space-y-1.5">
-                              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("province")}</label>
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("province")} <span className="text-red-500">*</span></label>
                               <Select value={guestProvince} onValueChange={setGuestProvince}>
                                 <SelectTrigger className="!w-full p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400">
                                   <SelectValue placeholder={t("provincePlaceholder")} />
