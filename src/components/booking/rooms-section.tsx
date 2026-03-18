@@ -233,7 +233,7 @@ function RoomDescriptionWithReadMore({ content, onReadMore }: { content: string;
       {overflows && (
         <button
           type="button"
-          className="mt-1 text-sm font-medium text-gray-900 underline underline-offset-4 hover:text-gray-600"
+          className="mt-1 text-left text-sm font-medium text-gray-900 underline underline-offset-4 hover:text-gray-600"
           onClick={onReadMore}
         >
           {t("readMore")}
