@@ -386,6 +386,15 @@ export async function POST(req: NextRequest) {
           priceDifference,
           newTotalPrice,
           roomChanged ? newRoom?.name : undefined,
+          {
+            amountPaid: booking.amount_paid,
+            additionalPayment,
+            paymentOption,
+            depositAvailable,
+            newDeposit,
+            fullOutstanding,
+            paymentType: booking.payment_type,
+          },
         );
       } catch (error) {
         console.error("[ChangeDates] Notification error (non-blocking):", error);

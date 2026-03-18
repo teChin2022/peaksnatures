@@ -49,6 +49,7 @@ export async function POST(req: NextRequest) {
       easyslip_verified: boolean;
       old_room_id: string | null;
       new_room_id: string | null;
+      additional_payment: number;
     };
 
     // Fetch booking to verify host ownership
@@ -181,6 +182,10 @@ export async function POST(req: NextRequest) {
 
         const details = { booking, homestay, host, room };
 
+        const newAmountPaid = booking.amount_paid + (dcr.easyslip_verified ? dcr.additional_payment : 0);
+        const cappedAmountPaid = Math.min(newAmountPaid, dcr.new_total_price);
+        const remainingBalance = Math.max(0, dcr.new_total_price - cappedAmountPaid);
+
         await sendDateChangeEmailToGuest(
           details,
           "approved",
@@ -193,6 +198,14 @@ export async function POST(req: NextRequest) {
           undefined,
           roomChangeInfo,
           room?.name,
+          {
+            oldTotalPrice: dcr.old_total_price,
+            priceDifference: dcr.price_difference,
+            amountPaid: booking.amount_paid,
+            additionalPayment: dcr.additional_payment,
+            newAmountPaid: cappedAmountPaid,
+            remainingBalance,
+          },
         );
       } catch (error) {
         console.error("[ApproveDateChange] Notification error (non-blocking):", error);

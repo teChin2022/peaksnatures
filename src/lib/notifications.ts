@@ -744,6 +744,15 @@ export async function sendDateChangeLineNotification(
   priceDifference: number,
   newTotalPrice: number,
   newRoomName?: string,
+  paymentInfo?: {
+    amountPaid: number;
+    additionalPayment: number;
+    paymentOption: "full" | "deposit";
+    depositAvailable: boolean;
+    newDeposit: number;
+    fullOutstanding: number;
+    paymentType: string;
+  },
 ) {
   const channelToken = details.host.line_channel_access_token;
   const lineUserId = details.host.line_user_id;
@@ -759,15 +768,47 @@ export async function sendDateChangeLineNotification(
     const oldNights = Math.round((new Date(oldCheckOut).getTime() - new Date(oldCheckIn).getTime()) / (1000 * 60 * 60 * 24));
     const newNights = Math.round((new Date(newCheckOut).getTime() - new Date(newCheckIn).getTime()) / (1000 * 60 * 60 * 24));
 
-    const priceLine = priceDifference > 0
-      ? `   💰 ส่วนต่าง: +฿${priceDifference.toLocaleString()} (ชำระแล้ว)`
-      : priceDifference < 0
-        ? `   💰 ส่วนต่าง: -฿${Math.abs(priceDifference).toLocaleString()}`
-        : `   💰 ราคาเท่าเดิม`;
-
     const roomChangeLine = newRoomName
       ? `🛏️ ห้องใหม่: ${newRoomName} (เดิม: ${room?.name || "Standard"})`
       : `🛏️ ห้อง: ${room?.name || "Standard"}`;
+
+    // Build payment summary lines
+    const paymentLines: string[] = [];
+    if (paymentInfo) {
+      const { amountPaid, additionalPayment, paymentOption, depositAvailable, newDeposit, fullOutstanding, paymentType } = paymentInfo;
+      paymentLines.push(`💳 ประเภทการชำระ: ${paymentType === "deposit" ? "มัดจำ" : "เต็มจำนวน"}`);
+      paymentLines.push(`💰 ยอดที่ชำระแล้ว: ฿${amountPaid.toLocaleString()}`);
+      if (priceDifference > 0) {
+        paymentLines.push(`💰 ส่วนต่างราคา: +฿${priceDifference.toLocaleString()}`);
+      } else if (priceDifference < 0) {
+        paymentLines.push(`💰 ส่วนต่างราคา: -฿${Math.abs(priceDifference).toLocaleString()}`);
+      } else {
+        paymentLines.push(`💰 ส่วนต่างราคา: ฿0 (เท่าเดิม)`);
+      }
+      if (additionalPayment > 0) {
+        if (depositAvailable && paymentOption === "deposit") {
+          paymentLines.push(`✅ ชำระเพิ่ม (มัดจำ): ฿${additionalPayment.toLocaleString()}`);
+          const remaining = Math.max(0, newTotalPrice - amountPaid - additionalPayment);
+          if (remaining > 0) {
+            paymentLines.push(`⏳ ยอดคงเหลือ (ชำระวันเข้าพัก): ฿${remaining.toLocaleString()}`);
+          }
+        } else {
+          paymentLines.push(`✅ ชำระเพิ่ม (เต็มจำนวน): ฿${additionalPayment.toLocaleString()}`);
+        }
+        paymentLines.push(`🧾 สลิปยืนยันแล้ว`);
+      } else if (fullOutstanding === 0 && priceDifference <= 0) {
+        paymentLines.push(`✅ ไม่ต้องชำระเพิ่ม`);
+      }
+    } else {
+      // Fallback for no payment info
+      if (priceDifference > 0) {
+        paymentLines.push(`� ส่วนต่าง: +฿${priceDifference.toLocaleString()} (ชำระแล้ว)`);
+      } else if (priceDifference < 0) {
+        paymentLines.push(`💰 ส่วนต่าง: -฿${Math.abs(priceDifference).toLocaleString()}`);
+      } else {
+        paymentLines.push(`💰 ราคาเท่าเดิม`);
+      }
+    }
 
     const messageText = [
       `📅 แขกขอเปลี่ยน${newRoomName ? "ห้อง/วันเข้าพัก" : "วันเข้าพัก"}`,
@@ -787,7 +828,9 @@ export async function sendDateChangeLineNotification(
       `   📅 ${formatBookingDate(newCheckIn, "th")} → ${formatBookingDate(newCheckOut, "th")} (${newNights} คืน)`,
       `   💰 ราคาใหม่: ฿${newTotalPrice.toLocaleString()}`,
       ``,
-      priceLine,
+      `━━━━━━━━━━━━━━━━`,
+      `📊 สรุปการชำระเงิน`,
+      ...paymentLines,
       ``,
       `━━━━━━━━━━━━━━━━`,
       `กรุณาอนุมัติหรือปฏิเสธใน Dashboard`,
@@ -833,6 +876,14 @@ export async function sendDateChangeEmailToGuest(
   rejectReason?: string,
   roomChangeInfo?: { oldRoomName: string; newRoomName: string },
   roomName?: string,
+  paymentInfo?: {
+    oldTotalPrice: number;
+    priceDifference: number;
+    amountPaid: number;
+    additionalPayment: number;
+    newAmountPaid: number;
+    remainingBalance: number;
+  },
 ) {
   const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
   if (!apiKey) {
@@ -879,6 +930,19 @@ export async function sendDateChangeEmailToGuest(
                 <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ยอดรวมใหม่" : "New Total"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 700;">฿${newTotalPrice.toLocaleString()}</td></tr>
               </table>
             </div>
+            ${paymentInfo ? `
+            <div style="background: #f0fdf4; border: 1px solid #bbf7d0; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+              <h2 style="color: #111827; font-size: 16px; font-weight: 700; margin: 0 0 16px;">${isTh ? "สรุปการชำระเงิน" : "Payment Summary"}</h2>
+              <table style="width: 100%; border-collapse: collapse;">
+                ${paymentInfo.priceDifference !== 0 ? `<tr><td style="padding: 6px 0; color: #6b7280; font-size: 14px;">${isTh ? "ราคาเดิม" : "Original Price"}</td><td style="padding: 6px 0; color: #9ca3af; font-size: 14px; text-decoration: line-through;">฿${paymentInfo.oldTotalPrice.toLocaleString()}</td></tr>
+                <tr><td style="padding: 6px 0; color: #6b7280; font-size: 14px;">${isTh ? "ราคาใหม่" : "New Price"}</td><td style="padding: 6px 0; color: #111827; font-size: 14px; font-weight: 600;">฿${newTotalPrice.toLocaleString()}</td></tr>
+                <tr><td style="padding: 6px 0; color: #6b7280; font-size: 14px;">${isTh ? "ส่วนต่าง" : "Difference"}</td><td style="padding: 6px 0; color: ${paymentInfo.priceDifference > 0 ? "#dc2626" : "#16a34a"}; font-size: 14px; font-weight: 600;">${paymentInfo.priceDifference > 0 ? "+" : ""}฿${paymentInfo.priceDifference.toLocaleString()}</td></tr>` : ""}
+                <tr style="border-top: 1px solid #d1fae5;"><td style="padding: 8px 0; color: #6b7280; font-size: 14px;">${isTh ? "ยอดที่ชำระแล้วก่อนหน้า" : "Previously Paid"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px;">฿${paymentInfo.amountPaid.toLocaleString()}</td></tr>
+                ${paymentInfo.additionalPayment > 0 ? `<tr><td style="padding: 6px 0; color: #6b7280; font-size: 14px;">${isTh ? "ชำระเพิ่มครั้งนี้" : "Additional Payment"}</td><td style="padding: 6px 0; color: #16a34a; font-size: 14px; font-weight: 600;">฿${paymentInfo.additionalPayment.toLocaleString()} ✓</td></tr>` : ""}
+                <tr style="border-top: 1px solid #d1fae5;"><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 700;">${isTh ? "ยอดชำระแล้วทั้งหมด" : "Total Paid"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 700;">฿${paymentInfo.newAmountPaid.toLocaleString()}</td></tr>
+                ${paymentInfo.remainingBalance > 0 ? `<tr><td style="padding: 6px 0; color: #b45309; font-size: 14px; font-weight: 600;">${isTh ? "ยอดคงเหลือ (ชำระวันเข้าพัก)" : "Remaining Balance (pay at check-in)"}</td><td style="padding: 6px 0; color: #b45309; font-size: 14px; font-weight: 600;">฿${paymentInfo.remainingBalance.toLocaleString()}</td></tr>` : ""}
+              </table>
+            </div>` : ""}
             <div style="border-top: 1px solid #e5e7eb; padding-top: 24px;">
               <p style="font-size: 14px; color: #374151; margin: 0 0 16px;">${isTh ? "วันเข้าพักของคุณได้รับการอัปเดตเรียบร้อยแล้ว" : "Your booking dates have been updated successfully."}</p>
               <p style="font-size: 14px; color: #374151; margin: 0 0 16px;">${isTh ? "หากท่านมีข้อสงสัยเพิ่มเติม สามารถติดต่อเจ้าของที่พักหรือทีมงานของเราได้ทุกเมื่อ" : "If you have any questions, feel free to contact the property host or our team at any time."}</p>
