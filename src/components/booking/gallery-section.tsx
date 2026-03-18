@@ -187,15 +187,16 @@ export function GallerySection({ images, name }: GallerySectionProps) {
             <ChevronLeft className="h-8 w-8" />
           </Button>
 
-          <div className="relative max-h-[85vh] max-w-[90vw]">
+          <div className="flex h-[85vh] w-[90vw] max-w-5xl items-center justify-center">
             <Image
               key={images[lightboxIndex]}
               src={images[lightboxIndex]}
               alt={`${name} photo ${lightboxIndex + 1}`}
-              width={1200}
-              height={800}
+              width={1920}
+              height={1080}
+              sizes="90vw"
               priority
-              className="max-h-[85vh] max-w-[90vw] rounded-2xl"
+              className="max-h-[85vh] max-w-full h-auto w-auto rounded-2xl"
             />
           </div>
 
