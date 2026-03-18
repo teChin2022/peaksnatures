@@ -200,6 +200,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
         toast.error(t("errorSlipDuplicate"));
         setBalanceSlipFile(null);
         setBalanceSlipPreview(null);
+        if (balanceFileRef.current) balanceFileRef.current.value = "";
         setSubmittingBalance(false);
         return;
       }
@@ -208,6 +209,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
         toast.error(verifyData.message || t("errorSlipVerify"));
         setBalanceSlipFile(null);
         setBalanceSlipPreview(null);
+        if (balanceFileRef.current) balanceFileRef.current.value = "";
         setSubmittingBalance(false);
         return;
       }
@@ -398,6 +400,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
           toast.error(t("errorSlipDuplicate"));
           setDateChangeSlipFile(null);
           setDateChangeSlipPreview(null);
+          if (dateChangeFileRef.current) dateChangeFileRef.current.value = "";
           setSubmittingDateChange(false);
           return;
         }
@@ -405,6 +408,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
           toast.error(verifyData.message || t("errorSlipVerify"));
           setDateChangeSlipFile(null);
           setDateChangeSlipPreview(null);
+          if (dateChangeFileRef.current) dateChangeFileRef.current.value = "";
           setSubmittingDateChange(false);
           return;
         }
@@ -1350,6 +1354,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                     setDateChangeSlipFile(null);
                                     setDateChangeSlipPreview(null);
                                     setDcPhoneSlipReceived(false);
+                                    if (dateChangeFileRef.current) dateChangeFileRef.current.value = "";
                                   }}
                                 >
                                   {t("uploadSlip")}
