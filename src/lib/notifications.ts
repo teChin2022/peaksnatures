@@ -832,6 +832,7 @@ export async function sendDateChangeEmailToGuest(
   locale: string = "th",
   rejectReason?: string,
   roomChangeInfo?: { oldRoomName: string; newRoomName: string },
+  roomName?: string,
 ) {
   const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
   if (!apiKey) {
@@ -874,7 +875,7 @@ export async function sendDateChangeEmailToGuest(
                 <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "วันเดิม" : "Original Dates"}</td><td style="padding: 8px 0; color: #9ca3af; font-size: 14px; text-decoration: line-through;">${formatBookingDate(oldCheckIn, locale)} - ${formatBookingDate(oldCheckOut, locale)}</td></tr>
                 <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "วันใหม่" : "New Dates"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${formatBookingDate(newCheckIn, locale)} - ${formatBookingDate(newCheckOut, locale)}</td></tr>
                 ${roomChangeInfo ? `<tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ห้องเดิม" : "Original Room"}</td><td style="padding: 8px 0; color: #9ca3af; font-size: 14px; text-decoration: line-through;">${roomChangeInfo.oldRoomName}</td></tr>
-                <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ห้องใหม่" : "New Room"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${roomChangeInfo.newRoomName}</td></tr>` : ""}
+                <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ห้องใหม่" : "New Room"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${roomChangeInfo.newRoomName}</td></tr>` : roomName ? `<tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ห้องพัก" : "Room"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${roomName}</td></tr>` : ""}
                 <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ยอดรวมใหม่" : "New Total"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 700;">฿${newTotalPrice.toLocaleString()}</td></tr>
               </table>
             </div>

@@ -192,6 +192,7 @@ export async function POST(req: NextRequest) {
           "th",
           undefined,
           roomChangeInfo,
+          room?.name,
         );
       } catch (error) {
         console.error("[ApproveDateChange] Notification error (non-blocking):", error);

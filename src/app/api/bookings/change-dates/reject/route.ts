@@ -150,6 +150,8 @@ export async function POST(req: NextRequest) {
           dcr.new_total_price,
           "th",
           reason,
+          undefined,
+          room?.name,
         );
       } catch (error) {
         console.error("[RejectDateChange] Notification error (non-blocking):", error);
