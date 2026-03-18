@@ -23,7 +23,7 @@ import {
   Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope,
   CalendarDays, Calendar as CalendarIcon, Users, CreditCard, Upload, CheckCircle2, Loader2,
   Camera, ImageIcon, X, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle,
-  Download, MapPin, Ban, Shield, Check, Minus, Plus, User, Mail, Phone,
+  Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, Sparkles, FileText, Lock, MousePointerClick,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
@@ -684,7 +684,7 @@ export function BookingSection({
               <div className="mt-8 space-y-4">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100">
-                    <Clock className="h-4.5 w-4.5 text-gray-500" />
+                    <Sparkles className="h-4.5 w-4.5 text-gray-500" />
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-900">{t("trustResponse")}</p>
@@ -693,11 +693,29 @@ export function BookingSection({
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100">
-                    <Shield className="h-4.5 w-4.5 text-gray-500" />
+                    <FileText className="h-4.5 w-4.5 text-gray-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{t("trustData")}</p>
+                    <p className="text-xs text-gray-500">{t("trustDataDesc")}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100">
+                    <Lock className="h-4.5 w-4.5 text-gray-500" />
                   </div>
                   <div>
                     <p className="text-sm font-semibold text-gray-900">{t("trustSecure")}</p>
                     <p className="text-xs text-gray-500">{t("trustSecureDesc")}</p>
+                  </div>
+                </div>
+                <div className="flex items-center gap-3">
+                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-gray-100">
+                    <MousePointerClick className="h-4.5 w-4.5 text-gray-500" />
+                  </div>
+                  <div>
+                    <p className="text-sm font-semibold text-gray-900">{t("trustStep")}</p>
+                    <p className="text-xs text-gray-500">{t("trustStepDesc")}</p>
                   </div>
                 </div>
               </div>
@@ -715,7 +733,7 @@ export function BookingSection({
                     <div
                       className="flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-colors"
                       style={{
-                        backgroundColor: isActive ? '#111827' : isCompleted ? '#111827' : '#f3f4f6',
+                        backgroundColor: isActive ? '#2F5D50' : isCompleted ? '#2F5D50' : '#f3f4f6',
                         color: isActive || isCompleted ? '#fff' : '#9ca3af',
                       }}
                     >

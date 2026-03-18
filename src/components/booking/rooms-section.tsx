@@ -274,7 +274,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
             viewport={{ once: true }}
             transition={{ duration: 0.5, delay: index * 0.1 }}
           >
-          <div className="group">
+          <div className="group flex flex-col h-full">
             {room.images[0] && (
               <RoomCardImage
                 src={room.images[0]}
@@ -283,7 +283,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
                 onClick={() => setLightbox({ images: room.images, name: room.name })}
               />
             )}
-            <div className="mt-3">
+            <div className="mt-3 flex flex-col flex-1">
               {(() => {
                 const roomSeasons = seasonsByRoom[room.id] || [];
                 const { min, max } = getPriceRange(room.price_per_night, roomSeasons);
@@ -312,7 +312,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
                   onReadMore={() => setDescRoomId(room.id)}
                 />
               )}
-              <div className="mt-3 flex items-center gap-4 text-xs text-gray-500">
+              <div className="mt-auto pt-3 flex items-center gap-4 text-xs text-gray-500">
                 <span className="inline-flex items-center gap-1.5 rounded-full bg-gray-100 px-2.5 py-1">
                   <Users className="h-3.5 w-3.5" />
                   {tc("guests")} {room.max_guests}

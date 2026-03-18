@@ -70,9 +70,10 @@ interface BookingSearchDialogProps {
   promptpayId?: string;
   hostName?: string;
   cancellationDays?: number;
+  scrolled?: boolean;
 }
 
-export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancellationDays: propCancellationDays }: BookingSearchDialogProps) {
+export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancellationDays: propCancellationDays, scrolled }: BookingSearchDialogProps) {
   const t = useTranslations("bookingSearch");
   const tr = useTranslations("reviews");
   const locale = useLocale();
@@ -670,14 +671,11 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
   return (
     <><Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogTrigger asChild>
-        <Button
-          size="sm"
-          variant="outline"
-          className="shrink-0 rounded-full shadow-sm"
+        <button
+          className={`p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${scrolled ? 'text-[#111111]' : 'text-white'}`}
         >
-          <Search className="mr-1.5 h-3.5 w-3.5" />
-          {t("searchBooking")}
-        </Button>
+          <Search size={20} />
+        </button>
       </DialogTrigger>
       <DialogContent className={`max-w-md ${changingDatesId ? "sm:max-w-xl" : "sm:max-w-lg"}`}>
         <DialogHeader>

@@ -69,7 +69,7 @@ async function getHomestayData(slug: string) {
     supabase.from("bookings").select("room_id, check_in, check_out").eq("homestay_id", homestay.id).in("status", ["pending", "confirmed", "verified"]),
     supabase.from("reviews").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id),
     supabase.from("reviews").select("rating").eq("homestay_id", homestay.id),
-    supabase.from("reviews").select("*").eq("homestay_id", homestay.id).order("created_at", { ascending: false }).range(0, INITIAL_REVIEWS - 1),
+    supabase.from("reviews").select("*, bookings(guest_province)").eq("homestay_id", homestay.id).order("created_at", { ascending: false }).range(0, INITIAL_REVIEWS - 1),
   ]);
 
   const host = hostRow as unknown as Host | null;
@@ -81,7 +81,7 @@ async function getHomestayData(slug: string) {
     allRatings.length > 0
       ? Math.round((allRatings.reduce((sum, r) => sum + r.rating, 0) / allRatings.length) * 10) / 10
       : 0;
-  const reviews = (reviewRows as unknown as Review[]) || [];
+  const reviews = (reviewRows as unknown as (Review & { bookings: { guest_province: string | null } | null })[]) || [];
 
   // Fetch seasonal prices (depends on rooms result)
   const roomIds = rooms.map((r) => r.id);

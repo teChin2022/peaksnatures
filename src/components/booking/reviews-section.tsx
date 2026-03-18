@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useCallback, useRef } from "react";
-import { Star, MessageSquare, Loader2 } from "lucide-react";
+import { Star, MessageSquare, Loader2, MapPin } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,12 +13,17 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import type { Review } from "@/types/database";
 import { fmtDateStr } from "@/lib/format-date";
+import { getProvinceLabel } from "@/lib/provinces";
+
+type ReviewWithProvince = Review & {
+  bookings: { guest_province: string | null } | null;
+};
 
 const GRID_LIMIT = 9;
 const MODAL_PAGE_SIZE = 20;
 
 interface ReviewsSectionProps {
-  reviews: Review[];
+  reviews: ReviewWithProvince[];
   averageRating: number;
   totalCount: number;
   homestayId: string;
@@ -34,12 +39,22 @@ function StarRating({ rating, size = 16 }: { rating: number; size?: number }) {
           style={{
             width: size,
             height: size,
-            fill: star <= rating ? "#374151" : "transparent",
-            color: star <= rating ? "#374151" : "#d1d5db",
+            fill: star <= rating ? "#2F5D50" : "transparent",
+            color: star <= rating ? "#2F5D50" : "#d1d5db",
           }}
         />
       ))}
     </div>
+  );
+}
+
+function ProvinceLabel({ province, locale }: { province: string | null | undefined; locale: string }) {
+  if (!province) return null;
+  return (
+    <span className="inline-flex items-center gap-0.5 text-xs text-gray-400">
+      <MapPin className="h-3 w-3" />
+      {getProvinceLabel(province, locale)}
+    </span>
   );
 }
 
@@ -49,18 +64,22 @@ function ReviewCard({
   onReadMore,
   readMoreLabel,
 }: {
-  review: Review;
+  review: ReviewWithProvince;
   locale: string;
-  onReadMore: (review: Review) => void;
+  onReadMore: (review: ReviewWithProvince) => void;
   readMoreLabel: string;
 }) {
   const needsClamp = !!review.comment && review.comment.length > 150;
+  const province = review.bookings?.guest_province;
   return (
     <div className="flex flex-col rounded-xl bg-white p-4 shadow-sm h-full">
       <div className="flex items-center justify-between">
-        <span className="text-sm font-medium text-gray-900">
-          {review.guest_name}
-        </span>
+        <div className="flex flex-col">
+          <span className="text-sm font-medium text-gray-900">
+            {review.guest_name}
+          </span>
+          <ProvinceLabel province={province} locale={locale} />
+        </div>
         <StarRating rating={review.rating} size={13} />
       </div>
       <p className="mt-2 min-h-[4.5rem] text-sm leading-relaxed text-gray-600 line-clamp-3">
@@ -94,11 +113,11 @@ export function ReviewsSection({
   const locale = useLocale();
 
   // Read More modal state
-  const [selectedReview, setSelectedReview] = useState<Review | null>(null);
+  const [selectedReview, setSelectedReview] = useState<ReviewWithProvince | null>(null);
 
   // View All modal state
   const [modalOpen, setModalOpen] = useState(false);
-  const [modalReviews, setModalReviews] = useState<Review[]>([]);
+  const [modalReviews, setModalReviews] = useState<ReviewWithProvince[]>([]);
   const [modalLoading, setModalLoading] = useState(false);
   const [modalTotal, setModalTotal] = useState(totalCount);
   const modalOffsetRef = useRef(0);
@@ -115,12 +134,12 @@ export function ReviewsSection({
 
     const { data, count } = await supabase
       .from("reviews")
-      .select("*", { count: "exact" })
+      .select("*, bookings(guest_province)", { count: "exact" })
       .eq("homestay_id", homestayId)
       .order("created_at", { ascending: false })
       .range(from, to);
 
-    const rows = (data as unknown as Review[]) || [];
+    const rows = (data as unknown as ReviewWithProvince[]) || [];
     if (reset) {
       setModalReviews(rows);
     } else {
@@ -212,9 +231,12 @@ export function ReviewsSection({
                   {modalReviews.map((review) => (
                     <div key={review.id} className="rounded-xl bg-white p-4 shadow-sm">
                       <div className="flex items-center justify-between">
-                        <span className="text-sm font-medium text-gray-900">
-                          {review.guest_name}
-                        </span>
+                        <div className="flex flex-col">
+                          <span className="text-sm font-medium text-gray-900">
+                            {review.guest_name}
+                          </span>
+                          <ProvinceLabel province={review.bookings?.guest_province} locale={locale} />
+                        </div>
                         <StarRating rating={review.rating} size={13} />
                       </div>
                       {review.comment && (
@@ -268,7 +290,10 @@ export function ReviewsSection({
             <>
               <DialogHeader>
                 <DialogTitle className="flex items-center justify-between">
-                  <span>{selectedReview.guest_name}</span>
+                  <div className="flex flex-col">
+                    <span>{selectedReview.guest_name}</span>
+                    <ProvinceLabel province={selectedReview.bookings?.guest_province} locale={locale} />
+                  </div>
                   <StarRating rating={selectedReview.rating} size={16} />
                 </DialogTitle>
               </DialogHeader>
