@@ -761,6 +761,8 @@
     "payViaCash": "ชำระเงินสด",
     "cashConfirm": "ยืนยันรับเงินสด",
     "uploadSlip": "อัปโหลดสลิปโอนเงิน",
+    "changeSlip": "เปลี่ยน",
+    "removeSlip": "ลบ",
     "paymentFull": "ชำระครบ",
     "paymentDeposit": "มัดจำ",
     "errorSlipDuplicate": "สลิปนี้ถูกใช้ไปแล้ว",

@@ -953,11 +953,38 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                     }}
                                   />
                                   {balanceSlipPreview ? (
-                                    <div className="text-center">
+                                    <div className="text-center space-y-2">
                                       <img src={balanceSlipPreview} alt="Slip" className="mx-auto max-h-32 rounded-lg" />
+                                      <div className="flex justify-center gap-2">
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="text-xs"
+                                          onClick={() => {
+                                            if (balanceFileRef.current) balanceFileRef.current.value = "";
+                                            balanceFileRef.current?.click();
+                                          }}
+                                        >
+                                          <ArrowRightLeft className="mr-1 h-3 w-3" />
+                                          {t("changeSlip")}
+                                        </Button>
+                                        <Button
+                                          size="sm"
+                                          variant="outline"
+                                          className="text-xs text-red-600 border-red-200 hover:bg-red-50"
+                                          onClick={() => {
+                                            setBalanceSlipFile(null);
+                                            setBalanceSlipPreview(null);
+                                            if (balanceFileRef.current) balanceFileRef.current.value = "";
+                                          }}
+                                        >
+                                          <XCircle className="mr-1 h-3 w-3" />
+                                          {t("removeSlip")}
+                                        </Button>
+                                      </div>
                                       <Button
                                         size="sm"
-                                        className="mt-2 w-full bg-brand text-white hover:bg-brand-hover"
+                                        className="w-full bg-brand text-white hover:bg-brand-hover"
                                         onClick={() => handlePayBalance(booking)}
                                         disabled={submittingBalance}
                                       >
@@ -1346,19 +1373,34 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                 {dateChangeSlipPreview && (
                                   <img src={dateChangeSlipPreview} alt="Slip" className="mx-auto max-h-32 rounded-lg" />
                                 )}
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="text-xs"
-                                  onClick={() => {
-                                    setDateChangeSlipFile(null);
-                                    setDateChangeSlipPreview(null);
-                                    setDcPhoneSlipReceived(false);
-                                    if (dateChangeFileRef.current) dateChangeFileRef.current.value = "";
-                                  }}
-                                >
-                                  {t("uploadSlip")}
-                                </Button>
+                                <div className="flex justify-center gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs"
+                                    onClick={() => {
+                                      if (dateChangeFileRef.current) dateChangeFileRef.current.value = "";
+                                      dateChangeFileRef.current?.click();
+                                    }}
+                                  >
+                                    <ArrowRightLeft className="mr-1 h-3 w-3" />
+                                    {t("changeSlip")}
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    className="text-xs text-red-600 border-red-200 hover:bg-red-50"
+                                    onClick={() => {
+                                      setDateChangeSlipFile(null);
+                                      setDateChangeSlipPreview(null);
+                                      setDcPhoneSlipReceived(false);
+                                      if (dateChangeFileRef.current) dateChangeFileRef.current.value = "";
+                                    }}
+                                  >
+                                    <XCircle className="mr-1 h-3 w-3" />
+                                    {t("removeSlip")}
+                                  </Button>
+                                </div>
                               </div>
                             ) : (
                               <>

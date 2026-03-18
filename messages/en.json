@@ -757,6 +757,8 @@
     "payViaCash": "Pay Cash",
     "cashConfirm": "Confirm Cash Payment",
     "uploadSlip": "Upload Transfer Slip",
+    "changeSlip": "Change",
+    "removeSlip": "Remove",
     "paymentFull": "Paid Full",
     "paymentDeposit": "Deposit",
     "errorSlipDuplicate": "This slip has already been used.",
