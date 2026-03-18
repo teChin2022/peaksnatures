@@ -92,7 +92,7 @@ export function ForHosts() {
             สมัคร<span className="italic">ฟรี</span>
           </h3>
           <p className="text-gray-500 leading-relaxed mb-8">
-            จ่ายค่าคอมมิชชั่นเฉพาะเมื่อมีการจอง
+            จ่ายเป็นค่าคอมมิชชั่นหรือจ่ายเป็นรายเดือน
           </p>
           <Link
             href="/register"
