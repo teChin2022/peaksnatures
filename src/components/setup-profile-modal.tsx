@@ -14,7 +14,6 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
-import { useThemeColor } from "@/components/dashboard/theme-context";
 
 interface SetupProfileModalProps {
   hostId: string;
@@ -32,7 +31,6 @@ export function SetupProfileModal({
   onComplete,
 }: SetupProfileModalProps) {
   const t = useTranslations("setupProfile");
-  const themeColor = useThemeColor();
   const [phone, setPhone] = useState(currentPhone || "");
   const [promptpayId, setPromptpayId] = useState(currentPromptpay || "");
   const [pin, setPin] = useState("");
@@ -206,8 +204,7 @@ export function SetupProfileModal({
 
           <Button
             type="submit"
-            className="w-full hover:brightness-90"
-            style={{ backgroundColor: themeColor }}
+            className="w-full bg-brand hover:brightness-90"
             disabled={loading}
           >
             {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

@@ -70,7 +70,7 @@ function RoomLightbox({ images, name, startIndex, onClose }: { images: string[];
   const [index, setIndex] = useState(startIndex);
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/90 p-4">
+    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-2xl p-4">
       <Button
         variant="ghost"
         size="icon"
@@ -89,15 +89,17 @@ function RoomLightbox({ images, name, startIndex, onClose }: { images: string[];
         <ChevronLeft className="h-8 w-8" />
       </Button>
 
-      <Image
-        key={images[index]}
-        src={images[index]}
-        alt={`${name} photo ${index + 1}`}
-        width={1200}
-        height={800}
-        priority
-        className="max-h-[80vh] max-w-[90vw] rounded-lg object-contain"
-      />
+      <div className="relative max-h-[85vh] max-w-[90vw]">
+        <Image
+          key={images[index]}
+          src={images[index]}
+          alt={`${name} photo ${index + 1}`}
+          width={1200}
+          height={800}
+          priority
+          className="max-h-[85vh] max-w-[90vw] rounded-2xl"
+        />
+      </div>
 
       {/* Preload adjacent images */}
       {images.length > 1 && (

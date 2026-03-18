@@ -13,7 +13,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { useThemeColor } from "@/components/dashboard/theme-context";
 
 interface SecurityPinDialogProps {
   open: boolean;
@@ -31,7 +30,6 @@ export function SecurityPinDialog({
   onChanged,
 }: SecurityPinDialogProps) {
   const t = useTranslations("securityPin");
-  const themeColor = useThemeColor();
   const [pin, setPin] = useState("");
   const [newPin, setNewPin] = useState("");
   const [confirmNewPin, setConfirmNewPin] = useState("");
@@ -225,8 +223,7 @@ export function SecurityPinDialog({
           <Button
             onClick={mode === "verify" ? handleVerify : handleChange}
             disabled={loading}
-            className="w-full hover:brightness-90"
-            style={{ backgroundColor: themeColor }}
+            className="w-full bg-brand hover:brightness-90"
           >
             {loading ? (
               <Loader2 className="mr-2 h-4 w-4 animate-spin" />

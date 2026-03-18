@@ -29,7 +29,6 @@ import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
-import { useThemeColor } from "@/components/dashboard/theme-context";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
 import { logClientEvent } from "@/lib/history-log-client";
 
@@ -70,7 +69,6 @@ const COMMON_PROHIBITIONS = [
 export default function HomestayPage() {
   const t = useTranslations("dashboardHomestay");
   const tc = useTranslations("common");
-  const themeColor = useThemeColor();
   const [homestay, setHomestay] = useState<HomestayData | null>(null);
   const [hostId, setHostId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -596,8 +594,7 @@ export default function HomestayPage() {
                   {amenities.map((a) => (
                     <Badge
                       key={a}
-                      className="cursor-pointer pr-1 hover:brightness-90"
-                      style={{ backgroundColor: themeColor }}
+                      className="cursor-pointer pr-1 hover:brightness-90 bg-brand"
                     >
                       {a}
                       <button
@@ -707,8 +704,7 @@ export default function HomestayPage() {
                   {prohibitions.map((p) => (
                     <Badge
                       key={p}
-                      className="cursor-pointer pr-1 hover:brightness-90"
-                      style={{ backgroundColor: themeColor }}
+                      className="cursor-pointer pr-1 hover:brightness-90 bg-brand"
                     >
                       {p}
                       <button
@@ -816,7 +812,7 @@ export default function HomestayPage() {
                 <div
                   className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-gray-200 transition-colors"
                   onClick={() => logoInputRef.current?.click()}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = themeColor + '66'; e.currentTarget.style.backgroundColor = themeColor + '0d'; }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2F5D5066'; e.currentTarget.style.backgroundColor = '#2F5D500d'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
                 >
                   {uploadingLogo ? (
@@ -871,7 +867,7 @@ export default function HomestayPage() {
                 <div
                   className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 py-10 transition-colors"
                   onClick={() => heroInputRef.current?.click()}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = themeColor + '66'; e.currentTarget.style.backgroundColor = themeColor + '0d'; }}
+                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2F5D5066'; e.currentTarget.style.backgroundColor = '#2F5D500d'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
                 >
                   {uploadingHero ? (
@@ -900,7 +896,7 @@ export default function HomestayPage() {
               <div
                 className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 py-8 transition-colors"
                 onClick={() => galleryInputRef.current?.click()}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = themeColor + '66'; e.currentTarget.style.backgroundColor = themeColor + '0d'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2F5D5066'; e.currentTarget.style.backgroundColor = '#2F5D500d'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
               >
                 {uploadingGallery ? (
@@ -950,8 +946,7 @@ export default function HomestayPage() {
         <Button
           onClick={handleSave}
           disabled={saving}
-          className="w-full hover:brightness-90"
-          style={{ backgroundColor: themeColor }}
+          className="w-full hover:brightness-90 bg-brand"
           size="lg"
         >
           {saving ? (
@@ -982,8 +977,7 @@ export default function HomestayPage() {
             </Button>
             <Button
               onClick={handleSave}
-              className="text-white hover:brightness-90"
-              style={{ backgroundColor: themeColor }}
+              className="text-white hover:brightness-90 bg-brand"
             >
               {t("slugChangeConfirm")}
             </Button>

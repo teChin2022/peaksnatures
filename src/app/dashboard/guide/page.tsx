@@ -5,7 +5,6 @@ import { useTranslations } from "next-intl";
 import {
   User,
   Home,
-  Palette,
   BedDouble,
   CalendarCheck,
   ExternalLink,
@@ -16,11 +15,9 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { useThemeColor } from "@/components/dashboard/theme-context";
 
 export default function GuidePage() {
   const t = useTranslations("dashboardGuide");
-  const themeColor = useThemeColor();
 
   const steps = [
     {
@@ -61,15 +58,6 @@ export default function GuidePage() {
     },
     {
       num: 5,
-      icon: Palette,
-      titleKey: "step5Title",
-      descKey: "step5Desc",
-      items: ["step5Item1", "step5Item2"],
-      href: "/dashboard/theme",
-      linkKey: "step5Link",
-    },
-    {
-      num: 6,
       icon: BedDouble,
       titleKey: "step6Title",
       descKey: "step6Desc",
@@ -78,7 +66,7 @@ export default function GuidePage() {
       linkKey: "step6Link",
     },
     {
-      num: 7,
+      num: 6,
       icon: CalendarCheck,
       titleKey: "step7Title",
       descKey: "step7Desc",
@@ -93,10 +81,9 @@ export default function GuidePage() {
       {/* Header */}
       <div className="flex items-center gap-3">
         <div
-          className="flex h-10 w-10 items-center justify-center rounded-lg"
-          style={{ backgroundColor: themeColor + "15" }}
+          className="flex h-10 w-10 items-center justify-center rounded-lg bg-brand/10"
         >
-          <BookOpen className="h-5 w-5" style={{ color: themeColor }} />
+          <BookOpen className="h-5 w-5 text-brand" />
         </div>
         <div>
           <h1 className="text-2xl font-bold text-gray-900">{t("title")}</h1>
@@ -114,8 +101,7 @@ export default function GuidePage() {
                 <div className="flex items-start gap-4 p-5">
                   {/* Step number */}
                   <div
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white"
-                    style={{ backgroundColor: themeColor }}
+                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-brand text-sm font-bold text-white"
                   >
                     {step.num}
                   </div>
@@ -124,8 +110,7 @@ export default function GuidePage() {
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2 mb-1">
                       <Icon
-                        className="h-4 w-4 shrink-0"
-                        style={{ color: themeColor }}
+                        className="h-4 w-4 shrink-0 text-brand"
                       />
                       <h2 className="font-semibold text-gray-900">
                         {t(step.titleKey)}
@@ -141,8 +126,7 @@ export default function GuidePage() {
                           className="flex items-start gap-2 text-sm text-gray-600"
                         >
                           <CheckCircle2
-                            className="h-4 w-4 shrink-0 mt-0.5"
-                            style={{ color: themeColor }}
+                            className="h-4 w-4 shrink-0 mt-0.5 text-brand"
                           />
                           <span>{t(itemKey)}</span>
                         </li>
@@ -152,11 +136,7 @@ export default function GuidePage() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="gap-1.5"
-                        style={{
-                          borderColor: themeColor + "40",
-                          color: themeColor,
-                        }}
+                        className="gap-1.5 border-brand/25 text-brand"
                       >
                         {t(step.linkKey)}
                         <ExternalLink className="h-3.5 w-3.5" />
@@ -172,12 +152,11 @@ export default function GuidePage() {
 
       {/* Verify section */}
       <Card
-        className="border-2"
-        style={{ borderColor: themeColor + "30" }}
+        className="border-2 border-brand/20"
       >
         <CardContent className="p-5">
           <div className="flex items-center gap-2 mb-2">
-            <CheckCircle2 className="h-5 w-5" style={{ color: themeColor }} />
+            <CheckCircle2 className="h-5 w-5 text-brand" />
             <h2 className="font-semibold text-gray-900">{t("verifyTitle")}</h2>
           </div>
           <ul className="space-y-1.5">

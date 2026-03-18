@@ -39,7 +39,6 @@ import { Switch } from "@/components/ui/switch";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { useThemeColor } from "@/components/dashboard/theme-context";
 import { logClientEvent } from "@/lib/history-log-client";
 
 interface RoomData {
@@ -66,7 +65,6 @@ export default function RoomsPage() {
   const t = useTranslations("dashboardRooms");
   const tc = useTranslations("common");
   const locale = useLocale();
-  const themeColor = useThemeColor();
   const [rooms, setRooms] = useState<RoomData[]>([]);
   const [homestayId, setHomestayId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -538,8 +536,7 @@ export default function RoomsPage() {
         <h1 className="text-xl font-bold text-gray-900">{t("title")}</h1>
         <Button
           onClick={openCreateDialog}
-          className="hover:brightness-90"
-          style={{ backgroundColor: themeColor }}
+          className="hover:brightness-90 bg-brand"
         >
           <Plus className="mr-2 h-4 w-4" />
           {t("addRoom")}
@@ -621,7 +618,7 @@ export default function RoomsPage() {
                     </div>
                   </div>
                   <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
-                    <span className="font-medium" style={{ color: themeColor }}>
+                    <span className="font-medium text-brand">
                       ฿{room.price_per_night.toLocaleString()}{tc("perNight")}
                     </span>
                     <span className="flex items-center gap-1">
@@ -712,7 +709,7 @@ export default function RoomsPage() {
               <div
                 className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 p-6 transition-colors"
                 onClick={() => fileInputRef.current?.click()}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = themeColor + '66'; e.currentTarget.style.backgroundColor = themeColor + '0d'; }}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2F5D5066'; e.currentTarget.style.backgroundColor = '#2F5D500d'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
               >
                 {uploading ? (
@@ -762,7 +759,7 @@ export default function RoomsPage() {
             {/* Seasonal Pricing Section */}
               <div className="space-y-3 rounded-lg border p-4">
                 <div className="flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4" style={{ color: themeColor }} />
+                  <CalendarDays className="h-4 w-4 text-brand" />
                   <h3 className="text-sm font-semibold text-gray-900">{t("seasonalPricing")}</h3>
                 </div>
                 <p className="text-xs text-gray-500">{t("seasonalPricingDesc")}</p>
@@ -779,7 +776,7 @@ export default function RoomsPage() {
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-gray-900">{season.name}</p>
                             <p className="text-xs text-gray-500">
-                              {fmtDate(season.start_date)} → {fmtDate(season.end_date)} · <span className="font-medium" style={{ color: themeColor }}>฿{season.price_per_night.toLocaleString()}</span>{tc("perNight")}
+                              {fmtDate(season.start_date)} → {fmtDate(season.end_date)} · <span className="font-medium text-brand">฿{season.price_per_night.toLocaleString()}</span>{tc("perNight")}
                             </p>
                           </div>
                           <div className="flex items-center gap-1">
@@ -817,7 +814,7 @@ export default function RoomsPage() {
                           <div className="min-w-0 flex-1">
                             <p className="text-sm font-medium text-gray-900">{season.name}</p>
                             <p className="text-xs text-gray-500">
-                              {fmtDate(season.start_date)} → {fmtDate(season.end_date)} · <span className="font-medium" style={{ color: themeColor }}>฿{season.price_per_night.toLocaleString()}</span>{tc("perNight")}
+                              {fmtDate(season.start_date)} → {fmtDate(season.end_date)} · <span className="font-medium text-brand">฿{season.price_per_night.toLocaleString()}</span>{tc("perNight")}
                             </p>
                           </div>
                           <Button
@@ -932,8 +929,7 @@ export default function RoomsPage() {
                       size="sm"
                       onClick={handleSaveSeason}
                       disabled={savingSeason}
-                      className="hover:brightness-90"
-                      style={{ backgroundColor: themeColor }}
+                      className="hover:brightness-90 bg-brand"
                     >
                       {savingSeason ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Plus className="mr-1 h-3 w-3" />}
                       {editingSeason ? t("saveSeason") : t("addSeason")}
@@ -951,8 +947,7 @@ export default function RoomsPage() {
             <Button
               onClick={handleSaveRoom}
               disabled={saving}
-              className="w-full hover:brightness-90"
-              style={{ backgroundColor: themeColor }}
+              className="w-full hover:brightness-90 bg-brand"
             >
               {saving ? (
                 <Loader2 className="mr-2 h-4 w-4 animate-spin" />

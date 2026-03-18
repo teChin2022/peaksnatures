@@ -166,7 +166,7 @@ export function GallerySection({ images, name }: GallerySectionProps) {
       {/* Lightbox */}
       {lightboxIndex !== null && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/95 p-4"
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-2xl p-4"
           onClick={(e) => { if (e.target === e.currentTarget) closeLightbox(); }}
         >
           <Button
@@ -195,7 +195,7 @@ export function GallerySection({ images, name }: GallerySectionProps) {
               width={1200}
               height={800}
               priority
-              className="max-h-[85vh] max-w-[90vw] rounded-lg object-contain"
+              className="max-h-[85vh] max-w-[90vw] rounded-2xl"
             />
           </div>
 

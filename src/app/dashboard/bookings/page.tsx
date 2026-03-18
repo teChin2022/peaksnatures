@@ -41,7 +41,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import type { BookingStatus } from "@/types/database";
 import { toast } from "sonner";
 import { fmtDateStr } from "@/lib/format-date";
-import { useThemeColor } from "@/components/dashboard/theme-context";
 import { logClientEvent } from "@/lib/history-log-client";
 import { getProvinceLabel } from "@/lib/provinces";
 
@@ -150,7 +149,6 @@ const statusConfig: Record<
 
 export default function BookingsPage() {
   const t = useTranslations("dashboard");
-  const themeColor = useThemeColor();
   const locale = useLocale();
   const [bookings, setBookings] = useState<DisplayBooking[]>([]);
   const [loading, setLoading] = useState(true);
@@ -603,7 +601,7 @@ export default function BookingsPage() {
                               {booking.easyslip_verified && (
                                 <Badge
                                   variant="secondary"
-                                  style={{ backgroundColor: themeColor + '0d', color: themeColor }}
+                                  className="bg-brand/5 text-brand"
                                 >
                                   ✓ EasySlip
                                 </Badge>
@@ -640,7 +638,7 @@ export default function BookingsPage() {
                                 <CalendarDays className="h-3.5 w-3.5" />
                                 {fmtDateStr(booking.check_in, "d MMM yyyy", locale)} → {fmtDateStr(booking.check_out, "d MMM yyyy", locale)}
                               </span>
-                              <span className="font-medium" style={{ color: themeColor }}>
+                              <span className="font-medium text-brand">
                                 ฿{booking.total_price.toLocaleString()}
                               </span>
                               {booking.amount_paid < booking.total_price && (
@@ -686,8 +684,7 @@ export default function BookingsPage() {
                                 <div className="flex gap-2">
                                   <Button
                                     size="sm"
-                                    className="flex-1 hover:brightness-90 text-white"
-                                    style={{ backgroundColor: themeColor }}
+                                    className="flex-1 hover:brightness-90 text-white bg-brand"
                                     onClick={() => handleApproveDateChange(dateChangeRequests[booking.id])}
                                     disabled={submittingDateChange}
                                   >
@@ -726,8 +723,7 @@ export default function BookingsPage() {
                               <>
                                 <Button
                                   size="sm"
-                                  className="hover:brightness-90"
-                                  style={{ backgroundColor: themeColor }}
+                                  className="hover:brightness-90 bg-brand"
                                   onClick={async () => {
                                     setUpdatingStatus(true);
                                     try {
@@ -773,8 +769,7 @@ export default function BookingsPage() {
                                 {new Date(booking.check_out) <= new Date() && (
                                   <Button
                                     size="sm"
-                                    className="hover:brightness-90 text-white"
-                                    style={{ backgroundColor: themeColor }}
+                                    className="hover:brightness-90 text-white bg-brand"
                                     onClick={() => handleCompleteClick(booking)}
                                   >
                                     <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
@@ -855,7 +850,7 @@ export default function BookingsPage() {
                       {t("paymentSlip")}
                     </h4>
                     {detailTarget.easyslip_verified ? (
-                      <Badge variant="secondary" style={{ backgroundColor: themeColor + '0d', color: themeColor }}>
+                      <Badge variant="secondary" className="bg-brand/5 text-brand">
                         <ShieldCheck className="mr-1 h-3 w-3" />
                         {t("paymentVerified")}
                       </Badge>
@@ -918,7 +913,7 @@ export default function BookingsPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">{t("total")}</span>
-                    <span className="font-bold" style={{ color: themeColor }}>฿{detailTarget.total_price.toLocaleString()}</span>
+                    <span className="font-bold text-brand">฿{detailTarget.total_price.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">{t("amountPaid")}</span>
@@ -947,8 +942,7 @@ export default function BookingsPage() {
                     {t("cancel")}
                   </Button>
                   <Button
-                    className="hover:brightness-90"
-                    style={{ backgroundColor: themeColor }}
+                    className="hover:brightness-90 bg-brand"
                     disabled={updatingStatus}
                     onClick={async () => {
                       if (detailTarget.status === "pending" || detailTarget.status === "verified") {
@@ -992,8 +986,7 @@ export default function BookingsPage() {
               {detailTarget.status === "confirmed" && new Date(detailTarget.check_out) <= new Date() && (
                 <DialogFooter>
                   <Button
-                    className="hover:brightness-90 text-white"
-                    style={{ backgroundColor: themeColor }}
+                    className="hover:brightness-90 text-white bg-brand"
                     onClick={() => {
                       setDetailDialogOpen(false);
                       handleCompleteClick(detailTarget);
@@ -1097,7 +1090,7 @@ export default function BookingsPage() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CheckCircle2 className="h-5 w-5" style={{ color: themeColor }} />
+              <CheckCircle2 className="h-5 w-5 text-brand" />
               {t("completeConfirmTitle")}
             </DialogTitle>
             <DialogDescription>
@@ -1112,8 +1105,7 @@ export default function BookingsPage() {
               {t("cancel")}
             </Button>
             <Button
-              className="hover:brightness-90 text-white"
-              style={{ backgroundColor: themeColor }}
+              className="hover:brightness-90 text-white bg-brand"
               onClick={handleConfirmComplete}
             >
               <CheckCircle2 className="mr-1 h-4 w-4" />
