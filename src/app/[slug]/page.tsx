@@ -1,3 +1,4 @@
+import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/server";
@@ -38,7 +39,7 @@ async function resolveSlugRedirect(slug: string): Promise<string | null> {
   return (homestay as unknown as { slug: string } | null)?.slug || null;
 }
 
-async function getHomestayData(slug: string) {
+const getHomestayData = cache(async function getHomestayData(slug: string) {
   const supabase = createServiceRoleClient();
 
   const { data: homestayRow } = await supabase
@@ -105,7 +106,7 @@ async function getHomestayData(slug: string) {
     averageRating,
     reviewCount: reviewCount || 0,
   };
-}
+});
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;

@@ -83,31 +83,68 @@ export async function middleware(request: NextRequest) {
   const isPendingPage = request.nextUrl.pathname === "/dashboard/pending";
 
   if (isDashboard && user) {
-    const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
-    if (serviceRoleKey && supabaseUrl) {
-      try {
-        const sc = createClient(supabaseUrl, serviceRoleKey, {
-          auth: { autoRefreshToken: false, persistSession: false },
-        });
-        const { data: host } = await sc
-          .from("hosts")
-          .select("status")
-          .eq("user_id", user.id)
-          .single();
-        const status = (host as { status: string } | null)?.status;
-        if (status === "pending" && !isPendingPage) {
-          const url = request.nextUrl.clone();
-          url.pathname = "/dashboard/pending";
-          return NextResponse.redirect(url);
+    const HOST_STATUS_COOKIE = "x-host-status";
+    const HOST_STATUS_MAX_AGE = 300; // 5 minutes
+    const cachedStatus = request.cookies.get(HOST_STATUS_COOKIE)?.value;
+
+    let status: string | undefined = cachedStatus;
+
+    // Only query DB if no cached status
+    if (!cachedStatus) {
+      const serviceRoleKey = process.env.SUPABASE_SERVICE_ROLE_KEY;
+      if (serviceRoleKey && supabaseUrl) {
+        try {
+          const sc = createClient(supabaseUrl, serviceRoleKey, {
+            auth: { autoRefreshToken: false, persistSession: false },
+          });
+          const { data: host } = await sc
+            .from("hosts")
+            .select("status")
+            .eq("user_id", user.id)
+            .single();
+          status = (host as { status: string } | null)?.status;
+
+          // Cache the status on the response cookie
+          if (status) {
+            supabaseResponse.cookies.set(HOST_STATUS_COOKIE, status, {
+              httpOnly: true,
+              secure: process.env.NODE_ENV === "production",
+              sameSite: "lax",
+              maxAge: HOST_STATUS_MAX_AGE,
+              path: "/dashboard",
+            });
+          }
+        } catch {
+          // If check fails, allow through — don't block approved hosts
         }
-        if (status !== "pending" && isPendingPage) {
-          const url = request.nextUrl.clone();
-          url.pathname = "/dashboard";
-          return NextResponse.redirect(url);
-        }
-      } catch {
-        // If check fails, allow through — don't block approved hosts
       }
+    }
+
+    if (status === "pending" && !isPendingPage) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard/pending";
+      const redirect = NextResponse.redirect(url);
+      redirect.cookies.set(HOST_STATUS_COOKIE, "pending", {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: HOST_STATUS_MAX_AGE,
+        path: "/dashboard",
+      });
+      return redirect;
+    }
+    if (status && status !== "pending" && isPendingPage) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      const redirect = NextResponse.redirect(url);
+      redirect.cookies.set(HOST_STATUS_COOKIE, status, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: HOST_STATUS_MAX_AGE,
+        path: "/dashboard",
+      });
+      return redirect;
     }
   }
 
