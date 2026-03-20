@@ -2,8 +2,8 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Users, ChevronLeft, ChevronRight, CheckCircle, XCircle, Loader2 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Users, CheckCircle, XCircle, Loader2, Mail, Phone, Home, Calendar } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -129,137 +129,115 @@ export default function AdminHostsPage() {
         ))}
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">
-            {statusFilter === "all" ? "All Hosts" : statusFilter === "pending" ? "Pending Hosts" : "Approved Hosts"}
-          </CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : !res || res.data.length === 0 ? (
-            <p className="text-sm text-gray-500 py-8 text-center">No hosts found.</p>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-gray-500">
-                      <th className="pb-3 pr-4 font-medium">Name</th>
-                      <th className="pb-3 pr-4 font-medium">Email</th>
-                      <th className="pb-3 pr-4 font-medium">Phone</th>
-                      <th className="pb-3 pr-4 font-medium">Status</th>
-                      <th className="pb-3 pr-4 font-medium">Homestay</th>
-                      <th className="pb-3 pr-4 font-medium">Created</th>
-                      <th className="pb-3 font-medium">Actions</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {res.data.map((host) => (
-                      <tr key={host.id} className="border-b last:border-0">
-                        <td className="py-3 pr-4 font-medium">{host.name}</td>
-                        <td className="py-3 pr-4 text-gray-600">{host.email}</td>
-                        <td className="py-3 pr-4 text-gray-600">{host.phone || "—"}</td>
-                        <td className="py-3 pr-4">
-                          <Badge
-                            className={`text-[10px] ${
-                              host.status === "approved"
-                                ? "bg-brand-50 text-brand"
-                                : "bg-amber-100 text-amber-700"
-                            }`}
-                          >
-                            {host.status}
-                          </Badge>
-                        </td>
-                        <td className="py-3 pr-4">
+      {loading ? (
+        <div className="space-y-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-28 w-full rounded-xl" />
+          ))}
+        </div>
+      ) : !res || res.data.length === 0 ? (
+        <p className="text-sm text-gray-500 py-12 text-center">No hosts found.</p>
+      ) : (
+        <>
+          <div className="space-y-3">
+            {res.data.map((host) => (
+              <Card key={host.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-gray-900 truncate">{host.name}</h3>
+                        <Badge
+                          className={`text-[10px] shrink-0 ${
+                            host.status === "approved"
+                              ? "bg-brand-50 text-brand"
+                              : "bg-amber-100 text-amber-700"
+                          }`}
+                        >
+                          {host.status}
+                        </Badge>
+                      </div>
+                      <div className="space-y-1 text-sm text-gray-500">
+                        <div className="flex items-center gap-1.5">
+                          <Mail className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{host.email}</span>
+                        </div>
+                        {host.phone && (
+                          <div className="flex items-center gap-1.5">
+                            <Phone className="h-3.5 w-3.5 shrink-0" />
+                            <span>{host.phone}</span>
+                          </div>
+                        )}
+                        <div className="flex items-center gap-1.5">
+                          <Home className="h-3.5 w-3.5 shrink-0" />
                           {host.homestay ? (
-                            <div className="flex items-center gap-2">
-                              <span>{host.homestay.name}</span>
+                            <span className="flex items-center gap-1.5">
+                              {host.homestay.name}
                               <Badge variant={host.homestay.is_active ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
                                 {host.homestay.is_active ? "Active" : "Inactive"}
                               </Badge>
-                            </div>
+                            </span>
                           ) : (
                             <span className="text-gray-400">No homestay</span>
                           )}
-                        </td>
-                        <td className="py-3 pr-4 text-gray-500 whitespace-nowrap">
-                          {new Date(host.created_at).toLocaleDateString()}
-                        </td>
-                        <td className="py-3">
-                          {host.status === "pending" ? (
-                            <div className="flex items-center gap-1">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 px-2 text-xs text-brand border-brand/30 hover:bg-brand-50"
-                                onClick={() => handleApprove(host.id)}
-                                disabled={actionLoading === host.id}
-                              >
-                                {actionLoading === host.id ? (
-                                  <Loader2 className="h-3 w-3 animate-spin" />
-                                ) : (
-                                  <CheckCircle className="h-3 w-3 mr-1" />
-                                )}
-                                Approve
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 px-2 text-xs text-red-700 border-red-300 hover:bg-red-50"
-                                onClick={() => handleReject(host.id)}
-                                disabled={actionLoading === host.id}
-                              >
-                                <XCircle className="h-3 w-3 mr-1" />
-                                Reject
-                              </Button>
-                            </div>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Calendar className="h-3.5 w-3.5 shrink-0" />
+                          <span>{new Date(host.created_at).toLocaleDateString()}</span>
+                        </div>
+                      </div>
+                    </div>
+                    {host.status === "pending" && (
+                      <div className="flex items-center gap-1.5 shrink-0">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2.5 text-xs text-brand border-brand/30 hover:bg-brand-50"
+                          onClick={() => handleApprove(host.id)}
+                          disabled={actionLoading === host.id}
+                        >
+                          {actionLoading === host.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
                           ) : (
-                            <span className="text-xs text-gray-400">—</span>
+                            <CheckCircle className="h-3.5 w-3.5 mr-1" />
                           )}
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {res.totalPages > 1 && (
-                <div className="mt-4 flex items-center justify-between border-t pt-4">
-                  <p className="text-sm text-gray-500">
-                    Page {res.page} of {res.totalPages}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={page <= 1}
-                    >
-                      <ChevronLeft className="h-4 w-4 mr-1" />
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.min(res.totalPages, p + 1))}
-                      disabled={page >= res.totalPages}
-                    >
-                      Next
-                      <ChevronRight className="h-4 w-4 ml-1" />
-                    </Button>
+                          Approve
+                        </Button>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="h-8 px-2.5 text-xs text-red-700 border-red-300 hover:bg-red-50"
+                          onClick={() => handleReject(host.id)}
+                          disabled={actionLoading === host.id}
+                        >
+                          <XCircle className="h-3.5 w-3.5 mr-1" />
+                          Reject
+                        </Button>
+                      </div>
+                    )}
                   </div>
-                </div>
-              )}
-            </>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {res.totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between pt-2">
+              <p className="text-sm text-gray-500">
+                Page {res.page} of {res.totalPages}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
+                  Previous
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(res.totalPages, p + 1))} disabled={page >= res.totalPages}>
+                  Next
+                </Button>
+              </div>
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </>
+      )}
     </div>
   );
 }
