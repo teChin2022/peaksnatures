@@ -15,7 +15,7 @@ export async function GET(req: NextRequest) {
 
   const { data: bookingRows, error } = await supabase
     .from("bookings")
-    .select("room_id, check_in, check_out")
+    .select("id, room_id, check_in, check_out")
     .eq("homestay_id", homestayId)
     .in("status", ["pending", "confirmed", "verified"]);
 
@@ -27,7 +27,9 @@ export async function GET(req: NextRequest) {
     );
   }
 
-  const bookedRanges = (bookingRows as { room_id: string | null; check_in: string; check_out: string }[]) || [];
+  const bookedRanges = (bookingRows as { id: string; room_id: string | null; check_in: string; check_out: string }[]) || [];
 
-  return NextResponse.json({ bookedRanges });
+  return NextResponse.json({ bookedRanges }, {
+    headers: { "Cache-Control": "no-store, no-cache, must-revalidate" },
+  });
 }

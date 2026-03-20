@@ -6,7 +6,7 @@ import { motion, AnimatePresence } from "motion/react";
 import { createClient } from "@/lib/supabase/client";
 import { Calendar } from "@/components/ui/calendar";
 import type { DateRange } from "react-day-picker";
-import { format, startOfToday, addMonths } from "date-fns";
+import { format, startOfToday, addMonths, parseISO, subDays, eachDayOfInterval } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -112,6 +112,8 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
   const [dcPhoneSlipReceived, setDcPhoneSlipReceived] = useState(false);
   const dcPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [dcDisabledDates, setDcDisabledDates] = useState<Set<string>>(new Set());
+  const [dcBookedDates, setDcBookedDates] = useState<Set<string>>(new Set());
+  const [dcBlockedDates, setDcBlockedDates] = useState<Set<string>>(new Set());
   const [dcLoadingAvailability, setDcLoadingAvailability] = useState(false);
   const [dcRooms, setDcRooms] = useState<{ id: string; name: string }[]>([]);
   const [dcSelectedRoomId, setDcSelectedRoomId] = useState<string | null>(null);
@@ -122,15 +124,45 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
   // Client-side validation: check every night in the selected range against disabled dates
   const isDcRangeValid = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to) return false;
-    const start = new Date(dateRange.from);
-    const end = new Date(dateRange.to);
-    // Check each occupied night (check-in to check-out - 1)
-    for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-      if (dcDisabledDates.has(key)) return false;
-    }
-    return true;
+    const end = subDays(dateRange.to, 1);
+    if (end < dateRange.from) return false;
+    const days = eachDayOfInterval({ start: dateRange.from, end });
+    return days.every((d) => !dcDisabledDates.has(format(d, "yyyy-MM-dd")));
   }, [dateRange, dcDisabledDates]);
+
+  // Allow checkout on first booked date after check-in (same as booking-section)
+  const dcAllowedCheckoutKey = useMemo<string | null>(() => {
+    if (!dateRange?.from) return null;
+    if (dateRange?.to && dateRange.to.getTime() !== dateRange.from.getTime()) return null;
+    const fromTime = dateRange.from.getTime();
+
+    const firstBooked = Array.from(dcBookedDates)
+      .map((d) => ({ key: d, time: parseISO(d).getTime() }))
+      .filter((d) => d.time > fromTime)
+      .sort((a, b) => a.time - b.time)[0];
+
+    const firstBlockedTime = Array.from(dcBlockedDates)
+      .map((d) => parseISO(d).getTime())
+      .filter((t) => t > fromTime)
+      .sort((a, b) => a - b)[0];
+
+    if (!firstBooked) return null;
+    if (firstBlockedTime !== undefined && firstBlockedTime <= firstBooked.time) return null;
+    return firstBooked.key;
+  }, [dateRange?.from, dateRange?.to, dcBookedDates, dcBlockedDates]);
+
+  const dcCheckoutBarrierTime = useMemo<number | null>(() => {
+    if (!dateRange?.from) return null;
+    if (dateRange?.to && dateRange.to.getTime() !== dateRange.from.getTime()) return null;
+    const fromTime = dateRange.from.getTime();
+    const allTimes = [
+      ...Array.from(dcBookedDates).map((d) => parseISO(d).getTime()),
+      ...Array.from(dcBlockedDates).map((d) => parseISO(d).getTime()),
+    ]
+      .filter((t) => t > fromTime)
+      .sort((a, b) => a - b);
+    return allTimes[0] ?? null;
+  }, [dateRange?.from, dateRange?.to, dcBookedDates, dcBlockedDates]);
 
   // Effective additional payment based on deposit/full toggle
   const dcEffectiveAdditional = useMemo(() => {
@@ -481,10 +513,10 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
     const targetRoomId = overrideRoomId || booking.room_id;
     setDcLoadingAvailability(true);
     try {
-      // Fetch booked ranges
-      const availRes = await fetch(`/api/bookings/availability?homestay_id=${homestayId}`);
+      // Fetch booked ranges (same API as booking-section)
+      const availRes = await fetch(`/api/bookings/availability?homestay_id=${homestayId}`, { cache: "no-store" });
       const availData = await availRes.json();
-      const bookedRanges: { room_id: string | null; check_in: string; check_out: string }[] = availData.bookedRanges || [];
+      const bookedRanges: { id: string; room_id: string | null; check_in: string; check_out: string }[] = availData.bookedRanges || [];
 
       // Fetch blocked dates via Supabase client (public RLS)
       const supabase = createClient();
@@ -492,27 +524,6 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
         .from("blocked_dates")
         .select("date, room_id")
         .eq("homestay_id", homestayId);
-
-      const disabled = new Set<string>();
-
-      // Add blocked dates (matching target room or homestay-wide)
-      (blockedRows || []).forEach((d: { date: string; room_id: string | null }) => {
-        if (d.room_id === null || d.room_id === targetRoomId) {
-          disabled.add(d.date);
-        }
-      });
-
-      // Current booking's own dates should NOT count toward the tally
-      // (only for the ORIGINAL room — if switching rooms, all dates on the new room count)
-      const isOriginalRoom = targetRoomId === booking.room_id;
-      const ownDates = new Set<string>();
-      if (isOriginalRoom) {
-        const ownStart = new Date(booking.check_in);
-        const ownEnd = new Date(booking.check_out);
-        for (let d = new Date(ownStart); d < ownEnd; d.setDate(d.getDate() + 1)) {
-          ownDates.add(`${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`);
-        }
-      }
 
       // Fetch room quantity (rooms table has public SELECT RLS)
       let roomQty = 1;
@@ -525,25 +536,40 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
         if (roomRow) roomQty = (roomRow as { quantity: number }).quantity || 1;
       }
 
-      // Count bookings per date (excluding own booking's dates if same room)
+      // Count bookings per date — same pattern as booking-section's getFullyBookedForRoom
       const dateCountMap = new Map<string, number>();
       bookedRanges
         .filter((b) => b.room_id === targetRoomId)
         .forEach((b) => {
-          const start = new Date(b.check_in);
-          const end = new Date(b.check_out);
-          for (let d = new Date(start); d < end; d.setDate(d.getDate() + 1)) {
-            const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;
-            if (!ownDates.has(key)) {
+          try {
+            const start = parseISO(b.check_in);
+            const end = subDays(parseISO(b.check_out), 1);
+            if (end < start) return;
+            const days = eachDayOfInterval({ start, end });
+            days.forEach((d) => {
+              const key = format(d, "yyyy-MM-dd");
               dateCountMap.set(key, (dateCountMap.get(key) || 0) + 1);
-            }
+            });
+          } catch {
+            // Skip malformed dates
           }
         });
+
+      // Store booked and blocked separately (for allowedCheckoutKey logic)
+      const booked = new Set<string>();
       dateCountMap.forEach((count, date) => {
-        if (count >= roomQty) disabled.add(date);
+        if (count >= roomQty) booked.add(date);
+      });
+      const blocked = new Set<string>();
+      (blockedRows || []).forEach((d: { date: string; room_id: string | null }) => {
+        if (d.room_id === null || d.room_id === targetRoomId) {
+          blocked.add(d.date);
+        }
       });
 
-      setDcDisabledDates(disabled);
+      setDcBookedDates(booked);
+      setDcBlockedDates(blocked);
+      setDcDisabledDates(new Set([...booked, ...blocked]));
     } catch {
       // Fail silently — calendar will just not show disabled dates
     } finally {
@@ -591,6 +617,8 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
     setDcPhoneSlipReceived(false);
     setDcPaymentOption("deposit");
     setDcDisabledDates(new Set());
+    setDcBookedDates(new Set());
+    setDcBlockedDates(new Set());
     setDcRooms([]);
     setDcSelectedRoomId(null);
     if (dcPollingRef.current) {
@@ -1223,8 +1251,11 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                         disabled={[
                           { before: new Date() },
                           (date: Date) => {
-                            const dateStr = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, "0")}-${String(date.getDate()).padStart(2, "0")}`;
-                            return dcDisabledDates.has(dateStr);
+                            const key = format(date, "yyyy-MM-dd");
+                            if (dcBlockedDates.has(key)) return true;
+                            if (dcBookedDates.has(key)) return key !== dcAllowedCheckoutKey;
+                            if (dcCheckoutBarrierTime !== null && date.getTime() > dcCheckoutBarrierTime) return true;
+                            return false;
                           },
                         ]}
                         numberOfMonths={1}
