@@ -111,27 +111,41 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Check availability on the target room for new dates
+    // --- Parallel Batch 1: availability checks + room info + seasonal prices ---
+    // All queries below are independent and can run simultaneously
+    let newTotalPrice = booking.total_price;
     if (targetRoomId) {
-      // Get room quantity
-      const { data: roomQtyRow } = await supabase
-        .from("rooms")
-        .select("quantity")
-        .eq("id", targetRoomId)
-        .single();
-      const roomQty = (roomQtyRow as unknown as { quantity: number })?.quantity || 1;
+      const [
+        { data: roomInfoRow },
+        { data: overlappingBookings },
+        { data: blockedRows },
+        { data: activeHolds },
+        { data: pendingDcrs },
+        { data: seasonRows },
+      ] = await Promise.all([
+        // Room quantity + price in one query
+        supabase.from("rooms").select("quantity, price_per_night").eq("id", targetRoomId).single(),
+        // Overlapping confirmed bookings
+        supabase.from("bookings").select("id").eq("room_id", targetRoomId).in("status", ["pending", "confirmed", "verified"]).lt("check_in", data.new_check_out).gt("check_out", data.new_check_in),
+        // Blocked dates
+        supabase.from("blocked_dates").select("date").eq("homestay_id", booking.homestay_id).or(`room_id.eq.${targetRoomId},room_id.is.null`).gte("date", data.new_check_in).lt("date", data.new_check_out),
+        // Active holds
+        supabase.from("booking_holds").select("id").eq("room_id", targetRoomId).gt("expires_at", new Date().toISOString()).lt("check_in", data.new_check_out).gt("check_out", data.new_check_in),
+        // Pending date change requests on same room
+        supabase.from("date_change_requests").select("id").eq("status", "pending").eq("new_room_id", targetRoomId).neq("booking_id", data.booking_id).lt("new_check_in", data.new_check_out).gt("new_check_out", data.new_check_in),
+        // Seasonal prices for price calculation
+        supabase.from("room_seasonal_prices").select("*").eq("room_id", targetRoomId),
+      ]);
 
-      // Count overlapping confirmed bookings (exclude own booking if same room)
-      const { data: overlappingBookings } = await supabase
-        .from("bookings")
-        .select("id")
-        .eq("room_id", targetRoomId)
-        .in("status", ["pending", "confirmed", "verified"])
-        .lt("check_in", data.new_check_out)
-        .gt("check_out", data.new_check_in);
+      const roomInfo = roomInfoRow as unknown as { quantity: number; price_per_night: number } | null;
+      if (!roomInfo) {
+        return NextResponse.json({ error: "Room not found" }, { status: 404 });
+      }
 
+      const roomQty = roomInfo.quantity || 1;
+
+      // Count overlapping bookings (exclude own booking if same room)
       let bookingCount = (overlappingBookings || []).length;
-      // If same room, the current booking is already counted — subtract it
       if (!roomChanged && overlappingBookings) {
         const ownOverlap = (overlappingBookings as { id: string }[]).find((b) => b.id === booking.id);
         if (ownOverlap) bookingCount -= 1;
@@ -144,40 +158,12 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Check blocked dates
-      const { data: blockedRows } = await supabase
-        .from("blocked_dates")
-        .select("date")
-        .eq("homestay_id", booking.homestay_id)
-        .or(`room_id.eq.${targetRoomId},room_id.is.null`)
-        .gte("date", data.new_check_in)
-        .lt("date", data.new_check_out);
-
       if (blockedRows && blockedRows.length > 0) {
         return NextResponse.json(
           { error: "DATES_BLOCKED", message: "Some selected dates are blocked by the host" },
           { status: 409 }
         );
       }
-
-      // Check active holds from other sessions
-      const { data: activeHolds } = await supabase
-        .from("booking_holds")
-        .select("id")
-        .eq("room_id", targetRoomId)
-        .gt("expires_at", new Date().toISOString())
-        .lt("check_in", data.new_check_out)
-        .gt("check_out", data.new_check_in);
-
-      // Check other pending date change requests on same room
-      const { data: pendingDcrs } = await supabase
-        .from("date_change_requests")
-        .select("id")
-        .eq("status", "pending")
-        .eq("new_room_id", targetRoomId)
-        .neq("booking_id", data.booking_id)
-        .lt("new_check_in", data.new_check_out)
-        .gt("new_check_out", data.new_check_in);
 
       const totalConflicts = bookingCount + (activeHolds || []).length + (pendingDcrs || []).length;
       if (totalConflicts >= roomQty) {
@@ -186,58 +172,28 @@ export async function POST(req: NextRequest) {
           { status: 409 }
         );
       }
-    }
 
-    // Recalculate price for new dates using target room
-    let newTotalPrice = booking.total_price;
-    if (targetRoomId) {
-      const { data: roomRow } = await supabase
-        .from("rooms")
-        .select("price_per_night")
-        .eq("id", targetRoomId)
-        .single();
-
-      if (!roomRow) {
-        return NextResponse.json({ error: "Room not found" }, { status: 404 });
-      }
-
-      const room = roomRow as unknown as { price_per_night: number };
-
-      const { data: seasonRows } = await supabase
-        .from("room_seasonal_prices")
-        .select("*")
-        .eq("room_id", targetRoomId);
+      // Calculate price using room info + seasonal prices from parallel batch
       const seasons = (seasonRows as unknown as RoomSeasonalPrice[]) || [];
-
-      const { total } = calculateTotalPrice(room.price_per_night, newCheckIn, newCheckOut, seasons);
+      const { total } = calculateTotalPrice(roomInfo.price_per_night, newCheckIn, newCheckOut, seasons);
       newTotalPrice = total;
     }
 
     const priceDifference = newTotalPrice - booking.total_price;
 
-    // Calculate deposit-aware additional payment
+    // --- Deposit config (conditional, single joined query) ---
     let newDeposit = 0;
     const fullOutstanding = Math.max(0, newTotalPrice - booking.amount_paid);
 
     if (booking.payment_type === "deposit") {
-      // Fetch host deposit config for the new check-in month
-      const { data: homestayRow } = await supabase
+      const { data: depositRow } = await supabase
         .from("homestays")
-        .select("host_id")
+        .select("hosts(deposit_amount, deposit_by_month)")
         .eq("id", booking.homestay_id)
         .single();
-      if (homestayRow) {
-        const { data: hostRow } = await supabase
-          .from("hosts")
-          .select("deposit_amount, deposit_by_month")
-          .eq("id", (homestayRow as unknown as { host_id: string }).host_id)
-          .single();
-        if (hostRow) {
-          newDeposit = getDepositForMonth(
-            hostRow as unknown as { deposit_amount: number; deposit_by_month: Record<string, number> | null },
-            newCheckIn
-          );
-        }
+      const hostDeposit = (depositRow as unknown as { hosts: { deposit_amount: number; deposit_by_month: Record<string, number> | null } | null })?.hosts;
+      if (hostDeposit) {
+        newDeposit = getDepositForMonth(hostDeposit, newCheckIn);
       }
     }
 
