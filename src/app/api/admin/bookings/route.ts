@@ -24,28 +24,37 @@ export async function GET(req: NextRequest) {
 
     const sc = createServiceRoleClient();
 
-    const { count: total } = await sc
-      .from("bookings")
-      .select("id", { count: "exact", head: true });
+    // Only fetch total count on page 1 to avoid redundant full-table scan on load-more
+    let total: number | null = null;
+    if (page === 1) {
+      const { count } = await sc
+        .from("bookings")
+        .select("id", { count: "exact", head: true });
+      total = count;
+    }
 
+    // Fetch limit+1 to determine hasMore without needing count on subsequent pages
     const { data: bookings, error } = await sc
       .from("bookings")
       .select("id, homestay_id, room_id, guest_name, guest_email, guest_phone, check_in, check_out, num_guests, total_price, status, payment_type, amount_paid, created_at")
       .order("created_at", { ascending: false })
-      .range(offset, offset + limit - 1);
+      .range(offset, offset + limit);
 
     if (error) {
       console.error("[Admin Bookings] query error:", error);
       return NextResponse.json({ error: "Failed to fetch bookings" }, { status: 500 });
     }
 
-    const typedBookings = bookings as {
+    const allBookings = bookings as {
       id: string; homestay_id: string; room_id: string | null;
       guest_name: string; guest_email: string; guest_phone: string;
       check_in: string; check_out: string; num_guests: number;
       total_price: number; status: string; payment_type: string;
       amount_paid: number; created_at: string;
     }[];
+
+    const hasMore = allBookings.length > limit;
+    const typedBookings = hasMore ? allBookings.slice(0, limit) : allBookings;
 
     // Fetch homestay names
     const homestayIds = [...new Set(typedBookings.map((b) => b.homestay_id))];
@@ -76,13 +85,15 @@ export async function GET(req: NextRequest) {
       room_name: b.room_id ? roomMap.get(b.room_id) || null : null,
     }));
 
-    const totalCount = total || 0;
+    const totalCount = total ?? 0;
+    const totalPages = total != null ? Math.ceil(totalCount / limit) : (hasMore ? page + 1 : page);
     return NextResponse.json({
       data,
       total: totalCount,
       page,
       limit,
-      totalPages: Math.ceil(totalCount / limit),
+      totalPages,
+      hasMore,
     });
   } catch (error) {
     console.error("[Admin Bookings] error:", error);

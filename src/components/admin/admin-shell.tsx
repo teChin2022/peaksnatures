@@ -14,6 +14,8 @@ import {
   ChevronLeft,
   ChevronRight,
   Shield,
+  ScrollText,
+  Settings,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -24,6 +26,8 @@ const NAV_ITEMS = [
   { key: "Hosts", href: "/admin/hosts", icon: Users },
   { key: "Homestays", href: "/admin/homestays", icon: Home },
   { key: "Bookings", href: "/admin/bookings", icon: CalendarDays },
+  { key: "Logs", href: "/admin/logs", icon: ScrollText },
+  { key: "Settings", href: "/admin/settings", icon: Settings },
 ] as const;
 
 interface AdminSidebarProps {

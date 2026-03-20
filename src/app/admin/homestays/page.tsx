@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Home, ChevronLeft, ChevronRight } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Home, MapPin, User } from "lucide-react";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Switch } from "@/components/ui/switch";
@@ -84,96 +84,77 @@ export default function AdminHomestaysPage() {
         </div>
       </div>
 
-      <Card>
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">All Homestays</CardTitle>
-        </CardHeader>
-        <CardContent>
-          {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <Skeleton key={i} className="h-12 w-full" />
-              ))}
-            </div>
-          ) : !res || res.data.length === 0 ? (
-            <p className="text-sm text-gray-500 py-8 text-center">No homestays found.</p>
-          ) : (
-            <>
-              <div className="overflow-x-auto">
-                <table className="w-full text-sm">
-                  <thead>
-                    <tr className="border-b text-left text-gray-500">
-                      <th className="pb-3 pr-4 font-medium">Name</th>
-                      <th className="pb-3 pr-4 font-medium">Slug</th>
-                      <th className="pb-3 pr-4 font-medium">Host</th>
-                      <th className="pb-3 pr-4 font-medium">Location</th>
-                      <th className="pb-3 pr-4 font-medium">Status</th>
-                      <th className="pb-3 font-medium">Active</th>
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {res.data.map((homestay) => (
-                      <tr key={homestay.id} className="border-b last:border-0">
-                        <td className="py-3 pr-4 font-medium">{homestay.name}</td>
-                        <td className="py-3 pr-4 text-gray-500 font-mono text-xs">/{homestay.slug}</td>
-                        <td className="py-3 pr-4 text-gray-600">
-                          {homestay.host?.name || "—"}
-                        </td>
-                        <td className="py-3 pr-4 text-gray-600 max-w-[200px] truncate">
-                          {homestay.location}
-                        </td>
-                        <td className="py-3 pr-4">
-                          <Badge
-                            variant={homestay.is_active ? "default" : "secondary"}
-                            className="text-[10px]"
-                          >
-                            {homestay.is_active ? "Active" : "Inactive"}
-                          </Badge>
-                        </td>
-                        <td className="py-3">
-                          <Switch
-                            checked={homestay.is_active}
-                            onCheckedChange={() => handleToggle(homestay.id)}
-                            disabled={toggling === homestay.id}
-                          />
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              </div>
-
-              {res.totalPages > 1 && (
-                <div className="mt-4 flex items-center justify-between border-t pt-4">
-                  <p className="text-sm text-gray-500">
-                    Page {res.page} of {res.totalPages}
-                  </p>
-                  <div className="flex items-center gap-2">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.max(1, p - 1))}
-                      disabled={page <= 1}
-                    >
-                      <ChevronLeft className="h-4 w-4 mr-1" />
-                      Previous
-                    </Button>
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => setPage((p) => Math.min(res.totalPages, p + 1))}
-                      disabled={page >= res.totalPages}
-                    >
-                      Next
-                      <ChevronRight className="h-4 w-4 ml-1" />
-                    </Button>
+      {loading ? (
+        <div className="space-y-3">
+          {[1, 2, 3, 4, 5].map((i) => (
+            <Skeleton key={i} className="h-24 w-full rounded-xl" />
+          ))}
+        </div>
+      ) : !res || res.data.length === 0 ? (
+        <p className="text-sm text-gray-500 py-12 text-center">No homestays found.</p>
+      ) : (
+        <>
+          <div className="space-y-3">
+            {res.data.map((homestay) => (
+              <Card key={homestay.id}>
+                <CardContent className="p-4">
+                  <div className="flex items-start justify-between gap-3">
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2 mb-1">
+                        <h3 className="font-semibold text-gray-900 truncate">{homestay.name}</h3>
+                        <Badge
+                          variant={homestay.is_active ? "default" : "secondary"}
+                          className="text-[10px] shrink-0"
+                        >
+                          {homestay.is_active ? "Active" : "Inactive"}
+                        </Badge>
+                      </div>
+                      <p className="text-xs text-gray-400 font-mono mb-1.5">/{homestay.slug}</p>
+                      <div className="space-y-1 text-sm text-gray-500">
+                        <div className="flex items-center gap-1.5">
+                          <User className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{homestay.host?.name || "—"}</span>
+                          {homestay.host?.email && (
+                            <span className="text-xs text-gray-400 truncate">({homestay.host.email})</span>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <MapPin className="h-3.5 w-3.5 shrink-0" />
+                          <span className="truncate">{homestay.location}</span>
+                        </div>
+                      </div>
+                    </div>
+                    <div className="shrink-0 flex items-center gap-2">
+                      <span className="text-xs text-gray-400">{homestay.is_active ? "On" : "Off"}</span>
+                      <Switch
+                        checked={homestay.is_active}
+                        onCheckedChange={() => handleToggle(homestay.id)}
+                        disabled={toggling === homestay.id}
+                      />
+                    </div>
                   </div>
-                </div>
-              )}
-            </>
+                </CardContent>
+              </Card>
+            ))}
+          </div>
+
+          {res.totalPages > 1 && (
+            <div className="mt-4 flex items-center justify-between pt-2">
+              <p className="text-sm text-gray-500">
+                Page {res.page} of {res.totalPages}
+              </p>
+              <div className="flex items-center gap-2">
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
+                  Previous
+                </Button>
+                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(res.totalPages, p + 1))} disabled={page >= res.totalPages}>
+                  Next
+                </Button>
+              </div>
+            </div>
           )}
-        </CardContent>
-      </Card>
+        </>
+      )}
     </div>
   );
 }
