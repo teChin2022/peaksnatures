@@ -33,12 +33,13 @@ export async function POST(request: NextRequest) {
     // Fetch the booking
     const { data: bookingRow, error: bookingError } = await supabase
       .from("bookings")
-      .select("id, status, guest_name, guest_email, check_in, check_out, checked_in_at, checked_out_at, total_price, amount_paid, payment_type")
+      .select("id, homestay_id, status, guest_name, guest_email, check_in, check_out, checked_in_at, checked_out_at, total_price, amount_paid, payment_type")
       .eq("id", booking_id)
       .single();
 
     const booking = bookingRow as unknown as {
       id: string;
+      homestay_id: string;
       status: string;
       guest_name: string;
       guest_email: string;
@@ -89,12 +90,10 @@ export async function POST(request: NextRequest) {
         return NextResponse.json({ error: "Failed to check in" }, { status: 500 });
       }
 
-      // Log checkin in background
+      // Log checkin in background (homestay_id already available from initial fetch)
       after(async () => {
-        const { data: bRow } = await supabase.from("bookings").select("homestay_id").eq("id", booking_id).single();
-        const homestayId = (bRow as { homestay_id: string } | null)?.homestay_id || null;
         await logEvent({
-          homestayId,
+          homestayId: booking.homestay_id,
           entityType: "booking",
           entityId: booking_id,
           eventType: EventType.CHECKIN,
@@ -147,12 +146,10 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to check out" }, { status: 500 });
     }
 
-    // Log checkout in background
+    // Log checkout in background (homestay_id already available from initial fetch)
     after(async () => {
-      const { data: bRow } = await supabase.from("bookings").select("homestay_id").eq("id", booking_id).single();
-      const homestayId = (bRow as { homestay_id: string } | null)?.homestay_id || null;
       await logEvent({
-        homestayId,
+        homestayId: booking.homestay_id,
         entityType: "booking",
         entityId: booking_id,
         eventType: EventType.CHECKOUT,

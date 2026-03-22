@@ -27,6 +27,7 @@ CREATE TABLE hosts (
   deposit_by_month JSONB DEFAULT NULL,
   cancellation_days INTEGER NOT NULL DEFAULT 0,
   status TEXT NOT NULL DEFAULT 'pending',
+  is_verified BOOLEAN NOT NULL DEFAULT false,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_by TEXT NOT NULL DEFAULT 'system',
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -536,7 +537,7 @@ CREATE OR REPLACE FUNCTION create_booking_atomic(
   p_notes TEXT DEFAULT NULL,
   p_payment_type TEXT DEFAULT 'full',
   p_amount_paid INT DEFAULT 0,
-  p_created_by TEXT DEFAULT 'guest'
+  p_created_by TEXT DEFAULT 'unknown'
 ) RETURNS UUID AS $$
 DECLARE
   v_room_qty INT;
@@ -767,7 +768,7 @@ CREATE TRIGGER trg_date_change_requests_updated_at
 
 CREATE OR REPLACE FUNCTION approve_date_change_atomic(
   p_request_id UUID,
-  p_approved_by TEXT DEFAULT 'host'
+  p_approved_by TEXT DEFAULT 'unknown'
 ) RETURNS BOOLEAN AS $$
 DECLARE
   v_req RECORD;

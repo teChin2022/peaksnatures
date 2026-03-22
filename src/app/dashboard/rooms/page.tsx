@@ -150,33 +150,24 @@ export default function RoomsPage() {
 
     setHomestayId(homestay.id);
 
+    // Fetch rooms with seasonal prices in one joined query (eliminates sequential fetch)
     const { data: roomRows } = await supabase
       .from("rooms")
-      .select("*")
+      .select("*, room_seasonal_prices(*)")
       .eq("homestay_id", homestay.id)
       .order("name" as never);
 
     if (roomRows) {
-      setRooms(roomRows as unknown as RoomData[]);
+      const roomsWithSeasons = roomRows as unknown as (RoomData & { room_seasonal_prices: RoomSeasonalPrice[] })[];
+      setRooms(roomsWithSeasons.map(({ room_seasonal_prices: _, ...room }) => room as unknown as RoomData));
 
-      // Fetch seasonal prices for all rooms
-      const roomIds = (roomRows as unknown as RoomData[]).map((r) => r.id);
-      if (roomIds.length > 0) {
-        const { data: seasonRows } = await supabase
-          .from("room_seasonal_prices")
-          .select("*")
-          .in("room_id", roomIds)
-          .order("start_date" as never);
-
-        if (seasonRows) {
-          const grouped: Record<string, RoomSeasonalPrice[]> = {};
-          for (const s of seasonRows as unknown as RoomSeasonalPrice[]) {
-            if (!grouped[s.room_id]) grouped[s.room_id] = [];
-            grouped[s.room_id].push(s);
-          }
-          setSeasonalPrices(grouped);
+      const grouped: Record<string, RoomSeasonalPrice[]> = {};
+      for (const r of roomsWithSeasons) {
+        if (r.room_seasonal_prices?.length) {
+          grouped[r.id] = r.room_seasonal_prices;
         }
       }
+      setSeasonalPrices(grouped);
     }
     setLoading(false);
   };

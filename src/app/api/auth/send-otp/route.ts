@@ -88,7 +88,7 @@ export async function POST(req: NextRequest) {
     supabase.auth.signOut().catch(() => {});
 
     // Generate 6-digit OTP code
-    const code = String(Math.floor(100000 + Math.random() * 900000));
+    const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 900000 + 100000);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 minutes
 
     // Store OTP in DB (delete old codes first, then insert new one)

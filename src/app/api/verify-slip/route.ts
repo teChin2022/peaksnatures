@@ -85,28 +85,13 @@ export async function POST(req: NextRequest) {
       .map((b) => b.toString(16).padStart(2, "0"))
       .join("");
 
-    // Check if this exact slip image was already used on another booking
-    const { data: hashDuplicate } = await supabase
-      .from("bookings")
-      .select("id")
-      .eq("payment_slip_hash", slipHash)
-      .limit(1);
+    // Parallel: check both tables for duplicate slip hash
+    const [{ data: hashDuplicate }, { data: dcHashDuplicate }] = await Promise.all([
+      supabase.from("bookings").select("id").eq("payment_slip_hash", slipHash).limit(1),
+      supabase.from("date_change_requests").select("id").eq("slip_hash", slipHash).limit(1),
+    ]);
 
-    if ((hashDuplicate as unknown[] | null)?.length) {
-      return NextResponse.json(
-        { error: "This payment slip has already been used for another booking.", duplicate: true },
-        { status: 409 }
-      );
-    }
-
-    // Also check date_change_requests for duplicate slip hash
-    const { data: dcHashDuplicate } = await supabase
-      .from("date_change_requests")
-      .select("id")
-      .eq("slip_hash", slipHash)
-      .limit(1);
-
-    if ((dcHashDuplicate as unknown[] | null)?.length) {
+    if ((hashDuplicate as unknown[] | null)?.length || (dcHashDuplicate as unknown[] | null)?.length) {
       return NextResponse.json(
         { error: "This payment slip has already been used for another booking.", duplicate: true },
         { status: 409 }
@@ -204,27 +189,13 @@ export async function POST(req: NextRequest) {
     // Check for duplicate transaction reference
     const transRef = easySlipData.data.transRef;
     if (transRef) {
-      const { data: transRefDuplicate } = await supabase
-        .from("bookings")
-        .select("id")
-        .eq("slip_trans_ref", transRef)
-        .limit(1);
+      // Parallel: check both tables for duplicate transaction reference
+      const [{ data: transRefDuplicate }, { data: dcTransRefDuplicate }] = await Promise.all([
+        supabase.from("bookings").select("id").eq("slip_trans_ref", transRef).limit(1),
+        supabase.from("date_change_requests").select("id").eq("slip_trans_ref", transRef).limit(1),
+      ]);
 
-      if ((transRefDuplicate as unknown[] | null)?.length) {
-        return NextResponse.json(
-          { error: "This payment transaction has already been used for another booking.", duplicate: true },
-          { status: 409 }
-        );
-      }
-
-      // Also check date_change_requests for duplicate transaction reference
-      const { data: dcTransRefDuplicate } = await supabase
-        .from("date_change_requests")
-        .select("id")
-        .eq("slip_trans_ref", transRef)
-        .limit(1);
-
-      if ((dcTransRefDuplicate as unknown[] | null)?.length) {
+      if ((transRefDuplicate as unknown[] | null)?.length || (dcTransRefDuplicate as unknown[] | null)?.length) {
         return NextResponse.json(
           { error: "This payment transaction has already been used for another booking.", duplicate: true },
           { status: 409 }

@@ -153,32 +153,18 @@ export default function CalendarPage() {
 
     setHomestayId(homestay.id);
 
-    // Fetch rooms for name lookup
-    const { data: roomRows } = await supabase
-      .from("rooms")
-      .select("id, name")
-      .eq("homestay_id", homestay.id);
+    // Parallel: rooms + bookings + blocked dates (all depend only on homestay.id)
+    const [{ data: roomRows }, { data: bookingRows }, { data: blockedRows }] = await Promise.all([
+      supabase.from("rooms").select("id, name").eq("homestay_id", homestay.id),
+      supabase.from("bookings").select("id, homestay_id, room_id, guest_name, check_in, check_out, num_guests, total_price, amount_paid, payment_type, status").eq("homestay_id", homestay.id).not("status", "in", '("cancelled","rejected")').order("check_in", { ascending: true }),
+      supabase.from("blocked_dates").select("*").eq("homestay_id", homestay.id),
+    ]);
+
     const roomList = (roomRows as { id: string; name: string }[]) || [];
-    const rMap = Object.fromEntries(
-      roomList.map((r) => [r.id, r.name])
-    );
+    const rMap = Object.fromEntries(roomList.map((r) => [r.id, r.name]));
     setRoomMap(rMap);
     setRooms(roomList);
-
-    // Fetch bookings (non-cancelled)
-    const { data: bookingRows } = await supabase
-      .from("bookings")
-      .select("id, homestay_id, room_id, guest_name, check_in, check_out, num_guests, total_price, amount_paid, payment_type, status")
-      .eq("homestay_id", homestay.id)
-      .not("status", "in", '("cancelled","rejected")')
-      .order("check_in", { ascending: true });
     setBookings((bookingRows as unknown as BookingRow[]) || []);
-
-    // Fetch blocked dates
-    const { data: blockedRows } = await supabase
-      .from("blocked_dates")
-      .select("*")
-      .eq("homestay_id", homestay.id);
     setBlockedDates((blockedRows as unknown as BlockedDateRow[]) || []);
 
     setLoading(false);

@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server";
 import { z } from "zod";
 
+function escapeHtml(s: string): string {
+  return s
+    .replace(/&/g, "&amp;")
+    .replace(/</g, "&lt;")
+    .replace(/>/g, "&gt;")
+    .replace(/"/g, "&quot;")
+    .replace(/'/g, "&#39;");
+}
+
 const contactSchema = z.object({
   name: z.string().min(1).max(200),
   email: z.string().email().max(200),
@@ -20,7 +29,11 @@ export async function POST(request: Request) {
       );
     }
 
-    const { name, email, subject, message } = parsed.data;
+    const { name: rawName, email: rawEmail, subject: rawSubject, message: rawMessage } = parsed.data;
+    const name = escapeHtml(rawName);
+    const email = escapeHtml(rawEmail);
+    const subject = escapeHtml(rawSubject);
+    const message = escapeHtml(rawMessage);
 
     const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
     if (!apiKey || apiKey === "your_resend_api_key") {
@@ -40,8 +53,8 @@ export async function POST(request: Request) {
     const { error } = await resend.emails.send({
       from: fromEmail,
       to: "peaksnature@gmail.com",
-      replyTo: email,
-      subject: `[Contact] ${subject}`,
+      replyTo: rawEmail,
+      subject: `[Contact] ${rawSubject}`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
           <div style="background: #166534; padding: 24px; border-radius: 12px 12px 0 0;">

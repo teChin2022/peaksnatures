@@ -28,30 +28,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Verify ownership
+    // Verify ownership (single joined query)
     const { data: homestayRow } = await supabase
       .from("homestays")
-      .select("id, host_id")
+      .select("id, hosts!inner(id, name)")
       .eq("id", homestay_id)
       .single();
-    const homestay = homestayRow as { id: string; host_id: string } | null;
 
-    if (!homestay) {
+    if (!homestayRow) {
       return NextResponse.json({ error: "Homestay not found" }, { status: 404 });
     }
 
-    const { data: hostRow } = await supabase
+    const hsJoined = homestayRow as unknown as { id: string; hosts: { id: string; name: string } };
+    // Verify the requesting user owns this host
+    const { data: hostCheck } = await supabase
       .from("hosts")
-      .select("id, name")
+      .select("id")
+      .eq("id", hsJoined.hosts.id)
       .eq("user_id", user.id)
-      .eq("id", homestay.host_id)
       .single();
 
-    if (!hostRow) {
+    if (!hostCheck) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
-    const hostName = (hostRow as { id: string; name: string }).name;
+    const hostName = hsJoined.hosts.name;
 
     // Insert blocked dates (upsert to avoid duplicates)
     const rows = dates.map((date: string) => ({
@@ -62,21 +63,19 @@ export async function POST(req: NextRequest) {
       created_by: hostName,
     }));
 
-    // Use insert + on-conflict handling; for room-specific blocks the unique index
-    // is (homestay_id, date, room_id), for homestay-wide it's (homestay_id, date) where room_id IS NULL.
-    // We delete-then-insert to handle both partial-unique-index cases cleanly.
-    for (const row of rows) {
-      const q = supabase
-        .from("blocked_dates")
-        .delete()
-        .eq("homestay_id", row.homestay_id)
-        .eq("date", row.date);
-      if (row.room_id) {
-        await q.eq("room_id", row.room_id);
-      } else {
-        await q.is("room_id", null);
-      }
+    // Bulk delete existing entries to handle partial-unique-index cases cleanly,
+    // then bulk insert. Single query instead of N sequential deletes.
+    let bulkDeleteQuery = supabase
+      .from("blocked_dates")
+      .delete()
+      .eq("homestay_id", homestay_id)
+      .in("date", dates);
+    if (room_id) {
+      bulkDeleteQuery = bulkDeleteQuery.eq("room_id", room_id);
+    } else {
+      bulkDeleteQuery = bulkDeleteQuery.is("room_id", null);
     }
+    await bulkDeleteQuery;
 
     const { data: inserted, error } = await supabase
       .from("blocked_dates")
@@ -140,26 +139,26 @@ export async function DELETE(req: NextRequest) {
       );
     }
 
-    // Verify ownership
+    // Verify ownership (single joined query)
     const { data: homestayRow } = await supabase
       .from("homestays")
-      .select("id, host_id")
+      .select("id, hosts!inner(id, name)")
       .eq("id", homestay_id)
       .single();
-    const homestay = homestayRow as { id: string; host_id: string } | null;
 
-    if (!homestay) {
+    if (!homestayRow) {
       return NextResponse.json({ error: "Homestay not found" }, { status: 404 });
     }
 
-    const { data: hostRow } = await supabase
+    const hsJoined = homestayRow as unknown as { id: string; hosts: { id: string; name: string } };
+    const { data: hostCheck } = await supabase
       .from("hosts")
-      .select("id, name")
+      .select("id")
+      .eq("id", hsJoined.hosts.id)
       .eq("user_id", user.id)
-      .eq("id", homestay.host_id)
       .single();
 
-    if (!hostRow) {
+    if (!hostCheck) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

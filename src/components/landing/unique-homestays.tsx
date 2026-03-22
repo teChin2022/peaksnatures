@@ -12,6 +12,7 @@ interface HomestayData {
   tagline: string | null;
   review_count: number;
   average_rating: number;
+  is_host_verified: boolean;
 }
 
 export function UniqueHomestays({ homestays }: { homestays: HomestayData[] }) {
@@ -49,6 +50,7 @@ export function UniqueHomestays({ homestays }: { homestays: HomestayData[] }) {
                 tagline={h.tagline}
                 reviewCount={h.review_count}
                 averageRating={h.average_rating}
+                isHostVerified={h.is_host_verified}
               />
             ))}
           </div>

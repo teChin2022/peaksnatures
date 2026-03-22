@@ -119,11 +119,11 @@ export async function POST(req: NextRequest) {
 
     // Server-side price verification: never trust client-supplied total_price
     if (data.room_id) {
-      const { data: roomRow, error: roomError } = await supabase
-        .from("rooms")
-        .select("price_per_night")
-        .eq("id", data.room_id)
-        .single();
+      // Parallel: room price + seasonal prices
+      const [{ data: roomRow, error: roomError }, { data: seasonRows }] = await Promise.all([
+        supabase.from("rooms").select("price_per_night").eq("id", data.room_id).single(),
+        supabase.from("room_seasonal_prices").select("*").eq("room_id", data.room_id),
+      ]);
 
       if (roomError || !roomRow) {
         return NextResponse.json(
@@ -144,11 +144,6 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Fetch seasonal prices for this room
-      const { data: seasonRows } = await supabase
-        .from("room_seasonal_prices")
-        .select("*")
-        .eq("room_id", data.room_id);
       const seasons = (seasonRows as unknown as RoomSeasonalPrice[]) || [];
 
       const { total: serverPrice } = calculateTotalPrice(room.price_per_night, checkIn, checkOut, seasons);
@@ -160,32 +155,24 @@ export async function POST(req: NextRequest) {
 
     // Validate payment_type and amount_paid
     if (data.payment_type === "deposit") {
-      // Fetch host deposit config for validation
-      const { data: homestayRow } = await supabase
+      // Single joined query for host deposit config
+      const { data: depositRow } = await supabase
         .from("homestays")
-        .select("host_id")
+        .select("hosts(deposit_amount, deposit_by_month)")
         .eq("id", data.homestay_id)
         .single();
 
-      if (homestayRow) {
-        const { data: hostRow } = await supabase
-          .from("hosts")
-          .select("deposit_amount, deposit_by_month")
-          .eq("id", (homestayRow as unknown as { host_id: string }).host_id)
-          .single();
-
-        const hostData = hostRow as unknown as { deposit_amount: number; deposit_by_month: Record<string, number> | null } | null;
-        const checkInDate = new Date(data.check_in);
-        const hostDeposit = hostData ? getDepositForMonth(hostData, checkInDate) : 0;
-        if (hostDeposit <= 0) {
-          return NextResponse.json(
-            { error: "Deposit payment is not enabled for this homestay" },
-            { status: 400 }
-          );
-        }
-        // Server enforces the host's deposit amount for the check-in month
-        data.amount_paid = hostDeposit;
+      const hostData = (depositRow as unknown as { hosts: { deposit_amount: number; deposit_by_month: Record<string, number> | null } | null })?.hosts;
+      const checkInDate = new Date(data.check_in);
+      const hostDeposit = hostData ? getDepositForMonth(hostData, checkInDate) : 0;
+      if (hostDeposit <= 0) {
+        return NextResponse.json(
+          { error: "Deposit payment is not enabled for this homestay" },
+          { status: 400 }
+        );
       }
+      // Server enforces the host's deposit amount for the check-in month
+      data.amount_paid = hostDeposit;
     } else {
       // Full payment: amount_paid = total_price
       data.amount_paid = data.total_price;
