@@ -43,63 +43,45 @@ export async function GET(request: NextRequest) {
     .limit(1);
   const unique = (data as unknown as BookingResult[]) || [];
 
-  // Fetch room names for results
-  const roomIds = [...new Set(unique.map((b) => b.room_id).filter(Boolean))] as string[];
-  let roomMap: Record<string, string> = {};
-  if (roomIds.length > 0) {
-    const { data: rooms } = await supabase
-      .from("rooms")
-      .select("id, name")
-      .in("id", roomIds);
-    roomMap = Object.fromEntries(((rooms as { id: string; name: string }[]) || []).map((r) => [r.id, r.name]));
-  }
-
   const sliced = unique.slice(0, 10);
 
-  // Fetch cancellation_days from host via homestay
-  let cancellationDays = 0;
-  const { data: homestayRow } = await supabase
-    .from("homestays")
-    .select("host_id")
-    .eq("id", homestayId)
-    .single();
-  if (homestayRow) {
-    const { data: hostRow } = await supabase
-      .from("hosts")
-      .select("cancellation_days")
-      .eq("id", (homestayRow as { host_id: string }).host_id)
-      .single();
-    if (hostRow) {
-      cancellationDays = (hostRow as { cancellation_days: number }).cancellation_days || 0;
-    }
-  }
-
-  // Fetch existing reviews for completed bookings to show has_review flag
+  // --- Parallel batch: room names, cancellation_days, reviews, date change requests ---
+  const roomIds = [...new Set(unique.map((b) => b.room_id).filter(Boolean))] as string[];
   const completedIds = sliced.filter((b) => b.status === "completed").map((b) => b.id);
-  let reviewedSet = new Set<string>();
-  if (completedIds.length > 0) {
-    const { data: reviewRows } = await supabase
-      .from("reviews")
-      .select("booking_id")
-      .in("booking_id", completedIds);
-    reviewedSet = new Set(
-      ((reviewRows as unknown as { booking_id: string }[]) || []).map((r) => r.booking_id)
-    );
-  }
-
-  // Fetch pending date change requests for these bookings
   const bookingIds = sliced.map((b) => b.id);
-  let pendingDateChanges: Record<string, { id: string; new_check_in: string; new_check_out: string; new_total_price: number; price_difference: number; status: string }> = {};
-  if (bookingIds.length > 0) {
-    const { data: dcrRows } = await supabase
-      .from("date_change_requests")
-      .select("id, booking_id, new_check_in, new_check_out, new_total_price, price_difference, status, new_room_id")
-      .in("booking_id", bookingIds)
-      .eq("status", "pending");
-    if (dcrRows) {
-      for (const row of dcrRows as unknown as { id: string; booking_id: string; new_check_in: string; new_check_out: string; new_total_price: number; price_difference: number; status: string; new_room_id: string | null }[]) {
-        pendingDateChanges[row.booking_id] = row;
-      }
+
+  const [roomsRes, cancellationRes, reviewsRes, dcrsRes] = await Promise.all([
+    // Room names
+    roomIds.length > 0
+      ? supabase.from("rooms").select("id, name").in("id", roomIds)
+      : Promise.resolve({ data: null }),
+    // Cancellation days via joined query
+    supabase.from("homestays").select("hosts(cancellation_days)").eq("id", homestayId).single(),
+    // Reviews for completed bookings
+    completedIds.length > 0
+      ? supabase.from("reviews").select("booking_id").in("booking_id", completedIds)
+      : Promise.resolve({ data: null }),
+    // Pending date change requests
+    bookingIds.length > 0
+      ? supabase.from("date_change_requests").select("id, booking_id, new_check_in, new_check_out, new_total_price, price_difference, status, new_room_id").in("booking_id", bookingIds).eq("status", "pending")
+      : Promise.resolve({ data: null }),
+  ]);
+
+  const roomMap: Record<string, string> = Object.fromEntries(
+    ((roomsRes.data as { id: string; name: string }[]) || []).map((r) => [r.id, r.name])
+  );
+
+  const cancellationHost = (cancellationRes.data as unknown as { hosts: { cancellation_days: number } | null } | null)?.hosts;
+  const cancellationDays = cancellationHost?.cancellation_days || 0;
+
+  const reviewedSet = new Set(
+    ((reviewsRes.data as unknown as { booking_id: string }[]) || []).map((r) => r.booking_id)
+  );
+
+  const pendingDateChanges: Record<string, { id: string; new_check_in: string; new_check_out: string; new_total_price: number; price_difference: number; status: string }> = {};
+  if (dcrsRes.data) {
+    for (const row of dcrsRes.data as unknown as { id: string; booking_id: string; new_check_in: string; new_check_out: string; new_total_price: number; price_difference: number; status: string; new_room_id: string | null }[]) {
+      pendingDateChanges[row.booking_id] = row;
     }
   }
 

@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { Users, CalendarCheck, HandCoins, BadgeCheck } from "lucide-react";
+import { Users, CalendarCheck, HandCoins, BadgeCheck, ShieldCheck, Inbox, ClipboardCheck } from "lucide-react";
 import { motion } from "motion/react";
 
 export function ForHosts() {
@@ -23,6 +23,24 @@ export function ForHosts() {
       title: "ค่าบริการที่ยุติธรรม",
       description:
         "เราเก็บค่าบริการเป็นแบบทั้งค่าคอมมิชชั่นและรายเดือน ออกแบบมาเพื่อสนับสนุนโฮมสเตย์ท้องถิ่น",
+    },
+    {
+      icon: <ShieldCheck className="text-gray-600" size={24} />,
+      title: "ลดความเสี่ยงจากสลิปปลอม",
+      description:
+        "ช่วยให้การจองเป็นระบบมากขึ้น ลดความสับสนจากการโอนเงินที่ไม่ตรงกัน หรือการแอบอ้างว่าชำระเงินแล้ว",
+    },
+    {
+      icon: <Inbox className="text-gray-600" size={24} />,
+      title: "รับคำขอจองในที่เดียว",
+      description:
+        "รวมวันเข้าพัก ห้องพัก จำนวนผู้เข้าพัก และสถานะการจองไว้ในที่เดียว ช่วยให้ตอบกลับง่ายขึ้นและลดโอกาสผิดพลาด",
+    },
+    {
+      icon: <ClipboardCheck className="text-gray-600" size={24} />,
+      title: "คัดกรองก่อนตอบรับ",
+      description:
+        "ตรวจสอบรายละเอียดการจองเบื้องต้นก่อนตัดสินใจรับเข้าพัก ช่วยให้คุณตอบรับลูกค้าได้อย่างมั่นใจมากขึ้น",
     },
   ];
 

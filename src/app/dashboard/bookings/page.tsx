@@ -213,53 +213,50 @@ export default function BookingsPage() {
     homestayIdsRef.current = homestayIds;
     homestayMapRef.current = homestayMap;
 
-    // Get rooms for name lookup
-    const { data: roomRows } = await supabase
-      .from("rooms")
-      .select("id, name")
-      .in("homestay_id", homestayIds);
-    const roomMap = Object.fromEntries(
-      ((roomRows as { id: string; name: string }[]) || []).map((r) => [r.id, r.name])
-    );
-    roomMapRef.current = roomMap;
-
-    // Parallel: fetch counts + first page of bookings
+    // Parallel: rooms + counts + first page of bookings (all depend only on homestayIds)
     const [
+      { data: roomRows },
       { count: total },
       { count: pendingCnt },
       { count: confirmedCnt },
       { data: bookingRows },
     ] = await Promise.all([
+      supabase.from("rooms").select("id, name").in("homestay_id", homestayIds),
       supabase.from("bookings").select("id", { count: "exact", head: true }).in("homestay_id", homestayIds),
       supabase.from("bookings").select("id", { count: "exact", head: true }).in("homestay_id", homestayIds).in("status", ["pending", "verified"]),
       supabase.from("bookings").select("id", { count: "exact", head: true }).in("homestay_id", homestayIds).eq("status", "confirmed"),
       supabase.from("bookings").select("*").in("homestay_id", homestayIds).order("created_at", { ascending: false }).range(0, PAGE_SIZE - 1),
     ]);
 
+    const roomMap = Object.fromEntries(
+      ((roomRows as { id: string; name: string }[]) || []).map((r) => [r.id, r.name])
+    );
+    roomMapRef.current = roomMap;
+
     setTotalCount(total || 0);
     setTotalPendingCount(pendingCnt || 0);
     setTotalConfirmedCount(confirmedCnt || 0);
 
     const rawRows = (bookingRows as unknown as BookingRow[]) || [];
-    const rows = await resolveSlipUrls(rawRows, supabase);
+
+    // Parallel: resolve slip URLs + fetch date change requests (independent)
+    const bookingIds = rawRows.map((b) => b.id);
+    const [rows, dcrResult] = await Promise.all([
+      resolveSlipUrls(rawRows, supabase),
+      bookingIds.length > 0
+        ? supabase.from("date_change_requests").select("id, booking_id, old_check_in, old_check_out, new_check_in, new_check_out, old_total_price, new_total_price, price_difference, status, requested_by, easyslip_verified, payment_slip_url").in("booking_id", bookingIds).eq("status", "pending")
+        : Promise.resolve({ data: null }),
+    ]);
+
     setBookings(toDisplay(rows));
     setHasMore(rows.length === PAGE_SIZE && rows.length < (total || 0));
 
-    // Fetch pending date change requests for these bookings
-    const bookingIds = rows.map((b) => b.id);
-    if (bookingIds.length > 0) {
-      const { data: dcrRows } = await supabase
-        .from("date_change_requests")
-        .select("id, booking_id, old_check_in, old_check_out, new_check_in, new_check_out, old_total_price, new_total_price, price_difference, status, requested_by, easyslip_verified, payment_slip_url")
-        .in("booking_id", bookingIds)
-        .eq("status", "pending");
-      if (dcrRows) {
-        const map: Record<string, DateChangeRequestRow> = {};
-        for (const row of dcrRows as unknown as DateChangeRequestRow[]) {
-          map[row.booking_id] = row;
-        }
-        setDateChangeRequests(map);
+    if (dcrResult.data) {
+      const map: Record<string, DateChangeRequestRow> = {};
+      for (const row of dcrResult.data as unknown as DateChangeRequestRow[]) {
+        map[row.booking_id] = row;
       }
+      setDateChangeRequests(map);
     }
 
     setLoading(false);

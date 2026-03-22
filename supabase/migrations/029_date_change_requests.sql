@@ -75,7 +75,7 @@ CREATE TRIGGER trg_date_change_requests_updated_at
 -- ============================================================
 CREATE OR REPLACE FUNCTION approve_date_change_atomic(
   p_request_id UUID,
-  p_approved_by TEXT DEFAULT 'host'
+  p_approved_by TEXT DEFAULT 'unknown'
 ) RETURNS BOOLEAN AS $$
 DECLARE
   v_req RECORD;

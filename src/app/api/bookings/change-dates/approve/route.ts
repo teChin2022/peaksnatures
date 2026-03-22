@@ -65,10 +65,10 @@ export async function POST(req: NextRequest) {
 
     const booking = bookingRow as unknown as Booking;
 
-    // Verify the host owns this homestay
+    // Verify the host owns this homestay (joined query: homestay + host in one call)
     const { data: homestayRow } = await supabase
       .from("homestays")
-      .select("*")
+      .select("*, hosts(*)")
       .eq("id", booking.homestay_id)
       .single();
 
@@ -76,19 +76,13 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Homestay not found" }, { status: 404 });
     }
 
-    const homestay = homestayRow as unknown as Homestay;
+    const joined = homestayRow as unknown as Homestay & { hosts: Host | null };
+    const homestay = { ...joined } as unknown as Homestay;
+    const host = joined.hosts;
 
-    const { data: hostRow } = await supabase
-      .from("hosts")
-      .select("*")
-      .eq("id", homestay.host_id)
-      .single();
-
-    if (!hostRow) {
+    if (!host) {
       return NextResponse.json({ error: "Host not found" }, { status: 404 });
     }
-
-    const host = hostRow as unknown as Host;
 
     if (host.user_id !== user.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
@@ -99,7 +93,7 @@ export async function POST(req: NextRequest) {
       "approve_date_change_atomic" as never,
       {
         p_request_id: request_id,
-        p_approved_by: user.id,
+        p_approved_by: host.name,
       } as never
     );
 

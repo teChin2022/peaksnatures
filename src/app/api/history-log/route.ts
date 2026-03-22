@@ -1,7 +1,23 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
-import { logEvent } from "@/lib/history-log";
+import { logEvent, EventType } from "@/lib/history-log";
 import type { ActorType } from "@/lib/history-log";
+
+const ALLOWED_CLIENT_EVENTS = new Set<string>([
+  EventType.HOST_LOGOUT,
+  EventType.BOOKING_CONFIRMED,
+  EventType.BOOKING_CANCELLED,
+  EventType.CHECKOUT,
+  EventType.BOOKING_DATE_CHANGE_APPROVED,
+  EventType.BOOKING_DATE_CHANGE_REJECTED,
+  EventType.ROOM_CREATED,
+  EventType.ROOM_UPDATED,
+  EventType.ROOM_DELETED,
+  EventType.PRICE_UPDATED,
+  EventType.PROPERTY_CREATED,
+  EventType.PROPERTY_UPDATED,
+  EventType.PROFILE_UPDATED,
+]);
 
 /**
  * POST /api/history-log
@@ -43,12 +59,19 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    if (!ALLOWED_CLIENT_EVENTS.has(event_type)) {
+      return NextResponse.json(
+        { error: "Event type not allowed from client" },
+        { status: 400 }
+      );
+    }
+
     await logEvent({
       homestayId: homestay_id || null,
       entityType: entity_type,
       entityId: entity_id,
       eventType: event_type,
-      actorType: actor_type || "host",
+      actorType: "host" as ActorType,
       actorId: user.id,
       data: data || {},
       req,

@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
-import { createServiceRoleClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { sendBookingStatusUpdateEmail } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room } from "@/types/database";
 import { logEvent, EventType } from "@/lib/history-log";
@@ -20,6 +20,14 @@ export async function POST(req: NextRequest) {
         { error: "booking_id and status (confirmed|cancelled) are required" },
         { status: 400 }
       );
+    }
+
+    // Verify host is authenticated
+    const authClient = await createServerSupabaseClient();
+    const { data: { user } } = await authClient.auth.getUser();
+
+    if (!user) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
     const supabase = createServiceRoleClient();
@@ -56,20 +64,17 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Fetch host name for audit trail
+    // Fetch host and verify ownership
     const { data: hsRow } = await supabase
       .from("homestays")
-      .select("host_id")
+      .select("host_id, hosts(id, name, user_id)")
       .eq("id", booking.homestay_id)
       .single();
-    let hostName = "host";
-    if (hsRow) {
-      const { data: hRow } = await supabase
-        .from("hosts")
-        .select("name")
-        .eq("id", (hsRow as unknown as { host_id: string }).host_id)
-        .single();
-      if (hRow) hostName = (hRow as unknown as { name: string }).name;
+    const hostData = (hsRow as unknown as { host_id: string; hosts: { id: string; name: string; user_id: string } | null } | null)?.hosts;
+    const hostName = hostData?.name || "host";
+
+    if (!hostData || hostData.user_id !== user.id) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     // Update the booking status
@@ -99,7 +104,7 @@ export async function POST(req: NextRequest) {
     if (status === "cancelled") {
       await supabase
         .from("date_change_requests")
-        .update({ status: "rejected", reject_reason: "Booking cancelled by host", updated_by: "system" } as never)
+        .update({ status: "rejected", reject_reason: "Booking cancelled by host", updated_by: hostName } as never)
         .eq("booking_id", booking_id)
         .eq("status", "pending");
     }
@@ -112,43 +117,29 @@ export async function POST(req: NextRequest) {
         entityId: booking_id,
         eventType: status === "confirmed" ? EventType.BOOKING_CONFIRMED : EventType.BOOKING_CANCELLED,
         actorType: "host",
-        actorId: null,
+        actorId: user.id,
         data: { previous_status: booking.status, new_status: status, ...(reason ? { reason } : {}) },
         req,
       });
 
       try {
-        const { data: homestay } = await supabase
-          .from("homestays")
-          .select("*")
-          .eq("id", booking.homestay_id)
-          .single();
+        // Parallel: homestay+host (joined) + room
+        const [{ data: hsJoined }, roomResult] = await Promise.all([
+          supabase.from("homestays").select("*, hosts(*)").eq("id", booking.homestay_id).single(),
+          booking.room_id
+            ? supabase.from("rooms").select("*").eq("id", booking.room_id).single()
+            : Promise.resolve({ data: null }),
+        ]);
 
-        if (!homestay) return;
-
-        const { data: host } = await supabase
-          .from("hosts")
-          .select("*")
-          .eq("id", (homestay as unknown as Homestay).host_id)
-          .single();
-
-        if (!host) return;
-
-        let room = null;
-        if (booking.room_id) {
-          const { data: roomData } = await supabase
-            .from("rooms")
-            .select("*")
-            .eq("id", booking.room_id)
-            .single();
-          room = roomData;
-        }
+        if (!hsJoined) return;
+        const hsData = hsJoined as unknown as Homestay & { hosts: Host | null };
+        if (!hsData.hosts) return;
 
         const details = {
           booking,
-          homestay: homestay as unknown as Homestay,
-          host: host as unknown as Host,
-          room: (room as unknown as Room) || undefined,
+          homestay: hsData as unknown as Homestay,
+          host: hsData.hosts,
+          room: (roomResult.data as unknown as Room) || undefined,
         };
 
         const emailResult = await sendBookingStatusUpdateEmail(

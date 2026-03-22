@@ -104,17 +104,11 @@ export default function DashboardPage() {
         return;
       }
 
-      // Fetch rooms count
-      const { count: roomCount } = await supabase
-        .from("rooms")
-        .select("id", { count: "exact", head: true })
-        .eq("homestay_id", homestay.id);
-
-      // Fetch booking stats
-      const { data: bookingRows } = await supabase
-        .from("bookings")
-        .select("status, total_price, amount_paid, payment_type, guest_province")
-        .eq("homestay_id", homestay.id);
+      // Parallel: rooms count + booking stats (both depend only on homestay.id)
+      const [{ count: roomCount }, { data: bookingRows }] = await Promise.all([
+        supabase.from("rooms").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id),
+        supabase.from("bookings").select("status, total_price, amount_paid, payment_type, guest_province").eq("homestay_id", homestay.id),
+      ]);
 
       const bookings = (bookingRows as { status: string; total_price: number; amount_paid: number; payment_type: string; guest_province: string | null }[]) || [];
 
