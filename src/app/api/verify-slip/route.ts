@@ -4,41 +4,126 @@ import { createRateLimiter } from "@/lib/rate-limit";
 
 const slipRateLimit = createRateLimiter({ limit: 10, windowMs: 60_000 });
 
-interface EasySlipResponse {
-  status: number;
-  data?: {
-    payload: string;
-    transRef: string;
-    date: string;
-    countryCode: string;
-    amount: {
-      amount: number;
-      local?: { amount: number; currency: string };
-    };
-    fee: number;
-    ref1: string;
-    ref2: string;
-    ref3: string;
-    sender: {
-      bank: { id: string; name: string; short: string };
-      account: { name: { th: string; en: string }; bank?: { type: string; account: string }; proxy?: { type: string; account: string } };
-    };
-    receiver: {
-      bank: { id: string; name: string; short: string };
-      account: { name: { th: string; en: string }; bank?: { type: string; account: string }; proxy?: { type: string; account: string } };
-      merchantId?: string;
+// --- EasySlip API V2 Types ---
+
+interface EasySlipV2RawSlip {
+  payload: string;
+  transRef: string;
+  date: string;
+  countryCode: string;
+  amount: {
+    amount: number;
+    local?: { amount: number; currency: string };
+  };
+  fee: number;
+  ref1: string;
+  ref2: string;
+  ref3: string;
+  sender: {
+    bank: { id: string; name: string; short: string };
+    account: {
+      name: { th?: string; en?: string };
+      bank?: { type: string; account: string };
+      proxy?: { type: string; account: string };
     };
   };
-  error?: string;
+  receiver: {
+    bank: { id: string; name: string; short: string };
+    account: {
+      name: { th?: string; en?: string };
+      bank?: { type: string; account: string };
+      proxy?: { type: string; account: string };
+    };
+    merchantId?: string | null;
+  };
+}
+
+interface EasySlipV2Success {
+  success: true;
+  data: {
+    remark?: string;
+    isDuplicate: boolean;
+    matchedAccount: unknown;
+    amountInOrder?: number;
+    amountInSlip: number;
+    isAmountMatched?: boolean;
+    rawSlip: EasySlipV2RawSlip;
+  };
+  message: string;
+}
+
+interface EasySlipV2Error {
+  success: false;
+  error: {
+    code: string;
+    message: string;
+  };
+}
+
+type EasySlipV2Response = EasySlipV2Success | EasySlipV2Error;
+
+// --- Auto-retry config for SLIP_PENDING (Bangkok Bank) ---
+const SLIP_PENDING_MAX_RETRIES = 3;
+const SLIP_PENDING_DELAY_MS = 15_000; // 15 seconds between retries
+
+const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Call EasySlip V2 /verify/bank with auto-retry for SLIP_PENDING.
+ */
+async function callEasySlipV2(
+  fileBuffer: ArrayBuffer,
+  fileName: string,
+  fileType: string,
+  apiKey: string,
+  expectedAmount: number,
+): Promise<EasySlipV2Response> {
+  for (let attempt = 0; attempt <= SLIP_PENDING_MAX_RETRIES; attempt++) {
+    const form = new FormData();
+    form.append("image", new File([fileBuffer], fileName, { type: fileType }));
+    // V2 built-in amount matching
+    if (expectedAmount > 0) {
+      form.append("matchAmount", expectedAmount.toString());
+    }
+    // V2 built-in duplicate detection
+    form.append("checkDuplicate", "true");
+
+    const res = await fetch("https://api.easyslip.com/v2/verify/bank", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${apiKey}` },
+      body: form,
+    });
+
+    const data: EasySlipV2Response = await res.json();
+
+    // If SLIP_PENDING and we have retries left, wait and retry
+    if (
+      !data.success &&
+      data.error.code === "SLIP_PENDING" &&
+      attempt < SLIP_PENDING_MAX_RETRIES
+    ) {
+      console.log(
+        `[Verify] SLIP_PENDING — retry ${attempt + 1}/${SLIP_PENDING_MAX_RETRIES} in ${SLIP_PENDING_DELAY_MS / 1000}s`
+      );
+      await sleep(SLIP_PENDING_DELAY_MS);
+      continue;
+    }
+
+    return data;
+  }
+
+  // Should not reach here, but satisfy TS
+  return { success: false, error: { code: "SLIP_PENDING", message: "Slip still pending after retries" } };
 }
 
 /**
  * Pure slip verification endpoint.
- * Verifies the slip image, checks for duplicates, validates amount/receiver.
+ * Verifies the slip image via EasySlip V2, checks for duplicates, validates amount/receiver.
  * Does NOT create or modify bookings — the caller decides what to do next.
  *
  * Returns on success: { verified: true, slip_hash, slip_trans_ref, easyslip_response, payment_slip_url }
  * Returns on failure: { verified: false, message, ... } or { error, duplicate: true } (409)
+ * Returns on SLIP_PENDING: { verified: false, slip_pending: true, message, ... }
  */
 export async function POST(req: NextRequest) {
   const rateLimited = slipRateLimit.check(req);
@@ -57,11 +142,11 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate file size (max 5MB)
-    const MAX_FILE_SIZE = 5 * 1024 * 1024;
+    // Validate file size (max 4MB — V2 limit)
+    const MAX_FILE_SIZE = 4 * 1024 * 1024;
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: "File too large. Maximum size is 5MB." },
+        { error: "File too large. Maximum size is 4MB." },
         { status: 400 }
       );
     }
@@ -78,7 +163,7 @@ export async function POST(req: NextRequest) {
     const apiKey = process.env.EASYSLIP_API_KEY;
     const supabase = createServiceRoleClient();
 
-    // Compute file hash for duplicate detection
+    // Compute file hash for duplicate detection (our own DB-level check)
     const fileBuffer = await file.arrayBuffer();
     const hashBuffer = await crypto.subtle.digest("SHA-256", fileBuffer);
     const slipHash = Array.from(new Uint8Array(hashBuffer))
@@ -112,56 +197,40 @@ export async function POST(req: NextRequest) {
       .createSignedUrl(slipPath, 60 * 60); // 1 hour for immediate preview
     const paymentSlipSignedUrl = signedUrlData?.signedUrl || null;
 
-    // --- Demo mode (must be explicitly enabled) ---
-    // if (process.env.DEMO_MODE === "true" && (!apiKey || apiKey === "your_easyslip_api_key")) {
-    //   console.warn("[Demo] Simulating EasySlip verification — DEMO_MODE is enabled. Disable in production!");
-    //   const demoResponse = {
-    //     status: 200,
-    //     data: {
-    //       amount: { amount: expectedAmount },
-    //       receiver: {
-    //         proxy: { type: "MOBILE", account: expectedReceiver },
-    //       },
-    //     },
-    //   };
+    // --- Call EasySlip V2 API with auto-retry for SLIP_PENDING ---
+    if (!apiKey) {
+      return NextResponse.json(
+        { error: "Payment verification is not configured." },
+        { status: 503 }
+      );
+    }
 
-    //   return NextResponse.json({
-    //     verified: true,
-    //     message: "Payment slip verified successfully (demo mode)",
-    //     slip_hash: slipHash,
-    //     slip_trans_ref: null,
-    //     payment_slip_url: paymentSlipUrl,
-    //     easyslip_response: demoResponse,
-    //   });
-    // }
-
-    // Reject if no valid API key configured (and not in demo mode)
-    // if (!apiKey || apiKey === "your_easyslip_api_key") {
-    //   return NextResponse.json(
-    //     { error: "Payment verification is not configured. Please set EASYSLIP_API_KEY." },
-    //     { status: 503 }
-    //   );
-    // }
-
-    // --- Production: Call EasySlip API ---
-    const easySlipForm = new FormData();
-    easySlipForm.append("file", new File([fileBuffer], file.name, { type: file.type }));
-
-    const easySlipRes = await fetch(
-      "https://developer.easyslip.com/api/v1/verify",
-      {
-        method: "POST",
-        headers: { Authorization: `Bearer ${apiKey}` },
-        body: easySlipForm,
-      }
+    const easySlipData = await callEasySlipV2(
+      fileBuffer,
+      file.name,
+      file.type,
+      apiKey,
+      expectedAmount,
     );
 
-    const easySlipData: EasySlipResponse = await easySlipRes.json();
+    // Handle V2 error responses
+    if (!easySlipData.success) {
+      // Special handling for SLIP_PENDING (all retries exhausted)
+      if (easySlipData.error.code === "SLIP_PENDING") {
+        return NextResponse.json({
+          verified: false,
+          slip_pending: true,
+          message: "Bangkok Bank slips need a few minutes to process. Please wait 2-3 minutes and try again.",
+          slip_hash: slipHash,
+          payment_slip_url: slipPath,
+          payment_slip_signed_url: paymentSlipSignedUrl,
+          easyslip_response: easySlipData,
+        });
+      }
 
-    if (easySlipData.status !== 200 || !easySlipData.data) {
       return NextResponse.json({
         verified: false,
-        message: "Slip verification failed. The payment slip could not be verified.",
+        message: `Slip verification failed: ${easySlipData.error.message}`,
         slip_hash: slipHash,
         payment_slip_url: slipPath,
         payment_slip_signed_url: paymentSlipSignedUrl,
@@ -169,8 +238,18 @@ export async function POST(req: NextRequest) {
       });
     }
 
+    const rawSlip = easySlipData.data.rawSlip;
+
+    // V2 built-in duplicate detection
+    if (easySlipData.data.isDuplicate) {
+      return NextResponse.json(
+        { error: "This payment slip has already been used (detected by EasySlip).", duplicate: true },
+        { status: 409 }
+      );
+    }
+
     // Validate slip date — reject slips older than 1 hour
-    const slipDate = new Date(easySlipData.data.date);
+    const slipDate = new Date(rawSlip.date);
     const now = new Date();
     const slipAgeMs = now.getTime() - slipDate.getTime();
     const MAX_SLIP_AGE_MS = 60 * 60 * 1000; // 1 hour
@@ -186,10 +265,9 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Check for duplicate transaction reference
-    const transRef = easySlipData.data.transRef;
+    // Check for duplicate transaction reference (our own DB-level check)
+    const transRef = rawSlip.transRef;
     if (transRef) {
-      // Parallel: check both tables for duplicate transaction reference
       const [{ data: transRefDuplicate }, { data: dcTransRefDuplicate }] = await Promise.all([
         supabase.from("bookings").select("id").eq("slip_trans_ref", transRef).limit(1),
         supabase.from("date_change_requests").select("id").eq("slip_trans_ref", transRef).limit(1),
@@ -203,15 +281,17 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Validate amount and receiver
-    const slipAmount = easySlipData.data.amount.amount;
-    const amountMatch = slipAmount === expectedAmount;
+    // V2 built-in amount matching (if matchAmount was sent)
+    const amountMatchedByV2 = easySlipData.data.isAmountMatched;
+    // Fallback: our own amount check
+    const slipAmount = easySlipData.data.amountInSlip ?? rawSlip.amount.amount;
+    const amountMatch = amountMatchedByV2 === true || slipAmount === expectedAmount;
 
-    // Collect all possible receiver account values from the EasySlip response
-    const receiverProxy = easySlipData.data.receiver?.account?.proxy?.account;
-    const receiverBank = easySlipData.data.receiver?.account?.bank?.account;
+    // Receiver matching (still our own — V2 matchAccount requires dashboard config)
+    const receiverProxy = rawSlip.receiver?.account?.proxy?.account;
+    const receiverBank = rawSlip.receiver?.account?.bank?.account;
 
-    console.log("[Verify] Receiver from EasySlip:", {
+    console.log("[Verify V2] Receiver from EasySlip:", {
       proxy: receiverProxy,
       bank: receiverBank,
       expected: expectedReceiver,
@@ -253,9 +333,10 @@ export async function POST(req: NextRequest) {
             expected_normalized: expectedDigits,
             easyslip_proxy: receiverProxy || null,
             easyslip_bank: receiverBank || null,
-            full_receiver: easySlipData.data.receiver,
+            full_receiver: rawSlip.receiver,
             expected_amount: expectedAmount,
             slip_amount: slipAmount,
+            v2_isAmountMatched: amountMatchedByV2,
           },
         } : {}),
       });

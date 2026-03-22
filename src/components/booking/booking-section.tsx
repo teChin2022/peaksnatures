@@ -559,6 +559,12 @@ export function BookingSection({
         return;
       }
 
+      if (verifyData.slip_pending) {
+        toast.error(t("errorSlipPending"));
+        setIsSubmitting(false);
+        return;
+      }
+
       const isSlipVerified = !!verifyData.verified;
 
       // 3. Create the booking — verified or pending (host review)

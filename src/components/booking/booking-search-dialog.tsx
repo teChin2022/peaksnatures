@@ -437,6 +437,11 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
           setSubmittingDateChange(false);
           return;
         }
+        if (verifyData.slip_pending) {
+          toast.error(t("errorSlipPending"));
+          setSubmittingDateChange(false);
+          return;
+        }
         if (!verifyData.verified) {
           toast.error(verifyData.message || t("errorSlipVerify"));
           setDateChangeSlipFile(null);
