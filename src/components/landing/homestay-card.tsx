@@ -59,7 +59,7 @@ export function HomestayCard({
           )}
 
           {isHostVerified && (
-            <div className="absolute top-3 right-3 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white/50 backdrop-blur-sm shadow-md">
+            <div className="absolute top-3 right-3 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm shadow-md">
               <ShieldCheck size={18} className="text-emerald-600" />
             </div>
           )}
