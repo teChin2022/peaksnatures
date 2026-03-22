@@ -66,7 +66,7 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     { data: reviewRows },
   ] = await Promise.all([
     supabase.from("hosts").select("*").eq("id", homestay.host_id).single(),
-    supabase.from("rooms").select("*, room_seasonal_prices(*)").eq("homestay_id", homestay.id).eq("is_active", true),
+    supabase.from("rooms").select("*, room_seasonal_prices(*)").eq("homestay_id", homestay.id).eq("is_active", true).order("created_at", { ascending: true }),
     supabase.from("blocked_dates").select("*").eq("homestay_id", homestay.id),
     supabase.from("bookings").select("room_id, check_in, check_out").eq("homestay_id", homestay.id).in("status", ["pending", "confirmed", "verified"]),
     supabase.from("reviews").select("rating", { count: "exact" }).eq("homestay_id", homestay.id),
