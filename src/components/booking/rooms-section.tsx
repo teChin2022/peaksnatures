@@ -1,6 +1,7 @@
 "use client";
 
-import { useMemo, useState, useRef, useEffect } from "react";
+import { useMemo, useState, useRef, useEffect, useCallback } from "react";
+import { useSwipe } from "@/hooks/use-swipe";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import Image from "next/image";
 import { format, eachDayOfInterval, parseISO, subDays, startOfToday, addMonths } from "date-fns";
@@ -68,9 +69,13 @@ function RoomCardImage({ src, name, eager, onClick }: { src: string; name: strin
 
 function RoomLightbox({ images, name, startIndex, onClose }: { images: string[]; name: string; startIndex: number; onClose: () => void }) {
   const [index, setIndex] = useState(startIndex);
+  const containerRef = useRef<HTMLDivElement>(null);
+  const prevImage = useCallback(() => setIndex((i) => (i > 0 ? i - 1 : images.length - 1)), [images.length]);
+  const nextImage = useCallback(() => setIndex((i) => (i < images.length - 1 ? i + 1 : 0)), [images.length]);
+  useSwipe(containerRef, { onSwipeLeft: nextImage, onSwipeRight: prevImage });
 
   return (
-    <div className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-2xl p-4">
+    <div ref={containerRef} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-2xl p-4">
       <Button
         variant="ghost"
         size="icon"
@@ -84,7 +89,7 @@ function RoomLightbox({ images, name, startIndex, onClose }: { images: string[];
         variant="ghost"
         size="icon"
         className="absolute left-4 text-white hover:bg-white/20"
-        onClick={() => setIndex(index > 0 ? index - 1 : images.length - 1)}
+        onClick={prevImage}
       >
         <ChevronLeft className="h-8 w-8" />
       </Button>
@@ -118,7 +123,7 @@ function RoomLightbox({ images, name, startIndex, onClose }: { images: string[];
         variant="ghost"
         size="icon"
         className="absolute right-4 text-white hover:bg-white/20"
-        onClick={() => setIndex(index < images.length - 1 ? index + 1 : 0)}
+        onClick={nextImage}
       >
         <ChevronRight className="h-8 w-8" />
       </Button>
