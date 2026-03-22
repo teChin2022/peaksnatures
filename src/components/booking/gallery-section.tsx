@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useCallback, useEffect, useRef } from "react";
+import { useSwipe } from "@/hooks/use-swipe";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -74,6 +75,9 @@ export function GallerySection({ images, name }: GallerySectionProps) {
     () => setLightboxIndex((i) => (i !== null ? (i < images.length - 1 ? i + 1 : 0) : null)),
     [images.length]
   );
+
+  const [lightboxEl, setLightboxEl] = useState<HTMLDivElement | null>(null);
+  useSwipe(lightboxEl, { onSwipeLeft: nextImage, onSwipeRight: prevImage });
 
   useEffect(() => {
     if (lightboxIndex === null) return;
@@ -166,7 +170,9 @@ export function GallerySection({ images, name }: GallerySectionProps) {
       {/* Lightbox */}
       {lightboxIndex !== null && (
         <div
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-2xl p-4"
+          ref={setLightboxEl}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-2xl p-4 touch-action-none"
+          style={{ touchAction: "none" }}
           onClick={(e) => { if (e.target === e.currentTarget) closeLightbox(); }}
         >
           <Button
