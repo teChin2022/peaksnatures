@@ -59,9 +59,8 @@ export function HomestayCard({
           )}
 
           {isHostVerified && (
-            <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 px-3 py-1 shadow-sm">
-              <ShieldCheck size={14} className="text-emerald-400" />
-              <span className="text-[11px] font-medium text-white/90">โฮสต์ยืนยันตัวตนแล้ว</span>
+            <div className="absolute top-3 right-3 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm shadow-md">
+              <ShieldCheck size={18} className="text-emerald-600" />
             </div>
           )}
 
