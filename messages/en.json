@@ -1,4 +1,7 @@
 {
+  "hero": {
+    "verifiedHost": "Verified Host"
+  },
   "common": {
     "brand": "Peaksnature",
     "search": "Search",

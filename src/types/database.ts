@@ -33,6 +33,7 @@ export interface Database {
           notification_preference: string;
           security_pin_hash: string | null;
           status: string;
+          is_verified: boolean;
           created_at: string;
           created_by: string;
           updated_at: string;
@@ -53,6 +54,7 @@ export interface Database {
           notification_preference?: string;
           security_pin_hash?: string | null;
           status?: string;
+          is_verified?: boolean;
           created_at?: string;
           created_by?: string;
           updated_at?: string;
@@ -73,6 +75,7 @@ export interface Database {
           notification_preference?: string;
           security_pin_hash?: string | null;
           status?: string;
+          is_verified?: boolean;
           created_at?: string;
           created_by?: string;
           updated_at?: string;

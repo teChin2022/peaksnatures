@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Users, CheckCircle, XCircle, Loader2, Mail, Phone, Home, Calendar } from "lucide-react";
+import { Users, CheckCircle, XCircle, Loader2, Mail, Phone, Home, Calendar, ShieldCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -15,6 +15,7 @@ interface HostRow {
   email: string;
   phone: string | null;
   status: string;
+  is_verified: boolean;
   created_at: string;
   homestay: { name: string; slug: string; is_active: boolean } | null;
 }
@@ -102,6 +103,33 @@ export default function AdminHostsPage() {
     }
   };
 
+  const handleVerify = async (hostId: string) => {
+    setActionLoading(hostId);
+    try {
+      const r = await fetch(`/api/admin/hosts/${hostId}/verify`, { method: "PATCH" });
+      if (r.ok) {
+        const { is_verified } = await r.json();
+        setRes((prev) =>
+          prev
+            ? {
+                ...prev,
+                data: prev.data.map((h) =>
+                  h.id === hostId ? { ...h, is_verified } : h
+                ),
+              }
+            : prev
+        );
+      } else {
+        const data = await r.json();
+        alert(data.error || "Failed to update verification");
+      }
+    } catch {
+      alert("Failed to update verification");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   return (
     <div>
       <div className="mb-6 flex items-center gap-3">
@@ -156,6 +184,12 @@ export default function AdminHostsPage() {
                         >
                           {host.status}
                         </Badge>
+                        {host.is_verified && (
+                          <Badge className="text-[10px] shrink-0 bg-emerald-100 text-emerald-700">
+                            <ShieldCheck className="h-3 w-3 mr-0.5" />
+                            Verified
+                          </Badge>
+                        )}
                       </div>
                       <div className="space-y-1 text-sm text-gray-500">
                         <div className="flex items-center gap-1.5">
@@ -187,6 +221,28 @@ export default function AdminHostsPage() {
                         </div>
                       </div>
                     </div>
+                    {host.status === "approved" && (
+                      <div className="flex items-center gap-1.5 shrink-0 mr-1.5">
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className={`h-8 px-2.5 text-xs ${
+                            host.is_verified
+                              ? "text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                              : "text-gray-600 border-gray-300 hover:bg-gray-50"
+                          }`}
+                          onClick={() => handleVerify(host.id)}
+                          disabled={actionLoading === host.id}
+                        >
+                          {actionLoading === host.id ? (
+                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                          ) : (
+                            <ShieldCheck className="h-3.5 w-3.5 mr-1" />
+                          )}
+                          {host.is_verified ? "Unverify" : "Verify"}
+                        </Button>
+                      </div>
+                    )}
                     {host.status === "pending" && (
                       <div className="flex items-center gap-1.5 shrink-0">
                         <Button
