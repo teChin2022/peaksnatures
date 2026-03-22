@@ -69,13 +69,13 @@ function RoomCardImage({ src, name, eager, onClick }: { src: string; name: strin
 
 function RoomLightbox({ images, name, startIndex, onClose }: { images: string[]; name: string; startIndex: number; onClose: () => void }) {
   const [index, setIndex] = useState(startIndex);
-  const containerRef = useRef<HTMLDivElement>(null);
+  const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   const prevImage = useCallback(() => setIndex((i) => (i > 0 ? i - 1 : images.length - 1)), [images.length]);
   const nextImage = useCallback(() => setIndex((i) => (i < images.length - 1 ? i + 1 : 0)), [images.length]);
-  useSwipe(containerRef, { onSwipeLeft: nextImage, onSwipeRight: prevImage });
+  useSwipe(containerEl, { onSwipeLeft: nextImage, onSwipeRight: prevImage });
 
   return (
-    <div ref={containerRef} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-2xl p-4">
+    <div ref={setContainerEl} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-2xl p-4" style={{ touchAction: "none" }}>
       <Button
         variant="ghost"
         size="icon"

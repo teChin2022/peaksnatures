@@ -76,8 +76,8 @@ export function GallerySection({ images, name }: GallerySectionProps) {
     [images.length]
   );
 
-  const lightboxRef = useRef<HTMLDivElement>(null);
-  useSwipe(lightboxRef, { onSwipeLeft: nextImage, onSwipeRight: prevImage });
+  const [lightboxEl, setLightboxEl] = useState<HTMLDivElement | null>(null);
+  useSwipe(lightboxEl, { onSwipeLeft: nextImage, onSwipeRight: prevImage });
 
   useEffect(() => {
     if (lightboxIndex === null) return;
@@ -170,8 +170,9 @@ export function GallerySection({ images, name }: GallerySectionProps) {
       {/* Lightbox */}
       {lightboxIndex !== null && (
         <div
-          ref={lightboxRef}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-2xl p-4"
+          ref={setLightboxEl}
+          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-2xl p-4 touch-action-none"
+          style={{ touchAction: "none" }}
           onClick={(e) => { if (e.target === e.currentTarget) closeLightbox(); }}
         >
           <Button
