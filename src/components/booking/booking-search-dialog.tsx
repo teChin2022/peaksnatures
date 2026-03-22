@@ -810,7 +810,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                     <div className="mt-2 pt-2 border-t border-gray-200 space-y-2">
                       <Button
                         size="sm"
-                        className="w-full bg-brand text-white hover:bg-brand-hover"
+                        className="w-full bg-brand text-white hover:bg-brand-hover rounded-xl"
                         onClick={() => handleCheckin(booking.id, booking.guest_email, "checkin")}
                         disabled={checkingIn === booking.id}
                       >
@@ -871,7 +871,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                           <Button
                             size="sm"
                             variant="outline"
-                            className="w-full text-red-600 border-red-200 hover:bg-red-50"
+                            className="w-full text-red-600 border-red-200 hover:bg-red-50 rounded-xl"
                             onClick={() => setCancellingId(booking.id)}
                           >
                             <XCircle className="mr-1.5 h-3.5 w-3.5" />
@@ -901,7 +901,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                         <Button
                           size="sm"
                           variant="outline"
-                          className="w-full text-gray-600 border-gray-200 hover:bg-gray-50"
+                          className="w-full text-gray-600 border-gray-200 hover:bg-gray-50 rounded-xl"
                           onClick={() => {
                             setChangingDatesId(booking.id);
                             setDcSelectedRoomId(booking.room_id);
