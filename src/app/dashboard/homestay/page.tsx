@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from "react";
 import Image from "next/image";
+import { compressImage } from "@/lib/compress-image";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
 import {
@@ -233,7 +234,8 @@ export default function HomestayPage() {
 
     setUploadingHero(true);
     try {
-      const url = await uploadFile(file, "hero");
+      const compressed = await compressImage(file, { maxDimension: 1920 });
+      const url = await uploadFile(compressed, "hero");
       if (url) {
         setHeroImageUrl(url);
         toast.success(t("uploadSuccess"));
@@ -272,7 +274,8 @@ export default function HomestayPage() {
     try {
       const urls: string[] = [];
       for (const file of filesToUpload) {
-        const url = await uploadFile(file, "gallery");
+        const compressed = await compressImage(file, { maxDimension: 1920 });
+        const url = await uploadFile(compressed, "gallery");
         if (url) urls.push(url);
       }
       if (urls.length > 0) {
@@ -296,7 +299,8 @@ export default function HomestayPage() {
 
     setUploadingLogo(true);
     try {
-      const url = await uploadFile(file, "logo");
+      const compressed = await compressImage(file, { maxDimension: 512 });
+      const url = await uploadFile(compressed, "logo");
       if (url) {
         setLogoUrl(url);
         toast.success(t("uploadSuccess"));
