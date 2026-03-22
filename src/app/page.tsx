@@ -64,7 +64,15 @@ export default async function Home() {
       tagline: h.tagline,
       review_count: count,
       average_rating: count > 0 ? Math.round((sum / count) * 10) / 10 : 0,
+      created_at: h.created_at,
     };
+  });
+
+  homestayData.sort((a, b) => {
+    if (a.average_rating > 0 && b.average_rating === 0) return -1;
+    if (a.average_rating === 0 && b.average_rating > 0) return 1;
+    if (a.average_rating > 0 && b.average_rating > 0) return b.average_rating - a.average_rating;
+    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
   });
 
   return (

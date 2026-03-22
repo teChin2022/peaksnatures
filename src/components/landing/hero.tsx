@@ -25,10 +25,9 @@ export function LandingHero() {
   return (
     <section className="relative h-[85vh] w-full overflow-hidden">
       <img
-        src="https://images.unsplash.com/photo-1464822759023-fed622ff2c3b?auto=format&fit=crop&q=80&w=2000"
+        src="/hero-mountain.jpg"
         alt="Cinematic Mountain View"
         className="absolute inset-0 w-full h-full object-cover"
-        referrerPolicy="no-referrer"
       />
       <div className="absolute inset-0 bg-black/30" />
 
