@@ -88,10 +88,13 @@ export function AboutSection({
             </h2>
 
             {/* Description card with accent bar */}
-            <div className="mt-3 px-3 flex gap-0 overflow-hidden rounded-xl">
-              <div ref={descRef} className="line-clamp-10">
+            <div className="relative mt-3 px-3 flex gap-0 overflow-hidden rounded-xl">
+              <div ref={descRef} className="line-clamp-6 sm:line-clamp-10">
                 <HTMLContent content={description} className="py-4 leading-relaxed text-gray-600" />
               </div>
+              {descOverflows && (
+                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white via-white/80 to-transparent" />
+              )}
             </div>
             {descOverflows && (
               <button
