@@ -3,7 +3,7 @@
 import { useState } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { MapPin, Star } from "lucide-react";
+import { MapPin, ShieldCheck, Star } from "lucide-react";
 import { motion } from "motion/react";
 
 interface HomestayCardProps {
@@ -17,6 +17,7 @@ interface HomestayCardProps {
   tagline: string | null;
   reviewCount: number;
   averageRating: number;
+  isHostVerified: boolean;
 }
 
 export function HomestayCard({
@@ -29,6 +30,7 @@ export function HomestayCard({
   tagline,
   reviewCount,
   averageRating,
+  isHostVerified,
 }: HomestayCardProps) {
   const images = [heroImageUrl, ...gallery.slice(0, 1)].filter(Boolean) as string[];
   const [currentImage] = useState(0);
@@ -53,6 +55,13 @@ export function HomestayCard({
           ) : (
             <div className="w-full h-full bg-gray-100 flex items-center justify-center">
               <span className="text-gray-400 text-sm">No image</span>
+            </div>
+          )}
+
+          {isHostVerified && (
+            <div className="absolute top-3 right-3 z-10 flex items-center gap-1.5 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 px-3 py-1 shadow-sm">
+              <ShieldCheck size={14} className="text-emerald-400" />
+              <span className="text-[11px] font-medium text-white/90">โฮสต์ยืนยันตัวตนแล้ว</span>
             </div>
           )}
 

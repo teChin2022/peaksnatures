@@ -35,6 +35,19 @@ export default async function Home() {
     }
   }
 
+  // Fetch host verification status
+  const hostIds = [...new Set(homestays.map((h) => h.host_id))];
+  const { data: hostRows } = hostIds.length
+    ? await supabase
+        .from("hosts")
+        .select("id, is_verified")
+        .in("id", hostIds)
+    : { data: [] };
+  const hostVerifiedMap = new Map<string, boolean>();
+  for (const host of (hostRows as { id: string; is_verified: boolean }[]) || []) {
+    hostVerifiedMap.set(host.id, host.is_verified);
+  }
+
   // Fetch review stats per homestay
   const { data: reviewRows } = homestayIds.length
     ? await supabase
@@ -64,6 +77,7 @@ export default async function Home() {
       tagline: h.tagline,
       review_count: count,
       average_rating: count > 0 ? Math.round((sum / count) * 10) / 10 : 0,
+      is_host_verified: hostVerifiedMap.get(h.host_id) ?? false,
       created_at: h.created_at,
     };
   });
