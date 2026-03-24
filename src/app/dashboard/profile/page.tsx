@@ -1,9 +1,12 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
-import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key, Lock, Eye, EyeOff, Bell, BellOff, Trash2, AlertTriangle, ShieldCheck, Unlock, Calendar } from "lucide-react";
+import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key, Lock, Eye, EyeOff, Bell, BellOff, Trash2, AlertTriangle, ShieldCheck, Unlock, Calendar, Camera } from "lucide-react";
+import Image from "next/image";
+import { compressImage } from "@/lib/compress-image";
+import { getInitials } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -46,6 +49,7 @@ interface HostData {
   deposit_by_month: Record<string, number> | null;
   cancellation_days: number;
   notification_preference: string;
+  avatar_url: string | null;
 }
 
 export default function ProfilePage() {
@@ -87,6 +91,9 @@ export default function ProfilePage() {
   const [showPinDialog, setShowPinDialog] = useState(false);
   const [pinDialogMode, setPinDialogMode] = useState<"verify" | "change">("verify");
   const [hasPinSet, setHasPinSet] = useState(false);
+  const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
+  const [uploadingAvatar, setUploadingAvatar] = useState(false);
+  const avatarInputRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     const fetchHost = async () => {
@@ -99,7 +106,7 @@ export default function ProfilePage() {
 
       const { data } = await supabase
         .from("hosts")
-        .select("id, name, email, phone, line_user_id, line_channel_access_token, promptpay_id, deposit_amount, deposit_by_month, cancellation_days, notification_preference, security_pin_hash")
+        .select("id, name, email, phone, line_user_id, line_channel_access_token, promptpay_id, deposit_amount, deposit_by_month, cancellation_days, notification_preference, security_pin_hash, avatar_url")
         .eq("user_id", user.id)
         .single();
 
@@ -126,6 +133,7 @@ export default function ProfilePage() {
         setDepositByMonth(h.deposit_by_month || {});
         setCancellationDays(h.cancellation_days || 0);
         setNotificationPreference(h.notification_preference || "push");
+        setAvatarUrl(h.avatar_url || null);
 
         // Check push support and subscription status
         const supported = isPushSupported();
@@ -138,6 +146,52 @@ export default function ProfilePage() {
     };
     fetchHost();
   }, []);
+
+  const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file || !host) return;
+
+    setUploadingAvatar(true);
+    try {
+      const supabase = createClient();
+      const compressed = await compressImage(file, { maxDimension: 512 });
+      const ext = "webp";
+      const path = `${host.id}/avatar/${Date.now()}.${ext}`;
+
+      const { error: uploadError } = await supabase.storage
+        .from("homestay-photos")
+        .upload(path, compressed);
+
+      if (uploadError) {
+        console.error("Avatar upload error:", uploadError);
+        toast.error(t("errorSave"));
+        return;
+      }
+
+      const { data: { publicUrl } } = supabase.storage
+        .from("homestay-photos")
+        .getPublicUrl(path);
+
+      const { error: updateError } = await supabase
+        .from("hosts")
+        .update({ avatar_url: publicUrl, updated_by: host.name } as never)
+        .eq("id", host.id);
+
+      if (updateError) {
+        console.error("Avatar save error:", updateError);
+        toast.error(t("errorSave"));
+        return;
+      }
+
+      setAvatarUrl(publicUrl);
+      toast.success(t("saved"));
+    } catch {
+      toast.error(t("errorSave"));
+    } finally {
+      setUploadingAvatar(false);
+      if (avatarInputRef.current) avatarInputRef.current.value = "";
+    }
+  };
 
   const handleSave = async () => {
     if (!host) return;
@@ -375,6 +429,51 @@ export default function ProfilePage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
+          {/* Avatar Upload */}
+          <div className="flex flex-col items-center gap-3 pb-2">
+            <div
+              className="relative h-24 w-24 cursor-pointer overflow-hidden rounded-full bg-gray-100 ring-2 ring-gray-200 transition-opacity hover:opacity-80"
+              onClick={() => avatarInputRef.current?.click()}
+            >
+              {avatarUrl ? (
+                <Image
+                  src={avatarUrl}
+                  alt={name || "Avatar"}
+                  width={96}
+                  height={96}
+                  className="h-full w-full object-cover"
+                />
+              ) : (
+                <div className="flex h-full w-full items-center justify-center bg-gray-200 text-2xl font-bold text-gray-500">
+                  {name ? getInitials(name) : <User className="h-8 w-8 text-gray-400" />}
+                </div>
+              )}
+              <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity hover:opacity-100">
+                {uploadingAvatar ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-white" />
+                ) : (
+                  <Camera className="h-6 w-6 text-white" />
+                )}
+              </div>
+            </div>
+            <button
+              type="button"
+              className="text-xs font-medium text-brand hover:underline"
+              onClick={() => avatarInputRef.current?.click()}
+              disabled={uploadingAvatar}
+            >
+              {avatarUrl ? t("changeAvatar") : t("uploadAvatar")}
+            </button>
+            <p className="text-xs text-gray-400">{t("avatarHint")}</p>
+            <input
+              ref={avatarInputRef}
+              type="file"
+              accept="image/*"
+              className="hidden"
+              onChange={handleAvatarUpload}
+            />
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="host-name" className="flex items-center gap-2">
               <User className="h-3.5 w-3.5" />

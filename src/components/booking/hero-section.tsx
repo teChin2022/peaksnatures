@@ -2,23 +2,18 @@
 
 import Image from "next/image";
 import { motion } from "motion/react";
-import { ShieldCheck } from "lucide-react";
-import { useTranslations } from "next-intl";
 
 interface HeroSectionProps {
   name: string;
   tagline: string | null;
   heroImageUrl: string | null;
-  isVerified?: boolean;
 }
 
 export function HeroSection({
   name,
   tagline,
   heroImageUrl,
-  isVerified,
 }: HeroSectionProps) {
-  const t = useTranslations("hero");
   return (
     <section className="relative h-[50vh] min-h-[360px] overflow-hidden sm:h-[60vh]">
       {heroImageUrl && (
@@ -58,17 +53,6 @@ export function HeroSection({
             transition={{ duration: 0.6, delay: 0.4 }}
             className="mt-3 h-1 w-16 origin-left rounded-full bg-white/60"
           />
-          {isVerified && (
-            <motion.div
-              initial={{ opacity: 0, y: 10 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.5, delay: 0.6 }}
-              className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-white/15 backdrop-blur-sm border border-white/20 px-3 py-1"
-            >
-              <ShieldCheck className="h-4 w-4 text-emerald-400" />
-              <span className="text-xs font-medium text-white/90">{t("verifiedHost")}</span>
-            </motion.div>
-          )}
         </div>
       </div>
     </section>

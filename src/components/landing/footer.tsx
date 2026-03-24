@@ -15,7 +15,7 @@ export function LandingFooter() {
               <br />
               ในมุมที่เงียบสงบและน่าค้นพบ
             </p>
-            <div className="flex gap-4">
+            {/* <div className="flex gap-4">
               <span className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#111111] hover:text-[#111111] text-[#6B7280] cursor-pointer transition-colors">
                 <Instagram size={18} />
               </span>
@@ -25,7 +25,7 @@ export function LandingFooter() {
               <span className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#111111] hover:text-[#111111] text-[#6B7280] cursor-pointer transition-colors">
                 <Twitter size={18} />
               </span>
-            </div>
+            </div> */}
           </div>
 
           <div>

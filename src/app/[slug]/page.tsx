@@ -10,7 +10,7 @@ import { RoomsSection } from "@/components/booking/rooms-section";
 import { BookingSection } from "@/components/booking/booking-section";
 import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingFooter } from "@/components/booking/booking-footer";
-import { MapRulesSection } from "@/components/booking/map-rules-section";
+import { HostLocationSection } from "@/components/booking/host-location-section";
 import { ReviewsSection } from "@/components/booking/reviews-section";
 import { ChatWidget } from "@/components/chat/chat-widget";
 
@@ -64,6 +64,7 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     { data: bookingRows },
     { data: allRatings, count: reviewCount },
     { data: reviewRows },
+    { count: totalBookingsCount },
   ] = await Promise.all([
     supabase.from("hosts").select("*").eq("id", homestay.host_id).single(),
     supabase.from("rooms").select("*, room_seasonal_prices(*)").eq("homestay_id", homestay.id).eq("is_active", true).order("created_at", { ascending: true }),
@@ -71,6 +72,7 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     supabase.from("bookings").select("room_id, check_in, check_out").eq("homestay_id", homestay.id).in("status", ["pending", "confirmed", "verified"]),
     supabase.from("reviews").select("rating", { count: "exact" }).eq("homestay_id", homestay.id),
     supabase.from("reviews").select("*, bookings(guest_province)").eq("homestay_id", homestay.id).order("created_at", { ascending: false }).range(0, INITIAL_REVIEWS - 1),
+    supabase.from("bookings").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]),
   ]);
 
   const host = hostRow as unknown as Host | null;
@@ -95,6 +97,7 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     reviews,
     averageRating,
     reviewCount: reviewCount || 0,
+    totalBookings: totalBookingsCount || 0,
   };
 });
 
@@ -131,7 +134,7 @@ export default async function HomestayPage({ params }: PageProps) {
     notFound();
   }
 
-  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, reviews, averageRating, reviewCount } = data;
+  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, reviews, averageRating, reviewCount, totalBookings } = data;
 
   return (
     <div className="min-h-screen bg-white">
@@ -142,10 +145,19 @@ export default async function HomestayPage({ params }: PageProps) {
           name={homestay.name}
           tagline={homestay.tagline}
           heroImageUrl={homestay.hero_image_url}
-          isVerified={homestay.host.is_verified}
         />
 
         <GallerySection images={homestay.gallery} name={homestay.name} />
+
+        <HostLocationSection
+          hostName={homestay.host.name}
+          hostAvatarUrl={homestay.host.avatar_url}
+          isVerified={homestay.host.is_verified}
+          hostCreatedAt={homestay.host.created_at}
+          totalBookings={totalBookings}
+          location={homestay.location}
+          mapEmbedUrl={homestay.map_embed_url}
+        />
 
         <AboutSection
           description={homestay.description}
@@ -154,13 +166,6 @@ export default async function HomestayPage({ params }: PageProps) {
           location={homestay.location}
           prohibitions={homestay.prohibitions}
         />
-        
-        <MapRulesSection
-          mapEmbedUrl={homestay.map_embed_url}
-          location={homestay.location}
-          prohibitions={homestay.prohibitions}
-        />
-
         <RoomsSection rooms={rooms} seasonalPrices={seasonalPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} />
 
         {/* Booking (inline) */}

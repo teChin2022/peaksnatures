@@ -34,6 +34,7 @@ export interface Database {
           security_pin_hash: string | null;
           status: string;
           is_verified: boolean;
+          avatar_url: string | null;
           created_at: string;
           created_by: string;
           updated_at: string;
@@ -55,6 +56,7 @@ export interface Database {
           security_pin_hash?: string | null;
           status?: string;
           is_verified?: boolean;
+          avatar_url?: string | null;
           created_at?: string;
           created_by?: string;
           updated_at?: string;
@@ -76,6 +78,7 @@ export interface Database {
           security_pin_hash?: string | null;
           status?: string;
           is_verified?: boolean;
+          avatar_url?: string | null;
           created_at?: string;
           created_by?: string;
           updated_at?: string;
