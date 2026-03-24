@@ -65,6 +65,7 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     { data: allRatings, count: reviewCount },
     { data: reviewRows },
     { count: totalBookingsCount },
+    { data: lastBookingRow },
   ] = await Promise.all([
     supabase.from("hosts").select("*").eq("id", homestay.host_id).single(),
     supabase.from("rooms").select("*, room_seasonal_prices(*)").eq("homestay_id", homestay.id).eq("is_active", true).order("created_at", { ascending: true }),
@@ -73,6 +74,7 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     supabase.from("reviews").select("rating", { count: "exact" }).eq("homestay_id", homestay.id),
     supabase.from("reviews").select("*, bookings(guest_province)").eq("homestay_id", homestay.id).order("created_at", { ascending: false }).range(0, INITIAL_REVIEWS - 1),
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]),
+    supabase.from("bookings").select("created_at").eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
 
   const host = hostRow as unknown as Host | null;
@@ -98,6 +100,7 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     averageRating,
     reviewCount: reviewCount || 0,
     totalBookings: totalBookingsCount || 0,
+    lastBookingDate: (lastBookingRow as { created_at: string } | null)?.created_at || null,
   };
 });
 
@@ -134,7 +137,7 @@ export default async function HomestayPage({ params }: PageProps) {
     notFound();
   }
 
-  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, reviews, averageRating, reviewCount, totalBookings } = data;
+  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, reviews, averageRating, reviewCount, totalBookings, lastBookingDate } = data;
 
   return (
     <div className="min-h-screen bg-white">
@@ -155,6 +158,7 @@ export default async function HomestayPage({ params }: PageProps) {
           isVerified={homestay.host.is_verified}
           hostCreatedAt={homestay.host.created_at}
           totalBookings={totalBookings}
+          lastBookingDate={lastBookingDate}
           location={homestay.location}
           mapEmbedUrl={homestay.map_embed_url}
         />
