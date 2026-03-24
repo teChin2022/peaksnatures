@@ -128,6 +128,22 @@ CREATE INDEX idx_room_options_room_id ON room_options(room_id);
 CREATE TRIGGER trg_room_options_updated_at
   BEFORE UPDATE ON room_options FOR EACH ROW EXECUTE FUNCTION set_updated_at();
 
+-- Room Options RLS
+ALTER TABLE room_options ENABLE ROW LEVEL SECURITY;
+
+CREATE POLICY "Anyone can view room options"
+  ON room_options FOR SELECT
+  USING (true);
+
+CREATE POLICY "Hosts can manage options of own rooms"
+  ON room_options FOR ALL
+  USING (room_id IN (
+    SELECT r.id FROM rooms r
+    JOIN homestays h ON r.homestay_id = h.id
+    JOIN hosts ho ON h.host_id = ho.id
+    WHERE ho.user_id = auth.uid()
+  ));
+
 -- ============================================================
 -- BOOKINGS
 -- (005: guest_line_id renamed to guest_province)
