@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
 import { Menu } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sidebar, MobileSidebar } from "./sidebar";
@@ -12,6 +13,8 @@ interface DashboardShellProps {
 }
 
 export function DashboardShell({ children }: DashboardShellProps) {
+  const pathname = usePathname();
+  const isPending = pathname === "/dashboard/pending";
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [brandName, setBrandName] = useState("Peaksnature");
@@ -84,6 +87,15 @@ export function DashboardShell({ children }: DashboardShellProps) {
           {children}
         </main>
       </div>
+
+      {/* Blur overlay for pending approval */}
+      {isPending && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/60 backdrop-blur-sm">
+          <div className="pointer-events-auto">
+            {children}
+          </div>
+        </div>
+      )}
     </div>
   );
 }

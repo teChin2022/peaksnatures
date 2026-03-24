@@ -2,6 +2,13 @@
   "hero": {
     "verifiedHost": "Verified Host"
   },
+  "hostCard": {
+    "verifiedHost": "Verified Host",
+    "unverifiedHost": "Unverified Host",
+    "yearsHosting": "{count, plural, =1 {Year Hosting} other {Years Hosting}}",
+    "monthsHosting": "{count, plural, =0 {New Host} =1 {Month Hosting} other {Months Hosting}}",
+    "totalBookings": "{count, plural, =0 {No Bookings Yet} =1 {Booking} other {Bookings}}"
+  },
   "common": {
     "brand": "Peaksnature",
     "search": "Search",
@@ -488,6 +495,10 @@
   "dashboardProfile": {
     "title": "My Profile",
     "ownerInfo": "Owner Information",
+    "avatar": "Profile Photo",
+    "uploadAvatar": "Upload Photo",
+    "changeAvatar": "Change Photo",
+    "avatarHint": "Square image recommended — shown on your booking page",
     "name": "Full Name",
     "namePlaceholder": "Your full name",
     "email": "Email",

@@ -2,6 +2,13 @@
   "hero": {
     "verifiedHost": "โฮสต์ยืนยันตัวตนแล้ว"
   },
+  "hostCard": {
+    "verifiedHost": "โฮสต์ยืนยันตัวตนแล้ว",
+    "unverifiedHost": "โฮสต์ยังไม่ได้ยืนยันตัวตน",
+    "yearsHosting": "{count, plural, =1 {ปีที่เป็นโฮสต์} other {ปีที่เป็นโฮสต์}}",
+    "monthsHosting": "{count, plural, =0 {เริ่มเป็นโฮสต์} =1 {เดือนที่เป็นโฮสต์} other {เดือนที่เป็นโฮสต์}}",
+    "totalBookings": "{count, plural, =0 {ยังไม่มีการจอง} =1 {การจอง} other {การจอง}}"
+  },
   "common": {
     "brand": "Peaksnature",
     "search": "ค้นหา",
@@ -492,6 +499,10 @@
   "dashboardProfile": {
     "title": "โปรไฟล์ของฉัน",
     "ownerInfo": "ข้อมูลเจ้าของ",
+    "avatar": "รูปโปรไฟล์",
+    "uploadAvatar": "อัปโหลดรูป",
+    "changeAvatar": "เปลี่ยนรูป",
+    "avatarHint": "แนะนำรูปสี่เหลี่ยมจัตุรัส — แสดงบนหน้าจองของคุณ",
     "name": "ชื่อ-นามสกุล",
     "namePlaceholder": "ชื่อเต็มของคุณ",
     "email": "อีเมล",

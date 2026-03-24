@@ -109,12 +109,14 @@ export async function GET(req: NextRequest) {
               });
             });
 
-            // Fire-and-forget: notify platform admins about new registration
-            notifyAdminsNewHostRegistration({
-              hostName: name,
-              hostEmail: user.email!,
-              appUrl: origin,
-            }).catch((err) => console.error("[Admin Notify] Failed:", err));
+            // Notify platform admins about new registration
+            after(async () => {
+              await notifyAdminsNewHostRegistration({
+                hostName: name,
+                hostEmail: user.email!,
+                appUrl: origin,
+              }).catch((err) => console.error("[Admin Notify] Failed:", err));
+            });
           }
         }
       }
