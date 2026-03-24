@@ -206,6 +206,44 @@ export interface Database {
           updated_by?: string;
         };
       };
+      room_options: {
+        Row: {
+          id: string;
+          room_id: string;
+          name: string;
+          price: number;
+          sort_order: number;
+          is_active: boolean;
+          created_at: string;
+          created_by: string;
+          updated_at: string;
+          updated_by: string;
+        };
+        Insert: {
+          id?: string;
+          room_id: string;
+          name: string;
+          price: number;
+          sort_order?: number;
+          is_active?: boolean;
+          created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
+        };
+        Update: {
+          id?: string;
+          room_id?: string;
+          name?: string;
+          price?: number;
+          sort_order?: number;
+          is_active?: boolean;
+          created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
+        };
+      };
       bookings: {
         Row: {
           id: string;
@@ -236,6 +274,7 @@ export interface Database {
           created_by: string;
           updated_at: string;
           updated_by: string;
+          selected_options: Json;
         };
         Insert: {
           id?: string;
@@ -262,6 +301,7 @@ export interface Database {
           checked_out_at?: string | null;
           cancelled_by?: string | null;
           cancelled_at?: string | null;
+          selected_options?: Json;
           created_at?: string;
           created_by?: string;
           updated_at?: string;
@@ -292,6 +332,7 @@ export interface Database {
           checked_out_at?: string | null;
           cancelled_by?: string | null;
           cancelled_at?: string | null;
+          selected_options?: Json;
           created_at?: string;
           created_by?: string;
           updated_at?: string;
@@ -673,6 +714,7 @@ export type BlockedDate = Database["public"]["Tables"]["blocked_dates"]["Row"];
 export type BookingHold = Database["public"]["Tables"]["booking_holds"]["Row"];
 export type Review = Database["public"]["Tables"]["reviews"]["Row"];
 export type RoomSeasonalPrice = Database["public"]["Tables"]["room_seasonal_prices"]["Row"];
+export type RoomOption = Database["public"]["Tables"]["room_options"]["Row"];
 export type PlatformAdmin = Database["public"]["Tables"]["platform_admins"]["Row"];
 export type HistoryLog = Database["public"]["Tables"]["history_logs"]["Row"];
 export type DateChangeRequest = Database["public"]["Tables"]["date_change_requests"]["Row"];

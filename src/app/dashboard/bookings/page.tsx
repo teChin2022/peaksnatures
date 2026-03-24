@@ -66,6 +66,7 @@ interface BookingRow {
   cancelled_by: string | null;
   cancel_reason: string | null;
   created_at: string;
+  selected_options: { name: string; price: number }[] | null;
 }
 
 interface DateChangeRequestRow {
@@ -908,6 +909,19 @@ export default function BookingsPage() {
                     <span className="text-gray-500">{t("guests")}</span>
                     <span>{detailTarget.num_guests}</span>
                   </div>
+                  {detailTarget.selected_options && detailTarget.selected_options.length > 0 && (
+                    <div>
+                      <span className="text-gray-500">{t("options")}</span>
+                      <div className="mt-1 space-y-0.5">
+                        {detailTarget.selected_options.map((o: { name: string; price: number }, i: number) => (
+                          <div key={i} className="flex justify-between text-xs">
+                            <span className="text-gray-600">{o.name}</span>
+                            <span className="font-medium text-brand">+฿{o.price.toLocaleString()}</span>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+                  )}
                   <div className="flex justify-between">
                     <span className="text-gray-500">{t("total")}</span>
                     <span className="font-bold text-brand">฿{detailTarget.total_price.toLocaleString()}</span>
