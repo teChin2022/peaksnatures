@@ -176,7 +176,11 @@ export async function POST(req: NextRequest) {
       // Calculate price using room info + seasonal prices from parallel batch
       const seasons = (seasonRows as unknown as RoomSeasonalPrice[]) || [];
       const { total } = calculateTotalPrice(roomInfo.price_per_night, newCheckIn, newCheckOut, seasons);
-      newTotalPrice = total;
+      // Add original booking's selected options sum (options don't change on date change)
+      const optionsSum = Array.isArray(booking.selected_options)
+        ? (booking.selected_options as { price: number }[]).reduce((s, o) => s + (o.price || 0), 0)
+        : 0;
+      newTotalPrice = total + optionsSum;
     }
 
     const priceDifference = newTotalPrice - booking.total_price;

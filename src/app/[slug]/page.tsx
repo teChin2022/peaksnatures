@@ -2,7 +2,7 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice } from "@/types/database";
+import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice, RoomOption } from "@/types/database";
 import { HeroSection } from "@/components/booking/hero-section";
 import { GallerySection } from "@/components/booking/gallery-section";
 import { AboutSection } from "@/components/booking/about-section";
@@ -68,7 +68,7 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     { data: lastBookingRow },
   ] = await Promise.all([
     supabase.from("hosts").select("*").eq("id", homestay.host_id).single(),
-    supabase.from("rooms").select("*, room_seasonal_prices(*)").eq("homestay_id", homestay.id).eq("is_active", true).order("created_at", { ascending: true }),
+    supabase.from("rooms").select("*, room_seasonal_prices(*), room_options(*)").eq("homestay_id", homestay.id).eq("is_active", true).order("created_at", { ascending: true }),
     supabase.from("blocked_dates").select("*").eq("homestay_id", homestay.id),
     supabase.from("bookings").select("room_id, check_in, check_out").eq("homestay_id", homestay.id).in("status", ["pending", "confirmed", "verified"]),
     supabase.from("reviews").select("rating", { count: "exact" }).eq("homestay_id", homestay.id),
@@ -78,9 +78,10 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
   ]);
 
   const host = hostRow as unknown as Host | null;
-  const roomsWithSeasons = (roomRows as unknown as (Room & { room_seasonal_prices: RoomSeasonalPrice[] })[]) || [];
-  const rooms = roomsWithSeasons.map(({ room_seasonal_prices: _, ...room }) => room as unknown as Room);
-  const seasonalPrices = roomsWithSeasons.flatMap((r) => r.room_seasonal_prices || []);
+  const roomsWithJoins = (roomRows as unknown as (Room & { room_seasonal_prices: RoomSeasonalPrice[]; room_options: RoomOption[] })[]) || [];
+  const rooms = roomsWithJoins.map(({ room_seasonal_prices: _, room_options: _o, ...room }) => room as unknown as Room);
+  const seasonalPrices = roomsWithJoins.flatMap((r) => r.room_seasonal_prices || []);
+  const roomOptionsList = roomsWithJoins.flatMap((r) => (r.room_options || []).filter((o) => o.is_active));
   const blockedDates = (blockedRows as unknown as BlockedDate[]) || [];
   const bookedRanges = (bookingRows as { room_id: string | null; check_in: string; check_out: string }[]) || [];
   const ratings = (allRatings as { rating: number }[]) || [];
@@ -96,6 +97,7 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     blockedDates,
     bookedRanges,
     seasonalPrices,
+    roomOptions: roomOptionsList,
     reviews,
     averageRating,
     reviewCount: reviewCount || 0,
@@ -137,7 +139,7 @@ export default async function HomestayPage({ params }: PageProps) {
     notFound();
   }
 
-  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, reviews, averageRating, reviewCount, totalBookings, lastBookingDate } = data;
+  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, roomOptions, reviews, averageRating, reviewCount, totalBookings, lastBookingDate } = data;
 
   return (
     <div className="min-h-screen bg-white">
@@ -180,6 +182,7 @@ export default async function HomestayPage({ params }: PageProps) {
           bookedRanges={bookedRanges}
           host={homestay.host}
           seasonalPrices={seasonalPrices}
+          roomOptions={roomOptions}
         />
 
         {/* Reviews */}

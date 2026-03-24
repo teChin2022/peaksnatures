@@ -23,11 +23,11 @@ import {
   Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope,
   CalendarDays, Calendar as CalendarIcon, Users, CreditCard, Upload, CheckCircle2, Loader2,
   Camera, ImageIcon, X, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle,
-  Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, Sparkles, FileText, Lock, MousePointerClick,
+  Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, Sparkles, FileText, Lock, MousePointerClick, ListPlus,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
-import type { Homestay, Room, BlockedDate, Host, RoomSeasonalPrice } from "@/types/database";
+import type { Homestay, Room, BlockedDate, Host, RoomSeasonalPrice, RoomOption } from "@/types/database";
 import { calculateTotalPrice, getPriceRange } from "@/lib/calculate-price";
 import { getDepositForMonth } from "@/lib/get-deposit";
 import { THAI_PROVINCES, getProvinceLabel } from "@/lib/provinces";
@@ -62,6 +62,7 @@ interface BookingSectionProps {
   bookedRanges?: BookedRange[];
   host: Host;
   seasonalPrices?: RoomSeasonalPrice[];
+  roomOptions?: RoomOption[];
 }
 
 type BookingStep = "dates" | "details" | "payment";
@@ -73,6 +74,7 @@ export function BookingSection({
   bookedRanges = [],
   host,
   seasonalPrices = [],
+  roomOptions = [],
 }: BookingSectionProps) {
   const t = useTranslations("booking");
   const tc = useTranslations("common");
@@ -104,6 +106,8 @@ export function BookingSection({
   const [showHeldModal, setShowHeldModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showOptions, setShowOptions] = useState(false);
+  const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([]);
   const [pdpaConsent, setPdpaConsent] = useState(false);
   const holdTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [phoneSlipReceived, setPhoneSlipReceived] = useState(false);
@@ -304,6 +308,18 @@ export function BookingSection({
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
 
+  const optionsForRoom = useMemo(() => {
+    if (!selectedRoomId) return [];
+    return roomOptions.filter((o) => o.room_id === selectedRoomId);
+  }, [selectedRoomId, roomOptions]);
+
+  const optionsTotal = useMemo(() => {
+    return selectedOptionIds.reduce((sum, id) => {
+      const opt = roomOptions.find((o) => o.id === id);
+      return sum + (opt?.price || 0);
+    }, 0);
+  }, [selectedOptionIds, roomOptions]);
+
   const seasonsByRoom = useMemo(() => {
     const map: Record<string, RoomSeasonalPrice[]> = {};
     for (const s of seasonalPrices) {
@@ -324,7 +340,7 @@ export function BookingSection({
     return calculateTotalPrice(selectedRoom.price_per_night, dateRange.from, dateRange.to, roomSeasons);
   }, [selectedRoom, nights, dateRange, seasonsByRoom]);
 
-  const totalPrice = priceResult?.total ?? 0;
+  const totalPrice = (priceResult?.total ?? 0) + optionsTotal;
 
   const resolvedDeposit = useMemo(() => {
     return getDepositForMonth(host, dateRange?.from);
@@ -380,6 +396,7 @@ export function BookingSection({
     // Clear date range when switching rooms so stale selections
     // that overlap with the new room's booked dates are reset
     setDateRange(undefined);
+    setSelectedOptionIds([]);
   };
 
   const handleDateSelect = (range: DateRange | undefined) => {
@@ -592,6 +609,10 @@ export function BookingSection({
           easyslip_verified: isSlipVerified,
           session_id: uploadSessionId,
           locale,
+          selected_options: selectedOptionIds.map((id) => {
+            const opt = roomOptions.find((o) => o.id === id);
+            return { id, name: opt?.name || "", price: opt?.price || 0 };
+          }),
         }),
       });
 
@@ -670,8 +691,10 @@ export function BookingSection({
     setBookingId(null);
     setPdpaConsent(false);
     setShowCalendar(false);
+    setShowOptions(false);
     setShowConfirmModal(false);
     setShowConfirmedModal(false);
+    setSelectedOptionIds([]);
   };
 
   return (
@@ -763,7 +786,7 @@ export function BookingSection({
                 {step === "dates" && (
                   <motion.div key="step-dates" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                     <AnimatePresence mode="wait">
-                      {!showCalendar ? (
+                      {!showCalendar && !showOptions ? (
                         <motion.div key="dates-form" initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.25 }} className="space-y-5">
                           {/* Room detail or prompt */}
                           {selectedRoom ? (
@@ -832,6 +855,29 @@ export function BookingSection({
                             </div>
                           </div>
 
+                          {/* Room Options toggle */}
+                          {optionsForRoom.length > 0 && (
+                            <div className="space-y-2">
+                              <label className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("options")}</label>
+                              <button
+                                onClick={() => setShowOptions(true)}
+                                className="w-full flex items-center justify-between p-3.5 rounded-xl border border-gray-200 transition-all text-sm font-medium bg-white hover:border-gray-400 text-gray-900 cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2.5">
+                                  <ListPlus size={16} className="text-gray-400" />
+                                  <span>
+                                    {selectedOptionIds.length > 0
+                                      ? t("optionsSelected", { count: selectedOptionIds.length })
+                                      : t("selectOptions")}
+                                  </span>
+                                </div>
+                                {optionsTotal > 0 && (
+                                  <span className="text-xs font-semibold text-brand">+฿{optionsTotal.toLocaleString()}</span>
+                                )}
+                              </button>
+                            </div>
+                          )}
+
                           {/* Price breakdown */}
                           {totalPrice > 0 && priceResult && (
                             <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="pt-4 border-t border-gray-100 space-y-2">
@@ -863,6 +909,12 @@ export function BookingSection({
                                   </>
                                 );
                               })()}
+                              {optionsTotal > 0 && (
+                                <div className="flex justify-between text-sm text-gray-600">
+                                  <span>{t("options")} ({selectedOptionIds.length})</span>
+                                  <span>+฿{optionsTotal.toLocaleString()}</span>
+                                </div>
+                              )}
                               <div className="flex justify-between text-base font-bold text-gray-900 pt-2 border-t border-gray-100">
                                 <span>{tc("total")}</span>
                                 <span>฿{totalPrice.toLocaleString()}</span>
@@ -889,6 +941,55 @@ export function BookingSection({
                             {t("continueDetails")} <ArrowRight size={18} />
                           </button>
                           <p className="text-center text-[11px] text-gray-400">{t("subtitle")}</p>
+                        </motion.div>
+                      ) : showOptions ? (
+                        <motion.div key="dates-options" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.25 }} className="space-y-4">
+                          <div className="flex items-center gap-3">
+                            <button onClick={() => setShowOptions(false)} className="p-2 rounded-full hover:bg-gray-100 text-gray-400"><ArrowLeft size={18} /></button>
+                            <h3 className="text-xl font-bold text-gray-900">{t("options")}</h3>
+                          </div>
+                          <p className="text-sm text-gray-500">{t("optionsDesc")}</p>
+
+                          <div className="space-y-2">
+                            {optionsForRoom.map((option) => {
+                              const isChecked = selectedOptionIds.includes(option.id);
+                              return (
+                                <label
+                                  key={option.id}
+                                  className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${isChecked ? "border-brand bg-brand/5" : "border-gray-200 hover:border-gray-300"}`}
+                                >
+                                  <input
+                                    type="checkbox"
+                                    checked={isChecked}
+                                    onChange={() => {
+                                      setSelectedOptionIds((prev) =>
+                                        isChecked ? prev.filter((id) => id !== option.id) : [...prev, option.id]
+                                      );
+                                    }}
+                                    className="h-4 w-4 rounded border-gray-300 text-brand focus:ring-brand"
+                                  />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-gray-900">{option.name}</p>
+                                  </div>
+                                  <span className="text-sm font-semibold text-brand whitespace-nowrap">+฿{option.price.toLocaleString()}</span>
+                                </label>
+                              );
+                            })}
+                          </div>
+
+                          {optionsTotal > 0 && (
+                            <div className="rounded-xl bg-gray-50 px-3 py-2 flex justify-between text-sm">
+                              <span className="text-gray-500">{t("optionsTotal")}</span>
+                              <span className="font-bold text-gray-900">+฿{optionsTotal.toLocaleString()}</span>
+                            </div>
+                          )}
+
+                          <button
+                            onClick={() => setShowOptions(false)}
+                            className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                          >
+                            {tc("done")}
+                          </button>
                         </motion.div>
                       ) : (
                         <motion.div key="dates-calendar" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.25 }} className="space-y-4">
@@ -1053,6 +1154,23 @@ export function BookingSection({
                               <span className="text-gray-500">{tc("guests")}</span>
                               <span className="font-medium text-gray-900">{numGuests}</span>
                             </div>
+                            {selectedOptionIds.length > 0 && (
+                              <div>
+                                <span className="text-gray-500">{t("options")}</span>
+                                <div className="mt-1 space-y-1">
+                                  {selectedOptionIds.map((id) => {
+                                    const opt = roomOptions.find((o) => o.id === id);
+                                    if (!opt) return null;
+                                    return (
+                                      <div key={id} className="flex justify-between text-xs">
+                                        <span className="text-gray-600">{opt.name}</span>
+                                        <span className="font-medium text-brand">+฿{opt.price.toLocaleString()}</span>
+                                      </div>
+                                    );
+                                  })}
+                                </div>
+                              </div>
+                            )}
                             <Separator />
                             <div className="flex justify-between">
                               <span className="text-gray-500">{t("fullName")}</span>

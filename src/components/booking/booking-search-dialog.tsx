@@ -45,6 +45,7 @@ interface SearchResult {
   checked_in_at: string | null;
   checked_out_at: string | null;
   created_at: string;
+  selected_options: { name: string; price: number }[] | null;
   has_review: boolean;
   pending_date_change: {
     id: string;
@@ -790,6 +791,11 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                     <span className="font-medium text-gray-900">
                       ฿{booking.total_price.toLocaleString()}
                     </span>
+                    {booking.selected_options && booking.selected_options.length > 0 && (
+                      <span className="text-gray-500">
+                        {t("options")}: {booking.selected_options.map((o: { name: string }) => o.name).join(", ")}
+                      </span>
+                    )}
                     {booking.payment_type === "deposit" && (
                       <span className="text-gray-600">
                         {t("amountPaid")}: ฿{(booking.amount_paid || 0).toLocaleString()}

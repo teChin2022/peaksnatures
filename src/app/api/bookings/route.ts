@@ -31,6 +31,11 @@ const bookingSchema = z.object({
   locale: z.string().optional(),
   payment_type: z.enum(["full", "deposit"]).optional().default("full"),
   amount_paid: z.number().int().min(0).optional(),
+  selected_options: z.array(z.object({
+    id: z.string().uuid(),
+    name: z.string(),
+    price: z.number().int().min(0),
+  })).optional().default([]),
 });
 
 async function sendNotifications(bookingId: string, supabase: ReturnType<typeof createServiceRoleClient>, locale: string = "th", isVerified: boolean = true) {
@@ -119,10 +124,14 @@ export async function POST(req: NextRequest) {
 
     // Server-side price verification: never trust client-supplied total_price
     if (data.room_id) {
-      // Parallel: room price + seasonal prices
-      const [{ data: roomRow, error: roomError }, { data: seasonRows }] = await Promise.all([
+      // Parallel: room price + seasonal prices + option prices (if any)
+      const optionIds = data.selected_options.map((o) => o.id);
+      const [{ data: roomRow, error: roomError }, { data: seasonRows }, { data: dbOptions }] = await Promise.all([
         supabase.from("rooms").select("price_per_night").eq("id", data.room_id).single(),
         supabase.from("room_seasonal_prices").select("*").eq("room_id", data.room_id),
+        optionIds.length > 0
+          ? supabase.from("room_options").select("id, price").eq("room_id", data.room_id).in("id", optionIds)
+          : Promise.resolve({ data: null }),
       ]);
 
       if (roomError || !roomRow) {
@@ -146,9 +155,24 @@ export async function POST(req: NextRequest) {
 
       const seasons = (seasonRows as unknown as RoomSeasonalPrice[]) || [];
 
-      const { total: serverPrice } = calculateTotalPrice(room.price_per_night, checkIn, checkOut, seasons);
+      const { total: serverBasePrice } = calculateTotalPrice(room.price_per_night, checkIn, checkOut, seasons);
+
+      // Validate selected options prices against DB
+      let serverOptionsTotal = 0;
+      if (optionIds.length > 0) {
+        const dbMap = new Map((dbOptions as { id: string; price: number }[] || []).map((o) => [o.id, o.price]));
+        for (const opt of data.selected_options) {
+          const dbPrice = dbMap.get(opt.id);
+          if (dbPrice !== undefined) {
+            opt.price = dbPrice; // enforce DB price
+            serverOptionsTotal += dbPrice;
+          }
+        }
+      }
+
+      const serverPrice = serverBasePrice + serverOptionsTotal;
       if (data.total_price !== serverPrice) {
-        console.warn(`[Security] Price mismatch: client=${data.total_price}, server=${serverPrice}`);
+        console.warn(`[Security] Price mismatch: client=${data.total_price}, server=${serverPrice} (base=${serverBasePrice}, options=${serverOptionsTotal})`);
         data.total_price = serverPrice;
       }
     }
@@ -204,6 +228,7 @@ export async function POST(req: NextRequest) {
           p_payment_type: data.payment_type || "full",
           p_amount_paid: data.amount_paid || data.total_price,
           p_created_by: data.guest_name,
+          p_selected_options: data.selected_options,
         } as never
       );
 

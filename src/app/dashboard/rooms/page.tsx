@@ -19,8 +19,9 @@ import {
   Users,
   ImageIcon,
   CalendarDays,
+  ListPlus,
 } from "lucide-react";
-import type { RoomSeasonalPrice } from "@/types/database";
+import type { RoomSeasonalPrice, RoomOption } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -62,6 +63,12 @@ interface SeasonFormData {
   price_per_night: string;
 }
 
+interface OptionFormData {
+  id?: string;
+  name: string;
+  price: string;
+}
+
 export default function RoomsPage() {
   const t = useTranslations("dashboardRooms");
   const tc = useTranslations("common");
@@ -91,6 +98,13 @@ export default function RoomsPage() {
   const [editingSeason, setEditingSeason] = useState<RoomSeasonalPrice | null>(null);
   const [savingSeason, setSavingSeason] = useState(false);
   const [pendingSeasons, setPendingSeasons] = useState<Omit<RoomSeasonalPrice, "id" | "room_id" | "created_at" | "created_by" | "updated_at" | "updated_by">[]>([]);
+
+  // Room options state
+  const [roomOptions, setRoomOptions] = useState<Record<string, RoomOption[]>>({});
+  const [optionForm, setOptionForm] = useState<OptionFormData>({ name: "", price: "" });
+  const [editingOption, setEditingOption] = useState<RoomOption | null>(null);
+  const [savingOption, setSavingOption] = useState(false);
+  const [pendingOptions, setPendingOptions] = useState<Omit<RoomOption, "id" | "room_id" | "created_at" | "created_by" | "updated_at" | "updated_by">[]>([]);
 
   // Format date with Thai BE year when locale is Thai
   const fmtDate = (dateStr: string) => {
@@ -151,24 +165,29 @@ export default function RoomsPage() {
 
     setHomestayId(homestay.id);
 
-    // Fetch rooms with seasonal prices in one joined query (eliminates sequential fetch)
+    // Fetch rooms with seasonal prices + options in one joined query
     const { data: roomRows } = await supabase
       .from("rooms")
-      .select("*, room_seasonal_prices(*)")
+      .select("*, room_seasonal_prices(*), room_options(*)")
       .eq("homestay_id", homestay.id)
       .order("name" as never);
 
     if (roomRows) {
-      const roomsWithSeasons = roomRows as unknown as (RoomData & { room_seasonal_prices: RoomSeasonalPrice[] })[];
-      setRooms(roomsWithSeasons.map(({ room_seasonal_prices: _, ...room }) => room as unknown as RoomData));
+      const roomsWithJoins = roomRows as unknown as (RoomData & { room_seasonal_prices: RoomSeasonalPrice[]; room_options: RoomOption[] })[];
+      setRooms(roomsWithJoins.map(({ room_seasonal_prices: _, room_options: _o, ...room }) => room as unknown as RoomData));
 
       const grouped: Record<string, RoomSeasonalPrice[]> = {};
-      for (const r of roomsWithSeasons) {
+      const optGrouped: Record<string, RoomOption[]> = {};
+      for (const r of roomsWithJoins) {
         if (r.room_seasonal_prices?.length) {
           grouped[r.id] = r.room_seasonal_prices;
         }
+        if (r.room_options?.length) {
+          optGrouped[r.id] = r.room_options.sort((a, b) => a.sort_order - b.sort_order);
+        }
       }
       setSeasonalPrices(grouped);
+      setRoomOptions(optGrouped);
     }
     setLoading(false);
   };
@@ -182,7 +201,9 @@ export default function RoomsPage() {
     setRoomImages([]);
     setEditingRoom(null);
     setPendingSeasons([]);
+    setPendingOptions([]);
     resetSeasonForm();
+    resetOptionForm();
   };
 
   const openCreateDialog = () => {
@@ -322,6 +343,23 @@ export default function RoomsPage() {
             .insert(seasonPayloads as never);
           if (seasonError) {
             console.error("Insert seasons error:", seasonError);
+          }
+        }
+
+        // Save pending options for the new room
+        if (pendingOptions.length > 0) {
+          const optionPayloads = pendingOptions.map((o, idx) => ({
+            room_id: (newRoom as { id: string }).id,
+            name: o.name,
+            price: o.price,
+            sort_order: idx,
+            created_by: hostName || userId,
+          }));
+          const { error: optionError } = await supabase
+            .from("room_options")
+            .insert(optionPayloads as never);
+          if (optionError) {
+            console.error("Insert options error:", optionError);
           }
         }
 
@@ -480,6 +518,82 @@ export default function RoomsPage() {
         await fetchData();
       } catch {
         toast.error(t("errorSeasonDelete"));
+      }
+    });
+  };
+
+  // --- Room options handlers ---
+  const resetOptionForm = () => {
+    setOptionForm({ name: "", price: "" });
+    setEditingOption(null);
+  };
+
+  const startEditOption = (option: RoomOption) => {
+    setEditingOption(option);
+    setOptionForm({ id: option.id, name: option.name, price: option.price.toString() });
+  };
+
+  const handleSaveOption = async () => {
+    if (!optionForm.name.trim()) { toast.error(t("errorOptionName")); return; }
+    const price = parseInt(optionForm.price);
+    if (isNaN(price) || price < 0) { toast.error(t("errorOptionPrice")); return; }
+
+    // For new rooms — store pending options locally
+    if (!editingRoom) {
+      setPendingOptions((prev) => [
+        ...prev,
+        { name: optionForm.name.trim(), price, sort_order: prev.length, is_active: true },
+      ]);
+      toast.success(t("optionCreated"));
+      resetOptionForm();
+      return;
+    }
+
+    // For existing rooms — save to DB
+    setSavingOption(true);
+    try {
+      const supabase = createClient();
+      const payload = {
+        room_id: editingRoom.id,
+        name: optionForm.name.trim(),
+        price,
+        sort_order: (roomOptions[editingRoom.id] || []).length,
+      };
+
+      if (editingOption) {
+        const { error } = await supabase
+          .from("room_options")
+          .update({ ...payload, updated_by: hostName || userId } as never)
+          .eq("id", editingOption.id);
+        if (error) { toast.error(t("errorOptionSave")); console.error(error); return; }
+        toast.success(t("optionUpdated"));
+      } else {
+        const { error } = await supabase
+          .from("room_options")
+          .insert({ ...payload, created_by: hostName || userId } as never);
+        if (error) { toast.error(t("errorOptionSave")); console.error(error); return; }
+        toast.success(t("optionCreated"));
+      }
+
+      resetOptionForm();
+      await fetchData();
+    } catch {
+      toast.error(t("errorOptionSave"));
+    } finally {
+      setSavingOption(false);
+    }
+  };
+
+  const handleDeleteOption = (optionId: string) => {
+    showConfirm(t("confirmDeleteOption"), async () => {
+      try {
+        const supabase = createClient();
+        const { error } = await supabase.from("room_options").delete().eq("id", optionId);
+        if (error) { toast.error(t("errorOptionDelete")); console.error(error); return; }
+        toast.success(t("optionDeleted"));
+        await fetchData();
+      } catch {
+        toast.error(t("errorOptionDelete"));
       }
     });
   };
@@ -693,6 +807,126 @@ export default function RoomsPage() {
                   value={roomQuantity}
                   onChange={(e) => setRoomQuantity(e.target.value)}
                 />
+              </div>
+            </div>
+
+            {/* Room Options Section */}
+            <div className="space-y-3 rounded-lg border p-4">
+              <div className="flex items-center gap-2">
+                <ListPlus className="h-4 w-4 text-brand" />
+                <h3 className="text-sm font-semibold text-gray-900">{t("roomOptions")}</h3>
+              </div>
+              <p className="text-xs text-gray-500">{t("roomOptionsDesc")}</p>
+
+              {/* Options list — DB options for existing rooms, pending for new */}
+              {editingRoom ? (
+                (roomOptions[editingRoom.id] || []).length > 0 ? (
+                  <div className="space-y-2">
+                    {(roomOptions[editingRoom.id] || []).map((option) => (
+                      <div
+                        key={option.id}
+                        className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-900">{option.name}</p>
+                          <p className="text-xs text-gray-500">
+                            <span className="font-medium text-brand">+฿{option.price.toLocaleString()}</span>
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => startEditOption(option)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-red-500 hover:text-red-700"
+                            onClick={() => handleDeleteOption(option.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs italic text-gray-400">{t("noOptions")}</p>
+                )
+              ) : (
+                pendingOptions.length > 0 ? (
+                  <div className="space-y-2">
+                    {pendingOptions.map((option, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-900">{option.name}</p>
+                          <p className="text-xs text-gray-500">
+                            <span className="font-medium text-brand">+฿{option.price.toLocaleString()}</span>
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-red-500 hover:text-red-700"
+                          onClick={() => setPendingOptions((prev) => prev.filter((_, i) => i !== idx))}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs italic text-gray-400">{t("noOptions")}</p>
+                )
+              )}
+
+              {/* Option add/edit form */}
+              <div className="space-y-2 rounded-md border bg-white p-3">
+                <p className="text-xs font-medium text-gray-700">
+                  {editingOption ? t("editOption") : t("addOption")}
+                </p>
+                <Input
+                  placeholder={t("optionNamePlaceholder")}
+                  value={optionForm.name}
+                  onChange={(e) => setOptionForm((f) => ({ ...f, name: e.target.value }))}
+                  className="text-sm"
+                />
+                <div>
+                  <Label className="text-xs">{t("optionPrice")}</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">฿</span>
+                    <Input
+                      type="number"
+                      className="pl-7 text-sm"
+                      value={optionForm.price}
+                      onChange={(e) => setOptionForm((f) => ({ ...f, price: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveOption}
+                    disabled={savingOption}
+                    className="hover:brightness-90 bg-brand"
+                  >
+                    {savingOption ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Plus className="mr-1 h-3 w-3" />}
+                    {editingOption ? t("saveOption") : t("addOption")}
+                  </Button>
+                  {editingOption && (
+                    <Button size="sm" variant="outline" onClick={resetOptionForm}>
+                      <X className="mr-1 h-3 w-3" />
+                      {tc("cancel")}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
 
