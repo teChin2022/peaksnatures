@@ -66,20 +66,16 @@ export function HostLocationSection({
                       </div>
                     )}
                   </div>
-                  {isVerified && (
-                    <div className="absolute bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full bg-emerald-500 shadow-md ring-2 ring-white">
-                      <ShieldCheck className="h-3.5 w-3.5 text-white" />
-                    </div>
-                  )}
+                  <div className={`absolute bottom-1 -right-1 flex h-6 w-6 items-center justify-center rounded-full shadow-md ring-2 ring-white ${isVerified ? "bg-emerald-500" : "bg-amber-500"}`}>
+                    <ShieldCheck className="h-3.5 w-3.5 text-white" />
+                  </div>
                 </div>
                 <h3 className="mt-7 text-md font-bold text-gray-900 text-center leading-tight">
                   {hostName}
                 </h3>
-                {isVerified && (
-                  <span className="mt-0.5 text-[11px] text-gray-500">
-                    {t("verifiedHost")}
-                  </span>
-                )}
+                <span className={`mt-0.5 text-[11px] ${isVerified ? "text-emerald-600" : "text-amber-600"}`}>
+                  {isVerified ? t("verifiedHost") : t("unverifiedHost")}
+                </span>
               </div>
 
               <div className="h-20 w-px bg-gray-200 shrink-0" />

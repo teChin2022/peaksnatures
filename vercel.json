@@ -1,4 +1,3 @@
 {
-  "buildCommand": "rm -rf .next && next build",
-  "regions": ["sin1"]
+  "buildCommand": "rm -rf .next && next build"
 }
