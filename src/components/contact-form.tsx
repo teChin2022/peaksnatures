@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 
-export function ContactForm() {
+export function ContactForm({ onSuccess }: { onSuccess?: () => void } = {}) {
   const t = useTranslations("home");
   const [sending, setSending] = useState(false);
 
@@ -39,6 +39,7 @@ export function ContactForm() {
 
       toast.success(t("contactFormSuccess"));
       form.reset();
+      onSuccess?.();
     } catch {
       toast.error(t("contactFormError"));
     } finally {

@@ -1,8 +1,21 @@
+"use client";
+
+import { useState } from "react";
 import { Instagram, Facebook, Twitter } from "lucide-react";
 import Link from "next/link";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
+import { ContactForm } from "@/components/contact-form";
 
 export function LandingFooter() {
+  const [contactOpen, setContactOpen] = useState(false);
   return (
+    <>
     <footer className="bg-section-alt text-[#111111] pt-24 pb-12 border-t border-gray-200">
       <div className="max-w-7xl mx-auto px-4">
         <div className="grid md:grid-cols-4 gap-12 mb-24">
@@ -54,8 +67,13 @@ export function LandingFooter() {
               เชื่อต่อ
             </h4>
             <ul className="space-y-4 text-sm text-[#6B7280]">
-              <li className="hover:text-[#111111] cursor-pointer transition-colors">
-                ติดต่อเรา
+              <li>
+                <button
+                  onClick={() => setContactOpen(true)}
+                  className="hover:text-[#111111] cursor-pointer transition-colors"
+                >
+                  ติดต่อเรา
+                </button>
               </li>
               <li className="hover:text-[#111111] cursor-pointer transition-colors">
                 คำถามที่พบบ่อย
@@ -77,5 +95,18 @@ export function LandingFooter() {
         </div>
       </div>
     </footer>
+
+      <Dialog open={contactOpen} onOpenChange={setContactOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>ติดต่อเรา</DialogTitle>
+            <DialogDescription>
+              ส่งข้อความถึงเรา แล้วเราจะตอบกลับโดยเร็วที่สุด
+            </DialogDescription>
+          </DialogHeader>
+          <ContactForm onSuccess={() => setContactOpen(false)} />
+        </DialogContent>
+      </Dialog>
+    </>
   );
 }
