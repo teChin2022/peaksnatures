@@ -216,8 +216,8 @@ export default function ProfilePage() {
     try {
       const supabase = createClient();
 
-      // Validate bank fields if payment_display is "bank"
-      if (paymentDisplay === "bank" && (!bankName.trim() || !bankAccountNumber.trim() || !bankAccountName.trim())) {
+      // Validate bank fields if payment_display is "bank" and sensitive is unlocked
+      if (sensitiveUnlocked && paymentDisplay === "bank" && (!bankName.trim() || !bankAccountNumber.trim() || !bankAccountName.trim())) {
         toast.error(t("bankFieldsRequired"));
         setSaving(false);
         return;
@@ -232,10 +232,6 @@ export default function ProfilePage() {
         deposit_by_month: Object.keys(depositByMonth).length > 0 ? depositByMonth : null,
         cancellation_days: cancellationDays,
         notification_preference: notificationPreference,
-        payment_display: paymentDisplay,
-        bank_name: bankName.trim() || null,
-        bank_account_number: bankAccountNumber.trim() || null,
-        bank_account_name: bankAccountName.trim() || null,
         updated_by: host.name,
       };
 
@@ -260,6 +256,10 @@ export default function ProfilePage() {
             email: email.trim(),
             phone: phone.trim() || null,
             promptpay_id: promptpayId.trim(),
+            payment_display: paymentDisplay,
+            bank_name: bankName.trim() || null,
+            bank_account_number: bankAccountNumber.trim() || null,
+            bank_account_name: bankAccountName.trim() || null,
           }),
         });
 
@@ -589,78 +589,84 @@ export default function ProfilePage() {
               />
               <p className="text-xs text-gray-500">{t("promptpayHint")}</p>
             </div>
-          </div>
 
-          <div className="rounded-lg border border-gray-200 p-4 space-y-4">
-            <div className="flex items-center gap-2 text-sm font-medium">
-              <CreditCard className="h-4 w-4 text-brand" />
-              {t("paymentDisplayTitle")}
-            </div>
-            <p className="text-xs text-gray-500">{t("paymentDisplayHint")}</p>
-
-            <div className="flex gap-2">
-              {(["qr", "bank"] as const).map((option) => (
-                <button
-                  key={option}
-                  type="button"
-                  className="flex-1 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-colors"
-                  style={
-                    paymentDisplay === option
-                      ? { backgroundColor: "#2F5D50", color: "white", borderColor: "#2F5D50" }
-                      : { borderColor: "#d1d5db", color: "#374151" }
-                  }
-                  onClick={() => setPaymentDisplay(option)}
-                >
-                  {t(option === "qr" ? "paymentDisplayQr" : "paymentDisplayBank")}
-                </button>
-              ))}
-            </div>
-
-            {paymentDisplay === "bank" && (
-              <div className="space-y-3 pt-1">
-                <div className="space-y-2">
-                  <Label htmlFor="host-bank-name" className="text-sm">{t("bankName")}</Label>
-                  <select
-                    id="host-bank-name"
-                    value={bankName}
-                    onChange={(e) => setBankName(e.target.value)}
-                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
-                  >
-                    <option value="">{t("bankNamePlaceholder")}</option>
-                    <option value="กรุงเทพ">ธ.กรุงเทพ (BBL)</option>
-                    <option value="กสิกรไทย">ธ.กสิกรไทย (KBANK)</option>
-                    <option value="ไทยพาณิชย์">ธ.ไทยพาณิชย์ (SCB)</option>
-                    <option value="กรุงไทย">ธ.กรุงไทย (KTB)</option>
-                    <option value="กรุงศรีอยุธยา">ธ.กรุงศรีอยุธยา (BAY)</option>
-                    <option value="ทหารไทยธนชาต">ธ.ทหารไทยธนชาต (TTB)</option>
-                    <option value="ออมสิน">ธ.ออมสิน (GSB)</option>
-                    <option value="ธ.ก.ส.">ธ.ก.ส. (BAAC)</option>
-                    <option value="เกียรตินาคินภัทร">ธ.เกียรตินาคินภัทร (KKP)</option>
-                    <option value="ซีไอเอ็มบี">ธ.ซีไอเอ็มบี (CIMB)</option>
-                    <option value="ยูโอบี">ธ.ยูโอบี (UOB)</option>
-                    <option value="แลนด์แอนด์เฮ้าส์">ธ.แลนด์แอนด์เฮ้าส์ (LHFG)</option>
-                  </select>
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="host-bank-account-number" className="text-sm">{t("bankAccountNumber")}</Label>
-                  <Input
-                    id="host-bank-account-number"
-                    value={bankAccountNumber}
-                    onChange={(e) => setBankAccountNumber(e.target.value)}
-                    placeholder={t("bankAccountNumberPlaceholder")}
-                  />
-                </div>
-                <div className="space-y-2">
-                  <Label htmlFor="host-bank-account-name" className="text-sm">{t("bankAccountName")}</Label>
-                  <Input
-                    id="host-bank-account-name"
-                    value={bankAccountName}
-                    onChange={(e) => setBankAccountName(e.target.value)}
-                    placeholder={t("bankAccountNamePlaceholder")}
-                  />
-                </div>
+            <div className="border-t border-gray-100 pt-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <CreditCard className="h-3.5 w-3.5" />
+                {t("paymentDisplayTitle")}
               </div>
-            )}
+              <p className="text-xs text-gray-500">{t("paymentDisplayHint")}</p>
+
+              <div className="flex gap-2">
+                {(["qr", "bank"] as const).map((option) => (
+                  <button
+                    key={option}
+                    type="button"
+                    disabled={!sensitiveUnlocked}
+                    className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-colors ${!sensitiveUnlocked ? "opacity-60 cursor-not-allowed" : ""}`}
+                    style={
+                      paymentDisplay === option
+                        ? { backgroundColor: "#2F5D50", color: "white", borderColor: "#2F5D50" }
+                        : { borderColor: "#d1d5db", color: "#374151" }
+                    }
+                    onClick={() => setPaymentDisplay(option)}
+                  >
+                    {t(option === "qr" ? "paymentDisplayQr" : "paymentDisplayBank")}
+                  </button>
+                ))}
+              </div>
+
+              {paymentDisplay === "bank" && (
+                <div className="space-y-3 pt-1">
+                  <div className="space-y-2">
+                    <Label htmlFor="host-bank-name" className="text-sm">{t("bankName")}</Label>
+                    <select
+                      id="host-bank-name"
+                      value={bankName}
+                      onChange={(e) => setBankName(e.target.value)}
+                      disabled={!sensitiveUnlocked}
+                      className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${!sensitiveUnlocked ? "bg-gray-50 cursor-not-allowed" : ""}`}
+                    >
+                      <option value="">{t("bankNamePlaceholder")}</option>
+                      <option value="กรุงเทพ">ธ.กรุงเทพ (BBL)</option>
+                      <option value="กสิกรไทย">ธ.กสิกรไทย (KBANK)</option>
+                      <option value="ไทยพาณิชย์">ธ.ไทยพาณิชย์ (SCB)</option>
+                      <option value="กรุงไทย">ธ.กรุงไทย (KTB)</option>
+                      <option value="กรุงศรีอยุธยา">ธ.กรุงศรีอยุธยา (BAY)</option>
+                      <option value="ทหารไทยธนชาต">ธ.ทหารไทยธนชาต (TTB)</option>
+                      <option value="ออมสิน">ธ.ออมสิน (GSB)</option>
+                      <option value="ธ.ก.ส.">ธ.ก.ส. (BAAC)</option>
+                      <option value="เกียรตินาคินภัทร">ธ.เกียรตินาคินภัทร (KKP)</option>
+                      <option value="ซีไอเอ็มบี">ธ.ซีไอเอ็มบี (CIMB)</option>
+                      <option value="ยูโอบี">ธ.ยูโอบี (UOB)</option>
+                      <option value="แลนด์แอนด์เฮ้าส์">ธ.แลนด์แอนด์เฮ้าส์ (LHFG)</option>
+                    </select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="host-bank-account-number" className="text-sm">{t("bankAccountNumber")}</Label>
+                    <Input
+                      id="host-bank-account-number"
+                      value={bankAccountNumber}
+                      onChange={(e) => setBankAccountNumber(e.target.value)}
+                      placeholder={t("bankAccountNumberPlaceholder")}
+                      readOnly={!sensitiveUnlocked}
+                      className={!sensitiveUnlocked ? "bg-gray-50 cursor-not-allowed" : ""}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="host-bank-account-name" className="text-sm">{t("bankAccountName")}</Label>
+                    <Input
+                      id="host-bank-account-name"
+                      value={bankAccountName}
+                      onChange={(e) => setBankAccountName(e.target.value)}
+                      placeholder={t("bankAccountNamePlaceholder")}
+                      readOnly={!sensitiveUnlocked}
+                      className={!sensitiveUnlocked ? "bg-gray-50 cursor-not-allowed" : ""}
+                    />
+                  </div>
+                </div>
+              )}
+            </div>
           </div>
 
           <div className="rounded-lg border border-gray-200 p-4 space-y-4">
