@@ -982,13 +982,17 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                 <div className="space-y-2">
                                   {paymentDisplay === "bank" && bankName && bankAccountNumber && bankAccountName ? (
                                     <div className="rounded-lg border bg-white p-3 space-y-1.5">
-                                      <p className="text-xs text-gray-500 text-center mb-1">{t("payViaTransfer")}</p>
+                                      <p className="text-xs text-gray-500 text-center mb-1">{t("bankTransferTitle")}</p>
                                       <div className="flex justify-between text-xs">
-                                        <span className="text-gray-500">{bankName}</span>
+                                        <span className="text-gray-500">{t("bankTransferTitle")}</span>
+                                        <span className="font-medium text-gray-900">{bankName}</span>
+                                      </div>
+                                      <div className="flex justify-between text-xs">
+                                        <span className="text-gray-500">{t("bankAccountNo")}</span>
                                         <span className="font-mono font-medium text-gray-900">{bankAccountNumber}</span>
                                       </div>
                                       <div className="flex justify-between text-xs">
-                                        <span className="text-gray-500">{hostName}</span>
+                                        <span className="text-gray-500">{t("bankAccountHolderName")}</span>
                                         <span className="font-medium text-gray-900">{bankAccountName}</span>
                                       </div>
                                     </div>
@@ -1476,11 +1480,15 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                 {paymentDisplay === "bank" && bankName && bankAccountNumber && bankAccountName ? (
                                   <div className="w-full rounded-lg border bg-white p-3 space-y-1.5">
                                     <div className="flex justify-between text-xs">
-                                      <span className="text-gray-500">{bankName}</span>
+                                      <span className="text-gray-500">{t("bankTransferTitle")}</span>
+                                      <span className="font-medium text-gray-900">{bankName}</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs">
+                                      <span className="text-gray-500">{t("bankAccountNo")}</span>
                                       <span className="font-mono font-medium text-gray-900">{bankAccountNumber}</span>
                                     </div>
                                     <div className="flex justify-between text-xs">
-                                      <span className="text-gray-500">{hostName}</span>
+                                      <span className="text-gray-500">{t("bankAccountHolderName")}</span>
                                       <span className="font-medium text-gray-900">{bankAccountName}</span>
                                     </div>
                                   </div>

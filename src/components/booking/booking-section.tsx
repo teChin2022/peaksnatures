@@ -1280,20 +1280,20 @@ export function BookingSection({
                           <div className="flex flex-col items-center p-5 bg-gray-50 rounded-2xl border border-gray-100">
                             {host.payment_display === "bank" && host.bank_name && host.bank_account_number && host.bank_account_name ? (
                               <>
-                                <p className="text-sm text-gray-500 mb-3">{t("bankTransferInfo")}</p>
+                                <p className="text-sm text-gray-500 mb-3">{t("bankTransferTitle")}</p>
                                 <div className="w-full space-y-2 bg-white rounded-xl p-4 border border-gray-100">
                                   <div className="flex justify-between text-sm">
-                                    <span className="text-gray-500">{t("bankTransferInfo").split(" ")[0]}</span>
+                                    <span className="text-gray-500">{t("bankTransferTitle")}</span>
                                     <span className="font-medium text-gray-900">{host.bank_name}</span>
                                   </div>
                                   <Separator />
                                   <div className="flex justify-between text-sm">
-                                    <span className="text-gray-500">{t("promptpayId").replace("PromptPay ID", "Account No.")}</span>
+                                    <span className="text-gray-500">{t("bankAccountNo")}</span>
                                     <span className="font-mono font-medium text-gray-900">{host.bank_account_number}</span>
                                   </div>
                                   <Separator />
                                   <div className="flex justify-between text-sm">
-                                    <span className="text-gray-500">{host.name}</span>
+                                    <span className="text-gray-500">{t("bankAccountHolderName")}</span>
                                     <span className="font-medium text-gray-900">{host.bank_account_name}</span>
                                   </div>
                                 </div>
