@@ -312,8 +312,10 @@ export async function POST(req: NextRequest) {
       if (!easyslipVal || !expected) return false;
       const visible = extractVisibleDigits(easyslipVal);
       if (!visible) return false;
-      // If EasySlip returns full number, do exact match; if masked, match suffix
-      return expected === visible || expected.endsWith(visible);
+      // If EasySlip returns full number, do exact match; if masked, match substring
+      // EasySlip masks both leading AND trailing digits (e.g. "xxx-x-x1105-x"),
+      // so visible digits may appear in the middle, not just at the end.
+      return expected === visible || expected.includes(visible);
     };
 
     // Match against promptpay_id (proxy or bank) OR bank_account_number
