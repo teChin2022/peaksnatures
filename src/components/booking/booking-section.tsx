@@ -561,6 +561,9 @@ export function BookingSection({
       verifyForm.append("file", slipToVerify);
       verifyForm.append("expected_amount", paymentAmount.toString());
       verifyForm.append("expected_receiver", host.promptpay_id);
+      if (host.bank_account_number) {
+        verifyForm.append("expected_receiver_bank", host.bank_account_number);
+      }
 
       const verifyRes = await fetch("/api/verify-slip", {
         method: "POST",
@@ -1271,23 +1274,49 @@ export function BookingSection({
                     )}
 
                     <AnimatePresence mode="wait">
-                      {/* QR Phase */}
+                      {/* QR / Bank Transfer Phase */}
                       {paymentPhase === "qr" && (
                         <motion.div key="qr" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-4">
                           <div className="flex flex-col items-center p-5 bg-gray-50 rounded-2xl border border-gray-100">
-                            <p className="text-sm text-gray-500 mb-3">{t("scanQr")}</p>
-                            <div ref={qrContainerRef} className="bg-white p-3 rounded-2xl shadow-sm">
-                              <QRCodeSVG value={generatePayload(host.promptpay_id, { amount: paymentAmount })} size={160} level="M" />
-                            </div>
-                            <button type="button" onClick={handleSaveQr} className="mt-3 flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-medium text-gray-700 border border-gray-200 hover:bg-gray-50">
-                              <Download className="h-3.5 w-3.5" />{t("saveQrImage")}
-                            </button>
+                            {host.payment_display === "bank" && host.bank_name && host.bank_account_number && host.bank_account_name ? (
+                              <>
+                                <p className="text-sm text-gray-500 mb-3">{t("bankTransferTitle")}</p>
+                                <div className="w-full space-y-2 bg-white rounded-xl p-4 border border-gray-100">
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">{t("bankTransferTitle")}</span>
+                                    <span className="font-medium text-gray-900">{host.bank_name}</span>
+                                  </div>
+                                  <Separator />
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">{t("bankAccountNo")}</span>
+                                    <span className="font-mono font-medium text-gray-900">{host.bank_account_number}</span>
+                                  </div>
+                                  <Separator />
+                                  <div className="flex justify-between text-sm">
+                                    <span className="text-gray-500">{t("bankAccountHolderName")}</span>
+                                    <span className="font-medium text-gray-900">{host.bank_account_name}</span>
+                                  </div>
+                                </div>
+                              </>
+                            ) : (
+                              <>
+                                <p className="text-sm text-gray-500 mb-3">{t("scanQr")}</p>
+                                <div ref={qrContainerRef} className="bg-white p-3 rounded-2xl shadow-sm">
+                                  <QRCodeSVG value={generatePayload(host.promptpay_id, { amount: paymentAmount })} size={160} level="M" />
+                                </div>
+                                <button type="button" onClick={handleSaveQr} className="mt-3 flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-medium text-gray-700 border border-gray-200 hover:bg-gray-50">
+                                  <Download className="h-3.5 w-3.5" />{t("saveQrImage")}
+                                </button>
+                              </>
+                            )}
                             <p className="mt-3 text-2xl font-bold text-gray-900">฿{paymentAmount.toLocaleString()}</p>
                             {paymentOption === "deposit" && depositAvailable && (
                               <p className="mt-1 text-xs text-amber-600">{t("balanceDue")}: ฿{(totalPrice - paymentAmount).toLocaleString()} — {t("payOnArrival")}</p>
                             )}
                             <p className="mt-1 text-sm font-medium text-gray-700">{host.name}</p>
-                            <p className="text-xs text-gray-400">{t("promptpayId")}: {host.promptpay_id}</p>
+                            {host.payment_display !== "bank" && (
+                              <p className="text-xs text-gray-400">{t("promptpayId")}: {host.promptpay_id}</p>
+                            )}
                           </div>
 
                           <button onClick={() => setPaymentPhase("upload")}

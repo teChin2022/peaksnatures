@@ -1,11 +1,8 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import type { Homestay, Room } from "@/types/database";
 import { LandingNavbar } from "@/components/landing/navbar";
-import { LandingHero } from "@/components/landing/hero";
-import { WhyPeaksnature } from "@/components/landing/why-peaksnature";
-import { UniqueHomestays } from "@/components/landing/unique-homestays";
+import { LandingContent } from "@/components/landing/landing-content";
 import { LandingFooter } from "@/components/landing/footer";
-import { ForHosts } from "@/components/landing/for-hosts";
 
 export default async function Home() {
   const supabase = createServiceRoleClient();
@@ -93,10 +90,7 @@ export default async function Home() {
     <div className="min-h-screen bg-white font-sans text-gray-900 selection:bg-gray-200">
       <LandingNavbar />
       <main>
-        <LandingHero />
-        <WhyPeaksnature />
-        <UniqueHomestays homestays={homestayData} />
-        <ForHosts />
+        <LandingContent homestays={homestayData} />
       </main>
       <LandingFooter />
     </div>

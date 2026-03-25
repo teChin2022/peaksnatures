@@ -134,6 +134,7 @@ export async function POST(req: NextRequest) {
     const file = formData.get("file") as File | null;
     const expectedAmount = Number(formData.get("expected_amount") || "0");
     const expectedReceiver = formData.get("expected_receiver") as string | null;
+    const expectedReceiverBank = formData.get("expected_receiver_bank") as string | null;
 
     if (!file) {
       return NextResponse.json(
@@ -295,6 +296,7 @@ export async function POST(req: NextRequest) {
       proxy: receiverProxy,
       bank: receiverBank,
       expected: expectedReceiver,
+      expectedBank: expectedReceiverBank,
     });
 
     // EasySlip masks account numbers (e.g. "xxx-xxx-5198")
@@ -303,20 +305,26 @@ export async function POST(req: NextRequest) {
       (val || "").replace(/[^0-9]/g, "");
 
     const expectedDigits = extractVisibleDigits(expectedReceiver);
+    const expectedBankDigits = extractVisibleDigits(expectedReceiverBank);
 
     // Check if expected number ends with the visible digits from EasySlip
-    const matchesAccount = (easyslipVal: string | undefined | null): boolean => {
-      if (!easyslipVal) return false;
+    const matchesAccount = (easyslipVal: string | undefined | null, expected: string): boolean => {
+      if (!easyslipVal || !expected) return false;
       const visible = extractVisibleDigits(easyslipVal);
       if (!visible) return false;
-      // If EasySlip returns full number, do exact match; if masked, match suffix
-      return expectedDigits === visible || expectedDigits.endsWith(visible);
+      // If EasySlip returns full number, do exact match; if masked, match substring
+      // EasySlip masks both leading AND trailing digits (e.g. "xxx-x-x1105-x"),
+      // so visible digits may appear in the middle, not just at the end.
+      return expected === visible || expected.includes(visible);
     };
 
+    // Match against promptpay_id (proxy or bank) OR bank_account_number
     const receiverMatch =
       !expectedReceiver ||
-      matchesAccount(receiverProxy) ||
-      matchesAccount(receiverBank);
+      matchesAccount(receiverProxy, expectedDigits) ||
+      matchesAccount(receiverBank, expectedDigits) ||
+      (expectedBankDigits && matchesAccount(receiverBank, expectedBankDigits)) ||
+      (expectedBankDigits && matchesAccount(receiverProxy, expectedBankDigits));
 
     if (!amountMatch || !receiverMatch) {
       return NextResponse.json({
