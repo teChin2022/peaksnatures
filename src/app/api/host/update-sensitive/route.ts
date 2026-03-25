@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const { pin, email, phone, promptpay_id } = await req.json();
+    const { pin, email, phone, promptpay_id, payment_display, bank_name, bank_account_number, bank_account_name } = await req.json();
 
     if (!pin || typeof pin !== "string") {
       return NextResponse.json({ error: "PIN is required" }, { status: 400 });
@@ -61,6 +61,10 @@ export async function POST(req: NextRequest) {
     if (email !== undefined) updateData.email = email.trim();
     if (phone !== undefined) updateData.phone = phone.trim() || null;
     if (promptpay_id !== undefined) updateData.promptpay_id = promptpay_id.trim();
+    if (payment_display !== undefined) updateData.payment_display = payment_display;
+    if (bank_name !== undefined) updateData.bank_name = bank_name || null;
+    if (bank_account_number !== undefined) updateData.bank_account_number = bank_account_number || null;
+    if (bank_account_name !== undefined) updateData.bank_account_name = bank_account_name || null;
 
     if (Object.keys(updateData).length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
