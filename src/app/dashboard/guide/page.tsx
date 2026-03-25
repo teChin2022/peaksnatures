@@ -3,15 +3,14 @@
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 import {
-  User,
-  Home,
-  BedDouble,
-  CalendarCheck,
+  ListPlus,
+  MessageCircle,
+  MapPin,
+  CreditCard,
+  CalendarDays,
   ExternalLink,
   BookOpen,
   CheckCircle2,
-  MessageCircle,
-  MapPin,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,11 +21,11 @@ export default function GuidePage() {
   const steps = [
     {
       num: 1,
-      icon: User,
+      icon: ListPlus,
       titleKey: "step1Title",
       descKey: "step1Desc",
-      items: ["step1Item1", "step1Item2", "step1Item3", "step1Item4"],
-      href: "/dashboard/profile",
+      items: ["step1Item1", "step1Item2", "step1Item3"],
+      href: "/dashboard/rooms",
       linkKey: "step1Link",
     },
     {
@@ -40,7 +39,7 @@ export default function GuidePage() {
     },
     {
       num: 3,
-      icon: Home,
+      icon: MapPin,
       titleKey: "step3Title",
       descKey: "step3Desc",
       items: ["step3Item1", "step3Item2", "step3Item3", "step3Item4", "step3Item5"],
@@ -49,30 +48,21 @@ export default function GuidePage() {
     },
     {
       num: 4,
-      icon: MapPin,
+      icon: CreditCard,
       titleKey: "step4Title",
       descKey: "step4Desc",
-      items: ["step4Item1", "step4Item2", "step4Item3", "step4Item4", "step4Item5"],
-      href: "/dashboard/homestay",
+      items: ["step4Item1", "step4Item2", "step4Item3"],
+      href: "/dashboard/profile",
       linkKey: "step4Link",
     },
     {
       num: 5,
-      icon: BedDouble,
-      titleKey: "step6Title",
-      descKey: "step6Desc",
-      items: ["step6Item1", "step6Item2", "step6Item3"],
+      icon: CalendarDays,
+      titleKey: "step5Title",
+      descKey: "step5Desc",
+      items: ["step5Item1", "step5Item2", "step5Item3"],
       href: "/dashboard/rooms",
-      linkKey: "step6Link",
-    },
-    {
-      num: 6,
-      icon: CalendarCheck,
-      titleKey: "step7Title",
-      descKey: "step7Desc",
-      items: ["step7Item1", "step7Item2"],
-      href: "/dashboard/calendar",
-      linkKey: "step7Link",
+      linkKey: "step5Link",
     },
   ];
 
@@ -150,21 +140,6 @@ export default function GuidePage() {
         })}
       </div>
 
-      {/* Verify section */}
-      <Card
-        className="border-2 border-brand/20"
-      >
-        <CardContent className="p-5">
-          <div className="flex items-center gap-2 mb-2">
-            <CheckCircle2 className="h-5 w-5 text-brand" />
-            <h2 className="font-semibold text-gray-900">{t("verifyTitle")}</h2>
-          </div>
-          <ul className="space-y-1.5">
-            <li className="text-sm text-gray-600">• {t("verifyItem1")}</li>
-            <li className="text-sm text-gray-600">• {t("verifyItem2")}</li>
-          </ul>
-        </CardContent>
-      </Card>
     </div>
   );
 }
