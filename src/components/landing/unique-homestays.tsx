@@ -15,7 +15,14 @@ interface HomestayData {
   is_host_verified: boolean;
 }
 
-export function UniqueHomestays({ homestays }: { homestays: HomestayData[] }) {
+export function UniqueHomestays({ homestays, locationFilter }: { homestays: HomestayData[]; locationFilter?: string }) {
+  const filtered = locationFilter
+    ? homestays.filter((h) => {
+        const q = locationFilter.toLowerCase();
+        return h.name.toLowerCase().includes(q) || h.location.toLowerCase().includes(q);
+      })
+    : homestays;
+
   return (
     <section id="unique-homestays" className="py-24 bg-section-alt">
       <div className="max-w-7xl mx-auto px-4">
@@ -28,16 +35,16 @@ export function UniqueHomestays({ homestays }: { homestays: HomestayData[] }) {
               โฮมสเตย์กลางธรรมชาติ
             </h2>
           </div>
-          {homestays.length > 12 && (
+          {filtered.length > 12 && (
             <button className="group flex items-center gap-2 text-gray-900 font-bold text-sm tracking-widest hover:gap-4 transition-all">
               VIEW ALL PROPERTIES <ArrowRight size={16} />
             </button>
           )}
         </div>
 
-        {homestays.length > 0 ? (
+        {filtered.length > 0 ? (
           <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-8">
-            {homestays.slice(0, 6).map((h) => (
+            {filtered.slice(0, 6).map((h) => (
               <HomestayCard
                 key={h.slug}
                 slug={h.slug}
@@ -57,10 +64,10 @@ export function UniqueHomestays({ homestays }: { homestays: HomestayData[] }) {
         ) : (
           <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-gray-200 py-16 text-center">
             <p className="text-lg font-serif text-gray-500">
-              No homestays listed yet
+              {locationFilter ? "ไม่พบที่พักที่ตรงกับการค้นหา" : "No homestays listed yet"}
             </p>
             <p className="mt-2 text-sm text-gray-400">
-              Check back soon — new properties are being added.
+              {locationFilter ? "ลองค้นหาด้วยคำอื่น" : "Check back soon — new properties are being added."}
             </p>
           </div>
         )}

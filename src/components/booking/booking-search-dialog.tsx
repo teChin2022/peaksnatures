@@ -72,9 +72,13 @@ interface BookingSearchDialogProps {
   hostName?: string;
   cancellationDays?: number;
   scrolled?: boolean;
+  paymentDisplay?: string;
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
+  bankAccountName?: string | null;
 }
 
-export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancellationDays: propCancellationDays, scrolled }: BookingSearchDialogProps) {
+export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancellationDays: propCancellationDays, scrolled, paymentDisplay, bankName, bankAccountNumber, bankAccountName }: BookingSearchDialogProps) {
   const t = useTranslations("bookingSearch");
   const tr = useTranslations("reviews");
   const locale = useLocale();
@@ -222,6 +226,9 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
       verifyForm.append("file", balanceSlipFile);
       verifyForm.append("expected_amount", balanceDue.toString());
       verifyForm.append("expected_receiver", promptpayId);
+      if (bankAccountNumber) {
+        verifyForm.append("expected_receiver_bank", bankAccountNumber);
+      }
 
       const verifyRes = await fetch("/api/verify-slip", {
         method: "POST",
@@ -425,6 +432,9 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
         verifyForm.append("file", dateChangeSlipFile);
         verifyForm.append("expected_amount", dcEffectiveAdditional.toString());
         verifyForm.append("expected_receiver", promptpayId);
+        if (bankAccountNumber) {
+          verifyForm.append("expected_receiver_bank", bankAccountNumber);
+        }
 
         const verifyRes = await fetch("/api/verify-slip", { method: "POST", body: verifyForm });
         const verifyData = await verifyRes.json();
@@ -970,15 +980,29 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                               {/* Transfer flow */}
                               {balancePayMethod === "transfer" && promptpayId && (
                                 <div className="space-y-2">
-                                  <div className="flex justify-center">
-                                    <div className="rounded-lg border bg-white p-2">
-                                      <QRCodeSVG
-                                        value={generatePayload(promptpayId, { amount: booking.total_price - (booking.amount_paid || 0) })}
-                                        size={120}
-                                        level="M"
-                                      />
+                                  {paymentDisplay === "bank" && bankName && bankAccountNumber && bankAccountName ? (
+                                    <div className="rounded-lg border bg-white p-3 space-y-1.5">
+                                      <p className="text-xs text-gray-500 text-center mb-1">{t("payViaTransfer")}</p>
+                                      <div className="flex justify-between text-xs">
+                                        <span className="text-gray-500">{bankName}</span>
+                                        <span className="font-mono font-medium text-gray-900">{bankAccountNumber}</span>
+                                      </div>
+                                      <div className="flex justify-between text-xs">
+                                        <span className="text-gray-500">{hostName}</span>
+                                        <span className="font-medium text-gray-900">{bankAccountName}</span>
+                                      </div>
                                     </div>
-                                  </div>
+                                  ) : (
+                                    <div className="flex justify-center">
+                                      <div className="rounded-lg border bg-white p-2">
+                                        <QRCodeSVG
+                                          value={generatePayload(promptpayId, { amount: booking.total_price - (booking.amount_paid || 0) })}
+                                          size={120}
+                                          level="M"
+                                        />
+                                      </div>
+                                    </div>
+                                  )}
                                   <p className="text-center text-sm font-bold text-gray-900">
                                     ฿{(booking.total_price - (booking.amount_paid || 0)).toLocaleString()}
                                   </p>
@@ -1449,43 +1473,58 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                             ) : (
                               <>
                               <div className="flex flex-col items-center gap-2">
-                                <div ref={dcQrRef} className="rounded-lg border bg-white p-2">
-                                  <QRCodeSVG
-                                    value={generatePayload(promptpayId, { amount: dcEffectiveAdditional })}
-                                    size={100}
-                                    level="M"
-                                  />
-                                </div>
-                                {isMobile && (
-                                  <button
-                                    type="button"
-                                    onClick={() => {
-                                      const container = dcQrRef.current;
-                                      if (!container) return;
-                                      const svgEl = container.querySelector("svg");
-                                      if (!svgEl) return;
-                                      const svgData = new XMLSerializer().serializeToString(svgEl);
-                                      const canvas = document.createElement("canvas");
-                                      const ctx = canvas.getContext("2d");
-                                      if (!ctx) return;
-                                      const img = new Image();
-                                      img.onload = () => {
-                                        canvas.width = img.width * 2;
-                                        canvas.height = img.height * 2;
-                                        ctx.fillStyle = "#ffffff";
-                                        ctx.fillRect(0, 0, canvas.width, canvas.height);
-                                        ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
-                                        const link = document.createElement("a");
-                                        link.download = `promptpay-${dcEffectiveAdditional}.png`;
-                                        link.href = canvas.toDataURL("image/png");
-                                        link.click();
-                                      };
-                                      img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
-                                    }}
-                                    className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[11px] font-medium text-gray-700 border border-gray-200 hover:bg-gray-50"
-                                  >
-                                    <Download className="h-3 w-3" />{t("saveQrImage")}
-                                  </button>
+                                {paymentDisplay === "bank" && bankName && bankAccountNumber && bankAccountName ? (
+                                  <div className="w-full rounded-lg border bg-white p-3 space-y-1.5">
+                                    <div className="flex justify-between text-xs">
+                                      <span className="text-gray-500">{bankName}</span>
+                                      <span className="font-mono font-medium text-gray-900">{bankAccountNumber}</span>
+                                    </div>
+                                    <div className="flex justify-between text-xs">
+                                      <span className="text-gray-500">{hostName}</span>
+                                      <span className="font-medium text-gray-900">{bankAccountName}</span>
+                                    </div>
+                                  </div>
+                                ) : (
+                                  <>
+                                    <div ref={dcQrRef} className="rounded-lg border bg-white p-2">
+                                      <QRCodeSVG
+                                        value={generatePayload(promptpayId, { amount: dcEffectiveAdditional })}
+                                        size={100}
+                                        level="M"
+                                      />
+                                    </div>
+                                    {isMobile && (
+                                      <button
+                                        type="button"
+                                        onClick={() => {
+                                          const container = dcQrRef.current;
+                                          if (!container) return;
+                                          const svgEl = container.querySelector("svg");
+                                          if (!svgEl) return;
+                                          const svgData = new XMLSerializer().serializeToString(svgEl);
+                                          const canvas = document.createElement("canvas");
+                                          const ctx = canvas.getContext("2d");
+                                          if (!ctx) return;
+                                          const img = new Image();
+                                          img.onload = () => {
+                                            canvas.width = img.width * 2;
+                                            canvas.height = img.height * 2;
+                                            ctx.fillStyle = "#ffffff";
+                                            ctx.fillRect(0, 0, canvas.width, canvas.height);
+                                            ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+                                            const link = document.createElement("a");
+                                            link.download = `promptpay-${dcEffectiveAdditional}.png`;
+                                            link.href = canvas.toDataURL("image/png");
+                                            link.click();
+                                          };
+                                          img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+                                        }}
+                                        className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[11px] font-medium text-gray-700 border border-gray-200 hover:bg-gray-50"
+                                      >
+                                        <Download className="h-3 w-3" />{t("saveQrImage")}
+                                      </button>
+                                    )}
+                                  </>
                                 )}
                               </div>
                               <Button

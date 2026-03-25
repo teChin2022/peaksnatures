@@ -1,26 +1,20 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { MapPin, Calendar as CalendarIcon, User, Search } from "lucide-react";
-import { motion, AnimatePresence } from "motion/react";
-import { DayPicker, DateRange } from "react-day-picker";
-import { format, addDays, startOfToday } from "date-fns";
-import "react-day-picker/dist/style.css";
+import { useState } from "react";
+import { MapPin, Search } from "lucide-react";
+import { motion } from "motion/react";
 
-export function LandingHero() {
-  const [range, setRange] = useState<DateRange | undefined>({
-    from: addDays(new Date(), 1),
-    to: addDays(new Date(), 5),
-  });
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [isMobile, setIsMobile] = useState(false);
+interface LandingHeroProps {
+  onSearch?: (location: string) => void;
+}
 
-  useEffect(() => {
-    const checkMobile = () => setIsMobile(window.innerWidth < 768);
-    checkMobile();
-    window.addEventListener("resize", checkMobile);
-    return () => window.removeEventListener("resize", checkMobile);
-  }, []);
+export function LandingHero({ onSearch }: LandingHeroProps) {
+  const [location, setLocation] = useState("");
+
+  const handleSearch = () => {
+    onSearch?.(location);
+    document.getElementById("unique-homestays")?.scrollIntoView({ behavior: "smooth" });
+  };
 
   return (
     <section className="relative h-[85vh] w-full overflow-hidden">
@@ -56,124 +50,47 @@ export function LandingHero() {
           initial={{ opacity: 0, y: 20 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.8, delay: 0.2 }}
-          className="w-full max-w-md md:max-w-4xl bg-white/95 backdrop-blur-xl rounded-[2.5rem] md:rounded-full p-1.5 md:p-2 shadow-2xl flex flex-col md:flex-row items-stretch md:items-center relative border border-white/20"
+          className="w-full max-w-md md:max-w-2xl bg-white/95 backdrop-blur-xl rounded-[2.5rem] md:rounded-full p-1.5 md:p-2 shadow-2xl flex flex-col md:flex-row items-stretch md:items-center relative border border-white/20"
         >
-          <div className="flex-1 flex flex-col md:flex-row">
-            {/* Location */}
-            <div className="flex-1 px-7 py-4 md:py-3 text-left border-b md:border-b-0 md:border-r border-gray-100/50 hover:bg-gray-50/50 transition-colors rounded-t-[2rem] md:rounded-l-full md:rounded-t-none group">
-              <div className="flex items-center gap-3">
-                <MapPin
-                  size={16}
-                  className="text-gray-400 group-hover:text-gray-800 transition-colors"
+          {/* Location */}
+          <div className="flex-1 px-7 py-4 md:py-3 text-left hover:bg-gray-50/50 transition-colors rounded-t-[2rem] md:rounded-l-full md:rounded-t-none group">
+            <div className="flex items-center gap-3">
+              <MapPin
+                size={16}
+                className="text-gray-400 group-hover:text-gray-800 transition-colors"
+              />
+              <div className="flex-1">
+                <label className="block text-[12px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-0.5">
+                  สถานที่
+                </label>
+                <input
+                  type="text"
+                  value={location}
+                  onChange={(e) => setLocation(e.target.value)}
+                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
+                  placeholder="คุณกำลังจะไปไหน?"
+                  className="w-full text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-300 bg-transparent"
                 />
-                <div className="flex-1">
-                  <label className="block text-[12px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-0.5">
-                    สถานที่
-                  </label>
-                  <input
-                    disabled={true}
-                    type="text"
-                    placeholder="คุณกำลังจะไปไหน?"
-                    className="w-full text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-300 bg-transparent"
-                  />
-                </div>
-              </div>
-            </div>
-
-            {/* Dates & Guests Row for Mobile */}
-            <div className="flex flex-row md:contents">
-              <div
-                className="flex-1 px-7 py-4 md:py-3 text-left border-b md:border-b-0 md:border-r border-gray-100/50 cursor-pointer hover:bg-gray-50/50 transition-colors group"
-                // onClick={() => setShowCalendar(!showCalendar)}
-              >
-                <div className="flex items-center gap-3">
-                  <CalendarIcon
-                    size={16}
-                    className="text-gray-400 group-hover:text-gray-800 transition-colors"
-                  />
-                  <div className="flex-1">
-                    <label className="block text-[12px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-0.5">
-                      วันที่
-                    </label>
-                    <p
-                      className={`text-sm font-semibold ${
-                        range?.from ? "text-gray-900" : "text-gray-300"
-                      }`}
-                    >
-                      {range?.from ? format(range.from, "MMM d") : "Add dates"}
-                    </p>
-                  </div>
-                </div>
-              </div>
-
-              <div className="flex-1 px-7 py-4 md:py-3 text-left border-b md:border-b-0 md:border-r border-gray-100/50 hover:bg-gray-50/50 transition-colors group">
-                <div className="flex items-center gap-3">
-                  <User
-                    size={16}
-                    className="text-gray-400 group-hover:text-gray-800 transition-colors"
-                  />
-                  <div className="flex-1">
-                    <label className="block text-[12px] font-bold uppercase tracking-[0.2em] text-gray-400 mb-0.5">
-                      จำนวน
-                    </label>
-                    {/* <p className="text-sm font-semibold text-gray-300">
-                      จำนวน
-                    </p> */}
-                    <input
-                      disabled={true}
-                      type="number"
-                      placeholder="จำนวน?"
-                      className="w-full text-sm font-semibold text-gray-900 outline-none placeholder:text-gray-300 bg-transparent"
-                    />
-                  </div>
-                </div>
               </div>
             </div>
           </div>
 
           {/* Search Button */}
           <div className="p-1.5 md:p-0 md:pr-1.5">
-            <button className="w-full md:w-auto bg-brand text-white px-8 py-4 md:p-5 rounded-2xl md:rounded-full hover:bg-brand-hover transition-all shadow-lg flex items-center justify-center gap-3 group">
+            <button
+              onClick={handleSearch}
+              className="w-full md:w-auto bg-brand text-white px-8 py-4 md:p-5 rounded-2xl md:rounded-full hover:bg-brand-hover transition-all shadow-lg flex items-center justify-center gap-3 group"
+            >
               <Search
                 size={20}
                 className="group-hover:scale-110 transition-transform"
               />
               <span className="md:hidden font-bold tracking-widest text-sm">
-                SEARCH NOW
+                ค้นหา
               </span>
             </button>
           </div>
 
-          {/* Inline Calendar Popover */}
-          <AnimatePresence>
-            {showCalendar && (
-              <motion.div
-                initial={{ opacity: 0, y: 10, scale: 0.95 }}
-                animate={{ opacity: 1, y: 0, scale: 1 }}
-                exit={{ opacity: 0, y: 10, scale: 0.95 }}
-                className="absolute top-full mt-4 left-0 right-0 md:left-1/2 md:-translate-x-1/2 bg-white rounded-3xl shadow-2xl p-4 z-50 border border-gray-100 overflow-x-auto"
-              >
-                <div className="min-w-max">
-                  <DayPicker
-                    mode="range"
-                    selected={range}
-                    onSelect={setRange}
-                    disabled={{ before: startOfToday() }}
-                    numberOfMonths={isMobile ? 1 : 2}
-                    className="!m-0"
-                  />
-                </div>
-                <div className="flex justify-end mt-4 pt-4 border-t border-gray-100">
-                  <button
-                    onClick={() => setShowCalendar(false)}
-                    className="bg-brand text-white px-6 py-2 rounded-full text-sm font-bold hover:bg-brand-hover"
-                  >
-                    Apply
-                  </button>
-                </div>
-              </motion.div>
-            )}
-          </AnimatePresence>
         </motion.div>
       </div>
     </section>

@@ -50,6 +50,10 @@ interface HostData {
   cancellation_days: number;
   notification_preference: string;
   avatar_url: string | null;
+  bank_name: string | null;
+  bank_account_number: string | null;
+  bank_account_name: string | null;
+  payment_display: string;
 }
 
 export default function ProfilePage() {
@@ -94,6 +98,10 @@ export default function ProfilePage() {
   const [avatarUrl, setAvatarUrl] = useState<string | null>(null);
   const [uploadingAvatar, setUploadingAvatar] = useState(false);
   const avatarInputRef = useRef<HTMLInputElement>(null);
+  const [paymentDisplay, setPaymentDisplay] = useState<"qr" | "bank">("qr");
+  const [bankName, setBankName] = useState("");
+  const [bankAccountNumber, setBankAccountNumber] = useState("");
+  const [bankAccountName, setBankAccountName] = useState("");
 
   useEffect(() => {
     const fetchHost = async () => {
@@ -106,7 +114,7 @@ export default function ProfilePage() {
 
       const { data } = await supabase
         .from("hosts")
-        .select("id, name, email, phone, line_user_id, line_channel_access_token, promptpay_id, deposit_amount, deposit_by_month, cancellation_days, notification_preference, security_pin_hash, avatar_url")
+        .select("id, name, email, phone, line_user_id, line_channel_access_token, promptpay_id, deposit_amount, deposit_by_month, cancellation_days, notification_preference, security_pin_hash, avatar_url, bank_name, bank_account_number, bank_account_name, payment_display")
         .eq("user_id", user.id)
         .single();
 
@@ -134,6 +142,10 @@ export default function ProfilePage() {
         setCancellationDays(h.cancellation_days || 0);
         setNotificationPreference(h.notification_preference || "push");
         setAvatarUrl(h.avatar_url || null);
+        setPaymentDisplay((h.payment_display as "qr" | "bank") || "qr");
+        setBankName(h.bank_name || "");
+        setBankAccountNumber(h.bank_account_number || "");
+        setBankAccountName(h.bank_account_name || "");
 
         // Check push support and subscription status
         const supported = isPushSupported();
@@ -204,6 +216,13 @@ export default function ProfilePage() {
     try {
       const supabase = createClient();
 
+      // Validate bank fields if payment_display is "bank"
+      if (paymentDisplay === "bank" && (!bankName.trim() || !bankAccountNumber.trim() || !bankAccountName.trim())) {
+        toast.error(t("bankFieldsRequired"));
+        setSaving(false);
+        return;
+      }
+
       // Save non-sensitive fields via Supabase client
       const nonSensitiveUpdate: Record<string, unknown> = {
         name: name.trim(),
@@ -213,6 +232,10 @@ export default function ProfilePage() {
         deposit_by_month: Object.keys(depositByMonth).length > 0 ? depositByMonth : null,
         cancellation_days: cancellationDays,
         notification_preference: notificationPreference,
+        payment_display: paymentDisplay,
+        bank_name: bankName.trim() || null,
+        bank_account_number: bankAccountNumber.trim() || null,
+        bank_account_name: bankAccountName.trim() || null,
         updated_by: host.name,
       };
 
@@ -566,6 +589,78 @@ export default function ProfilePage() {
               />
               <p className="text-xs text-gray-500">{t("promptpayHint")}</p>
             </div>
+          </div>
+
+          <div className="rounded-lg border border-gray-200 p-4 space-y-4">
+            <div className="flex items-center gap-2 text-sm font-medium">
+              <CreditCard className="h-4 w-4 text-brand" />
+              {t("paymentDisplayTitle")}
+            </div>
+            <p className="text-xs text-gray-500">{t("paymentDisplayHint")}</p>
+
+            <div className="flex gap-2">
+              {(["qr", "bank"] as const).map((option) => (
+                <button
+                  key={option}
+                  type="button"
+                  className="flex-1 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-colors"
+                  style={
+                    paymentDisplay === option
+                      ? { backgroundColor: "#2F5D50", color: "white", borderColor: "#2F5D50" }
+                      : { borderColor: "#d1d5db", color: "#374151" }
+                  }
+                  onClick={() => setPaymentDisplay(option)}
+                >
+                  {t(option === "qr" ? "paymentDisplayQr" : "paymentDisplayBank")}
+                </button>
+              ))}
+            </div>
+
+            {paymentDisplay === "bank" && (
+              <div className="space-y-3 pt-1">
+                <div className="space-y-2">
+                  <Label htmlFor="host-bank-name" className="text-sm">{t("bankName")}</Label>
+                  <select
+                    id="host-bank-name"
+                    value={bankName}
+                    onChange={(e) => setBankName(e.target.value)}
+                    className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2"
+                  >
+                    <option value="">{t("bankNamePlaceholder")}</option>
+                    <option value="กรุงเทพ">ธ.กรุงเทพ (BBL)</option>
+                    <option value="กสิกรไทย">ธ.กสิกรไทย (KBANK)</option>
+                    <option value="ไทยพาณิชย์">ธ.ไทยพาณิชย์ (SCB)</option>
+                    <option value="กรุงไทย">ธ.กรุงไทย (KTB)</option>
+                    <option value="กรุงศรีอยุธยา">ธ.กรุงศรีอยุธยา (BAY)</option>
+                    <option value="ทหารไทยธนชาต">ธ.ทหารไทยธนชาต (TTB)</option>
+                    <option value="ออมสิน">ธ.ออมสิน (GSB)</option>
+                    <option value="ธ.ก.ส.">ธ.ก.ส. (BAAC)</option>
+                    <option value="เกียรตินาคินภัทร">ธ.เกียรตินาคินภัทร (KKP)</option>
+                    <option value="ซีไอเอ็มบี">ธ.ซีไอเอ็มบี (CIMB)</option>
+                    <option value="ยูโอบี">ธ.ยูโอบี (UOB)</option>
+                    <option value="แลนด์แอนด์เฮ้าส์">ธ.แลนด์แอนด์เฮ้าส์ (LHFG)</option>
+                  </select>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="host-bank-account-number" className="text-sm">{t("bankAccountNumber")}</Label>
+                  <Input
+                    id="host-bank-account-number"
+                    value={bankAccountNumber}
+                    onChange={(e) => setBankAccountNumber(e.target.value)}
+                    placeholder={t("bankAccountNumberPlaceholder")}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="host-bank-account-name" className="text-sm">{t("bankAccountName")}</Label>
+                  <Input
+                    id="host-bank-account-name"
+                    value={bankAccountName}
+                    onChange={(e) => setBankAccountName(e.target.value)}
+                    placeholder={t("bankAccountNamePlaceholder")}
+                  />
+                </div>
+              </div>
+            )}
           </div>
 
           <div className="rounded-lg border border-gray-200 p-4 space-y-4">

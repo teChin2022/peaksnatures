@@ -35,6 +35,10 @@ export interface Database {
           status: string;
           is_verified: boolean;
           avatar_url: string | null;
+          bank_name: string | null;
+          bank_account_number: string | null;
+          bank_account_name: string | null;
+          payment_display: string;
           created_at: string;
           created_by: string;
           updated_at: string;
@@ -57,6 +61,10 @@ export interface Database {
           status?: string;
           is_verified?: boolean;
           avatar_url?: string | null;
+          bank_name?: string | null;
+          bank_account_number?: string | null;
+          bank_account_name?: string | null;
+          payment_display?: string;
           created_at?: string;
           created_by?: string;
           updated_at?: string;
@@ -79,6 +87,10 @@ export interface Database {
           status?: string;
           is_verified?: boolean;
           avatar_url?: string | null;
+          bank_name?: string | null;
+          bank_account_number?: string | null;
+          bank_account_name?: string | null;
+          payment_display?: string;
           created_at?: string;
           created_by?: string;
           updated_at?: string;

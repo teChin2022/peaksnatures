@@ -13,9 +13,13 @@ interface BookingHeaderProps {
   promptpayId?: string;
   hostName?: string;
   cancellationDays?: number;
+  paymentDisplay?: string;
+  bankName?: string | null;
+  bankAccountNumber?: string | null;
+  bankAccountName?: string | null;
 }
 
-export function BookingHeader({ homestayName, logoUrl, homestayId, promptpayId, hostName, cancellationDays }: BookingHeaderProps) {
+export function BookingHeader({ homestayName, logoUrl, homestayId, promptpayId, hostName, cancellationDays, paymentDisplay, bankName, bankAccountNumber, bankAccountName }: BookingHeaderProps) {
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
@@ -60,7 +64,7 @@ export function BookingHeader({ homestayName, logoUrl, homestayId, promptpayId, 
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <BookingSearchDialog homestayId={homestayId} promptpayId={promptpayId} hostName={hostName} cancellationDays={cancellationDays} scrolled={scrolled} />
+          <BookingSearchDialog homestayId={homestayId} promptpayId={promptpayId} hostName={hostName} cancellationDays={cancellationDays} scrolled={scrolled} paymentDisplay={paymentDisplay} bankName={bankName} bankAccountNumber={bankAccountNumber} bankAccountName={bankAccountName} />
         </div>
       </div>
     </nav>
