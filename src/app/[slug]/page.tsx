@@ -15,7 +15,7 @@ import { ReviewsSection } from "@/components/booking/reviews-section";
 import { ChatWidget } from "@/components/chat/chat-widget";
 
 
-export const dynamic = "force-dynamic";
+export const revalidate = 30;
 
 interface PageProps {
   params: Promise<{ slug: string }>;

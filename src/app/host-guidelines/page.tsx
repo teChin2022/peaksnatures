@@ -7,6 +7,8 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { PlatformFooter } from "@/components/platform-footer";
 import type { Metadata } from "next";
 
+export const revalidate = 3600;
+
 export const metadata: Metadata = {
   title: "Host Guidelines — Peaksnature",
   description: "Guidelines for hosts on Peaksnature to provide quality service.",

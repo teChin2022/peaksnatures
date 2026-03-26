@@ -94,6 +94,8 @@ export async function GET(req: NextRequest) {
       limit,
       totalPages,
       hasMore,
+    }, {
+      headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
     console.error("[Admin Bookings] error:", error);

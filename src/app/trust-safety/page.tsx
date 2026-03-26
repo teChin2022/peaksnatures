@@ -7,6 +7,8 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { PlatformFooter } from "@/components/platform-footer";
 import type { Metadata } from "next";
 
+export const revalidate = 3600;
+
 export const metadata: Metadata = {
   title: "Trust & Safety — Peaksnature",
   description: "Learn about Peaksnature's commitment to platform safety and trustworthiness.",

@@ -4,6 +4,8 @@ import { LandingNavbar } from "@/components/landing/navbar";
 import { LandingContent } from "@/components/landing/landing-content";
 import { LandingFooter } from "@/components/landing/footer";
 
+export const revalidate = 60;
+
 export default async function Home() {
   const supabase = createServiceRoleClient();
   const { data: homestayRows } = await supabase

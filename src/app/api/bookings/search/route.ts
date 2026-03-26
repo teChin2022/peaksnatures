@@ -93,5 +93,7 @@ export async function GET(request: NextRequest) {
     pending_date_change: pendingDateChanges[b.id] || null,
   }));
 
-  return NextResponse.json({ bookings: results, cancellation_days: cancellationDays });
+  return NextResponse.json({ bookings: results, cancellation_days: cancellationDays }, {
+    headers: { "Cache-Control": "private, no-store" },
+  });
 }

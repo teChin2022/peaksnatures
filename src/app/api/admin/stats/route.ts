@@ -46,6 +46,8 @@ export async function GET() {
       totalRevenue,
       pendingBookings,
       confirmedBookings,
+    }, {
+      headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
     console.error("[Admin Stats] error:", error);
