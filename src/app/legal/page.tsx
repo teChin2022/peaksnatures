@@ -2,6 +2,8 @@ import { Scale, Shield, FileText, Cookie, AlertTriangle, Handshake, MessageSquar
 import { getTranslations } from "next-intl/server";
 import type { Metadata } from "next";
 
+export const revalidate = 3600;
+
 export const metadata: Metadata = {
   title: "Legal & Policies — Peaksnature",
   description: "Important policies and agreements governing the use of Peaksnature.",

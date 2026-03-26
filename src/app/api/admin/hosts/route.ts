@@ -70,6 +70,8 @@ export async function GET(req: NextRequest) {
       page,
       limit,
       totalPages: Math.ceil(totalCount / limit),
+    }, {
+      headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
     console.error("[Admin Hosts] error:", error);

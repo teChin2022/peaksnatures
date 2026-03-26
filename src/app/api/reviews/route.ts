@@ -41,7 +41,9 @@ export async function GET(request: NextRequest) {
       ? Math.round((allRatings.reduce((sum, r) => sum + r.rating, 0) / allRatings.length) * 10) / 10
       : 0;
 
-  return NextResponse.json({ reviews, averageRating, totalCount: count, page, limit });
+  return NextResponse.json({ reviews, averageRating, totalCount: count, page, limit }, {
+    headers: { "Cache-Control": "public, s-maxage=60, stale-while-revalidate=120" },
+  });
 }
 
 export async function POST(request: NextRequest) {

@@ -7,6 +7,8 @@ import { LanguageSwitcher } from "@/components/language-switcher";
 import { PlatformFooter } from "@/components/platform-footer";
 import type { Metadata } from "next";
 
+export const revalidate = 3600;
+
 export const metadata: Metadata = {
   title: "About — Peaksnature",
   description: "Learn about Peaksnature — a platform for discovering and booking nature homestays in Thailand.",

@@ -72,6 +72,8 @@ export async function GET(req: NextRequest) {
       data: items,
       hasMore,
       nextCursor: hasMore ? items[items.length - 1].created_at : null,
+    }, {
+      headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {
     console.error("[Admin Logs] error:", error);
