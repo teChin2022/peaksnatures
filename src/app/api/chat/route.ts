@@ -205,7 +205,7 @@ Today's date: ${format(new Date(), "yyyy-MM-dd")}`;
     ) {
       return NextResponse.json({
         message:
-          "The AI assistant is not configured yet. Please check your GOOGLE_GENERATIVE_AI_API_KEY in .env.local.\n\nIn the meantime, use the booking form above to make a reservation!",
+          "The AI assistant is not configured yet. Please check your OPEN_AI_API_KEY in .env.local.\n\nIn the meantime, use the booking form above to make a reservation!",
       });
     }
 
