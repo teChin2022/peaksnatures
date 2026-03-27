@@ -27,11 +27,13 @@ export default function RegisterPage() {
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileError, setTurnstileError] = useState(false);
   const [pdpaConsent, setPdpaConsent] = useState(false);
+  const [touched, setTouched] = useState<Set<string>>(new Set());
   const turnstileRef = useRef<TurnstileInstance>(null);
 
   const passwordRegex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[_#@]).{6,}$/;
 
   const handlePasswordBlur = () => {
+    setTouched(prev => new Set([...prev, "password"]));
     if (password && !passwordRegex.test(password)) {
       setPasswordWarning(t("errorPasswordWeak"));
     } else {
@@ -40,6 +42,7 @@ export default function RegisterPage() {
   };
 
   const handleConfirmPasswordBlur = () => {
+    setTouched(prev => new Set([...prev, "confirmPassword"]));
     if (confirmPassword && password !== confirmPassword) {
       setConfirmPasswordWarning(t("errorPasswordMismatch"));
     } else {
@@ -50,6 +53,7 @@ export default function RegisterPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setTouched(new Set(["name", "email", "password", "confirmPassword"]));
 
     if (!passwordRegex.test(password)) {
       setError(t("errorPasswordWeak"));
@@ -148,7 +152,7 @@ export default function RegisterPage() {
                   </div>
                 )}
                 <div className="space-y-1.5">
-                  <label htmlFor="name" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("fullName")}</label>
+                  <label htmlFor="name" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("fullName")} <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                     <Input
@@ -157,13 +161,14 @@ export default function RegisterPage() {
                       placeholder={t("fullNamePlaceholder")}
                       value={name}
                       onChange={(e) => setName(e.target.value)}
+                      onBlur={() => setTouched(prev => new Set([...prev, "name"]))}
                       required
-                      className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400"
+                      className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("name") && !name.trim() ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-gray-200 hover:!border-gray-400 focus-visible:!border-gray-400"} !bg-white transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0`}
                     />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="email" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("email")}</label>
+                  <label htmlFor="email" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("email")} <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                     <Input
@@ -172,14 +177,15 @@ export default function RegisterPage() {
                       placeholder={t("emailPlaceholder")}
                       value={email}
                       onChange={(e) => setEmail(e.target.value)}
+                      onBlur={() => setTouched(prev => new Set([...prev, "email"]))}
                       required
                       autoComplete="email"
-                      className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400"
+                      className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("email") && !email.trim() ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-gray-200 hover:!border-gray-400 focus-visible:!border-gray-400"} !bg-white transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0`}
                     />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="password" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("password")}</label>
+                  <label htmlFor="password" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("password")} <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Input
                       id="password"
@@ -194,7 +200,7 @@ export default function RegisterPage() {
                       required
                       minLength={6}
                       autoComplete="new-password"
-                      className="pr-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400"
+                      className={`pr-10 p-3.5 !h-auto rounded-xl !border ${touched.has("password") && (!password || !!passwordWarning) ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-gray-200 hover:!border-gray-400 focus-visible:!border-gray-400"} !bg-white transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0`}
                     />
                     <button
                       type="button"
@@ -214,7 +220,7 @@ export default function RegisterPage() {
                   )}
                 </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="confirmPassword" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("confirmPassword")}</label>
+                  <label htmlFor="confirmPassword" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("confirmPassword")} <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Input
                       id="confirmPassword"
@@ -229,7 +235,7 @@ export default function RegisterPage() {
                       required
                       minLength={6}
                       autoComplete="new-password"
-                      className="pr-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400"
+                      className={`pr-10 p-3.5 !h-auto rounded-xl !border ${touched.has("confirmPassword") && (!confirmPassword || !!confirmPasswordWarning) ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-gray-200 hover:!border-gray-400 focus-visible:!border-gray-400"} !bg-white transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0`}
                     />
                     <button
                       type="button"
