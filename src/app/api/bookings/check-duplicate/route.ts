@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import type { Homestay } from "@/types/database";
 
 const schema = z.object({
   homestay_id: z.string().uuid(),
@@ -20,11 +21,13 @@ export async function POST(req: NextRequest) {
     const supabase = createServiceRoleClient();
 
     // Get the host_id for this homestay
-    const { data: homestay } = await supabase
+    const { data: homestayRow } = await supabase
       .from("homestays")
       .select("host_id")
       .eq("id", homestay_id)
       .single();
+
+    const homestay = homestayRow as Pick<Homestay, "host_id"> | null;
 
     if (!homestay?.host_id) {
       return NextResponse.json({ error: "Homestay not found" }, { status: 404 });
