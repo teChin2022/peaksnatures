@@ -26,7 +26,7 @@ export async function POST(req: NextRequest) {
       .eq("id", homestay_id)
       .single();
 
-    if (!homestay) {
+    if (!homestay?.host_id) {
       return NextResponse.json({ error: "Homestay not found" }, { status: 404 });
     }
 
