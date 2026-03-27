@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 
 export default function RegisterPage() {
   const t = useTranslations("auth");
@@ -28,6 +29,7 @@ export default function RegisterPage() {
   const [turnstileError, setTurnstileError] = useState(false);
   const [pdpaConsent, setPdpaConsent] = useState(false);
   const [touched, setTouched] = useState<Set<string>>(new Set());
+  const [showEmailExistsModal, setShowEmailExistsModal] = useState(false);
   const turnstileRef = useRef<TurnstileInstance>(null);
 
   const passwordRegex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[_#@]).{6,}$/;
@@ -83,7 +85,7 @@ export default function RegisterPage() {
 
       if (!res.ok) {
         if (data.error === "EMAIL_EXISTS") {
-          setError(t("errorEmailExists"));
+          setShowEmailExistsModal(true);
         } else if (res.status === 403) {
           setError(t("errorCaptcha"));
         } else {
@@ -320,6 +322,24 @@ export default function RegisterPage() {
           </Card>
         )}
       </div>
+
+      <Dialog open={showEmailExistsModal} onOpenChange={setShowEmailExistsModal}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-red-100">
+              <Mail className="h-6 w-6 text-red-600" />
+            </div>
+            <DialogTitle className="text-center">{t("errorEmailExistsTitle")}</DialogTitle>
+            <DialogDescription className="text-center">{t("errorEmailExists")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            <Button asChild className="w-full bg-brand text-white hover:bg-brand-hover">
+              <Link href="/login">{t("signIn")}</Link>
+            </Button>
+            <Button variant="outline" className="w-full" onClick={() => setShowEmailExistsModal(false)}>{t("tryAnotherEmail")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

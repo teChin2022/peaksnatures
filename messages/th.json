@@ -239,7 +239,13 @@
     "trustDataDesc":"ข้อมูลของคุณถูกใช้เพื่อการจองเท่านั้น",
     "trustStep":"จองง่ายในไม่กี่ขั้นตอน",
     "trustStepDesc":"เลือกวัน เลือกห้อง และส่งคำขอได้ทันที",
-    "confirmedClose": "ปิด"
+    "confirmedClose": "ปิด",
+    "duplicateTitle": "พบการจองที่มีอยู่แล้ว",
+    "duplicateDescEmail": "พบการจองที่ยังใช้งานอยู่โดยใช้อีเมลนี้",
+    "duplicateDescPhone": "พบการจองที่ยังใช้งานอยู่โดยใช้เบอร์โทรศัพท์นี้",
+    "duplicateDescBoth": "พบการจองที่ยังใช้งานอยู่โดยใช้อีเมลและเบอร์โทรศัพท์นี้",
+    "duplicateContinue": "ดำเนินการต่อ",
+    "duplicateCancel": "ย้อนกลับ"
   },
   "chat": {
     "title": "ผู้ช่วยจองที่พัก",
@@ -282,6 +288,8 @@
     "errorPasswordWeak": "รหัสผ่านต้องมีอย่างน้อย 1 ตัวพิมพ์ใหญ่, 1 ตัวเลข และ 1 อักขระพิเศษ (_, #, @)",
     "errorPasswordMismatch": "รหัสผ่านไม่ตรงกัน",
     "errorEmailExists": "อีเมลนี้มีบัญชีอยู่แล้ว กรุณาเข้าสู่ระบบแทน",
+    "errorEmailExistsTitle": "อีเมลนี้ถูกลงทะเบียนแล้ว",
+    "tryAnotherEmail": "ลองใช้อีเมลอื่น",
     "errorGeneric": "เกิดข้อผิดพลาด กรุณาลองใหม่อีกครั้ง",
     "errorCaptcha": "กรุณายืนยันว่าคุณไม่ใช่บอท",
     "errorRegistration": "การสมัครล้มเหลว",

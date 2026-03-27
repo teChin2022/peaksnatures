@@ -235,7 +235,13 @@
     "trustResponseDesc": "Average response time: 45 minutes",
     "trustSecure": "Secure & Private",
     "trustSecureDesc": "Your information is encrypted and confidential",
-    "confirmedClose": "Close"
+    "confirmedClose": "Close",
+    "duplicateTitle": "Booking Already Exists",
+    "duplicateDescEmail": "An active booking was found using this email address.",
+    "duplicateDescPhone": "An active booking was found using this phone number.",
+    "duplicateDescBoth": "An active booking was found using this email and phone number.",
+    "duplicateContinue": "Continue Anyway",
+    "duplicateCancel": "Go Back"
   },
   "chat": {
     "title": "Booking Assistant",
@@ -278,6 +284,8 @@
     "errorPasswordWeak": "Password must include at least one uppercase letter, one number, and one special character (_, #, @)",
     "errorPasswordMismatch": "Passwords do not match",
     "errorEmailExists": "An account with this email already exists. Please sign in instead.",
+    "errorEmailExistsTitle": "Email Already Registered",
+    "tryAnotherEmail": "Try Another Email",
     "errorGeneric": "Something went wrong. Please try again.",
     "errorCaptcha": "Please complete the verification check",
     "errorRegistration": "Registration failed",
