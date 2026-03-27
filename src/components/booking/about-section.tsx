@@ -40,7 +40,7 @@ const AMENITY_ICONS: Record<string, React.ElementType> = {
   Library: BookOpen,
 };
 
-const VISIBLE_ITEMS = 6;
+const VISIBLE_ITEMS = 4;
 
 interface AboutSectionProps {
   description: string;
