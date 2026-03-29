@@ -16,14 +16,14 @@ import { createClient } from "@/lib/supabase/client";
 import { StarRating } from "@/components/reviews/star-rating";
 import { ProvinceLabel } from "@/components/reviews/province-label";
 import { fmtDateStr } from "@/lib/format-date";
-import { RATING_CATEGORIES } from "@/lib/review-constants";
+// import { RATING_CATEGORIES } from "@/lib/review-constants";
 import type { Review } from "@/types/database";
 
 type ReviewWithProvince = Review & {
   bookings: { guest_province: string | null } | null;
 };
 
-const GRID_LIMIT = 9;
+const GRID_LIMIT = 6;
 const MODAL_PAGE_SIZE = 20;
 
 const CATEGORY_I18N: Record<string, { label: string; sub: string }> = {
@@ -152,12 +152,12 @@ function ReviewCard({
 }) {
   const needsClamp = !!review.comment && review.comment.length > 150;
   const province = review.bookings?.guest_province;
-  const catRatings = [
+  const ALL_CATS = [
     { key: "environment", val: review.rating_environment },
     { key: "cleanliness", val: review.rating_cleanliness },
     { key: "service", val: review.rating_service },
     { key: "value", val: review.rating_value },
-  ].filter((c) => c.val != null);
+  ];
 
   return (
     <div className="flex flex-col rounded-xl bg-white p-4 shadow-sm h-full">
@@ -170,37 +170,35 @@ function ReviewCard({
         <StarRating rating={review.rating} size={13} />
       </div>
 
-      {/* Category ratings — full rows */}
-      {catRatings.length > 0 && (
-        <div className="mt-2 space-y-1">
-          {catRatings.map((c) => (
-            <div key={c.key} className="flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-gray-700">{t(CATEGORY_I18N[c.key].label)}</p>
-                <p className="text-[10px] text-gray-400">{t(CATEGORY_I18N[c.key].sub)}</p>
-              </div>
-              <StarRating rating={c.val!} size={11} />
+      {/* Category ratings — always show all 4 rows */}
+      <div className="mt-2 space-y-1">
+        {ALL_CATS.map((c) => (
+          <div key={c.key} className="flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-gray-700">{t(CATEGORY_I18N[c.key].label)}</p>
+              <p className="text-[10px] text-gray-400">{t(CATEGORY_I18N[c.key].sub)}</p>
             </div>
-          ))}
-        </div>
-      )}
+            <StarRating rating={c.val ?? 0} size={11} />
+          </div>
+        ))}
+      </div>
 
-      {/* Would return — as a row */}
-      {review.would_return && WOULD_RETURN_CONFIG[review.would_return] && (
-        <div className="mt-1 flex items-center justify-between">
-          <p className="text-xs font-medium text-gray-700">{t("wouldReturnLabel")}</p>
-          {(() => {
-            const cfg = WOULD_RETURN_CONFIG[review.would_return!];
-            const Icon = cfg.icon;
-            return (
-              <span className={`inline-flex items-center gap-1 text-xs font-medium ${cfg.color}`}>
-                <Icon className="h-3 w-3" />
-                {t(cfg.label as "wouldReturnYes")}
-              </span>
-            );
-          })()}
-        </div>
-      )}
+      {/* Would return — always show */}
+      <div className="mt-1 flex items-center justify-between">
+        <p className="text-xs font-medium text-gray-700">{t("wouldReturnLabel")}</p>
+        {review.would_return && WOULD_RETURN_CONFIG[review.would_return] ? (() => {
+          const cfg = WOULD_RETURN_CONFIG[review.would_return!];
+          const Icon = cfg.icon;
+          return (
+            <span className={`inline-flex items-center gap-1 text-xs font-medium ${cfg.color}`}>
+              <Icon className="h-3 w-3" />
+              {t(cfg.label as "wouldReturnYes")}
+            </span>
+          );
+        })() : (
+          <span className="text-xs text-gray-300">—</span>
+        )}
+      </div>
 
       {/* Comment */}
       <p className="mt-2 text-sm leading-relaxed text-gray-600 line-clamp-3">
@@ -257,12 +255,12 @@ function ReviewCard({
 
 function ModalReviewCard({ review, locale, t, onPhotoClick }: { review: ReviewWithProvince; locale: string; t: ReturnType<typeof useTranslations>; onPhotoClick: (photos: string[], index: number) => void }) {
   const province = review.bookings?.guest_province;
-  const catRatings = [
+  const ALL_CATS = [
     { key: "environment", val: review.rating_environment },
     { key: "cleanliness", val: review.rating_cleanliness },
     { key: "service", val: review.rating_service },
     { key: "value", val: review.rating_value },
-  ].filter((c) => c.val != null);
+  ];
 
   return (
     <div className="rounded-xl bg-white p-4 shadow-sm">
@@ -274,37 +272,35 @@ function ModalReviewCard({ review, locale, t, onPhotoClick }: { review: ReviewWi
         <StarRating rating={review.rating} size={13} />
       </div>
 
-      {/* Category ratings — full rows */}
-      {catRatings.length > 0 && (
-        <div className="mt-2 space-y-1">
-          {catRatings.map((c) => (
-            <div key={c.key} className="flex items-center justify-between">
-              <div className="min-w-0">
-                <p className="text-xs font-medium text-gray-700">{t(CATEGORY_I18N[c.key].label)}</p>
-                <p className="text-[10px] text-gray-400">{t(CATEGORY_I18N[c.key].sub)}</p>
-              </div>
-              <StarRating rating={c.val!} size={11} />
+      {/* Category ratings — always show all 4 rows */}
+      <div className="mt-2 space-y-1">
+        {ALL_CATS.map((c) => (
+          <div key={c.key} className="flex items-center justify-between">
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-gray-700">{t(CATEGORY_I18N[c.key].label)}</p>
+              <p className="text-[10px] text-gray-400">{t(CATEGORY_I18N[c.key].sub)}</p>
             </div>
-          ))}
-        </div>
-      )}
+            <StarRating rating={c.val ?? 0} size={11} />
+          </div>
+        ))}
+      </div>
 
-      {/* Would return — as a row */}
-      {review.would_return && WOULD_RETURN_CONFIG[review.would_return] && (
-        <div className="mt-1 flex items-center justify-between">
-          <p className="text-xs font-medium text-gray-700">{t("wouldReturnLabel")}</p>
-          {(() => {
-            const cfg = WOULD_RETURN_CONFIG[review.would_return!];
-            const Icon = cfg.icon;
-            return (
-              <span className={`inline-flex items-center gap-1 text-xs font-medium ${cfg.color}`}>
-                <Icon className="h-3 w-3" />
-                {t(cfg.label as "wouldReturnYes")}
-              </span>
-            );
-          })()}
-        </div>
-      )}
+      {/* Would return — always show */}
+      <div className="mt-1 flex items-center justify-between">
+        <p className="text-xs font-medium text-gray-700">{t("wouldReturnLabel")}</p>
+        {review.would_return && WOULD_RETURN_CONFIG[review.would_return] ? (() => {
+          const cfg = WOULD_RETURN_CONFIG[review.would_return!];
+          const Icon = cfg.icon;
+          return (
+            <span className={`inline-flex items-center gap-1 text-xs font-medium ${cfg.color}`}>
+              <Icon className="h-3 w-3" />
+              {t(cfg.label as "wouldReturnYes")}
+            </span>
+          );
+        })() : (
+          <span className="text-xs text-gray-300">—</span>
+        )}
+      </div>
 
       {review.comment && (
         <p className="mt-2 text-sm leading-relaxed text-gray-600 whitespace-pre-wrap">{review.comment}</p>
@@ -352,7 +348,7 @@ export function ReviewsDisplay({
   reviews: initialReviews,
   averageRating,
   totalCount,
-  categoryAverages,
+  categoryAverages: _categoryAverages,
   homestayId,
   homestaySlug,
 }: ReviewsDisplayProps) {

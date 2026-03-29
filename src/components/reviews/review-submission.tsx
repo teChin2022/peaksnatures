@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, useRef } from "react";
 import Link from "next/link";
 import { Search, Loader2, CalendarDays, Users, CheckCircle } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -37,6 +38,9 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
   const [bookings, setBookings] = useState<EligibleBooking[] | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<EligibleBooking | null>(null);
   const [submitted, setSubmitted] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = useState(false);
+  const turnstileRef = useRef<TurnstileInstance>(null);
 
   const handleLookup = useCallback(async () => {
     if (!identifier.trim() || loading) return;
@@ -48,16 +52,26 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
       const res = await fetch("/api/reviews/lookup", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ homestay_id: homestayId, identifier: identifier.trim() }),
+        body: JSON.stringify({
+          homestay_id: homestayId,
+          identifier: identifier.trim(),
+          turnstileToken: turnstileToken || "",
+        }),
       });
       const data = await res.json();
+      if (res.status === 403) {
+        turnstileRef.current?.reset();
+        setTurnstileToken(null);
+        setBookings([]);
+        return;
+      }
       setBookings(data.bookings || []);
     } catch {
       setBookings([]);
     } finally {
       setLoading(false);
     }
-  }, [identifier, homestayId, loading]);
+  }, [identifier, homestayId, loading, turnstileToken]);
 
   const handleSuccess = useCallback(() => {
     setSubmitted(true);
@@ -68,6 +82,8 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
     setSelectedBooking(null);
     setBookings(null);
     setIdentifier("");
+    setTurnstileToken(null);
+    turnstileRef.current?.reset();
   }, []);
 
   // Success state
@@ -136,7 +152,7 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
             />
             <Button
               onClick={handleLookup}
-              disabled={!identifier.trim() || loading}
+              disabled={!identifier.trim() || loading || (!turnstileToken && !turnstileError)}
               className="bg-[#2F5D50] text-white hover:bg-[#264A40] shrink-0"
             >
               {loading ? (
@@ -146,6 +162,18 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
               )}
             </Button>
           </div>
+        </div>
+
+        {/* Turnstile CAPTCHA */}
+        <div className="flex justify-center">
+          <Turnstile
+            ref={turnstileRef}
+            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+            onSuccess={(token) => setTurnstileToken(token)}
+            onExpire={() => setTurnstileToken(null)}
+            onError={() => { setTurnstileToken(null); setTurnstileError(true); }}
+            options={{ theme: "light", size: "normal" }}
+          />
         </div>
       </div>
 

@@ -39,7 +39,7 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
   // Parallel fetch: all queries below are independent of each other
   // B4+B5: rooms joined with seasonal_prices (eliminates sequential fetch),
   // review count merged into ratings query (3 review queries → 2)
-  const GRID_REVIEWS = 9;
+  const GRID_REVIEWS = 6;
   const [
     { data: hostRow },
     { data: roomRows },
