@@ -480,14 +480,14 @@ export function ReviewsDisplay({
               )}
             </div>
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
             {hasMore && (
               <Button variant="outline" size="sm" onClick={openModal}>
                 {t("viewAll")}
               </Button>
             )}
             <Link href={`/${homestaySlug}/reviews`}>
-              <Button variant="outline" size="sm" className="gap-1">
+              <Button variant="outline" size="sm" className="gap-1 w-full">
                 <PenLine className="h-3.5 w-3.5" />
                 {t("writeReview")}
               </Button>
