@@ -40,6 +40,7 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
   const [submitted, setSubmitted] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileError, setTurnstileError] = useState(false);
+  const [turnstileVerified, setTurnstileVerified] = useState(false);
   const turnstileRef = useRef<TurnstileInstance>(null);
 
   const handleLookup = useCallback(async () => {
@@ -62,9 +63,11 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
       if (res.status === 403) {
         turnstileRef.current?.reset();
         setTurnstileToken(null);
+        setTurnstileVerified(false);
         setBookings([]);
         return;
       }
+      setTurnstileVerified(true);
       setBookings(data.bookings || []);
     } catch {
       setBookings([]);
@@ -83,6 +86,7 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
     setBookings(null);
     setIdentifier("");
     setTurnstileToken(null);
+    setTurnstileVerified(false);
     turnstileRef.current?.reset();
   }, []);
 
@@ -152,7 +156,7 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
             />
             <Button
               onClick={handleLookup}
-              disabled={!identifier.trim() || loading || (!turnstileToken && !turnstileError)}
+              disabled={!identifier.trim() || loading || (!turnstileVerified && !turnstileToken && !turnstileError)}
               className="bg-[#2F5D50] text-white hover:bg-[#264A40] shrink-0"
             >
               {loading ? (
@@ -164,17 +168,19 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
           </div>
         </div>
 
-        {/* Turnstile CAPTCHA */}
-        <div className="flex justify-center">
-          <Turnstile
-            ref={turnstileRef}
-            siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
-            onSuccess={(token) => setTurnstileToken(token)}
-            onExpire={() => setTurnstileToken(null)}
-            onError={() => { setTurnstileToken(null); setTurnstileError(true); }}
-            options={{ theme: "light", size: "normal" }}
-          />
-        </div>
+        {/* Turnstile CAPTCHA — hidden once solved or verified */}
+        {!turnstileToken && !turnstileVerified && (
+          <div className="flex justify-center">
+            <Turnstile
+              ref={turnstileRef}
+              siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
+              onSuccess={(token) => setTurnstileToken(token)}
+              onExpire={() => setTurnstileToken(null)}
+              onError={() => { setTurnstileToken(null); setTurnstileError(true); }}
+              options={{ theme: "light", size: "normal" }}
+            />
+          </div>
+        )}
       </div>
 
       {/* Results */}

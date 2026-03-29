@@ -46,6 +46,45 @@ const WOULD_RETURN_CONFIG: Record<string, { icon: typeof ThumbsUp; color: string
   no: { icon: ThumbsDown, color: "text-gray-400", label: "wouldReturnNo" },
 };
 
+const AVATAR_COLORS = [
+  "bg-emerald-50 text-emerald-700",
+  "bg-amber-50 text-amber-700",
+  "bg-sky-50 text-sky-700",
+  "bg-rose-50 text-rose-700",
+  "bg-violet-50 text-violet-700",
+  "bg-teal-50 text-teal-700",
+];
+
+function getAvatarColor(name: string) {
+  let hash = 0;
+  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
+  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
+}
+
+function getInitials(name: string) {
+  return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
+}
+
+function RatingBar({ value, label }: { value: number; label: string }) {
+  const pct = value > 0 ? (value / 5) * 100 : 0;
+  return (
+    <div className="flex items-center gap-2">
+      <span className="w-24 shrink-0 truncate text-[11px] text-gray-500" title={label}>{label}</span>
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+        {pct > 0 && (
+          <div
+            className="h-full rounded-full bg-gradient-to-r from-[#2F5D50] to-[#3d7a6a]"
+            style={{ width: `${pct}%` }}
+          />
+        )}
+      </div>
+      <span className="w-3 text-right text-[11px] font-medium text-gray-500">
+        {value > 0 ? value : "—"}
+      </span>
+    </div>
+  );
+}
+
 interface ReviewsDisplayProps {
   reviews: ReviewWithProvince[];
   averageRating: number;
@@ -152,6 +191,8 @@ function ReviewCard({
 }) {
   const needsClamp = !!review.comment && review.comment.length > 150;
   const province = review.bookings?.guest_province;
+  const initials = getInitials(review.guest_name);
+  const avatarColor = getAvatarColor(review.guest_name);
   const ALL_CATS = [
     { key: "environment", val: review.rating_environment },
     { key: "cleanliness", val: review.rating_cleanliness },
@@ -160,56 +201,66 @@ function ReviewCard({
   ];
 
   return (
-    <div className="flex flex-col rounded-xl bg-white p-4 shadow-sm h-full">
-      {/* Guest info + overall stars */}
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-1.5">
-          <span className="text-sm font-medium text-gray-900">{review.guest_name}</span>
-          <ProvinceLabel province={province} locale={locale} />
+    <div className="group flex flex-col rounded-2xl border border-gray-100 bg-white p-5 h-full transition-all hover:shadow-lg hover:shadow-gray-100/80">
+      {/* Header: avatar + name + score pill */}
+      <div className="flex items-start gap-3">
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarColor}`}>
+          {initials}
         </div>
-        <StarRating rating={review.rating} size={13} />
+        <div className="min-w-0 flex-1">
+          <span className="text-sm font-semibold text-gray-900 truncate block">{review.guest_name}</span>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <ProvinceLabel province={province} locale={locale} />
+            <span className="text-[11px] text-gray-300">
+              {fmtDateStr(review.created_at.split("T")[0], "d MMM yyyy", locale)}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 rounded-full bg-[#2F5D50] px-2.5 py-1 shrink-0">
+          <Star className="h-3 w-3" style={{ fill: "white", color: "white" }} />
+          <span className="text-xs font-bold text-white">{review.rating}</span>
+        </div>
       </div>
 
-      {/* Category ratings — always show all 4 rows */}
-      <div className="mt-2 space-y-1">
+      {/* Category rating bars */}
+      <div className="mt-3 space-y-1.5">
         {ALL_CATS.map((c) => (
-          <div key={c.key} className="flex items-center justify-between">
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-gray-700">{t(CATEGORY_I18N[c.key].label)}</p>
-              <p className="text-[10px] text-gray-400">{t(CATEGORY_I18N[c.key].sub)}</p>
-            </div>
-            <StarRating rating={c.val ?? 0} size={11} />
-          </div>
+          <RatingBar key={c.key} value={c.val ?? 0} label={t(CATEGORY_I18N[c.key].label)} />
         ))}
       </div>
 
-      {/* Would return — always show */}
-      <div className="mt-1 flex items-center justify-between">
-        <p className="text-xs font-medium text-gray-700">{t("wouldReturnLabel")}</p>
+      {/* Would return */}
+      <div className="mt-2 flex items-center gap-2">
+        <span className="w-24 shrink-0 truncate text-[11px] text-gray-500" title={t("wouldReturnLabel")}>{t("wouldReturnLabel")}</span>
         {review.would_return && WOULD_RETURN_CONFIG[review.would_return] ? (() => {
           const cfg = WOULD_RETURN_CONFIG[review.would_return!];
           const Icon = cfg.icon;
           return (
-            <span className={`inline-flex items-center gap-1 text-xs font-medium ${cfg.color}`}>
+            <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${cfg.color}`}>
               <Icon className="h-3 w-3" />
               {t(cfg.label as "wouldReturnYes")}
             </span>
           );
         })() : (
-          <span className="text-xs text-gray-300">—</span>
+          <span className="text-[11px] text-gray-300">—</span>
         )}
       </div>
 
+      {/* Divider */}
+      <div className="my-3 h-px bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100" />
+
       {/* Comment */}
-      <p className="mt-2 text-sm leading-relaxed text-gray-600 line-clamp-3">
-        {review.comment || ""}
-      </p>
+      {review.comment && (
+        <p className="text-[13px] leading-relaxed text-gray-600 line-clamp-3">
+          {review.comment}
+        </p>
+      )}
 
       {/* Photos */}
       {review.photos && review.photos.length > 0 && (
-        <div className="mt-2 flex gap-2 overflow-x-auto">
+        <div className="mt-3 flex gap-1.5 overflow-x-auto">
           {review.photos.map((url, i) => (
-            <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-16 w-16 shrink-0 rounded-lg overflow-hidden border border-gray-100 cursor-pointer hover:opacity-80 transition-opacity">
+            <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-gray-100 transition-transform hover:scale-105">
               <img src={url} alt="" className="h-full w-full object-cover" />
             </button>
           ))}
@@ -218,9 +269,9 @@ function ReviewCard({
 
       {/* Tags */}
       {review.impression_tags && review.impression_tags.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
+        <div className="mt-2.5 flex flex-wrap gap-1">
           {review.impression_tags.map((tag) => (
-            <span key={tag} className="inline-flex items-center gap-0.5 rounded-full bg-[#2F5D50]/5 px-2 py-0.5 text-[10px] font-medium text-[#2F5D50]">
+            <span key={tag} className="inline-flex items-center gap-0.5 rounded-full border border-[#2F5D50]/10 bg-[#2F5D50]/5 px-2 py-0.5 text-[10px] font-medium text-[#2F5D50]">
               <Sparkles className="h-2 w-2" />
               {TAG_I18N[tag] ? t(TAG_I18N[tag]) : tag}
             </span>
@@ -230,31 +281,30 @@ function ReviewCard({
 
       {/* Stay highlight */}
       {review.stay_highlight && (
-        <div className="mt-2">
-          <span className="inline-flex items-center gap-1 text-xs text-gray-500 italic">
-            <Quote className="h-3 w-3 shrink-0" />
+        <div className="mt-2.5 rounded-lg bg-amber-50/60 px-3 py-2">
+          <span className="inline-flex items-start gap-1.5 text-[11px] text-amber-800/70 italic leading-relaxed">
+            <Quote className="mt-0.5 h-3 w-3 shrink-0 text-amber-400" />
             {review.stay_highlight}
           </span>
         </div>
       )}
 
-      {/* Footer */}
-      <div className="mt-auto pt-2 flex items-center justify-between">
-        <p className="text-xs text-gray-400">
-          {fmtDateStr(review.created_at.split("T")[0], "d MMM yyyy", locale)}
-        </p>
-        {needsClamp && (
-          <button type="button" onClick={() => onReadMore(review)} className="text-xs font-medium text-gray-900 hover:text-black transition-colors">
-            {t("readMore")}
+      {/* Read more */}
+      {needsClamp && (
+        <div className="mt-auto pt-3">
+          <button type="button" onClick={() => onReadMore(review)} className="text-xs font-medium text-[#2F5D50] hover:text-[#264A40] transition-colors">
+            {t("readMore")} &rarr;
           </button>
-        )}
-      </div>
+        </div>
+      )}
     </div>
   );
 }
 
 function ModalReviewCard({ review, locale, t, onPhotoClick }: { review: ReviewWithProvince; locale: string; t: ReturnType<typeof useTranslations>; onPhotoClick: (photos: string[], index: number) => void }) {
   const province = review.bookings?.guest_province;
+  const initials = getInitials(review.guest_name);
+  const avatarColor = getAvatarColor(review.guest_name);
   const ALL_CATS = [
     { key: "environment", val: review.rating_environment },
     { key: "cleanliness", val: review.rating_cleanliness },
@@ -263,64 +313,75 @@ function ModalReviewCard({ review, locale, t, onPhotoClick }: { review: ReviewWi
   ];
 
   return (
-    <div className="rounded-xl bg-white p-4 shadow-sm">
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col">
-          <span className="text-sm font-medium text-gray-900">{review.guest_name}</span>
-          <ProvinceLabel province={province} locale={locale} />
+    <div className="rounded-2xl border border-gray-100 bg-white p-5">
+      {/* Header */}
+      <div className="flex items-start gap-3">
+        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarColor}`}>
+          {initials}
         </div>
-        <StarRating rating={review.rating} size={13} />
+        <div className="min-w-0 flex-1">
+          <span className="text-sm font-semibold text-gray-900 truncate block">{review.guest_name}</span>
+          <div className="flex items-center gap-1.5 mt-0.5">
+            <ProvinceLabel province={province} locale={locale} />
+            <span className="text-[11px] text-gray-300">
+              {fmtDateStr(review.created_at.split("T")[0], "d MMM yyyy", locale)}
+            </span>
+          </div>
+        </div>
+        <div className="flex items-center gap-1 rounded-full bg-[#2F5D50] px-2.5 py-1 shrink-0">
+          <Star className="h-3 w-3" style={{ fill: "white", color: "white" }} />
+          <span className="text-xs font-bold text-white">{review.rating}</span>
+        </div>
       </div>
 
-      {/* Category ratings — always show all 4 rows */}
-      <div className="mt-2 space-y-1">
+      {/* Category rating bars */}
+      <div className="mt-3 space-y-1.5">
         {ALL_CATS.map((c) => (
-          <div key={c.key} className="flex items-center justify-between">
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-gray-700">{t(CATEGORY_I18N[c.key].label)}</p>
-              <p className="text-[10px] text-gray-400">{t(CATEGORY_I18N[c.key].sub)}</p>
-            </div>
-            <StarRating rating={c.val ?? 0} size={11} />
-          </div>
+          <RatingBar key={c.key} value={c.val ?? 0} label={t(CATEGORY_I18N[c.key].label)} />
         ))}
       </div>
 
-      {/* Would return — always show */}
-      <div className="mt-1 flex items-center justify-between">
-        <p className="text-xs font-medium text-gray-700">{t("wouldReturnLabel")}</p>
+      {/* Would return */}
+      <div className="mt-2 flex items-center gap-2">
+        <span className="w-24 shrink-0 truncate text-[11px] text-gray-500" title={t("wouldReturnLabel")}>{t("wouldReturnLabel")}</span>
         {review.would_return && WOULD_RETURN_CONFIG[review.would_return] ? (() => {
           const cfg = WOULD_RETURN_CONFIG[review.would_return!];
           const Icon = cfg.icon;
           return (
-            <span className={`inline-flex items-center gap-1 text-xs font-medium ${cfg.color}`}>
+            <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${cfg.color}`}>
               <Icon className="h-3 w-3" />
               {t(cfg.label as "wouldReturnYes")}
             </span>
           );
         })() : (
-          <span className="text-xs text-gray-300">—</span>
+          <span className="text-[11px] text-gray-300">—</span>
         )}
       </div>
 
+      {/* Divider */}
+      <div className="my-3 h-px bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100" />
+
+      {/* Comment — full text */}
       {review.comment && (
-        <p className="mt-2 text-sm leading-relaxed text-gray-600 whitespace-pre-wrap">{review.comment}</p>
+        <p className="text-[13px] leading-relaxed text-gray-600 whitespace-pre-wrap">{review.comment}</p>
       )}
 
-      {/* Photos */}
+      {/* Photos — larger */}
       {review.photos && review.photos.length > 0 && (
-        <div className="mt-2 flex gap-2 overflow-x-auto">
+        <div className="mt-3 flex gap-2 overflow-x-auto">
           {review.photos.map((url, i) => (
-            <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-16 w-16 shrink-0 rounded-lg overflow-hidden border border-gray-100 cursor-pointer hover:opacity-80 transition-opacity">
+            <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-gray-100 transition-transform hover:scale-105">
               <img src={url} alt="" className="h-full w-full object-cover" />
             </button>
           ))}
         </div>
       )}
 
+      {/* Tags */}
       {review.impression_tags && review.impression_tags.length > 0 && (
-        <div className="mt-2 flex flex-wrap gap-1">
+        <div className="mt-2.5 flex flex-wrap gap-1">
           {review.impression_tags.map((tag) => (
-            <span key={tag} className="inline-flex items-center gap-0.5 rounded-full bg-[#2F5D50]/5 px-2 py-0.5 text-[10px] font-medium text-[#2F5D50]">
+            <span key={tag} className="inline-flex items-center gap-0.5 rounded-full border border-[#2F5D50]/10 bg-[#2F5D50]/5 px-2 py-0.5 text-[10px] font-medium text-[#2F5D50]">
               <Sparkles className="h-2 w-2" />
               {TAG_I18N[tag] ? t(TAG_I18N[tag]) : tag}
             </span>
@@ -328,18 +389,15 @@ function ModalReviewCard({ review, locale, t, onPhotoClick }: { review: ReviewWi
         </div>
       )}
 
+      {/* Stay highlight */}
       {review.stay_highlight && (
-        <div className="mt-2">
-          <span className="inline-flex items-center gap-1 text-xs text-gray-500 italic">
-            <Quote className="h-3 w-3 shrink-0" />
+        <div className="mt-2.5 rounded-lg bg-amber-50/60 px-3 py-2">
+          <span className="inline-flex items-start gap-1.5 text-[11px] text-amber-800/70 italic leading-relaxed">
+            <Quote className="mt-0.5 h-3 w-3 shrink-0 text-amber-400" />
             {review.stay_highlight}
           </span>
         </div>
       )}
-
-      <p className="mt-2 text-xs text-gray-400">
-        {fmtDateStr(review.created_at.split("T")[0], "d MMM yyyy", locale)}
-      </p>
     </div>
   );
 }

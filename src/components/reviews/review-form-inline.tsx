@@ -225,7 +225,7 @@ export function ReviewFormInline({
           <div key={cat.key} className="flex items-center justify-between">
             <div className="min-w-0 flex-1">
               <p className="text-sm font-medium text-gray-900">{t(CATEGORY_I18N_MAP[cat.key].label)}</p>
-              <p className="text-xs text-gray-400">{t(CATEGORY_I18N_MAP[cat.key].sub)}</p>
+              {/* <p className="text-xs text-gray-400">{t(CATEGORY_I18N_MAP[cat.key].sub)}</p> */}
             </div>
             <InteractiveStars
               value={categoryRatings[cat.key]}
