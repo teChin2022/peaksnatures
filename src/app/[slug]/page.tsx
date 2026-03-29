@@ -12,7 +12,7 @@ import { BookingSection } from "@/components/booking/booking-section";
 import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingFooter } from "@/components/booking/booking-footer";
 import { HostLocationSection } from "@/components/booking/host-location-section";
-import { ReviewsPreview } from "@/components/booking/reviews-preview";
+import { ReviewsDisplay } from "@/components/reviews/reviews-display";
 import { ChatWidget } from "@/components/chat/chat-widget";
 
 
@@ -39,7 +39,7 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
   // Parallel fetch: all queries below are independent of each other
   // B4+B5: rooms joined with seasonal_prices (eliminates sequential fetch),
   // review count merged into ratings query (3 review queries → 2)
-  const PREVIEW_REVIEWS = 3;
+  const GRID_REVIEWS = 9;
   const [
     { data: hostRow },
     { data: roomRows },
@@ -55,7 +55,7 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     supabase.from("blocked_dates").select("*").eq("homestay_id", homestay.id),
     supabase.from("bookings").select("room_id, check_in, check_out").eq("homestay_id", homestay.id).in("status", ["pending", "confirmed", "verified"]),
     supabase.from("reviews").select("rating, rating_environment, rating_cleanliness, rating_service, rating_value", { count: "exact" }).eq("homestay_id", homestay.id),
-    supabase.from("reviews").select("*, bookings(guest_province)").eq("homestay_id", homestay.id).order("created_at", { ascending: false }).range(0, PREVIEW_REVIEWS - 1),
+    supabase.from("reviews").select("*, bookings(guest_province)").eq("homestay_id", homestay.id).order("created_at", { ascending: false }).range(0, GRID_REVIEWS - 1),
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]),
     supabase.from("bookings").select("created_at").eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
@@ -182,14 +182,15 @@ export default async function HomestayPage({ params }: PageProps) {
           roomOptions={roomOptions}
         />
 
-        {/* Reviews Preview */}
+        {/* Reviews */}
         <section className="py-10">
           <div className="mx-auto max-w-7xl px-4 sm:px-6">
-            <ReviewsPreview
+            <ReviewsDisplay
               reviews={reviews}
               averageRating={averageRating}
               totalCount={reviewCount}
               categoryAverages={categoryAverages}
+              homestayId={homestay.id}
               homestaySlug={homestay.slug}
             />
           </div>
