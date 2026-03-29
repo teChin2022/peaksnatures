@@ -76,19 +76,21 @@ function ReviewCard({
 
   return (
     <div className="flex flex-col rounded-xl bg-white p-4 shadow-sm h-full">
-      {/* Header */}
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col">
-          <span className="text-sm font-medium text-gray-900">{review.guest_name}</span>
-          <ProvinceLabel province={province} locale={locale} />
-        </div>
-        <StarRating rating={review.rating} size={13} />
+      {/* Guest info */}
+      <div className="flex items-center gap-1.5">
+        <span className="text-sm font-medium text-gray-900">{review.guest_name}</span>
+        <ProvinceLabel province={province} locale={locale} />
       </div>
 
-      {/* Topic */}
-      {review.topic && (
-        <p className="mt-2 text-sm font-semibold text-gray-900">{review.topic}</p>
-      )}
+      {/* Topic (left) + Stars (right) */}
+      <div className="mt-2 flex items-start justify-between gap-2">
+        {review.topic ? (
+          <p className="text-sm font-semibold text-gray-900 min-w-0">{review.topic}</p>
+        ) : (
+          <span />
+        )}
+        <StarRating rating={review.rating} size={13} />
+      </div>
 
       {/* Category mini-ratings */}
       {catRatings.length > 0 && (
@@ -102,18 +104,52 @@ function ReviewCard({
       )}
 
       {/* Comment */}
-      <p className="mt-2 min-h-[3rem] text-sm leading-relaxed text-gray-600 line-clamp-3">
+      <p className="mt-2 text-sm leading-relaxed text-gray-600 line-clamp-3">
         {review.comment || ""}
       </p>
+
+      {/* Photos */}
+      {review.photos && review.photos.length > 0 && (
+        <div className="mt-2 flex gap-2 overflow-x-auto">
+          {review.photos.map((url, i) => (
+            <div key={i} className="h-16 w-16 shrink-0 rounded-lg overflow-hidden border border-gray-100">
+              <img src={url} alt="" className="h-full w-full object-cover" />
+            </div>
+          ))}
+        </div>
+      )}
 
       {/* Tags */}
       {review.impression_tags && review.impression_tags.length > 0 && (
         <div className="mt-2 flex flex-wrap gap-1">
-          {review.impression_tags.slice(0, 3).map((tag) => (
-            <span key={tag} className="rounded-full bg-[#2F5D50]/5 px-2 py-0.5 text-[10px] font-medium text-[#2F5D50]">
+          {review.impression_tags.map((tag) => (
+            <span key={tag} className="inline-flex items-center gap-0.5 rounded-full bg-[#2F5D50]/5 px-2 py-0.5 text-[10px] font-medium text-[#2F5D50]">
+              <Sparkles className="h-2 w-2" />
               {TAG_I18N[tag] ? t(TAG_I18N[tag]) : tag}
             </span>
           ))}
+        </div>
+      )}
+
+      {/* Would return + Stay highlight */}
+      {(review.would_return || review.stay_highlight) && (
+        <div className="mt-2 flex flex-wrap items-center gap-3">
+          {review.would_return && WOULD_RETURN_CONFIG[review.would_return] && (() => {
+            const cfg = WOULD_RETURN_CONFIG[review.would_return!];
+            const Icon = cfg.icon;
+            return (
+              <span className={`inline-flex items-center gap-1 text-xs font-medium ${cfg.color}`}>
+                <Icon className="h-3 w-3" />
+                {t(cfg.label as "wouldReturnYes")}
+              </span>
+            );
+          })()}
+          {review.stay_highlight && (
+            <span className="inline-flex items-center gap-1 text-xs text-gray-500 italic">
+              <Quote className="h-3 w-3 shrink-0" />
+              {review.stay_highlight}
+            </span>
+          )}
         </div>
       )}
 
