@@ -40,7 +40,7 @@ Open [http://localhost:3000](http://localhost:3000)
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
-| `GOOGLE_GENERATIVE_AI_API_KEY` | Google Gemini API key (for AI chat) |
+| `OPEN_AI_API_KEY` | OpenAI API key (for AI chat) |
 | `EASYSLIP_API_KEY` | EasySlip API key (slip verification) |
 | `RESEND_API_KEY` | Resend API key (email) |
 | *(per host in DB)* | `line_channel_access_token` + `line_user_id` stored per host |

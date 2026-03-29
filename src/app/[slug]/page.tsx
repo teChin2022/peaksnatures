@@ -2,6 +2,7 @@ import { cache } from "react";
 import type { Metadata } from "next";
 import { notFound, permanentRedirect } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { resolveSlugRedirect } from "@/lib/slug-redirect";
 import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice, RoomOption } from "@/types/database";
 import { HeroSection } from "@/components/booking/hero-section";
 import { GallerySection } from "@/components/booking/gallery-section";
@@ -11,7 +12,7 @@ import { BookingSection } from "@/components/booking/booking-section";
 import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingFooter } from "@/components/booking/booking-footer";
 import { HostLocationSection } from "@/components/booking/host-location-section";
-import { ReviewsSection } from "@/components/booking/reviews-section";
+import { ReviewsDisplay } from "@/components/reviews/reviews-display";
 import { ChatWidget } from "@/components/chat/chat-widget";
 
 
@@ -19,24 +20,6 @@ export const revalidate = 30;
 
 interface PageProps {
   params: Promise<{ slug: string }>;
-}
-
-async function resolveSlugRedirect(slug: string): Promise<string | null> {
-  const supabase = createServiceRoleClient();
-  const { data } = await supabase
-    .from("homestay_slug_redirects" as never)
-    .select("homestay_id")
-    .eq("old_slug", slug)
-    .single();
-  if (!data) return null;
-  const homestayId = (data as unknown as { homestay_id: string }).homestay_id;
-  const { data: homestay } = await supabase
-    .from("homestays")
-    .select("slug")
-    .eq("id", homestayId)
-    .eq("is_active", true)
-    .single();
-  return (homestay as unknown as { slug: string } | null)?.slug || null;
 }
 
 const getHomestayData = cache(async function getHomestayData(slug: string) {
@@ -56,7 +39,7 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
   // Parallel fetch: all queries below are independent of each other
   // B4+B5: rooms joined with seasonal_prices (eliminates sequential fetch),
   // review count merged into ratings query (3 review queries → 2)
-  const INITIAL_REVIEWS = 9;
+  const GRID_REVIEWS = 6;
   const [
     { data: hostRow },
     { data: roomRows },
@@ -71,8 +54,8 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     supabase.from("rooms").select("*, room_seasonal_prices(*), room_options(*)").eq("homestay_id", homestay.id).eq("is_active", true).order("created_at", { ascending: true }),
     supabase.from("blocked_dates").select("*").eq("homestay_id", homestay.id),
     supabase.from("bookings").select("room_id, check_in, check_out").eq("homestay_id", homestay.id).in("status", ["pending", "confirmed", "verified"]),
-    supabase.from("reviews").select("rating", { count: "exact" }).eq("homestay_id", homestay.id),
-    supabase.from("reviews").select("*, bookings(guest_province)").eq("homestay_id", homestay.id).order("created_at", { ascending: false }).range(0, INITIAL_REVIEWS - 1),
+    supabase.from("reviews").select("rating, rating_environment, rating_cleanliness, rating_service, rating_value", { count: "exact" }).eq("homestay_id", homestay.id),
+    supabase.from("reviews").select("*, bookings(guest_province)").eq("homestay_id", homestay.id).order("created_at", { ascending: false }).range(0, GRID_REVIEWS - 1),
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]),
     supabase.from("bookings").select("created_at").eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
   ]);
@@ -84,12 +67,25 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
   const roomOptionsList = roomsWithJoins.flatMap((r) => (r.room_options || []).filter((o) => o.is_active));
   const blockedDates = (blockedRows as unknown as BlockedDate[]) || [];
   const bookedRanges = (bookingRows as { room_id: string | null; check_in: string; check_out: string }[]) || [];
-  const ratings = (allRatings as { rating: number }[]) || [];
+  const ratings = (allRatings as { rating: number; rating_environment: number | null; rating_cleanliness: number | null; rating_service: number | null; rating_value: number | null }[]) || [];
   const averageRating =
     ratings.length > 0
       ? Math.round((ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length) * 10) / 10
       : 0;
   const reviews = (reviewRows as unknown as (Review & { bookings: { guest_province: string | null } | null })[]) || [];
+
+  // Category averages for preview
+  const computeAvg = (key: "rating_environment" | "rating_cleanliness" | "rating_service" | "rating_value") => {
+    const vals = ratings.filter((r) => r[key] != null).map((r) => r[key] as number);
+    if (vals.length === 0) return 0;
+    return Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 10) / 10;
+  };
+  const categoryAverages = {
+    environment: computeAvg("rating_environment"),
+    cleanliness: computeAvg("rating_cleanliness"),
+    service: computeAvg("rating_service"),
+    value: computeAvg("rating_value"),
+  };
 
   return {
     homestay: { ...homestay, host: host! } as Homestay & { host: Host },
@@ -100,6 +96,7 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     roomOptions: roomOptionsList,
     reviews,
     averageRating,
+    categoryAverages,
     reviewCount: reviewCount || 0,
     totalBookings: totalBookingsCount || 0,
     lastBookingDate: (lastBookingRow as { created_at: string } | null)?.created_at || null,
@@ -139,7 +136,7 @@ export default async function HomestayPage({ params }: PageProps) {
     notFound();
   }
 
-  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, roomOptions, reviews, averageRating, reviewCount, totalBookings, lastBookingDate } = data;
+  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, roomOptions, reviews, averageRating, categoryAverages, reviewCount, totalBookings, lastBookingDate } = data;
 
   return (
     <div className="min-h-screen bg-white">
@@ -188,11 +185,13 @@ export default async function HomestayPage({ params }: PageProps) {
         {/* Reviews */}
         <section className="py-10">
           <div className="mx-auto max-w-7xl px-4 sm:px-6">
-            <ReviewsSection
+            <ReviewsDisplay
               reviews={reviews}
               averageRating={averageRating}
               totalCount={reviewCount}
+              categoryAverages={categoryAverages}
               homestayId={homestay.id}
+              homestaySlug={homestay.slug}
             />
           </div>
         </section>

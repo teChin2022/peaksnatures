@@ -27,6 +27,7 @@ export default function LoginPage() {
   const [otpLoading, setOtpLoading] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileError, setTurnstileError] = useState(false);
+  const [touched, setTouched] = useState<Set<string>>(new Set());
   const turnstileRef = useRef<TurnstileInstance>(null);
   const [magicLinkEmail, setMagicLinkEmail] = useState("");
   const [magicLinkSent, setMagicLinkSent] = useState(false);
@@ -36,6 +37,7 @@ export default function LoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    setTouched(new Set(["email", "password"]));
 
     if (!turnstileToken && !turnstileError) {
       setError(t("errorCaptcha"));
@@ -185,7 +187,7 @@ export default function LoginPage() {
                 </div>
               )}
               <div className="space-y-1.5">
-                <label htmlFor="email" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("email")}</label>
+                <label htmlFor="email" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("email")} <span className="text-red-500">*</span></label>
                 <div className="relative">
                   <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
                   <Input
@@ -194,15 +196,16 @@ export default function LoginPage() {
                     placeholder={t("emailPlaceholder")}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
+                    onBlur={() => setTouched(prev => new Set([...prev, "email"]))}
                     required
                     autoComplete="email"
-                    className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400"
+                    className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("email") && !email.trim() ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-gray-200 hover:!border-gray-400 focus-visible:!border-gray-400"} !bg-white transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0`}
                   />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label htmlFor="password" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("password")}</label>
+                  <label htmlFor="password" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("password")} <span className="text-red-500">*</span></label>
                   <Link
                     href="/forgot-password"
                     className="text-xs font-medium text-gray-600 hover:text-gray-900"
@@ -217,9 +220,10 @@ export default function LoginPage() {
                     placeholder="••••••••"
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
+                    onBlur={() => setTouched(prev => new Set([...prev, "password"]))}
                     required
                     autoComplete="current-password"
-                    className="pr-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400"
+                    className={`pr-10 p-3.5 !h-auto rounded-xl !border ${touched.has("password") && !password ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-gray-200 hover:!border-gray-400 focus-visible:!border-gray-400"} !bg-white transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0`}
                   />
                   <button
                     type="button"

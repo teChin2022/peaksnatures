@@ -112,8 +112,8 @@ export async function POST(req: NextRequest) {
     });
 
     if (signUpError) {
-      // Handle duplicate email
-      if (signUpError.message === "Invalid login credentials") {
+      // Handle duplicate email (confirmations disabled path)
+      if (signUpError.message === "User already registered") {
         return NextResponse.json(
           { error: "EMAIL_EXISTS" },
           { status: 409 }
@@ -124,6 +124,12 @@ export async function POST(req: NextRequest) {
         { error: signUpError.message },
         { status: 400 }
       );
+    }
+
+    // Detect duplicate email when email confirmation is enabled:
+    // Supabase returns no error but an empty identities array for existing emails.
+    if (signUpData?.user && signUpData.user.identities?.length === 0) {
+      return NextResponse.json({ error: "EMAIL_EXISTS" }, { status: 409 });
     }
 
     return response;
