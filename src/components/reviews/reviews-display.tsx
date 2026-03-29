@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Star, MessageSquare, Loader2, Sparkles, ThumbsUp, Minus, ThumbsDown, Quote, PenLine } from "lucide-react";
+import { Star, MessageSquare, Loader2, Sparkles, ThumbsUp, Minus, ThumbsDown, Quote, PenLine, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
+import { useSwipe } from "@/hooks/use-swipe";
 import { Button } from "@/components/ui/button";
 import {
   Dialog,
@@ -54,16 +55,100 @@ interface ReviewsDisplayProps {
   homestaySlug: string;
 }
 
+function PhotoLightbox({
+  photos,
+  index,
+  onClose,
+}: {
+  photos: string[];
+  index: number;
+  onClose: () => void;
+}) {
+  const [current, setCurrent] = useState(index);
+  const prev = useCallback(() => setCurrent((i) => (i > 0 ? i - 1 : photos.length - 1)), [photos.length]);
+  const next = useCallback(() => setCurrent((i) => (i < photos.length - 1 ? i + 1 : 0)), [photos.length]);
+
+  const [el, setEl] = useState<HTMLDivElement | null>(null);
+  useSwipe(el, { onSwipeLeft: next, onSwipeRight: prev });
+
+  useEffect(() => {
+    function handleKey(e: KeyboardEvent) {
+      if (e.key === "Escape") onClose();
+      if (e.key === "ArrowLeft") prev();
+      if (e.key === "ArrowRight") next();
+    }
+    window.addEventListener("keydown", handleKey);
+    return () => window.removeEventListener("keydown", handleKey);
+  }, [onClose, prev, next]);
+
+  return (
+    <div
+      ref={setEl}
+      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-2xl p-4"
+      style={{ touchAction: "none" }}
+      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
+    >
+      <Button
+        variant="ghost"
+        size="icon"
+        className="absolute right-4 top-4 z-10 rounded-full text-white hover:bg-white/20"
+        onClick={onClose}
+      >
+        <X className="h-6 w-6" />
+      </Button>
+
+      {photos.length > 1 && (
+        <Button
+          variant="ghost"
+          size="icon"
+          className="absolute left-2 z-10 rounded-full text-white hover:bg-white/20 sm:left-4"
+          onClick={prev}
+        >
+          <ChevronLeft className="h-8 w-8" />
+        </Button>
+      )}
+
+      <div className="flex h-[80vh] w-[90vw] max-w-4xl items-center justify-center">
+        <img
+          key={photos[current]}
+          src={photos[current]}
+          alt=""
+          className="max-h-[80vh] max-w-full h-auto w-auto rounded-2xl object-contain"
+        />
+      </div>
+
+      {photos.length > 1 && (
+        <>
+          <Button
+            variant="ghost"
+            size="icon"
+            className="absolute right-2 z-10 rounded-full text-white hover:bg-white/20 sm:right-4"
+            onClick={next}
+          >
+            <ChevronRight className="h-8 w-8" />
+          </Button>
+
+          <div className="absolute bottom-6 rounded-full bg-black/50 px-4 py-1.5 text-sm font-medium text-white/90 backdrop-blur-sm">
+            {current + 1} / {photos.length}
+          </div>
+        </>
+      )}
+    </div>
+  );
+}
+
 function ReviewCard({
   review,
   locale,
   t,
   onReadMore,
+  onPhotoClick,
 }: {
   review: ReviewWithProvince;
   locale: string;
   t: ReturnType<typeof useTranslations>;
   onReadMore: (review: ReviewWithProvince) => void;
+  onPhotoClick: (photos: string[], index: number) => void;
 }) {
   const needsClamp = !!review.comment && review.comment.length > 150;
   const province = review.bookings?.guest_province;
@@ -76,30 +161,44 @@ function ReviewCard({
 
   return (
     <div className="flex flex-col rounded-xl bg-white p-4 shadow-sm h-full">
-      {/* Guest info */}
-      <div className="flex items-center gap-1.5">
-        <span className="text-sm font-medium text-gray-900">{review.guest_name}</span>
-        <ProvinceLabel province={province} locale={locale} />
-      </div>
-
-      {/* Topic (left) + Stars (right) */}
-      <div className="mt-2 flex items-start justify-between gap-2">
-        {review.topic ? (
-          <p className="text-sm font-semibold text-gray-900 min-w-0">{review.topic}</p>
-        ) : (
-          <span />
-        )}
+      {/* Guest info + overall stars */}
+      <div className="flex items-center justify-between">
+        <div className="flex items-center gap-1.5">
+          <span className="text-sm font-medium text-gray-900">{review.guest_name}</span>
+          <ProvinceLabel province={province} locale={locale} />
+        </div>
         <StarRating rating={review.rating} size={13} />
       </div>
 
-      {/* Category mini-ratings */}
+      {/* Category ratings — full rows */}
       {catRatings.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
+        <div className="mt-2 space-y-1">
           {catRatings.map((c) => (
-            <span key={c.key} className="inline-flex items-center gap-0.5 text-[11px] text-gray-400">
-              {t(CATEGORY_I18N[c.key].label).split(" ")[0]} {c.val}<Star className="h-2.5 w-2.5" style={{ fill: "#2F5D50", color: "#2F5D50" }} />
-            </span>
+            <div key={c.key} className="flex items-center justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-gray-700">{t(CATEGORY_I18N[c.key].label)}</p>
+                <p className="text-[10px] text-gray-400">{t(CATEGORY_I18N[c.key].sub)}</p>
+              </div>
+              <StarRating rating={c.val!} size={11} />
+            </div>
           ))}
+        </div>
+      )}
+
+      {/* Would return — as a row */}
+      {review.would_return && WOULD_RETURN_CONFIG[review.would_return] && (
+        <div className="mt-1 flex items-center justify-between">
+          <p className="text-xs font-medium text-gray-700">{t("wouldReturnLabel")}</p>
+          {(() => {
+            const cfg = WOULD_RETURN_CONFIG[review.would_return!];
+            const Icon = cfg.icon;
+            return (
+              <span className={`inline-flex items-center gap-1 text-xs font-medium ${cfg.color}`}>
+                <Icon className="h-3 w-3" />
+                {t(cfg.label as "wouldReturnYes")}
+              </span>
+            );
+          })()}
         </div>
       )}
 
@@ -112,9 +211,9 @@ function ReviewCard({
       {review.photos && review.photos.length > 0 && (
         <div className="mt-2 flex gap-2 overflow-x-auto">
           {review.photos.map((url, i) => (
-            <div key={i} className="h-16 w-16 shrink-0 rounded-lg overflow-hidden border border-gray-100">
+            <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-16 w-16 shrink-0 rounded-lg overflow-hidden border border-gray-100 cursor-pointer hover:opacity-80 transition-opacity">
               <img src={url} alt="" className="h-full w-full object-cover" />
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -131,25 +230,13 @@ function ReviewCard({
         </div>
       )}
 
-      {/* Would return + Stay highlight */}
-      {(review.would_return || review.stay_highlight) && (
-        <div className="mt-2 flex flex-wrap items-center gap-3">
-          {review.would_return && WOULD_RETURN_CONFIG[review.would_return] && (() => {
-            const cfg = WOULD_RETURN_CONFIG[review.would_return!];
-            const Icon = cfg.icon;
-            return (
-              <span className={`inline-flex items-center gap-1 text-xs font-medium ${cfg.color}`}>
-                <Icon className="h-3 w-3" />
-                {t(cfg.label as "wouldReturnYes")}
-              </span>
-            );
-          })()}
-          {review.stay_highlight && (
-            <span className="inline-flex items-center gap-1 text-xs text-gray-500 italic">
-              <Quote className="h-3 w-3 shrink-0" />
-              {review.stay_highlight}
-            </span>
-          )}
+      {/* Stay highlight */}
+      {review.stay_highlight && (
+        <div className="mt-2">
+          <span className="inline-flex items-center gap-1 text-xs text-gray-500 italic">
+            <Quote className="h-3 w-3 shrink-0" />
+            {review.stay_highlight}
+          </span>
         </div>
       )}
 
@@ -168,7 +255,7 @@ function ReviewCard({
   );
 }
 
-function ModalReviewCard({ review, locale, t }: { review: ReviewWithProvince; locale: string; t: ReturnType<typeof useTranslations> }) {
+function ModalReviewCard({ review, locale, t, onPhotoClick }: { review: ReviewWithProvince; locale: string; t: ReturnType<typeof useTranslations>; onPhotoClick: (photos: string[], index: number) => void }) {
   const province = review.bookings?.guest_province;
   const catRatings = [
     { key: "environment", val: review.rating_environment },
@@ -187,15 +274,35 @@ function ModalReviewCard({ review, locale, t }: { review: ReviewWithProvince; lo
         <StarRating rating={review.rating} size={13} />
       </div>
 
-      {review.topic && <p className="mt-2 text-sm font-semibold text-gray-900">{review.topic}</p>}
-
+      {/* Category ratings — full rows */}
       {catRatings.length > 0 && (
-        <div className="mt-1.5 flex flex-wrap gap-x-3 gap-y-0.5">
+        <div className="mt-2 space-y-1">
           {catRatings.map((c) => (
-            <span key={c.key} className="inline-flex items-center gap-0.5 text-[11px] text-gray-400">
-              {t(CATEGORY_I18N[c.key].label).split(" ")[0]} {c.val}<Star className="h-2.5 w-2.5" style={{ fill: "#2F5D50", color: "#2F5D50" }} />
-            </span>
+            <div key={c.key} className="flex items-center justify-between">
+              <div className="min-w-0">
+                <p className="text-xs font-medium text-gray-700">{t(CATEGORY_I18N[c.key].label)}</p>
+                <p className="text-[10px] text-gray-400">{t(CATEGORY_I18N[c.key].sub)}</p>
+              </div>
+              <StarRating rating={c.val!} size={11} />
+            </div>
           ))}
+        </div>
+      )}
+
+      {/* Would return — as a row */}
+      {review.would_return && WOULD_RETURN_CONFIG[review.would_return] && (
+        <div className="mt-1 flex items-center justify-between">
+          <p className="text-xs font-medium text-gray-700">{t("wouldReturnLabel")}</p>
+          {(() => {
+            const cfg = WOULD_RETURN_CONFIG[review.would_return!];
+            const Icon = cfg.icon;
+            return (
+              <span className={`inline-flex items-center gap-1 text-xs font-medium ${cfg.color}`}>
+                <Icon className="h-3 w-3" />
+                {t(cfg.label as "wouldReturnYes")}
+              </span>
+            );
+          })()}
         </div>
       )}
 
@@ -207,9 +314,9 @@ function ModalReviewCard({ review, locale, t }: { review: ReviewWithProvince; lo
       {review.photos && review.photos.length > 0 && (
         <div className="mt-2 flex gap-2 overflow-x-auto">
           {review.photos.map((url, i) => (
-            <div key={i} className="h-16 w-16 shrink-0 rounded-lg overflow-hidden border border-gray-100">
+            <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-16 w-16 shrink-0 rounded-lg overflow-hidden border border-gray-100 cursor-pointer hover:opacity-80 transition-opacity">
               <img src={url} alt="" className="h-full w-full object-cover" />
-            </div>
+            </button>
           ))}
         </div>
       )}
@@ -225,24 +332,14 @@ function ModalReviewCard({ review, locale, t }: { review: ReviewWithProvince; lo
         </div>
       )}
 
-      <div className="mt-2 flex flex-wrap items-center gap-3">
-        {review.would_return && WOULD_RETURN_CONFIG[review.would_return] && (() => {
-          const cfg = WOULD_RETURN_CONFIG[review.would_return!];
-          const Icon = cfg.icon;
-          return (
-            <span className={`inline-flex items-center gap-1 text-xs font-medium ${cfg.color}`}>
-              <Icon className="h-3 w-3" />
-              {t(cfg.label as "wouldReturnYes")}
-            </span>
-          );
-        })()}
-        {review.stay_highlight && (
+      {review.stay_highlight && (
+        <div className="mt-2">
           <span className="inline-flex items-center gap-1 text-xs text-gray-500 italic">
             <Quote className="h-3 w-3 shrink-0" />
             {review.stay_highlight}
           </span>
-        )}
-      </div>
+        </div>
+      )}
 
       <p className="mt-2 text-xs text-gray-400">
         {fmtDateStr(review.created_at.split("T")[0], "d MMM yyyy", locale)}
@@ -268,6 +365,11 @@ export function ReviewsDisplay({
   const [modalLoading, setModalLoading] = useState(false);
   const [modalTotal, setModalTotal] = useState(totalCount);
   const modalOffsetRef = useRef(0);
+  const [lightbox, setLightbox] = useState<{ photos: string[]; index: number } | null>(null);
+
+  const openLightbox = useCallback((photos: string[], index: number) => {
+    setLightbox({ photos, index });
+  }, []);
 
   const gridReviews = initialReviews.slice(0, GRID_LIMIT);
   const hasMore = totalCount > GRID_LIMIT;
@@ -340,7 +442,7 @@ export function ReviewsDisplay({
         </div>
 
         {/* Category averages */}
-        {totalCount > 0 && Object.values(categoryAverages).some((v) => v > 0) && (
+        {/* {totalCount > 0 && Object.values(categoryAverages).some((v) => v > 0) && (
           <div className="flex flex-wrap gap-3">
             {RATING_CATEGORIES.map((cat) => {
               const avg = categoryAverages[cat.key] || 0;
@@ -354,13 +456,13 @@ export function ReviewsDisplay({
               );
             })}
           </div>
-        )}
+        )} */}
 
         {/* Review grid */}
         {totalCount > 0 && (
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
             {gridReviews.map((review) => (
-              <ReviewCard key={review.id} review={review} locale={locale} t={t} onReadMore={setSelectedReview} />
+              <ReviewCard key={review.id} review={review} locale={locale} t={t} onReadMore={setSelectedReview} onPhotoClick={openLightbox} />
             ))}
           </div>
         )}
@@ -401,7 +503,7 @@ export function ReviewsDisplay({
               <>
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   {modalReviews.map((review) => (
-                    <ModalReviewCard key={review.id} review={review} locale={locale} t={t} />
+                    <ModalReviewCard key={review.id} review={review} locale={locale} t={t} onPhotoClick={openLightbox} />
                   ))}
                 </div>
                 <div className="flex flex-col items-center gap-2 pt-4">
@@ -428,10 +530,19 @@ export function ReviewsDisplay({
       <Dialog open={!!selectedReview} onOpenChange={(o) => { if (!o) setSelectedReview(null); }}>
         <DialogContent className="sm:max-w-md">
           {selectedReview && (
-            <ModalReviewCard review={selectedReview} locale={locale} t={t} />
+            <ModalReviewCard review={selectedReview} locale={locale} t={t} onPhotoClick={openLightbox} />
           )}
         </DialogContent>
       </Dialog>
+
+      {/* Photo Lightbox */}
+      {lightbox && (
+        <PhotoLightbox
+          photos={lightbox.photos}
+          index={lightbox.index}
+          onClose={() => setLightbox(null)}
+        />
+      )}
     </>
   );
 }

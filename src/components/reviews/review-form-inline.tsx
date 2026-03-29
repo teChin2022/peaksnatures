@@ -100,7 +100,6 @@ export function ReviewFormInline({
 }: ReviewFormInlineProps) {
   const t = useTranslations("reviews");
 
-  const [topic, setTopic] = useState("");
   const [overallRating, setOverallRating] = useState(0);
   const [overallHover, setOverallHover] = useState(0);
   const [categoryRatings, setCategoryRatings] = useState<Record<string, number>>({
@@ -147,7 +146,6 @@ export function ReviewFormInline({
   }, []);
 
   const isValid =
-    topic.trim().length > 0 &&
     overallRating > 0 &&
     Object.values(categoryRatings).every((v) => v > 0) &&
     comment.trim().length > 0;
@@ -179,7 +177,6 @@ export function ReviewFormInline({
         body: JSON.stringify({
           booking_id: bookingId,
           guest_email: guestEmail,
-          topic: topic.trim(),
           rating: overallRating,
           rating_environment: categoryRatings.environment,
           rating_cleanliness: categoryRatings.cleanliness,
@@ -213,12 +210,6 @@ export function ReviewFormInline({
 
   return (
     <div className="space-y-6">
-      {/* Topic */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">{t("topicLabel")}</Label>
-        <Input placeholder={t("topicPlaceholder")} value={topic} onChange={(e) => setTopic(e.target.value)} maxLength={100} />
-      </div>
-
       {/* Overall rating */}
       <div className="space-y-1.5">
         <Label className="text-sm font-medium">{t("ratingLabel")}</Label>

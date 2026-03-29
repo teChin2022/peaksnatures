@@ -129,7 +129,6 @@ export async function POST(request: NextRequest) {
     if (
       !booking_id ||
       !guest_email ||
-      !topic?.trim() ||
       !comment?.trim() ||
       !rating || rating < 1 || rating > 5 ||
       !rating_environment || rating_environment < 1 || rating_environment > 5 ||
@@ -138,7 +137,7 @@ export async function POST(request: NextRequest) {
       !rating_value || rating_value < 1 || rating_value > 5
     ) {
       return NextResponse.json(
-        { error: "All mandatory fields are required: booking_id, guest_email, topic, comment, rating (1-5), and all category ratings (1-5)" },
+        { error: "All mandatory fields are required: booking_id, guest_email, comment, rating (1-5), and all category ratings (1-5)" },
         { status: 400 }
       );
     }
@@ -215,7 +214,7 @@ export async function POST(request: NextRequest) {
         homestay_id: booking.homestay_id,
         booking_id: booking_id,
         guest_name: booking.guest_name,
-        topic: topic.trim(),
+        topic: topic?.trim() || null,
         rating: Math.round(rating),
         rating_environment: Math.round(rating_environment),
         rating_cleanliness: Math.round(rating_cleanliness),
