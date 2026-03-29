@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Search, CalendarDays, Clock, CheckCircle2, XCircle, Loader2, Star, MessageSquare, LogIn, LogOut, Upload, CreditCard, Download, AlertTriangle, ArrowRightLeft, ArrowLeft } from "lucide-react";
+import { Search, CalendarDays, Clock, CheckCircle2, XCircle, Loader2, MessageSquare, LogIn, LogOut, Upload, CreditCard, Download, AlertTriangle, ArrowRightLeft, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { createClient } from "@/lib/supabase/client";
 import { Calendar } from "@/components/ui/calendar";
@@ -25,6 +25,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
 import { fmtDate, fmtDateStr } from "@/lib/format-date";
 import { useIsMobile } from "@/lib/use-is-mobile";
+import { ReviewForm } from "@/components/reviews/review-form";
 import generatePayload from "promptpay-qr";
 import { QRCodeSVG } from "qrcode.react";
 
@@ -88,10 +89,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
   const [reviewingBookingId, setReviewingBookingId] = useState<string | null>(null);
-  const [reviewRating, setReviewRating] = useState(0);
-  const [reviewHover, setReviewHover] = useState(0);
-  const [reviewComment, setReviewComment] = useState("");
-  const [submittingReview, setSubmittingReview] = useState(false);
+  const [reviewingGuestEmail, setReviewingGuestEmail] = useState("");
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
   const [payingBalanceId, setPayingBalanceId] = useState<string | null>(null);
   const [balancePayMethod, setBalancePayMethod] = useState<"transfer" | "cash" | null>(null);
@@ -332,43 +330,12 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
     }
   };
 
-  const handleSubmitReview = async (bookingId: string, guestEmail: string) => {
-    if (reviewRating === 0) return;
-    setSubmittingReview(true);
-    try {
-      const res = await fetch("/api/reviews", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          booking_id: bookingId,
-          rating: reviewRating,
-          comment: reviewComment.trim() || null,
-          guest_email: guestEmail,
-        }),
-      });
-      const data = await res.json();
-      if (res.status === 409) {
-        toast.error(tr("errorAlreadyReviewed"));
-      } else if (res.status === 400 && data.error === "BOOKING_NOT_COMPLETED") {
-        toast.error(tr("errorBookingNotCompleted"));
-      } else if (!res.ok) {
-        toast.error(tr("errorSubmit"));
-      } else {
-        toast.success(tr("reviewSubmitted"));
-        // Mark as reviewed in results
-        setResults((prev) =>
-          prev.map((b) => (b.id === bookingId ? { ...b, has_review: true } : b))
-        );
-      }
-    } catch {
-      toast.error(tr("errorSubmit"));
-    } finally {
-      setSubmittingReview(false);
-      setReviewingBookingId(null);
-      setReviewRating(0);
-      setReviewHover(0);
-      setReviewComment("");
-    }
+  const handleReviewSuccess = (bookingId: string) => {
+    setResults((prev) =>
+      prev.map((b) => (b.id === bookingId ? { ...b, has_review: true } : b))
+    );
+    setReviewingBookingId(null);
+    setReviewingGuestEmail("");
   };
 
   const handleCancelBooking = async (bookingId: string) => {
@@ -712,9 +679,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
       setResults([]);
       setSearched(false);
       setReviewingBookingId(null);
-      setReviewRating(0);
-      setReviewHover(0);
-      setReviewComment("");
+      setReviewingGuestEmail("");
     }
   };
 
@@ -1141,77 +1106,15 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                           <CheckCircle2 className="mr-1 h-3 w-3" />
                           {tr("reviewed")}
                         </Badge>
-                      ) : reviewingBookingId === booking.id ? (
-                        <div className="space-y-2">
-                          {/* Star rating */}
-                          <div>
-                            <p className="text-xs font-medium text-gray-700 mb-1">{tr("ratingLabel")}</p>
-                            <div className="flex items-center gap-0.5">
-                              {[1, 2, 3, 4, 5].map((star) => (
-                                <button
-                                  key={star}
-                                  type="button"
-                                  className="p-0.5 transition-transform hover:scale-110"
-                                  onClick={() => setReviewRating(star)}
-                                  onMouseEnter={() => setReviewHover(star)}
-                                  onMouseLeave={() => setReviewHover(0)}
-                                >
-                                  <Star
-                                    className="h-5 w-5"
-                                    style={{
-                                      fill: star <= (reviewHover || reviewRating) ? "#374151" : "transparent",
-                                      color: star <= (reviewHover || reviewRating) ? "#374151" : "#d1d5db",
-                                    }}
-                                  />
-                                </button>
-                              ))}
-                              {reviewRating === 0 && (
-                                <span className="ml-2 text-xs text-gray-400">{tr("tapToRate")}</span>
-                              )}
-                            </div>
-                          </div>
-                          {/* Comment */}
-                          <Textarea
-                            placeholder={tr("commentPlaceholder")}
-                            value={reviewComment}
-                            onChange={(e) => setReviewComment(e.target.value)}
-                            rows={2}
-                            className="text-sm"
-                          />
-                          <div className="flex gap-2">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="flex-1"
-                              onClick={() => {
-                                setReviewingBookingId(null);
-                                setReviewRating(0);
-                                setReviewHover(0);
-                                setReviewComment("");
-                              }}
-                            >
-                              {t("cancelReview")}
-                            </Button>
-                            <Button
-                              size="sm"
-                              className="flex-1 bg-brand text-white hover:bg-brand-hover"
-                              onClick={() => handleSubmitReview(booking.id, booking.guest_email)}
-                              disabled={reviewRating === 0 || submittingReview}
-                            >
-                              {submittingReview ? (
-                                <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                tr("submitReview")
-                              )}
-                            </Button>
-                          </div>
-                        </div>
                       ) : (
                         <Button
                           size="sm"
                           variant="outline"
                           className="w-full text-xs"
-                          onClick={() => setReviewingBookingId(booking.id)}
+                          onClick={() => {
+                            setReviewingBookingId(booking.id);
+                            setReviewingGuestEmail(booking.guest_email);
+                          }}
                         >
                           <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
                           {tr("writeReview")}
@@ -1625,6 +1528,22 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
         </DialogFooter>
       </DialogContent>
     </Dialog>
+
+    {reviewingBookingId && (
+      <ReviewForm
+        open={!!reviewingBookingId}
+        onOpenChange={(open) => {
+          if (!open) {
+            setReviewingBookingId(null);
+            setReviewingGuestEmail("");
+          }
+        }}
+        bookingId={reviewingBookingId}
+        guestEmail={reviewingGuestEmail}
+        homestayId={homestayId}
+        onSuccess={() => handleReviewSuccess(reviewingBookingId)}
+      />
+    )}
   </>
   );
 }

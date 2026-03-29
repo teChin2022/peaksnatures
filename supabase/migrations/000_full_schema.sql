@@ -253,6 +253,15 @@ CREATE TABLE reviews (
   guest_name TEXT NOT NULL,
   rating INTEGER NOT NULL CHECK (rating >= 1 AND rating <= 5),
   comment TEXT,
+  topic TEXT,
+  rating_environment INTEGER CHECK (rating_environment >= 1 AND rating_environment <= 5),
+  rating_cleanliness INTEGER CHECK (rating_cleanliness >= 1 AND rating_cleanliness <= 5),
+  rating_service INTEGER CHECK (rating_service >= 1 AND rating_service <= 5),
+  rating_value INTEGER CHECK (rating_value >= 1 AND rating_value <= 5),
+  photos TEXT[] DEFAULT '{}',
+  impression_tags TEXT[] DEFAULT '{}',
+  would_return TEXT CHECK (would_return IN ('yes', 'maybe', 'no')),
+  stay_highlight TEXT,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_by TEXT NOT NULL DEFAULT 'system',
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
@@ -452,6 +461,10 @@ INSERT INTO storage.buckets (id, name, public)
 VALUES ('payment-slips', 'payment-slips', false)
 ON CONFLICT (id) DO NOTHING;
 
+INSERT INTO storage.buckets (id, name, public)
+VALUES ('review-photos', 'review-photos', true)
+ON CONFLICT (id) DO NOTHING;
+
 -- ============================================================
 -- STORAGE POLICIES
 -- ============================================================
@@ -491,6 +504,14 @@ CREATE POLICY "Authenticated users can view payment slips"
     bucket_id = 'payment-slips'
     AND auth.role() = 'authenticated'
   );
+
+CREATE POLICY "Anyone can view review photos"
+  ON storage.objects FOR SELECT
+  USING (bucket_id = 'review-photos');
+
+CREATE POLICY "Anyone can upload review photos"
+  ON storage.objects FOR INSERT
+  WITH CHECK (bucket_id = 'review-photos');
 
 -- ============================================================
 -- FUNCTIONS
