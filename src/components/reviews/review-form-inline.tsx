@@ -28,7 +28,6 @@ const TAG_I18N_MAP: Record<string, string> = {
   good_value: "tagGoodValue",
   family_friendly: "tagFamilyFriendly",
   romantic: "tagRomantic",
-  pet_friendly: "tagPetFriendly",
   good_wifi: "tagGoodWifi",
 };
 

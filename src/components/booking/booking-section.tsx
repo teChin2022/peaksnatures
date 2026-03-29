@@ -1233,7 +1233,7 @@ export function BookingSection({
                               </div>
                             )}
                           </div>
-                          <div className="flex gap-3">
+                          <div className="flex flex-col sm:flex-row gap-3">
                             <button
                               onClick={() => setShowConfirmModal(false)}
                               className="flex-1 py-3 rounded-2xl font-bold text-sm border border-gray-200 text-gray-700 hover:bg-gray-50 transition-all"
