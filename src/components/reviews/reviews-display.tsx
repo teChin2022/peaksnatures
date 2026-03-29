@@ -230,8 +230,8 @@ function ReviewCard({
       </div>
 
       {/* Would return */}
-      <div className="mt-2 flex items-center gap-2">
-        <span className="w-24 shrink-0 truncate text-[11px] text-gray-500" title={t("wouldReturnLabel")}>{t("wouldReturnLabel")}</span>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <span className="text-[11px] text-gray-500">{t("wouldReturnLabel")}</span>
         {review.would_return && WOULD_RETURN_CONFIG[review.would_return] ? (() => {
           const cfg = WOULD_RETURN_CONFIG[review.would_return!];
           const Icon = cfg.icon;
@@ -342,8 +342,8 @@ function ModalReviewCard({ review, locale, t, onPhotoClick }: { review: ReviewWi
       </div>
 
       {/* Would return */}
-      <div className="mt-2 flex items-center gap-2">
-        <span className="w-24 shrink-0 truncate text-[11px] text-gray-500" title={t("wouldReturnLabel")}>{t("wouldReturnLabel")}</span>
+      <div className="mt-2 flex items-center justify-between gap-2">
+        <span className="text-[11px] text-gray-500">{t("wouldReturnLabel")}</span>
         {review.would_return && WOULD_RETURN_CONFIG[review.would_return] ? (() => {
           const cfg = WOULD_RETURN_CONFIG[review.would_return!];
           const Icon = cfg.icon;
