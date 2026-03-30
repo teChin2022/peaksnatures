@@ -37,7 +37,7 @@ const TAG_I18N: Record<string, string> = {
   scenic_view: "tagScenicView", fresh_air: "tagFreshAir", peaceful: "tagPeaceful",
   delicious_food: "tagDeliciousFood", very_clean: "tagVeryClean", friendly: "tagFriendly",
   close_to_nature: "tagCloseToNature", good_value: "tagGoodValue", family_friendly: "tagFamilyFriendly",
-  romantic: "tagRomantic", pet_friendly: "tagPetFriendly", good_wifi: "tagGoodWifi",
+  romantic: "tagRomantic", good_wifi: "tagGoodWifi",
 };
 
 const WOULD_RETURN_CONFIG: Record<string, { icon: typeof ThumbsUp; color: string; label: string }> = {
