@@ -486,12 +486,14 @@ export function ReviewsDisplay({
                 {t("viewAll")}
               </Button>
             )}
-            <Link href={`/${homestaySlug}/reviews`}>
-              <Button variant="outline" size="sm" className="gap-1 w-full">
-                <PenLine className="h-3.5 w-3.5" />
-                {t("writeReview")}
-              </Button>
-            </Link>
+            {totalCount > 0 && (
+              <Link href={`/${homestaySlug}/reviews`}>
+                <Button variant="outline" size="sm" className="gap-1 w-full">
+                  <PenLine className="h-3.5 w-3.5" />
+                  {t("writeReview")}
+                </Button>
+              </Link>
+            )}
           </div>
         </div>
 
