@@ -64,7 +64,7 @@ export function LandingFooter() {
 
           <div>
             <h4 className="text-[14px] font-bold uppercase tracking-widest text-[#6B7280] mb-6">
-              เชื่อต่อ
+              เชื่อมต่อ
             </h4>
             <ul className="space-y-4 text-sm text-[#6B7280]">
               <li>
