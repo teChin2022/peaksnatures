@@ -18,7 +18,6 @@ export const IMPRESSION_TAGS = [
   "good_value",
   "family_friendly",
   "romantic",
-  "pet_friendly",
   "good_wifi",
 ] as const;
 

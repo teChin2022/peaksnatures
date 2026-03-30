@@ -1,125 +1,135 @@
 "use client";
 
 import Link from "next/link";
-import { Users, CalendarCheck, HandCoins, BadgeCheck, ShieldCheck, Inbox, ClipboardCheck } from "lucide-react";
+import { Users, CalendarCheck, ShieldCheck, BadgeCheck } from "lucide-react";
 import { motion } from "motion/react";
 
 export function ForHosts() {
   const benefits = [
     {
-      icon: <Users className="text-gray-600" size={24} />,
+      icon: <Users className="text-brand" size={22} />,
       title: "เข้าถึงนักท่องเที่ยวสายธรรมชาติ",
       description:
         "เชื่อมต่อโฮมสเตย์ของคุณกับนักเดินทางที่กำลังมองหาที่พักกลางภูเขาและธรรมชาติ",
     },
     {
-      icon: <CalendarCheck className="text-gray-600" size={24} />,
-      title: "ระบบจองที่ใช้งานง่าย",
+      icon: <CalendarCheck className="text-brand" size={22} />,
+      title: "จัดการจองได้ง่ายในที่เดียว",
       description:
-        "จัดการห้องพัก ราคา และการจองได้สะดวกในที่เดียว",
+        "รวมห้องพัก ราคา วันเข้าพัก และสถานะการจองไว้ในที่เดียว ช่วยให้ตอบกลับง่ายขึ้น",
     },
     {
-      icon: <HandCoins className="text-gray-600" size={24} />,
-      title: "ค่าบริการที่ยุติธรรม",
+      icon: <ShieldCheck className="text-brand" size={22} />,
+      title: "ลดความเสี่ยง คัดกรองก่อนตอบรับ",
       description:
-        "เราเก็บค่าบริการเป็นแบบทั้งค่าคอมมิชชั่นและรายเดือน ออกแบบมาเพื่อสนับสนุนโฮมสเตย์ท้องถิ่น",
-    },
-    {
-      icon: <ShieldCheck className="text-gray-600" size={24} />,
-      title: "ลดความเสี่ยงจากสลิปปลอม",
-      description:
-        "ช่วยให้การจองเป็นระบบมากขึ้น ลดความสับสนจากการโอนเงินที่ไม่ตรงกัน หรือการแอบอ้างว่าชำระเงินแล้ว",
-    },
-    {
-      icon: <Inbox className="text-gray-600" size={24} />,
-      title: "รับคำขอจองในที่เดียว",
-      description:
-        "รวมวันเข้าพัก ห้องพัก จำนวนผู้เข้าพัก และสถานะการจองไว้ในที่เดียว ช่วยให้ตอบกลับง่ายขึ้นและลดโอกาสผิดพลาด",
-    },
-    {
-      icon: <ClipboardCheck className="text-gray-600" size={24} />,
-      title: "คัดกรองก่อนตอบรับ",
-      description:
-        "ตรวจสอบรายละเอียดการจองเบื้องต้นก่อนตัดสินใจรับเข้าพัก ช่วยให้คุณตอบรับลูกค้าได้อย่างมั่นใจมากขึ้น",
+        "ตรวจสอบรายละเอียดก่อนรับเข้าพัก พร้อมระบบช่วยลดปัญหาสลิปปลอมและการโอนที่ไม่ตรงกัน",
     },
   ];
 
   return (
-    <section className="py-24 bg-white">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="text-center max-w-3xl mx-auto mb-16">
-          <motion.span
-            initial={{ opacity: 0 }}
-            whileInView={{ opacity: 1 }}
-            className="text-sm font-bold uppercase tracking-[0.3em] text-gray-400 block mb-4"
-          >
-            เป็นเจ้าของโฮมสเตย์?
-          </motion.span>
-          <motion.h2
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            className="text-4xl md:text-5xl font-serif text-gray-900 mb-6"
-          >
-            ลงประกาศ<span className="italic">โฮมสเตย์</span>ของคุณ
-          </motion.h2>
-          <motion.p
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            transition={{ delay: 0.1 }}
-            className="text-gray-600 leading-relaxed text-lg"
-          >
-            เปิดโฮมสเตย์ของคุณให้นักเดินทางสายธรรมชาติได้ค้นพบ
-          </motion.p>
-        </div>
-
-        <div className="grid md:grid-cols-3 gap-12 mb-20">
-          {benefits.map((benefit, idx) => (
-            <motion.div
-              key={idx}
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
-              transition={{ delay: idx * 0.1 }}
-              className="group p-8 rounded-3xl hover:bg-gray-50 transition-colors"
-            >
-              <div className="w-12 h-12 bg-gray-100 rounded-2xl flex items-center justify-center mb-6 group-hover:bg-white transition-colors shadow-sm">
-                {benefit.icon}
-              </div>
-              <h3 className="text-xl font-serif text-gray-900 mb-3">
-                {benefit.title}
-              </h3>
-              <p className="text-gray-500 text-sm leading-relaxed">
-                {benefit.description}
-              </p>
-            </motion.div>
-          ))}
-        </div>
-
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          transition={{ delay: 0.2 }}
-          className="max-w-2xl mx-auto text-center border border-gray-100 rounded-3xl p-10 md:p-14 bg-gray-50/50"
-        >
-          <div className="flex items-center justify-center gap-2 mb-4">
-            <BadgeCheck size={20} className="text-gray-500" />
-            <span className="text-sm font-bold uppercase tracking-[0.2em] text-gray-400">
-              ไม่มีค่าลงประกาศ
-            </span>
-          </div>
-          <h3 className="text-3xl md:text-4xl font-serif text-gray-900 mb-4">
-            สมัคร<span className="italic">ฟรี</span>
-          </h3>
-          <p className="text-gray-500 leading-relaxed mb-8">
-            จ่ายเป็นค่าคอมมิชชั่นหรือจ่ายเป็นรายเดือน
-          </p>
-          <Link
-            href="/register"
-            className="inline-block bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl"
-          >
-            ลงทะเบียนเจ้าของที่พัก
-          </Link>
-        </motion.div>
+    <>
+      {/* Audience transition */}
+      <div className="py-3 bg-earth-50 text-center">
+        <span className="text-xs uppercase tracking-[0.3em] text-earth-400">
+          สำหรับเจ้าของที่พัก
+        </span>
       </div>
-    </section>
+
+      <section className="py-24 md:py-32 bg-[#FEFDFB]">
+        <div className="max-w-7xl mx-auto px-4">
+          <div className="grid lg:grid-cols-2 gap-12 lg:gap-20 items-center">
+            {/* Left — heading + benefits */}
+            <div>
+              <motion.span
+                initial={{ opacity: 0 }}
+                whileInView={{ opacity: 1 }}
+                viewport={{ once: true }}
+                className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400 block mb-4"
+              >
+                เป็นเจ้าของโฮมสเตย์?
+              </motion.span>
+              <div className="overflow-hidden pt-2 -mt-2">
+                <motion.h2
+                  initial={{ y: "100%" }}
+                  whileInView={{ y: 0 }}
+                  viewport={{ once: true }}
+                  transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
+                  className="text-3xl md:text-4xl lg:text-5xl font-serif text-earth-900 mb-4 tracking-tight leading-[1.15]"
+                >
+                  ลงประกาศ<span className="italic text-brand">โฮมสเตย์</span>ของคุณ
+                </motion.h2>
+              </div>
+              <motion.p
+                initial={{ opacity: 0, y: 20 }}
+                whileInView={{ opacity: 1, y: 0 }}
+                viewport={{ once: true }}
+                transition={{ delay: 0.1 }}
+                className="text-earth-600 leading-[1.8] text-base mb-10"
+              >
+                เปิดโฮมสเตย์ของคุณให้นักเดินทางสายธรรมชาติได้ค้นพบ
+              </motion.p>
+
+              <div className="space-y-0">
+                {benefits.map((benefit, idx) => (
+                  <motion.div
+                    key={idx}
+                    initial={{ opacity: 0, y: 30 }}
+                    whileInView={{ opacity: 1, y: 0 }}
+                    viewport={{ once: true, margin: "-50px" }}
+                    transition={{ delay: idx * 0.12, duration: 0.5, ease: [0.25, 0.1, 0, 1] }}
+                    className={`flex items-start gap-5 py-6 ${
+                      idx < benefits.length - 1 ? "border-b border-earth-200" : ""
+                    }`}
+                  >
+                    <div className="w-11 h-11 shrink-0 bg-brand-50 rounded-xl flex items-center justify-center">
+                      {benefit.icon}
+                    </div>
+                    <div>
+                      <h3 className="text-base font-semibold text-earth-800 mb-1">
+                        {benefit.title}
+                      </h3>
+                      <p className="text-earth-500 text-sm leading-relaxed">
+                        {benefit.description}
+                      </p>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
+            </div>
+
+            {/* Right — CTA card */}
+            <motion.div
+              initial={{ opacity: 0, y: 30 }}
+              whileInView={{ opacity: 1, y: 0 }}
+              viewport={{ once: true }}
+              transition={{ delay: 0.2, duration: 0.6 }}
+              className="text-center border border-brand/10 rounded-3xl p-10 md:p-14 bg-gradient-to-br from-brand-50 to-earth-50"
+            >
+              <div className="flex items-center justify-center gap-2 mb-4">
+                <BadgeCheck size={20} className="text-brand" />
+                <span className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">
+                  ไม่มีค่าลงประกาศ
+                </span>
+              </div>
+              <h3 className="text-3xl md:text-4xl font-serif text-earth-900 mb-4 tracking-tight">
+                สมัคร<span className="italic">ฟรี</span>
+              </h3>
+              <p className="text-earth-500 leading-relaxed mb-4">
+                จ่ายเป็นค่าคอมมิชชั่นหรือจ่ายเป็นรายเดือน
+              </p>
+              <p className="text-earth-400 text-sm leading-relaxed mb-8">
+                ออกแบบมาเพื่อสนับสนุนโฮมสเตย์ท้องถิ่น ค่าบริการยุติธรรม
+              </p>
+              <Link
+                href="/register"
+                className="inline-block bg-gradient-to-r from-brand to-brand-700 text-white px-12 py-5 rounded-full font-bold text-sm tracking-[0.15em] uppercase hover:from-brand-hover hover:to-brand transition-all shadow-lg hover:shadow-brand/25 hover:-translate-y-0.5"
+              >
+                ลงทะเบียนเจ้าของที่พัก
+              </Link>
+            </motion.div>
+          </div>
+        </div>
+      </section>
+    </>
   );
 }

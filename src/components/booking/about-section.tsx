@@ -13,7 +13,7 @@ import {
   Fish,
   Check
 } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
+
 import { useTranslations } from "next-intl";
 import { motion } from "motion/react";
 import { HTMLContent } from "@/components/ui/html-content";
@@ -72,7 +72,7 @@ export function AboutSection({
   }, [description]);
 
   return (
-    <section className="py-10">
+    <section className="py-14 md:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
           {/* Description */}
@@ -83,14 +83,23 @@ export function AboutSection({
             transition={{ duration: 0.6 }}
             className="lg:col-span-2"
           >
-            <h2 className="text-xl font-semibold text-gray-900">
-              {t("title")}
-            </h2>
+            <span className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400 block mb-2">{t("title")}</span>
+            <div className="overflow-hidden pt-2 -mt-2">
+              <motion.h2
+                initial={{ y: "100%" }}
+                whileInView={{ y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
+                className="text-2xl md:text-3xl font-serif text-earth-900 tracking-tight"
+              >
+                {t("title")}
+              </motion.h2>
+            </div>
 
             {/* Description card with accent bar */}
             <div className="relative mt-3 px-3 flex gap-0 overflow-hidden rounded-xl">
               <div ref={descRef} className="line-clamp-6 sm:line-clamp-10">
-                <HTMLContent content={description} className="py-4 leading-relaxed text-gray-600" />
+                <HTMLContent content={description} className="py-4 leading-relaxed text-earth-600" />
               </div>
               {descOverflows && (
                 <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white via-white/80 to-transparent" />
@@ -99,7 +108,7 @@ export function AboutSection({
             {descOverflows && (
               <button
                 type="button"
-                className="mt-2 px-3 text-sm font-medium text-gray-900 underline underline-offset-4 hover:text-gray-600"
+                className="mt-2 px-3 text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600"
                 onClick={() => setDescModal(true)}
               >
                 {t("readMore")}
@@ -116,14 +125,14 @@ export function AboutSection({
             className="space-y-6"
           >
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">{t("amenities")}</h3>
+              <h3 className="text-lg font-serif text-earth-800">{t("amenities")}</h3>
               <div className="mt-3 space-y-2">
                 {amenities.slice(0, VISIBLE_ITEMS).map((amenity) => (
                   <div
                     key={amenity}
-                    className="flex items-center gap-2 text-sm text-gray-700"
+                    className="flex items-center gap-2 text-sm text-earth-700"
                   >
-                    <Check className="h-4 w-4 shrink-0 text-gray-500" />
+                    <Check className="h-4 w-4 shrink-0 text-brand" />
                     <span>{amenity}</span>
                   </div>
                 ))}
@@ -131,7 +140,7 @@ export function AboutSection({
               {amenities.length > VISIBLE_ITEMS && (
                 <button
                   type="button"
-                  className="mt-2 text-sm font-medium text-gray-900 underline underline-offset-4 hover:text-gray-600"
+                  className="mt-2 text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600"
                   onClick={() => setAmenitiesModal(true)}
                 >
                   {t("readMore")}
@@ -141,14 +150,14 @@ export function AboutSection({
 
             {prohibitions.length > 0 && (
               <div>
-                <h3 className="text-lg font-semibold text-gray-900">{t("rules")}</h3>
+                <h3 className="text-lg font-serif text-earth-800">{t("rules")}</h3>
                 <div className="mt-3 space-y-2">
                   {prohibitions.slice(0, VISIBLE_ITEMS).map((rule) => (
                     <div
                       key={rule}
-                      className="flex items-center gap-2 text-sm text-gray-700"
+                      className="flex items-center gap-2 text-sm text-earth-700"
                     >
-                      <Check className="h-4 w-4 shrink-0 text-gray-500" />
+                      <Check className="h-4 w-4 shrink-0 text-brand" />
                       <span>{rule}</span>
                     </div>
                   ))}
@@ -156,7 +165,7 @@ export function AboutSection({
                 {prohibitions.length > VISIBLE_ITEMS && (
                   <button
                     type="button"
-                    className="mt-2 text-sm font-medium text-gray-900 underline underline-offset-4 hover:text-gray-600"
+                    className="mt-2 text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600"
                     onClick={() => setRulesModal(true)}
                   >
                     {t("readMore")}
@@ -167,7 +176,6 @@ export function AboutSection({
           </motion.div>
         </div>
 
-        <Separator className="mt-10" />
       </div>
 
       {/* Description Modal */}
@@ -177,7 +185,7 @@ export function AboutSection({
             <DialogTitle>{t("title")}</DialogTitle>
             <DialogDescription className="sr-only">{t("title")}</DialogDescription>
           </DialogHeader>
-          <HTMLContent content={description} className="leading-relaxed text-gray-600" />
+          <HTMLContent content={description} className="leading-relaxed text-earth-600" />
         </DialogContent>
       </Dialog>
 
@@ -192,9 +200,9 @@ export function AboutSection({
             {amenities.map((amenity) => (
               <div
                 key={amenity}
-                className="flex items-center gap-2 text-sm text-gray-700"
+                className="flex items-center gap-2 text-sm text-earth-700"
               >
-                <Check className="h-4 w-4 shrink-0 text-gray-500" />
+                <Check className="h-4 w-4 shrink-0 text-brand" />
                 <span>{amenity}</span>
               </div>
             ))}
@@ -213,9 +221,9 @@ export function AboutSection({
             {prohibitions.map((rule) => (
               <div
                 key={rule}
-                className="flex items-center gap-2 text-sm text-gray-700"
+                className="flex items-center gap-2 text-sm text-earth-700"
               >
-                <Check className="h-4 w-4 shrink-0 text-gray-500" />
+                <Check className="h-4 w-4 shrink-0 text-brand" />
                 <span>{rule}</span>
               </div>
             ))}

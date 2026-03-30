@@ -63,7 +63,7 @@ const statusConfig: Record<string, { color: string; icon: React.ElementType }> =
   verified: { color: "bg-blue-100 text-blue-700", icon: CheckCircle2 },
   confirmed: { color: "bg-green-100 text-green-700", icon: CheckCircle2 },
   rejected: { color: "bg-red-100 text-red-700", icon: XCircle },
-  cancelled: { color: "bg-gray-100 text-gray-500", icon: XCircle },
+  cancelled: { color: "bg-earth-100 text-earth-500", icon: XCircle },
   completed: { color: "bg-purple-100 text-purple-700", icon: CheckCircle2 },
 };
 
@@ -701,13 +701,13 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
           {/* Search input */}
           <div className="flex gap-2 items-center">
             <div className="relative flex-1">
-              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+              <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-400" size={16} />
               <Input
                 placeholder={t("placeholder")}
                 value={query}
                 onChange={(e) => setQuery(e.target.value)}
                 onKeyDown={handleKeyDown}
-                className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-gray-200 !bg-white hover:!border-gray-400 transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-gray-400"
+                className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400"
                 autoFocus
               />
             </div>
@@ -725,14 +725,14 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
           <div className={`${changingDatesId ? "max-h-[75vh]" : "max-h-80"} space-y-2 overflow-y-auto`}>
             {loading && (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                <Loader2 className="h-6 w-6 animate-spin text-earth-400" />
               </div>
             )}
 
             {!loading && searched && results.length === 0 && (
               <div className="flex flex-col items-center justify-center py-8 text-center">
-                <Search className="h-8 w-8 text-gray-300" />
-                <p className="mt-2 text-sm text-gray-500">{t("noResults")}</p>
+                <Search className="h-8 w-8 text-earth-300" />
+                <p className="mt-2 text-sm text-earth-500">{t("noResults")}</p>
               </div>
             )}
 
@@ -743,13 +743,13 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
               return (
                 <div
                   key={booking.id}
-                  className="rounded-lg border bg-gray-50 overflow-hidden"
+                  className="rounded-lg border bg-earth-50 overflow-hidden"
                 >
                  <AnimatePresence mode="wait" initial={false}>
                   {changingDatesId !== booking.id ? (
                   <motion.div key="details" exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.2 }} className="p-3 space-y-1.5">
                   <div className="flex items-center justify-between">
-                    <span className="font-medium text-gray-900 text-sm">
+                    <span className="font-medium text-earth-900 text-sm">
                       {booking.guest_name}
                     </span>
                     <Badge variant="secondary" className={config.color}>
@@ -757,22 +757,22 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                       {t(`status.${booking.status}`)}
                     </Badge>
                   </div>
-                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-gray-500">
+                  <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-earth-500">
                     <span className="flex items-center gap-1">
                       <CalendarDays className="h-3 w-3" />
                       {fmtDateStr(booking.check_in, "d MMM yyyy", locale)} → {fmtDateStr(booking.check_out, "d MMM yyyy", locale)}
                     </span>
                     <span>{booking.room_name}</span>
-                    <span className="font-medium text-gray-900">
+                    <span className="font-medium text-earth-900">
                       ฿{booking.total_price.toLocaleString()}
                     </span>
                     {booking.selected_options && booking.selected_options.length > 0 && (
-                      <span className="text-gray-500">
+                      <span className="text-earth-500">
                         {t("options")}: {booking.selected_options.map((o: { name: string }) => o.name).join(", ")}
                       </span>
                     )}
                     {booking.payment_type === "deposit" && (
-                      <span className="text-gray-600">
+                      <span className="text-earth-600">
                         {t("amountPaid")}: ฿{(booking.amount_paid || 0).toLocaleString()}
                       </span>
                     )}
@@ -782,13 +782,13 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-gray-400 break-all">
+                  <p className="text-xs text-earth-400 break-all">
                     ID: {booking.id}
                   </p>
 
                   {/* Check-in + Cancel buttons: confirmed + not checked in yet */}
                   {booking.status === "confirmed" && !booking.checked_in_at && (
-                    <div className="mt-2 pt-2 border-t border-gray-200 space-y-2">
+                    <div className="mt-2 pt-2 border-t border-earth-200 space-y-2">
                       <Button
                         size="sm"
                         className="w-full bg-brand text-white hover:bg-brand-hover rounded-xl"
@@ -882,7 +882,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                         <Button
                           size="sm"
                           variant="outline"
-                          className="w-full text-gray-600 border-gray-200 hover:bg-gray-50 rounded-xl"
+                          className="w-full text-earth-600 border-earth-200 hover:bg-earth-50 rounded-xl"
                           onClick={() => {
                             setChangingDatesId(booking.id);
                             setDcSelectedRoomId(booking.room_id);
@@ -899,7 +899,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
 
                   {/* Check-out button: confirmed + checked in + not checked out yet */}
                   {booking.status === "confirmed" && booking.checked_in_at && !booking.checked_out_at && (
-                    <div className="mt-2 pt-2 border-t border-gray-200">
+                    <div className="mt-2 pt-2 border-t border-earth-200">
                       <Badge variant="secondary" className="bg-blue-100 text-blue-700 mb-2">
                         <CheckCircle2 className="mr-1 h-3 w-3" />
                         {t("checkedIn")}
@@ -947,18 +947,18 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                 <div className="space-y-2">
                                   {paymentDisplay === "bank" && bankName && bankAccountNumber && bankAccountName ? (
                                     <div className="rounded-lg border bg-white p-3 space-y-1.5">
-                                      <p className="text-xs text-gray-500 text-center mb-1">{t("bankTransferTitle")}</p>
+                                      <p className="text-xs text-earth-500 text-center mb-1">{t("bankTransferTitle")}</p>
                                       <div className="flex justify-between text-xs">
-                                        <span className="text-gray-500">{t("bankTransferTitle")}</span>
-                                        <span className="font-medium text-gray-900">{bankName}</span>
+                                        <span className="text-earth-500">{t("bankTransferTitle")}</span>
+                                        <span className="font-medium text-earth-900">{bankName}</span>
                                       </div>
                                       <div className="flex justify-between text-xs">
-                                        <span className="text-gray-500">{t("bankAccountNo")}</span>
-                                        <span className="font-mono font-medium text-gray-900">{bankAccountNumber}</span>
+                                        <span className="text-earth-500">{t("bankAccountNo")}</span>
+                                        <span className="font-mono font-medium text-earth-900">{bankAccountNumber}</span>
                                       </div>
                                       <div className="flex justify-between text-xs">
-                                        <span className="text-gray-500">{t("bankAccountHolderName")}</span>
-                                        <span className="font-medium text-gray-900">{bankAccountName}</span>
+                                        <span className="text-earth-500">{t("bankAccountHolderName")}</span>
+                                        <span className="font-medium text-earth-900">{bankAccountName}</span>
                                       </div>
                                     </div>
                                   ) : (
@@ -972,7 +972,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                       </div>
                                     </div>
                                   )}
-                                  <p className="text-center text-sm font-bold text-gray-900">
+                                  <p className="text-center text-sm font-bold text-earth-900">
                                     ฿{(booking.total_price - (booking.amount_paid || 0)).toLocaleString()}
                                   </p>
                                   <input
@@ -1047,7 +1047,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                               {/* Cash flow */}
                               {balancePayMethod === "cash" && (
                                 <div className="space-y-2">
-                                  <p className="text-center text-sm font-bold text-gray-900">
+                                  <p className="text-center text-sm font-bold text-earth-900">
                                     ฿{(booking.total_price - (booking.amount_paid || 0)).toLocaleString()}
                                   </p>
                                   <Button
@@ -1100,7 +1100,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
 
                   {/* Review section for completed bookings */}
                   {booking.status === "completed" && (
-                    <div className="mt-2 pt-2 border-t border-gray-200">
+                    <div className="mt-2 pt-2 border-t border-earth-200">
                       {booking.has_review ? (
                         <Badge variant="secondary" className="bg-brand-50 text-brand">
                           <CheckCircle2 className="mr-1 h-3 w-3" />
@@ -1126,10 +1126,10 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                   ) : (
                   <motion.div key="calendar" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.25 }} className="p-3 space-y-2">
                     <div className="flex items-center gap-3 mb-1">
-                      <button onClick={resetDateChangeState} className="p-1.5 rounded-full hover:bg-gray-200 text-gray-400 transition-colors"><ArrowLeft size={16} /></button>
+                      <button onClick={resetDateChangeState} className="p-1.5 rounded-full hover:bg-earth-200 text-earth-400 transition-colors"><ArrowLeft size={16} /></button>
                       <div className="flex-1 min-w-0">
-                        <p className="text-xs font-medium text-gray-700">{t("changeDatesDesc")}</p>
-                        <p className="text-[11px] text-gray-400 truncate">
+                        <p className="text-xs font-medium text-earth-700">{t("changeDatesDesc")}</p>
+                        <p className="text-[11px] text-earth-400 truncate">
                           {booking.room_name} · {fmtDateStr(booking.check_in, "d MMM", locale)} → {fmtDateStr(booking.check_out, "d MMM", locale)} · ฿{booking.total_price.toLocaleString()}
                         </p>
                       </div>
@@ -1138,9 +1138,9 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                     {/* Room selector */}
                     {dcRooms.length > 1 && (
                       <div className="px-1">
-                        <label className="text-[11px] font-medium text-gray-500 mb-1 block">{t("selectRoom")}</label>
+                        <label className="text-[11px] font-medium text-earth-500 mb-1 block">{t("selectRoom")}</label>
                         <select
-                          className="w-full rounded-md border border-gray-200 bg-white px-2.5 py-1.5 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-300"
+                          className="w-full rounded-md border border-earth-200 bg-white px-2.5 py-1.5 text-xs text-earth-700 focus:outline-none focus:ring-1 focus:ring-gray-300"
                           value={dcSelectedRoomId || ""}
                           onChange={(e) => {
                             const newRoomId = e.target.value;
@@ -1164,7 +1164,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                     )}
 
                     {dcLoadingAvailability && (
-                      <div className="flex items-center justify-center gap-2 py-4 text-xs text-gray-500">
+                      <div className="flex items-center justify-center gap-2 py-4 text-xs text-earth-500">
                         <Loader2 className="h-3.5 w-3.5 animate-spin" />
                       </div>
                     )}
@@ -1209,14 +1209,14 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                       <div className="space-y-2">
                         <div className="grid grid-cols-2 gap-2 text-xs">
                           <div className="rounded bg-white p-2 border">
-                            <span className="text-gray-500">{t("currentDates")}</span>
-                            <p className="font-medium text-gray-700">
+                            <span className="text-earth-500">{t("currentDates")}</span>
+                            <p className="font-medium text-earth-700">
                               {fmtDateStr(booking.check_in, "d MMM", locale)} → {fmtDateStr(booking.check_out, "d MMM", locale)}
                             </p>
                           </div>
                           <div className="rounded bg-white p-2 border">
-                            <span className="text-gray-500">{t("newDates")}</span>
-                            <p className="font-medium text-gray-900">
+                            <span className="text-earth-500">{t("newDates")}</span>
+                            <p className="font-medium text-earth-900">
                               {fmtDate(dateRange.from, "d MMM", locale)} → {fmtDate(dateRange.to, "d MMM", locale)}
                             </p>
                           </div>
@@ -1226,16 +1226,16 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                           <div className="space-y-2">
                             <div className="rounded bg-white p-2 border text-xs space-y-1">
                               <div className="flex justify-between">
-                                <span className="text-gray-500">{t("originalPrice")}</span>
+                                <span className="text-earth-500">{t("originalPrice")}</span>
                                 <span>฿{booking.total_price.toLocaleString()}</span>
                               </div>
                               <div className="flex justify-between">
-                                <span className="text-gray-500">{t("newPrice")}</span>
+                                <span className="text-earth-500">{t("newPrice")}</span>
                                 <span className="font-medium">฿{dateChangePriceInfo.new_total_price.toLocaleString()}</span>
                               </div>
                               {dateChangePriceInfo.price_difference !== 0 && (
                                 <div className="flex justify-between font-medium">
-                                  <span className="text-gray-500">{t("priceDifference")}</span>
+                                  <span className="text-earth-500">{t("priceDifference")}</span>
                                   <span className={dateChangePriceInfo.price_difference > 0 ? "text-red-600" : "text-green-600"}>
                                     {dateChangePriceInfo.price_difference > 0 ? "+" : ""}฿{dateChangePriceInfo.price_difference.toLocaleString()}
                                   </span>
@@ -1243,7 +1243,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                               )}
                               <div className="border-t border-gray-100 pt-1 mt-1">
                                 <div className="flex justify-between">
-                                  <span className="text-gray-500">{t("amountPaid")}</span>
+                                  <span className="text-earth-500">{t("amountPaid")}</span>
                                   <span>฿{dateChangePriceInfo.amount_paid.toLocaleString()}</span>
                                 </div>
                                 {dcEffectiveAdditional > 0 && (
@@ -1254,7 +1254,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                 )}
                                 {Math.max(0, dateChangePriceInfo.new_total_price - dateChangePriceInfo.amount_paid - dcEffectiveAdditional) > 0 && (
                                   <div className="flex justify-between font-medium">
-                                    <span className="text-gray-500">{t("remainingBalance")}</span>
+                                    <span className="text-earth-500">{t("remainingBalance")}</span>
                                     <span>฿{Math.max(0, dateChangePriceInfo.new_total_price - dateChangePriceInfo.amount_paid - dcEffectiveAdditional).toLocaleString()}</span>
                                   </div>
                                 )}
@@ -1262,19 +1262,19 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                             </div>
                             {dateChangePriceInfo.deposit_available && dcEffectiveAdditional > 0 && (
                               <div className="space-y-1.5">
-                                <p className="text-[11px] font-medium text-gray-600">{t("dcPaymentOptionTitle")}</p>
+                                <p className="text-[11px] font-medium text-earth-600">{t("dcPaymentOptionTitle")}</p>
                                 <div className="grid grid-cols-2 gap-2">
                                   <button type="button" onClick={() => { setDcPaymentOption("deposit"); setDateChangeSlipFile(null); setDateChangeSlipPreview(null); setDcPhoneSlipReceived(false); }}
                                     className={`rounded-lg border-2 p-2 text-left text-xs transition-all ${dcPaymentOption === "deposit" ? "border-brand bg-brand/5" : "border-gray-100 hover:border-gray-300"}`}>
-                                    <p className="font-bold text-gray-900">{t("paymentDeposit")}</p>
-                                    <p className="font-semibold text-[11px] text-gray-700">฿{Math.max(0, dateChangePriceInfo.new_deposit - dateChangePriceInfo.amount_paid).toLocaleString()}</p>
-                                    <p className="text-[10px] text-gray-400 mt-0.5">{t("dcDepositDesc", { balance: Math.max(0, dateChangePriceInfo.new_total_price - dateChangePriceInfo.amount_paid - Math.max(0, dateChangePriceInfo.new_deposit - dateChangePriceInfo.amount_paid)).toLocaleString() })}</p>
+                                    <p className="font-bold text-earth-900">{t("paymentDeposit")}</p>
+                                    <p className="font-semibold text-[11px] text-earth-700">฿{Math.max(0, dateChangePriceInfo.new_deposit - dateChangePriceInfo.amount_paid).toLocaleString()}</p>
+                                    <p className="text-[10px] text-earth-400 mt-0.5">{t("dcDepositDesc", { balance: Math.max(0, dateChangePriceInfo.new_total_price - dateChangePriceInfo.amount_paid - Math.max(0, dateChangePriceInfo.new_deposit - dateChangePriceInfo.amount_paid)).toLocaleString() })}</p>
                                   </button>
                                   <button type="button" onClick={() => { setDcPaymentOption("full"); setDateChangeSlipFile(null); setDateChangeSlipPreview(null); setDcPhoneSlipReceived(false); }}
                                     className={`rounded-lg border-2 p-2 text-left text-xs transition-all ${dcPaymentOption === "full" ? "border-brand bg-brand/5" : "border-gray-100 hover:border-gray-300"}`}>
-                                    <p className="font-bold text-gray-900">{t("paymentFull")}</p>
-                                    <p className="font-semibold text-[11px] text-gray-700">฿{dateChangePriceInfo.full_outstanding.toLocaleString()}</p>
-                                    <p className="text-[10px] text-gray-400 mt-0.5">{t("dcFullDesc")}</p>
+                                    <p className="font-bold text-earth-900">{t("paymentFull")}</p>
+                                    <p className="font-semibold text-[11px] text-earth-700">฿{dateChangePriceInfo.full_outstanding.toLocaleString()}</p>
+                                    <p className="text-[10px] text-earth-400 mt-0.5">{t("dcFullDesc")}</p>
                                   </button>
                                 </div>
                               </div>
@@ -1383,16 +1383,16 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                 {paymentDisplay === "bank" && bankName && bankAccountNumber && bankAccountName ? (
                                   <div className="w-full rounded-lg border bg-white p-3 space-y-1.5">
                                     <div className="flex justify-between text-xs">
-                                      <span className="text-gray-500">{t("bankTransferTitle")}</span>
-                                      <span className="font-medium text-gray-900">{bankName}</span>
+                                      <span className="text-earth-500">{t("bankTransferTitle")}</span>
+                                      <span className="font-medium text-earth-900">{bankName}</span>
                                     </div>
                                     <div className="flex justify-between text-xs">
-                                      <span className="text-gray-500">{t("bankAccountNo")}</span>
-                                      <span className="font-mono font-medium text-gray-900">{bankAccountNumber}</span>
+                                      <span className="text-earth-500">{t("bankAccountNo")}</span>
+                                      <span className="font-mono font-medium text-earth-900">{bankAccountNumber}</span>
                                     </div>
                                     <div className="flex justify-between text-xs">
-                                      <span className="text-gray-500">{t("bankAccountHolderName")}</span>
-                                      <span className="font-medium text-gray-900">{bankAccountName}</span>
+                                      <span className="text-earth-500">{t("bankAccountHolderName")}</span>
+                                      <span className="font-medium text-earth-900">{bankAccountName}</span>
                                     </div>
                                   </div>
                                 ) : (
@@ -1430,7 +1430,7 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                                           };
                                           img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
                                         }}
-                                        className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[11px] font-medium text-gray-700 border border-gray-200 hover:bg-gray-50"
+                                        className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[11px] font-medium text-earth-700 border border-earth-200 hover:bg-earth-50"
                                       >
                                         <Download className="h-3 w-3" />{t("saveQrImage")}
                                       </button>
@@ -1450,16 +1450,16 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
                               {!isMobile && (
                                 <>
                                   <div className="relative flex items-center gap-3 py-1">
-                                    <div className="flex-1 border-t border-gray-200" />
-                                    <span className="text-[10px] font-medium text-gray-400">{t("orUploadFromPhone")}</span>
-                                    <div className="flex-1 border-t border-gray-200" />
+                                    <div className="flex-1 border-t border-earth-200" />
+                                    <span className="text-[10px] font-medium text-earth-400">{t("orUploadFromPhone")}</span>
+                                    <div className="flex-1 border-t border-earth-200" />
                                   </div>
                                   <div className="rounded-lg border bg-white p-3 text-center">
-                                    <p className="mb-2 text-[10px] text-gray-500">{t("scanToUpload")}</p>
+                                    <p className="mb-2 text-[10px] text-earth-500">{t("scanToUpload")}</p>
                                     <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-lg border bg-white p-1">
                                       <QRCodeSVG value={`${typeof window !== "undefined" ? window.location.origin : ""}/upload-slip/${dcUploadSessionId}`} size={80} level="M" />
                                     </div>
-                                    <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-gray-400">
+                                    <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-earth-400">
                                       <Loader2 className="h-2.5 w-2.5 animate-spin" />{t("waitingForPhoneUpload")}
                                     </div>
                                   </div>

@@ -9,7 +9,7 @@
   --color-foreground: var(--foreground);
   --font-sans: var(--font-geist-sans);
   --font-mono: var(--font-geist-mono);
-  --font-serif: var(--font-playfair);
+  --font-serif: var(--font-playfair), var(--font-noto-serif-thai), serif;
 
   --color-earth-50: #faf8f5;
   --color-earth-100: #f0ebe4;
@@ -203,9 +203,10 @@
 
 /* Landing page utilities */
 .glass-nav {
-  background: rgba(255, 255, 255, 0.95);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+  background: rgba(255, 255, 255, 0.72);
+  backdrop-filter: blur(24px) saturate(200%);
+  -webkit-backdrop-filter: blur(24px) saturate(200%);
+  border-bottom: 1px solid rgba(255, 255, 255, 0.2);
 }
 
 .card-hover {
@@ -223,4 +224,33 @@
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
+}
+
+/* Hero mist animation */
+@keyframes drift {
+  0% { transform: translateX(-10%); }
+  50% { transform: translateX(10%); }
+  100% { transform: translateX(-10%); }
+}
+
+.hero-mist::before,
+.hero-mist::after {
+  content: "";
+  position: absolute;
+  bottom: 0;
+  left: -10%;
+  right: -10%;
+  height: 30%;
+  pointer-events: none;
+  background: linear-gradient(to top, rgba(255,255,255,0.15) 0%, transparent 100%);
+  opacity: 0.4;
+}
+
+.hero-mist::before {
+  animation: drift 30s ease-in-out infinite;
+}
+
+.hero-mist::after {
+  animation: drift 45s ease-in-out infinite reverse;
+  opacity: 0.25;
 }

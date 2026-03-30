@@ -37,13 +37,13 @@ const TAG_I18N: Record<string, string> = {
   scenic_view: "tagScenicView", fresh_air: "tagFreshAir", peaceful: "tagPeaceful",
   delicious_food: "tagDeliciousFood", very_clean: "tagVeryClean", friendly: "tagFriendly",
   close_to_nature: "tagCloseToNature", good_value: "tagGoodValue", family_friendly: "tagFamilyFriendly",
-  romantic: "tagRomantic", pet_friendly: "tagPetFriendly", good_wifi: "tagGoodWifi",
+  romantic: "tagRomantic", good_wifi: "tagGoodWifi",
 };
 
 const WOULD_RETURN_CONFIG: Record<string, { icon: typeof ThumbsUp; color: string; label: string }> = {
   yes: { icon: ThumbsUp, color: "text-green-600", label: "wouldReturnYes" },
   maybe: { icon: Minus, color: "text-amber-500", label: "wouldReturnMaybe" },
-  no: { icon: ThumbsDown, color: "text-gray-400", label: "wouldReturnNo" },
+  no: { icon: ThumbsDown, color: "text-earth-400", label: "wouldReturnNo" },
 };
 
 const AVATAR_COLORS = [
@@ -69,8 +69,8 @@ function RatingBar({ value, label }: { value: number; label: string }) {
   const pct = value > 0 ? (value / 5) * 100 : 0;
   return (
     <div className="flex items-center gap-2">
-      <span className="w-24 shrink-0 truncate text-[11px] text-gray-500" title={label}>{label}</span>
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-gray-100">
+      <span className="w-24 shrink-0 truncate text-[11px] text-earth-500" title={label}>{label}</span>
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-earth-100">
         {pct > 0 && (
           <div
             className="h-full rounded-full bg-gradient-to-r from-[#2F5D50] to-[#3d7a6a]"
@@ -78,7 +78,7 @@ function RatingBar({ value, label }: { value: number; label: string }) {
           />
         )}
       </div>
-      <span className="w-3 text-right text-[11px] font-medium text-gray-500">
+      <span className="w-3 text-right text-[11px] font-medium text-earth-500">
         {value > 0 ? value : "—"}
       </span>
     </div>
@@ -201,17 +201,17 @@ function ReviewCard({
   ];
 
   return (
-    <div className="group flex flex-col rounded-2xl border border-gray-100 bg-white p-5 h-full transition-all hover:shadow-lg hover:shadow-gray-100/80">
+    <div className="group flex flex-col rounded-2xl border border-earth-100 bg-white p-5 h-full transition-all hover:shadow-lg hover:shadow-gray-100/80">
       {/* Header: avatar + name + score pill */}
       <div className="flex items-start gap-3">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarColor}`}>
           {initials}
         </div>
         <div className="min-w-0 flex-1">
-          <span className="text-sm font-semibold text-gray-900 truncate block">{review.guest_name}</span>
+          <span className="text-sm font-semibold text-earth-900 truncate block">{review.guest_name}</span>
           <div className="flex items-center gap-1.5 mt-0.5">
             <ProvinceLabel province={province} locale={locale} />
-            <span className="text-[11px] text-gray-300">
+            <span className="text-[11px] text-earth-300">
               {fmtDateStr(review.created_at.split("T")[0], "d MMM yyyy", locale)}
             </span>
           </div>
@@ -231,7 +231,7 @@ function ReviewCard({
 
       {/* Would return */}
       <div className="mt-2 flex items-center justify-between gap-2">
-        <span className="text-[11px] text-gray-500">{t("wouldReturnLabel")}</span>
+        <span className="text-[11px] text-earth-500">{t("wouldReturnLabel")}</span>
         {review.would_return && WOULD_RETURN_CONFIG[review.would_return] ? (() => {
           const cfg = WOULD_RETURN_CONFIG[review.would_return!];
           const Icon = cfg.icon;
@@ -242,16 +242,16 @@ function ReviewCard({
             </span>
           );
         })() : (
-          <span className="text-[11px] text-gray-300">—</span>
+          <span className="text-[11px] text-earth-300">—</span>
         )}
       </div>
 
       {/* Divider */}
-      <div className="my-3 h-px bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100" />
+      <div className="my-3 h-px bg-gradient-to-r from-earth-100 via-earth-200 to-earth-100" />
 
       {/* Comment */}
       {review.comment && (
-        <p className="text-[13px] leading-relaxed text-gray-600 line-clamp-3">
+        <p className="text-[13px] leading-relaxed text-earth-600 line-clamp-3">
           {review.comment}
         </p>
       )}
@@ -260,7 +260,7 @@ function ReviewCard({
       {review.photos && review.photos.length > 0 && (
         <div className="mt-3 flex gap-1.5 overflow-x-auto">
           {review.photos.map((url, i) => (
-            <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-gray-100 transition-transform hover:scale-105">
+            <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-earth-100 transition-transform hover:scale-105">
               <img src={url} alt="" className="h-full w-full object-cover" />
             </button>
           ))}
@@ -313,17 +313,17 @@ function ModalReviewCard({ review, locale, t, onPhotoClick }: { review: ReviewWi
   ];
 
   return (
-    <div className="rounded-2xl border border-gray-100 bg-white p-5">
+    <div className="rounded-2xl border border-earth-100 bg-white p-5">
       {/* Header */}
       <div className="flex items-start gap-3">
         <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarColor}`}>
           {initials}
         </div>
         <div className="min-w-0 flex-1">
-          <span className="text-sm font-semibold text-gray-900 truncate block">{review.guest_name}</span>
+          <span className="text-sm font-semibold text-earth-900 truncate block">{review.guest_name}</span>
           <div className="flex items-center gap-1.5 mt-0.5">
             <ProvinceLabel province={province} locale={locale} />
-            <span className="text-[11px] text-gray-300">
+            <span className="text-[11px] text-earth-300">
               {fmtDateStr(review.created_at.split("T")[0], "d MMM yyyy", locale)}
             </span>
           </div>
@@ -343,7 +343,7 @@ function ModalReviewCard({ review, locale, t, onPhotoClick }: { review: ReviewWi
 
       {/* Would return */}
       <div className="mt-2 flex items-center justify-between gap-2">
-        <span className="text-[11px] text-gray-500">{t("wouldReturnLabel")}</span>
+        <span className="text-[11px] text-earth-500">{t("wouldReturnLabel")}</span>
         {review.would_return && WOULD_RETURN_CONFIG[review.would_return] ? (() => {
           const cfg = WOULD_RETURN_CONFIG[review.would_return!];
           const Icon = cfg.icon;
@@ -354,23 +354,23 @@ function ModalReviewCard({ review, locale, t, onPhotoClick }: { review: ReviewWi
             </span>
           );
         })() : (
-          <span className="text-[11px] text-gray-300">—</span>
+          <span className="text-[11px] text-earth-300">—</span>
         )}
       </div>
 
       {/* Divider */}
-      <div className="my-3 h-px bg-gradient-to-r from-gray-100 via-gray-200 to-gray-100" />
+      <div className="my-3 h-px bg-gradient-to-r from-earth-100 via-earth-200 to-earth-100" />
 
       {/* Comment — full text */}
       {review.comment && (
-        <p className="text-[13px] leading-relaxed text-gray-600 whitespace-pre-wrap">{review.comment}</p>
+        <p className="text-[13px] leading-relaxed text-earth-600 whitespace-pre-wrap">{review.comment}</p>
       )}
 
       {/* Photos — larger */}
       {review.photos && review.photos.length > 0 && (
         <div className="mt-3 flex gap-2 overflow-x-auto">
           {review.photos.map((url, i) => (
-            <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-gray-100 transition-transform hover:scale-105">
+            <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-earth-100 transition-transform hover:scale-105">
               <img src={url} alt="" className="h-full w-full object-cover" />
             </button>
           ))}
@@ -461,22 +461,20 @@ export function ReviewsDisplay({
       <div className="space-y-4">
         {/* Header */}
         <div className="flex items-center justify-between">
-          <div className="flex items-center gap-2.5">
-            <div className="flex h-9 w-9 items-center justify-center rounded-xl bg-gray-100">
-              <Star className="h-4.5 w-4.5 text-gray-600" />
-            </div>
+          <div>
+            <span className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400 block mb-1">{t("title")}</span>
             <div>
-              <h3 className="text-lg font-semibold text-gray-900">{t("title")}</h3>
+              <h3 className="text-2xl md:text-3xl font-serif text-earth-900 tracking-tight">{t("title")}</h3>
               {totalCount > 0 ? (
                 <div className="flex items-center gap-2">
                   <StarRating rating={Math.round(averageRating)} size={14} />
-                  <span className="text-sm font-medium text-gray-900">{averageRating}</span>
-                  <span className="text-sm text-gray-500">
+                  <span className="text-sm font-medium text-earth-900">{averageRating}</span>
+                  <span className="text-sm text-earth-500">
                     ({totalCount} {totalCount === 1 ? t("review") : t("reviewPlural")})
                   </span>
                 </div>
               ) : (
-                <p className="text-sm text-gray-500">{t("noReviews")}</p>
+                <p className="text-sm text-earth-500">{t("noReviews")}</p>
               )}
             </div>
           </div>
@@ -504,10 +502,10 @@ export function ReviewsDisplay({
               const avg = categoryAverages[cat.key] || 0;
               if (avg === 0) return null;
               return (
-                <div key={cat.key} className="flex items-center gap-1.5 rounded-lg bg-gray-50 px-3 py-1.5">
-                  <span className="text-sm font-semibold text-gray-900">{avg}</span>
+                <div key={cat.key} className="flex items-center gap-1.5 rounded-lg bg-earth-50 px-3 py-1.5">
+                  <span className="text-sm font-semibold text-earth-900">{avg}</span>
                   <Star className="h-3 w-3" style={{ fill: "#2F5D50", color: "#2F5D50" }} />
-                  <span className="text-xs text-gray-500">{t(CATEGORY_I18N[cat.key].label)}</span>
+                  <span className="text-xs text-earth-500">{t(CATEGORY_I18N[cat.key].label)}</span>
                 </div>
               );
             })}
@@ -525,9 +523,9 @@ export function ReviewsDisplay({
 
         {/* Empty state */}
         {totalCount === 0 && (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50/50 py-10 text-center">
-            <MessageSquare className="h-8 w-8 text-gray-300" />
-            <p className="mt-2 text-sm text-gray-400">{t("noReviewsYet")}</p>
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-earth-200 bg-earth-50/50 py-10 text-center">
+            <MessageSquare className="h-8 w-8 text-earth-300" />
+            <p className="mt-2 text-sm text-earth-400">{t("noReviewsYet")}</p>
             <Link href={`/${homestaySlug}/reviews`} className="mt-3">
               <Button variant="outline" size="sm" className="gap-1">
                 <PenLine className="h-3.5 w-3.5" />
@@ -543,9 +541,9 @@ export function ReviewsDisplay({
         <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Star className="h-5 w-5 text-gray-600" />
+              <Star className="h-5 w-5 text-earth-600" />
               {t("viewAllTitle")}
-              <span className="text-sm font-normal text-gray-500">
+              <span className="text-sm font-normal text-earth-500">
                 ({modalTotal} {modalTotal === 1 ? t("review") : t("reviewPlural")})
               </span>
             </DialogTitle>
@@ -553,7 +551,7 @@ export function ReviewsDisplay({
           <div className="flex-1 overflow-y-auto pr-1">
             {modalReviews.length === 0 && modalLoading ? (
               <div className="flex items-center justify-center py-16">
-                <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                <Loader2 className="h-6 w-6 animate-spin text-earth-400" />
               </div>
             ) : (
               <>
@@ -563,7 +561,7 @@ export function ReviewsDisplay({
                   ))}
                 </div>
                 <div className="flex flex-col items-center gap-2 pt-4">
-                  <p className="text-xs text-gray-500">
+                  <p className="text-xs text-earth-500">
                     {t("showingCount", { count: modalReviews.length, total: modalTotal })}
                   </p>
                   {hasMoreInModal && (

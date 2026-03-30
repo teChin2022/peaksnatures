@@ -14,7 +14,7 @@ export function LandingNavbar() {
   const menuRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
+    const handleScroll = () => setScrolled(window.scrollY > window.innerHeight * 0.15);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -42,7 +42,7 @@ export function LandingNavbar() {
           </div> */}
           <span
             className={`text-2xl font-serif font-bold tracking-tight ${
-              scrolled ? "text-gray-900" : "text-white"
+              scrolled ? "text-earth-900" : "text-white"
             }`}
           >
             Peaksnature
@@ -77,7 +77,7 @@ export function LandingNavbar() {
         <div className="flex items-center gap-4">
           {/* <button
             className={`p-2 rounded-full hover:bg-white/10 transition-colors ${
-              scrolled ? "text-gray-900" : "text-white"
+              scrolled ? "text-earth-900" : "text-white"
             }`}
           >
             <Globe size={20} />
@@ -86,7 +86,7 @@ export function LandingNavbar() {
           <div className="relative" ref={menuRef}>
             <button 
               onClick={() => setIsMenuOpen(!isMenuOpen)}
-              className={`p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${scrolled ? 'text-[#111111]' : 'text-white'}`}
+              className={`p-3 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${scrolled ? 'text-earth-900' : 'text-white'}`}
             >
               <User size={20} />
             </button>
@@ -98,18 +98,14 @@ export function LandingNavbar() {
                   animate={{ opacity: 1, y: 0, scale: 1 }}
                   exit={{ opacity: 0, y: 10, scale: 0.95 }}
                   transition={{ duration: 0.2 }}
-                  className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-gray-200 overflow-hidden py-2"
+                  className="absolute right-0 mt-2 w-48 bg-white rounded-2xl shadow-xl border border-earth-100 overflow-hidden py-2"
                 >
-                  <button className="w-full text-left px-4 py-3 text-sm font-medium text-[#111111] hover:bg-gray-50 transition-colors">
-                    <Link href="/register" className="cursor-pointer">
-                      {t("hostRegister")}
-                    </Link>
-                  </button>
-                  <button className="w-full text-left px-4 py-3 text-sm font-medium text-[#111111] hover:bg-gray-50 transition-colors">
-                    <Link href="/login" className="cursor-pointer">
-                      {t("hostLogin")}
-                    </Link>
-                  </button>
+                  <Link href="/register" className="block px-4 py-3 text-sm font-medium text-earth-900 hover:bg-earth-50 transition-colors">
+                    {t("hostRegister")}
+                  </Link>
+                  <Link href="/login" className="block px-4 py-3 text-sm font-medium text-earth-900 hover:bg-earth-50 transition-colors">
+                    {t("hostLogin")}
+                  </Link>
                 </motion.div>
               )}
             </AnimatePresence>

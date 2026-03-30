@@ -23,7 +23,7 @@ export function BookingHeader({ homestayName, logoUrl, homestayId, promptpayId, 
   const [scrolled, setScrolled] = useState(false);
 
   useEffect(() => {
-    const handleScroll = () => setScrolled(window.scrollY > 50);
+    const handleScroll = () => setScrolled(window.scrollY > window.innerHeight * 0.15);
     window.addEventListener("scroll", handleScroll);
     return () => window.removeEventListener("scroll", handleScroll);
   }, []);
@@ -38,8 +38,8 @@ export function BookingHeader({ homestayName, logoUrl, homestayId, promptpayId, 
         <div className="flex items-center gap-3 min-w-0">
           <Link
             href="/"
-            className={`flex items-center gap-1.5 text-sm transition-colors shrink-0 ${
-              scrolled ? "text-gray-400 hover:text-gray-700" : "text-white/70 hover:text-white"
+            className={`flex items-center gap-1.5 text-sm transition-colors shrink-0 p-3 -ml-3 ${
+              scrolled ? "text-earth-400 hover:text-earth-700" : "text-white/70 hover:text-white"
             }`}
           >
             <ArrowLeft className="h-4 w-4" />
@@ -57,7 +57,7 @@ export function BookingHeader({ homestayName, logoUrl, homestayId, promptpayId, 
           )}
           <span
             className={`truncate text-sm font-semibold transition-colors ${
-              scrolled ? "text-gray-900" : "text-white"
+              scrolled ? "text-earth-900" : "text-white"
             }`}
           >
             {homestayName}

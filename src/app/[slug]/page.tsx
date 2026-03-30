@@ -147,20 +147,23 @@ export default async function HomestayPage({ params }: PageProps) {
           name={homestay.name}
           tagline={homestay.tagline}
           heroImageUrl={homestay.hero_image_url}
+          location={homestay.location}
         />
 
         <GallerySection images={homestay.gallery} name={homestay.name} />
 
-        <HostLocationSection
-          hostName={homestay.host.name}
-          hostAvatarUrl={homestay.host.avatar_url}
-          isVerified={homestay.host.is_verified}
-          hostCreatedAt={homestay.host.created_at}
-          totalBookings={totalBookings}
-          lastBookingDate={lastBookingDate}
-          location={homestay.location}
-          mapEmbedUrl={homestay.map_embed_url}
-        />
+        <div className="bg-earth-50">
+          <HostLocationSection
+            hostName={homestay.host.name}
+            hostAvatarUrl={homestay.host.avatar_url}
+            isVerified={homestay.host.is_verified}
+            hostCreatedAt={homestay.host.created_at}
+            totalBookings={totalBookings}
+            lastBookingDate={lastBookingDate}
+            location={homestay.location}
+            mapEmbedUrl={homestay.map_embed_url}
+          />
+        </div>
 
         <AboutSection
           description={homestay.description}
@@ -169,7 +172,10 @@ export default async function HomestayPage({ params }: PageProps) {
           location={homestay.location}
           prohibitions={homestay.prohibitions}
         />
-        <RoomsSection rooms={rooms} seasonalPrices={seasonalPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} />
+
+        <div className="bg-earth-50">
+          <RoomsSection rooms={rooms} seasonalPrices={seasonalPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} />
+        </div>
 
         {/* Booking (inline) */}
         <BookingSection
@@ -183,7 +189,7 @@ export default async function HomestayPage({ params }: PageProps) {
         />
 
         {/* Reviews */}
-        <section className="py-10">
+        <section className="py-16 md:py-24 bg-earth-50">
           <div className="mx-auto max-w-7xl px-4 sm:px-6">
             <ReviewsDisplay
               reviews={reviews}

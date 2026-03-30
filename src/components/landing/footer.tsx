@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { Instagram, Facebook, Twitter } from "lucide-react";
 import Link from "next/link";
 import {
   Dialog,
@@ -16,46 +15,40 @@ export function LandingFooter() {
   const [contactOpen, setContactOpen] = useState(false);
   return (
     <>
-    <footer className="bg-section-alt text-[#111111] pt-24 pb-12 border-t border-gray-200">
+    <footer className="bg-earth-900 text-earth-100 pt-24 pb-12">
       <div className="max-w-7xl mx-auto px-4">
         <div className="grid md:grid-cols-4 gap-12 mb-24">
           <div className="col-span-2">
-            <h2 className="text-3xl font-serif mb-6 text-[#111111]">
+            <h2 className="text-3xl font-serif mb-2 text-earth-50">
               Peaksnature
             </h2>
-            <p className="text-[#6B7280] max-w-sm mb-8">
+            <p className="text-xs uppercase tracking-[0.2em] text-earth-500 mb-6">
+              Nature Homestays in Thailand
+            </p>
+            <p className="text-earth-400 max-w-sm mb-8">
               คัดสรรที่พักกลางธรรมชาติ
               <br />
               ในมุมที่เงียบสงบและน่าค้นพบ
             </p>
-            {/* <div className="flex gap-4">
-              <span className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#111111] hover:text-[#111111] text-[#6B7280] cursor-pointer transition-colors">
-                <Instagram size={18} />
-              </span>
-              <span className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#111111] hover:text-[#111111] text-[#6B7280] cursor-pointer transition-colors">
-                <Facebook size={18} />
-              </span>
-              <span className="w-10 h-10 rounded-full border border-gray-300 flex items-center justify-center hover:border-[#111111] hover:text-[#111111] text-[#6B7280] cursor-pointer transition-colors">
-                <Twitter size={18} />
-              </span>
-            </div> */}
           </div>
 
           <div>
-            <h4 className="text-[14px] font-bold uppercase tracking-widest text-[#6B7280] mb-6">
+            <h4 className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-500 mb-6">
               ค้นพบ
             </h4>
-            <ul className="space-y-4 text-sm text-[#6B7280]">
-              <li className="hover:text-[#111111] cursor-pointer transition-colors">
-                ที่พักทั้งหมด
+            <ul className="space-y-4 text-sm text-earth-400">
+              <li>
+                <a href="#unique-homestays" className="hover:text-white transition-colors">
+                  ที่พักทั้งหมด
+                </a>
               </li>
               <li>
-                <Link href="/register" className="hover:text-[#111111] transition-colors">
-                  ลงทะเบียบเจ้าของที่พัก
+                <Link href="/register" className="hover:text-white transition-colors">
+                  ลงทะเบียนเจ้าของที่พัก
                 </Link>
               </li>
               <li>
-                <Link href="/login" className="hover:text-[#111111] transition-colors">
+                <Link href="/login" className="hover:text-white transition-colors">
                   เข้าสู่ระบบเจ้าของที่พัก
                 </Link>
               </li>
@@ -63,32 +56,37 @@ export function LandingFooter() {
           </div>
 
           <div>
-            <h4 className="text-[14px] font-bold uppercase tracking-widest text-[#6B7280] mb-6">
+            <h4 className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-500 mb-6">
               เชื่อมต่อ
             </h4>
-            <ul className="space-y-4 text-sm text-[#6B7280]">
+            <ul className="space-y-4 text-sm text-earth-400">
               <li>
                 <button
                   onClick={() => setContactOpen(true)}
-                  className="hover:text-[#111111] cursor-pointer transition-colors"
+                  className="hover:text-white cursor-pointer transition-colors"
                 >
                   ติดต่อเรา
                 </button>
               </li>
-              <li className="hover:text-[#111111] cursor-pointer transition-colors">
-                คำถามที่พบบ่อย
+              <li>
+                <button
+                  onClick={() => setContactOpen(true)}
+                  className="hover:text-white cursor-pointer transition-colors"
+                >
+                  คำถามที่พบบ่อย
+                </button>
               </li>
             </ul>
           </div>
         </div>
 
-        <div className="pt-12 border-t border-gray-200 flex flex-col md:flex-row justify-between items-center gap-6 text-[12px] tracking-widest text-[#6B7280]">
+        <div className="pt-12 border-t border-earth-800 flex flex-col md:flex-row justify-between items-center gap-6 text-[12px] tracking-widest text-earth-500">
           <p>&copy; {new Date().getFullYear()} Peaksnature.com all rights reserved</p>
           <div className="flex gap-8">
-            <Link href="/legal#privacy" className="hover:text-[#111111] transition-colors">
+            <Link href="/legal#privacy" className="hover:text-white transition-colors">
               นโยบายความเป็นส่วนตัว
             </Link>
-            <Link href="/legal#terms" className="hover:text-[#111111] transition-colors">
+            <Link href="/legal#terms" className="hover:text-white transition-colors">
               ข้อกำหนดการให้บริการ
             </Link>
           </div>
