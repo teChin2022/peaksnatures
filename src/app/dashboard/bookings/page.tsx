@@ -822,7 +822,7 @@ export default function BookingsPage() {
 
       {/* Booking detail dialog */}
       <Dialog open={detailDialogOpen} onOpenChange={setDetailDialogOpen}>
-        <DialogContent className="max-w-lg">
+        <DialogContent className="max-w-lg max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {t("bookingDetails")}
@@ -942,7 +942,7 @@ export default function BookingsPage() {
 
               {/* Action buttons */}
               {(detailTarget.status === "pending" || detailTarget.status === "verified") && !detailTarget.easyslip_verified && (
-                <DialogFooter className="gap-2 sm:gap-0">
+                <DialogFooter className="gap-2">
                   <Button
                     variant="destructive"
                     onClick={() => {
