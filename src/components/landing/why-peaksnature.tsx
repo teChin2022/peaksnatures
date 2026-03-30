@@ -39,7 +39,7 @@ export function WhyPeaksnature() {
             >
               ปรัชญาของ Peaksnature
             </motion.span>
-            <div className="overflow-hidden">
+            <div className="overflow-hidden pt-2 -mt-2">
               <motion.h2
                 initial={{ y: "100%" }}
                 whileInView={{ y: 0 }}

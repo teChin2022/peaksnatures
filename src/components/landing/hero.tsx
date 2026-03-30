@@ -111,7 +111,7 @@ export function LandingHero({ onSearch }: LandingHeroProps) {
         </motion.div>
 
         {/* Popular destination pills */}
-        <motion.div
+        {/* <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           transition={{ delay: 1, duration: 0.6 }}
@@ -126,7 +126,7 @@ export function LandingHero({ onSearch }: LandingHeroProps) {
               {dest}
             </button>
           ))}
-        </motion.div>
+        </motion.div> */}
       </motion.div>
     </section>
   );

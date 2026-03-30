@@ -84,7 +84,7 @@ export function AboutSection({
             className="lg:col-span-2"
           >
             <span className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400 block mb-2">{t("title")}</span>
-            <div className="overflow-hidden">
+            <div className="overflow-hidden pt-2 -mt-2">
               <motion.h2
                 initial={{ y: "100%" }}
                 whileInView={{ y: 0 }}
