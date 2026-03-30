@@ -2,7 +2,7 @@
 
 import Image from "next/image";
 import { MapPin, ShieldCheck, CalendarDays, BookOpen, Clock } from "lucide-react";
-import { Separator } from "@/components/ui/separator";
+
 import { useTranslations } from "next-intl";
 import { motion } from "motion/react";
 import { getInitials } from "@/lib/utils";
@@ -38,7 +38,7 @@ export function HostLocationSection({
   const hostingCount = isUnderOneYear ? totalMonths : yearsHosting;
 
   return (
-    <section className="py-10">
+    <section className="py-14 md:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         {/* Location heading */}
         {mapEmbedUrl && (
@@ -47,16 +47,19 @@ export function HostLocationSection({
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="flex items-center gap-2.5 mb-3"
+            className="mb-6"
           >
-            <div className="flex h-8 w-8 items-center justify-center rounded-lg bg-gray-100">
-              <MapPin className="h-4 w-4 text-gray-600" />
-            </div>
-            <div>
-              <h2 className="text-lg font-semibold text-gray-900">
-                {ta("location")}
-              </h2>
-              <p className="text-sm text-gray-500">{location}</p>
+            <span className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400 block mb-2">{ta("location")}</span>
+            <div className="overflow-hidden">
+              <motion.h2
+                initial={{ y: "100%" }}
+                whileInView={{ y: 0 }}
+                viewport={{ once: true }}
+                transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
+                className="text-2xl md:text-3xl font-serif text-earth-900 tracking-tight"
+              >
+                {location}
+              </motion.h2>
             </div>
           </motion.div>
         )}
@@ -95,7 +98,7 @@ export function HostLocationSection({
             <div className="w-full rounded-2xl border bg-white shadow-sm p-6 flex flex-col items-center justify-center h-full">
               {/* Avatar */}
               <div className="relative">
-                <div className="h-24 w-24 overflow-hidden rounded-full bg-gray-100 ring-2 ring-gray-200">
+                <div className="h-24 w-24 overflow-hidden rounded-full bg-earth-100 ring-2 ring-earth-200">
                   {hostAvatarUrl ? (
                     <Image
                       src={hostAvatarUrl}
@@ -105,44 +108,44 @@ export function HostLocationSection({
                       className="h-full w-full object-cover"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-gray-200 text-2xl font-bold text-gray-500">
+                    <div className="flex h-full w-full items-center justify-center bg-earth-200 text-2xl font-bold text-earth-500">
                       {getInitials(hostName)}
                     </div>
                   )}
                 </div>
-                <div className={`absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full shadow-md ring-2 ring-white ${isVerified ? "bg-emerald-500" : "bg-amber-500"}`}>
+                <div className={`absolute -bottom-1 -right-1 flex h-7 w-7 items-center justify-center rounded-full shadow-md ring-2 ring-white ${isVerified ? "bg-brand" : "bg-amber-500"}`}>
                   <ShieldCheck className="h-4 w-4 text-white" />
                 </div>
               </div>
 
               {/* Name + Verified */}
-              <h3 className="mt-4 text-lg font-bold text-gray-900 text-center leading-tight">
+              <h3 className="mt-4 text-lg font-bold text-earth-900 text-center leading-tight">
                 {hostName}
               </h3>
-              <span className={`mt-1 text-xs font-medium ${isVerified ? "text-emerald-600" : "text-amber-600"}`}>
+              <span className={`mt-1 text-xs font-medium ${isVerified ? "text-brand" : "text-amber-600"}`}>
                 {isVerified ? t("verifiedHost") : t("unverifiedHost")}
               </span>
 
-              <div className="w-full h-px bg-gray-200 my-5" />
+              <div className="w-full h-px bg-earth-200 my-5" />
 
               {/* Stats */}
               <div className="flex items-center gap-8">
                 <div className="flex flex-col items-center">
-                  <CalendarDays className="h-4.5 w-4.5 text-gray-400 mb-1" />
-                  <span className="text-2xl font-bold text-gray-900">{hostingCount}</span>
-                  <p className="text-[11px] text-gray-500 leading-tight text-center">
+                  <CalendarDays className="h-4.5 w-4.5 text-earth-400 mb-1" />
+                  <span className="text-2xl font-bold text-earth-900">{hostingCount}</span>
+                  <p className="text-[11px] text-earth-500 leading-tight text-center">
                     {isUnderOneYear
                       ? t("monthsHosting", { count: totalMonths })
                       : t("yearsHosting", { count: yearsHosting })}
                   </p>
                 </div>
 
-                {/* <div className="h-12 w-px bg-gray-200" /> */}
+                {/* <div className="h-12 w-px bg-earth-200" /> */}
 
                 <div className="flex flex-col items-center">
-                  <BookOpen className="h-4.5 w-4.5 text-gray-400 mb-1" />
-                  <span className="text-2xl font-bold text-gray-900">{totalBookings}</span>
-                  <p className="text-[11px] text-gray-500 leading-tight text-center">
+                  <BookOpen className="h-4.5 w-4.5 text-earth-400 mb-1" />
+                  <span className="text-2xl font-bold text-earth-900">{totalBookings}</span>
+                  <p className="text-[11px] text-earth-500 leading-tight text-center">
                     {t("totalBookings", { count: totalBookings })}
                   </p>
                 </div>
@@ -151,12 +154,12 @@ export function HostLocationSection({
               {/* Last Booking */}
               {lastBookingDate && (
                 <>
-                  <div className="w-full h-px bg-gray-200 my-4" />
-                  <div className="flex items-center gap-2 text-gray-500">
+                  <div className="w-full h-px bg-earth-200 my-4" />
+                  <div className="flex items-center gap-2 text-earth-500">
                     <Clock className="h-3.5 w-3.5" />
                     <p className="text-[11px]">
                       {t("lastBooking")}{" "}
-                      <span className="font-semibold text-gray-700">
+                      <span className="font-semibold text-earth-700">
                         {new Date(lastBookingDate).toLocaleDateString("th-TH", {
                           day: "numeric",
                           month: "short",
@@ -171,7 +174,6 @@ export function HostLocationSection({
           </motion.div>
         </div>
 
-        <Separator className="mt-10" />
       </div>
     </section>
   );

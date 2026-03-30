@@ -1,49 +1,75 @@
 "use client";
 
 import Image from "next/image";
-import { motion } from "motion/react";
+import { MapPin } from "lucide-react";
+import { motion, useScroll, useTransform } from "motion/react";
 
 interface HeroSectionProps {
   name: string;
   tagline: string | null;
   heroImageUrl: string | null;
+  location?: string;
 }
 
 export function HeroSection({
   name,
   tagline,
   heroImageUrl,
+  location,
 }: HeroSectionProps) {
+  const { scrollY } = useScroll();
+  const imageY = useTransform(scrollY, [0, 500], [0, 100]);
+  const contentOpacity = useTransform(scrollY, [0, 400], [1, 0]);
+
   return (
-    <section className="relative h-[50vh] min-h-[360px] overflow-hidden sm:h-[60vh]">
-      {heroImageUrl && (
-        <Image
-          src={heroImageUrl}
-          alt={name}
-          fill
-          sizes="100vw"
-          priority
-          className="absolute inset-0 h-full w-full object-cover"
-        />
-      )}
-      <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-black/30 to-transparent" />
-      <div className="absolute bottom-0 left-0 right-0 p-6 sm:p-10">
+    <section className="relative h-[60vh] min-h-[420px] sm:h-[70vh] overflow-hidden hero-mist">
+      {/* Parallax image */}
+      <motion.div style={{ y: imageY }} className="absolute inset-0">
+        {heroImageUrl && (
+          <Image
+            src={heroImageUrl}
+            alt={name}
+            fill
+            sizes="100vw"
+            priority
+            quality={85}
+            className="object-cover"
+          />
+        )}
+      </motion.div>
+      <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 via-60% to-[#2F5D50]/20" />
+
+      <motion.div
+        style={{ opacity: contentOpacity }}
+        className="absolute bottom-0 left-0 right-0 p-6 sm:p-10"
+      >
         <div className="mx-auto max-w-7xl">
+          {location && (
+            <motion.div
+              initial={{ opacity: 0, y: 15 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.6 }}
+              className="flex items-center gap-1.5 mb-3"
+            >
+              <MapPin size={12} className="text-white/60" />
+              <span className="text-white/60 text-xs uppercase tracking-[0.15em]">{location}</span>
+            </motion.div>
+          )}
           {tagline && (
             <motion.p
               initial={{ opacity: 0, y: 15 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.6 }}
+              transition={{ duration: 0.6, delay: 0.1 }}
               className="mb-2 text-sm font-medium uppercase tracking-wider text-white/80"
             >
               {tagline}
             </motion.p>
           )}
           <motion.h1
-            initial={{ opacity: 0, y: 20 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.8, delay: 0.1 }}
-            className="text-3xl font-bold font-serif text-white sm:text-4xl md:text-5xl"
+            initial={{ opacity: 0, y: 40, filter: "blur(10px)" }}
+            animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
+            transition={{ duration: 1, ease: [0.25, 0.1, 0, 1] }}
+            className="text-3xl font-bold font-serif text-white sm:text-4xl md:text-5xl tracking-tight"
           >
             {name}
           </motion.h1>
@@ -51,10 +77,10 @@ export function HeroSection({
             initial={{ opacity: 0, scaleX: 0 }}
             animate={{ opacity: 1, scaleX: 1 }}
             transition={{ duration: 0.6, delay: 0.4 }}
-            className="mt-3 h-1 w-16 origin-left rounded-full bg-white/60"
+            className="mt-3 h-0.5 w-12 origin-left rounded-full bg-white/40"
           />
         </div>
-      </div>
+      </motion.div>
     </section>
   );
 }

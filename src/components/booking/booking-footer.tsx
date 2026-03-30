@@ -20,8 +20,8 @@ export function BookingFooter({
   const tc = useTranslations("common");
 
   return (
-    <footer className="border-t bg-section-alt">
-      <div className="h-0.5 w-full bg-gradient-to-r from-gray-400 via-gray-200 to-transparent" />
+    <footer className="bg-earth-900">
+      <div className="h-0.5 w-full bg-gradient-to-r from-brand via-earth-600 to-transparent" />
       <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
         <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-between sm:text-left">
           {/* Left: Brand */}
@@ -32,20 +32,14 @@ export function BookingFooter({
                 alt={homestayName}
                 width={32}
                 height={32}
-                className="h-8 w-8 rounded-full object-cover border shadow-sm"
+                className="h-8 w-8 rounded-full object-cover ring-1 ring-earth-700 shadow-sm"
               />
             ) : (
               <div></div>
-              // <div
-              //   className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white shadow-sm"
-              //   style={{ backgroundColor: themeColor }}
-              // >
-              //   {getInitials(homestayName)}
-              // </div>
             )}
             <div>
-              <span className="font-semibold text-gray-900">{homestayName}</span>
-              <div className="flex items-center gap-1 text-xs text-gray-500">
+              <span className="font-semibold text-earth-50">{homestayName}</span>
+              <div className="flex items-center gap-1 text-xs text-earth-400">
                 <MapPin className="h-3 w-3" />
                 {location}
               </div>
@@ -54,22 +48,22 @@ export function BookingFooter({
 
           {/* Right: Legal & Copyright */}
           <div className="flex flex-col items-center gap-1.5 sm:items-end">
-            <p className="text-xs text-gray-500">{`\u00A9 ${new Date().getFullYear()} ${tc("copyright")}`}</p>
+            <p className="text-xs text-earth-500">{`\u00A9 ${new Date().getFullYear()} ${tc("copyright")}`}</p>
             <div className="flex items-center gap-3">
               <a
                 href="/legal#privacy"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-gray-500 hover:text-gray-900"
+                className="text-xs text-earth-400 hover:text-white transition-colors"
               >
                 {tc("privacy")}
               </a>
-              <span className="text-xs text-gray-300">|</span>
+              <span className="text-xs text-earth-600">|</span>
               <a
                 href="/legal#terms"
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-xs text-gray-500 hover:text-gray-900"
+                className="text-xs text-earth-400 hover:text-white transition-colors"
               >
                 {tc("terms")}
               </a>

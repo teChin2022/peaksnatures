@@ -55,7 +55,7 @@ function GalleryImage({
         onLoad={() => setLoaded(true)}
       />
       {!loaded && (
-        <div className="absolute inset-0 animate-pulse bg-gray-200" />
+        <div className="absolute inset-0 animate-pulse bg-earth-200" />
       )}
       <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
     </button>
@@ -97,24 +97,27 @@ export function GallerySection({ images, name }: GallerySectionProps) {
 
   return (
     <>
-      <section className="py-8">
+      <section className="py-16 md:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <motion.h2
-            initial={{ opacity: 0, y: 15 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.5 }}
-            className="mb-4 text-xl font-semibold text-gray-900"
-          >
-            {t("title")}
-          </motion.h2>
+          <span className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400 block mb-2">{t("title")}</span>
+          <div className="overflow-hidden">
+            <motion.h2
+              initial={{ y: "100%" }}
+              whileInView={{ y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
+              className="mb-6 text-2xl md:text-3xl font-serif text-earth-900 tracking-tight"
+            >
+              {t("title")}
+            </motion.h2>
+          </div>
 
           {hasEnoughForSpecialLayout ? (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.1 }}
+              transition={{ duration: 0.8, delay: 0.1 }}
             >
               <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:grid-rows-2">
                 {/* Main large image */}
@@ -144,10 +147,10 @@ export function GallerySection({ images, name }: GallerySectionProps) {
             </motion.div>
           ) : (
             <motion.div
-              initial={{ opacity: 0, y: 20 }}
-              whileInView={{ opacity: 1, y: 0 }}
+              initial={{ opacity: 0 }}
+              whileInView={{ opacity: 1 }}
               viewport={{ once: true }}
-              transition={{ duration: 0.6, delay: 0.1 }}
+              transition={{ duration: 0.8, delay: 0.1 }}
             >
               <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
                 {images.map((img, i) => (
