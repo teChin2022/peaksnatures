@@ -460,7 +460,7 @@ export async function dispatchHostNotification(
   sendSmsFn: () => Promise<{ success: boolean; error?: unknown }>,
   sendLineFn: () => Promise<{ success: boolean; error?: unknown }>,
   emailSubject: string,
-  emailBody: string,
+  buildEmailBody: () => string,
 ): Promise<void> {
   const preference = details.host.notification_preference || "sms";
 
@@ -471,11 +471,199 @@ export async function dispatchHostNotification(
 
   if (!result.success) {
     console.log(`[Notification] ${channelName} failed after 3 retries, falling back to email`);
-    const emailResult = await sendHostNotificationEmail(details, emailSubject, emailBody);
+    const emailResult = await sendHostNotificationEmail(details, emailSubject, buildEmailBody());
     if (!emailResult.success) {
       console.error("[Notification] Email fallback also failed");
     }
   }
+}
+
+// ============================================================
+// LINE MESSAGE BUILDERS (shared by LINE sending + email fallback)
+// ============================================================
+
+export function buildNewBookingMessage(
+  details: BookingDetails,
+  type: "confirmed" | "flagged" = "confirmed"
+): string {
+  const { booking, homestay, room } = details;
+  const checkIn = new Date(booking.check_in);
+  const checkOut = new Date(booking.check_out);
+  const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+
+  const header = type === "confirmed"
+    ? `🎉 การจองใหม่ — ยืนยันแล้ว!`
+    : `⚠️ การจองใหม่ — รอตรวจสอบ`;
+
+  const paymentStatus = type === "confirmed"
+    ? `✅ ชำระเงินแล้ว (ยืนยันผ่าน EasySlip)`
+    : `❌ ยืนยันสลิปไม่สำเร็จ — กรุณาตรวจสอบใน Dashboard`;
+
+  return [
+    header,
+    `━━━━━━━━━━━━━━━━`,
+    ``,
+    `🏠 โฮมสเตย์: ${homestay.name}`,
+    `🔖 Booking ID: ${booking.id.slice(0, 8)}...`,
+    ``,
+    `👤 ข้อมูลผู้จอง`,
+    `   ชื่อ: ${booking.guest_name}`,
+    `   อีเมล: ${booking.guest_email}`,
+    `   โทร: ${booking.guest_phone}`,
+    ...(booking.guest_province ? [`   จังหวัด: ${getProvinceLabel(booking.guest_province, "th")}`] : []),
+    ``,
+    `📋 รายละเอียดการจอง`,
+    `   🛏️ ห้อง: ${room?.name || "Standard"}`,
+    `   📅 เช็คอิน: ${formatBookingDate(booking.check_in, "th")}`,
+    `   📅 เช็คเอาท์: ${formatBookingDate(booking.check_out, "th")}`,
+    `   🌙 จำนวน: ${nights} คืน`,
+    `   👥 ผู้เข้าพัก: ${booking.num_guests} ท่าน`,
+    ...(Array.isArray(booking.selected_options) && (booking.selected_options as { name: string; price: number }[]).length > 0 ? [
+      `   🔧 ออปชัน: ${(booking.selected_options as { name: string; price: number }[]).map((o) => `${o.name} (+฿${o.price.toLocaleString()})`).join(", ")}`,
+    ] : []),
+    ``,
+    `💰 การชำระเงิน`,
+    `   ยอดรวม: ฿${booking.total_price.toLocaleString()}`,
+    ...(room ? [`   (฿${room.price_per_night.toLocaleString()} × ${nights} คืน)`] : []),
+    ...((booking as Record<string, unknown>).payment_type === "deposit" ? [
+      `   💳 ยอดที่ชำระ: ฿${((booking as Record<string, unknown>).amount_paid as number || 0).toLocaleString()} (มัดจำ)`,
+      `   ⏳ ยอดค้าง: ฿${(booking.total_price - ((booking as Record<string, unknown>).amount_paid as number || 0)).toLocaleString()} (ชำระเมื่อเข้าพัก)`,
+    ] : []),
+    `   ${paymentStatus}`,
+    ``,
+    `━━━━━━━━━━━━━━━━`,
+    `📍 ${homestay.location}`,
+  ].join("\n");
+}
+
+export function buildCancellationMessage(
+  details: BookingDetails,
+  reason?: string
+): string {
+  const { booking, homestay, room } = details;
+  const checkIn = new Date(booking.check_in);
+  const checkOut = new Date(booking.check_out);
+  const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+
+  return [
+    `❌ แขกยกเลิกการจอง`,
+    `━━━━━━━━━━━━━━━━`,
+    ``,
+    `🏠 โฮมสเตย์: ${homestay.name}`,
+    `🔑 Booking ID: ${booking.id.slice(0, 8)}...`,
+    ``,
+    `👤 ข้อมูลผู้จอง`,
+    `   ชื่อ: ${booking.guest_name}`,
+    `   อีเมล: ${booking.guest_email}`,
+    `   โทร: ${booking.guest_phone}`,
+    ``,
+    `📋 รายละเอียดการจอง`,
+    `   🛏️ ห้อง: ${room?.name || "Standard"}`,
+    `   📅 เช็คอิน: ${formatBookingDate(booking.check_in, "th")}`,
+    `   📅 เช็คเอาท์: ${formatBookingDate(booking.check_out, "th")}`,
+    `   🌙 จำนวน: ${nights} คืน`,
+    `   💰 ยอดรวม: ฿${booking.total_price.toLocaleString()}`,
+    ``,
+    `💸 ข้อมูลการคืนเงิน`,
+    `   ชำระแบบ: ${booking.payment_type === "deposit" ? "มัดจำ" : "เต็มจำนวน"}`,
+    `   ยอดที่ชำระแล้ว: ฿${(booking.amount_paid || 0).toLocaleString()}`,
+    `   💰 ยอดคืน: ฿${(booking.amount_paid || 0).toLocaleString()}`,
+    ...(reason ? [``, `📝 เหตุผล: ${reason}`] : []),
+    ``,
+    `━━━━━━━━━━━━━━━━`,
+    `วันที่ดังกล่าวเปิดให้จองอีกครั้งแล้ว`,
+  ].join("\n");
+}
+
+export function buildDateChangeMessage(
+  details: BookingDetails,
+  oldCheckIn: string,
+  oldCheckOut: string,
+  newCheckIn: string,
+  newCheckOut: string,
+  priceDifference: number,
+  newTotalPrice: number,
+  newRoomName?: string,
+  paymentInfo?: {
+    amountPaid: number;
+    additionalPayment: number;
+    paymentOption: "full" | "deposit";
+    depositAvailable: boolean;
+    newDeposit: number;
+    fullOutstanding: number;
+    paymentType: string;
+  },
+): string {
+  const { booking, homestay, room } = details;
+
+  const oldNights = Math.round((new Date(oldCheckOut).getTime() - new Date(oldCheckIn).getTime()) / (1000 * 60 * 60 * 24));
+  const newNights = Math.round((new Date(newCheckOut).getTime() - new Date(newCheckIn).getTime()) / (1000 * 60 * 60 * 24));
+
+  const roomChangeLine = newRoomName
+    ? `🛏️ ห้องใหม่: ${newRoomName} (เดิม: ${room?.name || "Standard"})`
+    : `🛏️ ห้อง: ${room?.name || "Standard"}`;
+
+  const paymentLines: string[] = [];
+  if (paymentInfo) {
+    const { amountPaid, additionalPayment, paymentOption, depositAvailable, newDeposit: _newDeposit, fullOutstanding, paymentType } = paymentInfo;
+    paymentLines.push(`💳 ประเภทการชำระ: ${paymentType === "deposit" ? "มัดจำ" : "เต็มจำนวน"}`);
+    paymentLines.push(`💰 ยอดที่ชำระแล้ว: ฿${amountPaid.toLocaleString()}`);
+    if (priceDifference > 0) {
+      paymentLines.push(`💰 ส่วนต่างราคา: +฿${priceDifference.toLocaleString()}`);
+    } else if (priceDifference < 0) {
+      paymentLines.push(`💰 ส่วนต่างราคา: -฿${Math.abs(priceDifference).toLocaleString()}`);
+    } else {
+      paymentLines.push(`💰 ส่วนต่างราคา: ฿0 (เท่าเดิม)`);
+    }
+    if (additionalPayment > 0) {
+      if (depositAvailable && paymentOption === "deposit") {
+        paymentLines.push(`✅ ชำระเพิ่ม (มัดจำ): ฿${additionalPayment.toLocaleString()}`);
+        const remaining = Math.max(0, newTotalPrice - amountPaid - additionalPayment);
+        if (remaining > 0) {
+          paymentLines.push(`⏳ ยอดคงเหลือ (ชำระวันเข้าพัก): ฿${remaining.toLocaleString()}`);
+        }
+      } else {
+        paymentLines.push(`✅ ชำระเพิ่ม (เต็มจำนวน): ฿${additionalPayment.toLocaleString()}`);
+      }
+      paymentLines.push(`🧾 สลิปยืนยันแล้ว`);
+    } else if (fullOutstanding === 0 && priceDifference <= 0) {
+      paymentLines.push(`✅ ไม่ต้องชำระเพิ่ม`);
+    }
+  } else {
+    if (priceDifference > 0) {
+      paymentLines.push(`💰 ส่วนต่าง: +฿${priceDifference.toLocaleString()} (ชำระแล้ว)`);
+    } else if (priceDifference < 0) {
+      paymentLines.push(`💰 ส่วนต่าง: -฿${Math.abs(priceDifference).toLocaleString()}`);
+    } else {
+      paymentLines.push(`💰 ราคาเท่าเดิม`);
+    }
+  }
+
+  return [
+    `📅 แขกขอเปลี่ยน${newRoomName ? "ห้อง/วันเข้าพัก" : "วันเข้าพัก"}`,
+    `━━━━━━━━━━━━━━━━`,
+    ``,
+    `🏠 โฮมสเตย์: ${homestay.name}`,
+    `🔑 Booking ID: ${booking.id.slice(0, 8)}...`,
+    ``,
+    `👤 ผู้จอง: ${booking.guest_name}`,
+    roomChangeLine,
+    ``,
+    `📋 วันเดิม`,
+    `   📅 ${formatBookingDate(oldCheckIn, "th")} → ${formatBookingDate(oldCheckOut, "th")} (${oldNights} คืน)`,
+    `   💰 ราคาเดิม: ฿${booking.total_price.toLocaleString()}`,
+    ``,
+    `📋 วันใหม่ที่ขอ`,
+    `   📅 ${formatBookingDate(newCheckIn, "th")} → ${formatBookingDate(newCheckOut, "th")} (${newNights} คืน)`,
+    `   💰 ราคาใหม่: ฿${newTotalPrice.toLocaleString()}`,
+    ``,
+    `━━━━━━━━━━━━━━━━`,
+    `📊 สรุปการชำระเงิน`,
+    ...paymentLines,
+    ``,
+    `━━━━━━━━━━━━━━━━`,
+    `กรุณาอนุมัติหรือปฏิเสธใน Dashboard`,
+  ].join("\n");
 }
 
 // ============================================================
@@ -494,40 +682,7 @@ export async function sendHostCancellationLineNotification(
   }
 
   try {
-    const { booking, homestay, room } = details;
-
-    const checkIn = new Date(booking.check_in);
-    const checkOut = new Date(booking.check_out);
-    const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-
-    const messageText = [
-      `❌ แขกยกเลิกการจอง`,
-      `━━━━━━━━━━━━━━━━`,
-      ``,
-      `🏠 โฮมสเตย์: ${homestay.name}`,
-      `🔑 Booking ID: ${booking.id.slice(0, 8)}...`,
-      ``,
-      `👤 ข้อมูลผู้จอง`,
-      `   ชื่อ: ${booking.guest_name}`,
-      `   อีเมล: ${booking.guest_email}`,
-      `   โทร: ${booking.guest_phone}`,
-      ``,
-      `📋 รายละเอียดการจอง`,
-      `   🛏️ ห้อง: ${room?.name || "Standard"}`,
-      `   📅 เช็คอิน: ${formatBookingDate(booking.check_in, "th")}`,
-      `   📅 เช็คเอาท์: ${formatBookingDate(booking.check_out, "th")}`,
-      `   🌙 จำนวน: ${nights} คืน`,
-      `   💰 ยอดรวม: ฿${booking.total_price.toLocaleString()}`,
-      ``,
-      `💸 ข้อมูลการคืนเงิน`,
-      `   ชำระแบบ: ${booking.payment_type === "deposit" ? "มัดจำ" : "เต็มจำนวน"}`,
-      `   ยอดที่ชำระแล้ว: ฿${(booking.amount_paid || 0).toLocaleString()}`,
-      `   💰 ยอดคืน: ฿${(booking.amount_paid || 0).toLocaleString()}`,
-      ...(reason ? [``, `📝 เหตุผล: ${reason}`] : []),
-      ``,
-      `━━━━━━━━━━━━━━━━`,
-      `วันที่ดังกล่าวเปิดให้จองอีกครั้งแล้ว`,
-    ].join("\n");
+    const messageText = buildCancellationMessage(details, reason);
 
     const response = await fetch("https://api.line.me/v2/bot/message/push", {
       method: "POST",
@@ -570,56 +725,7 @@ export async function sendHostLineNotification(
   }
 
   try {
-    const { booking, homestay, room } = details;
-
-    // Calculate nights
-    const checkIn = new Date(booking.check_in);
-    const checkOut = new Date(booking.check_out);
-    const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-
-    const header = type === "confirmed"
-      ? `🎉 การจองใหม่ — ยืนยันแล้ว!`
-      : `⚠️ การจองใหม่ — รอตรวจสอบ`;
-
-    const paymentStatus = type === "confirmed"
-      ? `✅ ชำระเงินแล้ว (ยืนยันผ่าน EasySlip)`
-      : `❌ ยืนยันสลิปไม่สำเร็จ — กรุณาตรวจสอบใน Dashboard`;
-
-    const messageText = [
-      header,
-      `━━━━━━━━━━━━━━━━`,
-      ``,
-      `🏠 โฮมสเตย์: ${homestay.name}`,
-      `� Booking ID: ${booking.id.slice(0, 8)}...`,
-      ``,
-      `� ข้อมูลผู้จอง`,
-      `   ชื่อ: ${booking.guest_name}`,
-      `   อีเมล: ${booking.guest_email}`,
-      `   โทร: ${booking.guest_phone}`,
-      ...(booking.guest_province ? [`   จังหวัด: ${getProvinceLabel(booking.guest_province, "th")}`] : []),
-      ``,
-      `📋 รายละเอียดการจอง`,
-      `   🛏️ ห้อง: ${room?.name || "Standard"}`,
-      `   📅 เช็คอิน: ${formatBookingDate(booking.check_in, "th")}`,
-      `   📅 เช็คเอาท์: ${formatBookingDate(booking.check_out, "th")}`,
-      `   🌙 จำนวน: ${nights} คืน`,
-      `   👥 ผู้เข้าพัก: ${booking.num_guests} ท่าน`,
-      ...(Array.isArray(booking.selected_options) && (booking.selected_options as { name: string; price: number }[]).length > 0 ? [
-        `   🔧 ออปชัน: ${(booking.selected_options as { name: string; price: number }[]).map((o) => `${o.name} (+฿${o.price.toLocaleString()})`).join(", ")}`,
-      ] : []),
-      ``,
-      `💰 การชำระเงิน`,
-      `   ยอดรวม: ฿${booking.total_price.toLocaleString()}`,
-      ...(room ? [`   (฿${room.price_per_night.toLocaleString()} × ${nights} คืน)`] : []),
-      ...((booking as Record<string, unknown>).payment_type === "deposit" ? [
-        `   💳 ยอดที่ชำระ: ฿${((booking as Record<string, unknown>).amount_paid as number || 0).toLocaleString()} (มัดจำ)`,
-        `   ⏳ ยอดค้าง: ฿${(booking.total_price - ((booking as Record<string, unknown>).amount_paid as number || 0)).toLocaleString()} (ชำระเมื่อเข้าพัก)`,
-      ] : []),
-      `   ${paymentStatus}`,
-      ``,
-      `━━━━━━━━━━━━━━━━`,
-      `📍 ${homestay.location}`,
-    ].join("\n");
+    const messageText = buildNewBookingMessage(details, type);
 
     const response = await fetch("https://api.line.me/v2/bot/message/push", {
       method: "POST",
@@ -851,78 +957,10 @@ export async function sendDateChangeLineNotification(
   }
 
   try {
-    const { booking, homestay, room } = details;
-
-    const oldNights = Math.round((new Date(oldCheckOut).getTime() - new Date(oldCheckIn).getTime()) / (1000 * 60 * 60 * 24));
-    const newNights = Math.round((new Date(newCheckOut).getTime() - new Date(newCheckIn).getTime()) / (1000 * 60 * 60 * 24));
-
-    const roomChangeLine = newRoomName
-      ? `🛏️ ห้องใหม่: ${newRoomName} (เดิม: ${room?.name || "Standard"})`
-      : `🛏️ ห้อง: ${room?.name || "Standard"}`;
-
-    // Build payment summary lines
-    const paymentLines: string[] = [];
-    if (paymentInfo) {
-      const { amountPaid, additionalPayment, paymentOption, depositAvailable, newDeposit, fullOutstanding, paymentType } = paymentInfo;
-      paymentLines.push(`💳 ประเภทการชำระ: ${paymentType === "deposit" ? "มัดจำ" : "เต็มจำนวน"}`);
-      paymentLines.push(`💰 ยอดที่ชำระแล้ว: ฿${amountPaid.toLocaleString()}`);
-      if (priceDifference > 0) {
-        paymentLines.push(`💰 ส่วนต่างราคา: +฿${priceDifference.toLocaleString()}`);
-      } else if (priceDifference < 0) {
-        paymentLines.push(`💰 ส่วนต่างราคา: -฿${Math.abs(priceDifference).toLocaleString()}`);
-      } else {
-        paymentLines.push(`💰 ส่วนต่างราคา: ฿0 (เท่าเดิม)`);
-      }
-      if (additionalPayment > 0) {
-        if (depositAvailable && paymentOption === "deposit") {
-          paymentLines.push(`✅ ชำระเพิ่ม (มัดจำ): ฿${additionalPayment.toLocaleString()}`);
-          const remaining = Math.max(0, newTotalPrice - amountPaid - additionalPayment);
-          if (remaining > 0) {
-            paymentLines.push(`⏳ ยอดคงเหลือ (ชำระวันเข้าพัก): ฿${remaining.toLocaleString()}`);
-          }
-        } else {
-          paymentLines.push(`✅ ชำระเพิ่ม (เต็มจำนวน): ฿${additionalPayment.toLocaleString()}`);
-        }
-        paymentLines.push(`🧾 สลิปยืนยันแล้ว`);
-      } else if (fullOutstanding === 0 && priceDifference <= 0) {
-        paymentLines.push(`✅ ไม่ต้องชำระเพิ่ม`);
-      }
-    } else {
-      // Fallback for no payment info
-      if (priceDifference > 0) {
-        paymentLines.push(`� ส่วนต่าง: +฿${priceDifference.toLocaleString()} (ชำระแล้ว)`);
-      } else if (priceDifference < 0) {
-        paymentLines.push(`💰 ส่วนต่าง: -฿${Math.abs(priceDifference).toLocaleString()}`);
-      } else {
-        paymentLines.push(`💰 ราคาเท่าเดิม`);
-      }
-    }
-
-    const messageText = [
-      `📅 แขกขอเปลี่ยน${newRoomName ? "ห้อง/วันเข้าพัก" : "วันเข้าพัก"}`,
-      `━━━━━━━━━━━━━━━━`,
-      ``,
-      `🏠 โฮมสเตย์: ${homestay.name}`,
-      `🔑 Booking ID: ${booking.id.slice(0, 8)}...`,
-      ``,
-      `👤 ผู้จอง: ${booking.guest_name}`,
-      roomChangeLine,
-      ``,
-      `📋 วันเดิม`,
-      `   📅 ${formatBookingDate(oldCheckIn, "th")} → ${formatBookingDate(oldCheckOut, "th")} (${oldNights} คืน)`,
-      `   💰 ราคาเดิม: ฿${booking.total_price.toLocaleString()}`,
-      ``,
-      `📋 วันใหม่ที่ขอ`,
-      `   📅 ${formatBookingDate(newCheckIn, "th")} → ${formatBookingDate(newCheckOut, "th")} (${newNights} คืน)`,
-      `   💰 ราคาใหม่: ฿${newTotalPrice.toLocaleString()}`,
-      ``,
-      `━━━━━━━━━━━━━━━━`,
-      `📊 สรุปการชำระเงิน`,
-      ...paymentLines,
-      ``,
-      `━━━━━━━━━━━━━━━━`,
-      `กรุณาอนุมัติหรือปฏิเสธใน Dashboard`,
-    ].join("\n");
+    const messageText = buildDateChangeMessage(
+      details, oldCheckIn, oldCheckOut, newCheckIn, newCheckOut,
+      priceDifference, newTotalPrice, newRoomName, paymentInfo,
+    );
 
     const response = await fetch("https://api.line.me/v2/bot/message/push", {
       method: "POST",

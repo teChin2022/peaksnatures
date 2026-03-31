@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { sendDateChangeLineNotification, sendDateChangeSmsNotification, dispatchHostNotification } from "@/lib/notifications";
+import { sendDateChangeLineNotification, sendDateChangeSmsNotification, dispatchHostNotification, buildDateChangeMessage } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room, RoomSeasonalPrice } from "@/types/database";
 import { calculateTotalPrice } from "@/lib/calculate-price";
 import { getDepositForMonth } from "@/lib/get-deposit";
@@ -368,7 +368,25 @@ export async function POST(req: NextRequest) {
             },
           ),
           `แขกขอเปลี่ยนวันเข้าพัก`,
-          `ขอเปลี่ยน: ${booking.guest_name}, ${booking.check_in}>${data.new_check_in}, ฿${booking.total_price.toLocaleString()}>฿${newTotalPrice.toLocaleString()} รออนุมัติ`,
+          () => buildDateChangeMessage(
+            details,
+            booking.check_in,
+            booking.check_out,
+            data.new_check_in,
+            data.new_check_out,
+            priceDifference,
+            newTotalPrice,
+            roomChanged ? newRoom?.name : undefined,
+            {
+              amountPaid: booking.amount_paid,
+              additionalPayment,
+              paymentOption,
+              depositAvailable,
+              newDeposit,
+              fullOutstanding,
+              paymentType: booking.payment_type,
+            },
+          ),
         );
       } catch (error) {
         console.error("[ChangeDates] Notification error (non-blocking):", error);

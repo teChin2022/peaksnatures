@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { sendBookingConfirmationEmail, sendHostLineNotification, sendHostSmsNotification, dispatchHostNotification } from "@/lib/notifications";
+import { sendBookingConfirmationEmail, sendHostLineNotification, sendHostSmsNotification, dispatchHostNotification, buildNewBookingMessage } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room, RoomSeasonalPrice } from "@/types/database";
 import { calculateTotalPrice } from "@/lib/calculate-price";
 import { getDepositForMonth } from "@/lib/get-deposit";
@@ -95,7 +95,7 @@ async function sendNotifications(bookingId: string, supabase: ReturnType<typeof 
       () => sendHostSmsNotification(details, hostNotifType),
       () => sendHostLineNotification(details, hostNotifType),
       `การจองใหม่ — ${statusLabel}`,
-      `จองใหม่: ${details.booking.guest_name}, ห้อง ${details.room?.name || "Standard"}, เช็คอิน ${details.booking.check_in}, ฿${details.booking.total_price.toLocaleString()} (${statusLabel})`,
+      () => buildNewBookingMessage(details, hostNotifType),
     );
   } catch (error) {
     console.error("Notification error (non-blocking):", error);
