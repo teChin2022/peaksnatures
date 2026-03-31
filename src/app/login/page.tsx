@@ -66,7 +66,13 @@ export default function LoginPage() {
         return;
       }
 
-      setShowOtpModal(true);
+      if (data.otpRequired === false) {
+        const nextUrl = searchParams.get("next") || "/dashboard";
+        router.push(nextUrl);
+        router.refresh();
+      } else {
+        setShowOtpModal(true);
+      }
     } catch {
       setError(t("errorGeneric"));
       turnstileRef.current?.reset();

@@ -47,7 +47,7 @@ export default function AdminLoginPage() {
       const res = await fetch("/api/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password, turnstileToken: turnstileToken || "" }),
+        body: JSON.stringify({ email, password, turnstileToken: turnstileToken || "", source: "admin" }),
       });
 
       const data = await res.json();
@@ -122,7 +122,7 @@ export default function AdminLoginPage() {
       const res = await fetch("/api/auth/send-otp", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, source: "admin" }),
       });
       if (!res.ok) {
         const data = await res.json();

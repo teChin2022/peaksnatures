@@ -602,7 +602,11 @@
     "bankAccountNumberPlaceholder": "เช่น 123-4-56789-0",
     "bankAccountName": "ชื่อบัญชี",
     "bankAccountNamePlaceholder": "ชื่อเจ้าของบัญชี",
-    "bankFieldsRequired": "กรุณากรอกข้อมูลบัญชีธนาคารให้ครบถ้วนเมื่อใช้โหมดโอนผ่านบัญชี"
+    "bankFieldsRequired": "กรุณากรอกข้อมูลบัญชีธนาคารให้ครบถ้วนเมื่อใช้โหมดโอนผ่านบัญชี",
+    "requireOtpLabel": "การยืนยันตัวตนเข้าสู่ระบบ (OTP)",
+    "requireOtpHint": "เมื่อเปิดใช้งาน ระบบจะส่งรหัสยืนยัน 6 หลักไปยังอีเมลของคุณทุกครั้งที่เข้าสู่ระบบ หากปิดใช้งาน จะใช้เฉพาะรหัสผ่านเท่านั้น",
+    "otpEnabled": "เปิดใช้งาน",
+    "otpDisabled": "ปิดใช้งาน"
   },
   "dashboardHomestay": {
     "createTitle": "สร้างโฮมสเตย์",

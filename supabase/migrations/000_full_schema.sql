@@ -33,6 +33,7 @@ CREATE TABLE hosts (
   bank_account_number TEXT,
   bank_account_name TEXT,
   payment_display TEXT NOT NULL DEFAULT 'qr',
+  require_otp BOOLEAN NOT NULL DEFAULT true,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   created_by TEXT NOT NULL DEFAULT 'system',
   updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

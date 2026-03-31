@@ -1,8 +1,9 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
-import { createServiceRoleClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { createRateLimiter } from "@/lib/rate-limit";
+import { logEvent, EventType } from "@/lib/history-log";
 
 // Lazy singleton — created once per cold start, not per request
 let resendClient: Resend | null = null;
@@ -50,7 +51,7 @@ export async function POST(req: NextRequest) {
   if (rateLimited) return rateLimited;
 
   try {
-    const { email, password, turnstileToken } = await req.json();
+    const { email, password, turnstileToken, source } = await req.json();
 
     if (!email || !password) {
       return NextResponse.json(
@@ -87,12 +88,51 @@ export async function POST(req: NextRequest) {
     // Sign out the throwaway client (fire-and-forget — no need to await)
     supabase.auth.signOut().catch(() => {});
 
+    // Check if host has OTP disabled (admin logins always require OTP)
+    const serviceClient = createServiceRoleClient();
+    if (source !== "admin") {
+      const { data: hostRecord } = await serviceClient
+        .from("hosts")
+        .select("require_otp")
+        .eq("email", email)
+        .single() as { data: { require_otp: boolean } | null };
+
+      if (hostRecord && hostRecord.require_otp === false) {
+        // OTP not required — complete login directly
+        const serverSupabase = await createServerSupabaseClient();
+        const { error: directSignInError } = await serverSupabase.auth.signInWithPassword({
+          email,
+          password,
+        });
+
+        if (directSignInError) {
+          return NextResponse.json(
+            { error: directSignInError.message },
+            { status: 401 }
+          );
+        }
+
+        after(async () => {
+          await logEvent({
+            entityType: "host",
+            entityId: email,
+            eventType: EventType.HOST_LOGIN,
+            actorType: "host",
+            actorId: null,
+            data: { email, otpSkipped: true },
+            req,
+          });
+        });
+
+        return NextResponse.json({ success: true, otpRequired: false });
+      }
+    }
+
     // Generate 6-digit OTP code
     const code = String(crypto.getRandomValues(new Uint32Array(1))[0] % 900000 + 100000);
     const expiresAt = new Date(Date.now() + 5 * 60 * 1000).toISOString(); // 5 minutes
 
     // Store OTP in DB (delete old codes first, then insert new one)
-    const serviceClient = createServiceRoleClient();
     await serviceClient.from("login_otps").delete().eq("email", email);
     const { error: insertError } = await serviceClient
       .from("login_otps")
@@ -155,7 +195,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    return NextResponse.json({ success: true });
+    return NextResponse.json({ success: true, otpRequired: true });
   } catch (error) {
     console.error("[OTP] send-otp error:", error);
     return NextResponse.json(

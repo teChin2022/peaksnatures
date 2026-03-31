@@ -53,6 +53,7 @@ interface HostData {
   bank_account_number: string | null;
   bank_account_name: string | null;
   payment_display: string;
+  require_otp: boolean;
 }
 
 export default function ProfilePage() {
@@ -98,6 +99,7 @@ export default function ProfilePage() {
   const [bankName, setBankName] = useState("");
   const [bankAccountNumber, setBankAccountNumber] = useState("");
   const [bankAccountName, setBankAccountName] = useState("");
+  const [requireOtp, setRequireOtp] = useState(true);
 
   useEffect(() => {
     const fetchHost = async () => {
@@ -110,7 +112,7 @@ export default function ProfilePage() {
 
       const { data } = await supabase
         .from("hosts")
-        .select("id, name, email, phone, line_user_id, line_channel_access_token, promptpay_id, deposit_amount, deposit_by_month, cancellation_days, notification_preference, security_pin_hash, avatar_url, bank_name, bank_account_number, bank_account_name, payment_display")
+        .select("id, name, email, phone, line_user_id, line_channel_access_token, promptpay_id, deposit_amount, deposit_by_month, cancellation_days, notification_preference, security_pin_hash, avatar_url, bank_name, bank_account_number, bank_account_name, payment_display, require_otp")
         .eq("user_id", user.id)
         .single();
 
@@ -142,6 +144,7 @@ export default function ProfilePage() {
         setBankName(h.bank_name || "");
         setBankAccountNumber(h.bank_account_number || "");
         setBankAccountName(h.bank_account_name || "");
+        setRequireOtp(h.require_otp !== false);
       }
       setLoading(false);
     };
@@ -221,6 +224,7 @@ export default function ProfilePage() {
         deposit_by_month: Object.keys(depositByMonth).length > 0 ? depositByMonth : null,
         cancellation_days: cancellationDays,
         notification_preference: notificationPreference,
+        require_otp: requireOtp,
         updated_by: host.name,
       };
 
@@ -848,6 +852,51 @@ export default function ProfilePage() {
             </div>
           )}
 
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className="w-full hover:brightness-90 bg-brand"
+          >
+            {saving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            {t("save")}
+          </Button>
+        </CardContent>
+      </Card>
+
+      <Card className="mt-6">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base">
+            <ShieldCheck className="h-4 w-4" />
+            {t("requireOtpLabel")}
+          </CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-4">
+          <p className="text-xs text-gray-500">{t("requireOtpHint")}</p>
+          <div className="flex gap-2">
+            {([true, false] as const).map((option) => (
+              <button
+                key={String(option)}
+                type="button"
+                onClick={() => setRequireOtp(option)}
+                className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-colors ${
+                  requireOtp === option
+                    ? "border-current text-white"
+                    : "border-gray-200 text-gray-600 hover:border-gray-300"
+                }`}
+                style={
+                  requireOtp === option
+                    ? { backgroundColor: "#2F5D50", borderColor: "#2F5D50" }
+                    : undefined
+                }
+              >
+                {t(option ? "otpEnabled" : "otpDisabled")}
+              </button>
+            ))}
+          </div>
           <Button
             onClick={handleSave}
             disabled={saving}
