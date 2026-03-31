@@ -3,7 +3,10 @@
     "allow": [
       "Bash(ls:*)",
       "Bash(grep:*)",
-      "Bash(npm run:*)"
+      "Bash(npm run:*)",
+      "WebSearch",
+      "WebFetch(domain:sms-kub.com)",
+      "WebFetch(domain:www.postman.com)"
     ]
   }
 }

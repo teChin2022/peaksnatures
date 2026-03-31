@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
-import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key, Lock, Eye, EyeOff, Bell, BellOff, Trash2, AlertTriangle, ShieldCheck, Unlock, Calendar, Camera } from "lucide-react";
+import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key, Lock, Eye, EyeOff, Bell, Trash2, AlertTriangle, ShieldCheck, Unlock, Calendar, Camera } from "lucide-react";
 import Image from "next/image";
 import { compressImage } from "@/lib/compress-image";
 import { getInitials } from "@/lib/utils";
@@ -16,7 +16,6 @@ import { toast } from "sonner";
 import { useRouter } from "next/navigation";
 import { logClientEvent } from "@/lib/history-log-client";
 
-import { isPushSupported, isPushSubscribed, subscribeHostToPush, unsubscribeFromPush } from "@/lib/push-notifications";
 import { SecurityPinDialog } from "@/components/security-pin-dialog";
 
 function maskEmail(email: string): string {
@@ -81,10 +80,7 @@ export default function ProfilePage() {
   const [showOldPassword, setShowOldPassword] = useState(false);
   const [showNewPassword, setShowNewPassword] = useState(false);
   const [showConfirmPassword, setShowConfirmPassword] = useState(false);
-  const [notificationPreference, setNotificationPreference] = useState("push");
-  const [pushSubscribed, setPushSubscribed] = useState(false);
-  const [pushSupported, setPushSupported] = useState(false);
-  const [togglingPush, setTogglingPush] = useState(false);
+  const [notificationPreference, setNotificationPreference] = useState("sms");
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [deleting, setDeleting] = useState(false);
@@ -140,19 +136,12 @@ export default function ProfilePage() {
         setDepositAmount(h.deposit_amount || 0);
         setDepositByMonth(h.deposit_by_month || {});
         setCancellationDays(h.cancellation_days || 0);
-        setNotificationPreference(h.notification_preference || "push");
+        setNotificationPreference(h.notification_preference || "sms");
         setAvatarUrl(h.avatar_url || null);
         setPaymentDisplay((h.payment_display as "qr" | "bank") || "qr");
         setBankName(h.bank_name || "");
         setBankAccountNumber(h.bank_account_number || "");
         setBankAccountName(h.bank_account_name || "");
-
-        // Check push support and subscription status
-        const supported = isPushSupported();
-        setPushSupported(supported);
-        if (supported) {
-          isPushSubscribed(h.id).then(setPushSubscribed);
-        }
       }
       setLoading(false);
     };
@@ -796,7 +785,7 @@ export default function ProfilePage() {
               {t("notificationPreference")}
             </Label>
             <div className="flex gap-2">
-              {(["push", "line", "both"] as const).map((option) => (
+              {(["sms", "line"] as const).map((option) => (
                 <button
                   key={option}
                   type="button"
@@ -812,87 +801,21 @@ export default function ProfilePage() {
                       : undefined
                   }
                 >
-                  {t(`notification${option.charAt(0).toUpperCase() + option.slice(1)}` as "notificationPush" | "notificationLine" | "notificationBoth")}
+                  {t(`notification${option.charAt(0).toUpperCase() + option.slice(1)}` as "notificationSms" | "notificationLine")}
                 </button>
               ))}
             </div>
           </div>
 
-          {/* Web Push Toggle */}
-          {(notificationPreference === "push" || notificationPreference === "both") && (
-            <div className="rounded-lg border border-gray-200 p-4 space-y-3">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-2">
-                  {pushSubscribed ? (
-                    <Bell className="h-4 w-4 text-brand" />
-                  ) : (
-                    <BellOff className="h-4 w-4 text-gray-400" />
-                  )}
-                  <span className="text-sm font-medium">{t("pushNotifications")}</span>
-                </div>
-              </div>
-              <p className="text-xs text-gray-500">
-                {!pushSupported
-                  ? t("pushNotSupported")
-                  : pushSubscribed
-                    ? t("pushEnabled")
-                    : t("pushDisabled")}
-              </p>
-              {pushSupported && (
-                <Button
-                  variant={pushSubscribed ? "outline" : "default"}
-                  size="sm"
-                  disabled={togglingPush}
-                  className={`w-full hover:brightness-90 ${!pushSubscribed ? "bg-brand" : ""}`}
-                  onClick={async () => {
-                    if (!host) return;
-                    setTogglingPush(true);
-                    try {
-                      if (pushSubscribed) {
-                        const result = await unsubscribeFromPush(host.id);
-                        if (result.success) {
-                          setPushSubscribed(false);
-                          toast.success(t("pushDisableSuccess"));
-                        } else {
-                          toast.error(t("pushError"));
-                        }
-                      } else {
-                        const result = await subscribeHostToPush(host.id);
-                        if (result.success) {
-                          setPushSubscribed(true);
-                          toast.success(t("pushEnableSuccess"));
-                        } else if (result.error?.includes("denied")) {
-                          toast.error(t("pushPermissionDenied"));
-                        } else {
-                          toast.error(result.error || t("pushError"));
-                        }
-                      }
-                    } catch {
-                      toast.error(t("pushError"));
-                    } finally {
-                      setTogglingPush(false);
-                    }
-                  }}
-                >
-                  {togglingPush ? (
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  ) : pushSubscribed ? (
-                    <BellOff className="mr-2 h-4 w-4" />
-                  ) : (
-                    <Bell className="mr-2 h-4 w-4" />
-                  )}
-                  {togglingPush
-                    ? t("pushEnabling")
-                    : pushSubscribed
-                      ? t("pushDisable")
-                      : t("pushEnable")}
-                </Button>
-              )}
+          {/* SMS Settings — shown when SMS is selected */}
+          {notificationPreference === "sms" && (
+            <div className="rounded-lg border border-gray-200 p-4">
+              <p className="text-xs text-gray-500">{t("smsSettingsHint")}</p>
             </div>
           )}
 
-          {/* LINE Settings — shown when LINE or Both is selected */}
-          {(notificationPreference === "line" || notificationPreference === "both") && (
+          {/* LINE Settings — shown when LINE is selected */}
+          {notificationPreference === "line" && (
             <div className="rounded-lg border border-gray-200 p-4 space-y-3">
               <p className="text-xs text-gray-500 mb-2">{t("lineSettingsHint")}</p>
               <div className="space-y-2">

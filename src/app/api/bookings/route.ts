@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { sendBookingConfirmationEmail, sendHostLineNotification, sendHostPushNotification } from "@/lib/notifications";
+import { sendBookingConfirmationEmail, sendHostLineNotification, sendHostSmsNotification, dispatchHostNotification, buildNewBookingMessage } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room, RoomSeasonalPrice } from "@/types/database";
 import { calculateTotalPrice } from "@/lib/calculate-price";
 import { getDepositForMonth } from "@/lib/get-deposit";
@@ -88,19 +88,15 @@ async function sendNotifications(bookingId: string, supabase: ReturnType<typeof 
     const emailResult = await sendBookingConfirmationEmail(details, locale, emailType);
     console.log("[Notification] Email result:", emailResult);
 
-    // Host notification: dispatch based on notification_preference
-    const preference = (host as unknown as Host).notification_preference || "push";
-    console.log(`[Notification] Host preference: ${preference}, notif type: ${hostNotifType}`);
-
-    if (preference === "push" || preference === "both") {
-      const pushResult = await sendHostPushNotification(details, hostNotifType);
-      console.log("[Notification] Push result:", pushResult);
-    }
-
-    if (preference === "line" || preference === "both") {
-      const lineResult = await sendHostLineNotification(details, hostNotifType);
-      console.log("[Notification] LINE result:", lineResult);
-    }
+    // Host notification: dispatch with retry + email fallback
+    const statusLabel = hostNotifType === "confirmed" ? "ยืนยันแล้ว" : "รอตรวจสอบ";
+    await dispatchHostNotification(
+      details,
+      () => sendHostSmsNotification(details, hostNotifType),
+      () => sendHostLineNotification(details, hostNotifType),
+      `การจองใหม่ — ${statusLabel}`,
+      () => buildNewBookingMessage(details, hostNotifType),
+    );
   } catch (error) {
     console.error("Notification error (non-blocking):", error);
   }

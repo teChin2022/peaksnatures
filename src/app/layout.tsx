@@ -57,11 +57,6 @@ export default async function RootLayout({
           <Toaster richColors position="top-right" />
           <CookieConsent />
         </NextIntlClientProvider>
-        <script
-          dangerouslySetInnerHTML={{
-            __html: `if('serviceWorker' in navigator){navigator.serviceWorker.register('/sw.js').catch(function(){})}`,
-          }}
-        />
       </body>
     </html>
   );
