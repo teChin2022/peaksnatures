@@ -6,7 +6,8 @@
       "Bash(npm run:*)",
       "WebSearch",
       "WebFetch(domain:sms-kub.com)",
-      "WebFetch(domain:www.postman.com)"
+      "WebFetch(domain:www.postman.com)",
+      "Bash(npx tsc:*)"
     ]
   }
 }

@@ -283,6 +283,12 @@ function formatSmsDate(dateStr: string): string {
   return format(date, "dMMM", { locale: thLocale }) + beYear;
 }
 
+function formatSmsDateSpaced(dateStr: string): string {
+  const date = parseISO(dateStr);
+  const beYear = (date.getFullYear() + 543) % 100;
+  return format(date, "d MMM ", { locale: thLocale }) + beYear;
+}
+
 function truncateForSms(message: string, maxLen: number = 70): string {
   if (message.length <= maxLen) return message;
   return message.slice(0, maxLen);
@@ -391,6 +397,7 @@ export async function sendDateChangeSmsNotification(
   newCheckOut: string,
   _priceDifference: number,
   newTotalPrice: number,
+  newRoomName?: string,
 ): Promise<{ success: boolean; error?: unknown }> {
   const phone = details.host.phone;
   if (!phone) {
@@ -398,8 +405,8 @@ export async function sendDateChangeSmsNotification(
     return { success: false, error: "Host phone not set" };
   }
 
-  const { booking } = details;
-  const guest = booking.guest_name.slice(0, 15);
+  const { booking, room } = details;
+  const guest = booking.guest_name.slice(0, 30);
   const oldNights = Math.round(
     (new Date(oldCheckOut).getTime() - new Date(oldCheckIn).getTime()) / (1000 * 60 * 60 * 24)
   );
@@ -407,8 +414,13 @@ export async function sendDateChangeSmsNotification(
     (new Date(newCheckOut).getTime() - new Date(newCheckIn).getTime()) / (1000 * 60 * 60 * 24)
   );
 
+  const roomPart = newRoomName
+    ? ` ${(room?.name || "").slice(0, 10)}>${newRoomName.slice(0, 10)}`
+    : "";
+
   const message = truncateForSms(
-    `ขอเปลี่ยน ${guest} ${formatSmsDate(oldCheckIn)}${oldNights}คืน>${formatSmsDate(newCheckIn)}${newNights}คืน ฿${booking.total_price.toLocaleString()}>฿${newTotalPrice.toLocaleString()} รออนุมัติ`
+    `ขอเปลี่ยน ${guest}${roomPart} ${formatSmsDateSpaced(oldCheckIn)} ${oldNights}คืน > ${formatSmsDateSpaced(newCheckIn)} ${newNights}คืน ฿${booking.total_price.toLocaleString()} > ฿${newTotalPrice.toLocaleString()} รออนุมัติ`,
+    134
   );
 
   return sendSms(phone, message);
