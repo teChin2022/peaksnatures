@@ -347,6 +347,7 @@ export async function POST(req: NextRequest) {
             data.new_check_out,
             priceDifference,
             newTotalPrice,
+            roomChanged ? newRoom?.name : undefined,
           ),
           () => sendDateChangeLineNotification(
             details,
