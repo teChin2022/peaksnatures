@@ -301,7 +301,7 @@ async function sendSms(phone: string, message: string): Promise<{ success: boole
     method: "POST",
     headers: {
       "Content-Type": "application/json",
-      "Authorization": `Bearer ${apiKey}`,
+      "key": apiKey,
     },
     body: JSON.stringify({
       to: [phone],
