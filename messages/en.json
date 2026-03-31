@@ -598,7 +598,11 @@
     "bankAccountNumberPlaceholder": "e.g. 123-4-56789-0",
     "bankAccountName": "Account Name",
     "bankAccountNamePlaceholder": "Account holder name",
-    "bankFieldsRequired": "Please fill in all bank account fields when using Bank Transfer mode."
+    "bankFieldsRequired": "Please fill in all bank account fields when using Bank Transfer mode.",
+    "requireOtpLabel": "Login Verification (OTP)",
+    "requireOtpHint": "When enabled, a 6-digit verification code will be sent to your email each time you log in. Disabling this means only your password is needed.",
+    "otpEnabled": "Enabled",
+    "otpDisabled": "Disabled"
   },
   "dashboardHomestay": {
     "createTitle": "Create Homestay",

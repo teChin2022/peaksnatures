@@ -39,6 +39,7 @@ export interface Database {
           bank_account_number: string | null;
           bank_account_name: string | null;
           payment_display: string;
+          require_otp: boolean;
           created_at: string;
           created_by: string;
           updated_at: string;
@@ -65,6 +66,7 @@ export interface Database {
           bank_account_number?: string | null;
           bank_account_name?: string | null;
           payment_display?: string;
+          require_otp?: boolean;
           created_at?: string;
           created_by?: string;
           updated_at?: string;
@@ -91,6 +93,7 @@ export interface Database {
           bank_account_number?: string | null;
           bank_account_name?: string | null;
           payment_display?: string;
+          require_otp?: boolean;
           created_at?: string;
           created_by?: string;
           updated_at?: string;
