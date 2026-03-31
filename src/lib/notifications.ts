@@ -274,128 +274,207 @@ export async function sendBookingStatusUpdateEmail(
 }
 
 // ============================================================
-// WEB PUSH NOTIFICATION (via web-push library, sent from Next.js server)
+// SMS NOTIFICATION (sms-kub.com)
 // ============================================================
-export async function sendHostPushNotification(
+
+function formatSmsDate(dateStr: string): string {
+  const date = parseISO(dateStr);
+  const beYear = (date.getFullYear() + 543) % 100;
+  return format(date, "dMMM", { locale: thLocale }) + beYear;
+}
+
+function truncateForSms(message: string, maxLen: number = 70): string {
+  if (message.length <= maxLen) return message;
+  return message.slice(0, maxLen);
+}
+
+async function sendSms(phone: string, message: string): Promise<{ success: boolean; error?: unknown }> {
+  const apiKey = process.env.SMS_KUB_API_KEY;
+  const sender = process.env.SMS_KUB_SENDER || "Peaksnature";
+
+  if (!apiKey) {
+    console.log("[SMS] Skipped — SMS_KUB_API_KEY not configured");
+    return { success: false, error: "SMS API key not configured" };
+  }
+
+  const response = await fetch("https://console.sms-kub.com/api/messages", {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      "Authorization": `Api-Key ${apiKey}`,
+    },
+    body: JSON.stringify({
+      to: [phone],
+      from: sender,
+      message,
+    }),
+  });
+
+  if (!response.ok) {
+    const errorData = await response.json().catch(() => ({}));
+    console.error("[SMS] API error:", response.status, errorData);
+    return { success: false, error: errorData };
+  }
+
+  const result = await response.json().catch(() => ({}));
+  console.log("[SMS] Sent to", phone, result);
+  return { success: true };
+}
+
+async function withRetry(
+  fn: () => Promise<{ success: boolean; error?: unknown }>,
+  retries: number = 3,
+): Promise<{ success: boolean; error?: unknown }> {
+  let lastResult: { success: boolean; error?: unknown } = { success: false };
+  for (let i = 0; i < retries; i++) {
+    lastResult = await fn();
+    if (lastResult.success) return lastResult;
+    console.log(`[Retry] Attempt ${i + 1}/${retries} failed`);
+  }
+  return lastResult;
+}
+
+export async function sendHostSmsNotification(
   details: BookingDetails,
   type: "confirmed" | "flagged" = "confirmed"
-) {
-  const vapidPublicKey = process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY;
-  const vapidPrivateKey = process.env.VAPID_PRIVATE_KEY;
+): Promise<{ success: boolean; error?: unknown }> {
+  const phone = details.host.phone;
+  if (!phone) {
+    console.log("[SMS] Skipped — Host has no phone:", details.host.name);
+    return { success: false, error: "Host phone not set" };
+  }
 
-  if (!vapidPublicKey || !vapidPrivateKey) {
-    console.log("[Push] Skipped — VAPID keys not configured");
-    return { success: false, error: "VAPID keys not configured" };
+  const { booking, room } = details;
+  const nights = Math.round(
+    (new Date(booking.check_out).getTime() - new Date(booking.check_in).getTime()) / (1000 * 60 * 60 * 24)
+  );
+  const guest = booking.guest_name.slice(0, 15);
+  const roomName = (room?.name || "Standard").slice(0, 12);
+  const status = type === "confirmed" ? "ยืนยันแล้ว" : "รอตรวจสอบ";
+
+  const message = truncateForSms(
+    `จองใหม่ ${guest} ${roomName} ${formatSmsDate(booking.check_in)} ${nights}คืน ฿${booking.total_price.toLocaleString()} ${status}`
+  );
+
+  return sendSms(phone, message);
+}
+
+export async function sendHostCancellationSmsNotification(
+  details: BookingDetails,
+): Promise<{ success: boolean; error?: unknown }> {
+  const phone = details.host.phone;
+  if (!phone) {
+    console.log("[SMS] Skipped — Host has no phone:", details.host.name);
+    return { success: false, error: "Host phone not set" };
+  }
+
+  const { booking, room } = details;
+  const nights = Math.round(
+    (new Date(booking.check_out).getTime() - new Date(booking.check_in).getTime()) / (1000 * 60 * 60 * 24)
+  );
+  const guest = booking.guest_name.slice(0, 15);
+  const roomName = (room?.name || "Standard").slice(0, 12);
+  const refund = booking.amount_paid || 0;
+
+  const message = truncateForSms(
+    `ยกเลิก ${guest} ${roomName} ${formatSmsDate(booking.check_in)} ${nights}คืน คืนเงิน฿${refund.toLocaleString()}`
+  );
+
+  return sendSms(phone, message);
+}
+
+export async function sendDateChangeSmsNotification(
+  details: BookingDetails,
+  oldCheckIn: string,
+  oldCheckOut: string,
+  newCheckIn: string,
+  newCheckOut: string,
+  _priceDifference: number,
+  newTotalPrice: number,
+): Promise<{ success: boolean; error?: unknown }> {
+  const phone = details.host.phone;
+  if (!phone) {
+    console.log("[SMS] Skipped — Host has no phone:", details.host.name);
+    return { success: false, error: "Host phone not set" };
+  }
+
+  const { booking } = details;
+  const guest = booking.guest_name.slice(0, 15);
+  const oldNights = Math.round(
+    (new Date(oldCheckOut).getTime() - new Date(oldCheckIn).getTime()) / (1000 * 60 * 60 * 24)
+  );
+  const newNights = Math.round(
+    (new Date(newCheckOut).getTime() - new Date(newCheckIn).getTime()) / (1000 * 60 * 60 * 24)
+  );
+
+  const message = truncateForSms(
+    `ขอเปลี่ยน ${guest} ${formatSmsDate(oldCheckIn)}${oldNights}คืน>${formatSmsDate(newCheckIn)}${newNights}คืน ฿${booking.total_price.toLocaleString()}>฿${newTotalPrice.toLocaleString()} รออนุมัติ`
+  );
+
+  return sendSms(phone, message);
+}
+
+async function sendHostNotificationEmail(
+  details: BookingDetails,
+  subject: string,
+  bodyText: string,
+): Promise<{ success: boolean; error?: unknown }> {
+  const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
+  if (!apiKey) {
+    console.log("[Email] Skipped — RESEND_API_KEY not configured");
+    return { success: false, error: "RESEND_API_KEY not configured" };
+  }
+
+  const hostEmail = details.host.email;
+  if (!hostEmail) {
+    console.log("[Email] Skipped — Host has no email:", details.host.name);
+    return { success: false, error: "Host email not set" };
   }
 
   try {
-    const webpush = await import("web-push");
-    webpush.setVapidDetails(
-      "mailto:team@peaksnature.com",
-      vapidPublicKey,
-      vapidPrivateKey
-    );
+    const { Resend } = await import("resend");
+    const resend = new Resend(apiKey);
+    const DEFAULT_FROM = "Peaksnature <onboarding@resend.dev>";
+    const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
+    const fromEmail = cleaned
+      ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
+      : DEFAULT_FROM;
 
-    const { createServiceRoleClient } = await import("@/lib/supabase/server");
-    const supabase = createServiceRoleClient();
+    await resend.emails.send({
+      from: fromEmail,
+      to: [hostEmail],
+      subject,
+      text: bodyText,
+    });
 
-    // Fetch all push subscriptions for this host
-    const { data: subscriptions, error: dbError } = await supabase
-      .from("push_subscriptions" as never)
-      .select("id, endpoint, p256dh, auth")
-      .eq("host_id", details.host.id);
-
-    if (dbError) {
-      console.error("[Push] DB error:", dbError);
-      return { success: false, error: "Database error" };
-    }
-
-    const subs = subscriptions as unknown as { id: string; endpoint: string; p256dh: string; auth: string }[];
-
-    if (!subs || subs.length === 0) {
-      console.log("[Push] No subscriptions for host:", details.host.id);
-      return { success: false, error: "No subscriptions" };
-    }
-
-    const { booking, homestay, room } = details;
-    const checkIn = new Date(booking.check_in);
-    const checkOut = new Date(booking.check_out);
-    const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-
-    const title = type === "confirmed"
-      ? `🎉 การจองใหม่ — ยืนยันแล้ว!`
-      : `⚠️ การจองใหม่ — รอตรวจสอบ`;
-
-    const paymentStatus = type === "confirmed"
-      ? `✅ ชำระเงินแล้ว (ยืนยันผ่าน EasySlip)`
-      : `❌ ยืนยันสลิปไม่สำเร็จ — กรุณาตรวจสอบใน Dashboard`;
-
-    const body = [
-      `━━━━━━━━━━━━━━━━`,
-      ``,
-      `🏠 โฮมสเตย์: ${homestay.name}`,
-      `🔖 Booking ID: ${booking.id.slice(0, 8)}...`,
-      ``,
-      `👤 ข้อมูลผู้จอง`,
-      `   ชื่อ: ${booking.guest_name}`,
-      `   อีเมล: ${booking.guest_email}`,
-      `   โทร: ${booking.guest_phone}`,
-      ...(booking.guest_province ? [`   จังหวัด: ${getProvinceLabel(booking.guest_province, "th")}`] : []),
-      ``,
-      `📋 รายละเอียดการจอง`,
-      `   🛏️ ห้อง: ${room?.name || "Standard"}`,
-      `   📅 เช็คอิน: ${formatBookingDate(booking.check_in, "th")}`,
-      `   📅 เช็คเอาท์: ${formatBookingDate(booking.check_out, "th")}`,
-      `   🌙 จำนวน: ${nights} คืน`,
-      `   👥 ผู้เข้าพัก: ${booking.num_guests} ท่าน`,
-      ...(Array.isArray(booking.selected_options) && (booking.selected_options as { name: string; price: number }[]).length > 0 ? [
-        `   🔧 ออปชัน: ${(booking.selected_options as { name: string; price: number }[]).map((o) => `${o.name} (+฿${o.price.toLocaleString()})`).join(", ")}`,
-      ] : []),
-      ``,
-      `💰 การชำระเงิน`,
-      `   ยอดรวม: ฿${booking.total_price.toLocaleString()}`,
-      ...(room ? [`   (฿${room.price_per_night.toLocaleString()} × ${nights} คืน)`] : []),
-      ...((booking as Record<string, unknown>).payment_type === "deposit" ? [
-        `   💳 ยอดที่ชำระ: ฿${((booking as Record<string, unknown>).amount_paid as number || 0).toLocaleString()} (มัดจำ)`,
-        `   ⏳ ยอดค้าง: ฿${(booking.total_price - ((booking as Record<string, unknown>).amount_paid as number || 0)).toLocaleString()} (ชำระเมื่อเข้าพัก)`,
-      ] : []),
-      `   ${paymentStatus}`,
-      ``,
-      `━━━━━━━━━━━━━━━━`,
-      `📍 ${homestay.location}`,
-    ].join("\n");
-
-    const payload = JSON.stringify({ title, body, url: "/dashboard", tag: `booking-${Date.now()}` });
-
-    let sent = 0;
-    const expired: string[] = [];
-
-    for (const sub of subs) {
-      try {
-        await webpush.sendNotification(
-          { endpoint: sub.endpoint, keys: { p256dh: sub.p256dh, auth: sub.auth } },
-          payload
-        );
-        sent++;
-      } catch (err: unknown) {
-        const pushErr = err as { statusCode?: number };
-        if (pushErr.statusCode === 410 || pushErr.statusCode === 404) {
-          expired.push(sub.id);
-        } else {
-          console.error("[Push] Send failed:", pushErr);
-        }
-      }
-    }
-
-    // Clean up expired subscriptions
-    if (expired.length > 0) {
-      await supabase.from("push_subscriptions" as never).delete().in("id", expired);
-    }
-
-    return { success: true, data: { sent, total: subs.length, expired: expired.length } };
+    console.log("[Email] Fallback sent to host:", hostEmail);
+    return { success: true };
   } catch (error) {
-    console.error("[Push] Exception:", error);
+    console.error("[Email] Fallback failed:", error);
     return { success: false, error };
+  }
+}
+
+export async function dispatchHostNotification(
+  details: BookingDetails,
+  sendSmsFn: () => Promise<{ success: boolean; error?: unknown }>,
+  sendLineFn: () => Promise<{ success: boolean; error?: unknown }>,
+  emailSubject: string,
+  emailBody: string,
+): Promise<void> {
+  const preference = details.host.notification_preference || "sms";
+
+  const primaryFn = preference === "line" ? sendLineFn : sendSmsFn;
+  const channelName = preference === "line" ? "LINE" : "SMS";
+
+  const result = await withRetry(primaryFn, 3);
+
+  if (!result.success) {
+    console.log(`[Notification] ${channelName} failed after 3 retries, falling back to email`);
+    const emailResult = await sendHostNotificationEmail(details, emailSubject, emailBody);
+    if (!emailResult.success) {
+      console.error("[Notification] Email fallback also failed");
+    }
   }
 }
 

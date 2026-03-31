@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { sendHostCancellationLineNotification } from "@/lib/notifications";
+import { sendHostCancellationLineNotification, sendHostCancellationSmsNotification, dispatchHostNotification } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room } from "@/types/database";
 import { logEvent, EventType } from "@/lib/history-log";
 
@@ -155,8 +155,13 @@ export async function POST(req: NextRequest) {
 
         const details = { booking, homestay, host, room };
 
-        const lineResult = await sendHostCancellationLineNotification(details, reason);
-        console.log("[GuestCancel] LINE notification result:", lineResult);
+        await dispatchHostNotification(
+          details,
+          () => sendHostCancellationSmsNotification(details),
+          () => sendHostCancellationLineNotification(details, reason),
+          `แขกยกเลิกการจอง`,
+          `ยกเลิก: ${booking.guest_name}, ห้อง ${room?.name || "Standard"}, เช็คอิน ${booking.check_in}, คืนเงิน ฿${(booking.amount_paid || 0).toLocaleString()}`,
+        );
       } catch (error) {
         console.error("[GuestCancel] Notification error (non-blocking):", error);
       }

@@ -2,7 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { sendDateChangeLineNotification } from "@/lib/notifications";
+import { sendDateChangeLineNotification, sendDateChangeSmsNotification, dispatchHostNotification } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room, RoomSeasonalPrice } from "@/types/database";
 import { calculateTotalPrice } from "@/lib/calculate-price";
 import { getDepositForMonth } from "@/lib/get-deposit";
@@ -337,24 +337,38 @@ export async function POST(req: NextRequest) {
           room,
         };
 
-        await sendDateChangeLineNotification(
+        await dispatchHostNotification(
           details,
-          booking.check_in,
-          booking.check_out,
-          data.new_check_in,
-          data.new_check_out,
-          priceDifference,
-          newTotalPrice,
-          roomChanged ? newRoom?.name : undefined,
-          {
-            amountPaid: booking.amount_paid,
-            additionalPayment,
-            paymentOption,
-            depositAvailable,
-            newDeposit,
-            fullOutstanding,
-            paymentType: booking.payment_type,
-          },
+          () => sendDateChangeSmsNotification(
+            details,
+            booking.check_in,
+            booking.check_out,
+            data.new_check_in,
+            data.new_check_out,
+            priceDifference,
+            newTotalPrice,
+          ),
+          () => sendDateChangeLineNotification(
+            details,
+            booking.check_in,
+            booking.check_out,
+            data.new_check_in,
+            data.new_check_out,
+            priceDifference,
+            newTotalPrice,
+            roomChanged ? newRoom?.name : undefined,
+            {
+              amountPaid: booking.amount_paid,
+              additionalPayment,
+              paymentOption,
+              depositAvailable,
+              newDeposit,
+              fullOutstanding,
+              paymentType: booking.payment_type,
+            },
+          ),
+          `แขกขอเปลี่ยนวันเข้าพัก`,
+          `ขอเปลี่ยน: ${booking.guest_name}, ${booking.check_in}>${data.new_check_in}, ฿${booking.total_price.toLocaleString()}>฿${newTotalPrice.toLocaleString()} รออนุมัติ`,
         );
       } catch (error) {
         console.error("[ChangeDates] Notification error (non-blocking):", error);

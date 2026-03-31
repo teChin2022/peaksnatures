@@ -59,8 +59,8 @@ Path alias: `@/*` → `./src/*`
 
 ### Notifications
 
-- `src/lib/notifications.ts` — Resend (guest email) + LINE Messaging API (host notifications)
-- `src/lib/push-notifications.ts` — Web push
+- `src/lib/notifications.ts` — Resend (guest email) + LINE Messaging API + SMS via sms-kub.com (host notifications)
+- Host notification dispatch: retry 3 times on preferred channel (SMS or LINE), then fallback to email
 
 ### Environment Variables
 
@@ -71,6 +71,8 @@ SUPABASE_SERVICE_ROLE_KEY
 OPEN_AI_API_KEY
 EASYSLIP_API_KEY
 RESEND_API_KEY
+SMS_KUB_API_KEY
+SMS_KUB_SENDER
 ```
 
 Per-host LINE credentials (`line_channel_access_token`, `line_user_id`) are stored in the `hosts` DB table.

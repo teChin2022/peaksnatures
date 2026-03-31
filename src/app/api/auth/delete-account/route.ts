@@ -120,12 +120,6 @@ export async function DELETE(req: Request) {
           .eq("id", homestayRow.id);
       }
 
-      // Delete push subscriptions
-      await serviceClient
-        .from("push_subscriptions")
-        .delete()
-        .eq("host_id", hostRow.id);
-
       // Delete host record
       await serviceClient
         .from("hosts")
