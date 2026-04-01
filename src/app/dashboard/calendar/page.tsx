@@ -368,31 +368,39 @@ export default function CalendarPage() {
       return;
     }
 
-    // Determine room_id from the blocked entries being unblocked
-    // All selected blocked dates should share the same room_id context from the filter
-    const roomId = selectedRoomFilter === "all" ? null : selectedRoomFilter;
+    // Group dates by the actual room_id from their blocked entries
+    // (not the filter value, which may not match the stored room_id)
+    const groupedByRoomId = new Map<string | null, string[]>();
+    const idsToRemove = new Set<string>();
+    datesToUnblock.forEach((d) => {
+      const bd = blockedDateMap.get(d)!;
+      idsToRemove.add(bd.id);
+      const key = bd.room_id ?? null;
+      const group = groupedByRoomId.get(key) || [];
+      group.push(d);
+      groupedByRoomId.set(key, group);
+    });
 
     try {
-      const res = await fetch("/api/blocked-dates", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          homestay_id: homestayId,
-          dates: datesToUnblock,
-          room_id: roomId,
-        }),
-      });
-
-      if (!res.ok) throw new Error("Failed to unblock dates");
-
-      setBlockedDates((prev) =>
-        prev.filter((bd) => {
-          if (!datesToUnblock.includes(bd.date)) return true;
-          // Only remove entries matching the room_id we unblocked
-          if (roomId === null) return bd.room_id !== null;
-          return bd.room_id !== roomId;
-        })
+      // Send one delete request per room_id group
+      const promises = Array.from(groupedByRoomId.entries()).map(
+        ([roomId, dates]) =>
+          fetch("/api/blocked-dates", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              homestay_id: homestayId,
+              dates,
+              room_id: roomId,
+            }),
+          })
       );
+
+      const results = await Promise.all(promises);
+      if (results.some((r) => !r.ok)) throw new Error("Failed to unblock dates");
+
+      // Remove the exact entries that were unblocked (by ID)
+      setBlockedDates((prev) => prev.filter((bd) => !idsToRemove.has(bd.id)));
       toast.success(t("unblockSuccess"));
       clearSelection();
       setUnblockDialogOpen(false);
@@ -669,8 +677,15 @@ export default function CalendarPage() {
 
                   {/* Blocked indicator */}
                   {dayInfo.isCurrentMonth && dayInfo.isBlocked && !hasBookings && (
-                    <div className="mt-auto">
-                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" title={[dayInfo.blockedRoomName, dayInfo.blockedReason].filter(Boolean).join(" — ") || t("blocked")} />
+                    <div className="mt-auto w-full">
+                      {(dayInfo.blockedRoomName || dayInfo.blockedReason) ? (
+                        <div className="text-[8px] sm:text-[10px] leading-tight text-red-500">
+                          {dayInfo.blockedRoomName && <span className="block truncate font-medium">{dayInfo.blockedRoomName}</span>}
+                          {dayInfo.blockedReason && <span className="block truncate opacity-70">{dayInfo.blockedReason}</span>}
+                        </div>
+                      ) : (
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" title={t("blocked")} />
+                      )}
                     </div>
                   )}
                 </button>
