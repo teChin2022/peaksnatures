@@ -341,14 +341,51 @@ export default function HomestayPage() {
       return;
     }
 
+    // Check for duplicate slug and name
+    setSaving(true);
+    try {
+      const supabase = createClient();
+      const currentId = isNew ? null : homestay?.id;
+
+      const [{ data: slugMatch }, { data: nameMatch }] = await Promise.all([
+        supabase
+          .from("homestays")
+          .select("id")
+          .eq("slug", slug.trim())
+          .limit(1)
+          .maybeSingle(),
+        supabase
+          .from("homestays")
+          .select("id")
+          .eq("name", name.trim())
+          .limit(1)
+          .maybeSingle(),
+      ]);
+
+      if (slugMatch && (slugMatch as { id: string }).id !== currentId) {
+        toast.error(t("errorSlugDuplicate"));
+        setSaving(false);
+        return;
+      }
+      if (nameMatch && (nameMatch as { id: string }).id !== currentId) {
+        toast.error(t("errorNameDuplicate"));
+        setSaving(false);
+        return;
+      }
+    } catch {
+      toast.error(t("errorSave"));
+      setSaving(false);
+      return;
+    }
+
     // If slug changed on an existing homestay, show confirmation first
     if (slugHasChanged && !showSlugWarning) {
+      setSaving(false);
       setShowSlugWarning(true);
       return;
     }
 
     setShowSlugWarning(false);
-    setSaving(true);
     try {
       const supabase = createClient();
       const payload = {

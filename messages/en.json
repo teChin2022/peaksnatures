@@ -669,6 +669,8 @@
     "saved": "Homestay updated successfully",
     "errorRequired": "Please fill in name, slug, and location",
     "errorSlugFormat": "Slug can only contain lowercase English letters, numbers, and dashes (e.g. my-homestay)",
+    "errorSlugDuplicate": "This slug is already taken. Please choose a different one.",
+    "errorNameDuplicate": "A homestay with this name already exists. Please choose a different name.",
     "errorSave": "Failed to save. Please try again.",
     "checkInOutTimes": "Check-in / Check-out Times",
     "checkInTime": "Check-in Time",
