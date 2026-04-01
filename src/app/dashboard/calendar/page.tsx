@@ -760,7 +760,7 @@ export default function CalendarPage() {
                 </Badge>
               ))}
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setBlockDialogOpen(false)}>
               {t("cancelAction")}
             </Button>
@@ -913,7 +913,7 @@ export default function CalendarPage() {
                 </Badge>
               ))}
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setUnblockDialogOpen(false)}>
               {t("cancelAction")}
             </Button>
