@@ -679,7 +679,7 @@ export default function CalendarPage() {
                   {dayInfo.isCurrentMonth && dayInfo.isBlocked && !hasBookings && (
                     <div className="mt-auto w-full">
                       {(dayInfo.blockedRoomName || dayInfo.blockedReason) ? (
-                        <div className="text-[8px] sm:text-[10px] leading-tight text-red-500">
+                        <div className="text-[8px] sm:text-[10px] leading-tight text-red-500" title={[dayInfo.blockedRoomName, dayInfo.blockedReason].filter(Boolean).join(" — ")}>
                           {dayInfo.blockedRoomName && <span className="block truncate font-medium">{dayInfo.blockedRoomName}</span>}
                           {dayInfo.blockedReason && <span className="block truncate opacity-70">{dayInfo.blockedReason}</span>}
                         </div>
