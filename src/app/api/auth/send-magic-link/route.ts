@@ -71,7 +71,7 @@ export async function POST(req: NextRequest) {
         button: "Sign In to Peaksnature",
         expiry:
           "This link expires in 24 hours. If you didn't request this, you can safely ignore this email.",
-        footer: "Peaksnature — Nature Homestays in Thailand",
+        footer: "Peaksnature — Nature Places in Thailand",
       },
       th: {
         subject: "ลิงก์เข้าสู่ระบบ Peaksnature",

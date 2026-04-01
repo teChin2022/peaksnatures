@@ -11,7 +11,7 @@ export const revalidate = 3600;
 
 export const metadata: Metadata = {
   title: "About — Peaksnature",
-  description: "Learn about Peaksnature — a platform for discovering and booking nature homestays in Thailand.",
+  description: "Learn about Peaksnature — a platform for discovering and booking nature places in Thailand.",
 };
 
 export default async function AboutPage() {
