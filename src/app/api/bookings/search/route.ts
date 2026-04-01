@@ -31,17 +31,44 @@ export async function GET(request: NextRequest) {
     return NextResponse.json({ bookings: [] });
   }
 
-  // Public endpoint: guests search their own bookings by booking ID.
+  // Public endpoint: guests search their own bookings.
+  // Supports booking ID, phone number, or email.
   // Scoped by homestay_id — no auth required.
   const supabase = createServiceRoleClient();
 
-  // Search by exact booking ID
-  const { data } = await supabase
-    .from("bookings")
-    .select(BOOKING_SELECT)
-    .eq("homestay_id", homestayId)
-    .eq("id", query)
-    .limit(1);
+  // Determine search type and query accordingly
+  const isEmail = query.includes("@");
+  const isPhone = /^[0-9+\-() ]{7,}$/.test(query);
+
+  let searchQuery;
+  if (isEmail) {
+    searchQuery = supabase
+      .from("bookings")
+      .select(BOOKING_SELECT)
+      .eq("homestay_id", homestayId)
+      .eq("guest_email", query)
+      .order("created_at", { ascending: false })
+      .limit(10);
+  } else if (isPhone) {
+    const digits = query.replace(/\D/g, "");
+    searchQuery = supabase
+      .from("bookings")
+      .select(BOOKING_SELECT)
+      .eq("homestay_id", homestayId)
+      .like("guest_phone", `%${digits}%`)
+      .order("created_at", { ascending: false })
+      .limit(10);
+  } else {
+    // Default: search by exact booking ID
+    searchQuery = supabase
+      .from("bookings")
+      .select(BOOKING_SELECT)
+      .eq("homestay_id", homestayId)
+      .eq("id", query)
+      .limit(1);
+  }
+
+  const { data } = await searchQuery;
   const unique = (data as unknown as BookingResult[]) || [];
 
   const sliced = unique.slice(0, 10);

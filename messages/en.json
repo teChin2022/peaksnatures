@@ -801,7 +801,7 @@
   "bookingSearch": {
     "searchBooking": "Search Booking",
     "title": "Search Your Booking",
-    "placeholder": "Enter your booking ID",
+    "placeholder": "Booking ID, phone number, or email",
     "search": "Search",
     "options": "Options",
     "noResults": "No bookings found. Please check your search and try again.",
