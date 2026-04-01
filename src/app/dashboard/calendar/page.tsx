@@ -89,6 +89,7 @@ interface DayInfo {
   isPast: boolean;
   isBlocked: boolean;
   blockedReason: string | null;
+  blockedRoomName: string | null;
   bookings: DayBookingInfo[];
 }
 
@@ -246,10 +247,11 @@ export default function CalendarPage() {
         isPast: isBefore(date, today),
         isBlocked: !!blocked,
         blockedReason: blocked?.reason || null,
+        blockedRoomName: blocked?.room_id ? (roomMap[blocked.room_id] || null) : null,
         bookings: bookingDateMap.get(dateStr) || [],
       };
     });
-  }, [currentMonth, blockedDateMap, bookingDateMap]);
+  }, [currentMonth, blockedDateMap, bookingDateMap, roomMap]);
 
   // Stats for current month
   const monthStats = useMemo(() => {
@@ -668,7 +670,7 @@ export default function CalendarPage() {
                   {/* Blocked indicator */}
                   {dayInfo.isCurrentMonth && dayInfo.isBlocked && !hasBookings && (
                     <div className="mt-auto">
-                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" title={dayInfo.blockedReason || t("blocked")} />
+                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" title={[dayInfo.blockedRoomName, dayInfo.blockedReason].filter(Boolean).join(" — ") || t("blocked")} />
                     </div>
                   )}
                 </button>
@@ -783,6 +785,9 @@ export default function CalendarPage() {
               <Ban className="h-4 w-4 shrink-0" />
               <div>
                 <span className="font-medium">{t("blocked")}</span>
+                {detailDay.blockedRoomName && (
+                  <span className="text-red-500"> — {detailDay.blockedRoomName}</span>
+                )}
                 {detailDay.blockedReason && (
                   <span className="text-red-500"> — {detailDay.blockedReason}</span>
                 )}
