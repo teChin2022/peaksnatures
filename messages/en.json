@@ -460,7 +460,25 @@
     "homestay": "Homestay",
     "rooms": "Rooms",
     "calendar": "Calendar",
-    "guide": "Setup Guide"
+    "guide": "Setup Guide",
+    "checkins": "Today's Check-ins"
+  },
+  "checkins": {
+    "title": "Today's Check-ins",
+    "subtitle": "Guests arriving today",
+    "noCheckins": "No check-ins scheduled for today",
+    "room": "Room",
+    "guests": "Guests",
+    "nights": "nights",
+    "checkedIn": "Checked In",
+    "notCheckedIn": "Not Checked In",
+    "balanceDue": "Balance due ฿{amount}",
+    "depositPaid": "Deposit paid",
+    "fullPaid": "Fully paid",
+    "checkOut": "Check-out",
+    "contact": "Contact",
+    "province": "Province",
+    "note": "Note"
   },
   "dashboardGuide": {
     "title": "Setup Guide",

@@ -464,7 +464,25 @@
     "homestay": "โฮมสเตย์",
     "rooms": "ห้องพัก",
     "calendar": "ปฏิทิน",
-    "guide": "คู่มือตั้งค่า"
+    "guide": "คู่มือตั้งค่า",
+    "checkins": "เช็คอินวันนี้"
+  },
+  "checkins": {
+    "title": "เช็คอินวันนี้",
+    "subtitle": "แขกที่มาถึงวันนี้",
+    "noCheckins": "ไม่มีเช็คอินสำหรับวันนี้",
+    "room": "ห้องพัก",
+    "guests": "ผู้เข้าพัก",
+    "nights": "คืน",
+    "checkedIn": "เช็คอินแล้ว",
+    "notCheckedIn": "ยังไม่เช็คอิน",
+    "balanceDue": "ค้างชำระ ฿{amount}",
+    "depositPaid": "ชำระมัดจำแล้ว",
+    "fullPaid": "ชำระเต็มจำนวน",
+    "checkOut": "เช็คเอาท์",
+    "contact": "ติดต่อ",
+    "province": "จังหวัด",
+    "note": "หมายเหตุ"
   },
   "dashboardGuide": {
     "title": "คู่มือตั้งค่า",
