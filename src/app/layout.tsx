@@ -30,7 +30,7 @@ const notoSerifThai = Noto_Serif_Thai({
 export const metadata: Metadata = {
   title: "Peaksnature — Homestay Booking",
   description:
-    "Book unique nature homestays in Thailand. Mountain retreats, riverside escapes, and forest hideaways.",
+    "Book unique nature places in Thailand. Mountain retreats, riverside escapes, and forest hideaways.",
   icons: {
     icon: "/logo.png",
     apple: "/logo.png",

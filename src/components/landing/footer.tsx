@@ -23,7 +23,7 @@ export function LandingFooter() {
               Peaksnature
             </h2>
             <p className="text-xs uppercase tracking-[0.2em] text-earth-500 mb-6">
-              Nature Homestays in Thailand
+              Nature Places in Thailand
             </p>
             <p className="text-earth-400 max-w-sm mb-8">
               คัดสรรที่พักกลางธรรมชาติ

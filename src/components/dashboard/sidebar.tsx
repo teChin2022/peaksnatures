@@ -16,6 +16,7 @@ import {
   LogOut,
   X,
   BookOpen,
+  ClipboardCheck,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, getInitials } from "@/lib/utils";
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { key: "bookings", href: "/dashboard/bookings", icon: CalendarDays },
   { key: "calendar", href: "/dashboard/calendar", icon: CalendarCheck },
   { key: "guide", href: "/dashboard/guide", icon: BookOpen },
+  { key: "checkins", href: "/dashboard/checkins", icon: ClipboardCheck },
   { key: "profile", href: "/dashboard/profile", icon: User }
 ] as const;
 

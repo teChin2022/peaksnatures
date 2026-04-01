@@ -91,7 +91,7 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
               <p style="font-size: 14px; color: #374151; margin: 0 0 24px;">${isTh ? `${homestay.name} หวังเป็นอย่างยิ่งว่าจะได้เป็นส่วนหนึ่งของประสบการณ์การพักผ่อนท่ามกลางธรรมชาติของคุณ` : `${homestay.name} hopes to be part of your nature retreat experience.`}</p>
               <p style="font-size: 14px; color: #374151; margin: 0;">${isTh ? "ด้วยความเคารพ" : "Best regards,"}</p>
               <p style="font-size: 14px; color: #111827; font-weight: 700; margin: 4px 0 0;">${homestay.name}</p>
-              <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Nature Homestays in Thailand</p>
+              <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Nature Places in Thailand</p>
             </div>
           </div>
         </div>`;
@@ -121,7 +121,7 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
             <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 16px 0;" />
             <p style="color: #6b7280; font-size: 14px;">${homestay.location}</p>
             <p style="color: #6b7280; font-size: 14px;">${isTh ? "สลิปการชำระเงินไม่สามารถตรวจสอบอัตโนมัติได้ เจ้าของที่พักจะตรวจสอบและยืนยันให้ในเร็วๆ นี้" : "Your payment slip could not be auto-verified. The host will review and confirm your booking shortly."}</p>
-            <p style="color: #9ca3af; font-size: 12px; margin-top: 24px;">Peaksnature — Nature Homestays in Thailand</p>
+            <p style="color: #9ca3af; font-size: 12px; margin-top: 24px;">Peaksnature — Nature Places in Thailand</p>
           </div>
         </div>`;
     }
@@ -224,7 +224,7 @@ export async function sendBookingStatusUpdateEmail(
               <p style="font-size: 14px; color: #374151; margin: 0 0 24px;">${isTh ? `${homestay.name} หวังเป็นอย่างยิ่งว่าจะได้เป็นส่วนหนึ่งของประสบการณ์การพักผ่อนท่ามกลางธรรมชาติของคุณ` : `${homestay.name} hopes to be part of your nature retreat experience.`}</p>
               <p style="font-size: 14px; color: #374151; margin: 0;">${isTh ? "ด้วยความเคารพ" : "Best regards,"}</p>
               <p style="font-size: 14px; color: #111827; font-weight: 700; margin: 4px 0 0;">${homestay.name}</p>
-              <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Nature Homestays in Thailand</p>
+              <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Nature Places in Thailand</p>
             </div>
           </div>
         </div>`;
@@ -249,7 +249,7 @@ export async function sendBookingStatusUpdateEmail(
             <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 16px 0;" />
             <p style="color: #6b7280; font-size: 14px;">${homestay.location}</p>
             <p style="color: #6b7280; font-size: 14px;">${isTh ? "หากมีข้อสงสัย กรุณาติดต่อเจ้าของที่พักโดยตรง" : "If you have any questions, please contact the host directly."}</p>
-            <p style="color: #9ca3af; font-size: 12px; margin-top: 24px;">Peaksnature — Nature Homestays in Thailand</p>
+            <p style="color: #9ca3af; font-size: 12px; margin-top: 24px;">Peaksnature — Nature Places in Thailand</p>
           </div>
         </div>`;
     }
@@ -868,7 +868,7 @@ export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
                 ${reviewLink ? `<a href="${reviewLink}" style="display: inline-block; background: #111827; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Review in Admin Panel</a>` : ""}
                 <div style="border-top: 1px solid #e5e7eb; padding-top: 24px; margin-top: 24px;">
                   <p style="font-size: 14px; color: #111827; font-weight: 700; margin: 0;">Peaksnature</p>
-                  <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Nature Homestays in Thailand</p>
+                  <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Nature Places in Thailand</p>
                 </div>
               </div>
             </div>
@@ -924,7 +924,7 @@ export async function sendHostApprovalEmail(hostEmail: string, hostName: string)
             <div style="border-top: 1px solid #e5e7eb; padding-top: 24px; margin-top: 24px;">
               <p style="font-size: 14px; color: #374151; margin: 0;">ด้วยความเคารพ</p>
               <p style="font-size: 14px; color: #111827; font-weight: 700; margin: 4px 0 0;">Peaksnature</p>
-              <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Nature Homestays in Thailand</p>
+              <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Nature Places in Thailand</p>
             </div>
           </div>
         </div>
@@ -1086,7 +1086,7 @@ export async function sendDateChangeEmailToGuest(
               <p style="font-size: 14px; color: #374151; margin: 0 0 16px;">${isTh ? "หากท่านมีข้อสงสัยเพิ่มเติม สามารถติดต่อเจ้าของที่พักหรือทีมงานของเราได้ทุกเมื่อ" : "If you have any questions, feel free to contact the property host or our team at any time."}</p>
               <p style="font-size: 14px; color: #374151; margin: 0;">${isTh ? "ด้วยความเคารพ" : "Best regards,"}</p>
               <p style="font-size: 14px; color: #111827; font-weight: 700; margin: 4px 0 0;">${homestay.name}</p>
-              <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Nature Homestays in Thailand</p>
+              <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Nature Places in Thailand</p>
             </div>
           </div>
         </div>`;
@@ -1116,7 +1116,7 @@ export async function sendDateChangeEmailToGuest(
               <p style="font-size: 14px; color: #374151; margin: 0 0 16px;">${isTh ? "หากท่านมีข้อสงสัยเพิ่มเติม สามารถติดต่อเจ้าของที่พักหรือทีมงานของเราได้ทุกเมื่อ" : "If you have any questions, feel free to contact the property host or our team at any time."}</p>
               <p style="font-size: 14px; color: #374151; margin: 0;">${isTh ? "ด้วยความเคารพ" : "Best regards,"}</p>
               <p style="font-size: 14px; color: #111827; font-weight: 700; margin: 4px 0 0;">${homestay.name}</p>
-              <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Nature Homestays in Thailand</p>
+              <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Nature Places in Thailand</p>
             </div>
           </div>
         </div>`;
@@ -1173,7 +1173,7 @@ export async function sendHostRejectionEmail(hostEmail: string, hostName: string
             <div style="border-top: 1px solid #e5e7eb; padding-top: 24px;">
               <p style="font-size: 14px; color: #374151; margin: 0;">ด้วยความเคารพ</p>
               <p style="font-size: 14px; color: #111827; font-weight: 700; margin: 4px 0 0;">Peaksnature</p>
-              <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Nature Homestays in Thailand</p>
+              <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Nature Places in Thailand</p>
             </div>
           </div>
         </div>

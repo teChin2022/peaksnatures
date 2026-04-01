@@ -7,6 +7,7 @@ import { createClient } from "@/lib/supabase/client";
 import { Calendar } from "@/components/ui/calendar";
 import type { DateRange } from "react-day-picker";
 import { format, startOfToday, addMonths, parseISO, subDays, eachDayOfInterval } from "date-fns";
+import { getFullyBookedForRoom } from "@/lib/booking-dates";
 import { th as thLocale } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -139,15 +140,21 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
     if (dateRange?.to && dateRange.to.getTime() !== dateRange.from.getTime()) return null;
     const fromTime = dateRange.from.getTime();
 
-    const firstBooked = Array.from(dcBookedDates)
-      .map((d) => ({ key: d, time: parseISO(d).getTime() }))
-      .filter((d) => d.time > fromTime)
-      .sort((a, b) => a.time - b.time)[0];
+    let firstBooked: { key: string; time: number } | undefined;
+    for (const d of dcBookedDates) {
+      const time = parseISO(d).getTime();
+      if (time > fromTime && (!firstBooked || time < firstBooked.time)) {
+        firstBooked = { key: d, time };
+      }
+    }
 
-    const firstBlockedTime = Array.from(dcBlockedDates)
-      .map((d) => parseISO(d).getTime())
-      .filter((t) => t > fromTime)
-      .sort((a, b) => a - b)[0];
+    let firstBlockedTime: number | undefined;
+    for (const d of dcBlockedDates) {
+      const time = parseISO(d).getTime();
+      if (time > fromTime && (firstBlockedTime === undefined || time < firstBlockedTime)) {
+        firstBlockedTime = time;
+      }
+    }
 
     if (!firstBooked) return null;
     if (firstBlockedTime !== undefined && firstBlockedTime <= firstBooked.time) return null;
@@ -158,13 +165,16 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
     if (!dateRange?.from) return null;
     if (dateRange?.to && dateRange.to.getTime() !== dateRange.from.getTime()) return null;
     const fromTime = dateRange.from.getTime();
-    const allTimes = [
-      ...Array.from(dcBookedDates).map((d) => parseISO(d).getTime()),
-      ...Array.from(dcBlockedDates).map((d) => parseISO(d).getTime()),
-    ]
-      .filter((t) => t > fromTime)
-      .sort((a, b) => a - b);
-    return allTimes[0] ?? null;
+    let earliest: number | null = null;
+    for (const d of dcBookedDates) {
+      const t = parseISO(d).getTime();
+      if (t > fromTime && (earliest === null || t < earliest)) earliest = t;
+    }
+    for (const d of dcBlockedDates) {
+      const t = parseISO(d).getTime();
+      if (t > fromTime && (earliest === null || t < earliest)) earliest = t;
+    }
+    return earliest;
   }, [dateRange?.from, dateRange?.to, dcBookedDates, dcBlockedDates]);
 
   // Effective additional payment based on deposit/full toggle
@@ -519,30 +529,8 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
         if (roomRow) roomQty = (roomRow as { quantity: number }).quantity || 1;
       }
 
-      // Count bookings per date — same pattern as booking-section's getFullyBookedForRoom
-      const dateCountMap = new Map<string, number>();
-      bookedRanges
-        .filter((b) => b.room_id === targetRoomId)
-        .forEach((b) => {
-          try {
-            const start = parseISO(b.check_in);
-            const end = subDays(parseISO(b.check_out), 1);
-            if (end < start) return;
-            const days = eachDayOfInterval({ start, end });
-            days.forEach((d) => {
-              const key = format(d, "yyyy-MM-dd");
-              dateCountMap.set(key, (dateCountMap.get(key) || 0) + 1);
-            });
-          } catch {
-            // Skip malformed dates
-          }
-        });
-
       // Store booked and blocked separately (for allowedCheckoutKey logic)
-      const booked = new Set<string>();
-      dateCountMap.forEach((count, date) => {
-        if (count >= roomQty) booked.add(date);
-      });
+      const booked = targetRoomId ? getFullyBookedForRoom(targetRoomId, roomQty, bookedRanges) : new Set<string>();
       const blocked = new Set<string>();
       (blockedRows || []).forEach((d: { date: string; room_id: string | null }) => {
         if (d.room_id === null || d.room_id === targetRoomId) {

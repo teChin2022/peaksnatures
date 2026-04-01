@@ -4,7 +4,7 @@ import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { useSwipe } from "@/hooks/use-swipe";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import Image from "next/image";
-import { format, eachDayOfInterval, parseISO, subDays, startOfToday, addMonths } from "date-fns";
+import { startOfToday, addMonths, parseISO } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
 import type { Room, RoomSeasonalPrice, BlockedDate } from "@/types/database";
 import { Badge } from "@/components/ui/badge";
@@ -14,6 +14,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { getPriceRange } from "@/lib/calculate-price";
+import { getFullyBookedForRoom } from "@/lib/booking-dates";
 import { HTMLContent } from "@/components/ui/html-content";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -141,6 +142,10 @@ interface BookedRange {
   check_out: string;
 }
 
+const EMPTY_SEASONAL_PRICES: RoomSeasonalPrice[] = [];
+const EMPTY_BOOKED_RANGES: BookedRange[] = [];
+const EMPTY_BLOCKED_DATES: BlockedDate[] = [];
+
 interface RoomsSectionProps {
   rooms: Room[];
   seasonalPrices?: RoomSeasonalPrice[];
@@ -148,7 +153,7 @@ interface RoomsSectionProps {
   blockedDates?: BlockedDate[];
 }
 
-export function RoomsSection({ rooms, seasonalPrices = [], bookedRanges = [], blockedDates = [] }: RoomsSectionProps) {
+export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, bookedRanges = EMPTY_BOOKED_RANGES, blockedDates = EMPTY_BLOCKED_DATES }: RoomsSectionProps) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
 
@@ -189,32 +194,33 @@ export function RoomsSection({ rooms, seasonalPrices = [], bookedRanges = [], bl
   );
 }
 
-// useIsMobile moved to @/lib/use-is-mobile
 function getFullyBookedDates(roomId: string, rooms: Room[], bookedRanges: BookedRange[]) {
   const roomObj = rooms.find((r) => r.id === roomId);
-  const qty = roomObj?.quantity || 1;
-  const dateCountMap = new Map<string, number>();
-  bookedRanges
-    .filter((b) => b.room_id === roomId)
-    .forEach((b) => {
-      try {
-        const start = parseISO(b.check_in);
-        const end = subDays(parseISO(b.check_out), 1);
-        if (end < start) return;
-        const days = eachDayOfInterval({ start, end });
-        days.forEach((d) => {
-          const key = format(d, "yyyy-MM-dd");
-          dateCountMap.set(key, (dateCountMap.get(key) || 0) + 1);
-        });
-      } catch {
-        // Skip malformed dates
-      }
-    });
-  const fullyBooked = new Set<string>();
-  dateCountMap.forEach((count, date) => {
-    if (count >= qty) fullyBooked.add(date);
-  });
-  return fullyBooked;
+  return getFullyBookedForRoom(roomId, roomObj?.quantity || 1, bookedRanges);
+}
+
+function RoomPriceDisplay({ room, seasonalPrices }: { room: Room; seasonalPrices: RoomSeasonalPrice[] }) {
+  const t = useTranslations("rooms");
+  const tc = useTranslations("common");
+  const { min, max } = getPriceRange(room.price_per_night, seasonalPrices);
+  const hasRange = min !== max;
+  return (
+    <div className="flex items-center gap-1">
+      {hasRange ? (
+        <>
+          <span className="text-xs text-earth-400 self-end mb-1">{t("fromPrice")}</span>
+          <span className="text-2xl font-bold text-earth-900">
+            ฿{min.toLocaleString()}
+          </span>
+        </>
+      ) : (
+        <span className="text-2xl font-bold text-earth-900">
+          ฿{room.price_per_night.toLocaleString()}
+        </span>
+      )}
+      <span className="text-xs text-earth-400 self-end mb-1">{tc("perNight")}</span>
+    </div>
+  );
 }
 
 function RoomDescriptionWithReadMore({ content, onReadMore }: { content: string; onReadMore: () => void }) {
@@ -291,28 +297,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
               />
             )}
             <div className="mt-3 flex flex-col flex-1">
-              {(() => {
-                const roomSeasons = seasonsByRoom[room.id] || [];
-                const { min, max } = getPriceRange(room.price_per_night, roomSeasons);
-                const hasRange = min !== max;
-                return (
-                  <div className="flex items-center gap-1">
-                    {hasRange ? (
-                      <>
-                        <span className="text-xs text-earth-400 self-end mb-1">{t("fromPrice")}</span>
-                        <span className="text-2xl font-bold text-earth-900">
-                          ฿{min.toLocaleString()}
-                        </span>
-                      </>
-                    ) : (
-                      <span className="text-2xl font-bold text-earth-900">
-                        ฿{room.price_per_night.toLocaleString()}
-                      </span>
-                    )}
-                    <span className="text-xs text-earth-400 self-end mb-1">{tc("perNight")}</span>
-                  </div>
-                );
-              })()}
+              <RoomPriceDisplay room={room} seasonalPrices={seasonsByRoom[room.id] || []} />
               {room.description && (
                 <RoomDescriptionWithReadMore
                   content={room.description}

@@ -1,5 +1,6 @@
 import { cache } from "react";
 import type { Metadata } from "next";
+import dynamic from "next/dynamic";
 import { notFound, permanentRedirect } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { resolveSlugRedirect } from "@/lib/slug-redirect";
@@ -8,12 +9,13 @@ import { HeroSection } from "@/components/booking/hero-section";
 import { GallerySection } from "@/components/booking/gallery-section";
 import { AboutSection } from "@/components/booking/about-section";
 import { RoomsSection } from "@/components/booking/rooms-section";
-import { BookingSection } from "@/components/booking/booking-section";
 import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingFooter } from "@/components/booking/booking-footer";
 import { HostLocationSection } from "@/components/booking/host-location-section";
 import { ReviewsDisplay } from "@/components/reviews/reviews-display";
-import { ChatWidget } from "@/components/chat/chat-widget";
+
+const BookingSection = dynamic(() => import("@/components/booking/booking-section").then((m) => m.BookingSection));
+const ChatWidget = dynamic(() => import("@/components/chat/chat-widget").then((m) => m.ChatWidget));
 
 
 export const revalidate = 30;

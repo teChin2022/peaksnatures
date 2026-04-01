@@ -15,17 +15,29 @@ export default async function Home() {
     .order("created_at", { ascending: false });
   const homestays = (homestayRows as unknown as Homestay[]) || [];
 
-  // Fetch all rooms for active homestays to derive min price
+  // Fetch rooms, hosts, and reviews in parallel (all depend only on homestayIds/hostIds)
   const homestayIds = homestays.map((h) => h.id);
-  const { data: roomRows } = homestayIds.length
-    ? await supabase
-        .from("rooms")
-        .select("homestay_id, price_per_night")
-        .in("homestay_id", homestayIds)
-        .eq("is_active", true)
-    : { data: [] };
-  const rooms = (roomRows as unknown as Pick<Room, "homestay_id" | "price_per_night">[]) || [];
+  const hostIds = [...new Set(homestays.map((h) => h.host_id))];
 
+  const [{ data: roomRows }, { data: hostRows }, { data: reviewRows }] = homestayIds.length
+    ? await Promise.all([
+        supabase
+          .from("rooms")
+          .select("homestay_id, price_per_night")
+          .in("homestay_id", homestayIds)
+          .eq("is_active", true),
+        supabase
+          .from("hosts")
+          .select("id, is_verified")
+          .in("id", hostIds),
+        supabase
+          .from("reviews")
+          .select("homestay_id, rating")
+          .in("homestay_id", homestayIds),
+      ])
+    : [{ data: [] }, { data: [] }, { data: [] }];
+
+  const rooms = (roomRows as unknown as Pick<Room, "homestay_id" | "price_per_night">[]) || [];
   const minPriceMap = new Map<string, number>();
   for (const r of rooms) {
     const cur = minPriceMap.get(r.homestay_id);
@@ -34,26 +46,11 @@ export default async function Home() {
     }
   }
 
-  // Fetch host verification status
-  const hostIds = [...new Set(homestays.map((h) => h.host_id))];
-  const { data: hostRows } = hostIds.length
-    ? await supabase
-        .from("hosts")
-        .select("id, is_verified")
-        .in("id", hostIds)
-    : { data: [] };
   const hostVerifiedMap = new Map<string, boolean>();
   for (const host of (hostRows as { id: string; is_verified: boolean }[]) || []) {
     hostVerifiedMap.set(host.id, host.is_verified);
   }
 
-  // Fetch review stats per homestay
-  const { data: reviewRows } = homestayIds.length
-    ? await supabase
-        .from("reviews")
-        .select("homestay_id, rating")
-        .in("homestay_id", homestayIds)
-    : { data: [] };
   const reviewData = (reviewRows as { homestay_id: string; rating: number }[]) || [];
   const reviewCountMap = new Map<string, number>();
   const reviewSumMap = new Map<string, number>();

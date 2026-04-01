@@ -1,10 +1,12 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
 import { ArrowLeft } from "lucide-react";
-import { BookingSearchDialog } from "@/components/booking/booking-search-dialog";
+
+const BookingSearchDialog = dynamic(() => import("@/components/booking/booking-search-dialog").then((m) => m.BookingSearchDialog));
 
 interface BookingHeaderProps {
   homestayName: string;

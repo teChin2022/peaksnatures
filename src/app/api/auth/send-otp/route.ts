@@ -174,7 +174,7 @@ export async function POST(req: NextRequest) {
                 <p style="font-size: 14px; color: #6b7280;">This code expires in <strong>5 minutes</strong>.</p>
                 <p style="font-size: 13px; color: #9ca3af; margin-top: 24px;">If you didn't request this code, you can safely ignore this email.</p>
                 <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
-                <p style="color: #9ca3af; font-size: 12px; margin-bottom: 0;">Peaksnature — Nature Homestays in Thailand</p>
+                <p style="color: #9ca3af; font-size: 12px; margin-bottom: 0;">Peaksnature — Nature Places in Thailand</p>
               </div>
             </div>
           `,

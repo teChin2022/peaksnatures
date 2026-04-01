@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       .eq("homestay_id", homestayId);
     const blockedDates = (blockedRows as unknown as BlockedDate[]) || [];
 
-    const systemPrompt = `You are a friendly booking assistant for "${homestay.name}" — a nature homestay in ${homestay.location}, Thailand.
+    const systemPrompt = `You are a friendly booking assistant for "${homestay.name}" — a nature place in ${homestay.location}, Thailand.
 
 Key info:
 - Max guests: ${homestay.max_guests}
