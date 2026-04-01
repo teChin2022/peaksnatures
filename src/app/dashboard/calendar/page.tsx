@@ -750,13 +750,13 @@ export default function CalendarPage() {
               className="mt-1"
             />
           </div>
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1 mb-2">
             {Array.from(selectedDates)
               .filter((d) => !blockedDateMap.has(d))
               .sort()
               .map((d) => (
                 <Badge key={d} variant="secondary" className="text-xs">
-                  {d}
+                  {fmtDateStr(d, "d MMM yyyy", locale)}
                 </Badge>
               ))}
           </div>
@@ -903,13 +903,13 @@ export default function CalendarPage() {
               )}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1 mb-2">
             {Array.from(selectedDates)
               .filter((d) => blockedDateMap.has(d))
               .sort()
               .map((d) => (
                 <Badge key={d} variant="secondary" className="bg-red-50 text-red-700 text-xs">
-                  {d}
+                  {fmtDateStr(d, "d MMM yyyy", locale)}
                 </Badge>
               ))}
           </div>
