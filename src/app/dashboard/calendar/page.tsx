@@ -607,11 +607,16 @@ export default function CalendarPage() {
                 }
               };
 
+              const blockedTitle = dayInfo.isBlocked
+                ? [dayInfo.blockedRoomName, dayInfo.blockedReason].filter(Boolean).join(" — ") || t("blocked")
+                : undefined;
+
               const dayContent = (
                 <button
                   type="button"
                   onClick={() => toggleDateSelection(dayInfo.dateStr, dayInfo)}
                   disabled={!dayInfo.isCurrentMonth}
+                  title={blockedTitle}
                   className={`
                     relative flex h-14 sm:h-24 w-full flex-col items-start rounded-lg border p-1 sm:p-1.5 text-left transition-all overflow-hidden
                     ${bgClass} ${textClass}
