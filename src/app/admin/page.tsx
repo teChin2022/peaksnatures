@@ -1,71 +1,40 @@
-"use client";
-
-import { useState, useEffect } from "react";
 import Link from "next/link";
 import { Users, Home, CalendarDays, DollarSign, AlertTriangle, CheckCircle2, UserCheck } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Skeleton } from "@/components/ui/skeleton";
+import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { isAdmin } from "@/lib/admin";
+import { redirect } from "next/navigation";
 
-interface Stats {
-  totalHosts: number;
-  pendingHosts: number;
-  totalHomestays: number;
-  totalBookings: number;
-  totalRevenue: number;
-  pendingBookings: number;
-  confirmedBookings: number;
+async function getAdminStats() {
+  const supabase = await createServerSupabaseClient();
+  const { data: { user } } = await supabase.auth.getUser();
+  if (!user || !(await isAdmin(user.id))) redirect("/");
+
+  const sc = createServiceRoleClient();
+  const [hostsRes, pendingHostsRes, homestaysRes, totalBookingsRes, pendingBookingsRes, confirmedBookingsRes, revenueRes] = await Promise.all([
+    sc.from("hosts").select("id", { count: "exact", head: true }),
+    sc.from("hosts").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    sc.from("homestays").select("id", { count: "exact", head: true }),
+    sc.from("bookings").select("id", { count: "exact", head: true }),
+    sc.from("bookings").select("id", { count: "exact", head: true }).eq("status", "pending"),
+    sc.from("bookings").select("id", { count: "exact", head: true }).eq("status", "confirmed"),
+    sc.from("bookings").select("total_price").in("status", ["confirmed", "completed"]),
+  ]);
+
+  const revenueRows = (revenueRes.data as { total_price: number }[]) || [];
+  return {
+    totalHosts: hostsRes.count || 0,
+    pendingHosts: pendingHostsRes.count || 0,
+    totalHomestays: homestaysRes.count || 0,
+    totalBookings: totalBookingsRes.count || 0,
+    pendingBookings: pendingBookingsRes.count || 0,
+    confirmedBookings: confirmedBookingsRes.count || 0,
+    totalRevenue: revenueRows.reduce((sum, b) => sum + b.total_price, 0),
+  };
 }
 
-export default function AdminDashboardPage() {
-  const [stats, setStats] = useState<Stats | null>(null);
-  const [loading, setLoading] = useState(true);
-
-  useEffect(() => {
-    const fetchStats = async () => {
-      try {
-        const res = await fetch("/api/admin/stats");
-        if (res.ok) {
-          const data = await res.json();
-          setStats(data);
-        }
-      } catch (err) {
-        console.error("Failed to fetch admin stats:", err);
-      } finally {
-        setLoading(false);
-      }
-    };
-    fetchStats();
-  }, []);
-
-  if (loading) {
-    return (
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 mb-6">Platform Overview</h1>
-        <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
-          {[1, 2, 3, 4, 5, 6].map((i) => (
-            <Card key={i}>
-              <CardContent className="flex items-center gap-4 p-4">
-                <Skeleton className="h-10 w-10 rounded-lg" />
-                <div className="space-y-2">
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-7 w-12" />
-                </div>
-              </CardContent>
-            </Card>
-          ))}
-        </div>
-      </div>
-    );
-  }
-
-  if (!stats) {
-    return (
-      <div>
-        <h1 className="text-xl font-bold text-gray-900 mb-6">Platform Overview</h1>
-        <p className="text-gray-500">Failed to load stats.</p>
-      </div>
-    );
-  }
+export default async function AdminDashboardPage() {
+  const stats = await getAdminStats();
 
   const cards = [
     { label: "Total Hosts", value: stats.totalHosts, icon: Users, bg: "bg-blue-100", fg: "text-blue-600" },

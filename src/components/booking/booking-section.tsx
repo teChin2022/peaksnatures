@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
 import type { Homestay, Room, BlockedDate, Host, RoomSeasonalPrice, RoomOption } from "@/types/database";
 import { calculateTotalPrice, getPriceRange } from "@/lib/calculate-price";
+import { getFullyBookedForRoom } from "@/lib/booking-dates";
 import { getDepositForMonth } from "@/lib/get-deposit";
 import { THAI_PROVINCES, getProvinceLabel } from "@/lib/provinces";
 import { useIsMobile } from "@/lib/use-is-mobile";
@@ -44,16 +45,46 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 
-const AMENITY_ICONS: Record<string, React.ElementType> = {
-  WiFi: Wifi, Parking: Car, Kitchen: UtensilsCrossed, Garden: TreePine,
-  BBQ: Flame, Kayaking: Waves, Fishing: Fish, Restaurant: UtensilsCrossed,
-  Swimming: Waves, Telescope: Telescope, Fireplace: Flame, Library: BookOpen,
-};
 interface BookedRange {
   room_id: string | null;
   check_in: string;
   check_out: string;
 }
+
+const EMPTY_BOOKED_RANGES: BookedRange[] = [];
+const EMPTY_SEASONAL_PRICES: RoomSeasonalPrice[] = [];
+const EMPTY_ROOM_OPTIONS: RoomOption[] = [];
+
+function HoldCountdown({ expiresAt, onExpire }: { expiresAt: number | null; onExpire: () => void }) {
+  const [timeLeft, setTimeLeft] = useState(0);
+  useEffect(() => {
+    if (!expiresAt) { setTimeLeft(0); return; }
+    const tick = () => {
+      const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
+      setTimeLeft(remaining);
+      if (remaining <= 0) { clearInterval(id); onExpire(); }
+    };
+    tick();
+    const id = setInterval(tick, 1000);
+    return () => clearInterval(id);
+  }, [expiresAt, onExpire]);
+
+  if (timeLeft <= 0) return null;
+  return (
+    <div className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
+      style={{ backgroundColor: timeLeft <= 60 ? '#fef2f2' : '#f3f4f6', color: timeLeft <= 60 ? '#dc2626' : '#111827' }}
+    >
+      <Clock className="h-3.5 w-3.5" />
+      {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
+    </div>
+  );
+}
+
+const AMENITY_ICONS: Record<string, React.ElementType> = {
+  WiFi: Wifi, Parking: Car, Kitchen: UtensilsCrossed, Garden: TreePine,
+  BBQ: Flame, Kayaking: Waves, Fishing: Fish, Restaurant: UtensilsCrossed,
+  Swimming: Waves, Telescope: Telescope, Fireplace: Flame, Library: BookOpen,
+};
 
 interface BookingSectionProps {
   homestay: Homestay;
@@ -71,10 +102,10 @@ export function BookingSection({
   homestay,
   rooms,
   blockedDates,
-  bookedRanges = [],
+  bookedRanges = EMPTY_BOOKED_RANGES,
   host,
-  seasonalPrices = [],
-  roomOptions = [],
+  seasonalPrices = EMPTY_SEASONAL_PRICES,
+  roomOptions = EMPTY_ROOM_OPTIONS,
 }: BookingSectionProps) {
   const t = useTranslations("booking");
   const tc = useTranslations("common");
@@ -102,7 +133,6 @@ export function BookingSection({
   const [uploadSessionId] = useState(() => crypto.randomUUID());
   const [holdId, setHoldId] = useState<string | null>(null);
   const [holdExpiresAt, setHoldExpiresAt] = useState<number | null>(null);
-  const [holdTimeLeft, setHoldTimeLeft] = useState<number>(0);
   const [showHeldModal, setShowHeldModal] = useState(false);
   const [showDuplicateModal, setShowDuplicateModal] = useState(false);
   const [duplicateMatchType, setDuplicateMatchType] = useState<"email" | "phone" | "both" | null>(null);
@@ -111,7 +141,6 @@ export function BookingSection({
   const [showOptions, setShowOptions] = useState(false);
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([]);
   const [pdpaConsent, setPdpaConsent] = useState(false);
-  const holdTimerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [phoneSlipReceived, setPhoneSlipReceived] = useState(false);
   const [phoneSlipUrl, setPhoneSlipUrl] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -225,45 +254,16 @@ export function BookingSection({
   // A booking with check_in=12, check_out=14 occupies nights 12 & 13 (not 14)
   // So disabled dates = check_in .. check_out-1 (check_out day is free for new check-in)
   const bookedDatesForRoom = useMemo(() => {
-    // Helper: count bookings per date for a given room
-    const getFullyBookedForRoom = (roomId: string) => {
-      const roomObj = rooms.find((r) => r.id === roomId);
-      const qty = roomObj?.quantity || 1;
-      const dateCountMap = new Map<string, number>();
-      liveBookedRanges
-        .filter((b) => b.room_id === roomId)
-        .forEach((b) => {
-          try {
-            const start = parseISO(b.check_in);
-            const end = subDays(parseISO(b.check_out), 1);
-            if (end < start) return;
-            const days = eachDayOfInterval({ start, end });
-            days.forEach((d) => {
-              const key = format(d, "yyyy-MM-dd");
-              dateCountMap.set(key, (dateCountMap.get(key) || 0) + 1);
-            });
-          } catch {
-            // Skip malformed dates
-          }
-        });
-      const fullyBooked = new Set<string>();
-      dateCountMap.forEach((count, date) => {
-        if (count >= qty) fullyBooked.add(date);
-      });
-      return fullyBooked;
-    };
-
     if (selectedRoomId) {
-      // Room selected: show fully-booked dates for that room
-      return getFullyBookedForRoom(selectedRoomId);
+      const roomObj = rooms.find((r) => r.id === selectedRoomId);
+      return getFullyBookedForRoom(selectedRoomId, roomObj?.quantity || 1, liveBookedRanges);
     }
 
     // No room selected: a date is disabled if it is fully booked in ALL rooms
     if (rooms.length === 0) return new Set<string>();
-    const perRoom = rooms.map((r) => getFullyBookedForRoom(r.id));
+    const perRoom = rooms.map((r) => getFullyBookedForRoom(r.id, r.quantity || 1, liveBookedRanges));
     const allDates = new Set<string>();
     perRoom.forEach((s) => s.forEach((d) => allDates.add(d)));
-    // Keep only dates that appear in every room's fully-booked set
     const fullyBookedEverywhere = new Set<string>();
     allDates.forEach((d) => {
       if (perRoom.every((s) => s.has(d))) fullyBookedEverywhere.add(d);
@@ -489,7 +489,6 @@ export function BookingSection({
       setHoldId(data.hold_id);
       const expiresMs = new Date(data.expires_at).getTime();
       setHoldExpiresAt(expiresMs);
-      setHoldTimeLeft(Math.max(0, Math.floor((expiresMs - Date.now()) / 1000)));
       setStep("payment");
     } catch {
       toast.error(t("errorGeneric"));
@@ -507,41 +506,19 @@ export function BookingSection({
       }).catch(() => { });
       setHoldId(null);
       setHoldExpiresAt(null);
-      setHoldTimeLeft(0);
-    }
-    if (holdTimerRef.current) {
-      clearInterval(holdTimerRef.current);
-      holdTimerRef.current = null;
     }
   }, [holdId, uploadSessionId]);
 
-  // Hold countdown timer
-  useEffect(() => {
-    if (holdExpiresAt && step === "payment") {
-      holdTimerRef.current = setInterval(() => {
-        const remaining = Math.max(0, Math.floor((holdExpiresAt - Date.now()) / 1000));
-        setHoldTimeLeft(remaining);
-        if (remaining <= 0) {
-          if (holdTimerRef.current) clearInterval(holdTimerRef.current);
-          holdTimerRef.current = null;
-          // Release the hold on the server before clearing local state
-          releaseHold();
-          toast.error(t("holdExpired"));
-          setDateRange(undefined);
-          setStep("dates");
-          setPaymentPhase("qr");
-          handleRemoveSlip();
-        }
-      }, 1000);
-    }
-    return () => {
-      if (holdTimerRef.current) {
-        clearInterval(holdTimerRef.current);
-        holdTimerRef.current = null;
-      }
-    };
+  // Hold expiry callback — passed to <HoldCountdown onExpire />
+  const handleHoldExpired = useCallback(() => {
+    releaseHold();
+    toast.error(t("holdExpired"));
+    setDateRange(undefined);
+    setStep("dates");
+    setPaymentPhase("qr");
+    handleRemoveSlip();
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [holdExpiresAt, step]);
+  }, []);
 
   const handleHeldModalClose = () => {
     setShowHeldModal(false);
@@ -665,10 +642,6 @@ export function BookingSection({
       releaseHold();
       setHoldId(null);
       setHoldExpiresAt(null);
-      if (holdTimerRef.current) {
-        clearInterval(holdTimerRef.current);
-        holdTimerRef.current = null;
-      }
 
       // 4. Upload slip to session storage (backup)
       const uploadForm = new FormData();
@@ -1271,14 +1244,7 @@ export function BookingSection({
                         )}
                         <h3 className="text-xl font-bold text-earth-900">{t("paymentTitle")}</h3>
                       </div>
-                      {holdTimeLeft > 0 && (
-                        <div className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
-                          style={{ backgroundColor: holdTimeLeft <= 60 ? '#fef2f2' : '#f3f4f6', color: holdTimeLeft <= 60 ? '#dc2626' : '#111827' }}
-                        >
-                          <Clock className="h-3.5 w-3.5" />
-                          {Math.floor(holdTimeLeft / 60)}:{String(holdTimeLeft % 60).padStart(2, '0')}
-                        </div>
-                      )}
+                      <HoldCountdown expiresAt={step === "payment" ? holdExpiresAt : null} onExpire={handleHoldExpired} />
                     </div>
 
                     {/* Deposit vs Full */}
