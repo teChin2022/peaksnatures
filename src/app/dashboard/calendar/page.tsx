@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   format,
   startOfMonth,
@@ -89,6 +89,7 @@ interface DayInfo {
   isPast: boolean;
   isBlocked: boolean;
   blockedReason: string | null;
+  blockedRoomName: string | null;
   bookings: DayBookingInfo[];
 }
 
@@ -246,10 +247,11 @@ export default function CalendarPage() {
         isPast: isBefore(date, today),
         isBlocked: !!blocked,
         blockedReason: blocked?.reason || null,
+        blockedRoomName: blocked?.room_id ? (roomMap[blocked.room_id] || null) : null,
         bookings: bookingDateMap.get(dateStr) || [],
       };
     });
-  }, [currentMonth, blockedDateMap, bookingDateMap]);
+  }, [currentMonth, blockedDateMap, bookingDateMap, roomMap]);
 
   // Stats for current month
   const monthStats = useMemo(() => {
@@ -269,16 +271,50 @@ export default function CalendarPage() {
     return { booked, blocked, available, total, pct };
   }, [currentMonth, blockedDateMap, bookingDateMap]);
 
+  // Long press detection for selecting blocked dates
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLongPress = useRef(false);
+
+  const handlePointerDown = useCallback((dayInfo: DayInfo) => {
+    if (!dayInfo.isCurrentMonth) return;
+    isLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      isLongPress.current = true;
+      // Toggle selection on long press
+      if (dayInfo.isPast && !dayInfo.isBlocked) return;
+      setSelectedDates((prev) => {
+        const next = new Set(prev);
+        if (next.has(dayInfo.dateStr)) next.delete(dayInfo.dateStr);
+        else next.add(dayInfo.dateStr);
+        return next;
+      });
+    }, 500);
+  }, []);
+
+  const handlePointerUp = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
   // Selection handling
   const toggleDateSelection = (dateStr: string, dayInfo: DayInfo) => {
-    // If the date has bookings, open the detail modal instead of toggling selection
-    if (dayInfo.bookings.length > 0 && dayInfo.isCurrentMonth) {
+    // If long press already handled selection, skip click
+    if (isLongPress.current) {
+      isLongPress.current = false;
+      return;
+    }
+
+    // Dates with bookings or blocked: show detail modal
+    if (dayInfo.isCurrentMonth && (dayInfo.bookings.length > 0 || dayInfo.isBlocked)) {
       setDetailDay(dayInfo);
       return;
     }
 
-    if (dayInfo.isPast && !dayInfo.isBlocked) return;
+    if (dayInfo.isPast) return;
 
+    // Available dates: toggle selection on click
     setSelectedDates((prev) => {
       const next = new Set(prev);
       if (next.has(dateStr)) {
@@ -366,31 +402,39 @@ export default function CalendarPage() {
       return;
     }
 
-    // Determine room_id from the blocked entries being unblocked
-    // All selected blocked dates should share the same room_id context from the filter
-    const roomId = selectedRoomFilter === "all" ? null : selectedRoomFilter;
+    // Group dates by the actual room_id from their blocked entries
+    // (not the filter value, which may not match the stored room_id)
+    const groupedByRoomId = new Map<string | null, string[]>();
+    const idsToRemove = new Set<string>();
+    datesToUnblock.forEach((d) => {
+      const bd = blockedDateMap.get(d)!;
+      idsToRemove.add(bd.id);
+      const key = bd.room_id ?? null;
+      const group = groupedByRoomId.get(key) || [];
+      group.push(d);
+      groupedByRoomId.set(key, group);
+    });
 
     try {
-      const res = await fetch("/api/blocked-dates", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          homestay_id: homestayId,
-          dates: datesToUnblock,
-          room_id: roomId,
-        }),
-      });
-
-      if (!res.ok) throw new Error("Failed to unblock dates");
-
-      setBlockedDates((prev) =>
-        prev.filter((bd) => {
-          if (!datesToUnblock.includes(bd.date)) return true;
-          // Only remove entries matching the room_id we unblocked
-          if (roomId === null) return bd.room_id !== null;
-          return bd.room_id !== roomId;
-        })
+      // Send one delete request per room_id group
+      const promises = Array.from(groupedByRoomId.entries()).map(
+        ([roomId, dates]) =>
+          fetch("/api/blocked-dates", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              homestay_id: homestayId,
+              dates,
+              room_id: roomId,
+            }),
+          })
       );
+
+      const results = await Promise.all(promises);
+      if (results.some((r) => !r.ok)) throw new Error("Failed to unblock dates");
+
+      // Remove the exact entries that were unblocked (by ID)
+      setBlockedDates((prev) => prev.filter((bd) => !idsToRemove.has(bd.id)));
       toast.success(t("unblockSuccess"));
       clearSelection();
       setUnblockDialogOpen(false);
@@ -597,11 +641,20 @@ export default function CalendarPage() {
                 }
               };
 
+              const blockedTitle = dayInfo.isBlocked
+                ? [dayInfo.blockedRoomName, dayInfo.blockedReason].filter(Boolean).join(" — ") || t("blocked")
+                : undefined;
+
               const dayContent = (
                 <button
                   type="button"
                   onClick={() => toggleDateSelection(dayInfo.dateStr, dayInfo)}
+                  onPointerDown={() => handlePointerDown(dayInfo)}
+                  onPointerUp={handlePointerUp}
+                  onPointerLeave={handlePointerUp}
+                  onContextMenu={(e) => { if (dayInfo.isBlocked || dayInfo.bookings.length > 0) e.preventDefault(); }}
                   disabled={!dayInfo.isCurrentMonth}
+                  title={blockedTitle}
                   className={`
                     relative flex h-14 sm:h-24 w-full flex-col items-start rounded-lg border p-1 sm:p-1.5 text-left transition-all overflow-hidden
                     ${bgClass} ${textClass}
@@ -667,8 +720,15 @@ export default function CalendarPage() {
 
                   {/* Blocked indicator */}
                   {dayInfo.isCurrentMonth && dayInfo.isBlocked && !hasBookings && (
-                    <div className="mt-auto">
-                      <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" title={dayInfo.blockedReason || t("blocked")} />
+                    <div className="mt-auto w-full">
+                      {(dayInfo.blockedRoomName || dayInfo.blockedReason) ? (
+                        <div className="text-[8px] sm:text-[10px] leading-tight text-red-500" title={[dayInfo.blockedRoomName, dayInfo.blockedReason].filter(Boolean).join(" — ")}>
+                          {dayInfo.blockedRoomName && <span className="block truncate font-medium">{dayInfo.blockedRoomName}</span>}
+                          {dayInfo.blockedReason && <span className="block truncate opacity-70">{dayInfo.blockedReason}</span>}
+                        </div>
+                      ) : (
+                        <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" title={t("blocked")} />
+                      )}
                     </div>
                   )}
                 </button>
@@ -733,17 +793,17 @@ export default function CalendarPage() {
               className="mt-1"
             />
           </div>
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1 mb-2">
             {Array.from(selectedDates)
               .filter((d) => !blockedDateMap.has(d))
               .sort()
               .map((d) => (
                 <Badge key={d} variant="secondary" className="text-xs">
-                  {d}
+                  {fmtDateStr(d, "d MMM yyyy", locale)}
                 </Badge>
               ))}
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setBlockDialogOpen(false)}>
               {t("cancelAction")}
             </Button>
@@ -783,6 +843,9 @@ export default function CalendarPage() {
               <Ban className="h-4 w-4 shrink-0" />
               <div>
                 <span className="font-medium">{t("blocked")}</span>
+                {detailDay.blockedRoomName && (
+                  <span className="text-red-500"> — {detailDay.blockedRoomName}</span>
+                )}
                 {detailDay.blockedReason && (
                   <span className="text-red-500"> — {detailDay.blockedReason}</span>
                 )}
@@ -883,17 +946,17 @@ export default function CalendarPage() {
               )}
             </DialogDescription>
           </DialogHeader>
-          <div className="flex flex-wrap gap-1">
+          <div className="flex flex-wrap gap-1 mb-2">
             {Array.from(selectedDates)
               .filter((d) => blockedDateMap.has(d))
               .sort()
               .map((d) => (
                 <Badge key={d} variant="secondary" className="bg-red-50 text-red-700 text-xs">
-                  {d}
+                  {fmtDateStr(d, "d MMM yyyy", locale)}
                 </Badge>
               ))}
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setUnblockDialogOpen(false)}>
               {t("cancelAction")}
             </Button>
