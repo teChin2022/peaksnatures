@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import {
   format,
   startOfMonth,
@@ -271,16 +271,50 @@ export default function CalendarPage() {
     return { booked, blocked, available, total, pct };
   }, [currentMonth, blockedDateMap, bookingDateMap]);
 
+  // Long press detection for selecting blocked dates
+  const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const isLongPress = useRef(false);
+
+  const handlePointerDown = useCallback((dayInfo: DayInfo) => {
+    if (!dayInfo.isCurrentMonth) return;
+    isLongPress.current = false;
+    longPressTimer.current = setTimeout(() => {
+      isLongPress.current = true;
+      // Toggle selection on long press
+      if (dayInfo.isPast && !dayInfo.isBlocked) return;
+      setSelectedDates((prev) => {
+        const next = new Set(prev);
+        if (next.has(dayInfo.dateStr)) next.delete(dayInfo.dateStr);
+        else next.add(dayInfo.dateStr);
+        return next;
+      });
+    }, 500);
+  }, []);
+
+  const handlePointerUp = useCallback(() => {
+    if (longPressTimer.current) {
+      clearTimeout(longPressTimer.current);
+      longPressTimer.current = null;
+    }
+  }, []);
+
   // Selection handling
   const toggleDateSelection = (dateStr: string, dayInfo: DayInfo) => {
-    // If the date has bookings, open the detail modal instead of toggling selection
-    if (dayInfo.bookings.length > 0 && dayInfo.isCurrentMonth) {
+    // If long press already handled selection, skip click
+    if (isLongPress.current) {
+      isLongPress.current = false;
+      return;
+    }
+
+    // Dates with bookings or blocked: show detail modal
+    if (dayInfo.isCurrentMonth && (dayInfo.bookings.length > 0 || dayInfo.isBlocked)) {
       setDetailDay(dayInfo);
       return;
     }
 
-    if (dayInfo.isPast && !dayInfo.isBlocked) return;
+    if (dayInfo.isPast) return;
 
+    // Available dates: toggle selection on click
     setSelectedDates((prev) => {
       const next = new Set(prev);
       if (next.has(dateStr)) {
@@ -615,6 +649,10 @@ export default function CalendarPage() {
                 <button
                   type="button"
                   onClick={() => toggleDateSelection(dayInfo.dateStr, dayInfo)}
+                  onPointerDown={() => handlePointerDown(dayInfo)}
+                  onPointerUp={handlePointerUp}
+                  onPointerLeave={handlePointerUp}
+                  onContextMenu={(e) => { if (dayInfo.isBlocked || dayInfo.bookings.length > 0) e.preventDefault(); }}
                   disabled={!dayInfo.isCurrentMonth}
                   title={blockedTitle}
                   className={`
