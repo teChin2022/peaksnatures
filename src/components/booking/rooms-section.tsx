@@ -253,7 +253,7 @@ function SingleRoomHero({
       <div
         ref={setContainerEl}
         className="group relative aspect-[4/3] md:aspect-[21/9] overflow-hidden rounded-2xl bg-earth-100"
-        style={{ touchAction: "none" }}
+        style={{ touchAction: "pan-y" }}
       >
         {/* Sliding image strip — all images stay mounted for instant transitions */}
         <div
