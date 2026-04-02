@@ -58,8 +58,8 @@ export function BookingHeader({ homestayName, logoUrl, homestayId, promptpayId, 
             <div />
           )}
           <span
-            className={`truncate text-sm font-semibold transition-colors ${
-              scrolled ? "text-earth-900" : "text-white"
+            className={`truncate text-sm font-semibold transition-all duration-500 ${
+              scrolled ? "text-earth-900 opacity-100 translate-y-0" : "text-white opacity-0 -translate-y-2 pointer-events-none"
             }`}
           >
             {homestayName}

@@ -149,7 +149,7 @@ export default async function HomestayPage({ params }: PageProps) {
           name={homestay.name}
           tagline={homestay.tagline}
           heroImageUrl={homestay.hero_image_url}
-          location={homestay.location}
+          // location={homestay.location}
         />
 
         <GallerySection images={homestay.gallery} name={homestay.name} />

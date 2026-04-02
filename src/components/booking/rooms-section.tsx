@@ -260,21 +260,24 @@ function SingleRoomHero({
           className="absolute inset-0 flex transition-transform duration-500 ease-out"
           style={{ transform: `translateX(-${index * 100}%)` }}
         >
-          {images.map((src, i) => (
-            <div key={src} className="relative h-full w-full shrink-0">
-              <Image
-                src={src}
-                alt={`${room.name} photo ${i + 1}`}
-                fill
-                sizes="100vw"
-                priority={i === 0}
-                loading={i === 0 ? "eager" : "lazy"}
-                placeholder="blur"
-                blurDataURL={BLUR_DATA_URL}
-                className="h-full w-full object-cover"
-              />
-            </div>
-          ))}
+          {images.map((src, i) => {
+            const isNear = Math.abs(i - index) <= 1 || (index === 0 && i === images.length - 1) || (index === images.length - 1 && i === 0);
+            return (
+              <div key={src} className="relative h-full w-full shrink-0">
+                <Image
+                  src={src}
+                  alt={`${room.name} photo ${i + 1}`}
+                  fill
+                  sizes="100vw"
+                  priority={i === 0}
+                  loading={isNear ? "eager" : "lazy"}
+                  placeholder="blur"
+                  blurDataURL={BLUR_DATA_URL}
+                  className="h-full w-full object-cover"
+                />
+              </div>
+            );
+          })}
         </div>
 
         {/* Click area for lightbox */}
@@ -307,13 +310,15 @@ function SingleRoomHero({
 
         {/* Dot indicators — mobile only, top of image */}
         {multi && (
-          <div className="absolute top-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5 md:hidden">
-            {images.map((_, i) => (
-              <span
-                key={i}
-                className={`h-1.5 w-1.5 rounded-full transition-colors ${i === index ? "bg-white" : "bg-white/40"}`}
-              />
-            ))}
+          <div className="absolute inset-x-0 top-0 z-10 p-3 bg-gradient-to-b from-black/30 to-transparent md:hidden">
+            <div className="flex justify-center gap-1.5">
+              {images.map((_, i) => (
+                <span
+                  key={i}
+                  className={`h-1.5 rounded-full transition-all ${i === index ? "bg-white w-3" : "bg-white/50 w-1.5"}`}
+                />
+              ))}
+            </div>
           </div>
         )}
 
@@ -380,7 +385,7 @@ function SingleRoomHero({
       </div>
 
       {/* Mobile CTA — outside image */}
-      <div className="mt-3 flex w-full rounded-full overflow-hidden shadow-lg sm:hidden">
+      <div className="mt-3 mb-15 flex w-full rounded-full overflow-hidden shadow-lg sm:hidden">
         <Button
           className="flex-1 rounded-none rounded-l-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0"
           onClick={() => {
@@ -402,7 +407,7 @@ function SingleRoomHero({
 
       {/* Thumbnail strip */}
       {multi && (
-        <div className="mt-3 hidden gap-2 sm:flex">
+        <div className="mt-3 mb-20 hidden gap-2 sm:flex">
           {images.map((src, i) => (
             <button
               key={i}
