@@ -255,6 +255,7 @@ function SingleRoomHero({
         className="group relative aspect-[4/3] md:aspect-[21/9] overflow-hidden rounded-2xl bg-earth-100"
         style={{ touchAction: "pan-y" }}
       >
+        {/* Sliding image strip — all images stay mounted for instant transitions */}
         <div
           className="absolute inset-0 flex transition-transform duration-500 ease-out"
           style={{ transform: `translateX(-${index * 100}%)` }}
