@@ -305,6 +305,18 @@ function SingleRoomHero({
           </>
         )}
 
+        {/* Dot indicators — mobile only, top of image */}
+        {multi && (
+          <div className="absolute top-3 left-1/2 z-10 flex -translate-x-1/2 gap-1.5 md:hidden">
+            {images.map((_, i) => (
+              <span
+                key={i}
+                className={`h-1.5 w-1.5 rounded-full transition-colors ${i === index ? "bg-white" : "bg-white/40"}`}
+              />
+            ))}
+          </div>
+        )}
+
         {/* Bottom gradient overlay */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
 
