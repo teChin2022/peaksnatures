@@ -20,7 +20,6 @@ import {
   DialogFooter,
   DialogHeader,
   DialogTitle,
-  DialogTrigger,
 } from "@/components/ui/dialog";
 import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
@@ -672,14 +671,15 @@ export function BookingSearchDialog({ homestayId, promptpayId, hostName, cancell
   };
 
   return (
-    <><Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogTrigger asChild>
-        <button
-          className={`p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${scrolled ? 'text-[#111111]' : 'text-white'}`}
-        >
-          <Search size={20} />
-        </button>
-      </DialogTrigger>
+    <>
+      <button
+        type="button"
+        className={`p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${scrolled ? 'text-[#111111]' : 'text-white'}`}
+        onClick={() => handleOpenChange(true)}
+      >
+        <Search size={20} />
+      </button>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className={`max-w-md ${changingDatesId ? "sm:max-w-xl" : "sm:max-w-lg"}`}>
         <DialogHeader>
           <DialogTitle>{t("title")}</DialogTitle>
