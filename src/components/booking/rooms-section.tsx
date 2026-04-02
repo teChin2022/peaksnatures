@@ -28,45 +28,6 @@ import {
 const BLUR_DATA_URL =
   "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI4MDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2UyZThmMCIvPjwvc3ZnPg==";
 
-function RoomCardImage({ src, name, eager, onClick }: { src: string; name: string; eager?: boolean; onClick: () => void }) {
-  const [loaded, setLoaded] = useState(false);
-  const imgRef = useRef<HTMLImageElement | null>(null);
-
-  useEffect(() => {
-    if (imgRef.current?.complete && imgRef.current.naturalWidth > 0) {
-      setLoaded(true);
-    }
-  }, [src]);
-
-  return (
-    <div
-      className="relative aspect-[4/3] cursor-pointer overflow-hidden rounded-2xl"
-      onClick={onClick}
-    >
-      <Image
-        ref={imgRef}
-        src={src}
-        alt={name}
-        fill
-        sizes="(max-width: 640px) 100vw, (max-width: 1024px) 50vw, 33vw"
-        loading={eager ? "eager" : "lazy"}
-        placeholder="blur"
-        blurDataURL={BLUR_DATA_URL}
-        className={`h-full w-full object-cover transition-transform duration-700 group-hover:scale-110 ${
-          loaded ? "opacity-100" : "opacity-0"
-        }`}
-        onLoad={() => setLoaded(true)}
-      />
-      {!loaded && (
-        <div className="absolute inset-0 animate-pulse bg-earth-200" />
-      )}
-      <div className="absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-black/50 to-transparent" />
-      <div className="absolute bottom-3 left-4 right-4 flex items-end justify-between">
-        <h3 className="text-base font-semibold text-white drop-shadow-sm">{name}</h3>
-      </div>
-    </div>
-  );
-}
 
 function RoomLightbox({ images, name, startIndex, onClose }: { images: string[]; name: string; startIndex: number; onClose: () => void }) {
   const [index, setIndex] = useState(startIndex);
@@ -253,6 +214,178 @@ function RoomDescriptionWithReadMore({ content, onReadMore }: { content: string;
   );
 }
 
+function SingleRoomHero({
+  room,
+  seasonalPrices,
+  onLightbox,
+  onCalendar,
+  onDesc,
+}: {
+  room: Room;
+  seasonalPrices: RoomSeasonalPrice[];
+  onLightbox: () => void;
+  onCalendar: () => void;
+  onDesc: () => void;
+}) {
+  const t = useTranslations("rooms");
+  const tc = useTranslations("common");
+  const [index, setIndex] = useState(0);
+  const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
+  const images = room.images;
+  const multi = images.length > 1;
+
+  const prev = useCallback(() => setIndex((i) => (i > 0 ? i - 1 : images.length - 1)), [images.length]);
+  const next = useCallback(() => setIndex((i) => (i < images.length - 1 ? i + 1 : 0)), [images.length]);
+  useSwipe(containerEl, { onSwipeLeft: next, onSwipeRight: prev });
+
+  const { min, max } = getPriceRange(room.price_per_night, seasonalPrices);
+  const hasRange = min !== max;
+
+  return (
+    <motion.div
+      initial={{ opacity: 0, y: 30 }}
+      whileInView={{ opacity: 1, y: 0 }}
+      viewport={{ once: true }}
+      transition={{ duration: 0.5, ease: [0.25, 0.1, 0, 1] }}
+      className="mt-6"
+    >
+      {/* Hero image with overlay */}
+      <div
+        ref={setContainerEl}
+        className="group relative aspect-[4/3] md:aspect-[21/9] overflow-hidden rounded-2xl bg-earth-100"
+        style={{ touchAction: "none" }}
+      >
+        {/* Sliding image strip — all images stay mounted for instant transitions */}
+        <div
+          className="absolute inset-0 flex transition-transform duration-500 ease-out"
+          style={{ transform: `translateX(-${index * 100}%)` }}
+        >
+          {images.map((src, i) => (
+            <div key={src} className="relative h-full w-full shrink-0">
+              <Image
+                src={src}
+                alt={`${room.name} photo ${i + 1}`}
+                fill
+                sizes="100vw"
+                priority={i === 0}
+                loading={i === 0 ? "eager" : "lazy"}
+                placeholder="blur"
+                blurDataURL={BLUR_DATA_URL}
+                className="h-full w-full object-cover"
+              />
+            </div>
+          ))}
+        </div>
+
+        {/* Click area for lightbox */}
+        <button
+          type="button"
+          className="absolute inset-0 z-[1] cursor-pointer"
+          onClick={onLightbox}
+          aria-label="View photos"
+        />
+
+        {/* Carousel arrows — hidden on mobile, fade in on hover (desktop) */}
+        {multi && (
+          <>
+            <button
+              type="button"
+              className="absolute left-4 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 md:flex hover:bg-black/50"
+              onClick={(e) => { e.stopPropagation(); prev(); }}
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              className="absolute right-4 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 md:flex hover:bg-black/50"
+              onClick={(e) => { e.stopPropagation(); next(); }}
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </>
+        )}
+
+        {/* Bottom gradient overlay */}
+        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+
+        {/* Overlaid content */}
+        <div className="absolute inset-x-0 bottom-0 z-[2] flex flex-col gap-3 p-5 md:p-8">
+          {/* Bottom row: info left, CTA right */}
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
+            {/* Left: name + price + badges */}
+            <div className="min-w-0">
+              <h3 className="text-2xl md:text-3xl font-serif text-white tracking-tight drop-shadow-lg">{room.name}</h3>
+              <div className="mt-1 flex items-baseline gap-1.5">
+                {hasRange && <span className="text-xs text-white/70">{t("fromPrice")}</span>}
+                <span className="text-xl md:text-2xl font-bold text-white drop-shadow-sm">
+                  ฿{(hasRange ? min : room.price_per_night).toLocaleString()}
+                </span>
+                <span className="text-xs text-white/70">{tc("perNight")}</span>
+              </div>
+              <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
+                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-white/90 backdrop-blur-sm">
+                  <Users className="h-3.5 w-3.5" />
+                  {tc("guests")} {room.max_guests}
+                </span>
+                <span className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-1 text-white/90 backdrop-blur-sm">
+                  {t("available", { count: room.quantity })}
+                </span>
+                {room.description && (
+                  <button
+                    type="button"
+                    className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-1 text-white/90 backdrop-blur-sm underline underline-offset-2 hover:bg-white/25 transition-colors"
+                    onClick={(e) => { e.stopPropagation(); onDesc(); }}
+                  >
+                    {t("readMore")}
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {/* Right: CTA buttons */}
+            <div className="flex shrink-0 rounded-full overflow-hidden shadow-lg">
+              <Button
+                className="rounded-none rounded-l-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  document.dispatchEvent(new CustomEvent("book-room", { detail: { roomId: room.id } }));
+                }}
+              >
+                <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+                {t("bookRoom")}
+              </Button>
+              <button
+                type="button"
+                className="flex items-center justify-center px-4 rounded-r-full bg-brand hover:bg-brand-hover border-l border-white/30 transition-colors"
+                onClick={(e) => { e.stopPropagation(); onCalendar(); }}
+                title={t("viewCalendar")}
+              >
+                <CalendarSearch className="h-3.5 w-3.5 text-white" />
+              </button>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Thumbnail strip */}
+      {multi && (
+        <div className="mt-3 hidden gap-2 sm:flex">
+          {images.map((src, i) => (
+            <button
+              key={i}
+              type="button"
+              className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-lg transition-all ${i === index ? "ring-2 ring-brand opacity-100" : "opacity-60 hover:opacity-100"}`}
+              onClick={() => setIndex(i)}
+            >
+              <Image src={src} alt={`${room.name} thumb ${i + 1}`} fill sizes="64px" className="object-cover" />
+            </button>
+          ))}
+        </div>
+      )}
+    </motion.div>
+  );
+}
+
 function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms: Room[]; seasonsByRoom: Record<string, RoomSeasonalPrice[]>; bookedRanges: BookedRange[]; blockedDates: BlockedDate[] }) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
@@ -278,68 +411,16 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
 
   return (
     <>
-      <div className="mt-6 grid grid-cols-1 gap-8 sm:grid-cols-2 lg:grid-cols-3">
-        {rooms.map((room, index) => (
-          <motion.div
+      <div className="mt-6 space-y-6">
+        {rooms.map((room) => (
+          <SingleRoomHero
             key={room.id}
-            initial={{ opacity: 0, y: 30 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ delay: index * 0.08, duration: 0.5, ease: [0.25, 0.1, 0, 1] }}
-          >
-          <div className="group flex flex-col h-full">
-            {room.images[0] && (
-              <RoomCardImage
-                src={room.images[0]}
-                name={room.name}
-                eager={index === 0}
-                onClick={() => setLightbox({ images: room.images, name: room.name })}
-              />
-            )}
-            <div className="mt-3 flex flex-col flex-1">
-              <RoomPriceDisplay room={room} seasonalPrices={seasonsByRoom[room.id] || []} />
-              {room.description && (
-                <RoomDescriptionWithReadMore
-                  content={room.description}
-                  onReadMore={() => setDescRoomId(room.id)}
-                />
-              )}
-              <div className="mt-auto pt-3 flex items-center gap-4 text-xs text-earth-500">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-earth-100 px-2.5 py-1">
-                  <Users className="h-3.5 w-3.5" />
-                  {tc("guests")} {room.max_guests}
-                </span>
-                <Badge
-                  variant="secondary"
-                  className="text-xs font-normal bg-earth-100 text-earth-700"
-                >
-                  {t("available", { count: room.quantity })}
-                </Badge>
-              </div>
-              <div className="mt-3 flex w-full rounded-full overflow-hidden shadow-lg hover:shadow-xl transition-all">
-                <Button
-                  className="flex-1 rounded-none rounded-l-full bg-brand text-white px-10 py-4 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0"
-                  onClick={() => {
-                    document.dispatchEvent(
-                      new CustomEvent("book-room", { detail: { roomId: room.id } })
-                    );
-                  }}
-                >
-                  <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
-                  {t("bookRoom")}
-                </Button>
-                <button
-                  type="button"
-                  className="flex items-center justify-center px-4 rounded-r-full bg-brand hover:bg-brand-hover border-l border-white/30 transition-colors"
-                  onClick={(e) => { e.stopPropagation(); setCalendarRoomId(room.id); }}
-                  title={t("viewCalendar")}
-                >
-                  <CalendarSearch className="h-3.5 w-3.5 text-white" />
-                </button>
-              </div>
-            </div>
-          </div>
-          </motion.div>
+            room={room}
+            seasonalPrices={seasonsByRoom[room.id] || []}
+            onLightbox={() => setLightbox({ images: room.images, name: room.name })}
+            onCalendar={() => setCalendarRoomId(room.id)}
+            onDesc={() => setDescRoomId(room.id)}
+          />
         ))}
       </div>
 
