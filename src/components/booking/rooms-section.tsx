@@ -354,8 +354,8 @@ function SingleRoomHero({
               </div>
             </div>
 
-            {/* Right: CTA buttons */}
-            <div className="flex shrink-0 rounded-full overflow-hidden shadow-lg">
+            {/* Right: CTA buttons — desktop only (inside overlay) */}
+            <div className="hidden shrink-0 rounded-full overflow-hidden shadow-lg sm:flex">
               <Button
                 className="rounded-none rounded-l-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0"
                 onClick={(e) => {
@@ -377,6 +377,27 @@ function SingleRoomHero({
             </div>
           </div>
         </div>
+      </div>
+
+      {/* Mobile CTA — outside image */}
+      <div className="mt-3 flex w-full rounded-full overflow-hidden shadow-lg sm:hidden">
+        <Button
+          className="flex-1 rounded-none rounded-l-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0"
+          onClick={() => {
+            document.dispatchEvent(new CustomEvent("book-room", { detail: { roomId: room.id } }));
+          }}
+        >
+          <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
+          {t("bookRoom")}
+        </Button>
+        <button
+          type="button"
+          className="flex items-center justify-center px-4 rounded-r-full bg-brand hover:bg-brand-hover border-l border-white/30 transition-colors"
+          onClick={() => onCalendar()}
+          title={t("viewCalendar")}
+        >
+          <CalendarSearch className="h-3.5 w-3.5 text-white" />
+        </button>
       </div>
 
       {/* Thumbnail strip */}
