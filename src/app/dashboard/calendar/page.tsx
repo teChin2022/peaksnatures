@@ -114,6 +114,7 @@ export default function CalendarPage() {
   const [locale, setLocale] = useState("en");
   const [detailDay, setDetailDay] = useState<DayInfo | null>(null);
   const [selectedRoomFilter, setSelectedRoomFilter] = useState<string>("all");
+  const [actionModalOpen, setActionModalOpen] = useState(false);
 
   // Detect locale
   useEffect(() => {
@@ -326,7 +327,7 @@ export default function CalendarPage() {
     });
   };
 
-  const clearSelection = () => setSelectedDates(new Set());
+  const clearSelection = () => { setSelectedDates(new Set()); setActionModalOpen(false); };
 
   // Determine if selection is all blocked, all unblocked, or mixed
   const selectionType = useMemo(() => {
@@ -526,8 +527,8 @@ export default function CalendarPage() {
         </Card>
       </div>
 
-      {/* Selection action modal */}
-      <Dialog open={selectedDates.size > 0} onOpenChange={(open) => { if (!open) clearSelection(); }}>
+      {/* Selection action modal — opened manually via floating bar */}
+      <Dialog open={actionModalOpen} onOpenChange={setActionModalOpen}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
@@ -786,6 +787,24 @@ export default function CalendarPage() {
               {t("clickToSelect")}
             </div>
           </div>
+
+          {/* Floating action bar — visible while selecting dates */}
+          {selectedDates.size > 0 && (
+            <div className="sticky bottom-4 z-10 mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-white p-3 shadow-lg">
+              <Badge variant="secondary">
+                {selectedDates.size} {t("datesSelected")}
+              </Badge>
+              <div className="flex gap-2">
+                <Button size="sm" variant="ghost" onClick={clearSelection}>
+                  {t("clearSelection")}
+                </Button>
+                <Button size="sm" onClick={() => setActionModalOpen(true)}>
+                  <Ban className="mr-1.5 h-3.5 w-3.5" />
+                  {t("blockDate")}
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
