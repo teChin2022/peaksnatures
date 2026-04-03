@@ -336,6 +336,20 @@ function SingleRoomHero({
           </div>
         )}
 
+        {/* Dot indicators — desktop/tablet only, bottom inside image */}
+        {multi && (
+          <div className="absolute inset-x-0 bottom-0 z-10 hidden md:flex justify-center gap-1.5 pb-3 pt-6 bg-gradient-to-t from-black/20 to-transparent">
+            {images.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                className={`rounded-full transition-all ${i === index ? "bg-white w-3 h-1.5" : "bg-white/50 w-1.5 h-1.5 hover:bg-white/80"}`}
+                onClick={(e) => { e.stopPropagation(); setIndex(i); }}
+              />
+            ))}
+          </div>
+        )}
+
         {/* Bottom gradient overlay */}
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
 
@@ -419,21 +433,6 @@ function SingleRoomHero({
         </button>
       </div>
 
-      {/* Thumbnail strip */}
-      {multi && (
-        <div className="mt-3 mb-8 hidden gap-2 overflow-x-auto sm:flex">
-          {images.map((src, i) => (
-            <button
-              key={i}
-              type="button"
-              className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-lg transition-all ${i === index ? "ring-2 ring-brand opacity-100" : "opacity-60 hover:opacity-100"}`}
-              onClick={() => setIndex(i)}
-            >
-              <Image src={src} alt={`${room.name} thumb ${i + 1}`} fill sizes="64px" className="object-cover" />
-            </button>
-          ))}
-        </div>
-      )}
     </motion.div>
   );
 }
