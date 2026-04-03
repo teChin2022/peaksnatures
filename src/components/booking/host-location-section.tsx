@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { MapPin, ShieldCheck, CalendarDays, BookOpen, Clock } from "lucide-react";
+import { MapPin, ShieldCheck, CalendarDays, BookOpen, Clock, DoorOpen } from "lucide-react";
 
 import { useTranslations } from "next-intl";
 import { motion } from "motion/react";
@@ -13,6 +13,7 @@ interface HostLocationSectionProps {
   isVerified: boolean;
   hostCreatedAt: string;
   totalBookings: number;
+  totalRooms: number;
   lastBookingDate: string | null;
   location: string;
   mapEmbedUrl: string | null;
@@ -24,6 +25,7 @@ export function HostLocationSection({
   isVerified,
   hostCreatedAt,
   totalBookings,
+  totalRooms,
   lastBookingDate,
   location,
   mapEmbedUrl,
@@ -141,6 +143,14 @@ export function HostLocationSection({
                 </div>
 
                 {/* <div className="h-12 w-px bg-earth-200" /> */}
+
+                <div className="flex flex-col items-center">
+                  <DoorOpen className="h-4.5 w-4.5 text-earth-400 mb-1" />
+                  <span className="text-2xl font-bold text-earth-900">{totalRooms}</span>
+                  <p className="text-[11px] text-earth-500 leading-tight text-center">
+                    {t("totalRooms", { count: totalRooms })}
+                  </p>
+                </div>
 
                 <div className="flex flex-col items-center">
                   <BookOpen className="h-4.5 w-4.5 text-earth-400 mb-1" />
