@@ -131,7 +131,7 @@
     "options": "Options",
     "selectOptions": "Select options",
     "optionsSelected": "{count} option(s) selected",
-    "optionsDesc": "Select additional options for your stay",
+    "optionsDesc": "Select additional options for your stay (price per night)",
     "optionsTotal": "Options total",
     "numGuests": "Number of Guests",
     "adults": "Adults",

@@ -315,13 +315,6 @@ export function BookingSection({
     return roomOptions.filter((o) => o.room_id === selectedRoomId);
   }, [selectedRoomId, roomOptions]);
 
-  const optionsTotal = useMemo(() => {
-    return selectedOptionIds.reduce((sum, id) => {
-      const opt = roomOptions.find((o) => o.id === id);
-      return sum + (opt?.price || 0);
-    }, 0);
-  }, [selectedOptionIds, roomOptions]);
-
   const seasonsByRoom = useMemo(() => {
     const map: Record<string, RoomSeasonalPrice[]> = {};
     for (const s of seasonalPrices) {
@@ -335,6 +328,13 @@ export function BookingSection({
     if (!dateRange?.from || !dateRange?.to) return 0;
     return differenceInDays(dateRange.to, dateRange.from);
   }, [dateRange]);
+
+  const optionsTotal = useMemo(() => {
+    return selectedOptionIds.reduce((sum, id) => {
+      const opt = roomOptions.find((o) => o.id === id);
+      return sum + (opt?.price || 0) * (nights || 1);
+    }, 0);
+  }, [selectedOptionIds, roomOptions, nights]);
 
   const priceResult = useMemo(() => {
     if (!selectedRoom || nights <= 0 || !dateRange?.from || !dateRange?.to) return null;
@@ -613,7 +613,7 @@ export function BookingSection({
           locale,
           selected_options: selectedOptionIds.map((id) => {
             const opt = roomOptions.find((o) => o.id === id);
-            return { id, name: opt?.name || "", price: opt?.price || 0 };
+            return { id, name: opt?.name || "", price: (opt?.price || 0) * nights };
           }),
         }),
       });
@@ -889,7 +889,7 @@ export function BookingSection({
                                   return (
                                     <div className="flex justify-between text-sm text-earth-600">
                                       <span>฿{selectedRoom?.price_per_night.toLocaleString()} × {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
-                                      <span>฿{totalPrice.toLocaleString()}</span>
+                                      <span>฿{priceResult.total.toLocaleString()}</span>
                                     </div>
                                   );
                                 }
@@ -913,7 +913,7 @@ export function BookingSection({
                               })()}
                               {optionsTotal > 0 && (
                                 <div className="flex justify-between text-sm text-earth-600">
-                                  <span>{t("options")} ({selectedOptionIds.length})</span>
+                                  <span>{t("options")} ({selectedOptionIds.length}) × {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
                                   <span>+฿{optionsTotal.toLocaleString()}</span>
                                 </div>
                               )}
@@ -973,7 +973,7 @@ export function BookingSection({
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium text-earth-900">{option.name}</p>
                                   </div>
-                                  <span className="text-sm font-semibold text-brand whitespace-nowrap">+฿{option.price.toLocaleString()}</span>
+                                  <span className="text-sm font-semibold text-brand whitespace-nowrap">+฿{option.price.toLocaleString()}/{tc("night")}</span>
                                 </label>
                               );
                             })}
@@ -1158,15 +1158,15 @@ export function BookingSection({
                             </div>
                             {selectedOptionIds.length > 0 && (
                               <div>
-                                <span className="text-earth-500">{t("options")}</span>
+                                <span className="text-earth-500">{t("options")} × {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
                                 <div className="mt-1 space-y-1">
                                   {selectedOptionIds.map((id) => {
                                     const opt = roomOptions.find((o) => o.id === id);
                                     if (!opt) return null;
                                     return (
                                       <div key={id} className="flex justify-between text-xs">
-                                        <span className="text-earth-600">{opt.name}</span>
-                                        <span className="font-medium text-brand">+฿{opt.price.toLocaleString()}</span>
+                                        <span className="text-earth-600">{opt.name} (฿{opt.price.toLocaleString()}/{tc("night")})</span>
+                                        <span className="font-medium text-brand">+฿{(opt.price * nights).toLocaleString()}</span>
                                       </div>
                                     );
                                   })}
