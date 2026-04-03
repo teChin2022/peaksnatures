@@ -153,15 +153,15 @@ export async function POST(req: NextRequest) {
 
       const { total: serverBasePrice } = calculateTotalPrice(room.price_per_night, checkIn, checkOut, seasons);
 
-      // Validate selected options prices against DB
+      // Validate selected options prices against DB (per-night pricing)
       let serverOptionsTotal = 0;
       if (optionIds.length > 0) {
         const dbMap = new Map((dbOptions as { id: string; price: number }[] || []).map((o) => [o.id, o.price]));
         for (const opt of data.selected_options) {
           const dbPrice = dbMap.get(opt.id);
           if (dbPrice !== undefined) {
-            opt.price = dbPrice; // enforce DB price
-            serverOptionsTotal += dbPrice;
+            opt.price = dbPrice * nights; // enforce DB price × nights
+            serverOptionsTotal += dbPrice * nights;
           }
         }
       }

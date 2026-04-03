@@ -176,10 +176,19 @@ export async function POST(req: NextRequest) {
       // Calculate price using room info + seasonal prices from parallel batch
       const seasons = (seasonRows as unknown as RoomSeasonalPrice[]) || [];
       const { total } = calculateTotalPrice(roomInfo.price_per_night, newCheckIn, newCheckOut, seasons);
-      // Add original booking's selected options sum (options don't change on date change)
-      const optionsSum = Array.isArray(booking.selected_options)
-        ? (booking.selected_options as { price: number }[]).reduce((s, o) => s + (o.price || 0), 0)
-        : 0;
+      // Recalculate options per new nights (fetch fresh per-night prices from DB)
+      const optionIds = Array.isArray(booking.selected_options)
+        ? (booking.selected_options as { id: string }[]).map((o) => o.id).filter(Boolean)
+        : [];
+      let optionsSum = 0;
+      if (optionIds.length > 0) {
+        const { data: freshOptions } = await supabase
+          .from("room_options")
+          .select("id, price")
+          .in("id", optionIds);
+        const newNights = Math.round((newCheckOut.getTime() - newCheckIn.getTime()) / (1000 * 60 * 60 * 24));
+        optionsSum = (freshOptions as { id: string; price: number }[] || []).reduce((s, o) => s + o.price * newNights, 0);
+      }
       newTotalPrice = total + optionsSum;
     }
 

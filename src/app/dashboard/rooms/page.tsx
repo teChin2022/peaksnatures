@@ -830,7 +830,7 @@ export default function RoomsPage() {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-gray-900">{option.name}</p>
                           <p className="text-xs text-gray-500">
-                            <span className="font-medium text-brand">+฿{option.price.toLocaleString()}</span>
+                            <span className="font-medium text-brand">+฿{option.price.toLocaleString()}{tc("perNight")}</span>
                           </p>
                         </div>
                         <div className="flex items-center gap-1">
@@ -868,7 +868,7 @@ export default function RoomsPage() {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-gray-900">{option.name}</p>
                           <p className="text-xs text-gray-500">
-                            <span className="font-medium text-brand">+฿{option.price.toLocaleString()}</span>
+                            <span className="font-medium text-brand">+฿{option.price.toLocaleString()}{tc("perNight")}</span>
                           </p>
                         </div>
                         <Button
