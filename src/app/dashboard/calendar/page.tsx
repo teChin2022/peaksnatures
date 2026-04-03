@@ -526,50 +526,73 @@ export default function CalendarPage() {
         </Card>
       </div>
 
-      {/* Action bar */}
-      {selectedDates.size > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-gray-50 p-3">
-          <Badge variant="secondary">
-            {selectedDates.size} {t("datesSelected")}
-          </Badge>
+      {/* Selection action modal */}
+      <Dialog open={selectedDates.size > 0} onOpenChange={(open) => { if (!open) clearSelection(); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-brand" />
+              {selectedDates.size} {t("datesSelected")}
+            </DialogTitle>
+            <DialogDescription className="sr-only">
+              {t("datesSelected")}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Selected date badges */}
+          <div className="flex flex-wrap gap-1">
+            {Array.from(selectedDates).sort().map((d) => (
+              <Badge key={d} variant="secondary" className={`text-xs ${blockedDateMap.has(d) ? "bg-red-50 text-red-700" : ""}`}>
+                {fmtDateStr(d, "d MMM yyyy", locale)}
+              </Badge>
+            ))}
+          </div>
+
+          {/* Room filter */}
           {rooms.length > 0 && (
-            <Select value={selectedRoomFilter} onValueChange={setSelectedRoomFilter}>
-              <SelectTrigger className="h-8 w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("allRooms")}</SelectItem>
-                {rooms.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div>
+              <Label className="text-xs text-gray-500 mb-1.5 block">{t("allRooms")}</Label>
+              <Select value={selectedRoomFilter} onValueChange={setSelectedRoomFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t("allRooms")}</SelectItem>
+                  {rooms.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
-          {(selectionType === "unblocked" || selectionType === "mixed") && (
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => setBlockDialogOpen(true)}
-            >
-              <Ban className="mr-1.5 h-3.5 w-3.5" />
-              {t("blockDate")}
+
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            {(selectionType === "unblocked" || selectionType === "mixed") && (
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={() => setBlockDialogOpen(true)}
+              >
+                <Ban className="mr-1.5 h-4 w-4" />
+                {t("blockDate")}
+              </Button>
+            )}
+            {(selectionType === "blocked" || selectionType === "mixed") && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={() => setUnblockDialogOpen(true)}
+              >
+                <Unlock className="mr-1.5 h-4 w-4" />
+                {t("unblockDate")}
+              </Button>
+            )}
+            <Button variant="ghost" className="w-full" onClick={clearSelection}>
+              {t("clearSelection")}
             </Button>
-          )}
-          {(selectionType === "blocked" || selectionType === "mixed") && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setUnblockDialogOpen(true)}
-            >
-              <Unlock className="mr-1.5 h-3.5 w-3.5" />
-              {t("unblockDate")}
-            </Button>
-          )}
-          <Button size="sm" variant="ghost" onClick={clearSelection}>
-            {t("clearSelection")}
-          </Button>
-        </div>
-      )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Calendar */}
       <Card>

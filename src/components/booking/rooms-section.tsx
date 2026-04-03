@@ -264,7 +264,7 @@ function SingleRoomHero({
       {/* Hero image with overlay */}
       <div
         ref={setContainerEl}
-        className="group mb-10 relative aspect-[4/3] md:aspect-[16/9] lg:aspect-[21/9] overflow-hidden rounded-2xl bg-earth-100"
+        className="group mb-15 relative aspect-[4/3] md:aspect-[16/9] lg:aspect-[21/9] overflow-hidden rounded-2xl bg-earth-100"
         style={{ touchAction: "pan-y" }}
       >
         {/* Sliding image strip — only nearby images are mounted to reduce DOM/decode cost */}
