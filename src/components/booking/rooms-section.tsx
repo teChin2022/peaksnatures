@@ -336,9 +336,9 @@ function SingleRoomHero({
           </div>
         )}
 
-        {/* Dot indicators — desktop/tablet only, bottom inside image */}
+        {/* Dot indicators — desktop/tablet only, top inside image */}
         {multi && (
-          <div className="absolute inset-x-0 bottom-0 z-10 hidden md:flex justify-center gap-1.5 pb-3 pt-6 bg-gradient-to-t from-black/20 to-transparent">
+          <div className="absolute inset-x-0 top-0 z-10 hidden md:flex justify-center gap-1.5 pt-3 pb-6 bg-gradient-to-b from-black/20 to-transparent">
             {images.map((_, i) => (
               <button
                 key={i}
