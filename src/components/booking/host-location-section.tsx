@@ -57,9 +57,10 @@ export function HostLocationSection({
                 transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
                 className="text-2xl md:text-3xl font-serif text-earth-900 tracking-tight"
               >
-                {location}
+                {ta("location")}
               </motion.h2>
             </div>
+            <p className="mt-2 text-sm text-earth-500">{location}</p>
           </motion.div>
         )}
 
