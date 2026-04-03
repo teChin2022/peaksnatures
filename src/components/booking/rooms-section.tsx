@@ -132,7 +132,6 @@ export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, bo
   return (
     <section className="py-14 md:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <span className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400 block mb-2">{t("title")}</span>
         <div className="overflow-hidden pt-2 -mt-2">
           <motion.h2
             initial={{ y: "100%" }}
@@ -231,11 +230,24 @@ function SingleRoomHero({
   const tc = useTranslations("common");
   const [index, setIndex] = useState(0);
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
+  const [seen, setSeen] = useState<Set<number>>(() => new Set([0]));
   const images = room.images;
   const multi = images.length > 1;
 
-  const prev = useCallback(() => setIndex((i) => (i > 0 ? i - 1 : images.length - 1)), [images.length]);
-  const next = useCallback(() => setIndex((i) => (i < images.length - 1 ? i + 1 : 0)), [images.length]);
+  const prev = useCallback(() => {
+    setIndex((i) => {
+      const next = i > 0 ? i - 1 : images.length - 1;
+      setSeen((s) => { const n = new Set(s); n.add(next); if (next > 0) n.add(next - 1); else n.add(images.length - 1); if (next < images.length - 1) n.add(next + 1); else n.add(0); return n; });
+      return next;
+    });
+  }, [images.length]);
+  const next = useCallback(() => {
+    setIndex((i) => {
+      const nxt = i < images.length - 1 ? i + 1 : 0;
+      setSeen((s) => { const n = new Set(s); n.add(nxt); if (nxt > 0) n.add(nxt - 1); else n.add(images.length - 1); if (nxt < images.length - 1) n.add(nxt + 1); else n.add(0); return n; });
+      return nxt;
+    });
+  }, [images.length]);
   useSwipe(containerEl, { onSwipeLeft: next, onSwipeRight: prev });
 
   const { min, max } = getPriceRange(room.price_per_night, seasonalPrices);
@@ -252,29 +264,30 @@ function SingleRoomHero({
       {/* Hero image with overlay */}
       <div
         ref={setContainerEl}
-        className="group relative aspect-[4/3] md:aspect-[21/9] overflow-hidden rounded-2xl bg-earth-100"
+        className="group mb-10 relative aspect-[4/3] md:aspect-[16/9] lg:aspect-[21/9] overflow-hidden rounded-2xl bg-earth-100"
         style={{ touchAction: "pan-y" }}
       >
-        {/* Sliding image strip — all images stay mounted for instant transitions */}
+        {/* Sliding image strip — only nearby images are mounted to reduce DOM/decode cost */}
         <div
-          className="absolute inset-0 flex transition-transform duration-500 ease-out"
+          className="absolute inset-0 flex transition-transform duration-500 ease-out will-change-transform"
           style={{ transform: `translateX(-${index * 100}%)` }}
         >
           {images.map((src, i) => {
-            const isNear = Math.abs(i - index) <= 1 || (index === 0 && i === images.length - 1) || (index === images.length - 1 && i === 0);
+            const shouldMount = seen.has(i) || Math.abs(i - index) <= 1 || (index === 0 && i === images.length - 1) || (index === images.length - 1 && i === 0);
             return (
               <div key={src} className="relative h-full w-full shrink-0">
-                <Image
-                  src={src}
-                  alt={`${room.name} photo ${i + 1}`}
-                  fill
-                  sizes="100vw"
-                  priority={i === 0}
-                  loading={isNear ? "eager" : "lazy"}
-                  placeholder="blur"
-                  blurDataURL={BLUR_DATA_URL}
-                  className="h-full w-full object-cover"
-                />
+                {shouldMount && (
+                  <Image
+                    src={src}
+                    alt={`${room.name} photo ${i + 1}`}
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1280px) 90vw, 1280px"
+                    priority={i === 0}
+                    placeholder="blur"
+                    blurDataURL={BLUR_DATA_URL}
+                    className="h-full w-full object-cover"
+                  />
+                )}
               </div>
             );
           })}
@@ -319,6 +332,20 @@ function SingleRoomHero({
                 />
               ))}
             </div>
+          </div>
+        )}
+
+        {/* Dot indicators — desktop/tablet only, top inside image */}
+        {multi && (
+          <div className="absolute inset-x-0 top-0 z-10 hidden md:flex justify-center gap-1.5 pt-3 pb-6 bg-gradient-to-b from-black/20 to-transparent">
+            {images.map((_, i) => (
+              <button
+                key={i}
+                type="button"
+                className={`rounded-full transition-all ${i === index ? "bg-white w-3 h-1.5" : "bg-white/50 w-1.5 h-1.5 hover:bg-white/80"}`}
+                onClick={(e) => { e.stopPropagation(); setIndex(i); }}
+              />
+            ))}
           </div>
         )}
 
@@ -405,21 +432,6 @@ function SingleRoomHero({
         </button>
       </div>
 
-      {/* Thumbnail strip */}
-      {multi && (
-        <div className="mt-3 mb-20 hidden gap-2 sm:flex">
-          {images.map((src, i) => (
-            <button
-              key={i}
-              type="button"
-              className={`relative h-16 w-16 shrink-0 overflow-hidden rounded-lg transition-all ${i === index ? "ring-2 ring-brand opacity-100" : "opacity-60 hover:opacity-100"}`}
-              onClick={() => setIndex(i)}
-            >
-              <Image src={src} alt={`${room.name} thumb ${i + 1}`} fill sizes="64px" className="object-cover" />
-            </button>
-          ))}
-        </div>
-      )}
     </motion.div>
   );
 }

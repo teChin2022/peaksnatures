@@ -99,14 +99,13 @@ export function GallerySection({ images, name }: GallerySectionProps) {
     <>
       <section className="py-16 md:py-20">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <span className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400 block mb-2">{t("title")}</span>
-          <div className="overflow-hidden pt-2 -mt-2">
+          <div className="overflow-hidden pt-2 -mt-2 mb-6">
             <motion.h2
               initial={{ y: "100%" }}
               whileInView={{ y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
-              className="mb-6 text-2xl md:text-3xl font-serif text-earth-900 tracking-tight"
+              className="text-2xl md:text-3xl font-serif text-earth-900 tracking-tight"
             >
               {t("title")}
             </motion.h2>

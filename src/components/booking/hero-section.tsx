@@ -22,7 +22,7 @@ export function HeroSection({
   const contentOpacity = useTransform(scrollY, [0, 400], [1, 0]);
 
   return (
-    <section className="relative h-[60vh] min-h-[420px] sm:h-[70vh] overflow-hidden hero-mist">
+    <section className="relative h-[60vh] min-h-[420px] sm:h-[70vh] md:h-[55vh] md:min-h-[400px] overflow-hidden hero-mist">
       {/* Parallax image */}
       <motion.div style={{ y: imageY }} className="absolute inset-0">
         {heroImageUrl && (

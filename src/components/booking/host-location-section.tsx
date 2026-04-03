@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { MapPin, ShieldCheck, CalendarDays, BookOpen, Clock, DoorOpen } from "lucide-react";
+import { MapPin, ShieldCheck, CalendarDays, BookOpen, Clock } from "lucide-react";
 
 import { useTranslations } from "next-intl";
 import { motion } from "motion/react";
@@ -13,7 +13,6 @@ interface HostLocationSectionProps {
   isVerified: boolean;
   hostCreatedAt: string;
   totalBookings: number;
-  totalRooms: number;
   lastBookingDate: string | null;
   location: string;
   mapEmbedUrl: string | null;
@@ -25,7 +24,6 @@ export function HostLocationSection({
   isVerified,
   hostCreatedAt,
   totalBookings,
-  totalRooms,
   lastBookingDate,
   location,
   mapEmbedUrl,
@@ -51,7 +49,6 @@ export function HostLocationSection({
             transition={{ duration: 0.6 }}
             className="mb-6"
           >
-            <span className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400 block mb-2">{ta("location")}</span>
             <div className="overflow-hidden pt-2 -mt-2">
               <motion.h2
                 initial={{ y: "100%" }}
@@ -60,13 +57,14 @@ export function HostLocationSection({
                 transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
                 className="text-2xl md:text-3xl font-serif text-earth-900 tracking-tight"
               >
-                {location}
+                {ta("location")}
               </motion.h2>
             </div>
+            <p className="mt-2 text-sm text-earth-500">{location}</p>
           </motion.div>
         )}
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-10">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-10">
           {/* Location + Map — 70% (left) */}
           {mapEmbedUrl && (
             <motion.div
@@ -74,7 +72,7 @@ export function HostLocationSection({
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              className="lg:col-span-7"
+              className="md:col-span-7"
             >
               <div className="overflow-hidden rounded-2xl border bg-white shadow-sm h-full">
                 <iframe
@@ -95,7 +93,7 @@ export function HostLocationSection({
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.15 }}
-            className="lg:col-span-3"
+            className="md:col-span-3"
           >
             <div className="w-full rounded-2xl border bg-white shadow-sm p-6 flex flex-col items-center justify-center h-full">
               {/* Avatar */}
@@ -143,14 +141,6 @@ export function HostLocationSection({
                 </div>
 
                 {/* <div className="h-12 w-px bg-earth-200" /> */}
-
-                <div className="flex flex-col items-center">
-                  <DoorOpen className="h-4.5 w-4.5 text-earth-400 mb-1" />
-                  <span className="text-2xl font-bold text-earth-900">{totalRooms}</span>
-                  <p className="text-[11px] text-earth-500 leading-tight text-center">
-                    {t("totalRooms", { count: totalRooms })}
-                  </p>
-                </div>
 
                 <div className="flex flex-col items-center">
                   <BookOpen className="h-4.5 w-4.5 text-earth-400 mb-1" />

@@ -699,11 +699,10 @@ export function BookingSection({
     <>
       <section ref={sectionRef} className="py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="grid gap-10 lg:grid-cols-2 lg:gap-16 items-start">
+          <div className="grid gap-10 md:grid-cols-2 md:gap-12 lg:gap-16 items-start">
             {/* ── Left Column: Heading & Trust Badges ── */}
             <div className="flex flex-col justify-center">
-              <span className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400 block mb-2">{t("sectionLabel")}</span>
-              <h2 className="font-serif text-4xl font-normal text-earth-900 leading-tight sm:text-5xl tracking-tight">
+              <h2 className="font-serif text-4xl font-normal text-earth-900 leading-tight lg:text-5xl tracking-tight">
                 {t("sectionHeading")}{" "}
                 <span className="italic text-brand">{t("sectionHeadingAccent")}</span>
               </h2>
@@ -754,7 +753,7 @@ export function BookingSection({
               whileInView={{ opacity: 1, scale: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, ease: [0.25, 0.1, 0, 1] }}
-              className="bg-white rounded-3xl shadow-xl border border-earth-100 p-5 md:p-8 relative flex flex-col"
+              className="bg-white rounded-3xl shadow-xl border border-earth-100 p-5 md:p-8 relative flex flex-col md:sticky md:top-8"
             >
             {/* Step indicator (compact) */}
             <div className="flex items-center gap-1 mb-6">
@@ -782,7 +781,7 @@ export function BookingSection({
             <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)} />
             <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)} />
 
-            <div className="min-h-[480px] max-h-[600px] overflow-y-auto pr-1">
+            <div className="min-h-[480px] max-h-[600px] lg:max-h-[700px] overflow-y-auto pr-1">
               <AnimatePresence mode="wait">
                 {/* ═══ Step 1: Dates ═══ */}
                 {step === "dates" && (

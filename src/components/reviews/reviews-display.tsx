@@ -462,7 +462,6 @@ export function ReviewsDisplay({
         {/* Header */}
         <div className="flex items-center justify-between">
           <div>
-            <span className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400 block mb-1">{t("title")}</span>
             <div>
               <h3 className="text-2xl md:text-3xl font-serif text-earth-900 tracking-tight">{t("title")}</h3>
               {totalCount > 0 ? (
