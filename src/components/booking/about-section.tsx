@@ -74,14 +74,14 @@ export function AboutSection({
   return (
     <section className="py-14 md:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="grid grid-cols-1 gap-8 lg:grid-cols-3">
+        <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
           {/* Description */}
           <motion.div
             initial={{ opacity: 0, y: 20 }}
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6 }}
-            className="lg:col-span-2"
+            className="md:col-span-2"
           >
             <span className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400 block mb-2">{t("title")}</span>
             <div className="overflow-hidden pt-2 -mt-2">

@@ -699,7 +699,7 @@ export function BookingSection({
     <>
       <section ref={sectionRef} className="py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="grid gap-10 lg:grid-cols-2 lg:gap-16 items-start">
+          <div className="grid gap-10 md:grid-cols-2 md:gap-12 lg:gap-16 items-start">
             {/* ── Left Column: Heading & Trust Badges ── */}
             <div className="flex flex-col justify-center">
               <span className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400 block mb-2">{t("sectionLabel")}</span>

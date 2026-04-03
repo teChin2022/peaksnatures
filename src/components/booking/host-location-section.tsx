@@ -66,7 +66,7 @@ export function HostLocationSection({
           </motion.div>
         )}
 
-        <div className="grid grid-cols-1 gap-6 lg:grid-cols-10">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-10">
           {/* Location + Map — 70% (left) */}
           {mapEmbedUrl && (
             <motion.div
@@ -74,7 +74,7 @@ export function HostLocationSection({
               whileInView={{ opacity: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6 }}
-              className="lg:col-span-7"
+              className="md:col-span-7"
             >
               <div className="overflow-hidden rounded-2xl border bg-white shadow-sm h-full">
                 <iframe
@@ -95,7 +95,7 @@ export function HostLocationSection({
             whileInView={{ opacity: 1, y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.6, delay: 0.15 }}
-            className="lg:col-span-3"
+            className="md:col-span-3"
           >
             <div className="w-full rounded-2xl border bg-white shadow-sm p-6 flex flex-col items-center justify-center h-full">
               {/* Avatar */}
