@@ -483,7 +483,8 @@
     "checkOut": "เช็คเอาท์",
     "contact": "ติดต่อ",
     "province": "จังหวัด",
-    "note": "หมายเหตุ"
+    "note": "หมายเหตุ",
+    "options": "ออปชัน"
   },
   "dashboardGuide": {
     "title": "คู่มือตั้งค่า",
