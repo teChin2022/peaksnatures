@@ -17,10 +17,17 @@ import {
   Clock,
   ClipboardCheck,
   StickyNote,
+  ListPlus,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+
+interface SelectedOption {
+  id: string;
+  name: string;
+  price: number;
+}
 
 interface CheckinBooking {
   id: string;
@@ -37,6 +44,7 @@ interface CheckinBooking {
   status: string;
   checked_in_at: string | null;
   notes: string | null;
+  selected_options: SelectedOption[] | null;
   room_name: string;
 }
 
@@ -73,7 +81,7 @@ export default function CheckinsPage() {
       const [{ data: bookingRows }, { data: roomRows }] = await Promise.all([
         supabase
           .from("bookings")
-          .select("id, guest_name, guest_email, guest_phone, guest_province, check_in, check_out, num_guests, total_price, amount_paid, payment_type, status, checked_in_at, notes, room_id")
+          .select("id, guest_name, guest_email, guest_phone, guest_province, check_in, check_out, num_guests, total_price, amount_paid, payment_type, status, checked_in_at, selected_options, notes, room_id")
           .in("homestay_id", homestayIds)
           .eq("check_in", todayStr)
           .in("status", ["confirmed", "completed"])
@@ -140,6 +148,7 @@ export default function CheckinsPage() {
             const nights = differenceInDays(new Date(booking.check_out), new Date(booking.check_in));
             const hasBalance = booking.amount_paid < booking.total_price;
             const isCheckedIn = !!booking.checked_in_at;
+            const options = Array.isArray(booking.selected_options) ? booking.selected_options : [];
 
             return (
               <Card key={booking.id} className="overflow-hidden">
@@ -203,6 +212,22 @@ export default function CheckinsPage() {
                         )}
                       </div>
                     </div>
+
+                    {/* Room Options */}
+                    {options.length > 0 && (
+                      <div className="flex items-start gap-2 rounded-lg bg-brand-50/50 p-2.5 text-xs text-gray-600">
+                        <ListPlus className="h-3.5 w-3.5 text-brand shrink-0 mt-0.5" />
+                        <div>
+                          <span className="font-medium text-gray-700">{t("options")}:</span>{" "}
+                          {options.map((o, i) => (
+                            <span key={o.id}>
+                              {o.name} <span className="text-brand font-medium">(+฿{o.price.toLocaleString()})</span>
+                              {i < options.length - 1 && ", "}
+                            </span>
+                          ))}
+                        </div>
+                      </div>
+                    )}
 
                     {/* Contact + province */}
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">

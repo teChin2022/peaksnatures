@@ -479,7 +479,8 @@
     "checkOut": "Check-out",
     "contact": "Contact",
     "province": "Province",
-    "note": "Note"
+    "note": "Note",
+    "options": "Options"
   },
   "dashboardGuide": {
     "title": "Setup Guide",
