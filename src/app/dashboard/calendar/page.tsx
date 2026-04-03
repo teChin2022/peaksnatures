@@ -105,8 +105,6 @@ export default function CalendarPage() {
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [blockedDates, setBlockedDates] = useState<BlockedDateRow[]>([]);
   const [selectedDates, setSelectedDates] = useState<Set<string>>(new Set());
-  const [blockDialogOpen, setBlockDialogOpen] = useState(false);
-  const [unblockDialogOpen, setUnblockDialogOpen] = useState(false);
   const [blockReason, setBlockReason] = useState("");
   const [saving, setSaving] = useState(false);
   const [roomMap, setRoomMap] = useState<Record<string, string>>({});
@@ -114,6 +112,7 @@ export default function CalendarPage() {
   const [locale, setLocale] = useState("en");
   const [detailDay, setDetailDay] = useState<DayInfo | null>(null);
   const [selectedRoomFilter, setSelectedRoomFilter] = useState<string>("all");
+  const [actionModalOpen, setActionModalOpen] = useState(false);
 
   // Detect locale
   useEffect(() => {
@@ -326,7 +325,7 @@ export default function CalendarPage() {
     });
   };
 
-  const clearSelection = () => setSelectedDates(new Set());
+  const clearSelection = () => { setSelectedDates(new Set()); setActionModalOpen(false); };
 
   // Determine if selection is all blocked, all unblocked, or mixed
   const selectionType = useMemo(() => {
@@ -354,7 +353,7 @@ export default function CalendarPage() {
 
     if (datesToBlock.length === 0) {
       setSaving(false);
-      setBlockDialogOpen(false);
+      setActionModalOpen(false);
       return;
     }
 
@@ -379,7 +378,7 @@ export default function CalendarPage() {
       toast.success(t("blockSuccess"));
       clearSelection();
       setBlockReason("");
-      setBlockDialogOpen(false);
+      setActionModalOpen(false);
     } catch {
       toast.error(t("errorBlock"));
     } finally {
@@ -398,7 +397,7 @@ export default function CalendarPage() {
 
     if (datesToUnblock.length === 0) {
       setSaving(false);
-      setUnblockDialogOpen(false);
+      setActionModalOpen(false);
       return;
     }
 
@@ -437,7 +436,7 @@ export default function CalendarPage() {
       setBlockedDates((prev) => prev.filter((bd) => !idsToRemove.has(bd.id)));
       toast.success(t("unblockSuccess"));
       clearSelection();
-      setUnblockDialogOpen(false);
+      setActionModalOpen(false);
     } catch {
       toast.error(t("errorBlock"));
     } finally {
@@ -526,50 +525,99 @@ export default function CalendarPage() {
         </Card>
       </div>
 
-      {/* Action bar */}
-      {selectedDates.size > 0 && (
-        <div className="mb-4 flex flex-wrap items-center gap-2 rounded-lg border bg-gray-50 p-3">
-          <Badge variant="secondary">
-            {selectedDates.size} {t("datesSelected")}
-          </Badge>
+      {/* Selection action modal — single modal for block/unblock */}
+      <Dialog open={actionModalOpen} onOpenChange={setActionModalOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <CalendarDays className="h-5 w-5 text-brand" />
+              {selectedDates.size} {t("datesSelected")}
+            </DialogTitle>
+            <DialogDescription>
+              {selectionType === "blocked"
+                ? t("confirmUnblockDesc", { count: Array.from(selectedDates).filter((d) => blockedDateMap.has(d)).length })
+                : t("confirmBlockDesc", { count: Array.from(selectedDates).filter((d) => !blockedDateMap.has(d)).length })}
+            </DialogDescription>
+          </DialogHeader>
+
+          {/* Selected date badges */}
+          <div className="flex flex-wrap gap-1">
+            {Array.from(selectedDates).sort().map((d) => (
+              <Badge key={d} variant="secondary" className={`text-xs ${blockedDateMap.has(d) ? "bg-red-50 text-red-700" : ""}`}>
+                {fmtDateStr(d, "d MMM yyyy", locale)}
+              </Badge>
+            ))}
+          </div>
+
+          {/* Room filter */}
           {rooms.length > 0 && (
-            <Select value={selectedRoomFilter} onValueChange={setSelectedRoomFilter}>
-              <SelectTrigger className="h-8 w-[180px]">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("allRooms")}</SelectItem>
-                {rooms.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div>
+              <Label className="text-xs text-gray-500 mb-1.5 block">{t("allRooms")}</Label>
+              <Select value={selectedRoomFilter} onValueChange={setSelectedRoomFilter}>
+                <SelectTrigger className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">{t("allRooms")}</SelectItem>
+                  {rooms.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>{r.name}</SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
+
+          {/* Reason input — only for blocking */}
           {(selectionType === "unblocked" || selectionType === "mixed") && (
-            <Button
-              size="sm"
-              variant="destructive"
-              onClick={() => setBlockDialogOpen(true)}
-            >
-              <Ban className="mr-1.5 h-3.5 w-3.5" />
-              {t("blockDate")}
-            </Button>
+            <div>
+              <Label htmlFor="reason">{t("reason")}</Label>
+              <Input
+                id="reason"
+                value={blockReason}
+                onChange={(e) => setBlockReason(e.target.value)}
+                placeholder={t("reasonPlaceholder")}
+                className="mt-1"
+              />
+            </div>
           )}
-          {(selectionType === "blocked" || selectionType === "mixed") && (
-            <Button
-              size="sm"
-              variant="outline"
-              onClick={() => setUnblockDialogOpen(true)}
-            >
-              <Unlock className="mr-1.5 h-3.5 w-3.5" />
-              {t("unblockDate")}
+
+          <DialogFooter className="flex-col gap-2 sm:flex-col">
+            {(selectionType === "unblocked" || selectionType === "mixed") && (
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={handleBlockDates}
+                disabled={saving}
+              >
+                {saving ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : (
+                  <Ban className="mr-1.5 h-4 w-4" />
+                )}
+                {t("confirmBlock")}
+              </Button>
+            )}
+            {(selectionType === "blocked" || selectionType === "mixed") && (
+              <Button
+                variant="outline"
+                className="w-full"
+                onClick={handleUnblockDates}
+                disabled={saving}
+              >
+                {saving ? (
+                  <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+                ) : (
+                  <Unlock className="mr-1.5 h-4 w-4" />
+                )}
+                {t("confirmUnblock")}
+              </Button>
+            )}
+            <Button variant="ghost" className="w-full" onClick={clearSelection}>
+              {t("clearSelection")}
             </Button>
-          )}
-          <Button size="sm" variant="ghost" onClick={clearSelection}>
-            {t("clearSelection")}
-          </Button>
-        </div>
-      )}
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Calendar */}
       <Card>
@@ -763,65 +811,27 @@ export default function CalendarPage() {
               {t("clickToSelect")}
             </div>
           </div>
+
+          {/* Floating action bar — visible while selecting dates */}
+          {selectedDates.size > 0 && (
+            <div className="sticky bottom-4 z-10 mt-4 flex flex-wrap items-center justify-between gap-2 rounded-xl border bg-white p-3 shadow-lg">
+              <Badge variant="secondary">
+                {selectedDates.size} {t("datesSelected")}
+              </Badge>
+              <div className="flex gap-2">
+                <Button size="sm" variant="ghost" onClick={clearSelection}>
+                  {t("clearSelection")}
+                </Button>
+                <Button size="sm" variant="destructive" onClick={() => setActionModalOpen(true)}>
+                  <Ban className="mr-1.5 h-3.5 w-3.5" />
+                  {t("blockDate")}
+                </Button>
+              </div>
+            </div>
+          )}
         </CardContent>
       </Card>
 
-      {/* Block Dialog */}
-      <Dialog open={blockDialogOpen} onOpenChange={setBlockDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Ban className="h-5 w-5 text-red-500" />
-              {t("blockDate")}
-            </DialogTitle>
-            <DialogDescription>
-              {t("confirmBlockDesc", { count: Array.from(selectedDates).filter((d) => !blockedDateMap.has(d)).length })}
-              {selectedRoomFilter !== "all" && roomMap[selectedRoomFilter] && (
-                <span className="block mt-1 font-medium text-gray-700">
-                  {t("forRoom")}: {roomMap[selectedRoomFilter]}
-                </span>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <div>
-            <Label htmlFor="reason">{t("reason")}</Label>
-            <Input
-              id="reason"
-              value={blockReason}
-              onChange={(e) => setBlockReason(e.target.value)}
-              placeholder={t("reasonPlaceholder")}
-              className="mt-1"
-            />
-          </div>
-          <div className="flex flex-wrap gap-1 mb-2">
-            {Array.from(selectedDates)
-              .filter((d) => !blockedDateMap.has(d))
-              .sort()
-              .map((d) => (
-                <Badge key={d} variant="secondary" className="text-xs">
-                  {fmtDateStr(d, "d MMM yyyy", locale)}
-                </Badge>
-              ))}
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setBlockDialogOpen(false)}>
-              {t("cancelAction")}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={handleBlockDates}
-              disabled={saving}
-            >
-              {saving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Ban className="mr-2 h-4 w-4" />
-              )}
-              {t("confirmBlock")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
 
       {/* Booking Detail Modal */}
       <Dialog open={!!detailDay} onOpenChange={(open) => !open && setDetailDay(null)}>
@@ -929,52 +939,6 @@ export default function CalendarPage() {
         </DialogContent>
       </Dialog>
 
-      {/* Unblock Dialog */}
-      <Dialog open={unblockDialogOpen} onOpenChange={setUnblockDialogOpen}>
-        <DialogContent>
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-2">
-              <Unlock className="h-5 w-5 text-brand" />
-              {t("unblockDate")}
-            </DialogTitle>
-            <DialogDescription>
-              {t("confirmUnblockDesc", { count: Array.from(selectedDates).filter((d) => blockedDateMap.has(d)).length })}
-              {selectedRoomFilter !== "all" && roomMap[selectedRoomFilter] && (
-                <span className="block mt-1 font-medium text-gray-700">
-                  {t("forRoom")}: {roomMap[selectedRoomFilter]}
-                </span>
-              )}
-            </DialogDescription>
-          </DialogHeader>
-          <div className="flex flex-wrap gap-1 mb-2">
-            {Array.from(selectedDates)
-              .filter((d) => blockedDateMap.has(d))
-              .sort()
-              .map((d) => (
-                <Badge key={d} variant="secondary" className="bg-red-50 text-red-700 text-xs">
-                  {fmtDateStr(d, "d MMM yyyy", locale)}
-                </Badge>
-              ))}
-          </div>
-          <DialogFooter className="gap-2">
-            <Button variant="outline" onClick={() => setUnblockDialogOpen(false)}>
-              {t("cancelAction")}
-            </Button>
-            <Button
-              onClick={handleUnblockDates}
-              disabled={saving}
-              className="hover:brightness-90 bg-brand"
-            >
-              {saving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Unlock className="mr-2 h-4 w-4" />
-              )}
-              {t("confirmUnblock")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
     </div>
   );
 }
