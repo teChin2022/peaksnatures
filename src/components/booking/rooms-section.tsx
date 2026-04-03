@@ -407,7 +407,7 @@ function SingleRoomHero({
 
       {/* Thumbnail strip */}
       {multi && (
-        <div className="mt-3 mb-20 hidden gap-2 sm:flex">
+        <div className="mt-3 mb-8 hidden gap-2 sm:flex">
           {images.map((src, i) => (
             <button
               key={i}
