@@ -702,7 +702,6 @@ export function BookingSection({
           <div className="grid gap-10 md:grid-cols-2 md:gap-12 lg:gap-16 items-start">
             {/* ── Left Column: Heading & Trust Badges ── */}
             <div className="flex flex-col justify-center">
-              <span className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400 block mb-2">{t("sectionLabel")}</span>
               <h2 className="font-serif text-4xl font-normal text-earth-900 leading-tight lg:text-5xl tracking-tight">
                 {t("sectionHeading")}{" "}
                 <span className="italic text-brand">{t("sectionHeadingAccent")}</span>

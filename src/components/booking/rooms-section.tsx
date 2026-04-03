@@ -132,7 +132,6 @@ export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, bo
   return (
     <section className="py-14 md:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <span className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400 block mb-2">{t("title")}</span>
         <div className="overflow-hidden pt-2 -mt-2">
           <motion.h2
             initial={{ y: "100%" }}
@@ -265,7 +264,7 @@ function SingleRoomHero({
       {/* Hero image with overlay */}
       <div
         ref={setContainerEl}
-        className="group relative aspect-[4/3] md:aspect-[16/9] lg:aspect-[21/9] overflow-hidden rounded-2xl bg-earth-100"
+        className="group mb-10 relative aspect-[4/3] md:aspect-[16/9] lg:aspect-[21/9] overflow-hidden rounded-2xl bg-earth-100"
         style={{ touchAction: "pan-y" }}
       >
         {/* Sliding image strip — only nearby images are mounted to reduce DOM/decode cost */}

@@ -49,7 +49,6 @@ export function HostLocationSection({
             transition={{ duration: 0.6 }}
             className="mb-6"
           >
-            <span className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400 block mb-2">{ta("location")}</span>
             <div className="overflow-hidden pt-2 -mt-2">
               <motion.h2
                 initial={{ y: "100%" }}
