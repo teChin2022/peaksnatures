@@ -231,11 +231,24 @@ function SingleRoomHero({
   const tc = useTranslations("common");
   const [index, setIndex] = useState(0);
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
+  const [seen, setSeen] = useState<Set<number>>(() => new Set([0]));
   const images = room.images;
   const multi = images.length > 1;
 
-  const prev = useCallback(() => setIndex((i) => (i > 0 ? i - 1 : images.length - 1)), [images.length]);
-  const next = useCallback(() => setIndex((i) => (i < images.length - 1 ? i + 1 : 0)), [images.length]);
+  const prev = useCallback(() => {
+    setIndex((i) => {
+      const next = i > 0 ? i - 1 : images.length - 1;
+      setSeen((s) => { const n = new Set(s); n.add(next); if (next > 0) n.add(next - 1); else n.add(images.length - 1); if (next < images.length - 1) n.add(next + 1); else n.add(0); return n; });
+      return next;
+    });
+  }, [images.length]);
+  const next = useCallback(() => {
+    setIndex((i) => {
+      const nxt = i < images.length - 1 ? i + 1 : 0;
+      setSeen((s) => { const n = new Set(s); n.add(nxt); if (nxt > 0) n.add(nxt - 1); else n.add(images.length - 1); if (nxt < images.length - 1) n.add(nxt + 1); else n.add(0); return n; });
+      return nxt;
+    });
+  }, [images.length]);
   useSwipe(containerEl, { onSwipeLeft: next, onSwipeRight: prev });
 
   const { min, max } = getPriceRange(room.price_per_night, seasonalPrices);
@@ -261,10 +274,10 @@ function SingleRoomHero({
           style={{ transform: `translateX(-${index * 100}%)` }}
         >
           {images.map((src, i) => {
-            const isNear = Math.abs(i - index) <= 1 || (index === 0 && i === images.length - 1) || (index === images.length - 1 && i === 0);
+            const shouldMount = seen.has(i) || Math.abs(i - index) <= 1 || (index === 0 && i === images.length - 1) || (index === images.length - 1 && i === 0);
             return (
               <div key={src} className="relative h-full w-full shrink-0">
-                {isNear && (
+                {shouldMount && (
                   <Image
                     src={src}
                     alt={`${room.name} photo ${i + 1}`}
