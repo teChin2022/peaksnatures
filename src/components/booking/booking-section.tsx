@@ -1015,11 +1015,13 @@ export function BookingSection({
                           <div className="bg-white rounded-2xl p-3 border border-earth-100">
                             {mounted ? (
                               <Calendar
+                                key={dateRange?.from?.toISOString() || "no-date"}
                                 mode="range"
                                 selected={dateRange}
                                 onSelect={handleDateSelect}
                                 locale={locale === "th" ? thLocale : undefined}
                                 captionLayout="dropdown"
+                                defaultMonth={dateRange?.from || startOfToday()}
                                 startMonth={startOfToday()}
                                 endMonth={addMonths(startOfToday(), 12)}
                                 formatters={locale === "th" ? {

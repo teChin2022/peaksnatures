@@ -161,6 +161,7 @@ export default async function HomestayPage({ params }: PageProps) {
             isVerified={homestay.host.is_verified}
             hostCreatedAt={homestay.host.created_at}
             totalBookings={totalBookings}
+            totalRooms={rooms.length}
             lastBookingDate={lastBookingDate}
             location={homestay.location}
             mapEmbedUrl={homestay.map_embed_url}
