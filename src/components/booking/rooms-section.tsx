@@ -255,26 +255,27 @@ function SingleRoomHero({
         className="group relative aspect-[4/3] md:aspect-[16/9] lg:aspect-[21/9] overflow-hidden rounded-2xl bg-earth-100"
         style={{ touchAction: "pan-y" }}
       >
-        {/* Sliding image strip — all images stay mounted for instant transitions */}
+        {/* Sliding image strip — only nearby images are mounted to reduce DOM/decode cost */}
         <div
-          className="absolute inset-0 flex transition-transform duration-500 ease-out"
+          className="absolute inset-0 flex transition-transform duration-500 ease-out will-change-transform"
           style={{ transform: `translateX(-${index * 100}%)` }}
         >
           {images.map((src, i) => {
             const isNear = Math.abs(i - index) <= 1 || (index === 0 && i === images.length - 1) || (index === images.length - 1 && i === 0);
             return (
               <div key={src} className="relative h-full w-full shrink-0">
-                <Image
-                  src={src}
-                  alt={`${room.name} photo ${i + 1}`}
-                  fill
-                  sizes="100vw"
-                  priority={i === 0}
-                  loading={isNear ? "eager" : "lazy"}
-                  placeholder="blur"
-                  blurDataURL={BLUR_DATA_URL}
-                  className="h-full w-full object-cover"
-                />
+                {isNear && (
+                  <Image
+                    src={src}
+                    alt={`${room.name} photo ${i + 1}`}
+                    fill
+                    sizes="(max-width: 768px) 100vw, (max-width: 1280px) 90vw, 1280px"
+                    priority={i === 0}
+                    placeholder="blur"
+                    blurDataURL={BLUR_DATA_URL}
+                    className="h-full w-full object-cover"
+                  />
+                )}
               </div>
             );
           })}
