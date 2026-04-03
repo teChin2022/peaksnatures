@@ -798,7 +798,7 @@ export default function CalendarPage() {
                 <Button size="sm" variant="ghost" onClick={clearSelection}>
                   {t("clearSelection")}
                 </Button>
-                <Button size="sm" onClick={() => setActionModalOpen(true)}>
+                <Button size="sm" variant="destructive" onClick={() => setActionModalOpen(true)}>
                   <Ban className="mr-1.5 h-3.5 w-3.5" />
                   {t("blockDate")}
                 </Button>
