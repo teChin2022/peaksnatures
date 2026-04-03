@@ -889,7 +889,7 @@ export function BookingSection({
                                   return (
                                     <div className="flex justify-between text-sm text-earth-600">
                                       <span>฿{selectedRoom?.price_per_night.toLocaleString()} × {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
-                                      <span>฿{totalPrice.toLocaleString()}</span>
+                                      <span>฿{priceResult.total.toLocaleString()}</span>
                                     </div>
                                   );
                                 }
