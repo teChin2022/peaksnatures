@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Users, CheckCircle, XCircle, Loader2, Mail, Phone, Home, Calendar, ShieldCheck, Wallet, CreditCard } from "lucide-react";
+import { Users, CheckCircle, XCircle, Loader2, Mail, Phone, Home, Calendar, ShieldCheck, Wallet, CreditCard, Percent } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -206,6 +206,56 @@ export default function AdminHostsPage() {
     }
   };
 
+  const handleRateOverride = async (host: HostRow) => {
+    const currentCommission = host.commission_pct_override != null ? String(host.commission_pct_override) : "global";
+    const currentFixed = host.fixed_rate_override != null ? String(host.fixed_rate_override) : "global";
+
+    const commissionStr = prompt(
+      `Commission % override for ${host.name}\nCurrent: ${currentCommission}\n(Enter number for override, or "clear" to use global):`,
+      host.commission_pct_override != null ? String(host.commission_pct_override) : ""
+    );
+    if (commissionStr === null) return;
+
+    const fixedStr = prompt(
+      `Fixed rate override (THB/month) for ${host.name}\nCurrent: ${currentFixed}\n(Enter number for override, or "clear" to use global):`,
+      host.fixed_rate_override != null ? String(host.fixed_rate_override) : ""
+    );
+    if (fixedStr === null) return;
+
+    const commission_pct_override = commissionStr === "clear" || commissionStr === ""
+      ? null
+      : parseFloat(commissionStr);
+    const fixed_rate_override = fixedStr === "clear" || fixedStr === ""
+      ? null
+      : parseInt(fixedStr);
+
+    if (commission_pct_override !== null && isNaN(commission_pct_override)) {
+      alert("Invalid commission percentage"); return;
+    }
+    if (fixed_rate_override !== null && isNaN(fixed_rate_override)) {
+      alert("Invalid fixed rate"); return;
+    }
+
+    setActionLoading(host.id);
+    try {
+      const r = await fetch(`/api/admin/hosts/${host.id}/rate-override`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ commission_pct_override, fixed_rate_override }),
+      });
+      if (r.ok) {
+        fetchHosts(page, statusFilter);
+      } else {
+        const data = await r.json();
+        alert(data.error || "Failed to set rate override");
+      }
+    } catch {
+      alert("Failed to set rate override");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   return (
     <div>
       <div className="mb-6 flex items-center gap-3">
@@ -269,6 +319,17 @@ export default function AdminHostsPage() {
                         <Badge className={`text-[10px] shrink-0 ${PLAN_COLORS[host.plan_type] || PLAN_COLORS.free}`}>
                           {PLAN_LABELS[host.plan_type] || "Free"}
                         </Badge>
+                        {host.plan_type === "free" && host.plan_free_expires_at && (
+                          <span className={`text-[10px] ${new Date(host.plan_free_expires_at) < new Date() ? "text-red-600 font-medium" : "text-gray-400"}`}>
+                            exp {new Date(host.plan_free_expires_at).toLocaleDateString()}
+                          </span>
+                        )}
+                        {host.commission_pct_override != null && (
+                          <span className="text-[10px] text-violet-500">{host.commission_pct_override}%</span>
+                        )}
+                        {host.fixed_rate_override != null && (
+                          <span className="text-[10px] text-blue-500">฿{host.fixed_rate_override.toLocaleString()}/mo</span>
+                        )}
                       </div>
                       <div className="space-y-1 text-sm text-gray-500">
                         <div className="flex items-center gap-1.5">
@@ -336,6 +397,16 @@ export default function AdminHostsPage() {
                           >
                             <CreditCard className="h-3 w-3 mr-0.5" />
                             Plan
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-[11px] text-blue-700 border-blue-300 hover:bg-blue-50"
+                            onClick={() => handleRateOverride(host)}
+                            disabled={actionLoading === host.id}
+                          >
+                            <Percent className="h-3 w-3 mr-0.5" />
+                            Rate
                           </Button>
                           {host.plan_type === "commission" && (
                             <Button
