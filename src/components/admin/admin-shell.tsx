@@ -16,6 +16,7 @@ import {
   Shield,
   ScrollText,
   Settings,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -26,6 +27,7 @@ const NAV_ITEMS = [
   { key: "Hosts", href: "/admin/hosts", icon: Users },
   { key: "Homestays", href: "/admin/homestays", icon: Home },
   { key: "Bookings", href: "/admin/bookings", icon: CalendarDays },
+  { key: "Billing", href: "/admin/billing", icon: CreditCard },
   { key: "Logs", href: "/admin/logs", icon: ScrollText },
   { key: "Settings", href: "/admin/settings", icon: Settings },
 ] as const;

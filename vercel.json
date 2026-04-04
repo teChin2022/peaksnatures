@@ -1,4 +1,9 @@
 {
   "buildCommand": "rm -rf .next && next build",
-  "regions": ["hkg1"]
+  "crons": [
+    {
+      "path": "/api/cron/billing",
+      "schedule": "0 0 1 * *"
+    }
+  ]
 }

@@ -462,7 +462,8 @@
     "rooms": "Rooms",
     "calendar": "Calendar",
     "guide": "Setup Guide",
-    "checkins": "Today's Check-ins"
+    "checkins": "Today's Check-ins",
+    "billing": "Billing"
   },
   "checkins": {
     "title": "Today's Check-ins",
@@ -1160,5 +1161,30 @@
     "disputeResolution": "Dispute Resolution Policy",
     "contentReview": "Content & Review Policy",
     "hostAgreement": "Host Agreement"
+  },
+  "billing": {
+    "title": "Billing",
+    "subtitle": "Manage your plan and payments",
+    "currentPlan": "Current Plan",
+    "expiresOn": "Expires on",
+    "perBooking": "per booking",
+    "month": "month",
+    "pendingSwitch": "Switching to",
+    "effectiveOn": "effective on",
+    "switchToCommission": "Switch to Commission",
+    "switchToFixedRate": "Switch to Fixed Rate",
+    "wallet": "Wallet",
+    "topUp": "Top Up",
+    "negativeBalance": "Your balance is negative. Please top up to avoid service interruption.",
+    "transferTo": "Transfer to:",
+    "amount": "Amount",
+    "paymentSlip": "Payment Slip",
+    "verifyAndTopUp": "Verify & Top Up",
+    "verifyAndPay": "Verify & Pay",
+    "recentTransactions": "Recent Transactions",
+    "invoices": "Invoices",
+    "noInvoices": "No invoices yet.",
+    "freeExpiredTitle": "Your free plan has expired",
+    "freeExpiredDesc": "Please switch to a paid plan to continue receiving bookings."
   }
 }

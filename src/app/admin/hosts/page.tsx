@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { useSearchParams, useRouter } from "next/navigation";
-import { Users, CheckCircle, XCircle, Loader2, Mail, Phone, Home, Calendar, ShieldCheck } from "lucide-react";
+import { Users, CheckCircle, XCircle, Loader2, Mail, Phone, Home, Calendar, ShieldCheck, Wallet, CreditCard } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,8 +17,25 @@ interface HostRow {
   status: string;
   is_verified: boolean;
   created_at: string;
+  plan_type: string;
+  wallet_balance: number;
+  plan_free_expires_at: string | null;
+  commission_pct_override: number | null;
+  fixed_rate_override: number | null;
   homestay: { name: string; slug: string; is_active: boolean } | null;
 }
+
+const PLAN_LABELS: Record<string, string> = {
+  free: "Free",
+  commission: "Commission",
+  fixed_rate: "Fixed Rate",
+};
+
+const PLAN_COLORS: Record<string, string> = {
+  free: "bg-gray-100 text-gray-700",
+  commission: "bg-violet-100 text-violet-700",
+  fixed_rate: "bg-blue-100 text-blue-700",
+};
 
 interface PaginatedResponse {
   data: HostRow[];
@@ -130,6 +147,65 @@ export default function AdminHostsPage() {
     }
   };
 
+  const handleSetPlan = async (hostId: string) => {
+    const planType = prompt("Set plan type (free, commission, fixed_rate):", "free");
+    if (!planType || !["free", "commission", "fixed_rate"].includes(planType)) return;
+
+    let expiresAt: string | null = null;
+    if (planType === "free") {
+      const dateStr = prompt("Free plan expires at (YYYY-MM-DD, or leave empty for no expiry):");
+      if (dateStr) expiresAt = new Date(dateStr).toISOString();
+    }
+
+    setActionLoading(hostId);
+    try {
+      const r = await fetch(`/api/admin/hosts/${hostId}/plan`, {
+        method: "PATCH",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan_type: planType, plan_free_expires_at: expiresAt }),
+      });
+      if (r.ok) {
+        fetchHosts(page, statusFilter);
+      } else {
+        const data = await r.json();
+        alert(data.error || "Failed to set plan");
+      }
+    } catch {
+      alert("Failed to set plan");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
+  const handleWalletAdjust = async (hostId: string) => {
+    const amountStr = prompt("Adjustment amount (positive to add, negative to deduct):");
+    if (!amountStr) return;
+    const amount = parseInt(amountStr);
+    if (isNaN(amount) || amount === 0) { alert("Invalid amount"); return; }
+
+    const reason = prompt("Reason for adjustment:");
+    if (!reason) return;
+
+    setActionLoading(hostId);
+    try {
+      const r = await fetch(`/api/admin/hosts/${hostId}/wallet`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ amount, reason }),
+      });
+      if (r.ok) {
+        fetchHosts(page, statusFilter);
+      } else {
+        const data = await r.json();
+        alert(data.error || "Failed to adjust wallet");
+      }
+    } catch {
+      alert("Failed to adjust wallet");
+    } finally {
+      setActionLoading(null);
+    }
+  };
+
   return (
     <div>
       <div className="mb-6 flex items-center gap-3">
@@ -190,6 +266,9 @@ export default function AdminHostsPage() {
                             Verified
                           </Badge>
                         )}
+                        <Badge className={`text-[10px] shrink-0 ${PLAN_COLORS[host.plan_type] || PLAN_COLORS.free}`}>
+                          {PLAN_LABELS[host.plan_type] || "Free"}
+                        </Badge>
                       </div>
                       <div className="space-y-1 text-sm text-gray-500">
                         <div className="flex items-center gap-1.5">
@@ -222,25 +301,55 @@ export default function AdminHostsPage() {
                       </div>
                     </div>
                     {host.status === "approved" && (
-                      <div className="flex items-center gap-1.5 shrink-0 mr-1.5">
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className={`h-8 px-2.5 text-xs ${
-                            host.is_verified
-                              ? "text-emerald-700 border-emerald-300 hover:bg-emerald-50"
-                              : "text-gray-600 border-gray-300 hover:bg-gray-50"
-                          }`}
-                          onClick={() => handleVerify(host.id)}
-                          disabled={actionLoading === host.id}
-                        >
-                          {actionLoading === host.id ? (
-                            <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                          ) : (
-                            <ShieldCheck className="h-3.5 w-3.5 mr-1" />
+                      <div className="flex flex-col items-end gap-1.5 shrink-0 mr-1.5">
+                        {host.plan_type === "commission" && (
+                          <span className={`text-xs font-medium ${host.wallet_balance < 0 ? "text-red-600" : "text-gray-600"}`}>
+                            <Wallet className="h-3 w-3 inline mr-0.5" />
+                            {host.wallet_balance < 0 ? "-" : ""}฿{Math.abs(host.wallet_balance).toLocaleString()}
+                          </span>
+                        )}
+                        <div className="flex items-center gap-1">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className={`h-7 px-2 text-[11px] ${
+                              host.is_verified
+                                ? "text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                                : "text-gray-600 border-gray-300 hover:bg-gray-50"
+                            }`}
+                            onClick={() => handleVerify(host.id)}
+                            disabled={actionLoading === host.id}
+                          >
+                            {actionLoading === host.id ? (
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                            ) : (
+                              <ShieldCheck className="h-3 w-3 mr-0.5" />
+                            )}
+                            {host.is_verified ? "Unverify" : "Verify"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-7 px-2 text-[11px] text-violet-700 border-violet-300 hover:bg-violet-50"
+                            onClick={() => handleSetPlan(host.id)}
+                            disabled={actionLoading === host.id}
+                          >
+                            <CreditCard className="h-3 w-3 mr-0.5" />
+                            Plan
+                          </Button>
+                          {host.plan_type === "commission" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-7 px-2 text-[11px] text-amber-700 border-amber-300 hover:bg-amber-50"
+                              onClick={() => handleWalletAdjust(host.id)}
+                              disabled={actionLoading === host.id}
+                            >
+                              <Wallet className="h-3 w-3 mr-0.5" />
+                              Adjust
+                            </Button>
                           )}
-                          {host.is_verified ? "Unverify" : "Verify"}
-                        </Button>
+                        </div>
                       </div>
                     )}
                     {host.status === "pending" && (

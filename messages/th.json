@@ -466,7 +466,8 @@
     "rooms": "ห้องพัก",
     "calendar": "ปฏิทิน",
     "guide": "คู่มือตั้งค่า",
-    "checkins": "เช็คอินวันนี้"
+    "checkins": "เช็คอินวันนี้",
+    "billing": "การเรียกเก็บเงิน"
   },
   "checkins": {
     "title": "เช็คอินวันนี้",
@@ -1164,5 +1165,30 @@
     "disputeResolution": "นโยบายการจัดการข้อพิพาท",
     "contentReview": "นโยบายเนื้อหาและรีวิว",
     "hostAgreement": "ข้อตกลงเจ้าของที่พัก"
+  },
+  "billing": {
+    "title": "การเรียกเก็บเงิน",
+    "subtitle": "จัดการแพลนและการชำระเงิน",
+    "currentPlan": "แพลนปัจจุบัน",
+    "expiresOn": "หมดอายุวันที่",
+    "perBooking": "ต่อการจอง",
+    "month": "เดือน",
+    "pendingSwitch": "กำลังเปลี่ยนเป็น",
+    "effectiveOn": "มีผลวันที่",
+    "switchToCommission": "เปลี่ยนเป็นค่าคอมมิชชั่น",
+    "switchToFixedRate": "เปลี่ยนเป็นรายเดือน",
+    "wallet": "กระเป๋าเงิน",
+    "topUp": "เติมเงิน",
+    "negativeBalance": "ยอดเงินคงเหลือติดลบ กรุณาเติมเงินเพื่อป้องกันการหยุดให้บริการ",
+    "transferTo": "โอนเงินไปที่:",
+    "amount": "จำนวนเงิน",
+    "paymentSlip": "สลิปการชำระเงิน",
+    "verifyAndTopUp": "ตรวจสอบและเติมเงิน",
+    "verifyAndPay": "ตรวจสอบและชำระเงิน",
+    "recentTransactions": "รายการล่าสุด",
+    "invoices": "ใบแจ้งหนี้",
+    "noInvoices": "ยังไม่มีใบแจ้งหนี้",
+    "freeExpiredTitle": "แพลนฟรีของคุณหมดอายุแล้ว",
+    "freeExpiredDesc": "กรุณาเปลี่ยนเป็นแพลนชำระเงินเพื่อรับการจองต่อไป"
   }
 }

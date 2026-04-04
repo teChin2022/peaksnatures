@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { after } from "next/server";
 import { logEvent, EventType } from "@/lib/history-log";
+import { deductCommission } from "@/lib/billing";
 
 /**
  * POST /api/bookings/checkin
@@ -146,7 +147,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to check out" }, { status: 500 });
     }
 
-    // Log checkout in background (homestay_id already available from initial fetch)
+    // Log checkout and deduct commission in background
     after(async () => {
       await logEvent({
         homestayId: booking.homestay_id,
@@ -158,6 +159,9 @@ export async function POST(request: NextRequest) {
         data: { guest_email },
         req: request,
       });
+
+      // Deduct commission if host is on commission plan
+      await deductCommission(booking_id);
     });
 
     return NextResponse.json({ success: true, action: "checkout" });
