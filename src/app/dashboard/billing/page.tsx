@@ -6,10 +6,8 @@ import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { fmtDateStr } from "@/lib/format-date";
 import {
-  CreditCard,
   Wallet,
   ArrowUpCircle,
-  ArrowDownCircle,
   Clock,
   CheckCircle,
   AlertTriangle,
@@ -19,6 +17,9 @@ import {
   Percent,
   CalendarClock,
   Leaf,
+  Check,
+  ArrowRight,
+  HelpCircle,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,7 +41,6 @@ import {
   SheetHeader,
   SheetTitle,
   SheetDescription,
-  SheetFooter,
 } from "@/components/ui/sheet";
 
 interface BillingData {
@@ -87,30 +87,81 @@ const PLAN_LABELS: Record<string, string> = {
   fixed_rate: "Fixed Rate",
 };
 
-const PLAN_BORDER: Record<string, string> = {
-  free: "border-l-amber-400",
-  commission: "border-l-violet-500",
-  fixed_rate: "border-l-blue-500",
-};
-
-const PLAN_BADGE_STYLE: Record<string, string> = {
-  free: "bg-amber-100 text-amber-700",
-  commission: "bg-violet-100 text-violet-700",
-  fixed_rate: "bg-blue-100 text-blue-700",
-};
-
-const PLAN_ICON_STYLE: Record<string, string> = {
-  free: "bg-amber-100 text-amber-600",
-  commission: "bg-violet-100 text-violet-600",
-  fixed_rate: "bg-blue-100 text-blue-600",
-};
-
 function PlanIcon({ type, className }: { type: string; className?: string }) {
   const c = className || "h-5 w-5";
   if (type === "commission") return <Percent className={c} />;
   if (type === "fixed_rate") return <CalendarClock className={c} />;
   return <Leaf className={c} />;
 }
+
+const PLANS = [
+  {
+    key: "free",
+    icon: <Leaf className="w-6 h-6 text-earth-600" />,
+    features: [
+      "Up to 1 listing",
+      "Basic community support",
+      "Standard search visibility",
+      "Manual booking management",
+    ],
+    featuresTh: [
+      "ลงประกาศได้สูงสุด 1 รายการ",
+      "การสนับสนุนจากชุมชน",
+      "การค้นหาแบบมาตรฐาน",
+      "จัดการการจองด้วยตนเอง",
+    ],
+    price: "฿0",
+    period: "/month",
+    periodTh: "/เดือน",
+    popular: false,
+  },
+  {
+    key: "commission",
+    icon: <Wallet className="w-6 h-6 text-brand" />,
+    features: [
+      "Unlimited listings",
+      "Priority email support",
+      "Enhanced search visibility",
+      "Automated booking tools",
+      "No fixed monthly fees",
+    ],
+    featuresTh: [
+      "ลงประกาศไม่จำกัด",
+      "อีเมลสนับสนุนแบบลำดับความสำคัญ",
+      "การค้นหาที่มองเห็นได้ดีขึ้น",
+      "เครื่องมือจองอัตโนมัติ",
+      "ไม่มีค่าธรรมเนียมรายเดือน",
+    ],
+    price: "15%",
+    period: "/booking",
+    periodTh: "/การจอง",
+    popular: true,
+  },
+  {
+    key: "fixed_rate",
+    icon: <CalendarClock className="w-6 h-6 text-earth-700" />,
+    features: [
+      "Unlimited listings",
+      "24/7 dedicated phone support",
+      "Premium search visibility",
+      "Advanced analytics & reporting",
+      "0% commission on bookings",
+      "Custom branding options",
+    ],
+    featuresTh: [
+      "ลงประกาศไม่จำกัด",
+      "สนับสนุนทางโทรศัพท์ตลอด 24 ชม.",
+      "การค้นหาแบบพรีเมียม",
+      "การวิเคราะห์และรายงานขั้นสูง",
+      "คอมมิชชั่น 0% สำหรับการจอง",
+      "ปรับแต่งแบรนด์ได้",
+    ],
+    price: "฿490",
+    period: "/month",
+    periodTh: "/เดือน",
+    popular: false,
+  },
+];
 
 export default function DashboardBillingPage() {
   const t = useTranslations("billing");
@@ -130,6 +181,7 @@ export default function DashboardBillingPage() {
     type: "switch" | "cancelSwitch";
     planType?: string;
   } | null>(null);
+  const [hoveredPlan, setHoveredPlan] = useState<string | null>(null);
 
   const fileInputRef = useRef<HTMLInputElement>(null);
   const payFileInputRef = useRef<HTMLInputElement>(null);
@@ -251,52 +303,26 @@ export default function DashboardBillingPage() {
           <Skeleton className="h-3 w-40 mb-2" />
           <Skeleton className="h-8 w-32" />
         </div>
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-          <div className="lg:col-span-2 space-y-4">
-            <Card className="border-l-4 border-l-gray-200">
-              <CardContent className="p-6">
-                <div className="flex items-center gap-3">
-                  <Skeleton className="h-10 w-10 rounded-xl" />
-                  <div className="space-y-2">
-                    <Skeleton className="h-3 w-20" />
-                    <Skeleton className="h-6 w-32" />
-                  </div>
-                </div>
-              </CardContent>
-            </Card>
-            <Card>
-              <div className="px-6 pt-6 pb-8">
-                <div className="flex justify-between mb-6">
-                  <Skeleton className="h-4 w-20" />
-                  <Skeleton className="h-8 w-24 rounded-full" />
-                </div>
-                <div className="flex flex-col items-center">
-                  <Skeleton className="h-12 w-44" />
-                  <Skeleton className="h-3 w-16 mt-2" />
-                </div>
-              </div>
-              <CardContent className="px-6 pb-6 pt-4">
-                {[1, 2, 3].map((i) => (
-                  <div key={i} className="flex items-start gap-3 py-3">
-                    <Skeleton className="h-2.5 w-2.5 rounded-full mt-1" />
-                    <div className="flex-1 flex justify-between">
+        <div className="grid grid-cols-1 md:grid-cols-3 gap-6">
+          {[1, 2, 3].map((i) => (
+            <Card key={i} className="overflow-hidden">
+              <CardContent className="p-8">
+                <Skeleton className="h-12 w-12 rounded-2xl mb-6" />
+                <Skeleton className="h-6 w-24 mb-2" />
+                <Skeleton className="h-4 w-40 mb-8" />
+                <Skeleton className="h-12 w-32 mb-8" />
+                <div className="space-y-3">
+                  {[1, 2, 3, 4].map((j) => (
+                    <div key={j} className="flex items-center gap-3">
+                      <Skeleton className="h-4 w-4 rounded-full" />
                       <Skeleton className="h-4 w-36" />
-                      <Skeleton className="h-4 w-16" />
                     </div>
-                  </div>
-                ))}
+                  ))}
+                </div>
+                <Skeleton className="h-12 w-full rounded-xl mt-8" />
               </CardContent>
             </Card>
-          </div>
-          <div>
-            <Card>
-              <CardContent className="p-5 space-y-3">
-                <Skeleton className="h-3 w-24" />
-                <Skeleton className="h-[72px] w-full rounded-xl" />
-                <Skeleton className="h-[72px] w-full rounded-xl" />
-              </CardContent>
-            </Card>
-          </div>
+          ))}
         </div>
       </div>
     );
@@ -309,10 +335,8 @@ export default function DashboardBillingPage() {
   const isFreeExpired =
     data.plan_type === "free" && data.plan_free_expires_at && new Date(data.plan_free_expires_at) < new Date();
 
-  const planLabel = PLAN_LABELS[data.plan_type] || data.plan_type;
-
   return (
-    <div className="space-y-6">
+    <div className="space-y-8">
       {/* ── Page Header ── */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
         <p className="text-xs font-medium uppercase tracking-widest text-gray-400 mb-1">{t("subtitle")}</p>
@@ -361,328 +385,354 @@ export default function DashboardBillingPage() {
             </div>
           </motion.div>
         )}
+
+        {data.plan_pending_type && (
+          <motion.div
+            key="pending-switch"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+            className="overflow-hidden"
+          >
+            <div className="rounded-xl border border-brand-100 bg-brand-50 px-4 py-3 flex items-center justify-between gap-3">
+              <div className="flex items-center gap-2 text-sm text-brand-700">
+                <Clock className="h-4 w-4 shrink-0" />
+                <span>
+                  {t("pendingSwitch")}{" "}
+                  <strong>{PLAN_LABELS[data.plan_pending_type]}</strong>{" "}
+                  {t("effectiveOn")}{" "}
+                  {data.plan_pending_effective_at && fmtDateStr(data.plan_pending_effective_at, "d MMM yyyy", locale)}
+                </span>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-3 text-xs text-red-600 border-red-300 hover:bg-red-50 shrink-0"
+                onClick={() => setConfirmDialog({ type: "cancelSwitch", planType: data.plan_pending_type || undefined })}
+                disabled={cancelling}
+              >
+                {cancelling && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+                {t("cancelSwitch")}
+              </Button>
+            </div>
+          </motion.div>
+        )}
       </AnimatePresence>
 
-      {/* ── Main Grid ── */}
-      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
-        {/* ── Left Column (2/3) ── */}
-        <div className="lg:col-span-2 space-y-4">
-          {/* ── Plan Status Card ── */}
-          <motion.div
-            initial={{ opacity: 0, y: 12 }}
-            animate={{ opacity: 1, y: 0 }}
-            transition={{ duration: 0.4, delay: 0.1 }}
-          >
-            <Card className={`border-l-4 ${PLAN_BORDER[data.plan_type] || "border-l-gray-300"} overflow-hidden`}>
-              <CardContent className="p-6">
-                <div className="flex items-start justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className={`rounded-xl p-2.5 ${PLAN_ICON_STYLE[data.plan_type] || "bg-gray-100 text-gray-600"}`}>
-                      <PlanIcon type={data.plan_type} />
-                    </div>
-                    <div>
-                      <p className="text-xs text-gray-400 mb-0.5">{t("currentPlan")}</p>
-                      <p className="text-xl font-serif text-gray-900">{planLabel}</p>
-                    </div>
-                  </div>
+      {/* ── Pricing Cards ── */}
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
+        {PLANS.map((plan, index) => {
+          const isCurrent = data.plan_type === plan.key;
+          const isPopular = plan.popular;
+          const canSwitch = !isCurrent && !data.plan_pending_type && !switching;
+          const features = locale === "th" ? plan.featuresTh : plan.features;
+          const period = locale === "th" ? plan.periodTh : plan.period;
 
-                  <Badge className={`rounded-full px-3 py-1 text-xs font-medium ${PLAN_BADGE_STYLE[data.plan_type] || "bg-gray-100 text-gray-700"}`}>
-                    {data.plan_type === "free" && data.plan_free_expires_at && (
-                      <span>{t("expiresOn")} {fmtDateStr(data.plan_free_expires_at, "d MMM yyyy", locale)}</span>
-                    )}
-                    {data.plan_type === "commission" && data.effective_commission_pct != null && (
-                      <span>{data.effective_commission_pct}% {t("perBooking")}</span>
-                    )}
-                    {data.plan_type === "fixed_rate" && data.effective_fixed_rate != null && (
-                      <span>฿{data.effective_fixed_rate.toLocaleString()}/{t("month")}</span>
-                    )}
-                    {data.plan_type === "free" && !data.plan_free_expires_at && (
-                      <span>Free</span>
-                    )}
-                  </Badge>
-                </div>
-
-                {/* Pending switch strip */}
-                {data.plan_pending_type && (
-                  <div className="mt-4 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 flex items-center justify-between gap-3">
-                    <div className="flex items-center gap-2 text-sm text-blue-700">
-                      <Clock className="h-4 w-4 shrink-0" />
-                      <span>
-                        {t("pendingSwitch")}{" "}
-                        <strong>{PLAN_LABELS[data.plan_pending_type]}</strong>{" "}
-                        {t("effectiveOn")}{" "}
-                        {data.plan_pending_effective_at && fmtDateStr(data.plan_pending_effective_at, "d MMM yyyy", locale)}
-                      </span>
-                    </div>
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="h-7 px-3 text-xs text-red-600 border-red-300 hover:bg-red-50 shrink-0"
-                      onClick={() => setConfirmDialog({ type: "cancelSwitch", planType: data.plan_pending_type || undefined })}
-                      disabled={cancelling}
-                    >
-                      {cancelling && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
-                      {t("cancelSwitch")}
-                    </Button>
-                  </div>
-                )}
-              </CardContent>
-            </Card>
-          </motion.div>
-
-          {/* ── Wallet Card (commission plan) ── */}
-          {data.plan_type === "commission" && (
+          return (
             <motion.div
-              initial={{ opacity: 0, y: 12 }}
+              key={plan.key}
+              initial={{ opacity: 0, y: 24 }}
               animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.2 }}
+              transition={{ duration: 0.45, delay: 0.15 + index * 0.08 }}
+              onMouseEnter={() => setHoveredPlan(plan.key)}
+              onMouseLeave={() => setHoveredPlan(null)}
+              className={`relative bg-white rounded-2xl p-7 border-2 transition-all duration-300 flex flex-col ${
+                isCurrent
+                  ? "border-brand shadow-lg shadow-brand-50 ring-1 ring-brand/10"
+                  : hoveredPlan === plan.key
+                    ? "border-earth-300 shadow-md"
+                    : "border-earth-100 shadow-sm"
+              }`}
             >
-              <Card className="overflow-hidden">
-                {/* Wallet header with gradient */}
-                <div className="bg-gradient-to-br from-violet-50/60 via-white to-violet-50/40 px-6 pt-6 pb-8">
-                  <div className="flex items-center justify-between mb-6">
-                    <div className="flex items-center gap-2">
-                      <Wallet className="h-4 w-4 text-violet-500" />
-                      <span className="text-sm font-medium text-gray-600">{t("wallet")}</span>
-                    </div>
-                    <Button
-                      size="sm"
-                      className="bg-violet-600 hover:bg-violet-700 text-white rounded-full px-4 text-xs"
-                      onClick={() => setTopupSheetOpen(true)}
-                    >
-                      <ArrowUpCircle className="h-3.5 w-3.5 mr-1.5" />
-                      {t("topUp")}
-                    </Button>
-                  </div>
-
-                  {/* Hero balance */}
-                  <div className="text-center">
-                    <motion.p
-                      key={data.wallet_balance}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ duration: 0.3 }}
-                      className={`text-4xl sm:text-5xl font-serif tracking-tight ${
-                        data.wallet_balance < 0 ? "text-red-600" : "text-gray-900"
-                      }`}
-                    >
-                      {data.wallet_balance < 0 ? "-" : ""}฿{Math.abs(data.wallet_balance).toLocaleString()}
-                    </motion.p>
-                    <p className="text-xs font-mono uppercase tracking-wider text-gray-400 mt-1.5">
-                      {t("walletBalance")}
-                    </p>
-                  </div>
+              {/* Current plan badge */}
+              {isCurrent && (
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                  <span className="bg-brand text-white text-[11px] font-bold uppercase tracking-wider py-1 px-3 rounded-full whitespace-nowrap">
+                    {t("currentPlan")}
+                  </span>
                 </div>
+              )}
 
-                {/* Transactions timeline */}
-                <CardContent className="px-6 pb-6 pt-4">
-                  {data.recent_transactions.length > 0 ? (
-                    <>
-                      <p className="text-xs font-medium uppercase tracking-wider text-gray-400 mb-3">
-                        {t("recentTransactions")}
-                      </p>
-                      <div className="relative">
-                        {/* Timeline line */}
-                        <div className="absolute left-[4.5px] top-3 bottom-3 w-px bg-gray-200" />
+              {/* Plan header */}
+              <div className="mb-6">
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-5 ${
+                  isCurrent ? "bg-brand-50" : "bg-earth-50"
+                }`}>
+                  {plan.icon}
+                </div>
+                <h3 className="text-xl font-serif font-bold text-gray-900 mb-1">
+                  {PLAN_LABELS[plan.key]}
+                </h3>
+                <p className="text-earth-500 text-sm min-h-[36px]">
+                  {plan.key === "free" && (locale === "th" ? "เหมาะสำหรับเริ่มต้นทดลองใช้งาน" : "Perfect for getting started and testing the waters.")}
+                  {plan.key === "commission" && (locale === "th" ? "จ่ายตามการใช้งาน เหมาะสำหรับโฮสต์ตามฤดูกาล" : "Pay as you go. Best for seasonal or occasional hosts.")}
+                  {plan.key === "fixed_rate" && (locale === "th" ? "เก็บรายได้ 100% เหมาะสำหรับโฮสต์เต็มเวลา" : "Keep 100% of your earnings. Ideal for full-time hosts.")}
+                </p>
+              </div>
 
-                        <div className="space-y-0">
-                          {data.recent_transactions.map((txn, i) => (
-                            <motion.div
-                              key={txn.id}
-                              initial={{ opacity: 0, x: -8 }}
-                              animate={{ opacity: 1, x: 0 }}
-                              transition={{ delay: i * 0.05, duration: 0.3 }}
-                              className="relative flex items-start gap-3 py-2.5"
-                            >
-                              {/* Timeline dot */}
-                              <div
-                                className={`relative z-10 mt-1 h-[9px] w-[9px] rounded-full border-2 shrink-0 ${
-                                  txn.amount > 0
-                                    ? "border-green-500 bg-green-50"
-                                    : "border-gray-400 bg-gray-100"
-                                }`}
-                              />
-
-                              <div className="flex-1 flex items-start justify-between min-w-0">
-                                <div className="min-w-0">
-                                  <p className="text-sm text-gray-700 truncate">
-                                    {txn.description || txn.type}
-                                  </p>
-                                  <p className="text-[11px] text-gray-400 font-mono">
-                                    {fmtDateStr(txn.created_at, "d MMM yyyy HH:mm", locale)}
-                                  </p>
-                                </div>
-                                <span
-                                  className={`text-sm font-mono font-medium shrink-0 ml-3 ${
-                                    txn.amount > 0 ? "text-green-600" : "text-red-600"
-                                  }`}
-                                >
-                                  {txn.amount > 0 ? "+" : ""}฿{Math.abs(txn.amount).toLocaleString()}
-                                </span>
-                              </div>
-                            </motion.div>
-                          ))}
-                        </div>
-                      </div>
-                    </>
-                  ) : (
-                    <p className="text-sm text-gray-400 text-center py-4">{t("noTransactions")}</p>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-
-          {/* ── Invoices Card (fixed rate plan) ── */}
-          {data.plan_type === "fixed_rate" && (
-            <motion.div
-              initial={{ opacity: 0, y: 12 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.4, delay: 0.2 }}
-            >
-              <Card>
-                <CardContent className="p-6">
-                  <div className="flex items-center gap-2 mb-4">
-                    <Receipt className="h-4 w-4 text-blue-500" />
-                    <p className="text-xs font-medium uppercase tracking-wider text-gray-400">
-                      {t("invoices")}
-                    </p>
-                  </div>
-
-                  {data.invoices.length === 0 ? (
-                    <p className="text-sm text-gray-400 text-center py-6">{t("noInvoices")}</p>
-                  ) : (
-                    <div className="space-y-3">
-                      {data.invoices.map((inv, i) => (
-                        <motion.div
-                          key={inv.id}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.06, duration: 0.3 }}
-                          className={`rounded-xl border p-4 transition-colors ${
-                            inv.status === "overdue"
-                              ? "border-red-200 bg-red-50/30"
-                              : inv.status === "paid"
-                              ? "border-gray-100 bg-gray-50/50"
-                              : "border-gray-200 bg-white"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <p className="font-serif text-lg text-gray-900">
-                                ฿{inv.amount.toLocaleString()}
-                              </p>
-                              <p className="text-xs text-gray-400 mt-0.5">
-                                {fmtDateStr(inv.period_start, "d MMM", locale)} —{" "}
-                                {fmtDateStr(inv.period_end, "d MMM yyyy", locale)}
-                              </p>
-                            </div>
-                            <Badge
-                              className={`rounded-full text-[11px] font-medium ${
-                                inv.status === "paid"
-                                  ? "bg-green-100 text-green-700"
-                                  : inv.status === "overdue"
-                                  ? "bg-red-100 text-red-700"
-                                  : "bg-amber-100 text-amber-700"
-                              }`}
-                            >
-                              {inv.status === "paid" && <CheckCircle className="h-3 w-3 mr-0.5" />}
-                              {inv.status === "overdue" && <AlertTriangle className="h-3 w-3 mr-0.5" />}
-                              {inv.status === "pending" && <Clock className="h-3 w-3 mr-0.5" />}
-                              {inv.status}
-                            </Badge>
-                          </div>
-
-                          {(inv.status === "pending" || inv.status === "overdue") && (
-                            <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-                              <p className="text-xs text-gray-400">
-                                {t("dueDate")}: {fmtDateStr(inv.due_date, "d MMM yyyy", locale)}
-                              </p>
-                              <Button
-                                size="sm"
-                                className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-4 text-xs"
-                                onClick={() => {
-                                  setPayInvoiceId(inv.id);
-                                  setPayFile(null);
-                                }}
-                              >
-                                {t("payNow")}
-                              </Button>
-                            </div>
-                          )}
-
-                          {inv.status === "paid" && inv.paid_at && (
-                            <p className="text-[11px] text-gray-400 mt-2">
-                              {t("paidOn")} {fmtDateStr(inv.paid_at, "d MMM yyyy", locale)}
-                            </p>
-                          )}
-                        </motion.div>
-                      ))}
-                    </div>
-                  )}
-                </CardContent>
-              </Card>
-            </motion.div>
-          )}
-        </div>
-
-        {/* ── Right Column (1/3) — Plan Switching ── */}
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.15 }}
-        >
-          <Card>
-            <CardContent className="p-5">
-              <p className="text-xs font-medium uppercase tracking-wider text-gray-400 mb-4">
-                {t("switchPlan")}
-              </p>
-
-              <div className="space-y-3">
-                {data.plan_type !== "commission" && (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDialog({ type: "switch", planType: "commission" })}
-                    disabled={switching || !!data.plan_pending_type}
-                    className="w-full rounded-xl border border-gray-200 p-4 text-left hover:border-violet-300 hover:bg-violet-50/30 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-lg bg-violet-100 p-2 group-hover:bg-violet-200 transition-colors">
-                        <Percent className="h-4 w-4 text-violet-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">{t("commissionPlan")}</p>
-                        <p className="text-[11px] text-gray-400">{t("commissionDesc")}</p>
-                      </div>
-                    </div>
-                  </button>
+              {/* Price */}
+              <div className="mb-6">
+                <div className="flex items-baseline">
+                  <span className="text-4xl font-extrabold tracking-tight text-gray-900">{plan.price}</span>
+                  <span className="text-earth-400 ml-2 font-medium">{period}</span>
+                </div>
+                {/* Show actual rates from API when available */}
+                {isCurrent && plan.key === "commission" && data.effective_commission_pct != null && (
+                  <p className="text-xs text-brand mt-1 font-medium">
+                    {data.effective_commission_pct}% {t("perBooking")}
+                  </p>
                 )}
-
-                {data.plan_type !== "fixed_rate" && (
-                  <button
-                    type="button"
-                    onClick={() => setConfirmDialog({ type: "switch", planType: "fixed_rate" })}
-                    disabled={switching || !!data.plan_pending_type}
-                    className="w-full rounded-xl border border-gray-200 p-4 text-left hover:border-blue-300 hover:bg-blue-50/30 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="rounded-lg bg-blue-100 p-2 group-hover:bg-blue-200 transition-colors">
-                        <CalendarClock className="h-4 w-4 text-blue-600" />
-                      </div>
-                      <div>
-                        <p className="text-sm font-medium text-gray-800">{t("fixedRatePlan")}</p>
-                        <p className="text-[11px] text-gray-400">{t("fixedRateDesc")}</p>
-                      </div>
-                    </div>
-                  </button>
+                {isCurrent && plan.key === "fixed_rate" && data.effective_fixed_rate != null && (
+                  <p className="text-xs text-brand mt-1 font-medium">
+                    ฿{data.effective_fixed_rate.toLocaleString()}/{t("month")}
+                  </p>
+                )}
+                {isCurrent && plan.key === "free" && data.plan_free_expires_at && (
+                  <p className="text-xs text-earth-500 mt-1">
+                    {t("expiresOn")} {fmtDateStr(data.plan_free_expires_at, "d MMM yyyy", locale)}
+                  </p>
                 )}
               </div>
 
-              <p className="text-[11px] text-gray-400 mt-4 leading-relaxed">{t("switchNote")}</p>
+              {/* Features */}
+              <ul className="space-y-3 mb-7 flex-grow">
+                {features.map((feature, i) => (
+                  <li key={i} className="flex items-start">
+                    <Check className={`w-4.5 h-4.5 mr-2.5 shrink-0 mt-0.5 ${
+                      isCurrent ? "text-brand" : "text-earth-400"
+                    }`} />
+                    <span className="text-sm text-gray-700">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* CTA */}
+              {isCurrent ? (
+                <div className="w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center bg-brand-50 text-brand border border-brand/15 mt-auto">
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  {locale === "th" ? "แพลนปัจจุบันของคุณ" : "Your Current Plan"}
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => canSwitch && setConfirmDialog({ type: "switch", planType: plan.key })}
+                  disabled={!canSwitch}
+                  className={`w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center transition-colors mt-auto disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isPopular && !isCurrent
+                      ? "bg-brand text-white hover:bg-brand-hover"
+                      : "bg-earth-50 text-earth-800 hover:bg-earth-100"
+                  }`}
+                >
+                  {locale === "th" ? `เปลี่ยนเป็น${PLAN_LABELS[plan.key]}` : `Switch to ${PLAN_LABELS[plan.key]}`}
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </button>
+              )}
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* ── Switch note ── */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4, delay: 0.5 }}
+        className="text-center"
+      >
+        <p className="text-earth-400 text-sm flex items-center justify-center">
+          <HelpCircle className="w-4 h-4 mr-1.5" />
+          {t("switchNote")}
+        </p>
+      </motion.div>
+
+      {/* ── Wallet Card (commission plan) ── */}
+      {data.plan_type === "commission" && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+        >
+          <Card className="overflow-hidden">
+            <div className="bg-gradient-to-br from-brand-50/60 via-white to-brand-50/40 px-6 pt-6 pb-8">
+              <div className="flex items-center justify-between mb-6">
+                <div className="flex items-center gap-2">
+                  <Wallet className="h-4 w-4 text-brand" />
+                  <span className="text-sm font-medium text-gray-600">{t("wallet")}</span>
+                </div>
+                <Button
+                  size="sm"
+                  className="bg-brand hover:bg-brand-hover text-white rounded-full px-4 text-xs"
+                  onClick={() => setTopupSheetOpen(true)}
+                >
+                  <ArrowUpCircle className="h-3.5 w-3.5 mr-1.5" />
+                  {t("topUp")}
+                </Button>
+              </div>
+
+              <div className="text-center">
+                <motion.p
+                  key={data.wallet_balance}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ duration: 0.3 }}
+                  className={`text-4xl sm:text-5xl font-serif tracking-tight ${
+                    data.wallet_balance < 0 ? "text-red-600" : "text-gray-900"
+                  }`}
+                >
+                  {data.wallet_balance < 0 ? "-" : ""}฿{Math.abs(data.wallet_balance).toLocaleString()}
+                </motion.p>
+                <p className="text-xs font-mono uppercase tracking-wider text-gray-400 mt-1.5">
+                  {t("walletBalance")}
+                </p>
+              </div>
+            </div>
+
+            <CardContent className="px-6 pb-6 pt-4">
+              {data.recent_transactions.length > 0 ? (
+                <>
+                  <p className="text-xs font-medium uppercase tracking-wider text-gray-400 mb-3">
+                    {t("recentTransactions")}
+                  </p>
+                  <div className="relative">
+                    <div className="absolute left-[4.5px] top-3 bottom-3 w-px bg-gray-200" />
+                    <div className="space-y-0">
+                      {data.recent_transactions.map((txn, i) => (
+                        <motion.div
+                          key={txn.id}
+                          initial={{ opacity: 0, x: -8 }}
+                          animate={{ opacity: 1, x: 0 }}
+                          transition={{ delay: i * 0.05, duration: 0.3 }}
+                          className="relative flex items-start gap-3 py-2.5"
+                        >
+                          <div
+                            className={`relative z-10 mt-1 h-[9px] w-[9px] rounded-full border-2 shrink-0 ${
+                              txn.amount > 0
+                                ? "border-green-500 bg-green-50"
+                                : "border-gray-400 bg-gray-100"
+                            }`}
+                          />
+                          <div className="flex-1 flex items-start justify-between min-w-0">
+                            <div className="min-w-0">
+                              <p className="text-sm text-gray-700 truncate">
+                                {txn.description || txn.type}
+                              </p>
+                              <p className="text-[11px] text-gray-400 font-mono">
+                                {fmtDateStr(txn.created_at, "d MMM yyyy HH:mm", locale)}
+                              </p>
+                            </div>
+                            <span
+                              className={`text-sm font-mono font-medium shrink-0 ml-3 ${
+                                txn.amount > 0 ? "text-green-600" : "text-red-600"
+                              }`}
+                            >
+                              {txn.amount > 0 ? "+" : ""}฿{Math.abs(txn.amount).toLocaleString()}
+                            </span>
+                          </div>
+                        </motion.div>
+                      ))}
+                    </div>
+                  </div>
+                </>
+              ) : (
+                <p className="text-sm text-gray-400 text-center py-4">{t("noTransactions")}</p>
+              )}
             </CardContent>
           </Card>
         </motion.div>
-      </div>
+      )}
+
+      {/* ── Invoices Card (fixed rate plan) ── */}
+      {data.plan_type === "fixed_rate" && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+        >
+          <Card>
+            <CardContent className="p-6">
+              <div className="flex items-center gap-2 mb-4">
+                <Receipt className="h-4 w-4 text-brand" />
+                <p className="text-xs font-medium uppercase tracking-wider text-gray-400">
+                  {t("invoices")}
+                </p>
+              </div>
+
+              {data.invoices.length === 0 ? (
+                <p className="text-sm text-gray-400 text-center py-6">{t("noInvoices")}</p>
+              ) : (
+                <div className="space-y-3">
+                  {data.invoices.map((inv, i) => (
+                    <motion.div
+                      key={inv.id}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ delay: i * 0.06, duration: 0.3 }}
+                      className={`rounded-xl border p-4 transition-colors ${
+                        inv.status === "overdue"
+                          ? "border-red-200 bg-red-50/30"
+                          : inv.status === "paid"
+                          ? "border-gray-100 bg-gray-50/50"
+                          : "border-gray-200 bg-white"
+                      }`}
+                    >
+                      <div className="flex items-start justify-between">
+                        <div>
+                          <p className="font-serif text-lg text-gray-900">
+                            ฿{inv.amount.toLocaleString()}
+                          </p>
+                          <p className="text-xs text-gray-400 mt-0.5">
+                            {fmtDateStr(inv.period_start, "d MMM", locale)} —{" "}
+                            {fmtDateStr(inv.period_end, "d MMM yyyy", locale)}
+                          </p>
+                        </div>
+                        <Badge
+                          className={`rounded-full text-[11px] font-medium ${
+                            inv.status === "paid"
+                              ? "bg-green-100 text-green-700"
+                              : inv.status === "overdue"
+                              ? "bg-red-100 text-red-700"
+                              : "bg-amber-100 text-amber-700"
+                          }`}
+                        >
+                          {inv.status === "paid" && <CheckCircle className="h-3 w-3 mr-0.5" />}
+                          {inv.status === "overdue" && <AlertTriangle className="h-3 w-3 mr-0.5" />}
+                          {inv.status === "pending" && <Clock className="h-3 w-3 mr-0.5" />}
+                          {inv.status}
+                        </Badge>
+                      </div>
+
+                      {(inv.status === "pending" || inv.status === "overdue") && (
+                        <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+                          <p className="text-xs text-gray-400">
+                            {t("dueDate")}: {fmtDateStr(inv.due_date, "d MMM yyyy", locale)}
+                          </p>
+                          <Button
+                            size="sm"
+                            className="bg-brand hover:bg-brand-hover text-white rounded-full px-4 text-xs"
+                            onClick={() => {
+                              setPayInvoiceId(inv.id);
+                              setPayFile(null);
+                            }}
+                          >
+                            {t("payNow")}
+                          </Button>
+                        </div>
+                      )}
+
+                      {inv.status === "paid" && inv.paid_at && (
+                        <p className="text-[11px] text-gray-400 mt-2">
+                          {t("paidOn")} {fmtDateStr(inv.paid_at, "d MMM yyyy", locale)}
+                        </p>
+                      )}
+                    </motion.div>
+                  ))}
+                </div>
+              )}
+            </CardContent>
+          </Card>
+        </motion.div>
+      )}
 
       {/* ══════════════════════════════════════════════
           DIALOGS & SHEETS
@@ -706,7 +756,7 @@ export default function DashboardBillingPage() {
                 <Button
                   onClick={() => handlePlanSwitch(confirmDialog.planType!)}
                   disabled={switching}
-                  className="bg-violet-600 hover:bg-violet-700"
+                  className="bg-brand hover:bg-brand-hover"
                 >
                   {switching && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
                   {t("switchConfirmAction")}
@@ -749,10 +799,9 @@ export default function DashboardBillingPage() {
           </SheetHeader>
 
           <div className="px-4 py-6 space-y-6">
-            {/* Platform payment details */}
             {data.platform_payment && (
-              <div className="rounded-xl bg-violet-50 border border-violet-100 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-violet-600 mb-3">
+              <div className="rounded-xl bg-brand-50 border border-brand-100 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-brand mb-3">
                   {t("transferTo")}
                 </p>
                 {data.platform_payment.payment_display === "qr" && data.platform_payment.promptpay_id && (
@@ -773,7 +822,6 @@ export default function DashboardBillingPage() {
             )}
 
             <form onSubmit={handleTopup} className="space-y-5">
-              {/* Amount */}
               <div className="space-y-2">
                 <Label className="text-sm text-gray-700">{t("amount")} (THB)</Label>
                 <Input
@@ -785,7 +833,6 @@ export default function DashboardBillingPage() {
                   placeholder="0"
                   required
                 />
-                {/* Quick amount buttons */}
                 <div className="flex gap-2">
                   {[500, 1000, 2000, 5000].map((amt) => (
                     <button
@@ -794,7 +841,7 @@ export default function DashboardBillingPage() {
                       onClick={() => setTopupAmount(String(amt))}
                       className={`flex-1 rounded-lg border py-1.5 text-xs font-medium transition-colors ${
                         topupAmount === String(amt)
-                          ? "border-violet-300 bg-violet-50 text-violet-700"
+                          ? "border-brand/30 bg-brand-50 text-brand"
                           : "border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
                       }`}
                     >
@@ -804,7 +851,6 @@ export default function DashboardBillingPage() {
                 </div>
               </div>
 
-              {/* File upload area */}
               <div className="space-y-2">
                 <Label className="text-sm text-gray-700">{t("paymentSlip")}</Label>
                 <div
@@ -818,8 +864,8 @@ export default function DashboardBillingPage() {
                   }}
                   className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
                     topupFile
-                      ? "border-violet-300 bg-violet-50/50"
-                      : "border-gray-200 hover:border-violet-300/60 hover:bg-violet-50/20"
+                      ? "border-brand/30 bg-brand-50/50"
+                      : "border-gray-200 hover:border-brand/20 hover:bg-brand-50/20"
                   }`}
                 >
                   <Upload className="h-6 w-6 text-gray-300 mx-auto mb-2" />
@@ -839,7 +885,7 @@ export default function DashboardBillingPage() {
               <Button
                 type="submit"
                 disabled={topupLoading || !topupFile || !topupAmount}
-                className="w-full bg-violet-600 hover:bg-violet-700"
+                className="w-full bg-brand hover:bg-brand-hover"
               >
                 {topupLoading ? (
                   <Loader2 className="h-4 w-4 animate-spin mr-2" />
@@ -862,10 +908,9 @@ export default function DashboardBillingPage() {
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {/* Platform payment details */}
             {data.platform_payment && (
-              <div className="rounded-xl bg-blue-50 border border-blue-100 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 mb-3">
+              <div className="rounded-xl bg-brand-50 border border-brand-100 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-brand mb-3">
                   {t("transferTo")}
                 </p>
                 {data.platform_payment.payment_display === "qr" && data.platform_payment.promptpay_id && (
@@ -885,7 +930,6 @@ export default function DashboardBillingPage() {
               </div>
             )}
 
-            {/* File upload */}
             <div className="space-y-2">
               <Label className="text-sm text-gray-700">{t("paymentSlip")}</Label>
               <div
@@ -899,8 +943,8 @@ export default function DashboardBillingPage() {
                 }}
                 className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
                   payFile
-                    ? "border-blue-300 bg-blue-50/50"
-                    : "border-gray-200 hover:border-blue-300/60 hover:bg-blue-50/20"
+                    ? "border-brand/30 bg-brand-50/50"
+                    : "border-gray-200 hover:border-brand/20 hover:bg-brand-50/20"
                 }`}
               >
                 <Upload className="h-6 w-6 text-gray-300 mx-auto mb-2" />
@@ -925,7 +969,7 @@ export default function DashboardBillingPage() {
             <Button
               onClick={() => payInvoiceId && handlePayInvoice(payInvoiceId)}
               disabled={payLoading || !payFile}
-              className="bg-blue-600 hover:bg-blue-700"
+              className="bg-brand hover:bg-brand-hover"
             >
               {payLoading ? (
                 <Loader2 className="h-4 w-4 animate-spin mr-2" />
