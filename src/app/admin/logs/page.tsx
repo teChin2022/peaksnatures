@@ -178,14 +178,14 @@ export default function AdminLogsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-slate-200 p-2">
-            <ScrollText className="h-5 w-5 text-slate-600" />
-          </div>
-          <div>
-            <h1 className="text-xl font-bold text-gray-900">History Logs</h1>
-            <p className="text-sm text-gray-500">Activity audit trail</p>
+      <div className="mb-6 flex items-end justify-between">
+        <div>
+          <p className="text-xs font-medium uppercase tracking-widest text-gray-400 mb-1">Activity audit trail</p>
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-slate-200 p-2">
+              <ScrollText className="h-5 w-5 text-slate-600" />
+            </div>
+            <h1 className="text-2xl font-serif text-gray-900">History Logs</h1>
           </div>
         </div>
         <Button

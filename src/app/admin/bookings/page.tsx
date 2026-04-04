@@ -81,13 +81,15 @@ export default function AdminBookingsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center gap-3">
-        <div className="rounded-lg bg-orange-100 p-2">
-          <CalendarDays className="h-5 w-5 text-orange-600" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Bookings</h1>
-          <p className="text-sm text-gray-500">{loading ? "Loading..." : `${total} total`}</p>
+      <div className="mb-6">
+        <p className="text-xs font-medium uppercase tracking-widest text-gray-400 mb-1">
+          {loading ? "Loading..." : `${total} total`}
+        </p>
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg bg-orange-100 p-2">
+            <CalendarDays className="h-5 w-5 text-orange-600" />
+          </div>
+          <h1 className="text-2xl font-serif text-gray-900">Bookings</h1>
         </div>
       </div>
 
