@@ -28,7 +28,7 @@ export function getEffectiveCommissionPct(
   host: Pick<Host, "commission_pct_override">,
   config: PlatformBillingConfig,
 ): number {
-  return host.commission_pct_override ?? config.commission_pct;
+  return host.commission_pct_override || config.commission_pct;
 }
 
 /**
@@ -39,7 +39,7 @@ export function getEffectiveFixedRate(
   host: Pick<Host, "fixed_rate_override">,
   config: PlatformBillingConfig,
 ): number {
-  return host.fixed_rate_override ?? config.fixed_rate_amount;
+  return host.fixed_rate_override || config.fixed_rate_amount;
 }
 
 /**
