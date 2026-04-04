@@ -1187,6 +1187,27 @@
     "cancelSwitch": "Cancel",
     "cancelSwitchConfirm": "Cancel the pending plan switch?",
     "freeExpiredTitle": "Your free plan has expired",
-    "freeExpiredDesc": "Please switch to a paid plan to continue receiving bookings."
+    "freeExpiredDesc": "Please switch to a paid plan to continue receiving bookings.",
+    "walletBalance": "Balance",
+    "topUpDesc": "Transfer funds and upload your payment slip for verification.",
+    "dragOrClick": "Drag and drop or click to upload",
+    "switchPlan": "Switch Plan",
+    "commissionPlan": "Commission",
+    "commissionDesc": "Pay a percentage per booking",
+    "fixedRatePlan": "Fixed Rate",
+    "fixedRateDesc": "Pay a fixed monthly fee",
+    "switchNote": "Changes take effect on the 1st of next month.",
+    "switchConfirmTitle": "Switch Plan?",
+    "switchConfirmDesc": "Switch to {plan}? This will take effect on the 1st of next month.",
+    "switchConfirmAction": "Confirm Switch",
+    "cancelSwitchTitle": "Cancel Plan Switch?",
+    "cancelSwitchDesc": "Cancel the pending switch to {plan}?",
+    "payNow": "Pay Now",
+    "payInvoice": "Pay Invoice",
+    "payInvoiceDesc": "Upload your payment slip to verify this payment.",
+    "dueDate": "Due",
+    "paidOn": "Paid on",
+    "cancel": "Cancel",
+    "noTransactions": "No transactions yet"
   }
 }

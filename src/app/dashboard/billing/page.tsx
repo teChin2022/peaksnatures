@@ -1,7 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
-import { useTranslations } from "next-intl";
+import { useState, useEffect, useCallback, useRef } from "react";
+import { useTranslations, useLocale } from "next-intl";
+import { motion, AnimatePresence } from "motion/react";
+import { toast } from "sonner";
+import { fmtDateStr } from "@/lib/format-date";
 import {
   CreditCard,
   Wallet,
@@ -13,13 +16,32 @@ import {
   Loader2,
   Upload,
   Receipt,
+  Percent,
+  CalendarClock,
+  Leaf,
 } from "lucide-react";
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+  DialogFooter,
+} from "@/components/ui/dialog";
+import {
+  Sheet,
+  SheetContent,
+  SheetHeader,
+  SheetTitle,
+  SheetDescription,
+  SheetFooter,
+} from "@/components/ui/sheet";
 
 interface BillingData {
   plan_type: string;
@@ -65,21 +87,52 @@ const PLAN_LABELS: Record<string, string> = {
   fixed_rate: "Fixed Rate",
 };
 
+const PLAN_BORDER: Record<string, string> = {
+  free: "border-l-amber-400",
+  commission: "border-l-violet-500",
+  fixed_rate: "border-l-blue-500",
+};
+
+const PLAN_BADGE_STYLE: Record<string, string> = {
+  free: "bg-amber-100 text-amber-700",
+  commission: "bg-violet-100 text-violet-700",
+  fixed_rate: "bg-blue-100 text-blue-700",
+};
+
+const PLAN_ICON_STYLE: Record<string, string> = {
+  free: "bg-amber-100 text-amber-600",
+  commission: "bg-violet-100 text-violet-600",
+  fixed_rate: "bg-blue-100 text-blue-600",
+};
+
+function PlanIcon({ type, className }: { type: string; className?: string }) {
+  const c = className || "h-5 w-5";
+  if (type === "commission") return <Percent className={c} />;
+  if (type === "fixed_rate") return <CalendarClock className={c} />;
+  return <Leaf className={c} />;
+}
+
 export default function DashboardBillingPage() {
   const t = useTranslations("billing");
+  const locale = useLocale();
   const [data, setData] = useState<BillingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [topupOpen, setTopupOpen] = useState(false);
+  const [topupSheetOpen, setTopupSheetOpen] = useState(false);
   const [topupAmount, setTopupAmount] = useState("");
   const [topupFile, setTopupFile] = useState<File | null>(null);
   const [topupLoading, setTopupLoading] = useState(false);
-  const [topupResult, setTopupResult] = useState<string | null>(null);
   const [payInvoiceId, setPayInvoiceId] = useState<string | null>(null);
   const [payFile, setPayFile] = useState<File | null>(null);
   const [payLoading, setPayLoading] = useState(false);
-  const [payResult, setPayResult] = useState<string | null>(null);
+  const [confirmDialog, setConfirmDialog] = useState<{
+    type: "switch" | "cancelSwitch";
+    planType?: string;
+  } | null>(null);
+
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const payFileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchBilling = useCallback(async () => {
     try {
@@ -96,8 +149,8 @@ export default function DashboardBillingPage() {
     fetchBilling();
   }, [fetchBilling]);
 
+  // ── Plan Switch ──
   const handlePlanSwitch = async (planType: string) => {
-    if (!confirm(`Switch to ${PLAN_LABELS[planType]}? This will take effect on the 1st of next month.`)) return;
     setSwitching(true);
     try {
       const res = await fetch("/api/host/plan/switch", {
@@ -106,41 +159,44 @@ export default function DashboardBillingPage() {
         body: JSON.stringify({ plan_type: planType }),
       });
       if (res.ok) {
+        toast.success(`Plan switch scheduled`);
         fetchBilling();
       } else {
         const d = await res.json();
-        alert(d.error || "Failed to switch plan");
+        toast.error(d.error || "Failed to switch plan");
       }
     } catch {
-      alert("Failed to switch plan");
+      toast.error("Failed to switch plan");
     } finally {
       setSwitching(false);
+      setConfirmDialog(null);
     }
   };
 
   const handleCancelSwitch = async () => {
-    if (!confirm(t("cancelSwitchConfirm"))) return;
     setCancelling(true);
     try {
       const res = await fetch("/api/host/plan/cancel", { method: "POST" });
       if (res.ok) {
+        toast.success("Plan switch cancelled");
         fetchBilling();
       } else {
         const d = await res.json();
-        alert(d.error || "Failed to cancel");
+        toast.error(d.error || "Failed to cancel");
       }
     } catch {
-      alert("Failed to cancel plan switch");
+      toast.error("Failed to cancel plan switch");
     } finally {
       setCancelling(false);
+      setConfirmDialog(null);
     }
   };
 
+  // ── Top-up ──
   const handleTopup = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!topupFile || !topupAmount) return;
     setTopupLoading(true);
-    setTopupResult(null);
     try {
       const form = new FormData();
       form.append("file", topupFile);
@@ -148,51 +204,100 @@ export default function DashboardBillingPage() {
       const res = await fetch("/api/host/wallet/topup", { method: "POST", body: form });
       const d = await res.json();
       if (d.success) {
-        setTopupResult(`Top-up successful! New balance: ฿${d.new_balance.toLocaleString()}`);
+        toast.success(`Top-up successful! New balance: ฿${d.new_balance.toLocaleString()}`);
         setTopupFile(null);
         setTopupAmount("");
-        setTopupOpen(false);
+        setTopupSheetOpen(false);
         fetchBilling();
       } else {
-        setTopupResult(d.error || d.message || "Verification failed");
+        toast.error(d.error || d.message || "Verification failed");
       }
     } catch {
-      setTopupResult("Something went wrong");
+      toast.error("Something went wrong");
     } finally {
       setTopupLoading(false);
     }
   };
 
+  // ── Invoice Pay ──
   const handlePayInvoice = async (invoiceId: string) => {
     if (!payFile) return;
     setPayLoading(true);
-    setPayResult(null);
     try {
       const form = new FormData();
       form.append("file", payFile);
       const res = await fetch(`/api/host/invoices/${invoiceId}/pay`, { method: "POST", body: form });
       const d = await res.json();
       if (d.success) {
-        setPayResult("Payment verified! Invoice marked as paid.");
+        toast.success("Payment verified! Invoice marked as paid.");
         setPayFile(null);
         setPayInvoiceId(null);
         fetchBilling();
       } else {
-        setPayResult(d.error || d.message || "Verification failed");
+        toast.error(d.error || d.message || "Verification failed");
       }
     } catch {
-      setPayResult("Something went wrong");
+      toast.error("Something went wrong");
     } finally {
       setPayLoading(false);
     }
   };
 
+  // ── Loading skeleton ──
   if (loading) {
     return (
-      <div className="space-y-4">
-        <Skeleton className="h-8 w-48" />
-        <Skeleton className="h-40 w-full rounded-xl" />
-        <Skeleton className="h-40 w-full rounded-xl" />
+      <div className="space-y-6">
+        <div>
+          <Skeleton className="h-3 w-40 mb-2" />
+          <Skeleton className="h-8 w-32" />
+        </div>
+        <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+          <div className="lg:col-span-2 space-y-4">
+            <Card className="border-l-4 border-l-gray-200">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-3">
+                  <Skeleton className="h-10 w-10 rounded-xl" />
+                  <div className="space-y-2">
+                    <Skeleton className="h-3 w-20" />
+                    <Skeleton className="h-6 w-32" />
+                  </div>
+                </div>
+              </CardContent>
+            </Card>
+            <Card>
+              <div className="px-6 pt-6 pb-8">
+                <div className="flex justify-between mb-6">
+                  <Skeleton className="h-4 w-20" />
+                  <Skeleton className="h-8 w-24 rounded-full" />
+                </div>
+                <div className="flex flex-col items-center">
+                  <Skeleton className="h-12 w-44" />
+                  <Skeleton className="h-3 w-16 mt-2" />
+                </div>
+              </div>
+              <CardContent className="px-6 pb-6 pt-4">
+                {[1, 2, 3].map((i) => (
+                  <div key={i} className="flex items-start gap-3 py-3">
+                    <Skeleton className="h-2.5 w-2.5 rounded-full mt-1" />
+                    <div className="flex-1 flex justify-between">
+                      <Skeleton className="h-4 w-36" />
+                      <Skeleton className="h-4 w-16" />
+                    </div>
+                  </div>
+                ))}
+              </CardContent>
+            </Card>
+          </div>
+          <div>
+            <Card>
+              <CardContent className="p-5 space-y-3">
+                <Skeleton className="h-3 w-24" />
+                <Skeleton className="h-[72px] w-full rounded-xl" />
+                <Skeleton className="h-[72px] w-full rounded-xl" />
+              </CardContent>
+            </Card>
+          </div>
+        </div>
       </div>
     );
   }
@@ -201,319 +306,637 @@ export default function DashboardBillingPage() {
     return <p className="text-sm text-gray-500 py-12 text-center">Failed to load billing information.</p>;
   }
 
-  const isFreeExpired = data.plan_type === "free" && data.plan_free_expires_at && new Date(data.plan_free_expires_at) < new Date();
+  const isFreeExpired =
+    data.plan_type === "free" && data.plan_free_expires_at && new Date(data.plan_free_expires_at) < new Date();
+
+  const planLabel = PLAN_LABELS[data.plan_type] || data.plan_type;
 
   return (
-    <div>
-      <div className="mb-6 flex items-center gap-3">
-        <div className="rounded-lg bg-violet-100 p-2">
-          <CreditCard className="h-5 w-5 text-violet-600" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">{t("title")}</h1>
-          <p className="text-sm text-gray-500">{t("subtitle")}</p>
-        </div>
-      </div>
+    <div className="space-y-6">
+      {/* ── Page Header ── */}
+      <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
+        <p className="text-xs font-medium uppercase tracking-widest text-gray-400 mb-1">{t("subtitle")}</p>
+        <h1 className="text-2xl font-serif text-gray-900">{t("title")}</h1>
+      </motion.div>
 
-      {/* Free plan expiry warning */}
-      {isFreeExpired && (
-        <div className="mb-4 rounded-lg border border-amber-200 bg-amber-50 px-4 py-3 flex items-center gap-3">
-          <AlertTriangle className="h-5 w-5 text-amber-600 shrink-0" />
-          <div>
-            <p className="text-sm font-medium text-amber-800">{t("freeExpiredTitle")}</p>
-            <p className="text-xs text-amber-600">{t("freeExpiredDesc")}</p>
-          </div>
-        </div>
-      )}
-
-      {/* Plan Status */}
-      <Card className="mb-4">
-        <CardHeader className="pb-3">
-          <CardTitle className="text-base">{t("currentPlan")}</CardTitle>
-        </CardHeader>
-        <CardContent>
-          <div className="flex items-center gap-3 mb-3">
-            <Badge className="text-sm px-3 py-1 bg-violet-100 text-violet-700">
-              {PLAN_LABELS[data.plan_type] || data.plan_type}
-            </Badge>
-            {data.plan_type === "free" && data.plan_free_expires_at && (
-              <span className="text-xs text-gray-500">
-                {t("expiresOn")} {new Date(data.plan_free_expires_at).toLocaleDateString()}
-              </span>
-            )}
-            {data.plan_type === "commission" && data.effective_commission_pct != null && (
-              <span className="text-xs text-gray-500">{data.effective_commission_pct}% {t("perBooking")}</span>
-            )}
-            {data.plan_type === "fixed_rate" && data.effective_fixed_rate != null && (
-              <span className="text-xs text-gray-500">฿{data.effective_fixed_rate.toLocaleString()}/{t("month")}</span>
-            )}
-          </div>
-
-          {data.plan_pending_type && (
-            <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-700 mb-3 flex items-center justify-between gap-2">
-              <span>
-                <Clock className="h-4 w-4 inline mr-1" />
-                {t("pendingSwitch")} <strong>{PLAN_LABELS[data.plan_pending_type]}</strong> {t("effectiveOn")} {data.plan_pending_effective_at}
-              </span>
-              <Button
-                size="sm"
-                variant="outline"
-                className="h-7 px-2.5 text-xs text-red-600 border-red-300 hover:bg-red-50 shrink-0"
-                onClick={handleCancelSwitch}
-                disabled={cancelling}
-              >
-                {cancelling ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                {t("cancelSwitch")}
-              </Button>
-            </div>
-          )}
-
-          {/* Plan switch (only if not already on free - free is admin-assigned) */}
-          {!data.plan_pending_type && (
-            <div className="flex gap-2 mt-2">
-              {data.plan_type !== "commission" && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handlePlanSwitch("commission")}
-                  disabled={switching}
-                  className="text-xs"
-                >
-                  {switching ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                  {t("switchToCommission")}
-                </Button>
-              )}
-              {data.plan_type !== "fixed_rate" && (
-                <Button
-                  size="sm"
-                  variant="outline"
-                  onClick={() => handlePlanSwitch("fixed_rate")}
-                  disabled={switching}
-                  className="text-xs"
-                >
-                  {switching ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
-                  {t("switchToFixedRate")}
-                </Button>
-              )}
-            </div>
-          )}
-        </CardContent>
-      </Card>
-
-      {/* Wallet (commission plan) */}
-      {data.plan_type === "commission" && (
-        <Card className="mb-4">
-          <CardHeader className="pb-3">
-            <div className="flex items-center justify-between">
-              <CardTitle className="text-base flex items-center gap-2">
-                <Wallet className="h-4 w-4" />
-                {t("wallet")}
-              </CardTitle>
-              <Button size="sm" onClick={() => setTopupOpen(!topupOpen)} className="bg-violet-600 hover:bg-violet-700 text-xs">
-                <ArrowUpCircle className="h-3.5 w-3.5 mr-1" />
-                {t("topUp")}
-              </Button>
-            </div>
-          </CardHeader>
-          <CardContent>
-            <div className={`text-2xl font-bold mb-4 ${data.wallet_balance < 0 ? "text-red-600" : "text-gray-900"}`}>
-              {data.wallet_balance < 0 ? "-" : ""}฿{Math.abs(data.wallet_balance).toLocaleString()}
-            </div>
-
-            {data.wallet_balance < 0 && (
-              <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2 text-sm text-red-700 mb-4">
-                <AlertTriangle className="h-4 w-4 inline mr-1" />
-                {t("negativeBalance")}
+      {/* ── Alert Banners ── */}
+      <AnimatePresence>
+        {isFreeExpired && (
+          <motion.div
+            key="free-expired"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+            className="overflow-hidden"
+          >
+            <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-center gap-3">
+              <div className="rounded-lg bg-amber-100 p-2 shrink-0">
+                <AlertTriangle className="h-4 w-4 text-amber-600" />
               </div>
-            )}
-
-            {/* Top-up form */}
-            {topupOpen && (
-              <div className="border rounded-lg p-4 mb-4 bg-gray-50">
-                {/* Platform payment details */}
-                {data.platform_payment && (
-                  <div className="mb-4 p-3 bg-white rounded border text-sm">
-                    <p className="font-medium text-gray-700 mb-1">{t("transferTo")}</p>
-                    {data.platform_payment.payment_display === "qr" && data.platform_payment.promptpay_id && (
-                      <p className="text-gray-600">PromptPay: <span className="font-mono">{data.platform_payment.promptpay_id}</span></p>
-                    )}
-                    {data.platform_payment.payment_display === "bank" && (
-                      <>
-                        {data.platform_payment.bank_name && <p className="text-gray-600">{data.platform_payment.bank_name}</p>}
-                        {data.platform_payment.bank_account_number && <p className="text-gray-600 font-mono">{data.platform_payment.bank_account_number}</p>}
-                        {data.platform_payment.bank_account_name && <p className="text-gray-600">{data.platform_payment.bank_account_name}</p>}
-                      </>
-                    )}
-                  </div>
-                )}
-
-                <form onSubmit={handleTopup} className="space-y-3">
-                  <div className="space-y-2">
-                    <Label>{t("amount")} (THB)</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={topupAmount}
-                      onChange={(e) => setTopupAmount(e.target.value)}
-                      placeholder="e.g. 1000"
-                      required
-                    />
-                  </div>
-                  <div className="space-y-2">
-                    <Label>{t("paymentSlip")}</Label>
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setTopupFile(e.target.files?.[0] || null)}
-                      required
-                    />
-                  </div>
-                  {topupResult && (
-                    <p className={`text-sm ${topupResult.includes("successful") ? "text-green-700" : "text-red-700"}`}>
-                      {topupResult}
-                    </p>
-                  )}
-                  <Button type="submit" disabled={topupLoading || !topupFile || !topupAmount} className="w-full">
-                    {topupLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
-                    {t("verifyAndTopUp")}
-                  </Button>
-                </form>
-              </div>
-            )}
-
-            {/* Recent transactions */}
-            {data.recent_transactions.length > 0 && (
               <div>
-                <p className="text-sm font-medium text-gray-700 mb-2">{t("recentTransactions")}</p>
-                <div className="space-y-2">
-                  {data.recent_transactions.map((txn) => (
-                    <div key={txn.id} className="flex items-center justify-between py-1.5 border-b border-gray-100 last:border-0">
-                      <div className="flex items-center gap-2">
-                        {txn.amount > 0 ? (
-                          <ArrowUpCircle className="h-4 w-4 text-green-500" />
-                        ) : (
-                          <ArrowDownCircle className="h-4 w-4 text-red-500" />
-                        )}
-                        <div>
-                          <p className="text-sm text-gray-700">{txn.description || txn.type}</p>
-                          <p className="text-xs text-gray-400">{new Date(txn.created_at).toLocaleString()}</p>
-                        </div>
-                      </div>
-                      <span className={`text-sm font-medium ${txn.amount > 0 ? "text-green-600" : "text-red-600"}`}>
-                        {txn.amount > 0 ? "+" : ""}฿{Math.abs(txn.amount).toLocaleString()}
+                <p className="text-sm font-medium text-amber-800">{t("freeExpiredTitle")}</p>
+                <p className="text-xs text-amber-600 mt-0.5">{t("freeExpiredDesc")}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+
+        {data.plan_type === "commission" && data.wallet_balance < 0 && (
+          <motion.div
+            key="negative-balance"
+            initial={{ opacity: 0, height: 0 }}
+            animate={{ opacity: 1, height: "auto" }}
+            exit={{ opacity: 0, height: 0 }}
+            transition={{ duration: 0.3 }}
+            className="overflow-hidden"
+          >
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-3">
+              <div className="rounded-lg bg-red-100 p-2 shrink-0">
+                <AlertTriangle className="h-4 w-4 text-red-600" />
+              </div>
+              <div>
+                <p className="text-sm font-medium text-red-800">{t("negativeBalance")}</p>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Main Grid ── */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-4">
+        {/* ── Left Column (2/3) ── */}
+        <div className="lg:col-span-2 space-y-4">
+          {/* ── Plan Status Card ── */}
+          <motion.div
+            initial={{ opacity: 0, y: 12 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.4, delay: 0.1 }}
+          >
+            <Card className={`border-l-4 ${PLAN_BORDER[data.plan_type] || "border-l-gray-300"} overflow-hidden`}>
+              <CardContent className="p-6">
+                <div className="flex items-start justify-between">
+                  <div className="flex items-center gap-3">
+                    <div className={`rounded-xl p-2.5 ${PLAN_ICON_STYLE[data.plan_type] || "bg-gray-100 text-gray-600"}`}>
+                      <PlanIcon type={data.plan_type} />
+                    </div>
+                    <div>
+                      <p className="text-xs text-gray-400 mb-0.5">{t("currentPlan")}</p>
+                      <p className="text-xl font-serif text-gray-900">{planLabel}</p>
+                    </div>
+                  </div>
+
+                  <Badge className={`rounded-full px-3 py-1 text-xs font-medium ${PLAN_BADGE_STYLE[data.plan_type] || "bg-gray-100 text-gray-700"}`}>
+                    {data.plan_type === "free" && data.plan_free_expires_at && (
+                      <span>{t("expiresOn")} {fmtDateStr(data.plan_free_expires_at, "d MMM yyyy", locale)}</span>
+                    )}
+                    {data.plan_type === "commission" && data.effective_commission_pct != null && (
+                      <span>{data.effective_commission_pct}% {t("perBooking")}</span>
+                    )}
+                    {data.plan_type === "fixed_rate" && data.effective_fixed_rate != null && (
+                      <span>฿{data.effective_fixed_rate.toLocaleString()}/{t("month")}</span>
+                    )}
+                    {data.plan_type === "free" && !data.plan_free_expires_at && (
+                      <span>Free</span>
+                    )}
+                  </Badge>
+                </div>
+
+                {/* Pending switch strip */}
+                {data.plan_pending_type && (
+                  <div className="mt-4 rounded-lg bg-blue-50 border border-blue-200 px-4 py-3 flex items-center justify-between gap-3">
+                    <div className="flex items-center gap-2 text-sm text-blue-700">
+                      <Clock className="h-4 w-4 shrink-0" />
+                      <span>
+                        {t("pendingSwitch")}{" "}
+                        <strong>{PLAN_LABELS[data.plan_pending_type]}</strong>{" "}
+                        {t("effectiveOn")}{" "}
+                        {data.plan_pending_effective_at && fmtDateStr(data.plan_pending_effective_at, "d MMM yyyy", locale)}
                       </span>
                     </div>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="h-7 px-3 text-xs text-red-600 border-red-300 hover:bg-red-50 shrink-0"
+                      onClick={() => setConfirmDialog({ type: "cancelSwitch", planType: data.plan_pending_type || undefined })}
+                      disabled={cancelling}
+                    >
+                      {cancelling && <Loader2 className="h-3 w-3 animate-spin mr-1" />}
+                      {t("cancelSwitch")}
+                    </Button>
+                  </div>
+                )}
+              </CardContent>
+            </Card>
+          </motion.div>
+
+          {/* ── Wallet Card (commission plan) ── */}
+          {data.plan_type === "commission" && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.2 }}
+            >
+              <Card className="overflow-hidden">
+                {/* Wallet header with gradient */}
+                <div className="bg-gradient-to-br from-violet-50/60 via-white to-violet-50/40 px-6 pt-6 pb-8">
+                  <div className="flex items-center justify-between mb-6">
+                    <div className="flex items-center gap-2">
+                      <Wallet className="h-4 w-4 text-violet-500" />
+                      <span className="text-sm font-medium text-gray-600">{t("wallet")}</span>
+                    </div>
+                    <Button
+                      size="sm"
+                      className="bg-violet-600 hover:bg-violet-700 text-white rounded-full px-4 text-xs"
+                      onClick={() => setTopupSheetOpen(true)}
+                    >
+                      <ArrowUpCircle className="h-3.5 w-3.5 mr-1.5" />
+                      {t("topUp")}
+                    </Button>
+                  </div>
+
+                  {/* Hero balance */}
+                  <div className="text-center">
+                    <motion.p
+                      key={data.wallet_balance}
+                      initial={{ opacity: 0, y: 8 }}
+                      animate={{ opacity: 1, y: 0 }}
+                      transition={{ duration: 0.3 }}
+                      className={`text-4xl sm:text-5xl font-serif tracking-tight ${
+                        data.wallet_balance < 0 ? "text-red-600" : "text-gray-900"
+                      }`}
+                    >
+                      {data.wallet_balance < 0 ? "-" : ""}฿{Math.abs(data.wallet_balance).toLocaleString()}
+                    </motion.p>
+                    <p className="text-xs font-mono uppercase tracking-wider text-gray-400 mt-1.5">
+                      {t("walletBalance")}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Transactions timeline */}
+                <CardContent className="px-6 pb-6 pt-4">
+                  {data.recent_transactions.length > 0 ? (
+                    <>
+                      <p className="text-xs font-medium uppercase tracking-wider text-gray-400 mb-3">
+                        {t("recentTransactions")}
+                      </p>
+                      <div className="relative">
+                        {/* Timeline line */}
+                        <div className="absolute left-[4.5px] top-3 bottom-3 w-px bg-gray-200" />
+
+                        <div className="space-y-0">
+                          {data.recent_transactions.map((txn, i) => (
+                            <motion.div
+                              key={txn.id}
+                              initial={{ opacity: 0, x: -8 }}
+                              animate={{ opacity: 1, x: 0 }}
+                              transition={{ delay: i * 0.05, duration: 0.3 }}
+                              className="relative flex items-start gap-3 py-2.5"
+                            >
+                              {/* Timeline dot */}
+                              <div
+                                className={`relative z-10 mt-1 h-[9px] w-[9px] rounded-full border-2 shrink-0 ${
+                                  txn.amount > 0
+                                    ? "border-green-500 bg-green-50"
+                                    : "border-gray-400 bg-gray-100"
+                                }`}
+                              />
+
+                              <div className="flex-1 flex items-start justify-between min-w-0">
+                                <div className="min-w-0">
+                                  <p className="text-sm text-gray-700 truncate">
+                                    {txn.description || txn.type}
+                                  </p>
+                                  <p className="text-[11px] text-gray-400 font-mono">
+                                    {fmtDateStr(txn.created_at, "d MMM yyyy HH:mm", locale)}
+                                  </p>
+                                </div>
+                                <span
+                                  className={`text-sm font-mono font-medium shrink-0 ml-3 ${
+                                    txn.amount > 0 ? "text-green-600" : "text-red-600"
+                                  }`}
+                                >
+                                  {txn.amount > 0 ? "+" : ""}฿{Math.abs(txn.amount).toLocaleString()}
+                                </span>
+                              </div>
+                            </motion.div>
+                          ))}
+                        </div>
+                      </div>
+                    </>
+                  ) : (
+                    <p className="text-sm text-gray-400 text-center py-4">{t("noTransactions")}</p>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+
+          {/* ── Invoices Card (fixed rate plan) ── */}
+          {data.plan_type === "fixed_rate" && (
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.2 }}
+            >
+              <Card>
+                <CardContent className="p-6">
+                  <div className="flex items-center gap-2 mb-4">
+                    <Receipt className="h-4 w-4 text-blue-500" />
+                    <p className="text-xs font-medium uppercase tracking-wider text-gray-400">
+                      {t("invoices")}
+                    </p>
+                  </div>
+
+                  {data.invoices.length === 0 ? (
+                    <p className="text-sm text-gray-400 text-center py-6">{t("noInvoices")}</p>
+                  ) : (
+                    <div className="space-y-3">
+                      {data.invoices.map((inv, i) => (
+                        <motion.div
+                          key={inv.id}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.06, duration: 0.3 }}
+                          className={`rounded-xl border p-4 transition-colors ${
+                            inv.status === "overdue"
+                              ? "border-red-200 bg-red-50/30"
+                              : inv.status === "paid"
+                              ? "border-gray-100 bg-gray-50/50"
+                              : "border-gray-200 bg-white"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <p className="font-serif text-lg text-gray-900">
+                                ฿{inv.amount.toLocaleString()}
+                              </p>
+                              <p className="text-xs text-gray-400 mt-0.5">
+                                {fmtDateStr(inv.period_start, "d MMM", locale)} —{" "}
+                                {fmtDateStr(inv.period_end, "d MMM yyyy", locale)}
+                              </p>
+                            </div>
+                            <Badge
+                              className={`rounded-full text-[11px] font-medium ${
+                                inv.status === "paid"
+                                  ? "bg-green-100 text-green-700"
+                                  : inv.status === "overdue"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-amber-100 text-amber-700"
+                              }`}
+                            >
+                              {inv.status === "paid" && <CheckCircle className="h-3 w-3 mr-0.5" />}
+                              {inv.status === "overdue" && <AlertTriangle className="h-3 w-3 mr-0.5" />}
+                              {inv.status === "pending" && <Clock className="h-3 w-3 mr-0.5" />}
+                              {inv.status}
+                            </Badge>
+                          </div>
+
+                          {(inv.status === "pending" || inv.status === "overdue") && (
+                            <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
+                              <p className="text-xs text-gray-400">
+                                {t("dueDate")}: {fmtDateStr(inv.due_date, "d MMM yyyy", locale)}
+                              </p>
+                              <Button
+                                size="sm"
+                                className="bg-blue-600 hover:bg-blue-700 text-white rounded-full px-4 text-xs"
+                                onClick={() => {
+                                  setPayInvoiceId(inv.id);
+                                  setPayFile(null);
+                                }}
+                              >
+                                {t("payNow")}
+                              </Button>
+                            </div>
+                          )}
+
+                          {inv.status === "paid" && inv.paid_at && (
+                            <p className="text-[11px] text-gray-400 mt-2">
+                              {t("paidOn")} {fmtDateStr(inv.paid_at, "d MMM yyyy", locale)}
+                            </p>
+                          )}
+                        </motion.div>
+                      ))}
+                    </div>
+                  )}
+                </CardContent>
+              </Card>
+            </motion.div>
+          )}
+        </div>
+
+        {/* ── Right Column (1/3) — Plan Switching ── */}
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.15 }}
+        >
+          <Card>
+            <CardContent className="p-5">
+              <p className="text-xs font-medium uppercase tracking-wider text-gray-400 mb-4">
+                {t("switchPlan")}
+              </p>
+
+              <div className="space-y-3">
+                {data.plan_type !== "commission" && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDialog({ type: "switch", planType: "commission" })}
+                    disabled={switching || !!data.plan_pending_type}
+                    className="w-full rounded-xl border border-gray-200 p-4 text-left hover:border-violet-300 hover:bg-violet-50/30 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-lg bg-violet-100 p-2 group-hover:bg-violet-200 transition-colors">
+                        <Percent className="h-4 w-4 text-violet-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{t("commissionPlan")}</p>
+                        <p className="text-[11px] text-gray-400">{t("commissionDesc")}</p>
+                      </div>
+                    </div>
+                  </button>
+                )}
+
+                {data.plan_type !== "fixed_rate" && (
+                  <button
+                    type="button"
+                    onClick={() => setConfirmDialog({ type: "switch", planType: "fixed_rate" })}
+                    disabled={switching || !!data.plan_pending_type}
+                    className="w-full rounded-xl border border-gray-200 p-4 text-left hover:border-blue-300 hover:bg-blue-50/30 transition-all group disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    <div className="flex items-center gap-3">
+                      <div className="rounded-lg bg-blue-100 p-2 group-hover:bg-blue-200 transition-colors">
+                        <CalendarClock className="h-4 w-4 text-blue-600" />
+                      </div>
+                      <div>
+                        <p className="text-sm font-medium text-gray-800">{t("fixedRatePlan")}</p>
+                        <p className="text-[11px] text-gray-400">{t("fixedRateDesc")}</p>
+                      </div>
+                    </div>
+                  </button>
+                )}
+              </div>
+
+              <p className="text-[11px] text-gray-400 mt-4 leading-relaxed">{t("switchNote")}</p>
+            </CardContent>
+          </Card>
+        </motion.div>
+      </div>
+
+      {/* ══════════════════════════════════════════════
+          DIALOGS & SHEETS
+      ══════════════════════════════════════════════ */}
+
+      {/* ── Confirm Dialog (switch / cancel-switch) ── */}
+      <Dialog open={!!confirmDialog} onOpenChange={(open) => { if (!open) setConfirmDialog(null); }}>
+        <DialogContent className="sm:max-w-md">
+          {confirmDialog?.type === "switch" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{t("switchConfirmTitle")}</DialogTitle>
+                <DialogDescription>
+                  {t("switchConfirmDesc", { plan: PLAN_LABELS[confirmDialog.planType || ""] || confirmDialog.planType || "" })}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button variant="outline" onClick={() => setConfirmDialog(null)}>
+                  {t("cancel")}
+                </Button>
+                <Button
+                  onClick={() => handlePlanSwitch(confirmDialog.planType!)}
+                  disabled={switching}
+                  className="bg-violet-600 hover:bg-violet-700"
+                >
+                  {switching && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  {t("switchConfirmAction")}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+          {confirmDialog?.type === "cancelSwitch" && (
+            <>
+              <DialogHeader>
+                <DialogTitle>{t("cancelSwitchTitle")}</DialogTitle>
+                <DialogDescription>
+                  {t("cancelSwitchDesc", { plan: PLAN_LABELS[confirmDialog.planType || ""] || confirmDialog.planType || "" })}
+                </DialogDescription>
+              </DialogHeader>
+              <DialogFooter className="gap-2 sm:gap-0">
+                <Button variant="outline" onClick={() => setConfirmDialog(null)}>
+                  {t("cancel")}
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={handleCancelSwitch}
+                  disabled={cancelling}
+                >
+                  {cancelling && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                  {t("cancelSwitch")}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Top-up Sheet ── */}
+      <Sheet open={topupSheetOpen} onOpenChange={setTopupSheetOpen}>
+        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
+          <SheetHeader>
+            <SheetTitle className="font-serif">{t("topUp")}</SheetTitle>
+            <SheetDescription>{t("topUpDesc")}</SheetDescription>
+          </SheetHeader>
+
+          <div className="px-4 py-6 space-y-6">
+            {/* Platform payment details */}
+            {data.platform_payment && (
+              <div className="rounded-xl bg-violet-50 border border-violet-100 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-violet-600 mb-3">
+                  {t("transferTo")}
+                </p>
+                {data.platform_payment.payment_display === "qr" && data.platform_payment.promptpay_id && (
+                  <p className="text-sm text-gray-700">
+                    PromptPay: <span className="font-mono font-medium">{data.platform_payment.promptpay_id}</span>
+                  </p>
+                )}
+                {data.platform_payment.payment_display === "bank" && (
+                  <div className="space-y-1 text-sm text-gray-700">
+                    {data.platform_payment.bank_name && <p>{data.platform_payment.bank_name}</p>}
+                    {data.platform_payment.bank_account_number && (
+                      <p className="font-mono font-medium">{data.platform_payment.bank_account_number}</p>
+                    )}
+                    {data.platform_payment.bank_account_name && <p>{data.platform_payment.bank_account_name}</p>}
+                  </div>
+                )}
+              </div>
+            )}
+
+            <form onSubmit={handleTopup} className="space-y-5">
+              {/* Amount */}
+              <div className="space-y-2">
+                <Label className="text-sm text-gray-700">{t("amount")} (THB)</Label>
+                <Input
+                  type="number"
+                  min="1"
+                  value={topupAmount}
+                  onChange={(e) => setTopupAmount(e.target.value)}
+                  className="text-lg font-mono"
+                  placeholder="0"
+                  required
+                />
+                {/* Quick amount buttons */}
+                <div className="flex gap-2">
+                  {[500, 1000, 2000, 5000].map((amt) => (
+                    <button
+                      key={amt}
+                      type="button"
+                      onClick={() => setTopupAmount(String(amt))}
+                      className={`flex-1 rounded-lg border py-1.5 text-xs font-medium transition-colors ${
+                        topupAmount === String(amt)
+                          ? "border-violet-300 bg-violet-50 text-violet-700"
+                          : "border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
+                      }`}
+                    >
+                      ฿{amt.toLocaleString()}
+                    </button>
                   ))}
                 </div>
               </div>
-            )}
-          </CardContent>
-        </Card>
-      )}
 
-      {/* Invoices (fixed rate plan) */}
-      {data.plan_type === "fixed_rate" && (
-        <Card className="mb-4">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-base flex items-center gap-2">
-              <Receipt className="h-4 w-4" />
-              {t("invoices")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent>
-            {data.invoices.length === 0 ? (
-              <p className="text-sm text-gray-500">{t("noInvoices")}</p>
-            ) : (
-              <div className="space-y-3">
-                {data.invoices.map((inv) => (
-                  <div key={inv.id} className="flex items-center justify-between py-2 border-b border-gray-100 last:border-0">
-                    <div>
-                      <p className="text-sm font-medium text-gray-700">
-                        ฿{inv.amount.toLocaleString()} — {new Date(inv.period_start).toLocaleDateString()} - {new Date(inv.period_end).toLocaleDateString()}
-                      </p>
-                      <p className="text-xs text-gray-400">
-                        Due: {new Date(inv.due_date).toLocaleDateString()}
-                      </p>
-                    </div>
-                    <div className="flex items-center gap-2">
-                      <Badge className={`text-[10px] ${
-                        inv.status === "paid" ? "bg-green-100 text-green-700" :
-                        inv.status === "overdue" ? "bg-red-100 text-red-700" :
-                        "bg-amber-100 text-amber-700"
-                      }`}>
-                        {inv.status === "paid" ? <CheckCircle className="h-3 w-3 mr-0.5" /> :
-                         inv.status === "overdue" ? <AlertTriangle className="h-3 w-3 mr-0.5" /> :
-                         <Clock className="h-3 w-3 mr-0.5" />}
-                        {inv.status}
-                      </Badge>
-                      {(inv.status === "pending" || inv.status === "overdue") && (
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          className="h-7 px-2 text-[11px]"
-                          onClick={() => { setPayInvoiceId(inv.id); setPayResult(null); }}
-                        >
-                          Pay
-                        </Button>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-
-            {/* Invoice payment form */}
-            {payInvoiceId && (
-              <div className="border rounded-lg p-4 mt-4 bg-gray-50">
-                {data.platform_payment && (
-                  <div className="mb-4 p-3 bg-white rounded border text-sm">
-                    <p className="font-medium text-gray-700 mb-1">{t("transferTo")}</p>
-                    {data.platform_payment.payment_display === "qr" && data.platform_payment.promptpay_id && (
-                      <p className="text-gray-600">PromptPay: <span className="font-mono">{data.platform_payment.promptpay_id}</span></p>
-                    )}
-                    {data.platform_payment.payment_display === "bank" && (
-                      <>
-                        {data.platform_payment.bank_name && <p className="text-gray-600">{data.platform_payment.bank_name}</p>}
-                        {data.platform_payment.bank_account_number && <p className="text-gray-600 font-mono">{data.platform_payment.bank_account_number}</p>}
-                        {data.platform_payment.bank_account_name && <p className="text-gray-600">{data.platform_payment.bank_account_name}</p>}
-                      </>
-                    )}
-                  </div>
-                )}
-
-                <div className="space-y-3">
-                  <div className="space-y-2">
-                    <Label>{t("paymentSlip")}</Label>
-                    <Input
-                      type="file"
-                      accept="image/*"
-                      onChange={(e) => setPayFile(e.target.files?.[0] || null)}
-                    />
-                  </div>
-                  {payResult && (
-                    <p className={`text-sm ${payResult.includes("verified") ? "text-green-700" : "text-red-700"}`}>
-                      {payResult}
-                    </p>
-                  )}
-                  <div className="flex gap-2">
-                    <Button
-                      onClick={() => handlePayInvoice(payInvoiceId)}
-                      disabled={payLoading || !payFile}
-                      className="flex-1"
-                    >
-                      {payLoading ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Upload className="h-4 w-4 mr-2" />}
-                      {t("verifyAndPay")}
-                    </Button>
-                    <Button variant="outline" onClick={() => { setPayInvoiceId(null); setPayFile(null); }}>
-                      Cancel
-                    </Button>
-                  </div>
+              {/* File upload area */}
+              <div className="space-y-2">
+                <Label className="text-sm text-gray-700">{t("paymentSlip")}</Label>
+                <div
+                  onClick={() => fileInputRef.current?.click()}
+                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                  onDrop={(e) => {
+                    e.preventDefault();
+                    e.stopPropagation();
+                    const file = e.dataTransfer.files?.[0];
+                    if (file) setTopupFile(file);
+                  }}
+                  className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+                    topupFile
+                      ? "border-violet-300 bg-violet-50/50"
+                      : "border-gray-200 hover:border-violet-300/60 hover:bg-violet-50/20"
+                  }`}
+                >
+                  <Upload className="h-6 w-6 text-gray-300 mx-auto mb-2" />
+                  <p className="text-sm text-gray-500">
+                    {topupFile ? topupFile.name : t("dragOrClick")}
+                  </p>
+                  <input
+                    ref={fileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => setTopupFile(e.target.files?.[0] || null)}
+                  />
                 </div>
               </div>
+
+              <Button
+                type="submit"
+                disabled={topupLoading || !topupFile || !topupAmount}
+                className="w-full bg-violet-600 hover:bg-violet-700"
+              >
+                {topupLoading ? (
+                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                ) : (
+                  <Upload className="h-4 w-4 mr-2" />
+                )}
+                {t("verifyAndTopUp")}
+              </Button>
+            </form>
+          </div>
+        </SheetContent>
+      </Sheet>
+
+      {/* ── Invoice Pay Dialog ── */}
+      <Dialog open={!!payInvoiceId} onOpenChange={(open) => { if (!open) { setPayInvoiceId(null); setPayFile(null); } }}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("payInvoice")}</DialogTitle>
+            <DialogDescription>{t("payInvoiceDesc")}</DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 py-2">
+            {/* Platform payment details */}
+            {data.platform_payment && (
+              <div className="rounded-xl bg-blue-50 border border-blue-100 p-4">
+                <p className="text-xs font-semibold uppercase tracking-wider text-blue-600 mb-3">
+                  {t("transferTo")}
+                </p>
+                {data.platform_payment.payment_display === "qr" && data.platform_payment.promptpay_id && (
+                  <p className="text-sm text-gray-700">
+                    PromptPay: <span className="font-mono font-medium">{data.platform_payment.promptpay_id}</span>
+                  </p>
+                )}
+                {data.platform_payment.payment_display === "bank" && (
+                  <div className="space-y-1 text-sm text-gray-700">
+                    {data.platform_payment.bank_name && <p>{data.platform_payment.bank_name}</p>}
+                    {data.platform_payment.bank_account_number && (
+                      <p className="font-mono font-medium">{data.platform_payment.bank_account_number}</p>
+                    )}
+                    {data.platform_payment.bank_account_name && <p>{data.platform_payment.bank_account_name}</p>}
+                  </div>
+                )}
+              </div>
             )}
-          </CardContent>
-        </Card>
-      )}
+
+            {/* File upload */}
+            <div className="space-y-2">
+              <Label className="text-sm text-gray-700">{t("paymentSlip")}</Label>
+              <div
+                onClick={() => payFileInputRef.current?.click()}
+                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                onDrop={(e) => {
+                  e.preventDefault();
+                  e.stopPropagation();
+                  const file = e.dataTransfer.files?.[0];
+                  if (file) setPayFile(file);
+                }}
+                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+                  payFile
+                    ? "border-blue-300 bg-blue-50/50"
+                    : "border-gray-200 hover:border-blue-300/60 hover:bg-blue-50/20"
+                }`}
+              >
+                <Upload className="h-6 w-6 text-gray-300 mx-auto mb-2" />
+                <p className="text-sm text-gray-500">
+                  {payFile ? payFile.name : t("dragOrClick")}
+                </p>
+                <input
+                  ref={payFileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={(e) => setPayFile(e.target.files?.[0] || null)}
+                />
+              </div>
+            </div>
+          </div>
+
+          <DialogFooter className="gap-2 sm:gap-0">
+            <Button variant="outline" onClick={() => { setPayInvoiceId(null); setPayFile(null); }}>
+              {t("cancel")}
+            </Button>
+            <Button
+              onClick={() => payInvoiceId && handlePayInvoice(payInvoiceId)}
+              disabled={payLoading || !payFile}
+              className="bg-blue-600 hover:bg-blue-700"
+            >
+              {payLoading ? (
+                <Loader2 className="h-4 w-4 animate-spin mr-2" />
+              ) : (
+                <Upload className="h-4 w-4 mr-2" />
+              )}
+              {t("verifyAndPay")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

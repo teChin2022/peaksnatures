@@ -1191,6 +1191,27 @@
     "cancelSwitch": "ยกเลิก",
     "cancelSwitchConfirm": "ยกเลิกการเปลี่ยนแพลนที่รออยู่?",
     "freeExpiredTitle": "แพลนฟรีของคุณหมดอายุแล้ว",
-    "freeExpiredDesc": "กรุณาเปลี่ยนเป็นแพลนชำระเงินเพื่อรับการจองต่อไป"
+    "freeExpiredDesc": "กรุณาเปลี่ยนเป็นแพลนชำระเงินเพื่อรับการจองต่อไป",
+    "walletBalance": "ยอดคงเหลือ",
+    "topUpDesc": "โอนเงินและอัพโหลดสลิปเพื่อตรวจสอบ",
+    "dragOrClick": "ลากไฟล์มาวาง หรือคลิกเพื่ออัพโหลด",
+    "switchPlan": "เปลี่ยนแพลน",
+    "commissionPlan": "ค่าคอมมิชชั่น",
+    "commissionDesc": "จ่ายเป็นเปอร์เซ็นต์ต่อการจอง",
+    "fixedRatePlan": "รายเดือน",
+    "fixedRateDesc": "จ่ายค่าบริการรายเดือนคงที่",
+    "switchNote": "การเปลี่ยนแพลนจะมีผลวันที่ 1 ของเดือนถัดไป",
+    "switchConfirmTitle": "เปลี่ยนแพลน?",
+    "switchConfirmDesc": "เปลี่ยนเป็นแพลน{plan}? มีผลวันที่ 1 ของเดือนถัดไป",
+    "switchConfirmAction": "ยืนยันการเปลี่ยน",
+    "cancelSwitchTitle": "ยกเลิกการเปลี่ยนแพลน?",
+    "cancelSwitchDesc": "ยกเลิกการเปลี่ยนเป็นแพลน{plan}ที่รออยู่?",
+    "payNow": "ชำระเงิน",
+    "payInvoice": "ชำระใบแจ้งหนี้",
+    "payInvoiceDesc": "อัพโหลดสลิปเพื่อตรวจสอบการชำระเงิน",
+    "dueDate": "ครบกำหนด",
+    "paidOn": "ชำระเมื่อ",
+    "cancel": "ยกเลิก",
+    "noTransactions": "ยังไม่มีรายการ"
   }
 }
