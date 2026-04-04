@@ -5,9 +5,11 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { toast } from "sonner";
 import {
-  Users, CheckCircle, XCircle, Loader2, Mail, Phone, Home, Calendar,
+  Users, CheckCircle, XCircle, Loader2, Mail, Phone, Home, Calendar as CalendarIcon,
   ShieldCheck, Wallet, CreditCard, Percent,
 } from "lucide-react";
+import { format, parseISO } from "date-fns";
+import { enUS } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -17,6 +19,8 @@ import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
+import { Calendar } from "@/components/ui/calendar";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 
 interface HostRow {
   id: string;
@@ -415,7 +419,7 @@ export default function AdminHostsPage() {
                             )}
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <Calendar className="h-3.5 w-3.5 shrink-0" />
+                            <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
                             <span>{new Date(host.created_at).toLocaleDateString()}</span>
                           </div>
                         </div>
@@ -610,14 +614,41 @@ export default function AdminHostsPage() {
             </div>
             {planType === "free" && (
               <div className="space-y-2">
-                <Label htmlFor="plan-expiry">Free Plan Expires At</Label>
-                <Input
-                  id="plan-expiry"
-                  type="date"
-                  value={planExpiry}
-                  onChange={(e) => setPlanExpiry(e.target.value)}
-                  placeholder="Leave empty for no expiry"
-                />
+                <Label>Free Plan Expires At</Label>
+                <Popover>
+                  <PopoverTrigger asChild>
+                    <Button
+                      variant="outline"
+                      className="w-full justify-start text-left font-normal"
+                    >
+                      <CalendarIcon className="mr-2 h-4 w-4" />
+                      {planExpiry
+                        ? format(parseISO(planExpiry), "PPP", { locale: enUS })
+                        : "Pick a date"}
+                    </Button>
+                  </PopoverTrigger>
+                  <PopoverContent className="w-auto p-0" align="start">
+                    <Calendar
+                      mode="single"
+                      locale={enUS}
+                      selected={planExpiry ? parseISO(planExpiry) : undefined}
+                      onSelect={(date) =>
+                        setPlanExpiry(date ? format(date, "yyyy-MM-dd") : "")
+                      }
+                    />
+                  </PopoverContent>
+                </Popover>
+                {planExpiry && (
+                  <Button
+                    type="button"
+                    variant="ghost"
+                    size="sm"
+                    className="text-xs text-gray-400 px-0 h-auto"
+                    onClick={() => setPlanExpiry("")}
+                  >
+                    Clear date
+                  </Button>
+                )}
                 <p className="text-[11px] text-gray-400">Leave empty for no expiry</p>
               </div>
             )}
