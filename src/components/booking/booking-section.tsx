@@ -699,7 +699,7 @@ export function BookingSection({
     <>
       <section ref={sectionRef} className="py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="grid gap-10 md:grid-cols-2 md:gap-12 lg:gap-16 items-start">
+          <div className="grid gap-10 lg:grid-cols-2 lg:gap-12 xl:gap-16 items-start">
             {/* ── Left Column: Heading & Trust Badges ── */}
             <div className="flex flex-col justify-center">
               <h2 className="font-serif text-4xl font-normal text-earth-900 leading-tight lg:text-5xl tracking-tight">
@@ -753,7 +753,7 @@ export function BookingSection({
               whileInView={{ opacity: 1, scale: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, ease: [0.25, 0.1, 0, 1] }}
-              className="bg-white rounded-3xl shadow-xl border border-earth-100 p-5 md:p-8 relative flex flex-col md:sticky md:top-8"
+              className="bg-white rounded-3xl shadow-xl border border-earth-100 p-5 lg:p-8 relative flex flex-col lg:sticky lg:top-8"
             >
             {/* Step indicator (compact) */}
             <div className="flex items-center gap-1 mb-6">
