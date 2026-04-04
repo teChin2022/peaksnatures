@@ -1188,6 +1188,8 @@
     "recentTransactions": "รายการล่าสุด",
     "invoices": "ใบแจ้งหนี้",
     "noInvoices": "ยังไม่มีใบแจ้งหนี้",
+    "cancelSwitch": "ยกเลิก",
+    "cancelSwitchConfirm": "ยกเลิกการเปลี่ยนแพลนที่รออยู่?",
     "freeExpiredTitle": "แพลนฟรีของคุณหมดอายุแล้ว",
     "freeExpiredDesc": "กรุณาเปลี่ยนเป็นแพลนชำระเงินเพื่อรับการจองต่อไป"
   }

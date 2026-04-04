@@ -70,6 +70,7 @@ export default function DashboardBillingPage() {
   const [data, setData] = useState<BillingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
+  const [cancelling, setCancelling] = useState(false);
   const [topupOpen, setTopupOpen] = useState(false);
   const [topupAmount, setTopupAmount] = useState("");
   const [topupFile, setTopupFile] = useState<File | null>(null);
@@ -114,6 +115,24 @@ export default function DashboardBillingPage() {
       alert("Failed to switch plan");
     } finally {
       setSwitching(false);
+    }
+  };
+
+  const handleCancelSwitch = async () => {
+    if (!confirm(t("cancelSwitchConfirm"))) return;
+    setCancelling(true);
+    try {
+      const res = await fetch("/api/host/plan/cancel", { method: "POST" });
+      if (res.ok) {
+        fetchBilling();
+      } else {
+        const d = await res.json();
+        alert(d.error || "Failed to cancel");
+      }
+    } catch {
+      alert("Failed to cancel plan switch");
+    } finally {
+      setCancelling(false);
     }
   };
 
@@ -231,9 +250,21 @@ export default function DashboardBillingPage() {
           </div>
 
           {data.plan_pending_type && (
-            <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-700 mb-3">
-              <Clock className="h-4 w-4 inline mr-1" />
-              {t("pendingSwitch")} <strong>{PLAN_LABELS[data.plan_pending_type]}</strong> {t("effectiveOn")} {data.plan_pending_effective_at}
+            <div className="rounded-lg bg-blue-50 border border-blue-200 px-3 py-2 text-sm text-blue-700 mb-3 flex items-center justify-between gap-2">
+              <span>
+                <Clock className="h-4 w-4 inline mr-1" />
+                {t("pendingSwitch")} <strong>{PLAN_LABELS[data.plan_pending_type]}</strong> {t("effectiveOn")} {data.plan_pending_effective_at}
+              </span>
+              <Button
+                size="sm"
+                variant="outline"
+                className="h-7 px-2.5 text-xs text-red-600 border-red-300 hover:bg-red-50 shrink-0"
+                onClick={handleCancelSwitch}
+                disabled={cancelling}
+              >
+                {cancelling ? <Loader2 className="h-3 w-3 animate-spin mr-1" /> : null}
+                {t("cancelSwitch")}
+              </Button>
             </div>
           )}
 

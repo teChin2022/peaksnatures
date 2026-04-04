@@ -1184,6 +1184,8 @@
     "recentTransactions": "Recent Transactions",
     "invoices": "Invoices",
     "noInvoices": "No invoices yet.",
+    "cancelSwitch": "Cancel",
+    "cancelSwitchConfirm": "Cancel the pending plan switch?",
     "freeExpiredTitle": "Your free plan has expired",
     "freeExpiredDesc": "Please switch to a paid plan to continue receiving bookings."
   }
