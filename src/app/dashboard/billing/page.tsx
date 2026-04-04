@@ -99,20 +99,21 @@ const PLANS = [
     key: "free",
     icon: <Leaf className="w-6 h-6 text-earth-600" />,
     features: [
-      "Up to 1 listing",
-      "Basic community support",
-      "Standard search visibility",
-      "Manual booking management",
+      "Unlimited listings",
+      "Self-managed bookings",
+      "Advanced analytics & reporting",
+      "0% commission on bookings",
+      "Instant SMS notification on new bookings",
+      "Automatic slip verification",
     ],
     featuresTh: [
-      "ลงประกาศได้สูงสุด 1 รายการ",
-      "การสนับสนุนจากชุมชน",
-      "การค้นหาแบบมาตรฐาน",
+      "ลงประกาศไม่จำกัด",
       "จัดการการจองด้วยตนเอง",
+      "การวิเคราะห์และรายงานขั้นสูง",
+      "คอมมิชชั่น 0% สำหรับการจอง",
+      "ส่ง SMS แจ้งเตือนทันทีที่มีการจอง",
+      "ตรวจสอบสลิปโอนอัตโนมัติ",
     ],
-    price: "฿0",
-    period: "/month",
-    periodTh: "/เดือน",
     popular: false,
   },
   {
@@ -120,21 +121,18 @@ const PLANS = [
     icon: <Wallet className="w-6 h-6 text-brand" />,
     features: [
       "Unlimited listings",
-      "Priority email support",
-      "Enhanced search visibility",
-      "Automated booking tools",
-      "No fixed monthly fees",
+      "Self-managed bookings",
+      "Advanced analytics & reporting",
+      "Instant SMS notification on new bookings",
+      "Automatic slip verification",
     ],
     featuresTh: [
       "ลงประกาศไม่จำกัด",
-      "อีเมลสนับสนุนแบบลำดับความสำคัญ",
-      "การค้นหาที่มองเห็นได้ดีขึ้น",
-      "เครื่องมือจองอัตโนมัติ",
-      "ไม่มีค่าธรรมเนียมรายเดือน",
+      "จัดการการจองด้วยตนเอง",
+      "การวิเคราะห์และรายงานขั้นสูง",
+      "ส่ง SMS แจ้งเตือนทันทีที่มีการจอง",
+      "ตรวจสอบสลิปโอนอัตโนมัติ",
     ],
-    price: "15%",
-    period: "/booking",
-    periodTh: "/การจอง",
     popular: true,
   },
   {
@@ -142,26 +140,34 @@ const PLANS = [
     icon: <CalendarClock className="w-6 h-6 text-earth-700" />,
     features: [
       "Unlimited listings",
-      "24/7 dedicated phone support",
-      "Premium search visibility",
+      "Self-managed bookings",
       "Advanced analytics & reporting",
       "0% commission on bookings",
-      "Custom branding options",
+      "Instant SMS notification on new bookings",
+      "Automatic slip verification",
     ],
     featuresTh: [
       "ลงประกาศไม่จำกัด",
-      "สนับสนุนทางโทรศัพท์ตลอด 24 ชม.",
-      "การค้นหาแบบพรีเมียม",
+      "จัดการการจองด้วยตนเอง",
       "การวิเคราะห์และรายงานขั้นสูง",
       "คอมมิชชั่น 0% สำหรับการจอง",
-      "ปรับแต่งแบรนด์ได้",
+      "ส่ง SMS แจ้งเตือนทันทีที่มีการจอง",
+      "ตรวจสอบสลิปโอนอัตโนมัติ",
     ],
-    price: "฿490",
-    period: "/month",
-    periodTh: "/เดือน",
     popular: false,
   },
 ];
+
+function getPlanPrice(key: string, data: BillingData): { price: string; period: string; periodTh: string } {
+  if (key === "free") return { price: "฿0", period: "/month", periodTh: "/เดือน" };
+  if (key === "commission") {
+    const pct = data.effective_commission_pct;
+    return { price: pct != null ? `${pct}%` : "—", period: "/booking", periodTh: "/การจอง" };
+  }
+  // fixed_rate
+  const rate = data.effective_fixed_rate;
+  return { price: rate != null ? `฿${rate.toLocaleString()}` : "—", period: "/month", periodTh: "/เดือน" };
+}
 
 export default function DashboardBillingPage() {
   const t = useTranslations("billing");
@@ -339,8 +345,7 @@ export default function DashboardBillingPage() {
     <div className="space-y-8">
       {/* ── Page Header ── */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-        <p className="text-xs font-medium uppercase tracking-widest text-gray-400 mb-1">{t("subtitle")}</p>
-        <h1 className="text-2xl font-serif text-gray-900">{t("title")}</h1>
+        <h1 className="text-xl font-bold text-gray-900">{t("title")}</h1>
       </motion.div>
 
       {/* ── Alert Banners ── */}
@@ -427,7 +432,8 @@ export default function DashboardBillingPage() {
           const isPopular = plan.popular;
           const canSwitch = !isCurrent && !data.plan_pending_type && !switching;
           const features = locale === "th" ? plan.featuresTh : plan.features;
-          const period = locale === "th" ? plan.periodTh : plan.period;
+          const { price, period: periodEn, periodTh } = getPlanPrice(plan.key, data);
+          const period = locale === "th" ? periodTh : periodEn;
 
           return (
             <motion.div
@@ -471,23 +477,12 @@ export default function DashboardBillingPage() {
                 </p>
               </div>
 
-              {/* Price */}
+              {/* Price — uses real data from API */}
               <div className="mb-6">
                 <div className="flex items-baseline">
-                  <span className="text-4xl font-extrabold tracking-tight text-gray-900">{plan.price}</span>
+                  <span className="text-4xl font-extrabold tracking-tight text-gray-900">{price}</span>
                   <span className="text-earth-400 ml-2 font-medium">{period}</span>
                 </div>
-                {/* Show actual rates from API when available */}
-                {isCurrent && plan.key === "commission" && data.effective_commission_pct != null && (
-                  <p className="text-xs text-brand mt-1 font-medium">
-                    {data.effective_commission_pct}% {t("perBooking")}
-                  </p>
-                )}
-                {isCurrent && plan.key === "fixed_rate" && data.effective_fixed_rate != null && (
-                  <p className="text-xs text-brand mt-1 font-medium">
-                    ฿{data.effective_fixed_rate.toLocaleString()}/{t("month")}
-                  </p>
-                )}
                 {isCurrent && plan.key === "free" && data.plan_free_expires_at && (
                   <p className="text-xs text-earth-500 mt-1">
                     {t("expiresOn")} {fmtDateStr(data.plan_free_expires_at, "d MMM yyyy", locale)}
