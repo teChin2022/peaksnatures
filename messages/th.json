@@ -690,7 +690,17 @@
     "commonProhibitions": "เพิ่มด่วน",
     "slugChangeWarning": "การเปลี่ยน URL slug จะทำให้ลิงก์ QR Code และบุ๊กมาร์กที่แชร์ไว้ก่อนหน้าใช้ไม่ได้ ลิงก์เก่าจะเปลี่ยนเส้นทางไปยัง URL ใหม่โดยอัตโนมัติ",
     "slugChangeConfirm": "เปลี่ยน Slug",
-    "slugChangeTitle": "เปลี่ยน URL Slug?"
+    "slugChangeTitle": "เปลี่ยน URL Slug?",
+    "socialMedia": "โซเชียลมีเดีย",
+    "socialMediaHint": "เพิ่มลิงก์โซเชียลมีเดียเพื่อแสดงในส่วนท้ายของหน้าจอง",
+    "facebookUrl": "Facebook",
+    "facebookPlaceholder": "https://facebook.com/your-page",
+    "tiktokUrl": "TikTok",
+    "tiktokPlaceholder": "https://tiktok.com/@your-account",
+    "instagramUrl": "Instagram",
+    "instagramPlaceholder": "https://instagram.com/your-account",
+    "lineId": "LINE ID",
+    "lineIdPlaceholder": "เช่น @yourlineid"
   },
   "dashboardRooms": {
     "title": "จัดการห้องพัก",

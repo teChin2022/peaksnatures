@@ -20,6 +20,7 @@ import {
   Clock,
   ShieldAlert,
   AlertTriangle,
+  Share2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -52,6 +53,10 @@ interface HomestayData {
   gallery: string[];
   theme_color: string;
   is_active: boolean;
+  facebook_url: string | null;
+  tiktok_url: string | null;
+  instagram_url: string | null;
+  line_id: string | null;
 }
 
 const COMMON_AMENITIES = [
@@ -97,6 +102,10 @@ export default function HomestayPage() {
   const [uploadingHero, setUploadingHero] = useState(false);
   const [uploadingLogo, setUploadingLogo] = useState(false);
   const [uploadingGallery, setUploadingGallery] = useState(false);
+  const [facebookUrl, setFacebookUrl] = useState("");
+  const [tiktokUrl, setTiktokUrl] = useState("");
+  const [instagramUrl, setInstagramUrl] = useState("");
+  const [lineId, setLineId] = useState("");
   const [showSlugWarning, setShowSlugWarning] = useState(false);
   const heroInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
@@ -149,6 +158,10 @@ export default function HomestayPage() {
         setHeroImageUrl(h.hero_image_url || "");
         setLogoUrl(h.logo_url || "");
         setGallery(h.gallery || []);
+        setFacebookUrl(h.facebook_url || "");
+        setTiktokUrl(h.tiktok_url || "");
+        setInstagramUrl(h.instagram_url || "");
+        setLineId(h.line_id || "");
       } else {
         setIsNew(true);
       }
@@ -403,6 +416,10 @@ export default function HomestayPage() {
         hero_image_url: heroImageUrl.trim() || null,
         logo_url: logoUrl.trim() || null,
         gallery,
+        facebook_url: facebookUrl.trim() || null,
+        tiktok_url: tiktokUrl.trim() || null,
+        instagram_url: instagramUrl.trim() || null,
+        line_id: lineId.trim() || null,
       };
 
       if (isNew) {
@@ -803,6 +820,53 @@ export default function HomestayPage() {
                     {p}
                   </Badge>
                 ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Social Media */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Share2 className="h-4 w-4" />
+              {t("socialMedia")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-xs text-gray-500">{t("socialMediaHint")}</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t("facebookUrl")}</Label>
+                <Input
+                  value={facebookUrl}
+                  onChange={(e) => setFacebookUrl(e.target.value)}
+                  placeholder={t("facebookPlaceholder")}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("instagramUrl")}</Label>
+                <Input
+                  value={instagramUrl}
+                  onChange={(e) => setInstagramUrl(e.target.value)}
+                  placeholder={t("instagramPlaceholder")}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("tiktokUrl")}</Label>
+                <Input
+                  value={tiktokUrl}
+                  onChange={(e) => setTiktokUrl(e.target.value)}
+                  placeholder={t("tiktokPlaceholder")}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("lineId")}</Label>
+                <Input
+                  value={lineId}
+                  onChange={(e) => setLineId(e.target.value)}
+                  placeholder={t("lineIdPlaceholder")}
+                />
               </div>
             </div>
           </CardContent>

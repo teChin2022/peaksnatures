@@ -141,6 +141,10 @@ export interface Database {
           gallery: string[];
           theme_color: string;
           is_active: boolean;
+          facebook_url: string | null;
+          tiktok_url: string | null;
+          instagram_url: string | null;
+          line_id: string | null;
           created_at: string;
           created_by: string;
           updated_at: string;
@@ -165,6 +169,10 @@ export interface Database {
           gallery?: string[];
           theme_color?: string;
           is_active?: boolean;
+          facebook_url?: string | null;
+          tiktok_url?: string | null;
+          instagram_url?: string | null;
+          line_id?: string | null;
           created_at?: string;
           created_by?: string;
           updated_at?: string;
@@ -189,6 +197,10 @@ export interface Database {
           gallery?: string[];
           theme_color?: string;
           is_active?: boolean;
+          facebook_url?: string | null;
+          tiktok_url?: string | null;
+          instagram_url?: string | null;
+          line_id?: string | null;
           created_at?: string;
           created_by?: string;
           updated_at?: string;
