@@ -541,9 +541,8 @@ export default function DashboardBillingPage() {
         </p>
       </motion.div>
 
-      {/* ── Wallet Card (commission plan) ── */}
-      {data.plan_type === "commission" && (
-        <motion.div
+      {/* ── Wallet Card ── */}
+      <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
@@ -555,14 +554,16 @@ export default function DashboardBillingPage() {
                   <Wallet className="h-4 w-4 text-brand" />
                   <span className="text-sm font-medium text-gray-600">{t("wallet")}</span>
                 </div>
-                <Button
-                  size="sm"
-                  className="bg-brand hover:bg-brand-hover text-white rounded-full px-4 text-xs"
-                  onClick={() => setTopupSheetOpen(true)}
-                >
-                  <ArrowUpCircle className="h-3.5 w-3.5 mr-1.5" />
-                  {t("topUp")}
-                </Button>
+                {data.plan_type === "commission" && (
+                  <Button
+                    size="sm"
+                    className="bg-brand hover:bg-brand-hover text-white rounded-full px-4 text-xs"
+                    onClick={() => setTopupSheetOpen(true)}
+                  >
+                    <ArrowUpCircle className="h-3.5 w-3.5 mr-1.5" />
+                    {t("topUp")}
+                  </Button>
+                )}
               </div>
 
               <div className="text-center">
@@ -635,7 +636,6 @@ export default function DashboardBillingPage() {
             </CardContent>
           </Card>
         </motion.div>
-      )}
 
       {/* ── Invoices Card (fixed rate plan) ── */}
       {data.plan_type === "fixed_rate" && (

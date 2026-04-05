@@ -463,7 +463,8 @@
     "calendar": "Calendar",
     "guide": "Setup Guide",
     "checkins": "Today's Check-ins",
-    "billing": "Billing"
+    "billing": "Billing",
+    "wallet": "Wallet & Invoices"
   },
   "checkins": {
     "title": "Today's Check-ins",
@@ -1209,5 +1210,42 @@
     "paidOn": "Paid on",
     "cancel": "Cancel",
     "noTransactions": "No transactions yet"
+  },
+  "walletPage": {
+    "title": "Wallet",
+    "balance": "Current Balance",
+    "topUp": "Top Up",
+    "topUpDesc": "Transfer funds and upload your payment slip for verification.",
+    "transferTo": "Transfer to:",
+    "amount": "Amount",
+    "paymentSlip": "Payment Slip",
+    "dragOrClick": "Drag and drop or click to upload",
+    "verifyAndTopUp": "Verify & Top Up",
+    "transactions": "Transactions",
+    "invoices": "Invoices",
+    "all": "All",
+    "topups": "Top-ups",
+    "commissions": "Commissions",
+    "refunds": "Refunds",
+    "adjustments": "Adjustments",
+    "pending": "Pending",
+    "paid": "Paid",
+    "overdue": "Overdue",
+    "noTransactions": "No transactions yet.",
+    "noInvoices": "No invoices yet.",
+    "loadMore": "Load More",
+    "payNow": "Pay Now",
+    "payInvoice": "Pay Invoice",
+    "payInvoiceDesc": "Upload your payment slip to verify this payment.",
+    "verifyAndPay": "Verify & Pay",
+    "cancel": "Cancel",
+    "dueDate": "Due",
+    "paidOn": "Paid on",
+    "period": "Period",
+    "balanceAfter": "Balance",
+    "thisMonth": "This month",
+    "income": "Income",
+    "deductions": "Deductions",
+    "negativeBalanceWarning": "Your balance is negative. Please top up to avoid service interruption."
   }
 }

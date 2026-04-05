@@ -4,6 +4,7 @@ import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supab
 import { sendBookingStatusUpdateEmail } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room } from "@/types/database";
 import { logEvent, EventType } from "@/lib/history-log";
+import { deductCommission, refundCommission } from "@/lib/billing";
 
 export async function POST(req: NextRequest) {
   try {
@@ -121,6 +122,13 @@ export async function POST(req: NextRequest) {
         data: { previous_status: booking.status, new_status: status, ...(reason ? { reason } : {}) },
         req,
       });
+
+      // Commission handling
+      if (status === "confirmed") {
+        await deductCommission(booking_id);
+      } else if (status === "cancelled" && booking.status === "confirmed") {
+        await refundCommission(booking_id);
+      }
 
       try {
         // Parallel: homestay+host (joined) + room

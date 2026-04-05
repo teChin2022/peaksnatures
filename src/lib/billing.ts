@@ -43,13 +43,13 @@ export function getEffectiveFixedRate(
 }
 
 /**
- * Deduct commission from host wallet when a booking is completed.
- * Called in the after() callback of the checkout flow.
+ * Deduct commission from host wallet when a booking is confirmed.
+ * Called in the after() callback when:
+ * - Guest books with verified slip (auto-confirmed)
+ * - Host manually approves a pending booking
  *
- * Uses the PostgreSQL `deduct_wallet_commission` function which:
- * - Acquires an advisory lock on the host
- * - Deducts from hosts.wallet_balance (can go negative)
- * - Inserts a wallet_transactions record
+ * Idempotent: skips if commission already deducted (and not refunded).
+ * Supports date-change cycles (deduct → refund → deduct).
  */
 export async function deductCommission(bookingId: string): Promise<void> {
   const supabase = createServiceRoleClient();
@@ -114,6 +114,25 @@ export async function deductCommission(bookingId: string): Promise<void> {
 
     if (commissionAmount <= 0) return;
 
+    // Idempotency: skip if commission already deducted (and not refunded)
+    const [{ count: commissionCount }, { count: refundCount }] = await Promise.all([
+      supabase
+        .from("wallet_transactions")
+        .select("id", { count: "exact", head: true })
+        .eq("reference_id", bookingId)
+        .eq("type", "commission"),
+      supabase
+        .from("wallet_transactions")
+        .select("id", { count: "exact", head: true })
+        .eq("reference_id", bookingId)
+        .eq("type", "refund"),
+    ]);
+
+    if ((commissionCount ?? 0) > (refundCount ?? 0)) {
+      console.log(`[Billing] Commission already deducted for booking ${bookingId}, skipping`);
+      return;
+    }
+
     // Call the atomic deduction function
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: result, error: deductError } = await (supabase.rpc as any)(
@@ -156,5 +175,103 @@ export async function deductCommission(bookingId: string): Promise<void> {
     });
   } catch (error) {
     console.error("[Billing] Unexpected error in deductCommission:", error);
+  }
+}
+
+/**
+ * Refund commission to host wallet when a confirmed booking is cancelled
+ * or when a date/room change requires recalculation.
+ *
+ * Refunds the exact amount from the original commission transaction.
+ * No-op if no commission was ever deducted for this booking.
+ * Idempotent: skips if already fully refunded (commissionCount <= refundCount).
+ */
+export async function refundCommission(bookingId: string): Promise<void> {
+  const supabase = createServiceRoleClient();
+
+  try {
+    // Find the most recent commission transaction for this booking
+    const { data: commissionTxns, error: txnError } = await supabase
+      .from("wallet_transactions")
+      .select("id, host_id, amount")
+      .eq("reference_id", bookingId)
+      .eq("type", "commission")
+      .order("created_at", { ascending: false });
+
+    if (txnError || !commissionTxns || commissionTxns.length === 0) {
+      // No commission was deducted — nothing to refund (e.g. pending booking)
+      return;
+    }
+
+    // Check if already fully refunded
+    const { count: refundCount } = await supabase
+      .from("wallet_transactions")
+      .select("id", { count: "exact", head: true })
+      .eq("reference_id", bookingId)
+      .eq("type", "refund");
+
+    if (commissionTxns.length <= (refundCount ?? 0)) {
+      console.log(`[Billing] Commission already refunded for booking ${bookingId}, skipping`);
+      return;
+    }
+
+    // Use the most recent commission transaction for the refund amount
+    const latestCommission = commissionTxns[0] as { id: string; host_id: string; amount: number };
+    const refundAmount = Math.abs(latestCommission.amount);
+    const hostId = latestCommission.host_id;
+
+    if (refundAmount <= 0) return;
+
+    // Fetch booking for logging context
+    const { data: bookingRow } = await supabase
+      .from("bookings")
+      .select("homestay_id, total_price")
+      .eq("id", bookingId)
+      .single();
+
+    const booking = bookingRow as { homestay_id: string; total_price: number } | null;
+
+    // Call the atomic refund function
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: result, error: refundError } = await (supabase.rpc as any)(
+      "refund_wallet_commission",
+      {
+        p_host_id: hostId,
+        p_amount: refundAmount,
+        p_booking_id: bookingId,
+        p_description: `Commission refund for booking ${bookingId.slice(0, 8)}`,
+      },
+    );
+
+    if (refundError) {
+      console.error("[Billing] Commission refund failed:", refundError);
+      return;
+    }
+
+    const newBalance = (result as { new_balance: number }[])?.[0]?.new_balance ?? 0;
+
+    console.log(
+      `[Billing] Commission refunded: ฿${refundAmount} to host ${hostId}, new balance: ฿${newBalance}`,
+    );
+
+    // Log the event
+    if (booking) {
+      await logEvent({
+        homestayId: booking.homestay_id,
+        entityType: "billing",
+        entityId: bookingId,
+        eventType: EventType.COMMISSION_REFUNDED,
+        actorType: "system",
+        actorId: null,
+        data: {
+          host_id: hostId,
+          booking_id: bookingId,
+          refund_amount: refundAmount,
+          new_balance: newBalance,
+        },
+      });
+    }
+  } catch (error) {
+    console.error("[Billing] Unexpected error in refundCommission:", error);
   }
 }

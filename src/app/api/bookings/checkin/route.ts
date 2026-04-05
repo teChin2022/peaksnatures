@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { after } from "next/server";
 import { logEvent, EventType } from "@/lib/history-log";
-import { deductCommission } from "@/lib/billing";
 
 /**
  * POST /api/bookings/checkin
@@ -159,9 +158,6 @@ export async function POST(request: NextRequest) {
         data: { guest_email },
         req: request,
       });
-
-      // Deduct commission if host is on commission plan
-      await deductCommission(booking_id);
     });
 
     return NextResponse.json({ success: true, action: "checkout" });

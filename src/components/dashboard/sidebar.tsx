@@ -18,6 +18,7 @@ import {
   BookOpen,
   ClipboardCheck,
   Wallet,
+  Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, getInitials } from "@/lib/utils";
@@ -34,6 +35,7 @@ const NAV_ITEMS = [
   { key: "guide", href: "/dashboard/guide", icon: BookOpen },
   { key: "checkins", href: "/dashboard/checkins", icon: ClipboardCheck },
   { key: "billing", href: "/dashboard/billing", icon: Wallet },
+  { key: "wallet", href: "/dashboard/wallet", icon: Receipt },
   { key: "profile", href: "/dashboard/profile", icon: User }
 ] as const;
 
