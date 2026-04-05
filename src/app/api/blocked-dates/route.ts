@@ -86,21 +86,18 @@ export async function POST(req: NextRequest) {
     }
 
     // Check for active bookings overlapping the requested dates
-    let bookingQuery = supabase
+    const { data: bookingRows } = await supabase
       .from("bookings")
-      .select("room_id, check_in, check_out, guest_name, status")
+      .select("room_id, check_in, check_out")
       .eq("homestay_id", homestay_id)
-      .in("status", ["pending", "confirmed", "verified"]);
+      .in("status", ["pending", "confirmed", "verified"] as never[]);
 
-    if (room_id) {
-      bookingQuery = bookingQuery.eq("room_id", room_id);
-    }
-
-    const { data: activeBookings } = await bookingQuery;
+    const activeBookings = bookingRows as unknown as { room_id: string | null; check_in: string; check_out: string }[] | null;
 
     if (activeBookings && activeBookings.length > 0) {
       const bookedDates = new Set<string>();
       for (const booking of activeBookings) {
+        if (room_id && booking.room_id !== room_id) continue;
         const bookStart = new Date(booking.check_in);
         const bookEnd = new Date(booking.check_out);
         for (const d of dates) {
