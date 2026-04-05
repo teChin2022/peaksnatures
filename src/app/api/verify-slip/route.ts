@@ -1,120 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { createRateLimiter } from "@/lib/rate-limit";
+import {
+  callEasySlipV2,
+  computeSlipHash,
+  extractVisibleDigits,
+  matchesAccount,
+  MAX_FILE_SIZE,
+  ALLOWED_TYPES,
+  MAX_SLIP_AGE_MS,
+} from "@/lib/easyslip";
 
 const slipRateLimit = createRateLimiter({ limit: 10, windowMs: 60_000 });
-
-// --- EasySlip API V2 Types ---
-
-interface EasySlipV2RawSlip {
-  payload: string;
-  transRef: string;
-  date: string;
-  countryCode: string;
-  amount: {
-    amount: number;
-    local?: { amount: number; currency: string };
-  };
-  fee: number;
-  ref1: string;
-  ref2: string;
-  ref3: string;
-  sender: {
-    bank: { id: string; name: string; short: string };
-    account: {
-      name: { th?: string; en?: string };
-      bank?: { type: string; account: string };
-      proxy?: { type: string; account: string };
-    };
-  };
-  receiver: {
-    bank: { id: string; name: string; short: string };
-    account: {
-      name: { th?: string; en?: string };
-      bank?: { type: string; account: string };
-      proxy?: { type: string; account: string };
-    };
-    merchantId?: string | null;
-  };
-}
-
-interface EasySlipV2Success {
-  success: true;
-  data: {
-    remark?: string;
-    isDuplicate: boolean;
-    matchedAccount: unknown;
-    amountInOrder?: number;
-    amountInSlip: number;
-    isAmountMatched?: boolean;
-    rawSlip: EasySlipV2RawSlip;
-  };
-  message: string;
-}
-
-interface EasySlipV2Error {
-  success: false;
-  error: {
-    code: string;
-    message: string;
-  };
-}
-
-type EasySlipV2Response = EasySlipV2Success | EasySlipV2Error;
-
-// --- Auto-retry config for SLIP_PENDING (Bangkok Bank) ---
-const SLIP_PENDING_MAX_RETRIES = 3;
-const SLIP_PENDING_DELAY_MS = 15_000; // 15 seconds between retries
-
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
-
-/**
- * Call EasySlip V2 /verify/bank with auto-retry for SLIP_PENDING.
- */
-async function callEasySlipV2(
-  fileBuffer: ArrayBuffer,
-  fileName: string,
-  fileType: string,
-  apiKey: string,
-  expectedAmount: number,
-): Promise<EasySlipV2Response> {
-  for (let attempt = 0; attempt <= SLIP_PENDING_MAX_RETRIES; attempt++) {
-    const form = new FormData();
-    form.append("image", new File([fileBuffer], fileName, { type: fileType }));
-    // V2 built-in amount matching
-    if (expectedAmount > 0) {
-      form.append("matchAmount", expectedAmount.toString());
-    }
-    // V2 built-in duplicate detection
-    form.append("checkDuplicate", "true");
-
-    const res = await fetch("https://api.easyslip.com/v2/verify/bank", {
-      method: "POST",
-      headers: { Authorization: `Bearer ${apiKey}` },
-      body: form,
-    });
-
-    const data: EasySlipV2Response = await res.json();
-
-    // If SLIP_PENDING and we have retries left, wait and retry
-    if (
-      !data.success &&
-      data.error.code === "SLIP_PENDING" &&
-      attempt < SLIP_PENDING_MAX_RETRIES
-    ) {
-      console.log(
-        `[Verify] SLIP_PENDING — retry ${attempt + 1}/${SLIP_PENDING_MAX_RETRIES} in ${SLIP_PENDING_DELAY_MS / 1000}s`
-      );
-      await sleep(SLIP_PENDING_DELAY_MS);
-      continue;
-    }
-
-    return data;
-  }
-
-  // Should not reach here, but satisfy TS
-  return { success: false, error: { code: "SLIP_PENDING", message: "Slip still pending after retries" } };
-}
 
 /**
  * Pure slip verification endpoint.
@@ -143,8 +40,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate file size (max 4MB — V2 limit)
-    const MAX_FILE_SIZE = 4 * 1024 * 1024;
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
         { error: "File too large. Maximum size is 4MB." },
@@ -152,8 +47,6 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Validate file type
-    const ALLOWED_TYPES = ["image/jpeg", "image/png", "image/webp", "image/heic", "image/heif"];
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
         { error: "Invalid file type. Only JPEG, PNG, WebP, and HEIC images are allowed." },
@@ -166,10 +59,7 @@ export async function POST(req: NextRequest) {
 
     // Compute file hash for duplicate detection (our own DB-level check)
     const fileBuffer = await file.arrayBuffer();
-    const hashBuffer = await crypto.subtle.digest("SHA-256", fileBuffer);
-    const slipHash = Array.from(new Uint8Array(hashBuffer))
-      .map((b) => b.toString(16).padStart(2, "0"))
-      .join("");
+    const slipHash = await computeSlipHash(fileBuffer);
 
     // Parallel: check both tables for duplicate slip hash
     const [{ data: hashDuplicate }, { data: dcHashDuplicate }] = await Promise.all([
@@ -253,7 +143,6 @@ export async function POST(req: NextRequest) {
     const slipDate = new Date(rawSlip.date);
     const now = new Date();
     const slipAgeMs = now.getTime() - slipDate.getTime();
-    const MAX_SLIP_AGE_MS = 60 * 60 * 1000; // 1 hour
 
     if (slipAgeMs > MAX_SLIP_AGE_MS || slipAgeMs < 0) {
       return NextResponse.json({
@@ -299,24 +188,8 @@ export async function POST(req: NextRequest) {
       expectedBank: expectedReceiverBank,
     });
 
-    // EasySlip masks account numbers (e.g. "xxx-xxx-5198")
-    // Extract only the visible (non-masked) digits for comparison
-    const extractVisibleDigits = (val: string | undefined | null): string =>
-      (val || "").replace(/[^0-9]/g, "");
-
     const expectedDigits = extractVisibleDigits(expectedReceiver);
     const expectedBankDigits = extractVisibleDigits(expectedReceiverBank);
-
-    // Check if expected number ends with the visible digits from EasySlip
-    const matchesAccount = (easyslipVal: string | undefined | null, expected: string): boolean => {
-      if (!easyslipVal || !expected) return false;
-      const visible = extractVisibleDigits(easyslipVal);
-      if (!visible) return false;
-      // If EasySlip returns full number, do exact match; if masked, match substring
-      // EasySlip masks both leading AND trailing digits (e.g. "xxx-x-x1105-x"),
-      // so visible digits may appear in the middle, not just at the end.
-      return expected === visible || expected.includes(visible);
-    };
 
     // Match against promptpay_id (proxy or bank) OR bank_account_number
     const receiverMatch =
@@ -334,7 +207,6 @@ export async function POST(req: NextRequest) {
         payment_slip_url: slipPath,
         payment_slip_signed_url: paymentSlipSignedUrl,
         easyslip_response: easySlipData,
-        // Debug details logged server-side only
         ...(process.env.NODE_ENV === "development" ? {
           debug: {
             expected_receiver: expectedReceiver,

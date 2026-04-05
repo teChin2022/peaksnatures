@@ -254,3 +254,67 @@
   animation: drift 45s ease-in-out infinite reverse;
   opacity: 0.25;
 }
+
+/* ── Dashboard: Organic Luxury utilities ── */
+
+/* Grain texture overlay (SVG noise) */
+.dashboard-grain {
+  position: relative;
+}
+
+.dashboard-grain::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0.03;
+  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+  background-repeat: repeat;
+  background-size: 256px 256px;
+  z-index: 1;
+  mix-blend-mode: multiply;
+}
+
+/* Card hover lift */
+.dashboard-card {
+  transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1),
+              box-shadow 0.4s cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.dashboard-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 30px rgba(47, 93, 80, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+/* Sidebar active glow */
+.sidebar-active-glow {
+  box-shadow: inset 3px 0 0 0 #a89279, 0 0 12px rgba(168, 146, 121, 0.1);
+  background: rgba(168, 146, 121, 0.08);
+}
+
+/* Warm skeleton pulse */
+@keyframes warm-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.4; }
+}
+
+.skeleton-warm {
+  animation: warm-pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  background: linear-gradient(110deg, #f0ebe4 30%, #faf8f5 50%, #f0ebe4 70%);
+  background-size: 200% 100%;
+  border-radius: 4px;
+}
+
+/* Dark sidebar scrollbar */
+.sidebar-dark::-webkit-scrollbar {
+  width: 4px;
+}
+
+.sidebar-dark::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.sidebar-dark::-webkit-scrollbar-thumb {
+  background: rgba(168, 146, 121, 0.3);
+  border-radius: 2px;
+}

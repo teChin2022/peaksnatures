@@ -146,7 +146,7 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: "Failed to check out" }, { status: 500 });
     }
 
-    // Log checkout in background (homestay_id already available from initial fetch)
+    // Log checkout and deduct commission in background
     after(async () => {
       await logEvent({
         homestayId: booking.homestay_id,

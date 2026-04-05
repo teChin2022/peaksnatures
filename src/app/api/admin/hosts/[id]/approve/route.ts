@@ -50,10 +50,18 @@ export async function PATCH(
       return NextResponse.json({ error: "Host is already approved" }, { status: 400 });
     }
 
-    // Update status
+    // Update status + set Free plan expiry to 1 month from now
+    const freeExpiresAt = new Date();
+    freeExpiresAt.setMonth(freeExpiresAt.getMonth() + 1);
+
     const { error: updateError } = await sc
       .from("hosts")
-      .update({ status: "approved", updated_by: adminName } as never)
+      .update({
+        status: "approved",
+        plan_type: "free",
+        plan_free_expires_at: freeExpiresAt.toISOString(),
+        updated_by: adminName,
+      } as never)
       .eq("id", id);
 
     if (updateError) {

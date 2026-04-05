@@ -11,7 +11,9 @@
       "Bash(find /Users/surasak.viv/projects/peaksnature/src -type f \\\\\\(-name *.tsx -o -name *.ts -o -name *.jsx -o -name *.js \\\\\\))",
       "Bash(find /Users/surasak.viv/projects/peaksnature/src -type f \\\\\\(-name *.ts -o -name *.tsx -o -name *.js -o -name *.jsx \\\\\\))",
       "Bash(wc -l /Users/surasak.viv/projects/peaksnature/src/components/ui/*.tsx)",
-      "Bash(npx skills:*)"
+      "Bash(npx skills:*)",
+      "Bash(npx next:*)",
+      "Bash(npx eslint:*)"
     ]
   }
 }

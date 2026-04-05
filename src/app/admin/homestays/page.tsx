@@ -74,13 +74,15 @@ export default function AdminHomestaysPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-center gap-3">
-        <div className="rounded-lg bg-purple-100 p-2">
-          <Home className="h-5 w-5 text-purple-600" />
-        </div>
-        <div>
-          <h1 className="text-xl font-bold text-gray-900">Homestays</h1>
-          <p className="text-sm text-gray-500">{res ? `${res.total} total` : "Loading..."}</p>
+      <div className="mb-6">
+        <p className="text-xs font-medium uppercase tracking-widest text-gray-400 mb-1">
+          {res ? `${res.total} total` : "Loading..."}
+        </p>
+        <div className="flex items-center gap-3">
+          <div className="rounded-lg bg-purple-100 p-2">
+            <Home className="h-5 w-5 text-purple-600" />
+          </div>
+          <h1 className="text-2xl font-serif text-gray-900">Homestays</h1>
         </div>
       </div>
 

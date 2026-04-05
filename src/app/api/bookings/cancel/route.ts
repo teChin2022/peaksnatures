@@ -142,6 +142,9 @@ export async function POST(req: NextRequest) {
         req,
       });
 
+      // No commission refund on guest cancellation — host keeps the payment
+      // Commission is only refunded when host cancels (via update-status route)
+
       try {
         let room = undefined;
         if (booking.room_id) {

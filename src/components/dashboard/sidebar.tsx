@@ -17,6 +17,8 @@ import {
   X,
   BookOpen,
   ClipboardCheck,
+  Wallet,
+  Receipt,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, getInitials } from "@/lib/utils";
@@ -30,8 +32,10 @@ const NAV_ITEMS = [
   { key: "rooms", href: "/dashboard/rooms", icon: BedDouble },
   { key: "bookings", href: "/dashboard/bookings", icon: CalendarDays },
   { key: "calendar", href: "/dashboard/calendar", icon: CalendarCheck },
-  { key: "guide", href: "/dashboard/guide", icon: BookOpen },
   { key: "checkins", href: "/dashboard/checkins", icon: ClipboardCheck },
+  { key: "billing", href: "/dashboard/billing", icon: Wallet },
+  { key: "wallet", href: "/dashboard/wallet", icon: Receipt },
+  { key: "guide", href: "/dashboard/guide", icon: BookOpen },
   { key: "profile", href: "/dashboard/profile", icon: User }
 ] as const;
 
@@ -60,34 +64,23 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 flex h-full flex-col border-r bg-white transition-all duration-300",
+        "fixed left-0 top-0 z-40 flex h-full flex-col border-r border-gray-200/80 bg-white transition-all duration-300",
         collapsed ? "w-16" : "w-60"
       )}
     >
       {/* Brand */}
-      <div className="flex h-14 items-center justify-between border-b px-3">
-        <Link href="/" className="flex items-center gap-2 overflow-hidden">
-          {brandLogo ? (
-            <Image src={brandLogo} alt={brandName} width={24} height={24} className="h-6 w-6 shrink-0 rounded object-cover" />
-          ) : (
-            <div></div>
-            // <div
-            //   className="flex h-6 w-6 shrink-0 items-center justify-center rounded text-[10px] font-bold text-white"
-            //   style={{ backgroundColor: themeColor }}
-            // >
-            //   {getInitials(brandName)}
-            // </div>
-          )}
+      <div className="flex h-14 items-center justify-between border-b border-gray-100 px-3">
+        {/* <Link href="/" className="flex items-center gap-2.5 overflow-hidden"> */}
           {!collapsed && (
-            <span className="whitespace-nowrap font-bold truncate text-brand">
+            <span className="whitespace-nowrap font-semibold truncate text-gray-900">
               {brandName}
             </span>
           )}
-        </Link>
+        {/* </Link> */}
         <Button
           variant="ghost"
           size="icon"
-          className="h-8 w-8 shrink-0"
+          className="h-7 w-7 shrink-0 text-gray-400 hover:text-gray-600"
           onClick={onToggle}
         >
           {collapsed ? (
@@ -99,7 +92,7 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
       </div>
 
       {/* Navigation */}
-      <nav className="flex-1 space-y-1 overflow-y-auto p-2">
+      <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3 scrollbar-hide">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
           const isActive =
@@ -112,14 +105,14 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
               key={item.key}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
                 isActive
-                  ? "bg-brand/5 text-brand"
-                  : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                  ? "bg-brand/8 text-brand"
+                  : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
               )}
               title={collapsed ? t(item.key) : undefined}
             >
-              <Icon className="h-4.5 w-4.5 shrink-0" />
+              <Icon className={cn("h-[18px] w-[18px] shrink-0", isActive ? "text-brand" : "text-gray-400")} />
               {!collapsed && <span className="truncate">{t(item.key)}</span>}
             </Link>
           );
@@ -127,15 +120,15 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
       </nav>
 
       {/* Sign out */}
-      <div className="border-t p-2">
+      <div className="border-t border-gray-100 px-2 py-2">
         <button
           onClick={handleSignOut}
           className={cn(
-            "flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+            "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600"
           )}
           title={collapsed ? ta("signOut") : undefined}
         >
-          <LogOut className="h-4.5 w-4.5 shrink-0" />
+          <LogOut className="h-[18px] w-[18px] shrink-0" />
           {!collapsed && <span className="truncate">{ta("signOut")}</span>}
         </button>
       </div>
@@ -175,31 +168,29 @@ export function MobileSidebar({
     <>
       {/* Backdrop */}
       <div
-        className="fixed inset-0 z-40 bg-black/30 backdrop-blur-sm lg:hidden"
+        className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm lg:hidden"
         onClick={onClose}
       />
 
       {/* Drawer */}
-      <aside className="fixed left-0 top-0 z-50 flex h-full w-60 flex-col border-r bg-white lg:hidden">
-        <div className="flex h-14 items-center justify-between border-b px-3">
-          <Link href="/" className="flex items-center gap-2 overflow-hidden">
+      <aside className="fixed left-0 top-0 z-50 flex h-full w-60 flex-col border-r border-gray-200/80 bg-white lg:hidden">
+        <div className="flex h-14 items-center justify-between border-b border-gray-100 px-3">
+          <Link href="/" className="flex items-center gap-2.5 overflow-hidden">
             {brandLogo ? (
-              <Image src={brandLogo} alt={brandName} width={24} height={24} className="h-6 w-6 shrink-0 rounded object-cover" />
+              <Image src={brandLogo} alt={brandName} width={28} height={28} className="h-7 w-7 shrink-0 rounded-lg object-cover" />
             ) : (
-              <div
-                className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-brand text-[10px] font-bold text-white"
-              >
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-[10px] font-bold text-brand">
                 {getInitials(brandName)}
               </div>
             )}
-            <span className="font-bold truncate text-brand">{brandName}</span>
+            <span className="font-semibold truncate text-gray-900">{brandName}</span>
           </Link>
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={onClose}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-600" onClick={onClose}>
             <X className="h-4 w-4" />
           </Button>
         </div>
 
-        <nav className="flex-1 space-y-1 overflow-y-auto p-2">
+        <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3 scrollbar-hide">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
             const isActive =
@@ -213,25 +204,25 @@ export function MobileSidebar({
                 href={item.href}
                 onClick={onClose}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors",
+                  "flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
                   isActive
-                    ? "bg-brand/5 text-brand"
-                    : "text-gray-600 hover:bg-gray-50 hover:text-gray-900"
+                    ? "bg-brand/8 text-brand"
+                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
                 )}
               >
-                <Icon className="h-4.5 w-4.5 shrink-0" />
+                <Icon className={cn("h-[18px] w-[18px] shrink-0", isActive ? "text-brand" : "text-gray-400")} />
                 <span className="truncate">{t(item.key)}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="border-t p-2">
+        <div className="border-t border-gray-100 px-2 py-2">
           <button
             onClick={handleSignOut}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium text-gray-600 transition-colors hover:bg-gray-50 hover:text-gray-900"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600"
           >
-            <LogOut className="h-4.5 w-4.5 shrink-0" />
+            <LogOut className="h-[18px] w-[18px] shrink-0" />
             <span className="truncate">{ta("signOut")}</span>
           </button>
         </div>

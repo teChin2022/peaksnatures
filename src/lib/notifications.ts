@@ -294,7 +294,7 @@ function truncateForSms(message: string, maxLen: number = 70): string {
   return message.slice(0, maxLen);
 }
 
-async function sendSms(phone: string, message: string): Promise<{ success: boolean; error?: unknown }> {
+export async function sendSms(phone: string, message: string): Promise<{ success: boolean; error?: unknown }> {
   const apiKey = process.env.SMS_KUB_API_KEY;
   const sender = process.env.SMS_KUB_SENDER || "Peaksnature";
 

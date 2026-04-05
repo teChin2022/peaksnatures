@@ -210,6 +210,12 @@ export default async function HomestayPage({ params }: PageProps) {
         logoUrl={homestay.logo_url}
         location={homestay.location}
         hostName={homestay.host.name}
+        socialLinks={{
+          facebook_url: homestay.facebook_url,
+          tiktok_url: homestay.tiktok_url,
+          instagram_url: homestay.instagram_url,
+          line_id: homestay.line_id,
+        }}
       />
 
       {/* <ChatWidget

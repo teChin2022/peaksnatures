@@ -7,6 +7,7 @@ import type { Booking, Homestay, Host, Room, RoomSeasonalPrice } from "@/types/d
 import { calculateTotalPrice } from "@/lib/calculate-price";
 import { getDepositForMonth } from "@/lib/get-deposit";
 import { logEvent, EventType } from "@/lib/history-log";
+import { deductCommission } from "@/lib/billing";
 
 const bookingSchema = z.object({
   homestay_id: z.string().uuid(),
@@ -276,6 +277,9 @@ export async function POST(req: NextRequest) {
           req,
         });
         await sendNotifications(bookingId as string, supabase, data.locale || "th", data.easyslip_verified);
+        if (data.easyslip_verified) {
+          await deductCommission(bookingId as string);
+        }
       });
 
       return NextResponse.json({ booking }, { status: 201 });
@@ -330,6 +334,9 @@ export async function POST(req: NextRequest) {
         req,
       });
       await sendNotifications((booking as unknown as Booking).id, supabase, data.locale || "th", data.easyslip_verified);
+      if (data.easyslip_verified) {
+        await deductCommission((booking as unknown as Booking).id);
+      }
     });
 
     return NextResponse.json({ booking }, { status: 201 });

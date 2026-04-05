@@ -4,6 +4,7 @@ import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supab
 import { sendDateChangeEmailToGuest } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room } from "@/types/database";
 import { logEvent, EventType } from "@/lib/history-log";
+import { deductCommission, refundCommission } from "@/lib/billing";
 
 export async function POST(req: NextRequest) {
   try {
@@ -141,6 +142,10 @@ export async function POST(req: NextRequest) {
         },
         req,
       });
+
+      // Recalculate commission: refund old amount, deduct new based on updated total_price
+      await refundCommission(booking.id);
+      await deductCommission(booking.id);
 
       try {
         let room = undefined;
