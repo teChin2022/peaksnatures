@@ -54,6 +54,68 @@ export async function POST(req: NextRequest) {
 
     const hostName = hsJoined.hosts.name;
 
+    // Check for active booking holds overlapping the requested dates
+    const { data: activeHolds } = await supabase
+      .from("booking_holds")
+      .select("room_id, check_in, check_out")
+      .gt("expires_at", new Date().toISOString());
+
+    if (activeHolds && activeHolds.length > 0) {
+      const heldDates = new Set<string>();
+      for (const hold of activeHolds) {
+        // If blocking a specific room, only check holds for that room
+        if (room_id && hold.room_id !== room_id) continue;
+        // Collect held dates that overlap with requested block dates
+        const holdStart = new Date(hold.check_in);
+        const holdEnd = new Date(hold.check_out);
+        for (const d of dates) {
+          const date = new Date(d);
+          if (date >= holdStart && date < holdEnd) {
+            heldDates.add(d);
+          }
+        }
+      }
+      if (heldDates.size > 0) {
+        return NextResponse.json(
+          { error: "DATES_HELD", dates: Array.from(heldDates) },
+          { status: 409 }
+        );
+      }
+    }
+
+    // Check for active bookings overlapping the requested dates
+    let bookingQuery = supabase
+      .from("bookings")
+      .select("room_id, check_in, check_out, guest_name, status")
+      .eq("homestay_id", homestay_id)
+      .in("status", ["pending", "confirmed", "verified"]);
+
+    if (room_id) {
+      bookingQuery = bookingQuery.eq("room_id", room_id);
+    }
+
+    const { data: activeBookings } = await bookingQuery;
+
+    if (activeBookings && activeBookings.length > 0) {
+      const bookedDates = new Set<string>();
+      for (const booking of activeBookings) {
+        const bookStart = new Date(booking.check_in);
+        const bookEnd = new Date(booking.check_out);
+        for (const d of dates) {
+          const date = new Date(d);
+          if (date >= bookStart && date < bookEnd) {
+            bookedDates.add(d);
+          }
+        }
+      }
+      if (bookedDates.size > 0) {
+        return NextResponse.json(
+          { error: "DATES_BOOKED", dates: Array.from(bookedDates) },
+          { status: 409 }
+        );
+      }
+    }
+
     // Insert blocked dates (upsert to avoid duplicates)
     const rows = dates.map((date: string) => ({
       homestay_id,

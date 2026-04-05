@@ -371,7 +371,20 @@ export default function CalendarPage() {
         }),
       });
 
-      if (!res.ok) throw new Error("Failed to block dates");
+      if (!res.ok) {
+        const errData = await res.json().catch(() => null);
+        if (errData?.error === "DATES_HELD") {
+          toast.error(t("errorDatesHeld"));
+          setSaving(false);
+          return;
+        }
+        if (errData?.error === "DATES_BOOKED") {
+          toast.error(t("errorDatesBooked"));
+          setSaving(false);
+          return;
+        }
+        throw new Error("Failed to block dates");
+      }
 
       const { blocked } = await res.json();
       setBlockedDates((prev) => [...prev, ...(blocked as BlockedDateRow[])]);

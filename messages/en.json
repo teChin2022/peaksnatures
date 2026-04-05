@@ -788,6 +788,8 @@
     "blockSuccess": "Dates blocked successfully",
     "unblockSuccess": "Dates unblocked successfully",
     "errorBlock": "Failed to update blocked dates",
+    "errorDatesHeld": "Cannot block — a guest is currently in the process of booking these dates",
+    "errorDatesBooked": "Cannot block — there are active bookings on these dates",
     "noHomestay": "Please create a homestay first.",
     "legendBooked": "Booked",
     "legendPending": "Pending",
