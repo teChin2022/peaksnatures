@@ -56,13 +56,15 @@ export async function POST(req: NextRequest) {
 
     // Check for active booking holds overlapping the requested dates
     const { data: activeHolds } = await supabase
-      .from("booking_holds")
+      .from("booking_holds" as never)
       .select("room_id, check_in, check_out")
       .gt("expires_at", new Date().toISOString());
 
-    if (activeHolds && activeHolds.length > 0) {
+    const holds = activeHolds as unknown as { room_id: string; check_in: string; check_out: string }[] | null;
+
+    if (holds && holds.length > 0) {
       const heldDates = new Set<string>();
-      for (const hold of activeHolds) {
+      for (const hold of holds) {
         // If blocking a specific room, only check holds for that room
         if (room_id && hold.room_id !== room_id) continue;
         // Collect held dates that overlap with requested block dates
