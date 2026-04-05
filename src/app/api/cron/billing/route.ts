@@ -171,16 +171,17 @@ export async function POST(req: NextRequest) {
       // ============================================================
       const { data: fixedRateHosts } = await supabase
         .from("hosts")
-        .select("id, fixed_rate_override, name")
+        .select("id, fixed_rate_override, name, phone, notification_preference, line_channel_access_token, line_user_id")
         .eq("plan_type", "fixed_rate")
         .eq("status", "approved");
 
       const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
       const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
-      const dueDate = new Date(now.getFullYear(), now.getMonth(), 15).toISOString().split("T")[0];
+      const dueDate = new Date(now.getFullYear(), now.getMonth(), 5).toISOString().split("T")[0];
 
       let invoiceCount = 0;
-      for (const host of (fixedRateHosts || []) as { id: string; fixed_rate_override: number | null; name: string }[]) {
+      let invoiceNotifications = 0;
+      for (const host of (fixedRateHosts || []) as { id: string; fixed_rate_override: number | null; name: string; phone: string | null; notification_preference: string | null; line_channel_access_token: string | null; line_user_id: string | null }[]) {
         const { data: existing } = await supabase
           .from("invoices")
           .select("id")
@@ -220,9 +221,42 @@ export async function POST(req: NextRequest) {
             actorId: null,
             data: { amount, period_start: periodStart, period_end: periodEnd },
           });
+
+          // Send payment reminder SMS/LINE
+          const message = `ใบแจ้งหนี้ประจำเดือน ฿${amount.toLocaleString()} ครบกำหนดชำระภายในวันที่ 5 กรุณาเข้าระบบเพื่อชำระเงิน`;
+          try {
+            const preference = host.notification_preference || "sms";
+            let sent = false;
+
+            if (preference === "line" && host.line_channel_access_token && host.line_user_id) {
+              const response = await fetch("https://api.line.me/v2/bot/message/push", {
+                method: "POST",
+                headers: {
+                  "Content-Type": "application/json",
+                  Authorization: `Bearer ${host.line_channel_access_token}`,
+                },
+                body: JSON.stringify({
+                  to: host.line_user_id,
+                  messages: [{ type: "text", text: message }],
+                }),
+              });
+              sent = response.ok;
+            }
+
+            if (!sent && host.phone) {
+              const { sendSms } = await import("@/lib/notifications");
+              const result = await sendSms(host.phone, message);
+              sent = result.success;
+            }
+
+            if (sent) invoiceNotifications++;
+          } catch (err) {
+            console.error("[Cron] Invoice reminder error for host:", host.id, err);
+          }
         }
       }
       results.invoices_created = invoiceCount;
+      results.invoice_notifications = invoiceNotifications;
     }
 
     return NextResponse.json({ success: true, is_first_of_month: isFirstOfMonth, results });
