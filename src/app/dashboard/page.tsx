@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Skeleton } from "@/components/ui/skeleton";
 import { SetupProfileModal } from "@/components/setup-profile-modal";
 import { getProvinceLabel } from "@/lib/provinces";
 import { QRCodeSVG } from "qrcode.react";
@@ -39,10 +40,10 @@ interface Stats {
   homestaySlug: string | null;
 }
 
-const DOT_COLORS = [
-  "bg-brand", "bg-earth-400", "bg-emerald-500",
-  "bg-amber-500", "bg-teal-600", "bg-earth-600",
-  "bg-green-600", "bg-yellow-600", "bg-lime-600", "bg-earth-500",
+const BAR_COLORS = [
+  "bg-brand", "bg-emerald-500", "bg-sky-500",
+  "bg-amber-500", "bg-violet-500", "bg-teal-500",
+  "bg-rose-400", "bg-indigo-500", "bg-lime-500", "bg-cyan-500",
 ];
 
 export default function DashboardPage() {
@@ -169,69 +170,63 @@ export default function DashboardPage() {
       )}
 
       {loading ? (
-        /* ── Loading skeletons (warm theme) ── */
+        /* ── Loading skeletons ── */
         <div className="space-y-6">
-          {/* Title skeleton */}
           <div className="space-y-2">
-            <div className="h-3 w-24 rounded skeleton-warm" />
-            <div className="h-7 w-48 rounded-lg skeleton-warm" />
+            <Skeleton className="h-3 w-28" />
+            <Skeleton className="h-7 w-48" />
           </div>
-          {/* Hero skeleton */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="md:col-span-2">
-              <div className="rounded-2xl bg-earth-100/50 p-8 space-y-3">
-                <div className="h-3 w-20 rounded skeleton-warm" />
-                <div className="h-14 w-52 rounded-lg skeleton-warm" />
-                <div className="h-3 w-32 rounded skeleton-warm" />
-              </div>
-            </div>
+            <Card className="md:col-span-2 border border-gray-100">
+              <CardContent className="p-8 space-y-3">
+                <Skeleton className="h-3 w-20" />
+                <Skeleton className="h-12 w-48" />
+                <Skeleton className="h-3 w-32" />
+              </CardContent>
+            </Card>
             <div className="flex flex-col gap-4">
               {[1, 2].map((i) => (
-                <div key={i} className="flex-1 rounded-2xl bg-earth-100/50 p-5 flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-xl skeleton-warm" />
-                  <div className="space-y-2">
-                    <div className="h-3 w-16 rounded skeleton-warm" />
-                    <div className="h-6 w-10 rounded skeleton-warm" />
-                  </div>
-                </div>
+                <Card key={i} className="flex-1 border border-gray-100">
+                  <CardContent className="p-5 flex items-center gap-4">
+                    <Skeleton className="h-10 w-10 rounded-xl" />
+                    <div className="space-y-2">
+                      <Skeleton className="h-3 w-16" />
+                      <Skeleton className="h-6 w-10" />
+                    </div>
+                  </CardContent>
+                </Card>
               ))}
             </div>
           </div>
-          {/* Quick links skeleton */}
           <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
             {[1, 2].map((i) => (
-              <div key={i} className="rounded-2xl bg-earth-100/50 p-5">
-                <div className="flex items-center justify-between">
+              <Card key={i} className="border border-gray-100">
+                <CardContent className="p-5">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl skeleton-warm" />
+                    <Skeleton className="h-10 w-10 rounded-xl" />
                     <div className="space-y-2">
-                      <div className="h-4 w-24 rounded skeleton-warm" />
-                      <div className="h-3 w-16 rounded skeleton-warm" />
+                      <Skeleton className="h-4 w-24" />
+                      <Skeleton className="h-3 w-16" />
                     </div>
                   </div>
-                  <div className="h-8 w-8 rounded skeleton-warm" />
-                </div>
-              </div>
+                </CardContent>
+              </Card>
             ))}
           </div>
-          {/* Province skeleton */}
-          <div className="rounded-2xl bg-earth-100/50 p-6">
-            <div className="h-5 w-40 rounded skeleton-warm mb-4" />
-            <div className="space-y-3">
-              {[1, 2, 3, 4].map((i) => (
+          <Card className="border border-gray-100">
+            <CardContent className="p-6 space-y-3">
+              <Skeleton className="h-5 w-40" />
+              {[1, 2, 3].map((i) => (
                 <div key={i} className="flex items-center gap-3">
-                  <div className="h-2.5 w-2.5 rounded-full skeleton-warm" />
+                  <Skeleton className="h-2 w-2 rounded-full" />
                   <div className="flex-1 space-y-1.5">
-                    <div className="flex justify-between">
-                      <div className="h-4 w-24 rounded skeleton-warm" />
-                      <div className="h-3 w-6 rounded skeleton-warm" />
-                    </div>
-                    <div className="h-1 w-full rounded-full skeleton-warm" />
+                    <Skeleton className="h-4 w-full" />
+                    <Skeleton className="h-1.5 w-full" />
                   </div>
                 </div>
               ))}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
       ) : (
         <div className="space-y-6">
@@ -241,14 +236,12 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
           >
-            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-earth-400 mb-1">
+            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-gray-400 mb-0.5">
               {ta("hostDashboard")}
             </p>
-            {stats.homestayName && (
-              <h1 className="text-2xl font-serif text-earth-900 tracking-tight">
-                {stats.homestayName}
-              </h1>
-            )}
+            <h1 className="text-xl font-bold text-gray-900">
+              {stats.homestayName || ta("hostDashboard")}
+            </h1>
           </motion.div>
 
           {/* ── Hero Stats ── */}
@@ -260,19 +253,18 @@ export default function DashboardPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.1 }}
             >
-              <Card className="overflow-hidden border-0 shadow-lg rounded-2xl">
-                <div className="relative px-7 py-8 bg-gradient-to-br from-brand-50/80 via-white to-earth-50/60">
-                  {/* Decorative circles */}
-                  <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-brand opacity-[0.07]" />
-                  <div className="absolute right-16 -bottom-6 h-20 w-20 rounded-full bg-brand opacity-[0.05]" />
+              <Card className="overflow-hidden border border-gray-100 shadow-sm rounded-2xl">
+                <div className="relative px-6 py-7 bg-gradient-to-br from-brand-50/60 via-white to-white">
+                  <div className="absolute -right-6 -top-6 h-28 w-28 rounded-full bg-brand/5" />
+                  <div className="absolute right-14 -bottom-4 h-16 w-16 rounded-full bg-brand/[0.03]" />
                   <div className="relative">
-                    <p className="text-xs font-semibold uppercase tracking-[0.15em] text-earth-400 mb-1">
+                    <p className="text-xs font-medium uppercase tracking-wider text-gray-400 mb-1">
                       {t("totalRevenue")}
                     </p>
-                    <span className="text-5xl sm:text-6xl font-serif tracking-tight leading-none text-gray-900">
+                    <span className="text-4xl sm:text-5xl font-bold tracking-tight leading-none text-gray-900">
                       ฿{stats.totalRevenue.toLocaleString()}
                     </span>
-                    <p className="text-xs text-earth-400 mt-2">
+                    <p className="text-xs text-gray-400 mt-2">
                       {stats.totalBookings} {t("total")}
                     </p>
                   </div>
@@ -287,32 +279,32 @@ export default function DashboardPage() {
               transition={{ duration: 0.5, delay: 0.2 }}
               className="flex flex-col gap-4"
             >
-              <Card className="flex-1 border-0 shadow-md rounded-2xl dashboard-card">
+              <Card className="flex-1 border border-gray-100 shadow-sm rounded-2xl dashboard-card">
                 <CardContent className="p-5 flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
-                    <CheckCircle2 className="h-4.5 w-4.5 text-emerald-600" />
+                  <div className="h-10 w-10 rounded-xl bg-emerald-50 flex items-center justify-center shrink-0">
+                    <CheckCircle2 className="h-[18px] w-[18px] text-emerald-500" />
                   </div>
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-earth-400">
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">
                       {t("confirmed")}
                     </p>
-                    <p className="text-xl font-serif text-gray-900 leading-tight">
+                    <p className="text-2xl font-bold text-gray-900 leading-tight">
                       {stats.confirmed}
                     </p>
                   </div>
                 </CardContent>
               </Card>
 
-              <Card className="flex-1 border-0 shadow-md rounded-2xl dashboard-card">
+              <Card className="flex-1 border border-gray-100 shadow-sm rounded-2xl dashboard-card">
                 <CardContent className="p-5 flex items-center gap-4">
-                  <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
-                    <AlertTriangle className="h-4.5 w-4.5 text-amber-600" />
+                  <div className="h-10 w-10 rounded-xl bg-amber-50 flex items-center justify-center shrink-0">
+                    <AlertTriangle className="h-[18px] w-[18px] text-amber-500" />
                   </div>
                   <div>
-                    <p className="text-[11px] font-semibold uppercase tracking-wider text-earth-400">
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-gray-400">
                       {t("needsReview")}
                     </p>
-                    <p className="text-xl font-serif text-gray-900 leading-tight">
+                    <p className="text-2xl font-bold text-gray-900 leading-tight">
                       {stats.pending}
                     </p>
                   </div>
@@ -328,22 +320,22 @@ export default function DashboardPage() {
             transition={{ duration: 0.5, delay: 0.3 }}
             className="grid grid-cols-1 gap-4 sm:grid-cols-2"
           >
-            <Card className="border-0 shadow-md rounded-2xl dashboard-card">
+            <Card className="border border-gray-100 shadow-sm rounded-2xl dashboard-card">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-violet-50 border border-violet-100 flex items-center justify-center shrink-0">
-                      <CalendarDays className="h-4.5 w-4.5 text-violet-600" />
+                    <div className="h-10 w-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
+                      <CalendarDays className="h-[18px] w-[18px] text-violet-500" />
                     </div>
                     <div>
-                      <p className="font-medium text-earth-900">{tn("bookings")}</p>
-                      <p className="text-sm text-earth-400">
+                      <p className="font-medium text-gray-900">{tn("bookings")}</p>
+                      <p className="text-sm text-gray-400">
                         {stats.totalBookings} {t("total")}
                       </p>
                     </div>
                   </div>
                   <Link href="/dashboard/bookings">
-                    <Button variant="ghost" size="sm" className="text-earth-400 hover:text-brand">
+                    <Button variant="ghost" size="sm" className="text-gray-300 hover:text-brand">
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
@@ -351,25 +343,25 @@ export default function DashboardPage() {
               </CardContent>
             </Card>
 
-            <Card className="border-0 shadow-md rounded-2xl dashboard-card">
+            <Card className="border border-gray-100 shadow-sm rounded-2xl dashboard-card">
               <CardContent className="p-5">
                 <div className="flex items-center justify-between">
                   <div className="flex items-center gap-3">
-                    <div className="h-10 w-10 rounded-xl bg-orange-50 border border-orange-100 flex items-center justify-center shrink-0">
-                      <Home className="h-4.5 w-4.5 text-orange-600" />
+                    <div className="h-10 w-10 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
+                      <Home className="h-[18px] w-[18px] text-orange-500" />
                     </div>
                     <div>
-                      <p className="font-medium text-earth-900">
+                      <p className="font-medium text-gray-900">
                         {stats.homestayName || tn("homestay")}
                       </p>
-                      <p className="text-sm text-earth-400">
+                      <p className="text-sm text-gray-400">
                         <BedDouble className="mr-1 inline h-3.5 w-3.5" />
                         {stats.roomCount} {tn("rooms")}
                       </p>
                     </div>
                   </div>
                   <Link href="/dashboard/homestay">
-                    <Button variant="ghost" size="sm" className="text-earth-400 hover:text-brand">
+                    <Button variant="ghost" size="sm" className="text-gray-300 hover:text-brand">
                       <ArrowRight className="h-4 w-4" />
                     </Button>
                   </Link>
@@ -385,9 +377,9 @@ export default function DashboardPage() {
               animate={{ opacity: 1, y: 0 }}
               transition={{ duration: 0.5, delay: 0.4 }}
             >
-              <Card className="border-0 shadow-md rounded-2xl overflow-hidden">
-                <div className="flex flex-col sm:flex-row items-center gap-6 p-6 bg-gradient-to-r from-brand-50/40 to-transparent">
-                  <div className="shrink-0 rounded-2xl bg-white p-4 shadow-sm ring-1 ring-earth-100">
+              <Card className="border border-gray-100 shadow-sm rounded-2xl overflow-hidden">
+                <div className="flex flex-col sm:flex-row items-center gap-6 p-6">
+                  <div className="shrink-0 rounded-xl bg-gray-50 p-4">
                     <QRCodeSVG
                       id="checkin-qr"
                       value={`${typeof window !== "undefined" ? window.location.origin : ""}/${stats.homestaySlug}`}
@@ -397,12 +389,12 @@ export default function DashboardPage() {
                     />
                   </div>
                   <div className="flex flex-col gap-2 text-center sm:text-left">
-                    <h3 className="font-serif text-lg text-earth-900 flex items-center gap-2 justify-center sm:justify-start">
+                    <h3 className="font-semibold text-gray-900 flex items-center gap-2 justify-center sm:justify-start">
                       <QrCode className="h-4 w-4 text-brand" />
                       {t("qrCodeTitle")}
                     </h3>
-                    <p className="text-sm text-earth-500 leading-relaxed">{t("qrCodeDesc")}</p>
-                    <ol className="text-xs text-earth-400 space-y-0.5 list-decimal list-inside">
+                    <p className="text-sm text-gray-500 leading-relaxed">{t("qrCodeDesc")}</p>
+                    <ol className="text-xs text-gray-400 space-y-0.5 list-decimal list-inside">
                       <li>{t("qrStep1")}</li>
                       <li>{t("qrStep2")}</li>
                       <li>{t("qrStep3")}</li>
@@ -410,7 +402,7 @@ export default function DashboardPage() {
                     <Button
                       variant="outline"
                       size="sm"
-                      className="mt-2 w-fit self-center sm:self-start rounded-full border-earth-200 text-earth-600 hover:bg-earth-50"
+                      className="mt-2 w-fit self-center sm:self-start rounded-full"
                       onClick={() => {
                         const svg = document.getElementById("checkin-qr");
                         if (!svg) return;
@@ -445,37 +437,37 @@ export default function DashboardPage() {
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.5, delay: 0.5 }}
           >
-            <Card className="border-0 shadow-md rounded-2xl">
+            <Card className="border border-gray-100 shadow-sm rounded-2xl">
               <CardHeader className="pb-3 px-6 pt-6">
-                <CardTitle className="flex items-center gap-2 text-base font-serif text-earth-900">
+                <CardTitle className="flex items-center gap-2 text-sm font-semibold text-gray-900">
                   <MapPin className="h-4 w-4 text-brand" />
                   {t("provinceStats")}
                 </CardTitle>
               </CardHeader>
               <CardContent className="px-6 pb-6">
                 {provinceStats.length === 0 ? (
-                  <p className="text-sm text-earth-300">{t("noProvinceData")}</p>
+                  <p className="text-sm text-gray-400">{t("noProvinceData")}</p>
                 ) : (
                   <div className="space-y-3">
                     {provinceStats.slice(0, 10).map((ps, i) => {
                       const maxCount = provinceStats[0].count;
                       const pct = Math.round((ps.count / maxCount) * 100);
-                      const dotColor = DOT_COLORS[i % DOT_COLORS.length];
+                      const barColor = BAR_COLORS[i % BAR_COLORS.length];
                       return (
                         <div key={ps.province} className="flex items-center gap-3 text-sm">
-                          <span className={`h-2.5 w-2.5 rounded-full shrink-0 ${dotColor}`} />
+                          <span className={`h-2 w-2 rounded-full shrink-0 ${barColor}`} />
                           <div className="flex-1 min-w-0">
                             <div className="flex items-center justify-between mb-1">
-                              <span className="font-medium text-earth-700 truncate">
+                              <span className="font-medium text-gray-700 truncate">
                                 {getProvinceLabel(ps.province, locale)}
                               </span>
-                              <span className="text-xs font-medium text-earth-400 ml-2 tabular-nums">
+                              <span className="text-xs text-gray-400 ml-2 tabular-nums">
                                 {ps.count}
                               </span>
                             </div>
-                            <div className="h-1 w-full rounded-full bg-earth-100">
+                            <div className="h-1.5 w-full rounded-full bg-gray-100">
                               <motion.div
-                                className={`h-1 rounded-full ${dotColor}`}
+                                className={`h-1.5 rounded-full ${barColor}`}
                                 initial={{ width: 0 }}
                                 animate={{ width: `${pct}%` }}
                                 transition={{ duration: 0.6, delay: 0.6 + i * 0.05, ease: "easeOut" }}
