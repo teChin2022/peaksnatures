@@ -81,10 +81,10 @@ interface TransactionRow {
   created_at: string;
 }
 
-const PLAN_LABELS: Record<string, string> = {
-  free: "Free",
-  commission: "Commission",
-  fixed_rate: "Fixed Rate",
+const PLAN_LABEL_KEYS: Record<string, string> = {
+  free: "freePlan",
+  commission: "commissionPlan",
+  fixed_rate: "fixedRatePlan",
 };
 
 function PlanIcon({ type, className }: { type: string; className?: string }) {
@@ -172,6 +172,7 @@ function getPlanPrice(key: string, data: BillingData): { price: string; period: 
 export default function DashboardBillingPage() {
   const t = useTranslations("billing");
   const locale = useLocale();
+  const planLabel = (key: string) => t(PLAN_LABEL_KEYS[key] || "freePlan");
   const [data, setData] = useState<BillingData | null>(null);
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
@@ -405,7 +406,7 @@ export default function DashboardBillingPage() {
                 <Clock className="h-4 w-4 shrink-0" />
                 <span>
                   {t("pendingSwitch")}{" "}
-                  <strong>{PLAN_LABELS[data.plan_pending_type]}</strong>{" "}
+                  <strong>{planLabel(data.plan_pending_type)}</strong>{" "}
                   {t("effectiveOn")}{" "}
                   {data.plan_pending_effective_at && fmtDateStr(data.plan_pending_effective_at, "d MMM yyyy", locale)}
                 </span>
@@ -468,7 +469,7 @@ export default function DashboardBillingPage() {
                   {plan.icon}
                 </div>
                 <h3 className="text-xl font-serif font-bold text-gray-900 mb-1">
-                  {PLAN_LABELS[plan.key]}
+                  {planLabel(plan.key)}
                 </h3>
                 <p className="text-earth-500 text-sm min-h-[36px]">
                   {plan.key === "free" && (locale === "th" ? "เหมาะสำหรับเริ่มต้นทดลองใช้งาน" : "Perfect for getting started and testing the waters.")}
@@ -519,7 +520,7 @@ export default function DashboardBillingPage() {
                       : "bg-earth-50 text-earth-800 hover:bg-earth-100"
                   }`}
                 >
-                  {locale === "th" ? `เปลี่ยนเป็น${PLAN_LABELS[plan.key]}` : `Switch to ${PLAN_LABELS[plan.key]}`}
+                  {t("switchToPlan", { plan: planLabel(plan.key) })}
                   <ArrowRight className="w-4 h-4 ml-2" />
                 </button>
               )}
@@ -741,7 +742,7 @@ export default function DashboardBillingPage() {
               <DialogHeader>
                 <DialogTitle>{t("switchConfirmTitle")}</DialogTitle>
                 <DialogDescription>
-                  {t("switchConfirmDesc", { plan: PLAN_LABELS[confirmDialog.planType || ""] || confirmDialog.planType || "" })}
+                  {t("switchConfirmDesc", { plan: planLabel(confirmDialog.planType || "") })}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="gap-2 sm:gap-0">
@@ -764,7 +765,7 @@ export default function DashboardBillingPage() {
               <DialogHeader>
                 <DialogTitle>{t("cancelSwitchTitle")}</DialogTitle>
                 <DialogDescription>
-                  {t("cancelSwitchDesc", { plan: PLAN_LABELS[confirmDialog.planType || ""] || confirmDialog.planType || "" })}
+                  {t("cancelSwitchDesc", { plan: planLabel(confirmDialog.planType || "") })}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter className="gap-2 sm:gap-0">
