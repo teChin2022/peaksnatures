@@ -32,10 +32,10 @@ const NAV_ITEMS = [
   { key: "rooms", href: "/dashboard/rooms", icon: BedDouble },
   { key: "bookings", href: "/dashboard/bookings", icon: CalendarDays },
   { key: "calendar", href: "/dashboard/calendar", icon: CalendarCheck },
-  { key: "guide", href: "/dashboard/guide", icon: BookOpen },
   { key: "checkins", href: "/dashboard/checkins", icon: ClipboardCheck },
   { key: "billing", href: "/dashboard/billing", icon: Wallet },
   { key: "wallet", href: "/dashboard/wallet", icon: Receipt },
+  { key: "guide", href: "/dashboard/guide", icon: BookOpen },
   { key: "profile", href: "/dashboard/profile", icon: User }
 ] as const;
 
