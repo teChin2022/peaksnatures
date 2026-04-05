@@ -70,20 +70,13 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
     >
       {/* Brand */}
       <div className="flex h-14 items-center justify-between border-b border-gray-100 px-3">
-        <Link href="/" className="flex items-center gap-2.5 overflow-hidden">
-          {brandLogo ? (
-            <Image src={brandLogo} alt={brandName} width={28} height={28} className="h-7 w-7 shrink-0 rounded-lg object-cover" />
-          ) : (
-            <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-[10px] font-bold text-brand">
-              {getInitials(brandName)}
-            </div>
-          )}
+        {/* <Link href="/" className="flex items-center gap-2.5 overflow-hidden"> */}
           {!collapsed && (
             <span className="whitespace-nowrap font-semibold truncate text-gray-900">
               {brandName}
             </span>
           )}
-        </Link>
+        {/* </Link> */}
         <Button
           variant="ghost"
           size="icon"
