@@ -52,7 +52,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-gray-50">
+    <div className="min-h-screen bg-earth-50">
       {/* Desktop sidebar */}
       <div className="hidden lg:block">
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} brandName={brandName} brandLogo={brandLogo} />
@@ -69,28 +69,28 @@ export function DashboardShell({ children }: DashboardShellProps) {
         )}
       >
         {/* Mobile header */}
-        <header className="sticky top-0 z-30 flex h-14 items-center border-b bg-white px-4 lg:hidden">
+        <header className="sticky top-0 z-30 flex h-14 items-center border-b border-earth-200/60 bg-earth-50/80 backdrop-blur-md px-4 lg:hidden">
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8"
+            className="h-8 w-8 text-earth-600 hover:text-earth-800"
             onClick={() => setMobileOpen(true)}
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="ml-3 text-sm font-medium text-gray-600">
+          <span className="ml-3 text-sm font-medium text-earth-700 font-serif">
             {brandName}
           </span>
         </header>
 
-        <main className="p-4 sm:p-6">
+        <main className="p-4 sm:p-6 lg:p-8">
           {children}
         </main>
       </div>
 
       {/* Blur overlay for pending approval */}
       {isPending && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-earth-50/70 backdrop-blur-sm">
           <div className="pointer-events-auto">
             {children}
           </div>
