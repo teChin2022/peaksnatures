@@ -52,7 +52,7 @@ export async function POST(req: NextRequest) {
           const { sendSms } = await import("@/lib/notifications");
           await sendSms(
             host.phone,
-            `[Peaksnature] แพลนฟรีของคุณจะหมดอายุพรุ่งนี้ กรุณาเข้าระบบเพื่อเปลี่ยนแพลน / Your free plan expires tomorrow. Please switch to a paid plan.`,
+            `แพลนฟรีของคุณจะหมดอายุพรุ่งนี้ กรุณาเข้าระบบเพื่อเปลี่ยนแพลน`,
           );
           preExpiryNotifications++;
         } catch (err) {
@@ -80,7 +80,7 @@ export async function POST(req: NextRequest) {
           const { sendSms } = await import("@/lib/notifications");
           await sendSms(
             host.phone,
-            `[Peaksnature] แพลนฟรีหมดอายุแล้ว กรุณาเข้าระบบเพื่อเปลี่ยนแพลน / Your free plan has expired. Please switch to a paid plan.`,
+            `แพลนฟรีหมดอายุแล้ว กรุณาเข้าระบบเพื่อเปลี่ยนแพลน`,
           );
           expiryNotifications++;
         } catch (err) {

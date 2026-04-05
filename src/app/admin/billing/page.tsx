@@ -235,7 +235,7 @@ export default function AdminBillingPage() {
               Mark invoice for <strong>{confirmAction?.hostName}</strong> as {confirmAction?.status}?
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter>
             <Button variant="outline" onClick={() => setConfirmAction(null)}>Cancel</Button>
             <Button
               onClick={() => confirmAction && handleMarkStatus(confirmAction.invoiceId, confirmAction.status)}

@@ -548,7 +548,7 @@ export default function AdminHostsPage() {
               Approve <strong>{dialog?.type === "approve" ? dialog.hostName : ""}</strong> to start using the platform?
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter>
             <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
             <Button
               onClick={() => dialog?.type === "approve" && handleApprove(dialog.hostId)}
@@ -571,7 +571,7 @@ export default function AdminHostsPage() {
               Reject and delete <strong>{dialog?.type === "reject" ? dialog.hostName : ""}</strong>? This will send a rejection email and permanently delete their account.
             </DialogDescription>
           </DialogHeader>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter>
             <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
             <Button
               variant="destructive"
@@ -653,7 +653,7 @@ export default function AdminHostsPage() {
               </div>
             )}
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter>
             <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
             <Button onClick={handleSetPlan} disabled={actionLoading !== null} className="bg-slate-900 hover:bg-slate-800">
               {actionLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
@@ -698,7 +698,7 @@ export default function AdminHostsPage() {
               />
             </div>
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter>
             <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
             <Button onClick={handleRateOverride} disabled={actionLoading !== null} className="bg-slate-900 hover:bg-slate-800">
               {actionLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
@@ -738,7 +738,7 @@ export default function AdminHostsPage() {
               />
             </div>
           </div>
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter>
             <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
             <Button
               onClick={handleWalletAdjust}

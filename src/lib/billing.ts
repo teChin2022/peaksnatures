@@ -82,11 +82,21 @@ export async function deductCommission(bookingId: string): Promise<void> {
 
     const { data: hostRow, error: hostError } = await supabase
       .from("hosts")
-      .select("id, plan_type, commission_pct_override, wallet_balance, name, phone, notification_preference")
+      .select("id, plan_type, commission_pct_override, wallet_balance, name, phone, notification_preference, line_channel_access_token, line_user_id")
       .eq("id", homestay.host_id)
       .single();
 
-    const host = hostRow as { id: string; plan_type: string; commission_pct_override: number | null; wallet_balance: number; name: string } | null;
+    const host = hostRow as {
+      id: string;
+      plan_type: string;
+      commission_pct_override: number | null;
+      wallet_balance: number;
+      name: string;
+      phone: string | null;
+      notification_preference: string | null;
+      line_channel_access_token: string | null;
+      line_user_id: string | null;
+    } | null;
     if (hostError || !host) {
       console.error("[Billing] Host not found for homestay:", homestay.host_id);
       return;
@@ -173,6 +183,11 @@ export async function deductCommission(bookingId: string): Promise<void> {
         new_balance: newBalance,
       },
     });
+
+    // Notify host if wallet balance went negative
+    if (newBalance < 0) {
+      await notifyNegativeBalance(host, newBalance);
+    }
   } catch (error) {
     console.error("[Billing] Unexpected error in deductCommission:", error);
   }
@@ -273,5 +288,62 @@ export async function refundCommission(bookingId: string): Promise<void> {
     }
   } catch (error) {
     console.error("[Billing] Unexpected error in refundCommission:", error);
+  }
+}
+
+/**
+ * Notify host when wallet balance goes negative after commission deduction.
+ * Sends via SMS or LINE based on host preference, with email fallback.
+ */
+async function notifyNegativeBalance(
+  host: {
+    id: string;
+    name: string;
+    phone: string | null;
+    notification_preference: string | null;
+    line_channel_access_token: string | null;
+    line_user_id: string | null;
+  },
+  balance: number,
+): Promise<void> {
+  const message = `[Peaksnature] ยอดเงินคงเหลือของคุณติดลบ ฿${Math.abs(balance).toLocaleString()} กรุณาเติมเงินเพื่อป้องกันการหยุดให้บริการ / Your wallet balance is -฿${Math.abs(balance).toLocaleString()}. Please top up to avoid service interruption.`;
+
+  const preference = host.notification_preference || "sms";
+
+  try {
+    // Try LINE first if preferred and configured
+    if (preference === "line" && host.line_channel_access_token && host.line_user_id) {
+      const response = await fetch("https://api.line.me/v2/bot/message/push", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${host.line_channel_access_token}`,
+        },
+        body: JSON.stringify({
+          to: host.line_user_id,
+          messages: [{ type: "text", text: message }],
+        }),
+      });
+
+      if (response.ok) {
+        console.log(`[Billing] Negative balance LINE sent to host ${host.id}`);
+        return;
+      }
+      console.error("[Billing] LINE notification failed, falling back to SMS");
+    }
+
+    // Fallback to SMS
+    if (host.phone) {
+      const { sendSms } = await import("@/lib/notifications");
+      const result = await sendSms(host.phone, message);
+      if (result.success) {
+        console.log(`[Billing] Negative balance SMS sent to host ${host.id}`);
+        return;
+      }
+    }
+
+    console.warn(`[Billing] Could not notify host ${host.id} about negative balance — no channel available`);
+  } catch (error) {
+    console.error("[Billing] Failed to send negative balance notification:", error);
   }
 }

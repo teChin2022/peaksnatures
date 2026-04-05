@@ -431,7 +431,7 @@ export default function DashboardBillingPage() {
         {PLANS.map((plan, index) => {
           const isCurrent = data.plan_type === plan.key;
           const isPopular = plan.popular;
-          const canSwitch = !isCurrent && !data.plan_pending_type && !switching;
+          const canSwitch = !isCurrent && !data.plan_pending_type && !switching && plan.key !== "free";
           const features = locale === "th" ? plan.featuresTh : plan.features;
           const { price, period: periodEn, periodTh } = getPlanPrice(plan.key, data);
           const period = locale === "th" ? periodTh : periodEn;
@@ -745,7 +745,7 @@ export default function DashboardBillingPage() {
                   {t("switchConfirmDesc", { plan: planLabel(confirmDialog.planType || "") })}
                 </DialogDescription>
               </DialogHeader>
-              <DialogFooter className="gap-2 sm:gap-0">
+              <DialogFooter>
                 <Button variant="outline" onClick={() => setConfirmDialog(null)}>
                   {t("cancel")}
                 </Button>
@@ -768,7 +768,7 @@ export default function DashboardBillingPage() {
                   {t("cancelSwitchDesc", { plan: planLabel(confirmDialog.planType || "") })}
                 </DialogDescription>
               </DialogHeader>
-              <DialogFooter className="gap-2 sm:gap-0">
+              <DialogFooter>
                 <Button variant="outline" onClick={() => setConfirmDialog(null)}>
                   {t("cancel")}
                 </Button>
@@ -958,7 +958,7 @@ export default function DashboardBillingPage() {
             </div>
           </div>
 
-          <DialogFooter className="gap-2 sm:gap-0">
+          <DialogFooter>
             <Button variant="outline" onClick={() => { setPayInvoiceId(null); setPayFile(null); }}>
               {t("cancel")}
             </Button>
