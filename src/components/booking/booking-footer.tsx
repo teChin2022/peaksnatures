@@ -1,6 +1,5 @@
 import Image from "next/image";
 import { MapPin } from "lucide-react";
-import { getInitials } from "@/lib/utils";
 import { useTranslations } from "next-intl";
 
 interface SocialLinks {
@@ -50,6 +49,9 @@ function LineIcon({ className }: { className?: string }) {
   );
 }
 
+const SOCIAL_ICON_CLASS =
+  "inline-flex h-8 w-8 items-center justify-center rounded-full bg-earth-800/60 text-earth-400 transition-all duration-200 hover:bg-brand hover:text-white hover:scale-110";
+
 export function BookingFooter({
   homestayName,
   logoUrl,
@@ -57,7 +59,6 @@ export function BookingFooter({
   hostName,
   socialLinks,
 }: BookingFooterProps) {
-  const t = useTranslations("bookingFooter");
   const tc = useTranslations("common");
 
   const hasSocials = socialLinks && (
@@ -67,43 +68,45 @@ export function BookingFooter({
 
   return (
     <footer className="bg-earth-900">
-      <div className="h-0.5 w-full bg-gradient-to-r from-brand via-earth-600 to-transparent" />
-      <div className="mx-auto max-w-7xl px-4 py-8 sm:px-6">
-        <div className="flex flex-col items-center gap-4 text-center sm:flex-row sm:justify-between sm:text-left">
-          {/* Left: Brand */}
-          <div className="flex items-center gap-3">
-            {logoUrl ? (
+      <div className="h-px w-full bg-gradient-to-r from-transparent via-earth-600 to-transparent" />
+
+      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+        {/* Brand + Social cluster */}
+        <div className="flex flex-col items-center gap-4 mb-6">
+          {/* Logo + Name */}
+          <div className="flex flex-col items-center gap-2.5">
+            {logoUrl && (
               <Image
                 src={logoUrl}
                 alt={homestayName}
-                width={32}
-                height={32}
-                className="h-8 w-8 rounded-full object-cover ring-1 ring-earth-700 shadow-sm"
+                width={40}
+                height={40}
+                className="h-10 w-10 rounded-full object-cover ring-1 ring-earth-700"
               />
-            ) : (
-              <div></div>
             )}
-            <div>
-              <span className="font-semibold text-earth-50">{homestayName}</span>
-              <div className="flex items-center gap-1 text-xs text-earth-400">
+            <div className="text-center">
+              <h3 className="font-semibold text-earth-50 text-base tracking-wide">
+                {homestayName}
+              </h3>
+              <div className="mt-1 flex items-center justify-center gap-1 text-xs text-earth-500">
                 <MapPin className="h-3 w-3" />
                 {location}
               </div>
             </div>
           </div>
 
-          {/* Center: Social Media Icons */}
+          {/* Social icons — tucked right under brand */}
           {hasSocials && (
-            <div className="flex items-center gap-3">
+            <div className="flex items-center gap-2">
               {socialLinks.facebook_url && (
                 <a
                   href={socialLinks.facebook_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-full bg-earth-800 p-2 text-earth-400 transition-colors hover:bg-earth-700 hover:text-white"
+                  className={SOCIAL_ICON_CLASS}
                   aria-label="Facebook"
                 >
-                  <FacebookIcon className="h-4 w-4" />
+                  <FacebookIcon className="h-3.5 w-3.5" />
                 </a>
               )}
               {socialLinks.instagram_url && (
@@ -111,10 +114,10 @@ export function BookingFooter({
                   href={socialLinks.instagram_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-full bg-earth-800 p-2 text-earth-400 transition-colors hover:bg-earth-700 hover:text-white"
+                  className={SOCIAL_ICON_CLASS}
                   aria-label="Instagram"
                 >
-                  <InstagramIcon className="h-4 w-4" />
+                  <InstagramIcon className="h-3.5 w-3.5" />
                 </a>
               )}
               {socialLinks.tiktok_url && (
@@ -122,48 +125,53 @@ export function BookingFooter({
                   href={socialLinks.tiktok_url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-full bg-earth-800 p-2 text-earth-400 transition-colors hover:bg-earth-700 hover:text-white"
+                  className={SOCIAL_ICON_CLASS}
                   aria-label="TikTok"
                 >
-                  <TikTokIcon className="h-4 w-4" />
+                  <TikTokIcon className="h-3.5 w-3.5" />
                 </a>
               )}
               {socialLinks.line_id && (
                 <a
-                  href={`https://line.me/R/ti/p/${socialLinks.line_id.replace('@', '%40')}`}
+                  href={`https://line.me/R/ti/p/${socialLinks.line_id.replace("@", "%40")}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="rounded-full bg-earth-800 p-2 text-earth-400 transition-colors hover:bg-earth-700 hover:text-white"
+                  className={SOCIAL_ICON_CLASS}
                   aria-label="LINE"
                 >
-                  <LineIcon className="h-4 w-4" />
+                  <LineIcon className="h-3.5 w-3.5" />
                 </a>
               )}
             </div>
           )}
+        </div>
 
-          {/* Right: Legal & Copyright */}
-          <div className="flex flex-col items-center gap-1.5 sm:items-end">
-            <p className="text-xs text-earth-500">{`\u00A9 ${new Date().getFullYear()} ${tc("copyright")}`}</p>
-            <div className="flex items-center gap-3">
-              <a
-                href="/legal#privacy"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-earth-400 hover:text-white transition-colors"
-              >
-                {tc("privacy")}
-              </a>
-              <span className="text-xs text-earth-600">|</span>
-              <a
-                href="/legal#terms"
-                target="_blank"
-                rel="noopener noreferrer"
-                className="text-xs text-earth-400 hover:text-white transition-colors"
-              >
-                {tc("terms")}
-              </a>
-            </div>
+        {/* Divider */}
+        <div className="h-px w-full bg-earth-800 mb-5" />
+
+        {/* Bottom bar: copyright + legal */}
+        <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-between">
+          <p className="text-xs text-earth-600">
+            {`\u00A9 ${new Date().getFullYear()} ${tc("copyright")}`}
+          </p>
+          <div className="flex items-center gap-3">
+            <a
+              href="/legal#privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-earth-500 hover:text-earth-300 transition-colors"
+            >
+              {tc("privacy")}
+            </a>
+            <span className="text-xs text-earth-700">|</span>
+            <a
+              href="/legal#terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="text-xs text-earth-500 hover:text-earth-300 transition-colors"
+            >
+              {tc("terms")}
+            </a>
           </div>
         </div>
       </div>
