@@ -20,6 +20,10 @@ import {
   TrendingUp,
   TrendingDown,
   Banknote,
+  Copy,
+  Check,
+  Smartphone,
+  Building2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -27,13 +31,6 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
 import {
   Dialog,
   DialogContent,
@@ -123,17 +120,32 @@ export default function WalletPage() {
   const [activeTab, setActiveTab] = useState<"transactions" | "invoices">("transactions");
 
   // ── Top-up ──
-  const [topupOpen, setTopupOpen] = useState(false);
   const [topupAmount, setTopupAmount] = useState("");
   const [topupFile, setTopupFile] = useState<File | null>(null);
   const [topupLoading, setTopupLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Clipboard ──
+  const [copiedPromptPay, setCopiedPromptPay] = useState(false);
+  const [copiedAccount, setCopiedAccount] = useState(false);
 
   // ── Invoice pay ──
   const [payInvoiceId, setPayInvoiceId] = useState<string | null>(null);
   const [payFile, setPayFile] = useState<File | null>(null);
   const [payLoading, setPayLoading] = useState(false);
   const payFileInputRef = useRef<HTMLInputElement>(null);
+
+  /* ─── Clipboard ─── */
+
+  const copyToClipboard = (text: string, setter: (v: boolean) => void) => {
+    navigator.clipboard.writeText(text).then(() => {
+      setter(true);
+      setTimeout(() => setter(false), 2000);
+      toast.success(t("copied"));
+    }).catch(() => {
+      toast.error("Copy failed");
+    });
+  };
 
   /* ─── Fetchers ─── */
 
@@ -226,7 +238,6 @@ export default function WalletPage() {
         toast.success(`Top-up successful! New balance: ฿${d.new_balance.toLocaleString()}`);
         setTopupFile(null);
         setTopupAmount("");
-        setTopupOpen(false);
         fetchBilling();
         fetchTransactions(1);
       } else {
@@ -273,6 +284,10 @@ export default function WalletPage() {
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
           <Skeleton className="h-40 rounded-2xl md:col-span-2" />
           <Skeleton className="h-40 rounded-2xl" />
+        </div>
+        <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+          <Skeleton className="h-56 rounded-2xl md:col-span-2" />
+          <Skeleton className="h-56 rounded-2xl md:col-span-3" />
         </div>
         <Skeleton className="h-10 w-64" />
         <div className="space-y-3">
@@ -362,15 +377,6 @@ export default function WalletPage() {
                   </p>
                 )}
 
-                {billing.plan_type === "commission" && (
-                  <Button
-                    className="mt-5 bg-brand hover:bg-brand-hover text-white rounded-full px-6 text-sm shadow-md shadow-brand/15"
-                    onClick={() => setTopupOpen(true)}
-                  >
-                    <ArrowUpCircle className="h-4 w-4 mr-2" />
-                    {t("topUp")}
-                  </Button>
-                )}
               </div>
             </div>
           </Card>
@@ -416,12 +422,213 @@ export default function WalletPage() {
       </div>
 
       {/* ══════════════════════════════════════════════
+          PAYMENT INFO + TOP-UP (inline)
+      ══════════════════════════════════════════════ */}
+      {billing.plan_type === "commission" && billing.platform_payment && (
+        <motion.div
+          initial={{ opacity: 0, y: 16 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.5, delay: 0.25 }}
+        >
+          <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
+            {/* ── Payment Info Card ── */}
+            <Card className="md:col-span-2 overflow-hidden border-0 shadow-md">
+              <div className="bg-gradient-to-br from-brand-50 via-white to-brand-50/40 p-6 h-full">
+                <div className="flex items-center gap-2 mb-5">
+                  <div className="h-8 w-8 rounded-lg bg-brand/10 flex items-center justify-center shrink-0">
+                    {billing.platform_payment.payment_display === "qr" ? (
+                      <Smartphone className="h-4 w-4 text-brand" />
+                    ) : (
+                      <Building2 className="h-4 w-4 text-brand" />
+                    )}
+                  </div>
+                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-brand">
+                    {t("paymentInfo")}
+                  </p>
+                </div>
+
+                {/* PromptPay */}
+                {billing.platform_payment.payment_display === "qr" && billing.platform_payment.promptpay_id && (
+                  <div className="space-y-3">
+                    <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400">
+                      {t("promptPayId")}
+                    </p>
+                    <div className="flex items-center gap-2 bg-white rounded-xl border border-brand-100 px-4 py-3">
+                      <span className="text-lg font-mono font-semibold text-gray-900 tracking-wide flex-1">
+                        {billing.platform_payment.promptpay_id}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => copyToClipboard(billing.platform_payment!.promptpay_id!, setCopiedPromptPay)}
+                        className="h-8 w-8 rounded-lg bg-brand-50 hover:bg-brand-100 flex items-center justify-center transition-colors shrink-0"
+                      >
+                        {copiedPromptPay ? (
+                          <Check className="h-3.5 w-3.5 text-emerald-600" />
+                        ) : (
+                          <Copy className="h-3.5 w-3.5 text-brand" />
+                        )}
+                      </button>
+                    </div>
+                    <p className="text-[11px] text-earth-400 leading-relaxed">
+                      {t("promptPayHint")}
+                    </p>
+                  </div>
+                )}
+
+                {/* Bank */}
+                {billing.platform_payment.payment_display === "bank" && (
+                  <div className="bg-white rounded-xl border border-brand-100 p-4 space-y-3">
+                    {billing.platform_payment.bank_name && (
+                      <div>
+                        <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400 mb-1">
+                          {t("bankName")}
+                        </p>
+                        <p className="text-sm font-medium text-gray-800">
+                          {billing.platform_payment.bank_name}
+                        </p>
+                      </div>
+                    )}
+
+                    {billing.platform_payment.bank_account_number && (
+                      <div className="border-t border-earth-50 pt-3">
+                        <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400 mb-1">
+                          {t("accountNumber")}
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <span className="text-lg font-mono font-semibold text-gray-900 tracking-wide flex-1">
+                            {billing.platform_payment.bank_account_number}
+                          </span>
+                          <button
+                            type="button"
+                            onClick={() => copyToClipboard(billing.platform_payment!.bank_account_number!, setCopiedAccount)}
+                            className="h-8 w-8 rounded-lg bg-brand-50 hover:bg-brand-100 flex items-center justify-center transition-colors shrink-0"
+                          >
+                            {copiedAccount ? (
+                              <Check className="h-3.5 w-3.5 text-emerald-600" />
+                            ) : (
+                              <Copy className="h-3.5 w-3.5 text-brand" />
+                            )}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    {billing.platform_payment.bank_account_name && (
+                      <div className="border-t border-earth-50 pt-3">
+                        <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400 mb-1">
+                          {t("accountName")}
+                        </p>
+                        <p className="text-sm font-medium text-gray-800">
+                          {billing.platform_payment.bank_account_name}
+                        </p>
+                      </div>
+                    )}
+                  </div>
+                )}
+              </div>
+            </Card>
+
+            {/* ── Top-Up Form Card ── */}
+            <Card className="md:col-span-3 overflow-hidden border-0 shadow-md">
+              <CardContent className="p-6">
+                <div className="flex items-center gap-2 mb-5">
+                  <div className="h-8 w-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+                    <ArrowUpCircle className="h-4 w-4 text-emerald-600" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-semibold text-gray-900">{t("topUp")}</h3>
+                    <p className="text-[11px] text-earth-400">{t("topUpInlineDesc")}</p>
+                  </div>
+                </div>
+
+                <form onSubmit={handleTopup} className="space-y-4">
+                  <div className="space-y-2">
+                    <Label className="text-sm text-gray-700">{t("amount")} (THB)</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      value={topupAmount}
+                      onChange={(e) => setTopupAmount(e.target.value)}
+                      className="text-lg font-mono h-12"
+                      placeholder="0"
+                      required
+                    />
+                  </div>
+
+                  <div className="grid grid-cols-4 gap-2">
+                    {[500, 1000, 2000, 5000].map((amt) => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setTopupAmount(String(amt))}
+                        className={`rounded-xl border py-2.5 text-sm font-medium transition-all ${
+                          topupAmount === String(amt)
+                            ? "border-brand/30 bg-brand-50 text-brand ring-1 ring-brand/20"
+                            : "border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
+                        }`}
+                      >
+                        ฿{amt.toLocaleString()}
+                      </button>
+                    ))}
+                  </div>
+
+                  <div className="space-y-2">
+                    <Label className="text-sm text-gray-700">{t("paymentSlip")}</Label>
+                    <div
+                      onClick={() => fileInputRef.current?.click()}
+                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                      onDrop={(e) => {
+                        e.preventDefault();
+                        e.stopPropagation();
+                        const file = e.dataTransfer.files?.[0];
+                        if (file) setTopupFile(file);
+                      }}
+                      className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all ${
+                        topupFile
+                          ? "border-brand/30 bg-brand-50/50"
+                          : "border-gray-200 hover:border-brand/20 hover:bg-brand-50/20"
+                      }`}
+                    >
+                      <Upload className="h-5 w-5 text-earth-300 mx-auto mb-1.5" />
+                      <p className="text-sm text-earth-500 truncate">
+                        {topupFile ? topupFile.name : t("dragOrClick")}
+                      </p>
+                      <input
+                        ref={fileInputRef}
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={(e) => setTopupFile(e.target.files?.[0] || null)}
+                      />
+                    </div>
+                  </div>
+
+                  <Button
+                    type="submit"
+                    disabled={topupLoading || !topupFile || !topupAmount}
+                    className="w-full bg-brand hover:bg-brand-hover text-white rounded-xl h-11 shadow-md shadow-brand/10"
+                  >
+                    {topupLoading ? (
+                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                    ) : (
+                      <Upload className="h-4 w-4 mr-2" />
+                    )}
+                    {t("verifyAndTopUp")}
+                  </Button>
+                </form>
+              </CardContent>
+            </Card>
+          </div>
+        </motion.div>
+      )}
+
+      {/* ══════════════════════════════════════════════
           TAB SWITCHER
       ══════════════════════════════════════════════ */}
       <motion.div
         initial={{ opacity: 0 }}
         animate={{ opacity: 1 }}
-        transition={{ duration: 0.4, delay: 0.3 }}
+        transition={{ duration: 0.4, delay: 0.35 }}
       >
         <div className="flex items-center border-b border-earth-100">
           {(["transactions", "invoices"] as const).map((tab) => (
@@ -694,119 +901,6 @@ export default function WalletPage() {
           )}
         </motion.div>
       )}
-
-      {/* ══════════════════════════════════════════════
-          TOP-UP SHEET
-      ══════════════════════════════════════════════ */}
-      <Sheet open={topupOpen} onOpenChange={setTopupOpen}>
-        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle className="font-serif">{t("topUp")}</SheetTitle>
-            <SheetDescription>{t("topUpDesc")}</SheetDescription>
-          </SheetHeader>
-
-          <div className="px-4 py-6 space-y-6">
-            {/* Payment info */}
-            {billing.platform_payment && (
-              <div className="rounded-xl bg-brand-50 border border-brand-100 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-brand mb-3">
-                  {t("transferTo")}
-                </p>
-                {billing.platform_payment.payment_display === "qr" && billing.platform_payment.promptpay_id && (
-                  <p className="text-sm text-gray-700">
-                    PromptPay: <span className="font-mono font-medium">{billing.platform_payment.promptpay_id}</span>
-                  </p>
-                )}
-                {billing.platform_payment.payment_display === "bank" && (
-                  <div className="space-y-1 text-sm text-gray-700">
-                    {billing.platform_payment.bank_name && <p>{billing.platform_payment.bank_name}</p>}
-                    {billing.platform_payment.bank_account_number && (
-                      <p className="font-mono font-medium">{billing.platform_payment.bank_account_number}</p>
-                    )}
-                    {billing.platform_payment.bank_account_name && <p>{billing.platform_payment.bank_account_name}</p>}
-                  </div>
-                )}
-              </div>
-            )}
-
-            {/* Top-up form */}
-            <form onSubmit={handleTopup} className="space-y-5">
-              <div className="space-y-2">
-                <Label className="text-sm text-gray-700">{t("amount")} (THB)</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={topupAmount}
-                  onChange={(e) => setTopupAmount(e.target.value)}
-                  className="text-lg font-mono"
-                  placeholder="0"
-                  required
-                />
-                <div className="flex gap-2">
-                  {[500, 1000, 2000, 5000].map((amt) => (
-                    <button
-                      key={amt}
-                      type="button"
-                      onClick={() => setTopupAmount(String(amt))}
-                      className={`flex-1 rounded-lg border py-1.5 text-xs font-medium transition-colors ${
-                        topupAmount === String(amt)
-                          ? "border-brand/30 bg-brand-50 text-brand"
-                          : "border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
-                      }`}
-                    >
-                      ฿{amt.toLocaleString()}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm text-gray-700">{t("paymentSlip")}</Label>
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const file = e.dataTransfer.files?.[0];
-                    if (file) setTopupFile(file);
-                  }}
-                  className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
-                    topupFile
-                      ? "border-brand/30 bg-brand-50/50"
-                      : "border-gray-200 hover:border-brand/20 hover:bg-brand-50/20"
-                  }`}
-                >
-                  <Upload className="h-6 w-6 text-gray-300 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">
-                    {topupFile ? topupFile.name : t("dragOrClick")}
-                  </p>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => setTopupFile(e.target.files?.[0] || null)}
-                  />
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={topupLoading || !topupFile || !topupAmount}
-                className="w-full bg-brand hover:bg-brand-hover"
-              >
-                {topupLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <Upload className="h-4 w-4 mr-2" />
-                )}
-                {t("verifyAndTopUp")}
-              </Button>
-            </form>
-          </div>
-        </SheetContent>
-      </Sheet>
 
       {/* ══════════════════════════════════════════════
           INVOICE PAY DIALOG
