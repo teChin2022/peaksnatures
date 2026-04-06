@@ -424,107 +424,110 @@ export default function WalletPage() {
       {/* ══════════════════════════════════════════════
           PAYMENT INFO + TOP-UP (inline)
       ══════════════════════════════════════════════ */}
-      {billing.plan_type === "commission" && billing.platform_payment && (
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.25 }}
-        >
+      <motion.div
+        initial={{ opacity: 0, y: 16 }}
+        animate={{ opacity: 1, y: 0 }}
+        transition={{ duration: 0.5, delay: 0.25 }}
+      >
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {/* ── Payment Info Card ── */}
             <Card className="md:col-span-2 overflow-hidden border-0 shadow-md">
               <div className="bg-gradient-to-br from-brand-50 via-white to-brand-50/40 p-6 h-full">
                 <div className="flex items-center gap-2 mb-5">
                   <div className="h-8 w-8 rounded-lg bg-brand/10 flex items-center justify-center shrink-0">
-                    {billing.platform_payment.payment_display === "qr" ? (
-                      <Smartphone className="h-4 w-4 text-brand" />
-                    ) : (
-                      <Building2 className="h-4 w-4 text-brand" />
-                    )}
+                    <Banknote className="h-4 w-4 text-brand" />
                   </div>
                   <p className="text-xs font-semibold uppercase tracking-[0.12em] text-brand">
                     {t("paymentInfo")}
                   </p>
                 </div>
 
-                {/* PromptPay */}
-                {billing.platform_payment.payment_display === "qr" && billing.platform_payment.promptpay_id && (
-                  <div className="space-y-3">
-                    <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400">
-                      {t("promptPayId")}
-                    </p>
-                    <div className="flex items-center gap-2 bg-white rounded-xl border border-brand-100 px-4 py-3">
-                      <span className="text-lg font-mono font-semibold text-gray-900 tracking-wide flex-1">
-                        {billing.platform_payment.promptpay_id}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => copyToClipboard(billing.platform_payment!.promptpay_id!, setCopiedPromptPay)}
-                        className="h-8 w-8 rounded-lg bg-brand-50 hover:bg-brand-100 flex items-center justify-center transition-colors shrink-0"
-                      >
-                        {copiedPromptPay ? (
-                          <Check className="h-3.5 w-3.5 text-emerald-600" />
-                        ) : (
-                          <Copy className="h-3.5 w-3.5 text-brand" />
-                        )}
-                      </button>
+                <div className="space-y-4">
+                  {/* PromptPay */}
+                  {billing.platform_payment?.promptpay_id && (
+                    <div className="space-y-2">
+                      <div className="flex items-center gap-1.5">
+                        <Smartphone className="h-3.5 w-3.5 text-brand/70" />
+                        <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400">
+                          {t("promptPayId")}
+                        </p>
+                      </div>
+                      <div className="flex items-center gap-2 bg-white rounded-xl border border-brand-100 px-4 py-3">
+                        <span className="text-lg font-mono font-semibold text-gray-900 tracking-wide flex-1">
+                          {billing.platform_payment.promptpay_id}
+                        </span>
+                        <button
+                          type="button"
+                          onClick={() => copyToClipboard(billing.platform_payment!.promptpay_id!, setCopiedPromptPay)}
+                          className="h-8 w-8 rounded-lg bg-brand-50 hover:bg-brand-100 flex items-center justify-center transition-colors shrink-0"
+                        >
+                          {copiedPromptPay ? (
+                            <Check className="h-3.5 w-3.5 text-emerald-600" />
+                          ) : (
+                            <Copy className="h-3.5 w-3.5 text-brand" />
+                          )}
+                        </button>
+                      </div>
+                      <p className="text-[11px] text-earth-400 leading-relaxed">
+                        {t("promptPayHint")}
+                      </p>
                     </div>
-                    <p className="text-[11px] text-earth-400 leading-relaxed">
-                      {t("promptPayHint")}
-                    </p>
-                  </div>
-                )}
+                  )}
 
-                {/* Bank */}
-                {billing.platform_payment.payment_display === "bank" && (
-                  <div className="bg-white rounded-xl border border-brand-100 p-4 space-y-3">
-                    {billing.platform_payment.bank_name && (
-                      <div>
-                        <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400 mb-1">
-                          {t("bankName")}
-                        </p>
-                        <p className="text-sm font-medium text-gray-800">
-                          {billing.platform_payment.bank_name}
-                        </p>
-                      </div>
-                    )}
-
-                    {billing.platform_payment.bank_account_number && (
-                      <div className="border-t border-earth-50 pt-3">
-                        <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400 mb-1">
-                          {t("accountNumber")}
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <span className="text-lg font-mono font-semibold text-gray-900 tracking-wide flex-1">
-                            {billing.platform_payment.bank_account_number}
-                          </span>
-                          <button
-                            type="button"
-                            onClick={() => copyToClipboard(billing.platform_payment!.bank_account_number!, setCopiedAccount)}
-                            className="h-8 w-8 rounded-lg bg-brand-50 hover:bg-brand-100 flex items-center justify-center transition-colors shrink-0"
-                          >
-                            {copiedAccount ? (
-                              <Check className="h-3.5 w-3.5 text-emerald-600" />
-                            ) : (
-                              <Copy className="h-3.5 w-3.5 text-brand" />
-                            )}
-                          </button>
+                  {/* Bank */}
+                  {(billing.platform_payment?.bank_name || billing.platform_payment?.bank_account_number) && (
+                    <div className="bg-white rounded-xl border border-brand-100 p-4 space-y-3">
+                      {billing.platform_payment.bank_name && (
+                        <div className="flex items-start gap-1.5">
+                          <Building2 className="h-3.5 w-3.5 text-brand/70 mt-0.5 shrink-0" />
+                          <div>
+                            <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400 mb-1">
+                              {t("bankName")}
+                            </p>
+                            <p className="text-sm font-medium text-gray-800">
+                              {billing.platform_payment.bank_name}
+                            </p>
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
 
-                    {billing.platform_payment.bank_account_name && (
-                      <div className="border-t border-earth-50 pt-3">
-                        <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400 mb-1">
-                          {t("accountName")}
-                        </p>
-                        <p className="text-sm font-medium text-gray-800">
-                          {billing.platform_payment.bank_account_name}
-                        </p>
-                      </div>
-                    )}
-                  </div>
-                )}
+                      {billing.platform_payment.bank_account_number && (
+                        <div className="border-t border-earth-50 pt-3">
+                          <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400 mb-1">
+                            {t("accountNumber")}
+                          </p>
+                          <div className="flex items-center gap-2">
+                            <span className="text-lg font-mono font-semibold text-gray-900 tracking-wide flex-1">
+                              {billing.platform_payment.bank_account_number}
+                            </span>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(billing.platform_payment!.bank_account_number!, setCopiedAccount)}
+                              className="h-8 w-8 rounded-lg bg-brand-50 hover:bg-brand-100 flex items-center justify-center transition-colors shrink-0"
+                            >
+                              {copiedAccount ? (
+                                <Check className="h-3.5 w-3.5 text-emerald-600" />
+                              ) : (
+                                <Copy className="h-3.5 w-3.5 text-brand" />
+                              )}
+                            </button>
+                          </div>
+                        </div>
+                      )}
+
+                      {billing.platform_payment.bank_account_name && (
+                        <div className="border-t border-earth-50 pt-3">
+                          <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400 mb-1">
+                            {t("accountName")}
+                          </p>
+                          <p className="text-sm font-medium text-gray-800">
+                            {billing.platform_payment.bank_account_name}
+                          </p>
+                        </div>
+                      )}
+                    </div>
+                  )}
+                </div>
               </div>
             </Card>
 
@@ -619,8 +622,7 @@ export default function WalletPage() {
               </CardContent>
             </Card>
           </div>
-        </motion.div>
-      )}
+      </motion.div>
 
       {/* ══════════════════════════════════════════════
           TAB SWITCHER
