@@ -1,10 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { fmtDateStr } from "@/lib/format-date";
+import generatePayload from "promptpay-qr";
+import { QRCodeSVG } from "qrcode.react";
 import {
   ArrowUpCircle,
   ArrowDownCircle,
@@ -24,6 +26,7 @@ import {
   Check,
   Smartphone,
   Building2,
+  Link2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -121,6 +124,7 @@ export default function WalletPage() {
 
   // ── Top-up ──
   const [topupAmount, setTopupAmount] = useState("");
+  const [customAmount, setCustomAmount] = useState(false);
   const [topupFile, setTopupFile] = useState<File | null>(null);
   const [topupLoading, setTopupLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
@@ -128,12 +132,23 @@ export default function WalletPage() {
   // ── Clipboard ──
   const [copiedPromptPay, setCopiedPromptPay] = useState(false);
   const [copiedAccount, setCopiedAccount] = useState(false);
+  const [copiedTopupLink, setCopiedTopupLink] = useState(false);
+  const [copiedPayLink, setCopiedPayLink] = useState(false);
 
   // ── Invoice pay ──
   const [payInvoiceId, setPayInvoiceId] = useState<string | null>(null);
   const [payFile, setPayFile] = useState<File | null>(null);
   const [payLoading, setPayLoading] = useState(false);
   const payFileInputRef = useRef<HTMLInputElement>(null);
+
+  // ── Mobile detection ──
+  const [isMobile, setIsMobile] = useState(false);
+
+  // ── Session IDs for phone upload ──
+  const [topupSessionId] = useState(() => crypto.randomUUID());
+  const [paySessionId] = useState(() => crypto.randomUUID());
+  const topupPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
+  const payPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   /* ─── Clipboard ─── */
 
@@ -146,6 +161,78 @@ export default function WalletPage() {
       toast.error("Copy failed");
     });
   };
+
+  /* ─── Mobile detection ─── */
+
+  useEffect(() => {
+    setIsMobile(/iPhone|iPad|iPod|Android/i.test(navigator.userAgent));
+  }, []);
+
+  /* ─── Upload links ─── */
+
+  const topupUploadLink = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    return `${window.location.origin}/upload-slip/${topupSessionId}`;
+  }, [topupSessionId]);
+
+  const payUploadLink = useMemo(() => {
+    if (typeof window === "undefined") return "";
+    return `${window.location.origin}/upload-slip/${paySessionId}`;
+  }, [paySessionId]);
+
+  /* ─── Poll for phone uploads (top-up) ─── */
+
+  useEffect(() => {
+    if (isMobile || !topupAmount || topupFile) return;
+
+    topupPollingRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/slip-upload/${topupSessionId}`);
+        const data = await res.json();
+        if (data.uploaded && data.url) {
+          const slipRes = await fetch(data.url);
+          const blob = await slipRes.blob();
+          setTopupFile(new File([blob], data.filename || "slip.jpg", { type: blob.type }));
+          if (topupPollingRef.current) clearInterval(topupPollingRef.current);
+          toast.success(t("phoneSlipReceived"));
+        }
+      } catch { /* ignore */ }
+    }, 3000);
+
+    return () => {
+      if (topupPollingRef.current) {
+        clearInterval(topupPollingRef.current);
+        topupPollingRef.current = null;
+      }
+    };
+  }, [isMobile, topupAmount, topupFile, topupSessionId, t]);
+
+  /* ─── Poll for phone uploads (invoice pay) ─── */
+
+  useEffect(() => {
+    if (isMobile || !payInvoiceId || payFile) return;
+
+    payPollingRef.current = setInterval(async () => {
+      try {
+        const res = await fetch(`/api/slip-upload/${paySessionId}`);
+        const data = await res.json();
+        if (data.uploaded && data.url) {
+          const slipRes = await fetch(data.url);
+          const blob = await slipRes.blob();
+          setPayFile(new File([blob], data.filename || "slip.jpg", { type: blob.type }));
+          if (payPollingRef.current) clearInterval(payPollingRef.current);
+          toast.success(t("phoneSlipReceived"));
+        }
+      } catch { /* ignore */ }
+    }, 3000);
+
+    return () => {
+      if (payPollingRef.current) {
+        clearInterval(payPollingRef.current);
+        payPollingRef.current = null;
+      }
+    };
+  }, [isMobile, payInvoiceId, payFile, paySessionId, t]);
 
   /* ─── Fetchers ─── */
 
@@ -544,28 +631,17 @@ export default function WalletPage() {
                   </div>
                 </div>
 
-                <form onSubmit={handleTopup} className="space-y-4">
-                  <div className="space-y-2">
-                    <Label className="text-sm text-gray-700">{t("amount")} (THB)</Label>
-                    <Input
-                      type="number"
-                      min="1"
-                      value={topupAmount}
-                      onChange={(e) => setTopupAmount(e.target.value)}
-                      className="text-lg font-mono h-12"
-                      placeholder="0"
-                      required
-                    />
-                  </div>
-
+                {/* Amount selection */}
+                <div className="space-y-3 mb-5">
+                  <Label className="text-sm text-gray-700">{t("amount")} (THB)</Label>
                   <div className="grid grid-cols-4 gap-2">
-                    {[500, 1000, 2000, 5000].map((amt) => (
+                    {[300, 500, 700, 1000].map((amt) => (
                       <button
                         key={amt}
                         type="button"
-                        onClick={() => setTopupAmount(String(amt))}
+                        onClick={() => { setTopupAmount(String(amt)); setCustomAmount(false); }}
                         className={`rounded-xl border py-2.5 text-sm font-medium transition-all ${
-                          topupAmount === String(amt)
+                          !customAmount && topupAmount === String(amt)
                             ? "border-brand/30 bg-brand-50 text-brand ring-1 ring-brand/20"
                             : "border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
                         }`}
@@ -574,51 +650,131 @@ export default function WalletPage() {
                       </button>
                     ))}
                   </div>
-
-                  <div className="space-y-2">
-                    <Label className="text-sm text-gray-700">{t("paymentSlip")}</Label>
-                    <div
-                      onClick={() => fileInputRef.current?.click()}
-                      onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                      onDrop={(e) => {
-                        e.preventDefault();
-                        e.stopPropagation();
-                        const file = e.dataTransfer.files?.[0];
-                        if (file) setTopupFile(file);
-                      }}
-                      className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all ${
-                        topupFile
-                          ? "border-brand/30 bg-brand-50/50"
-                          : "border-gray-200 hover:border-brand/20 hover:bg-brand-50/20"
+                  <div className="flex items-center gap-2">
+                    <button
+                      type="button"
+                      onClick={() => { setCustomAmount(true); setTopupAmount(""); }}
+                      className={`rounded-xl border px-3.5 py-2 text-sm font-medium transition-all whitespace-nowrap ${
+                        customAmount
+                          ? "border-brand/30 bg-brand-50 text-brand ring-1 ring-brand/20"
+                          : "border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
                       }`}
                     >
-                      <Upload className="h-5 w-5 text-earth-300 mx-auto mb-1.5" />
-                      <p className="text-sm text-earth-500 truncate">
-                        {topupFile ? topupFile.name : t("dragOrClick")}
-                      </p>
-                      <input
-                        ref={fileInputRef}
-                        type="file"
-                        accept="image/*"
-                        className="hidden"
-                        onChange={(e) => setTopupFile(e.target.files?.[0] || null)}
+                      {t("customAmount")}
+                    </button>
+                    {customAmount && (
+                      <Input
+                        type="number"
+                        min="1"
+                        value={topupAmount}
+                        onChange={(e) => setTopupAmount(e.target.value)}
+                        className="flex-1 text-lg font-mono h-10"
+                        placeholder="0"
+                        autoFocus
                       />
-                    </div>
-                  </div>
-
-                  <Button
-                    type="submit"
-                    disabled={topupLoading || !topupFile || !topupAmount}
-                    className="w-full bg-brand hover:bg-brand-hover text-white rounded-xl h-11 shadow-md shadow-brand/10"
-                  >
-                    {topupLoading ? (
-                      <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                    ) : (
-                      <Upload className="h-4 w-4 mr-2" />
                     )}
-                    {t("verifyAndTopUp")}
-                  </Button>
-                </form>
+                  </div>
+                </div>
+
+                {/* QR Code + Upload — shown when amount is set */}
+                <AnimatePresence>
+                  {topupAmount && Number(topupAmount) > 0 && billing.platform_payment?.promptpay_id && (
+                    <motion.div
+                      initial={{ opacity: 0, height: 0 }}
+                      animate={{ opacity: 1, height: "auto" }}
+                      exit={{ opacity: 0, height: 0 }}
+                      className="overflow-hidden"
+                    >
+                      {/* QR Code */}
+                      <div className="mb-5">
+                        <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400 mb-3">
+                          {t("scanToPay")}
+                        </p>
+                        <div className="flex flex-col items-center">
+                          <div className="bg-white p-3 rounded-2xl shadow-sm border border-earth-100">
+                            <QRCodeSVG
+                              value={generatePayload(billing.platform_payment!.promptpay_id!, { amount: Number(topupAmount) })}
+                              size={160}
+                              level="M"
+                            />
+                          </div>
+                          <p className="text-sm font-mono font-semibold text-gray-700 mt-2">
+                            ฿{Number(topupAmount).toLocaleString()}
+                          </p>
+                        </div>
+                      </div>
+
+                      {/* Upload slip */}
+                      <form onSubmit={handleTopup} className="space-y-4">
+                        <div className="space-y-2">
+                          <Label className="text-sm text-gray-700">{t("paymentSlip")}</Label>
+                          <div
+                            onClick={() => fileInputRef.current?.click()}
+                            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
+                            onDrop={(e) => {
+                              e.preventDefault();
+                              e.stopPropagation();
+                              const file = e.dataTransfer.files?.[0];
+                              if (file) setTopupFile(file);
+                            }}
+                            className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all ${
+                              topupFile
+                                ? "border-brand/30 bg-brand-50/50"
+                                : "border-gray-200 hover:border-brand/20 hover:bg-brand-50/20"
+                            }`}
+                          >
+                            <Upload className="h-5 w-5 text-earth-300 mx-auto mb-1.5" />
+                            <p className="text-sm text-earth-500 truncate">
+                              {topupFile ? topupFile.name : t("dragOrClick")}
+                            </p>
+                            <input
+                              ref={fileInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => setTopupFile(e.target.files?.[0] || null)}
+                            />
+                          </div>
+                        </div>
+
+                        {/* Desktop: upload from phone link */}
+                        {!isMobile && (
+                          <div className="rounded-xl bg-earth-50 border border-earth-100 p-3 flex items-center gap-3">
+                            <Link2 className="h-4 w-4 text-earth-400 shrink-0" />
+                            <div className="flex-1 min-w-0">
+                              <p className="text-[11px] text-earth-400 mb-0.5">{t("uploadFromPhone")}</p>
+                              <p className="text-xs font-mono text-earth-500 truncate">{topupUploadLink}</p>
+                            </div>
+                            <button
+                              type="button"
+                              onClick={() => copyToClipboard(topupUploadLink, setCopiedTopupLink)}
+                              className="h-7 w-7 rounded-lg bg-white border border-earth-200 hover:bg-earth-100 flex items-center justify-center transition-colors shrink-0"
+                            >
+                              {copiedTopupLink ? (
+                                <Check className="h-3 w-3 text-emerald-600" />
+                              ) : (
+                                <Copy className="h-3 w-3 text-earth-400" />
+                              )}
+                            </button>
+                          </div>
+                        )}
+
+                        <Button
+                          type="submit"
+                          disabled={topupLoading || !topupFile || !topupAmount}
+                          className="w-full bg-brand hover:bg-brand-hover text-white rounded-xl h-11 shadow-md shadow-brand/10"
+                        >
+                          {topupLoading ? (
+                            <Loader2 className="h-4 w-4 animate-spin mr-2" />
+                          ) : (
+                            <Upload className="h-4 w-4 mr-2" />
+                          )}
+                          {t("verifyAndTopUp")}
+                        </Button>
+                      </form>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
               </CardContent>
             </Card>
           </div>
@@ -908,35 +1064,34 @@ export default function WalletPage() {
           INVOICE PAY DIALOG
       ══════════════════════════════════════════════ */}
       <Dialog open={!!payInvoiceId} onOpenChange={(open) => { if (!open) { setPayInvoiceId(null); setPayFile(null); } }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>{t("payInvoice")}</DialogTitle>
             <DialogDescription>{t("payInvoiceDesc")}</DialogDescription>
           </DialogHeader>
 
           <div className="space-y-4 py-2">
-            {billing.platform_payment && (
-              <div className="rounded-xl bg-brand-50 border border-brand-100 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-brand mb-3">
-                  {t("transferTo")}
-                </p>
-                {billing.platform_payment.payment_display === "qr" && billing.platform_payment.promptpay_id && (
-                  <p className="text-sm text-gray-700">
-                    PromptPay: <span className="font-mono font-medium">{billing.platform_payment.promptpay_id}</span>
-                  </p>
-                )}
-                {billing.platform_payment.payment_display === "bank" && (
-                  <div className="space-y-1 text-sm text-gray-700">
-                    {billing.platform_payment.bank_name && <p>{billing.platform_payment.bank_name}</p>}
-                    {billing.platform_payment.bank_account_number && (
-                      <p className="font-mono font-medium">{billing.platform_payment.bank_account_number}</p>
-                    )}
-                    {billing.platform_payment.bank_account_name && <p>{billing.platform_payment.bank_account_name}</p>}
+            {/* PromptPay QR Code */}
+            {billing.platform_payment?.promptpay_id && payInvoiceId && (() => {
+              const inv = invoices.find((i) => i.id === payInvoiceId);
+              if (!inv) return null;
+              return (
+                <div className="flex flex-col items-center">
+                  <div className="bg-white p-3 rounded-2xl shadow-sm border border-earth-100">
+                    <QRCodeSVG
+                      value={generatePayload(billing.platform_payment!.promptpay_id!, { amount: inv.amount })}
+                      size={160}
+                      level="M"
+                    />
                   </div>
-                )}
-              </div>
-            )}
+                  <p className="text-sm font-mono font-semibold text-gray-700 mt-2">
+                    ฿{inv.amount.toLocaleString()}
+                  </p>
+                </div>
+              );
+            })()}
 
+            {/* Upload slip */}
             <div className="space-y-2">
               <Label className="text-sm text-gray-700">{t("paymentSlip")}</Label>
               <div
@@ -948,14 +1103,14 @@ export default function WalletPage() {
                   const file = e.dataTransfer.files?.[0];
                   if (file) setPayFile(file);
                 }}
-                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
+                className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-colors ${
                   payFile
                     ? "border-brand/30 bg-brand-50/50"
                     : "border-gray-200 hover:border-brand/20 hover:bg-brand-50/20"
                 }`}
               >
-                <Upload className="h-6 w-6 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">
+                <Upload className="h-5 w-5 text-earth-300 mx-auto mb-1.5" />
+                <p className="text-sm text-earth-500 truncate">
                   {payFile ? payFile.name : t("dragOrClick")}
                 </p>
                 <input
@@ -967,6 +1122,28 @@ export default function WalletPage() {
                 />
               </div>
             </div>
+
+            {/* Desktop: upload from phone link */}
+            {!isMobile && (
+              <div className="rounded-xl bg-earth-50 border border-earth-100 p-3 flex items-center gap-3">
+                <Link2 className="h-4 w-4 text-earth-400 shrink-0" />
+                <div className="flex-1 min-w-0">
+                  <p className="text-[11px] text-earth-400 mb-0.5">{t("uploadFromPhone")}</p>
+                  <p className="text-xs font-mono text-earth-500 truncate">{payUploadLink}</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => copyToClipboard(payUploadLink, setCopiedPayLink)}
+                  className="h-7 w-7 rounded-lg bg-white border border-earth-200 hover:bg-earth-100 flex items-center justify-center transition-colors shrink-0"
+                >
+                  {copiedPayLink ? (
+                    <Check className="h-3 w-3 text-emerald-600" />
+                  ) : (
+                    <Copy className="h-3 w-3 text-earth-400" />
+                  )}
+                </button>
+              </div>
+            )}
           </div>
 
           <DialogFooter>

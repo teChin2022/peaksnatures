@@ -1272,6 +1272,10 @@
     "accountNumber": "เลขที่บัญชี",
     "accountName": "ชื่อบัญชี",
     "copied": "คัดลอกแล้ว!",
-    "topUpInlineDesc": "โอนเงินและอัพโหลดสลิป"
+    "topUpInlineDesc": "โอนเงินและอัพโหลดสลิป",
+    "customAmount": "กำหนดเอง",
+    "scanToPay": "สแกนเพื่อชำระเงิน",
+    "uploadFromPhone": "อัพโหลดจากมือถือ",
+    "phoneSlipReceived": "ได้รับสลิปจากมือถือแล้ว!"
   }
 }
