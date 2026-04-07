@@ -41,10 +41,6 @@ export async function POST(req: NextRequest) {
 
     const typedHost = host as { id: string; plan_type: string; name: string };
 
-    if (typedHost.plan_type !== "commission") {
-      return NextResponse.json({ error: "Wallet top-up is only for commission plan" }, { status: 400 });
-    }
-
     // Get platform billing config for payment verification
     const config = await getBillingConfig();
     if (!config) {
