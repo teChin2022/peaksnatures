@@ -155,7 +155,7 @@ export default function CalendarPage() {
 
     // Parallel: rooms + bookings + blocked dates (all depend only on homestay.id)
     const [{ data: roomRows }, { data: bookingRows }, { data: blockedRows }] = await Promise.all([
-      supabase.from("rooms").select("id, name").eq("homestay_id", homestay.id),
+      supabase.from("rooms").select("id, name").eq("homestay_id", homestay.id).order("created_at", { ascending: true }),
       supabase.from("bookings").select("id, homestay_id, room_id, guest_name, check_in, check_out, num_guests, total_price, amount_paid, payment_type, status").eq("homestay_id", homestay.id).not("status", "in", '("cancelled","rejected")').order("check_in", { ascending: true }),
       supabase.from("blocked_dates").select("*").eq("homestay_id", homestay.id),
     ]);

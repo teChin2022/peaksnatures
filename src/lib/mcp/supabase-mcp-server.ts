@@ -182,7 +182,8 @@ export function createSupabaseMcpServer() {
       const { data: roomRows } = await supabase
         .from("rooms")
         .select("*")
-        .eq("homestay_id", homestay_id);
+        .eq("homestay_id", homestay_id)
+        .order("created_at", { ascending: true });
       let rooms = (roomRows as unknown as Room[]) || [];
 
       if (num_guests) {
