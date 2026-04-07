@@ -5,21 +5,24 @@ import { useTranslations, useLocale } from "next-intl";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { fmtDateStr } from "@/lib/format-date";
+import generatePayload from "promptpay-qr";
+import { QRCodeSVG } from "qrcode.react";
+import { useIsMobile } from "@/lib/use-is-mobile";
 import {
   Wallet,
-  ArrowUpCircle,
   Clock,
   CheckCircle,
   AlertTriangle,
   Loader2,
   Upload,
-  Receipt,
   Percent,
   CalendarClock,
   Leaf,
   Check,
   ArrowRight,
   HelpCircle,
+  ImageIcon,
+  Camera,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -86,13 +89,6 @@ const PLAN_LABEL_KEYS: Record<string, string> = {
   commission: "commissionPlan",
   fixed_rate: "fixedRatePlan",
 };
-
-function PlanIcon({ type, className }: { type: string; className?: string }) {
-  const c = className || "h-5 w-5";
-  if (type === "commission") return <Percent className={c} />;
-  if (type === "fixed_rate") return <CalendarClock className={c} />;
-  return <Leaf className={c} />;
-}
 
 const PLANS = [
   {
@@ -190,8 +186,11 @@ export default function DashboardBillingPage() {
   } | null>(null);
   const [hoveredPlan, setHoveredPlan] = useState<string | null>(null);
 
+  const isMobile = useIsMobile();
   const fileInputRef = useRef<HTMLInputElement>(null);
   const payFileInputRef = useRef<HTMLInputElement>(null);
+  const mobileSlipInputRef = useRef<HTMLInputElement>(null);
+  const mobileCameraInputRef = useRef<HTMLInputElement>(null);
 
   const fetchBilling = useCallback(async () => {
     try {
@@ -542,193 +541,275 @@ export default function DashboardBillingPage() {
         </p>
       </motion.div>
 
-      {/* ── Wallet Card ── */}
-      <motion.div
+      {/* ── Plan Detail Card ── */}
+      {data.plan_type === "free" && (
+        <motion.div
+          initial={{ opacity: 0, y: 12 }}
+          animate={{ opacity: 1, y: 0 }}
+          transition={{ duration: 0.4, delay: 0.2 }}
+        >
+          <Card className="overflow-hidden">
+            <div className="bg-gradient-to-br from-earth-50/60 via-white to-earth-50/40 px-6 pt-6 pb-8">
+              <div className="flex items-center gap-2 mb-6">
+                <Leaf className="h-4 w-4 text-earth-600" />
+                <span className="text-sm font-medium text-gray-600">{t("freePlan")}</span>
+              </div>
+              <div className="text-center">
+                <p className="text-4xl sm:text-5xl font-serif tracking-tight text-gray-900">฿0</p>
+                <p className="text-sm text-earth-400 mt-1">/{locale === "th" ? "เดือน" : "month"}</p>
+                {data.plan_free_expires_at && (
+                  <p className="text-sm text-earth-500 mt-3">
+                    {t("expiresOn")} {fmtDateStr(data.plan_free_expires_at, "d MMM yyyy", locale)}
+                  </p>
+                )}
+              </div>
+            </div>
+          </Card>
+        </motion.div>
+      )}
+
+      {data.plan_type === "commission" && (
+        <motion.div
           initial={{ opacity: 0, y: 12 }}
           animate={{ opacity: 1, y: 0 }}
           transition={{ duration: 0.4, delay: 0.2 }}
         >
           <Card className="overflow-hidden">
             <div className="bg-gradient-to-br from-brand-50/60 via-white to-brand-50/40 px-6 pt-6 pb-8">
-              <div className="flex items-center justify-between mb-6">
-                <div className="flex items-center gap-2">
-                  <Wallet className="h-4 w-4 text-brand" />
-                  <span className="text-sm font-medium text-gray-600">{t("wallet")}</span>
-                </div>
-                {data.plan_type === "commission" && (
-                  <Button
-                    size="sm"
-                    className="bg-brand hover:bg-brand-hover text-white rounded-full px-4 text-xs"
-                    onClick={() => setTopupSheetOpen(true)}
-                  >
-                    <ArrowUpCircle className="h-3.5 w-3.5 mr-1.5" />
-                    {t("topUp")}
-                  </Button>
-                )}
+              <div className="flex items-center gap-2 mb-6">
+                <Percent className="h-4 w-4 text-brand" />
+                <span className="text-sm font-medium text-gray-600">{t("commissionPlan")}</span>
               </div>
-
               <div className="text-center">
-                <motion.p
-                  key={data.wallet_balance}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ duration: 0.3 }}
-                  className={`text-4xl sm:text-5xl font-serif tracking-tight ${
-                    data.wallet_balance < 0 ? "text-red-600" : "text-gray-900"
-                  }`}
-                >
-                  {data.wallet_balance < 0 ? "-" : ""}฿{Math.abs(data.wallet_balance).toLocaleString()}
-                </motion.p>
-                <p className="text-xs font-mono uppercase tracking-wider text-gray-400 mt-1.5">
-                  {t("walletBalance")}
+                <p className="text-4xl sm:text-5xl font-serif tracking-tight text-gray-900">
+                  {data.effective_commission_pct ?? 0}%
+                </p>
+                <p className="text-sm text-earth-400 mt-1">/{locale === "th" ? "การจอง" : "booking"}</p>
+                <p className="text-sm text-earth-500 mt-3">
+                  {locale === "th"
+                    ? "จ่ายตามการใช้งาน เหมาะสำหรับโฮสต์ตามฤดูกาล"
+                    : "Pay as you go. Best for seasonal or occasional hosts."}
                 </p>
               </div>
             </div>
-
-            <CardContent className="px-6 pb-6 pt-4">
-              {data.recent_transactions.length > 0 ? (
-                <>
-                  <p className="text-xs font-medium uppercase tracking-wider text-gray-400 mb-3">
-                    {t("recentTransactions")}
-                  </p>
-                  <div className="relative">
-                    <div className="absolute left-[4.5px] top-3 bottom-3 w-px bg-gray-200" />
-                    <div className="space-y-0">
-                      {data.recent_transactions.map((txn, i) => (
-                        <motion.div
-                          key={txn.id}
-                          initial={{ opacity: 0, x: -8 }}
-                          animate={{ opacity: 1, x: 0 }}
-                          transition={{ delay: i * 0.05, duration: 0.3 }}
-                          className="relative flex items-start gap-3 py-2.5"
-                        >
-                          <div
-                            className={`relative z-10 mt-1 h-[9px] w-[9px] rounded-full border-2 shrink-0 ${
-                              txn.amount > 0
-                                ? "border-green-500 bg-green-50"
-                                : "border-gray-400 bg-gray-100"
-                            }`}
-                          />
-                          <div className="flex-1 flex items-start justify-between min-w-0">
-                            <div className="min-w-0">
-                              <p className="text-sm text-gray-700 truncate">
-                                {txn.description || txn.type}
-                              </p>
-                              <p className="text-[11px] text-gray-400 font-mono">
-                                {fmtDateStr(txn.created_at, "d MMM yyyy HH:mm", locale)}
-                              </p>
-                            </div>
-                            <span
-                              className={`text-sm font-mono font-medium shrink-0 ml-3 ${
-                                txn.amount > 0 ? "text-green-600" : "text-red-600"
-                              }`}
-                            >
-                              {txn.amount > 0 ? "+" : ""}฿{Math.abs(txn.amount).toLocaleString()}
-                            </span>
-                          </div>
-                        </motion.div>
-                      ))}
-                    </div>
-                  </div>
-                </>
-              ) : (
-                <p className="text-sm text-gray-400 text-center py-4">{t("noTransactions")}</p>
-              )}
-            </CardContent>
-          </Card>
-        </motion.div>
-
-      {/* ── Invoices Card (fixed rate plan) ── */}
-      {data.plan_type === "fixed_rate" && (
-        <motion.div
-          initial={{ opacity: 0, y: 12 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.4, delay: 0.2 }}
-        >
-          <Card>
-            <CardContent className="p-6">
-              <div className="flex items-center gap-2 mb-4">
-                <Receipt className="h-4 w-4 text-brand" />
-                <p className="text-xs font-medium uppercase tracking-wider text-gray-400">
-                  {t("invoices")}
-                </p>
-              </div>
-
-              {data.invoices.length === 0 ? (
-                <p className="text-sm text-gray-400 text-center py-6">{t("noInvoices")}</p>
-              ) : (
-                <div className="space-y-3">
-                  {data.invoices.map((inv, i) => (
-                    <motion.div
-                      key={inv.id}
-                      initial={{ opacity: 0, y: 8 }}
-                      animate={{ opacity: 1, y: 0 }}
-                      transition={{ delay: i * 0.06, duration: 0.3 }}
-                      className={`rounded-xl border p-4 transition-colors ${
-                        inv.status === "overdue"
-                          ? "border-red-200 bg-red-50/30"
-                          : inv.status === "paid"
-                          ? "border-gray-100 bg-gray-50/50"
-                          : "border-gray-200 bg-white"
-                      }`}
-                    >
-                      <div className="flex items-start justify-between">
-                        <div>
-                          <p className="font-serif text-lg text-gray-900">
-                            ฿{inv.amount.toLocaleString()}
-                          </p>
-                          <p className="text-xs text-gray-400 mt-0.5">
-                            {fmtDateStr(inv.period_start, "d MMM", locale)} —{" "}
-                            {fmtDateStr(inv.period_end, "d MMM yyyy", locale)}
-                          </p>
-                        </div>
-                        <Badge
-                          className={`rounded-full text-[11px] font-medium ${
-                            inv.status === "paid"
-                              ? "bg-green-100 text-green-700"
-                              : inv.status === "overdue"
-                              ? "bg-red-100 text-red-700"
-                              : "bg-amber-100 text-amber-700"
-                          }`}
-                        >
-                          {inv.status === "paid" && <CheckCircle className="h-3 w-3 mr-0.5" />}
-                          {inv.status === "overdue" && <AlertTriangle className="h-3 w-3 mr-0.5" />}
-                          {inv.status === "pending" && <Clock className="h-3 w-3 mr-0.5" />}
-                          {inv.status}
-                        </Badge>
-                      </div>
-
-                      {(inv.status === "pending" || inv.status === "overdue") && (
-                        <div className="mt-3 pt-3 border-t border-gray-100 flex items-center justify-between">
-                          <p className="text-xs text-gray-400">
-                            {t("dueDate")}: {fmtDateStr(inv.due_date, "d MMM yyyy", locale)}
-                          </p>
-                          <Button
-                            size="sm"
-                            className="bg-brand hover:bg-brand-hover text-white rounded-full px-4 text-xs"
-                            onClick={() => {
-                              setPayInvoiceId(inv.id);
-                              setPayFile(null);
-                            }}
-                          >
-                            {t("payNow")}
-                          </Button>
-                        </div>
-                      )}
-
-                      {inv.status === "paid" && inv.paid_at && (
-                        <p className="text-[11px] text-gray-400 mt-2">
-                          {t("paidOn")} {fmtDateStr(inv.paid_at, "d MMM yyyy", locale)}
-                        </p>
-                      )}
-                    </motion.div>
-                  ))}
-                </div>
-              )}
-            </CardContent>
           </Card>
         </motion.div>
       )}
+
+      {data.plan_type === "fixed_rate" && (() => {
+        const pendingInvoice = data.invoices.find((inv) => inv.status === "pending" || inv.status === "overdue");
+        const paymentAmount = pendingInvoice?.amount ?? data.effective_fixed_rate ?? 0;
+
+        return (
+          <>
+            <motion.div
+              initial={{ opacity: 0, y: 12 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.4, delay: 0.2 }}
+            >
+              <Card className="overflow-hidden">
+                <div className="bg-gradient-to-br from-brand-50/60 via-white to-brand-50/40 px-6 pt-6 pb-8">
+                  <div className="flex items-center gap-2 mb-6">
+                    <CalendarClock className="h-4 w-4 text-earth-700" />
+                    <span className="text-sm font-medium text-gray-600">{t("fixedRatePlan")}</span>
+                  </div>
+
+                  {pendingInvoice ? (
+                    <div className="space-y-5">
+                      {/* PromptPay QR / Bank Details */}
+                      <div className="flex flex-col items-center p-5 bg-white rounded-2xl border border-earth-100">
+                        {data.platform_payment?.payment_display === "bank" && data.platform_payment.bank_name && data.platform_payment.bank_account_number ? (
+                          <>
+                            <p className="text-sm text-earth-500 mb-3">{t("transferTo")}</p>
+                            <div className="w-full space-y-2 bg-earth-50 rounded-xl p-4 border border-earth-100">
+                              <div className="flex justify-between text-sm">
+                                <span className="text-earth-500">{locale === "th" ? "ธนาคาร" : "Bank"}</span>
+                                <span className="font-medium text-earth-900">{data.platform_payment.bank_name}</span>
+                              </div>
+                              <div className="border-t border-earth-200" />
+                              <div className="flex justify-between text-sm">
+                                <span className="text-earth-500">{locale === "th" ? "เลขบัญชี" : "Account No."}</span>
+                                <span className="font-mono font-medium text-earth-900">{data.platform_payment.bank_account_number}</span>
+                              </div>
+                              <div className="border-t border-earth-200" />
+                              <div className="flex justify-between text-sm">
+                                <span className="text-earth-500">{locale === "th" ? "ชื่อบัญชี" : "Account Name"}</span>
+                                <span className="font-medium text-earth-900">{data.platform_payment.bank_account_name}</span>
+                              </div>
+                            </div>
+                          </>
+                        ) : data.platform_payment?.promptpay_id ? (
+                          <>
+                            <p className="text-sm text-earth-500 mb-3">{locale === "th" ? "สแกน QR เพื่อชำระเงิน" : "Scan QR to pay"}</p>
+                            <div className="bg-white p-3 rounded-2xl shadow-sm border border-earth-100">
+                              <QRCodeSVG value={generatePayload(data.platform_payment.promptpay_id, { amount: paymentAmount })} size={160} level="M" />
+                            </div>
+                            {data.platform_payment.bank_account_name && (
+                              <p className="mt-3 text-sm font-medium text-earth-700">{data.platform_payment.bank_account_name}</p>
+                            )}
+                            <p className="text-xs text-earth-400">{locale === "th" ? "พร้อมเพย์" : "PromptPay"}: {data.platform_payment.promptpay_id}</p>
+                          </>
+                        ) : null}
+
+                        <p className="mt-3 text-2xl font-bold text-earth-900">฿{paymentAmount.toLocaleString()}</p>
+                        <p className="text-xs text-earth-400 mt-0.5">
+                          {fmtDateStr(pendingInvoice.period_start, "d MMM", locale)} — {fmtDateStr(pendingInvoice.period_end, "d MMM yyyy", locale)}
+                        </p>
+                        {pendingInvoice.status === "overdue" && (
+                          <Badge className="mt-2 bg-red-100 text-red-700 rounded-full text-[11px] font-medium">
+                            <AlertTriangle className="h-3 w-3 mr-0.5" />
+                            {locale === "th" ? "เลยกำหนดชำระ" : "Overdue"}
+                          </Badge>
+                        )}
+                        <p className="text-xs text-earth-400 mt-1">
+                          {t("dueDate")}: {fmtDateStr(pendingInvoice.due_date, "d MMM yyyy", locale)}
+                        </p>
+                      </div>
+
+                      {/* Mobile: upload slip directly */}
+                      {isMobile && (
+                        <div className="space-y-3">
+                          <button
+                            type="button"
+                            onClick={() => mobileSlipInputRef.current?.click()}
+                            className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-earth-300 p-4 text-left transition-colors hover:border-earth-400 hover:bg-earth-50"
+                          >
+                            <div className="rounded-xl bg-earth-100 p-2.5"><ImageIcon className="h-5 w-5 text-earth-500" /></div>
+                            <div>
+                              <p className="text-sm font-medium text-earth-700">{locale === "th" ? "เลือกสลิปจากแกลเลอรี่" : "Choose slip from gallery"}</p>
+                              <p className="text-xs text-earth-400">{locale === "th" ? "คลิกเพื่ออัพโหลด" : "Click to upload"}</p>
+                            </div>
+                          </button>
+                          <input
+                            ref={mobileSlipInputRef}
+                            type="file"
+                            accept="image/*"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file && pendingInvoice) {
+                                setPayFile(file);
+                                setPayInvoiceId(pendingInvoice.id);
+                              }
+                            }}
+                          />
+                          <button
+                            type="button"
+                            onClick={() => mobileCameraInputRef.current?.click()}
+                            className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-earth-300 p-4 text-left transition-colors hover:border-earth-400 hover:bg-earth-50"
+                          >
+                            <div className="rounded-xl bg-earth-100 p-2.5"><Camera className="h-5 w-5 text-earth-500" /></div>
+                            <div>
+                              <p className="text-sm font-medium text-earth-700">{locale === "th" ? "ถ่ายรูปสลิป" : "Take photo of slip"}</p>
+                              <p className="text-xs text-earth-400">{locale === "th" ? "คลิกเพื่อเปิดกล้อง" : "Click to open camera"}</p>
+                            </div>
+                          </button>
+                          <input
+                            ref={mobileCameraInputRef}
+                            type="file"
+                            accept="image/*"
+                            capture="environment"
+                            className="hidden"
+                            onChange={(e) => {
+                              const file = e.target.files?.[0];
+                              if (file && pendingInvoice) {
+                                setPayFile(file);
+                                setPayInvoiceId(pendingInvoice.id);
+                              }
+                            }}
+                          />
+                        </div>
+                      )}
+
+                      {/* Desktop: Pay Now button */}
+                      {!isMobile && (
+                        <Button
+                          className="w-full bg-brand hover:bg-brand-hover text-white rounded-full py-3 text-sm font-semibold"
+                          onClick={() => {
+                            setPayInvoiceId(pendingInvoice.id);
+                            setPayFile(null);
+                          }}
+                        >
+                          <Upload className="h-4 w-4 mr-2" />
+                          {t("payNow")}
+                        </Button>
+                      )}
+                    </div>
+                  ) : (
+                    <div className="text-center">
+                      <p className="text-4xl sm:text-5xl font-serif tracking-tight text-gray-900">
+                        ฿{(data.effective_fixed_rate ?? 0).toLocaleString()}
+                      </p>
+                      <p className="text-sm text-earth-400 mt-1">/{locale === "th" ? "เดือน" : "month"}</p>
+                      <p className="text-sm text-earth-500 mt-3">
+                        {locale === "th" ? "ไม่มีใบแจ้งหนี้ค้างชำระ" : "No pending invoices"}
+                      </p>
+                    </div>
+                  )}
+                </div>
+
+                {/* Invoice History */}
+                {data.invoices.length > 0 && (
+                  <CardContent className="px-6 pb-6 pt-4">
+                    <p className="text-xs font-medium uppercase tracking-wider text-gray-400 mb-3">
+                      {t("invoices")}
+                    </p>
+                    <div className="space-y-3">
+                      {data.invoices.map((inv, i) => (
+                        <motion.div
+                          key={inv.id}
+                          initial={{ opacity: 0, y: 8 }}
+                          animate={{ opacity: 1, y: 0 }}
+                          transition={{ delay: i * 0.06, duration: 0.3 }}
+                          className={`rounded-xl border p-4 transition-colors ${
+                            inv.status === "overdue"
+                              ? "border-red-200 bg-red-50/30"
+                              : inv.status === "paid"
+                              ? "border-gray-100 bg-gray-50/50"
+                              : "border-gray-200 bg-white"
+                          }`}
+                        >
+                          <div className="flex items-start justify-between">
+                            <div>
+                              <p className="font-serif text-lg text-gray-900">
+                                ฿{inv.amount.toLocaleString()}
+                              </p>
+                              <p className="text-xs text-gray-400 mt-0.5">
+                                {fmtDateStr(inv.period_start, "d MMM", locale)} —{" "}
+                                {fmtDateStr(inv.period_end, "d MMM yyyy", locale)}
+                              </p>
+                            </div>
+                            <Badge
+                              className={`rounded-full text-[11px] font-medium ${
+                                inv.status === "paid"
+                                  ? "bg-green-100 text-green-700"
+                                  : inv.status === "overdue"
+                                  ? "bg-red-100 text-red-700"
+                                  : "bg-amber-100 text-amber-700"
+                              }`}
+                            >
+                              {inv.status === "paid" && <CheckCircle className="h-3 w-3 mr-0.5" />}
+                              {inv.status === "overdue" && <AlertTriangle className="h-3 w-3 mr-0.5" />}
+                              {inv.status === "pending" && <Clock className="h-3 w-3 mr-0.5" />}
+                              {inv.status}
+                            </Badge>
+                          </div>
+
+                          {inv.status === "paid" && inv.paid_at && (
+                            <p className="text-[11px] text-gray-400 mt-2">
+                              {t("paidOn")} {fmtDateStr(inv.paid_at, "d MMM yyyy", locale)}
+                            </p>
+                          )}
+                        </motion.div>
+                      ))}
+                    </div>
+                  </CardContent>
+                )}
+              </Card>
+            </motion.div>
+          </>
+        );
+      })()}
 
       {/* ══════════════════════════════════════════════
           DIALOGS & SHEETS

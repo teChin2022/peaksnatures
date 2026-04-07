@@ -30,31 +30,31 @@ export async function POST(req: NextRequest) {
 
     const now = new Date();
     const today = now.toISOString().split("T")[0];
-    const tomorrow = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 1)
+    const in3Days = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 3)
       .toISOString().split("T")[0];
     const isFirstOfMonth = now.getDate() === 1;
 
     // ============================================================
-    // DAILY: Send SMS 1 day before free plan expiry
+    // DAILY: Send SMS 3 days before free plan expiry
     // ============================================================
-    const { data: expiringTomorrowHosts } = await supabase
+    const { data: expiringIn3DaysHosts } = await supabase
       .from("hosts")
       .select("id, name, phone")
       .eq("plan_type", "free")
       .not("plan_free_expires_at", "is", null)
-      .gte("plan_free_expires_at", tomorrow + "T00:00:00Z")
-      .lt("plan_free_expires_at", tomorrow + "T23:59:59Z");
+      .gte("plan_free_expires_at", in3Days + "T00:00:00Z")
+      .lt("plan_free_expires_at", in3Days + "T23:59:59Z");
 
     let preExpiryNotifications = 0;
-    for (const host of (expiringTomorrowHosts || []) as { id: string; name: string; phone: string | null }[]) {
+    for (const host of (expiringIn3DaysHosts || []) as { id: string; name: string; phone: string | null }[]) {
       if (host.phone) {
         try {
           const { sendSms } = await import("@/lib/notifications");
-          await sendSms(
+          const result = await sendSms(
             host.phone,
-            `แพลนฟรีของคุณจะหมดอายุพรุ่งนี้ กรุณาเข้าระบบเพื่อเปลี่ยนแพลน`,
+            `แพลนฟรีของคุณจะหมดอายุใน 3 วัน กรุณาเข้าระบบเพื่อเปลี่ยนแพลน`,
           );
-          preExpiryNotifications++;
+          if (result.success) preExpiryNotifications++;
         } catch (err) {
           console.error("[Cron] Pre-expiry SMS error for host:", host.id, err);
         }
@@ -78,11 +78,11 @@ export async function POST(req: NextRequest) {
       if (host.phone) {
         try {
           const { sendSms } = await import("@/lib/notifications");
-          await sendSms(
+          const result = await sendSms(
             host.phone,
             `แพลนฟรีหมดอายุแล้ว กรุณาเข้าระบบเพื่อเปลี่ยนแพลน`,
           );
-          expiryNotifications++;
+          if (result.success) expiryNotifications++;
         } catch (err) {
           console.error("[Cron] Expiry SMS error for host:", host.id, err);
         }
