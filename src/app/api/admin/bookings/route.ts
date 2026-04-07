@@ -21,24 +21,49 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
     const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "20")));
     const offset = (page - 1) * limit;
+    const hostId = url.searchParams.get("host_id");
 
     const sc = createServiceRoleClient();
+
+    // If filtering by host, resolve their homestay IDs first
+    let homestayIdsForHost: string[] | null = null;
+    if (hostId) {
+      const { data: hostHomestays } = await sc
+        .from("homestays")
+        .select("id")
+        .eq("host_id", hostId);
+      homestayIdsForHost = (hostHomestays as { id: string }[] | null)?.map((h) => h.id) ?? [];
+      if (homestayIdsForHost.length === 0) {
+        return NextResponse.json({
+          data: [],
+          total: 0,
+          page,
+          limit,
+          totalPages: 0,
+          hasMore: false,
+        }, { headers: { "Cache-Control": "private, no-store" } });
+      }
+    }
 
     // Only fetch total count on page 1 to avoid redundant full-table scan on load-more
     let total: number | null = null;
     if (page === 1) {
-      const { count } = await sc
+      let countQuery = sc
         .from("bookings")
         .select("id", { count: "exact", head: true });
+      if (homestayIdsForHost) countQuery = countQuery.in("homestay_id", homestayIdsForHost);
+      const { count } = await countQuery;
       total = count;
     }
 
     // Fetch limit+1 to determine hasMore without needing count on subsequent pages
-    const { data: bookings, error } = await sc
+    let bookingsQuery = sc
       .from("bookings")
       .select("id, homestay_id, room_id, guest_name, guest_email, guest_phone, check_in, check_out, num_guests, total_price, status, payment_type, amount_paid, created_at")
       .order("created_at", { ascending: false })
       .range(offset, offset + limit);
+    if (homestayIdsForHost) bookingsQuery = bookingsQuery.in("homestay_id", homestayIdsForHost);
+    const { data: bookings, error } = await bookingsQuery;
 
     if (error) {
       console.error("[Admin Bookings] query error:", error);

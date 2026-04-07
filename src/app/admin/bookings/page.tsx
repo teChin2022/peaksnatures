@@ -6,6 +6,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 
 interface BookingRow {
   id: string;
@@ -36,6 +43,11 @@ interface PaginatedResponse {
   hasMore?: boolean;
 }
 
+interface HostOption {
+  id: string;
+  name: string;
+}
+
 const STATUS_COLORS: Record<string, string> = {
   confirmed: "bg-green-100 text-green-700",
   completed: "bg-blue-100 text-blue-700",
@@ -50,11 +62,30 @@ export default function AdminBookingsPage() {
   const [loadingMore, setLoadingMore] = useState(false);
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
+  const [hosts, setHosts] = useState<HostOption[]>([]);
+  const [selectedHostId, setSelectedHostId] = useState<string>("all");
 
-  const fetchBookings = useCallback(async (p: number, append = false) => {
+  useEffect(() => {
+    async function fetchHosts() {
+      try {
+        const r = await fetch("/api/admin/hosts?limit=100");
+        if (r.ok) {
+          const res = await r.json();
+          setHosts(res.data.map((h: { id: string; name: string }) => ({ id: h.id, name: h.name })));
+        }
+      } catch (err) {
+        console.error("Failed to fetch hosts:", err);
+      }
+    }
+    fetchHosts();
+  }, []);
+
+  const fetchBookings = useCallback(async (p: number, append = false, hostId?: string) => {
     if (append) setLoadingMore(true); else setLoading(true);
     try {
-      const r = await fetch(`/api/admin/bookings?page=${p}&limit=20`);
+      const params = new URLSearchParams({ page: String(p), limit: "20" });
+      if (hostId && hostId !== "all") params.set("host_id", hostId);
+      const r = await fetch(`/api/admin/bookings?${params}`);
       if (r.ok) {
         const res: PaginatedResponse = await r.json();
         setBookings((prev) => append ? [...prev, ...res.data] : res.data);
@@ -70,13 +101,14 @@ export default function AdminBookingsPage() {
   }, []);
 
   useEffect(() => {
-    fetchBookings(1);
-  }, [fetchBookings]);
+    setPage(1);
+    fetchBookings(1, false, selectedHostId);
+  }, [fetchBookings, selectedHostId]);
 
   const handleLoadMore = () => {
     const next = page + 1;
     setPage(next);
-    fetchBookings(next, true);
+    fetchBookings(next, true, selectedHostId);
   };
 
   return (
@@ -85,11 +117,26 @@ export default function AdminBookingsPage() {
         <p className="text-xs font-medium uppercase tracking-widest text-gray-400 mb-1">
           {loading ? "Loading..." : `${total} total`}
         </p>
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-orange-100 p-2">
-            <CalendarDays className="h-5 w-5 text-orange-600" />
+        <div className="flex items-center justify-between gap-3">
+          <div className="flex items-center gap-3">
+            <div className="rounded-lg bg-orange-100 p-2">
+              <CalendarDays className="h-5 w-5 text-orange-600" />
+            </div>
+            <h1 className="text-2xl font-serif text-gray-900">Bookings</h1>
           </div>
-          <h1 className="text-2xl font-serif text-gray-900">Bookings</h1>
+          <Select value={selectedHostId} onValueChange={setSelectedHostId}>
+            <SelectTrigger className="w-[180px]">
+              <SelectValue placeholder="All Hosts" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">All Hosts</SelectItem>
+              {hosts.map((host) => (
+                <SelectItem key={host.id} value={host.id}>
+                  {host.name}
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
         </div>
       </div>
 
