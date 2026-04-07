@@ -122,15 +122,29 @@ export default function WalletPage() {
   // ── Top-up ──
   const [topupAmount, setTopupAmount] = useState("");
   const [customAmount, setCustomAmount] = useState(false);
-  const [topupFile, setTopupFile] = useState<File | null>(null);
+  const [topupFile, setTopupFileRaw] = useState<File | null>(null);
+  const [topupPreview, setTopupPreview] = useState<string | null>(null);
   const [topupLoading, setTopupLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  const setTopupFile = useCallback((file: File | null) => {
+    if (topupPreview) URL.revokeObjectURL(topupPreview);
+    setTopupFileRaw(file);
+    setTopupPreview(file ? URL.createObjectURL(file) : null);
+  }, [topupPreview]);
+
   // ── Invoice pay ──
   const [payInvoiceId, setPayInvoiceId] = useState<string | null>(null);
-  const [payFile, setPayFile] = useState<File | null>(null);
+  const [payFile, setPayFileRaw] = useState<File | null>(null);
+  const [payPreview, setPayPreview] = useState<string | null>(null);
   const [payLoading, setPayLoading] = useState(false);
   const payFileInputRef = useRef<HTMLInputElement>(null);
+
+  const setPayFile = useCallback((file: File | null) => {
+    if (payPreview) URL.revokeObjectURL(payPreview);
+    setPayFileRaw(file);
+    setPayPreview(file ? URL.createObjectURL(file) : null);
+  }, [payPreview]);
 
   // ── Mobile detection ──
   const [isMobile, setIsMobile] = useState(false);
@@ -574,8 +588,11 @@ export default function WalletPage() {
 
                         {topupFile ? (
                           <div className="rounded-2xl border bg-earth-50 p-3">
-                            <p className="mb-2 text-center text-xs font-medium text-earth-500">{topupFile.name}</p>
-                            <div className="flex justify-center">
+                            <p className="mb-2 text-center text-xs font-medium text-earth-500">{t("slipPreview")}</p>
+                            {topupPreview && (
+                              <img src={topupPreview} alt={t("slipPreview")} className="mx-auto max-h-52 rounded-xl object-contain" />
+                            )}
+                            <div className="mt-3 flex justify-center">
                               <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="rounded-full">
                                 <ImageIcon className="mr-1.5 h-3.5 w-3.5" />{t("changeSlip")}
                               </Button>
@@ -986,8 +1003,11 @@ export default function WalletPage() {
 
               {payFile ? (
                 <div className="rounded-2xl border bg-earth-50 p-3">
-                  <p className="mb-2 text-center text-xs font-medium text-earth-500">{payFile.name}</p>
-                  <div className="flex justify-center">
+                  <p className="mb-2 text-center text-xs font-medium text-earth-500">{t("slipPreview")}</p>
+                  {payPreview && (
+                    <img src={payPreview} alt={t("slipPreview")} className="mx-auto max-h-52 rounded-xl object-contain" />
+                  )}
+                  <div className="mt-3 flex justify-center">
                     <Button type="button" variant="outline" size="sm" onClick={() => payFileInputRef.current?.click()} className="rounded-full">
                       <ImageIcon className="mr-1.5 h-3.5 w-3.5" />{t("changeSlip")}
                     </Button>

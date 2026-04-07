@@ -1279,6 +1279,7 @@
     "takePhoto": "Take Photo",
     "clickUpload": "Tap to upload payment slip",
     "changeSlip": "Change",
-    "orUploadFromPhone": "Or upload from your phone"
+    "orUploadFromPhone": "Or upload from your phone",
+    "slipPreview": "Slip Preview"
   }
 }

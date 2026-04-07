@@ -1283,6 +1283,7 @@
     "takePhoto": "ถ่ายรูป",
     "clickUpload": "แตะเพื่ออัพโหลดสลิป",
     "changeSlip": "เปลี่ยน",
-    "orUploadFromPhone": "หรืออัพโหลดจากมือถือ"
+    "orUploadFromPhone": "หรืออัพโหลดจากมือถือ",
+    "slipPreview": "ตัวอย่างสลิป"
   }
 }
