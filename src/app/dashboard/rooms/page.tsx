@@ -170,7 +170,7 @@ export default function RoomsPage() {
       .from("rooms")
       .select("*, room_seasonal_prices(*), room_options(*)")
       .eq("homestay_id", homestay.id)
-      .order("name" as never);
+      .order("created_at", { ascending: true });
 
     if (roomRows) {
       const roomsWithJoins = roomRows as unknown as (RoomData & { room_seasonal_prices: RoomSeasonalPrice[]; room_options: RoomOption[] })[];
