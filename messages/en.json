@@ -1260,6 +1260,26 @@
     "thisMonth": "This month",
     "income": "Income",
     "deductions": "Deductions",
-    "negativeBalanceWarning": "Your balance is negative. Please top up to avoid service interruption."
+    "negativeBalanceWarning": "Your balance is negative. Please top up to avoid service interruption.",
+    "paymentInfo": "Payment Information",
+    "promptPayId": "PromptPay ID",
+    "promptPayHint": "Use this ID to transfer via PromptPay in your banking app",
+    "bankName": "Bank",
+    "accountNumber": "Account Number",
+    "accountName": "Account Name",
+    "copied": "Copied!",
+    "topUpInlineDesc": "Transfer and upload your slip",
+    "customAmount": "Custom",
+    "scanToPay": "Scan to pay",
+    "uploadFromPhone": "Upload from phone",
+    "phoneSlipReceived": "Slip received from phone!",
+    "scanToUploadSlip": "Scan with your phone to upload slip",
+    "waitingForPhoneUpload": "Waiting for phone upload…",
+    "chooseFromGallery": "Choose from Gallery",
+    "takePhoto": "Take Photo",
+    "clickUpload": "Tap to upload payment slip",
+    "changeSlip": "Change",
+    "orUploadFromPhone": "Or upload from your phone",
+    "slipPreview": "Slip Preview"
   }
 }

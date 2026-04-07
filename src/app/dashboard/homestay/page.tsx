@@ -652,12 +652,12 @@ export default function HomestayPage() {
                   {amenities.map((a) => (
                     <Badge
                       key={a}
-                      className="cursor-pointer pr-1 hover:brightness-90 bg-brand"
+                      className="cursor-pointer pr-1 hover:brightness-90 bg-brand max-w-full whitespace-normal text-left shrink"
                     >
                       {a}
                       <button
                         type="button"
-                        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full hover:brightness-75"
+                        className="ml-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full hover:brightness-75"
                         onClick={() => removeAmenity(a)}
                       >
                         <X className="h-3 w-3" />
@@ -762,12 +762,12 @@ export default function HomestayPage() {
                   {prohibitions.map((p) => (
                     <Badge
                       key={p}
-                      className="cursor-pointer pr-1 hover:brightness-90 bg-brand"
+                      className="cursor-pointer pr-1 hover:brightness-90 bg-brand max-w-full whitespace-normal text-left shrink"
                     >
                       {p}
                       <button
                         type="button"
-                        className="ml-1 inline-flex h-4 w-4 items-center justify-center rounded-full hover:brightness-75"
+                        className="ml-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full hover:brightness-75"
                         onClick={() => removeProhibition(p)}
                       >
                         <X className="h-3 w-3" />

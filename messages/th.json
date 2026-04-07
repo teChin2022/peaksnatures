@@ -468,7 +468,7 @@
     "guide": "คู่มือตั้งค่า",
     "checkins": "เช็คอินวันนี้",
     "billing": "การเรียกเก็บเงิน",
-    "wallet": "กระเป๋าเงินและใบแจ้งหนี้"
+    "wallet": "กระเป๋างเงิน/ใบแจ้งหนี้"
   },
   "checkins": {
     "title": "เช็คอินวันนี้",
@@ -1264,6 +1264,26 @@
     "thisMonth": "เดือนนี้",
     "income": "รายรับ",
     "deductions": "รายจ่าย",
-    "negativeBalanceWarning": "ยอดเงินคงเหลือติดลบ กรุณาเติมเงินเพื่อไม่ให้บริการถูกระงับ"
+    "negativeBalanceWarning": "ยอดเงินคงเหลือติดลบ กรุณาเติมเงินเพื่อไม่ให้บริการถูกระงับ",
+    "paymentInfo": "ข้อมูลการชำระเงิน",
+    "promptPayId": "หมายเลขพร้อมเพย์",
+    "promptPayHint": "ใช้หมายเลขนี้โอนผ่านพร้อมเพย์ในแอปธนาคาร",
+    "bankName": "ธนาคาร",
+    "accountNumber": "เลขที่บัญชี",
+    "accountName": "ชื่อบัญชี",
+    "copied": "คัดลอกแล้ว!",
+    "topUpInlineDesc": "โอนเงินและอัพโหลดสลิป",
+    "customAmount": "กำหนดเอง",
+    "scanToPay": "สแกนเพื่อชำระเงิน",
+    "uploadFromPhone": "อัพโหลดจากมือถือ",
+    "phoneSlipReceived": "ได้รับสลิปจากมือถือแล้ว!",
+    "scanToUploadSlip": "สแกน QR ด้วยมือถือเพื่ออัพโหลดสลิป",
+    "waitingForPhoneUpload": "กำลังรอรับสลิปจากมือถือ…",
+    "chooseFromGallery": "เลือกจากแกลเลอรี่",
+    "takePhoto": "ถ่ายรูป",
+    "clickUpload": "แตะเพื่ออัพโหลดสลิป",
+    "changeSlip": "เปลี่ยน",
+    "orUploadFromPhone": "หรืออัพโหลดจากมือถือ",
+    "slipPreview": "ตัวอย่างสลิป"
   }
 }
