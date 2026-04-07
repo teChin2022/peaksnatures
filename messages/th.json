@@ -1278,6 +1278,11 @@
     "uploadFromPhone": "อัพโหลดจากมือถือ",
     "phoneSlipReceived": "ได้รับสลิปจากมือถือแล้ว!",
     "scanToUploadSlip": "สแกน QR ด้วยมือถือเพื่ออัพโหลดสลิป",
-    "waitingForPhoneUpload": "กำลังรอรับสลิปจากมือถือ…"
+    "waitingForPhoneUpload": "กำลังรอรับสลิปจากมือถือ…",
+    "chooseFromGallery": "เลือกจากแกลเลอรี่",
+    "takePhoto": "ถ่ายรูป",
+    "clickUpload": "แตะเพื่ออัพโหลดสลิป",
+    "changeSlip": "เปลี่ยน",
+    "orUploadFromPhone": "หรืออัพโหลดจากมือถือ"
   }
 }

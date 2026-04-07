@@ -22,6 +22,8 @@ import {
   TrendingUp,
   TrendingDown,
   Banknote,
+  ImageIcon,
+  Camera,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -568,27 +570,16 @@ export default function WalletPage() {
                       className="overflow-hidden"
                     >
                       <form onSubmit={handleTopup} className="space-y-4">
-                        <div className="space-y-2">
-                          <Label className="text-sm text-gray-700">{t("paymentSlip")}</Label>
-                          <div
-                            onClick={() => fileInputRef.current?.click()}
-                            onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                            onDrop={(e) => {
-                              e.preventDefault();
-                              e.stopPropagation();
-                              const file = e.dataTransfer.files?.[0];
-                              if (file) setTopupFile(file);
-                            }}
-                            className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-all ${
-                              topupFile
-                                ? "border-brand/30 bg-brand-50/50"
-                                : "border-gray-200 hover:border-brand/20 hover:bg-brand-50/20"
-                            }`}
-                          >
-                            <Upload className="h-5 w-5 text-earth-300 mx-auto mb-1.5" />
-                            <p className="text-sm text-earth-500 truncate">
-                              {topupFile ? topupFile.name : t("dragOrClick")}
-                            </p>
+                        <Label className="text-sm text-gray-700">{t("paymentSlip")}</Label>
+
+                        {topupFile ? (
+                          <div className="rounded-2xl border bg-earth-50 p-3">
+                            <p className="mb-2 text-center text-xs font-medium text-earth-500">{topupFile.name}</p>
+                            <div className="flex justify-center">
+                              <Button type="button" variant="outline" size="sm" onClick={() => fileInputRef.current?.click()} className="rounded-full">
+                                <ImageIcon className="mr-1.5 h-3.5 w-3.5" />{t("changeSlip")}
+                              </Button>
+                            </div>
                             <input
                               ref={fileInputRef}
                               type="file"
@@ -597,19 +588,63 @@ export default function WalletPage() {
                               onChange={(e) => setTopupFile(e.target.files?.[0] || null)}
                             />
                           </div>
-                        </div>
-
-                        {/* Desktop: QR code for phone to scan and upload slip */}
-                        {!isMobile && (
-                          <div className="rounded-2xl border bg-earth-50 p-4 text-center">
-                            <p className="mb-3 text-xs text-earth-500">{t("scanToUploadSlip")}</p>
-                            <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-xl border bg-white p-2">
-                              <QRCodeSVG value={topupUploadLink} size={96} level="M" />
-                            </div>
-                            <div className="mt-3 flex items-center justify-center gap-2 text-xs text-earth-400">
-                              <Loader2 className="h-3 w-3 animate-spin" />
-                              {t("waitingForPhoneUpload")}
-                            </div>
+                        ) : (
+                          <div className="space-y-3">
+                            <button type="button" onClick={() => fileInputRef.current?.click()}
+                              className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-earth-300 p-4 text-left transition-colors hover:border-earth-400 hover:bg-earth-50">
+                              <div className="rounded-xl bg-earth-100 p-2.5"><ImageIcon className="h-5 w-5 text-earth-500" /></div>
+                              <div>
+                                <p className="text-sm font-medium text-earth-700">{t("chooseFromGallery")}</p>
+                                <p className="text-xs text-earth-400">{t("clickUpload")}</p>
+                              </div>
+                            </button>
+                            <input
+                              ref={fileInputRef}
+                              type="file"
+                              accept="image/*"
+                              className="hidden"
+                              onChange={(e) => setTopupFile(e.target.files?.[0] || null)}
+                            />
+                            {isMobile && (
+                              <>
+                                <button type="button" onClick={() => {
+                                  const input = document.createElement("input");
+                                  input.type = "file";
+                                  input.accept = "image/*";
+                                  input.capture = "environment";
+                                  input.onchange = (ev) => {
+                                    const file = (ev.target as HTMLInputElement).files?.[0];
+                                    if (file) setTopupFile(file);
+                                  };
+                                  input.click();
+                                }}
+                                  className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-earth-300 p-4 text-left transition-colors hover:border-earth-400 hover:bg-earth-50">
+                                  <div className="rounded-xl bg-earth-100 p-2.5"><Camera className="h-5 w-5 text-earth-500" /></div>
+                                  <div>
+                                    <p className="text-sm font-medium text-earth-700">{t("takePhoto")}</p>
+                                    <p className="text-xs text-earth-400">{t("clickUpload")}</p>
+                                  </div>
+                                </button>
+                              </>
+                            )}
+                            {!isMobile && (
+                              <>
+                                <div className="relative flex items-center gap-3 py-1">
+                                  <div className="flex-1 border-t border-earth-200" />
+                                  <span className="text-xs font-medium text-earth-400">{t("orUploadFromPhone")}</span>
+                                  <div className="flex-1 border-t border-earth-200" />
+                                </div>
+                                <div className="rounded-2xl border bg-earth-50 p-4 text-center">
+                                  <p className="mb-3 text-xs text-earth-500">{t("scanToUploadSlip")}</p>
+                                  <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-xl border bg-white p-2">
+                                    <QRCodeSVG value={topupUploadLink} size={100} level="M" />
+                                  </div>
+                                  <div className="mt-3 flex items-center justify-center gap-2 text-xs text-earth-400">
+                                    <Loader2 className="h-3 w-3 animate-spin" />{t("waitingForPhoneUpload")}
+                                  </div>
+                                </div>
+                              </>
+                            )}
                           </div>
                         )}
 
@@ -948,48 +983,81 @@ export default function WalletPage() {
             {/* Upload slip */}
             <div className="space-y-2">
               <Label className="text-sm text-gray-700">{t("paymentSlip")}</Label>
-              <div
-                onClick={() => payFileInputRef.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const file = e.dataTransfer.files?.[0];
-                  if (file) setPayFile(file);
-                }}
-                className={`border-2 border-dashed rounded-xl p-5 text-center cursor-pointer transition-colors ${
-                  payFile
-                    ? "border-brand/30 bg-brand-50/50"
-                    : "border-gray-200 hover:border-brand/20 hover:bg-brand-50/20"
-                }`}
-              >
-                <Upload className="h-5 w-5 text-earth-300 mx-auto mb-1.5" />
-                <p className="text-sm text-earth-500 truncate">
-                  {payFile ? payFile.name : t("dragOrClick")}
-                </p>
-                <input
-                  ref={payFileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => setPayFile(e.target.files?.[0] || null)}
-                />
-              </div>
-            </div>
 
-            {/* Desktop: QR code for phone to scan and upload slip */}
-            {!isMobile && (
-              <div className="rounded-2xl border bg-earth-50 p-4 text-center">
-                <p className="mb-3 text-xs text-earth-500">{t("scanToUploadSlip")}</p>
-                <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-xl border bg-white p-2">
-                  <QRCodeSVG value={payUploadLink} size={96} level="M" />
+              {payFile ? (
+                <div className="rounded-2xl border bg-earth-50 p-3">
+                  <p className="mb-2 text-center text-xs font-medium text-earth-500">{payFile.name}</p>
+                  <div className="flex justify-center">
+                    <Button type="button" variant="outline" size="sm" onClick={() => payFileInputRef.current?.click()} className="rounded-full">
+                      <ImageIcon className="mr-1.5 h-3.5 w-3.5" />{t("changeSlip")}
+                    </Button>
+                  </div>
+                  <input
+                    ref={payFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => setPayFile(e.target.files?.[0] || null)}
+                  />
                 </div>
-                <div className="mt-3 flex items-center justify-center gap-2 text-xs text-earth-400">
-                  <Loader2 className="h-3 w-3 animate-spin" />
-                  {t("waitingForPhoneUpload")}
+              ) : (
+                <div className="space-y-3">
+                  <button type="button" onClick={() => payFileInputRef.current?.click()}
+                    className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-earth-300 p-4 text-left transition-colors hover:border-earth-400 hover:bg-earth-50">
+                    <div className="rounded-xl bg-earth-100 p-2.5"><ImageIcon className="h-5 w-5 text-earth-500" /></div>
+                    <div>
+                      <p className="text-sm font-medium text-earth-700">{t("chooseFromGallery")}</p>
+                      <p className="text-xs text-earth-400">{t("clickUpload")}</p>
+                    </div>
+                  </button>
+                  <input
+                    ref={payFileInputRef}
+                    type="file"
+                    accept="image/*"
+                    className="hidden"
+                    onChange={(e) => setPayFile(e.target.files?.[0] || null)}
+                  />
+                  {isMobile && (
+                    <button type="button" onClick={() => {
+                      const input = document.createElement("input");
+                      input.type = "file";
+                      input.accept = "image/*";
+                      input.capture = "environment";
+                      input.onchange = (ev) => {
+                        const file = (ev.target as HTMLInputElement).files?.[0];
+                        if (file) setPayFile(file);
+                      };
+                      input.click();
+                    }}
+                      className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-earth-300 p-4 text-left transition-colors hover:border-earth-400 hover:bg-earth-50">
+                      <div className="rounded-xl bg-earth-100 p-2.5"><Camera className="h-5 w-5 text-earth-500" /></div>
+                      <div>
+                        <p className="text-sm font-medium text-earth-700">{t("takePhoto")}</p>
+                        <p className="text-xs text-earth-400">{t("clickUpload")}</p>
+                      </div>
+                    </button>
+                  )}
+                  {!isMobile && (
+                    <>
+                      <div className="relative flex items-center gap-3 py-1">
+                        <div className="flex-1 border-t border-earth-200" />
+                        <span className="text-xs font-medium text-earth-400">{t("orUploadFromPhone")}</span>
+                        <div className="flex-1 border-t border-earth-200" />
+                      </div>
+                      <div className="rounded-2xl border bg-earth-50 p-4 text-center">
+                        <p className="mb-3 text-xs text-earth-500">{t("scanToUploadSlip")}</p>
+                        <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-xl border bg-white p-2">
+                          <QRCodeSVG value={payUploadLink} size={100} level="M" />
+                        </div>
+                        <div className="mt-3 flex items-center justify-center gap-2 text-xs text-earth-400">
+                          <Loader2 className="h-3 w-3 animate-spin" />{t("waitingForPhoneUpload")}
+                        </div>
+                      </div>
+                    </>
+                  )}
                 </div>
-              </div>
-            )}
+              )}
+            </div>
           </div>
 
           <DialogFooter>

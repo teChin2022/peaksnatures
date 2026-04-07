@@ -1274,6 +1274,11 @@
     "uploadFromPhone": "Upload from phone",
     "phoneSlipReceived": "Slip received from phone!",
     "scanToUploadSlip": "Scan with your phone to upload slip",
-    "waitingForPhoneUpload": "Waiting for phone upload…"
+    "waitingForPhoneUpload": "Waiting for phone upload…",
+    "chooseFromGallery": "Choose from Gallery",
+    "takePhoto": "Take Photo",
+    "clickUpload": "Tap to upload payment slip",
+    "changeSlip": "Change",
+    "orUploadFromPhone": "Or upload from your phone"
   }
 }
