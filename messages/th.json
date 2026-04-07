@@ -1276,6 +1276,8 @@
     "customAmount": "กำหนดเอง",
     "scanToPay": "สแกนเพื่อชำระเงิน",
     "uploadFromPhone": "อัพโหลดจากมือถือ",
-    "phoneSlipReceived": "ได้รับสลิปจากมือถือแล้ว!"
+    "phoneSlipReceived": "ได้รับสลิปจากมือถือแล้ว!",
+    "scanToUploadSlip": "สแกน QR ด้วยมือถือเพื่ออัพโหลดสลิป",
+    "waitingForPhoneUpload": "กำลังรอรับสลิปจากมือถือ…"
   }
 }

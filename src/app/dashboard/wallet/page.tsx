@@ -22,11 +22,6 @@ import {
   TrendingUp,
   TrendingDown,
   Banknote,
-  Copy,
-  Check,
-  Smartphone,
-  Building2,
-  Link2,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -129,12 +124,6 @@ export default function WalletPage() {
   const [topupLoading, setTopupLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
-  // ── Clipboard ──
-  const [copiedPromptPay, setCopiedPromptPay] = useState(false);
-  const [copiedAccount, setCopiedAccount] = useState(false);
-  const [copiedTopupLink, setCopiedTopupLink] = useState(false);
-  const [copiedPayLink, setCopiedPayLink] = useState(false);
-
   // ── Invoice pay ──
   const [payInvoiceId, setPayInvoiceId] = useState<string | null>(null);
   const [payFile, setPayFile] = useState<File | null>(null);
@@ -149,18 +138,6 @@ export default function WalletPage() {
   const [paySessionId] = useState(() => crypto.randomUUID());
   const topupPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const payPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-
-  /* ─── Clipboard ─── */
-
-  const copyToClipboard = (text: string, setter: (v: boolean) => void) => {
-    navigator.clipboard.writeText(text).then(() => {
-      setter(true);
-      setTimeout(() => setter(false), 2000);
-      toast.success(t("copied"));
-    }).catch(() => {
-      toast.error("Copy failed");
-    });
-  };
 
   /* ─── Mobile detection ─── */
 
@@ -420,200 +397,73 @@ export default function WalletPage() {
       </AnimatePresence>
 
       {/* ══════════════════════════════════════════════
-          BALANCE HERO + MONTHLY STATS
-      ══════════════════════════════════════════════ */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        {/* Balance card */}
-        <motion.div
-          className="md:col-span-2"
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.1 }}
-        >
-          <Card className="overflow-hidden border-0 shadow-lg">
-            <div className={`relative px-7 py-8 ${
-              isNegative
-                ? "bg-gradient-to-br from-red-50 via-white to-red-50/60"
-                : "bg-gradient-to-br from-brand-50/80 via-white to-earth-50/60"
-            }`}>
-              {/* Decorative circles */}
-              <div className={`absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-[0.07] ${isNegative ? "bg-red-500" : "bg-brand"}`} />
-              <div className={`absolute right-16 -bottom-6 h-20 w-20 rounded-full opacity-[0.05] ${isNegative ? "bg-red-500" : "bg-brand"}`} />
-
-              <div className="relative">
-                <p className="text-xs font-semibold uppercase tracking-[0.15em] text-earth-400 mb-1">
-                  {t("balance")}
-                </p>
-                <motion.div
-                  key={billing.wallet_balance}
-                  initial={{ opacity: 0, scale: 0.95 }}
-                  animate={{ opacity: 1, scale: 1 }}
-                  transition={{ duration: 0.4, type: "spring" }}
-                  className="flex items-baseline gap-1"
-                >
-                  <span className={`text-5xl sm:text-6xl font-serif tracking-tight leading-none ${
-                    isNegative ? "text-red-600" : "text-gray-900"
-                  }`}>
-                    {isNegative ? "-" : ""}฿{Math.abs(billing.wallet_balance).toLocaleString()}
-                  </span>
-                </motion.div>
-
-                {billing.effective_commission_pct != null && (
-                  <p className="text-xs text-earth-400 mt-2">
-                    {billing.effective_commission_pct}% {locale === "th" ? "คอมมิชชั่นต่อการจอง" : "commission per booking"}
-                  </p>
-                )}
-
-              </div>
-            </div>
-          </Card>
-        </motion.div>
-
-        {/* Monthly stats */}
-        <motion.div
-          initial={{ opacity: 0, y: 16 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.5, delay: 0.2 }}
-          className="flex flex-col gap-4"
-        >
-          <Card className="flex-1 border-0 shadow-md">
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="h-10 w-10 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
-                <TrendingUp className="h-4.5 w-4.5 text-emerald-600" />
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-earth-400">{t("income")}</p>
-                <p className="text-xl font-serif text-gray-900 leading-tight">
-                  ฿{monthlyIncome.toLocaleString()}
-                </p>
-                <p className="text-[11px] text-earth-400 mt-0.5">{t("thisMonth")}</p>
-              </div>
-            </CardContent>
-          </Card>
-
-          <Card className="flex-1 border-0 shadow-md">
-            <CardContent className="p-5 flex items-center gap-4">
-              <div className="h-10 w-10 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
-                <TrendingDown className="h-4.5 w-4.5 text-amber-600" />
-              </div>
-              <div>
-                <p className="text-[11px] font-semibold uppercase tracking-wider text-earth-400">{t("deductions")}</p>
-                <p className="text-xl font-serif text-gray-900 leading-tight">
-                  ฿{monthlyDeductions.toLocaleString()}
-                </p>
-                <p className="text-[11px] text-earth-400 mt-0.5">{t("thisMonth")}</p>
-              </div>
-            </CardContent>
-          </Card>
-        </motion.div>
-      </div>
-
-      {/* ══════════════════════════════════════════════
-          PAYMENT INFO + TOP-UP (inline)
+          BALANCE + STATS + TOP-UP
       ══════════════════════════════════════════════ */}
       <motion.div
         initial={{ opacity: 0, y: 16 }}
         animate={{ opacity: 1, y: 0 }}
-        transition={{ duration: 0.5, delay: 0.25 }}
+        transition={{ duration: 0.5, delay: 0.1 }}
       >
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
-            {/* ── Payment Info Card ── */}
-            <Card className="md:col-span-2 overflow-hidden border-0 shadow-md">
-              <div className="bg-gradient-to-br from-brand-50 via-white to-brand-50/40 p-6 h-full">
-                <div className="flex items-center gap-2 mb-5">
-                  <div className="h-8 w-8 rounded-lg bg-brand/10 flex items-center justify-center shrink-0">
-                    <Banknote className="h-4 w-4 text-brand" />
-                  </div>
-                  <p className="text-xs font-semibold uppercase tracking-[0.12em] text-brand">
-                    {t("paymentInfo")}
+            {/* ── Balance + Income/Deductions Card ── */}
+            <Card className="md:col-span-2 overflow-hidden border-0 shadow-lg">
+              <div className={`relative p-6 h-full ${
+                isNegative
+                  ? "bg-gradient-to-br from-red-50 via-white to-red-50/60"
+                  : "bg-gradient-to-br from-brand-50/80 via-white to-earth-50/60"
+              }`}>
+                <div className={`absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-[0.07] ${isNegative ? "bg-red-500" : "bg-brand"}`} />
+                <div className={`absolute right-16 -bottom-6 h-20 w-20 rounded-full opacity-[0.05] ${isNegative ? "bg-red-500" : "bg-brand"}`} />
+
+                <div className="relative">
+                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-earth-400 mb-1">
+                    {t("balance")}
                   </p>
-                </div>
+                  <motion.div
+                    key={billing.wallet_balance}
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    transition={{ duration: 0.4, type: "spring" }}
+                  >
+                    <span className={`text-5xl sm:text-6xl font-serif tracking-tight leading-none ${
+                      isNegative ? "text-red-600" : "text-gray-900"
+                    }`}>
+                      {isNegative ? "-" : ""}฿{Math.abs(billing.wallet_balance).toLocaleString()}
+                    </span>
+                  </motion.div>
 
-                <div className="space-y-4">
-                  {/* PromptPay */}
-                  {billing.platform_payment?.promptpay_id && (
-                    <div className="space-y-2">
-                      <div className="flex items-center gap-1.5">
-                        <Smartphone className="h-3.5 w-3.5 text-brand/70" />
-                        <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400">
-                          {t("promptPayId")}
+                  {billing.effective_commission_pct != null && (
+                    <p className="text-xs text-earth-400 mt-2">
+                      {billing.effective_commission_pct}% {locale === "th" ? "คอมมิชชั่นต่อการจอง" : "commission per booking"}
+                    </p>
+                  )}
+
+                  <div className="grid grid-cols-2 gap-3 mt-6">
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
+                        <TrendingUp className="h-4 w-4 text-emerald-600" />
+                      </div>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-earth-400">{t("income")}</p>
+                        <p className="text-lg font-serif text-gray-900 leading-tight">
+                          ฿{monthlyIncome.toLocaleString()}
                         </p>
+                        <p className="text-[10px] text-earth-400">{t("thisMonth")}</p>
                       </div>
-                      <div className="flex items-center gap-2 bg-white rounded-xl border border-brand-100 px-4 py-3">
-                        <span className="text-lg font-mono font-semibold text-gray-900 tracking-wide flex-1">
-                          {billing.platform_payment.promptpay_id}
-                        </span>
-                        <button
-                          type="button"
-                          onClick={() => copyToClipboard(billing.platform_payment!.promptpay_id!, setCopiedPromptPay)}
-                          className="h-8 w-8 rounded-lg bg-brand-50 hover:bg-brand-100 flex items-center justify-center transition-colors shrink-0"
-                        >
-                          {copiedPromptPay ? (
-                            <Check className="h-3.5 w-3.5 text-emerald-600" />
-                          ) : (
-                            <Copy className="h-3.5 w-3.5 text-brand" />
-                          )}
-                        </button>
+                    </div>
+                    <div className="flex items-center gap-3">
+                      <div className="h-9 w-9 rounded-xl bg-amber-50 border border-amber-100 flex items-center justify-center shrink-0">
+                        <TrendingDown className="h-4 w-4 text-amber-600" />
                       </div>
-                      <p className="text-[11px] text-earth-400 leading-relaxed">
-                        {t("promptPayHint")}
-                      </p>
+                      <div>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-earth-400">{t("deductions")}</p>
+                        <p className="text-lg font-serif text-gray-900 leading-tight">
+                          ฿{monthlyDeductions.toLocaleString()}
+                        </p>
+                        <p className="text-[10px] text-earth-400">{t("thisMonth")}</p>
+                      </div>
                     </div>
-                  )}
-
-                  {/* Bank */}
-                  {(billing.platform_payment?.bank_name || billing.platform_payment?.bank_account_number) && (
-                    <div className="bg-white rounded-xl border border-brand-100 p-4 space-y-3">
-                      {billing.platform_payment.bank_name && (
-                        <div className="flex items-start gap-1.5">
-                          <Building2 className="h-3.5 w-3.5 text-brand/70 mt-0.5 shrink-0" />
-                          <div>
-                            <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400 mb-1">
-                              {t("bankName")}
-                            </p>
-                            <p className="text-sm font-medium text-gray-800">
-                              {billing.platform_payment.bank_name}
-                            </p>
-                          </div>
-                        </div>
-                      )}
-
-                      {billing.platform_payment.bank_account_number && (
-                        <div className="border-t border-earth-50 pt-3">
-                          <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400 mb-1">
-                            {t("accountNumber")}
-                          </p>
-                          <div className="flex items-center gap-2">
-                            <span className="text-lg font-mono font-semibold text-gray-900 tracking-wide flex-1">
-                              {billing.platform_payment.bank_account_number}
-                            </span>
-                            <button
-                              type="button"
-                              onClick={() => copyToClipboard(billing.platform_payment!.bank_account_number!, setCopiedAccount)}
-                              className="h-8 w-8 rounded-lg bg-brand-50 hover:bg-brand-100 flex items-center justify-center transition-colors shrink-0"
-                            >
-                              {copiedAccount ? (
-                                <Check className="h-3.5 w-3.5 text-emerald-600" />
-                              ) : (
-                                <Copy className="h-3.5 w-3.5 text-brand" />
-                              )}
-                            </button>
-                          </div>
-                        </div>
-                      )}
-
-                      {billing.platform_payment.bank_account_name && (
-                        <div className="border-t border-earth-50 pt-3">
-                          <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400 mb-1">
-                            {t("accountName")}
-                          </p>
-                          <p className="text-sm font-medium text-gray-800">
-                            {billing.platform_payment.bank_account_name}
-                          </p>
-                        </div>
-                      )}
-                    </div>
-                  )}
+                  </div>
                 </div>
               </div>
             </Card>
@@ -631,11 +481,43 @@ export default function WalletPage() {
                   </div>
                 </div>
 
+                {/* PromptPay QR — always visible */}
+                {billing.platform_payment?.promptpay_id && (
+                  <div className="mb-5">
+                    <div className="flex flex-col items-center p-4 bg-earth-50 rounded-2xl border border-earth-100">
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400 mb-3">
+                        {t("scanToPay")}
+                      </p>
+                      <div className="bg-white p-3 rounded-2xl shadow-sm border border-earth-100">
+                        <QRCodeSVG
+                          value={generatePayload(
+                            billing.platform_payment.promptpay_id,
+                            topupAmount && Number(topupAmount) > 0 ? { amount: Number(topupAmount) } : { amount: 0 },
+                          )}
+                          size={160}
+                          level="M"
+                        />
+                      </div>
+                      {topupAmount && Number(topupAmount) > 0 && (
+                        <p className="text-lg font-mono font-bold text-gray-900 mt-2">
+                          ฿{Number(topupAmount).toLocaleString()}
+                        </p>
+                      )}
+                      {billing.platform_payment.bank_account_name && (
+                        <p className="text-sm font-medium text-earth-700 mt-2">{billing.platform_payment.bank_account_name}</p>
+                      )}
+                      <p className="text-xs text-earth-400">
+                        {locale === "th" ? "พร้อมเพย์" : "PromptPay"}: {billing.platform_payment.promptpay_id}
+                      </p>
+                    </div>
+                  </div>
+                )}
+
                 {/* Amount selection */}
                 <div className="space-y-3 mb-5">
                   <Label className="text-sm text-gray-700">{t("amount")} (THB)</Label>
                   <div className="grid grid-cols-4 gap-2">
-                    {[300, 500, 700, 1000].map((amt) => (
+                    {[300, 500, 1000, 2000].map((amt) => (
                       <button
                         key={amt}
                         type="button"
@@ -676,35 +558,15 @@ export default function WalletPage() {
                   </div>
                 </div>
 
-                {/* QR Code + Upload — shown when amount is set */}
+                {/* Upload slip — shown when amount is set */}
                 <AnimatePresence>
-                  {topupAmount && Number(topupAmount) > 0 && billing.platform_payment?.promptpay_id && (
+                  {topupAmount && Number(topupAmount) > 0 && (
                     <motion.div
                       initial={{ opacity: 0, height: 0 }}
                       animate={{ opacity: 1, height: "auto" }}
                       exit={{ opacity: 0, height: 0 }}
                       className="overflow-hidden"
                     >
-                      {/* QR Code */}
-                      <div className="mb-5">
-                        <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400 mb-3">
-                          {t("scanToPay")}
-                        </p>
-                        <div className="flex flex-col items-center">
-                          <div className="bg-white p-3 rounded-2xl shadow-sm border border-earth-100">
-                            <QRCodeSVG
-                              value={generatePayload(billing.platform_payment!.promptpay_id!, { amount: Number(topupAmount) })}
-                              size={160}
-                              level="M"
-                            />
-                          </div>
-                          <p className="text-sm font-mono font-semibold text-gray-700 mt-2">
-                            ฿{Number(topupAmount).toLocaleString()}
-                          </p>
-                        </div>
-                      </div>
-
-                      {/* Upload slip */}
                       <form onSubmit={handleTopup} className="space-y-4">
                         <div className="space-y-2">
                           <Label className="text-sm text-gray-700">{t("paymentSlip")}</Label>
@@ -737,25 +599,17 @@ export default function WalletPage() {
                           </div>
                         </div>
 
-                        {/* Desktop: upload from phone link */}
+                        {/* Desktop: QR code for phone to scan and upload slip */}
                         {!isMobile && (
-                          <div className="rounded-xl bg-earth-50 border border-earth-100 p-3 flex items-center gap-3">
-                            <Link2 className="h-4 w-4 text-earth-400 shrink-0" />
-                            <div className="flex-1 min-w-0">
-                              <p className="text-[11px] text-earth-400 mb-0.5">{t("uploadFromPhone")}</p>
-                              <p className="text-xs font-mono text-earth-500 truncate">{topupUploadLink}</p>
+                          <div className="rounded-2xl border bg-earth-50 p-4 text-center">
+                            <p className="mb-3 text-xs text-earth-500">{t("scanToUploadSlip")}</p>
+                            <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-xl border bg-white p-2">
+                              <QRCodeSVG value={topupUploadLink} size={96} level="M" />
                             </div>
-                            <button
-                              type="button"
-                              onClick={() => copyToClipboard(topupUploadLink, setCopiedTopupLink)}
-                              className="h-7 w-7 rounded-lg bg-white border border-earth-200 hover:bg-earth-100 flex items-center justify-center transition-colors shrink-0"
-                            >
-                              {copiedTopupLink ? (
-                                <Check className="h-3 w-3 text-emerald-600" />
-                              ) : (
-                                <Copy className="h-3 w-3 text-earth-400" />
-                              )}
-                            </button>
+                            <div className="mt-3 flex items-center justify-center gap-2 text-xs text-earth-400">
+                              <Loader2 className="h-3 w-3 animate-spin" />
+                              {t("waitingForPhoneUpload")}
+                            </div>
                           </div>
                         )}
 
@@ -1123,25 +977,17 @@ export default function WalletPage() {
               </div>
             </div>
 
-            {/* Desktop: upload from phone link */}
+            {/* Desktop: QR code for phone to scan and upload slip */}
             {!isMobile && (
-              <div className="rounded-xl bg-earth-50 border border-earth-100 p-3 flex items-center gap-3">
-                <Link2 className="h-4 w-4 text-earth-400 shrink-0" />
-                <div className="flex-1 min-w-0">
-                  <p className="text-[11px] text-earth-400 mb-0.5">{t("uploadFromPhone")}</p>
-                  <p className="text-xs font-mono text-earth-500 truncate">{payUploadLink}</p>
+              <div className="rounded-2xl border bg-earth-50 p-4 text-center">
+                <p className="mb-3 text-xs text-earth-500">{t("scanToUploadSlip")}</p>
+                <div className="mx-auto flex h-28 w-28 items-center justify-center rounded-xl border bg-white p-2">
+                  <QRCodeSVG value={payUploadLink} size={96} level="M" />
                 </div>
-                <button
-                  type="button"
-                  onClick={() => copyToClipboard(payUploadLink, setCopiedPayLink)}
-                  className="h-7 w-7 rounded-lg bg-white border border-earth-200 hover:bg-earth-100 flex items-center justify-center transition-colors shrink-0"
-                >
-                  {copiedPayLink ? (
-                    <Check className="h-3 w-3 text-emerald-600" />
-                  ) : (
-                    <Copy className="h-3 w-3 text-earth-400" />
-                  )}
-                </button>
+                <div className="mt-3 flex items-center justify-center gap-2 text-xs text-earth-400">
+                  <Loader2 className="h-3 w-3 animate-spin" />
+                  {t("waitingForPhoneUpload")}
+                </div>
               </div>
             )}
           </div>

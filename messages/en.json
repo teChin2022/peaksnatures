@@ -1272,6 +1272,8 @@
     "customAmount": "Custom",
     "scanToPay": "Scan to pay",
     "uploadFromPhone": "Upload from phone",
-    "phoneSlipReceived": "Slip received from phone!"
+    "phoneSlipReceived": "Slip received from phone!",
+    "scanToUploadSlip": "Scan with your phone to upload slip",
+    "waitingForPhoneUpload": "Waiting for phone upload…"
   }
 }
