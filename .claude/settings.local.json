@@ -14,7 +14,8 @@
       "Bash(npx skills:*)",
       "Bash(npx next:*)",
       "Bash(npx eslint:*)",
-      "Bash(find /Users/surasak.viv/projects/peaksnature/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) -exec grep -l \"external\\\\|integration\\\\|booking.com\\\\|agoda\\\\|airbnb\" {} \\\\;)"
+      "Bash(find /Users/surasak.viv/projects/peaksnature/src -type f \\\\\\( -name \"*.ts\" -o -name \"*.tsx\" \\\\\\) -exec grep -l \"external\\\\|integration\\\\|booking.com\\\\|agoda\\\\|airbnb\" {} \\\\;)",
+      "Bash(npm install:*)"
     ]
   }
 }

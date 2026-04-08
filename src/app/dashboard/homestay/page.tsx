@@ -21,6 +21,8 @@ import {
   ShieldAlert,
   AlertTriangle,
   Share2,
+  Calendar,
+  CreditCard,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -72,6 +74,8 @@ const COMMON_PROHIBITIONS = [
   "ห้ามเล่นเพลงดัง (No Loud Music)"
 ];
 
+const MONTH_KEYS = ["1","2","3","4","5","6","7","8","9","10","11","12"] as const;
+
 export default function HomestayPage() {
   const t = useTranslations("dashboardHomestay");
   const tc = useTranslations("common");
@@ -107,6 +111,9 @@ export default function HomestayPage() {
   const [instagramUrl, setInstagramUrl] = useState("");
   const [lineId, setLineId] = useState("");
   const [showSlugWarning, setShowSlugWarning] = useState(false);
+  const [depositAmount, setDepositAmount] = useState(0);
+  const [depositByMonth, setDepositByMonth] = useState<Record<string, number>>({});
+  const [cancellationDays, setCancellationDays] = useState(0);
   const heroInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -122,11 +129,11 @@ export default function HomestayPage() {
 
       const { data: hostRow } = await supabase
         .from("hosts")
-        .select("id, name")
+        .select("id, name, deposit_amount, deposit_by_month, cancellation_days")
         .eq("user_id", user.id)
         .single();
 
-      const host = hostRow as { id: string; name: string } | null;
+      const host = hostRow as { id: string; name: string; deposit_amount: number; deposit_by_month: Record<string, number> | null; cancellation_days: number } | null;
       if (!host) {
         setLoading(false);
         return;
@@ -134,6 +141,9 @@ export default function HomestayPage() {
 
       setHostId(host.id);
       setHostName(host.name);
+      setDepositAmount(host.deposit_amount || 0);
+      setDepositByMonth(host.deposit_by_month || {});
+      setCancellationDays(host.cancellation_days || 0);
 
       const { data } = await supabase
         .from("homestays")
@@ -422,6 +432,7 @@ export default function HomestayPage() {
         line_id: lineId.trim() || null,
       };
 
+      const wasNew = isNew;
       if (isNew) {
         const { data, error } = await supabase
           .from("homestays")
@@ -436,7 +447,6 @@ export default function HomestayPage() {
         setHomestay(data as unknown as HomestayData);
         setIsNew(false);
         logClientEvent({ homestay_id: (data as unknown as { id: string }).id, entity_type: "homestay", entity_id: (data as unknown as { id: string }).id, event_type: "PROPERTY_CREATED", data: { name: name.trim(), slug: slug.trim() } });
-        toast.success(t("created"));
       } else if (homestay) {
         // Save old slug to redirects table before updating
         if (slug.trim() !== homestay.slug) {
@@ -456,8 +466,26 @@ export default function HomestayPage() {
         }
         logClientEvent({ homestay_id: homestay.id, entity_type: "homestay", entity_id: homestay.id, event_type: "PROPERTY_UPDATED", data: { name: name.trim(), slug: slug.trim() } });
         setHomestay({ ...homestay, ...payload } as HomestayData);
-        toast.success(t("saved"));
       }
+
+      // Save host-level deposit/cancellation settings
+      const { error: hostError } = await supabase
+        .from("hosts")
+        .update({
+          deposit_amount: depositAmount,
+          deposit_by_month: Object.keys(depositByMonth).length > 0 ? depositByMonth : null,
+          cancellation_days: cancellationDays,
+          updated_by: hostName || userId,
+        } as never)
+        .eq("id", hostId);
+
+      if (hostError) {
+        toast.error(t("errorSave"));
+        console.error("Update host deposit/cancellation error:", hostError);
+        return;
+      }
+
+      toast.success(wasNew ? t("created") : t("saved"));
     } catch {
       toast.error(t("errorSave"));
     } finally {
@@ -635,6 +663,36 @@ export default function HomestayPage() {
           </CardContent>
         </Card>
 
+        {/* Check-in / Check-out Times */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Clock className="h-4 w-4" />
+              {t("checkInOutTimes")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <div className="grid grid-cols-2 gap-4">
+              <div className="space-y-2">
+                <Label>{t("checkInTime")}</Label>
+                <Input
+                  type="time"
+                  value={checkInTime}
+                  onChange={(e) => setCheckInTime(e.target.value)}
+                />
+              </div>
+              <div className="space-y-2">
+                <Label>{t("checkOutTime")}</Label>
+                <Input
+                  type="time"
+                  value={checkOutTime}
+                  onChange={(e) => setCheckOutTime(e.target.value)}
+                />
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
         {/* Amenities */}
         <Card>
           <CardHeader>
@@ -715,36 +773,6 @@ export default function HomestayPage() {
           </CardContent>
         </Card>
 
-        {/* Check-in / Check-out Times */}
-        <Card>
-          <CardHeader>
-            <CardTitle className="flex items-center gap-2 text-base">
-              <Clock className="h-4 w-4" />
-              {t("checkInOutTimes")}
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <Label>{t("checkInTime")}</Label>
-                <Input
-                  type="time"
-                  value={checkInTime}
-                  onChange={(e) => setCheckInTime(e.target.value)}
-                />
-              </div>
-              <div className="space-y-2">
-                <Label>{t("checkOutTime")}</Label>
-                <Input
-                  type="time"
-                  value={checkOutTime}
-                  onChange={(e) => setCheckOutTime(e.target.value)}
-                />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-
         {/* Prohibitions / House Rules */}
         <Card>
           <CardHeader>
@@ -820,6 +848,107 @@ export default function HomestayPage() {
                     {p}
                   </Badge>
                 ))}
+              </div>
+            </div>
+          </CardContent>
+        </Card>
+
+        {/* Deposit & Cancellation */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Calendar className="h-4 w-4" />
+              {t("depositSettings")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-6">
+            <div className="space-y-2">
+              <Label htmlFor="host-deposit" className="flex items-center gap-2">
+                <CreditCard className="h-3.5 w-3.5" />
+                {t("defaultDeposit")}
+              </Label>
+              <Input
+                id="host-deposit"
+                type="number"
+                min={0}
+                value={depositAmount || ""}
+                onChange={(e) => setDepositAmount(parseInt(e.target.value) || 0)}
+                placeholder={t("depositPlaceholder")}
+              />
+              <p className="text-xs text-gray-500">{t("defaultDepositHint")}</p>
+            </div>
+
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <Label className="text-sm">{t("monthlyDeposit")}</Label>
+                <button
+                  type="button"
+                  className="text-xs font-medium hover:opacity-80 transition-opacity text-brand"
+                  onClick={() => {
+                    const filled: Record<string, number> = {};
+                    MONTH_KEYS.forEach((m) => { filled[m] = depositAmount; });
+                    setDepositByMonth(filled);
+                  }}
+                >
+                  {t("applyToAll")}
+                </button>
+              </div>
+              <div className="grid grid-cols-4 gap-2">
+                {MONTH_KEYS.map((m) => (
+                  <div key={m} className="space-y-1">
+                    <label className="text-[11px] text-gray-500 block text-center">
+                      {t(`month${m}`)}
+                    </label>
+                    <Input
+                      type="number"
+                      min={0}
+                      className="h-8 text-center text-sm px-1"
+                      value={depositByMonth[m] ?? ""}
+                      onChange={(e) => {
+                        const val = parseInt(e.target.value) || 0;
+                        setDepositByMonth((prev) => {
+                          const next = { ...prev };
+                          if (val > 0) {
+                            next[m] = val;
+                          } else {
+                            delete next[m];
+                          }
+                          return next;
+                        });
+                      }}
+                      placeholder={depositAmount > 0 ? String(depositAmount) : "0"}
+                    />
+                  </div>
+                ))}
+              </div>
+              <p className="text-xs text-gray-500">{t("monthlyDepositHint")}</p>
+            </div>
+
+            <div className="border-t pt-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <AlertTriangle className="h-4 w-4 text-brand" />
+                {t("cancellationPolicy")}
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm">{t("cancellationDays")}</Label>
+                <div className="flex flex-wrap gap-2">
+                  {[0, 3, 7, 15, 30].map((days) => (
+                    <button
+                      key={days}
+                      type="button"
+                      className="rounded-full px-3 py-1.5 text-sm font-medium border transition-colors"
+                      style={
+                        cancellationDays === days
+                          ? { backgroundColor: "#2F5D50", color: "white", borderColor: "#2F5D50" }
+                          : { borderColor: "#d1d5db", color: "#374151" }
+                      }
+                      onClick={() => setCancellationDays(days)}
+                    >
+                      {days === 0 ? t("cancellationDisabled") : t("cancellationDaysLabel", { days })}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500">{t("cancellationDaysHint")}</p>
               </div>
             </div>
           </CardContent>
