@@ -69,6 +69,7 @@ interface BookingRow {
   cancel_reason: string | null;
   created_at: string;
   selected_options: { name: string; price: number }[] | null;
+  booking_source: string | null;
 }
 
 interface DateChangeRequestRow {
@@ -624,14 +625,21 @@ export default function BookingsPage() {
                                   {booking.cancelled_by === booking.guest_name ? t("cancelledByGuest") : t("cancelledByHost")}
                                 </Badge>
                               )}
-                              {booking.easyslip_verified && (
+                              {booking.booking_source && booking.booking_source !== "guest" ? (
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-indigo-50 text-indigo-600"
+                                >
+                                  ⚡ {t(`source${booking.booking_source.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join("")}` as Parameters<typeof t>[0])}
+                                </Badge>
+                              ) : booking.easyslip_verified ? (
                                 <Badge
                                   variant="secondary"
                                   className="bg-brand/5 text-brand"
                                 >
                                   ✓ EasySlip
                                 </Badge>
-                              )}
+                              ) : null}
                               {booking.checked_in_at && (
                                 <Badge variant="secondary" className="bg-blue-100 text-blue-700">
                                   <CheckCircle2 className="mr-1 h-3 w-3" />

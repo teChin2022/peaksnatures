@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { format, startOfToday, addMonths } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
-import type { DateRange } from "react-day-picker";
+import { fmtDate } from "@/lib/format-date";
 import {
   CalendarIcon,
   Loader2,
@@ -75,21 +75,21 @@ export function QuickBookingDialog({
 }: QuickBookingDialogProps) {
   const t = useTranslations("dashboard");
   const locale = useLocale();
-  const localeOpts = locale === "th" ? { locale: thLocale } : undefined;
+
 
   const [guestName, setGuestName] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [roomId, setRoomId] = useState("");
-  const [dateRange, setDateRange] = useState<DateRange | undefined>(
-    defaultCheckIn ? { from: defaultCheckIn, to: defaultCheckOut } : undefined
-  );
+  const [checkIn, setCheckIn] = useState<Date | undefined>(defaultCheckIn);
+  const [checkOut, setCheckOut] = useState<Date | undefined>(defaultCheckOut);
   const [numGuests, setNumGuests] = useState("");
   const [totalPrice, setTotalPrice] = useState("");
   const [bookingSource, setBookingSource] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const [checkInOpen, setCheckInOpen] = useState(false);
+  const [checkOutOpen, setCheckOutOpen] = useState(false);
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -98,16 +98,14 @@ export function QuickBookingDialog({
       setGuestPhone("");
       setGuestEmail("");
       setRoomId(rooms.length === 1 ? rooms[0].id : "");
-      setDateRange(defaultCheckIn ? { from: defaultCheckIn, to: defaultCheckOut } : undefined);
+      setCheckIn(defaultCheckIn);
+      setCheckOut(defaultCheckOut);
       setNumGuests("");
       setTotalPrice("");
       setBookingSource("");
       setNotes("");
     }
   }, [open, rooms, defaultCheckIn, defaultCheckOut]);
-
-  const checkIn = dateRange?.from;
-  const checkOut = dateRange?.to;
 
   const nights =
     checkIn && checkOut
@@ -214,68 +212,110 @@ export function QuickBookingDialog({
             </div>
           </div>
 
-          {/* Room */}
-          <div className="space-y-1.5">
-            <Label>{t("selectRoomLabel")}</Label>
-            <Select value={roomId} onValueChange={setRoomId}>
-              <SelectTrigger>
-                <SelectValue placeholder={t("selectRoomPlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {rooms.map((r) => (
-                  <SelectItem key={r.id} value={r.id}>
-                    {r.name} — ฿{r.price_per_night.toLocaleString()}/{locale === "th" ? "คืน" : "night"}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          {/* Check-in / Check-out date range */}
-          <div className="space-y-1.5">
-            <Label>{t("checkInLabel")} — {t("checkOutLabel")}</Label>
-            <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
-              <PopoverTrigger asChild>
-                <Button
-                  variant="outline"
-                  className="w-full justify-start text-left font-normal"
-                >
-                  <CalendarIcon className="mr-2 h-4 w-4 text-gray-400" />
-                  {checkIn && checkOut ? (
-                    <span>
-                      {format(checkIn, "d MMM yyyy", localeOpts)} — {format(checkOut, "d MMM yyyy", localeOpts)}
-                      <span className="ml-1.5 text-brand font-medium">
-                        ({t("nightsCount", { count: nights })})
-                      </span>
-                    </span>
-                  ) : checkIn ? (
-                    <span>
-                      {format(checkIn, "d MMM yyyy", localeOpts)} — <span className="text-gray-400">…</span>
-                    </span>
-                  ) : (
-                    <span className="text-gray-400">—</span>
-                  )}
-                </Button>
-              </PopoverTrigger>
-              <PopoverContent className="w-auto p-0" align="start">
-                <Calendar
-                  mode="range"
-                  selected={dateRange}
-                  onSelect={(range) => {
-                    setDateRange(range);
-                    if (range?.from && range?.to) {
-                      setDatePickerOpen(false);
+          {/* Check-in / Check-out */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>{t("checkInLabel")}</Label>
+              <Popover open={checkInOpen} onOpenChange={setCheckInOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4 text-gray-400" />
+                    {checkIn ? fmtDate(checkIn, "d MMM yyyy", locale) : <span className="text-gray-400">—</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={checkIn}
+                    onSelect={(d) => {
+                      setCheckIn(d);
+                      setCheckInOpen(false);
+                      if (d && checkOut && d >= checkOut) {
+                        setCheckOut(undefined);
+                      }
+                    }}
+                    locale={locale === "th" ? thLocale : undefined}
+                    captionLayout="dropdown"
+                    startMonth={startOfToday()}
+                    endMonth={addMonths(startOfToday(), 24)}
+                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t("checkOutLabel")}</Label>
+              <Popover open={checkOutOpen} onOpenChange={setCheckOutOpen}>
+                <PopoverTrigger asChild>
+                  <Button
+                    variant="outline"
+                    className="w-full justify-start text-left font-normal"
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4 text-gray-400" />
+                    {checkOut ? fmtDate(checkOut, "d MMM yyyy", locale) : <span className="text-gray-400">—</span>}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={checkOut}
+                    onSelect={(d) => {
+                      setCheckOut(d);
+                      setCheckOutOpen(false);
+                    }}
+                    locale={locale === "th" ? thLocale : undefined}
+                    captionLayout="dropdown"
+                    startMonth={startOfToday()}
+                    endMonth={addMonths(startOfToday(), 24)}
+                    disabled={(date) =>
+                      checkIn ? date <= checkIn : date <= new Date(new Date().setHours(0, 0, 0, 0))
                     }
-                  }}
-                  numberOfMonths={1}
-                  locale={locale === "th" ? thLocale : undefined}
-                  captionLayout="dropdown"
-                  startMonth={startOfToday()}
-                  endMonth={addMonths(startOfToday(), 24)}
-                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                />
-              </PopoverContent>
-            </Popover>
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+          </div>
+          {nights > 0 && (
+            <p className="text-xs text-brand font-medium -mt-2">
+              {t("nightsCount", { count: nights })}
+            </p>
+          )}
+
+          {/* Room + Source row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label>{t("selectRoomLabel")}</Label>
+              <Select value={roomId} onValueChange={setRoomId}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={t("selectRoomPlaceholder")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {rooms.map((r) => (
+                    <SelectItem key={r.id} value={r.id}>
+                      {r.name} — ฿{r.price_per_night.toLocaleString()}/{locale === "th" ? "คืน" : "night"}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t("bookingSourceLabel")}</Label>
+              <Select value={bookingSource} onValueChange={setBookingSource}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={t("bookingSourcePlaceholder")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {BOOKING_SOURCES.map((src) => (
+                    <SelectItem key={src.value} value={src.value}>
+                      {t(src.labelKey)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           </div>
 
           {/* Guests + Total Price row */}
@@ -309,23 +349,6 @@ export function QuickBookingDialog({
                 />
               </div>
             </div>
-          </div>
-
-          {/* Booking Source */}
-          <div className="space-y-1.5">
-            <Label>{t("bookingSourceLabel")}</Label>
-            <Select value={bookingSource} onValueChange={setBookingSource}>
-              <SelectTrigger>
-                <SelectValue placeholder={t("bookingSourcePlaceholder")} />
-              </SelectTrigger>
-              <SelectContent>
-                {BOOKING_SOURCES.map((src) => (
-                  <SelectItem key={src.value} value={src.value}>
-                    {t(src.labelKey)}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
           </div>
 
           {/* Notes */}

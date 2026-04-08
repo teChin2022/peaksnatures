@@ -29,8 +29,15 @@ function Calendar({
       className={cn("group/calendar p-4", className)}
       captionLayout={captionLayout}
       formatters={{
-        formatMonthDropdown: (date) =>
-          date.toLocaleString("default", { month: "short" }),
+        formatMonthDropdown: (date) => {
+          const loc = props.locale?.code || "default";
+          return date.toLocaleString(loc === "th" ? "th-TH" : loc, { month: "short" });
+        },
+        formatYearDropdown: (date) => {
+          const loc = props.locale?.code || "default";
+          const y = date.getFullYear();
+          return loc === "th" ? String(y + 543) : String(y);
+        },
         ...formatters,
       }}
       classNames={{
