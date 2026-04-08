@@ -22,6 +22,7 @@ import {
   Mail,
   CreditCard,
   ArrowRightLeft,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -43,6 +44,7 @@ import { toast } from "sonner";
 import { fmtDateStr } from "@/lib/format-date";
 import { logClientEvent } from "@/lib/history-log-client";
 import { getProvinceLabel } from "@/lib/provinces";
+import { QuickBookingDialog } from "@/components/dashboard/quick-booking-dialog";
 
 interface BookingRow {
   id: string;
@@ -67,6 +69,7 @@ interface BookingRow {
   cancel_reason: string | null;
   created_at: string;
   selected_options: { name: string; price: number }[] | null;
+  booking_source: string | null;
 }
 
 interface DateChangeRequestRow {
@@ -176,6 +179,9 @@ export default function BookingsPage() {
 
   const [userId, setUserId] = useState<string | null>(null);
   const [hostName, setHostName] = useState<string | null>(null);
+  const [quickBookingOpen, setQuickBookingOpen] = useState(false);
+  const [quickBookingRooms, setQuickBookingRooms] = useState<{ id: string; name: string; price_per_night: number; max_guests: number }[]>([]);
+  const [firstHomestayId, setFirstHomestayId] = useState<string | null>(null);
 
   const fetchBookings = async () => {
     const supabase = createClient();
@@ -222,17 +228,18 @@ export default function BookingsPage() {
       { count: confirmedCnt },
       { data: bookingRows },
     ] = await Promise.all([
-      supabase.from("rooms").select("id, name").in("homestay_id", homestayIds),
+      supabase.from("rooms").select("id, name, price_per_night, max_guests").in("homestay_id", homestayIds),
       supabase.from("bookings").select("id", { count: "exact", head: true }).in("homestay_id", homestayIds),
       supabase.from("bookings").select("id", { count: "exact", head: true }).in("homestay_id", homestayIds).in("status", ["pending", "verified"]),
       supabase.from("bookings").select("id", { count: "exact", head: true }).in("homestay_id", homestayIds).eq("status", "confirmed"),
       supabase.from("bookings").select("*").in("homestay_id", homestayIds).order("created_at", { ascending: false }).range(0, PAGE_SIZE - 1),
     ]);
 
-    const roomMap = Object.fromEntries(
-      ((roomRows as { id: string; name: string }[]) || []).map((r) => [r.id, r.name])
-    );
+    const typedRooms = (roomRows as { id: string; name: string; price_per_night: number; max_guests: number }[]) || [];
+    const roomMap = Object.fromEntries(typedRooms.map((r) => [r.id, r.name]));
     roomMapRef.current = roomMap;
+    setQuickBookingRooms(typedRooms);
+    if (homestayIds.length > 0) setFirstHomestayId(homestayIds[0]);
 
     setTotalCount(total || 0);
     setTotalPendingCount(pendingCnt || 0);
@@ -515,7 +522,29 @@ export default function BookingsPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-gray-900 mb-6">{t("allBookings")}</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-bold text-gray-900">{t("allBookings")}</h1>
+        {firstHomestayId && quickBookingRooms.length > 0 && (
+          <Button
+            size="sm"
+            className="rounded-full"
+            onClick={() => setQuickBookingOpen(true)}
+          >
+            <Zap className="mr-1.5 h-4 w-4" />
+            {t("quickBooking")}
+          </Button>
+        )}
+      </div>
+
+      {firstHomestayId && (
+        <QuickBookingDialog
+          open={quickBookingOpen}
+          onOpenChange={setQuickBookingOpen}
+          homestayId={firstHomestayId}
+          rooms={quickBookingRooms}
+          onSuccess={() => fetchBookings()}
+        />
+      )}
 
       <Tabs defaultValue="all">
         <TabsList>
@@ -596,14 +625,21 @@ export default function BookingsPage() {
                                   {booking.cancelled_by === booking.guest_name ? t("cancelledByGuest") : t("cancelledByHost")}
                                 </Badge>
                               )}
-                              {booking.easyslip_verified && (
+                              {booking.booking_source && booking.booking_source !== "guest" ? (
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-indigo-50 text-indigo-600"
+                                >
+                                  ⚡ {t(`source${booking.booking_source.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join("")}` as Parameters<typeof t>[0])}
+                                </Badge>
+                              ) : booking.easyslip_verified ? (
                                 <Badge
                                   variant="secondary"
                                   className="bg-brand/5 text-brand"
                                 >
-                                  ✓ EasySlip
+                                  ✓ {t("paymentVerified")}
                                 </Badge>
-                              )}
+                              ) : null}
                               {booking.checked_in_at && (
                                 <Badge variant="secondary" className="bg-blue-100 text-blue-700">
                                   <CheckCircle2 className="mr-1 h-3 w-3" />

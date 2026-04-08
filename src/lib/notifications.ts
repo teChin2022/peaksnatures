@@ -508,7 +508,7 @@ export function buildNewBookingMessage(
     : `⚠️ การจองใหม่ — รอตรวจสอบ`;
 
   const paymentStatus = type === "confirmed"
-    ? `✅ ชำระเงินแล้ว (ยืนยันผ่าน EasySlip)`
+    ? `✅ ชำระเงินแล้ว (ยืนยันอัตโนมัติ)`
     : `❌ ยืนยันสลิปไม่สำเร็จ — กรุณาตรวจสอบใน Dashboard`;
 
   return [

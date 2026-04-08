@@ -134,7 +134,7 @@ export async function POST(req: NextRequest) {
     // V2 built-in duplicate detection
     if (easySlipData.data.isDuplicate) {
       return NextResponse.json(
-        { error: "This payment slip has already been used (detected by EasySlip).", duplicate: true },
+        { error: "This payment slip has already been used.", duplicate: true },
         { status: 409 }
       );
     }

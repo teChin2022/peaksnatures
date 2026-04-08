@@ -27,6 +27,7 @@ import {
   Unlock,
   Loader2,
   Info,
+  Zap,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -51,6 +52,7 @@ import {
 } from "@/components/ui/select";
 import { toast } from "sonner";
 import type { BookingStatus } from "@/types/database";
+import { QuickBookingDialog } from "@/components/dashboard/quick-booking-dialog";
 
 interface BookingRow {
   id: string;
@@ -109,10 +111,12 @@ export default function CalendarPage() {
   const [saving, setSaving] = useState(false);
   const [roomMap, setRoomMap] = useState<Record<string, string>>({});
   const [rooms, setRooms] = useState<{ id: string; name: string }[]>([]);
+  const [roomsFull, setRoomsFull] = useState<{ id: string; name: string; price_per_night: number; max_guests: number }[]>([]);
   const [locale, setLocale] = useState("en");
   const [detailDay, setDetailDay] = useState<DayInfo | null>(null);
   const [selectedRoomFilter, setSelectedRoomFilter] = useState<string>("all");
   const [actionModalOpen, setActionModalOpen] = useState(false);
+  const [quickBookingOpen, setQuickBookingOpen] = useState(false);
 
   // Detect locale
   useEffect(() => {
@@ -155,15 +159,16 @@ export default function CalendarPage() {
 
     // Parallel: rooms + bookings + blocked dates (all depend only on homestay.id)
     const [{ data: roomRows }, { data: bookingRows }, { data: blockedRows }] = await Promise.all([
-      supabase.from("rooms").select("id, name").eq("homestay_id", homestay.id).order("created_at", { ascending: true }),
+      supabase.from("rooms").select("id, name, price_per_night, max_guests").eq("homestay_id", homestay.id).order("created_at", { ascending: true }),
       supabase.from("bookings").select("id, homestay_id, room_id, guest_name, check_in, check_out, num_guests, total_price, amount_paid, payment_type, status").eq("homestay_id", homestay.id).not("status", "in", '("cancelled","rejected")').order("check_in", { ascending: true }),
       supabase.from("blocked_dates").select("*").eq("homestay_id", homestay.id),
     ]);
 
-    const roomList = (roomRows as { id: string; name: string }[]) || [];
+    const roomList = (roomRows as { id: string; name: string; price_per_night: number; max_guests: number }[]) || [];
     const rMap = Object.fromEntries(roomList.map((r) => [r.id, r.name]));
     setRoomMap(rMap);
     setRooms(roomList);
+    setRoomsFull(roomList);
     setBookings((bookingRows as unknown as BookingRow[]) || []);
     setBlockedDates((blockedRows as unknown as BlockedDateRow[]) || []);
 
@@ -503,7 +508,29 @@ export default function CalendarPage() {
 
   return (
     <div>
-      <h1 className="text-xl font-bold text-gray-900 mb-6">{t("title")}</h1>
+      <div className="flex items-center justify-between mb-6">
+        <h1 className="text-xl font-bold text-gray-900">{t("title")}</h1>
+        {homestayId && roomsFull.length > 0 && (
+          <Button
+            size="sm"
+            className="rounded-full"
+            onClick={() => setQuickBookingOpen(true)}
+          >
+            <Zap className="mr-1.5 h-4 w-4" />
+            {t("quickBooking")}
+          </Button>
+        )}
+      </div>
+
+      {homestayId && (
+        <QuickBookingDialog
+          open={quickBookingOpen}
+          onOpenChange={setQuickBookingOpen}
+          homestayId={homestayId}
+          rooms={roomsFull}
+          onSuccess={() => fetchData()}
+        />
+      )}
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
