@@ -149,6 +149,8 @@ export function QuickBookingDialog({
           toast.error(t("datesUnavailable"));
         } else if (err.error === "DATES_BLOCKED") {
           toast.error(t("datesBlocked"));
+        } else if (err.error === "DATES_HELD") {
+          toast.error(t("datesHeld"));
         } else {
           toast.error(t("quickBookingError"));
         }

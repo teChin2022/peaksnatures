@@ -462,6 +462,7 @@
     "creating": "กำลังสร้าง...",
     "datesUnavailable": "วันที่เลือกไม่ว่าง",
     "datesBlocked": "บางวันที่เลือกถูกบล็อกไว้",
+    "datesHeld": "วันที่เลือกกำลังถูกจองโดยผู้เข้าพักอยู่",
     "nightsCount": "{count} คืน",
     "overview": "ภาพรวม",
     "insights": "เจาะลึก",

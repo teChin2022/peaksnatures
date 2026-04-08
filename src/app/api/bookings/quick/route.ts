@@ -72,7 +72,42 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid date range" }, { status: 400 });
     }
 
-    // Use atomic RPC — same overlap/blocked checks as regular bookings
+    // Check for active booking holds from other sessions
+    const { count: holdCount } = await supabase
+      .from("booking_holds")
+      .select("id", { count: "exact", head: true })
+      .eq("room_id", data.room_id)
+      .lt("check_in", data.check_out)
+      .gt("check_out", data.check_in)
+      .gt("expires_at", new Date().toISOString());
+
+    if (holdCount && holdCount > 0) {
+      // Check if holds + existing bookings >= room quantity
+      const [{ count: bookingCount }, { data: roomRow }] = await Promise.all([
+        supabase
+          .from("bookings")
+          .select("id", { count: "exact", head: true })
+          .eq("room_id", data.room_id)
+          .in("status", ["pending", "confirmed", "verified"])
+          .lt("check_in", data.check_out)
+          .gt("check_out", data.check_in),
+        supabase
+          .from("rooms")
+          .select("quantity")
+          .eq("id", data.room_id)
+          .single(),
+      ]);
+
+      const quantity = (roomRow as { quantity: number } | null)?.quantity || 0;
+      if ((bookingCount || 0) + holdCount >= quantity) {
+        return NextResponse.json(
+          { error: "DATES_HELD", message: "These dates are currently being booked by a guest." },
+          { status: 409 }
+        );
+      }
+    }
+
+    // Use atomic RPC — overlap/blocked checks as regular bookings
     const { data: bookingId, error: rpcError } = await supabase.rpc(
       "create_booking_atomic" as never,
       {

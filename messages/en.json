@@ -458,6 +458,7 @@
     "creating": "Creating...",
     "datesUnavailable": "Selected dates are not available",
     "datesBlocked": "Some selected dates are blocked",
+    "datesHeld": "These dates are currently being booked by a guest",
     "nightsCount": "{count} nights",
     "overview": "Overview",
     "insights": "Insights",
