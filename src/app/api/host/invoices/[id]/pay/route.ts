@@ -123,7 +123,7 @@ export async function POST(
     const rawSlip = easySlipData.data.rawSlip;
 
     if (easySlipData.data.isDuplicate) {
-      return NextResponse.json({ error: "Slip already used (EasySlip)", duplicate: true }, { status: 409 });
+      return NextResponse.json({ error: "This payment slip has already been used.", duplicate: true }, { status: 409 });
     }
 
     const slipAge = Date.now() - new Date(rawSlip.date).getTime();

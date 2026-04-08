@@ -637,7 +637,7 @@ export default function BookingsPage() {
                                   variant="secondary"
                                   className="bg-brand/5 text-brand"
                                 >
-                                  ✓ EasySlip
+                                  ✓ {t("paymentVerified")}
                                 </Badge>
                               ) : null}
                               {booking.checked_in_at && (
