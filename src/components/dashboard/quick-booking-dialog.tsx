@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
-import { format } from "date-fns";
+import { format, startOfToday, addMonths } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
 import type { DateRange } from "react-day-picker";
 import {
@@ -268,6 +268,10 @@ export function QuickBookingDialog({
                     }
                   }}
                   numberOfMonths={1}
+                  locale={locale === "th" ? thLocale : undefined}
+                  captionLayout="dropdown"
+                  startMonth={startOfToday()}
+                  endMonth={addMonths(startOfToday(), 24)}
                   disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
                 />
               </PopoverContent>
