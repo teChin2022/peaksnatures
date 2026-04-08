@@ -323,6 +323,7 @@ export interface Database {
           updated_at: string;
           updated_by: string;
           selected_options: Json;
+          booking_source: string;
         };
         Insert: {
           id?: string;
@@ -350,6 +351,7 @@ export interface Database {
           cancelled_by?: string | null;
           cancelled_at?: string | null;
           selected_options?: Json;
+          booking_source?: string;
           created_at?: string;
           created_by?: string;
           updated_at?: string;
@@ -381,6 +383,7 @@ export interface Database {
           cancelled_by?: string | null;
           cancelled_at?: string | null;
           selected_options?: Json;
+          booking_source?: string;
           created_at?: string;
           created_by?: string;
           updated_at?: string;

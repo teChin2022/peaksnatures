@@ -33,6 +33,7 @@ import {
   LogIn,
   BarChart3,
   PieChart,
+  Zap,
 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -40,6 +41,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SetupProfileModal } from "@/components/setup-profile-modal";
 import { getProvinceLabel } from "@/lib/provinces";
 import { QRCodeSVG } from "qrcode.react";
+import { QuickBookingDialog } from "@/components/dashboard/quick-booking-dialog";
 
 interface HostProfile {
   id: string;
@@ -121,6 +123,9 @@ export default function DashboardPage() {
     statusBreakdown: [],
   });
   const [provinceStats, setProvinceStats] = useState<{ province: string; count: number }[]>([]);
+  const [quickBookingOpen, setQuickBookingOpen] = useState(false);
+  const [quickBookingRooms, setQuickBookingRooms] = useState<{ id: string; name: string; price_per_night: number; max_guests: number }[]>([]);
+  const [homestayId, setHomestayId] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchData = async () => {
@@ -168,16 +173,19 @@ export default function DashboardPage() {
         return;
       }
 
-      // Parallel fetch: room count, bookings, room quantities, reviews
+      setHomestayId(homestay.id);
+
+      // Parallel fetch: room count, bookings, room details, reviews
       const [{ count: roomCount }, { data: bookingRows }, { data: roomRows }, { data: reviewRows }] = await Promise.all([
         supabase.from("rooms").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id),
         supabase.from("bookings").select("status, total_price, amount_paid, payment_type, guest_province, check_in, check_out").eq("homestay_id", homestay.id),
-        supabase.from("rooms").select("quantity").eq("homestay_id", homestay.id).eq("is_active", true),
+        supabase.from("rooms").select("id, name, quantity, price_per_night, max_guests").eq("homestay_id", homestay.id).eq("is_active", true),
         supabase.from("reviews").select("rating").eq("homestay_id", homestay.id),
       ]);
 
       const bookings = (bookingRows as { status: string; total_price: number; amount_paid: number; payment_type: string; guest_province: string | null; check_in: string; check_out: string }[]) || [];
-      const rooms = (roomRows as { quantity: number }[]) || [];
+      const rooms = (roomRows as { id: string; name: string; quantity: number; price_per_night: number; max_guests: number }[]) || [];
+      setQuickBookingRooms(rooms);
       const reviews = (reviewRows as { rating: number }[]) || [];
 
       const now = new Date();
@@ -426,14 +434,37 @@ export default function DashboardPage() {
             initial={{ opacity: 0, y: 8 }}
             animate={{ opacity: 1, y: 0 }}
             transition={{ duration: 0.4 }}
+            className="flex items-end justify-between"
           >
-            <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-gray-400 mb-0.5">
-              {ta("hostDashboard")}
-            </p>
-            <h1 className="text-xl font-bold text-gray-900">
-              {stats.homestayName || ta("hostDashboard")}
-            </h1>
+            <div>
+              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-gray-400 mb-0.5">
+                {ta("hostDashboard")}
+              </p>
+              <h1 className="text-xl font-bold text-gray-900">
+                {stats.homestayName || ta("hostDashboard")}
+              </h1>
+            </div>
+            {homestayId && quickBookingRooms.length > 0 && (
+              <Button
+                size="sm"
+                className="rounded-full"
+                onClick={() => setQuickBookingOpen(true)}
+              >
+                <Zap className="mr-1.5 h-4 w-4" />
+                {t("quickBooking")}
+              </Button>
+            )}
           </motion.div>
+
+          {homestayId && (
+            <QuickBookingDialog
+              open={quickBookingOpen}
+              onOpenChange={setQuickBookingOpen}
+              homestayId={homestayId}
+              rooms={quickBookingRooms}
+              onSuccess={() => window.location.reload()}
+            />
+          )}
 
           {/* ── Row 1: Hero Stats ── */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
