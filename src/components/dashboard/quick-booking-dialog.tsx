@@ -4,6 +4,7 @@ import { useState, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { format } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
+import type { DateRange } from "react-day-picker";
 import {
   CalendarIcon,
   Loader2,
@@ -34,7 +35,6 @@ import {
   PopoverTrigger,
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
-import { createClient } from "@/lib/supabase/client";
 import { toast } from "sonner";
 
 interface Room {
@@ -81,15 +81,15 @@ export function QuickBookingDialog({
   const [guestPhone, setGuestPhone] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [roomId, setRoomId] = useState("");
-  const [checkIn, setCheckIn] = useState<Date | undefined>(defaultCheckIn);
-  const [checkOut, setCheckOut] = useState<Date | undefined>(defaultCheckOut);
-  const [numGuests, setNumGuests] = useState(1);
+  const [dateRange, setDateRange] = useState<DateRange | undefined>(
+    defaultCheckIn ? { from: defaultCheckIn, to: defaultCheckOut } : undefined
+  );
+  const [numGuests, setNumGuests] = useState("");
   const [totalPrice, setTotalPrice] = useState("");
   const [bookingSource, setBookingSource] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
-  const [checkInOpen, setCheckInOpen] = useState(false);
-  const [checkOutOpen, setCheckOutOpen] = useState(false);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
 
   // Reset form when dialog opens
   useEffect(() => {
@@ -98,22 +98,21 @@ export function QuickBookingDialog({
       setGuestPhone("");
       setGuestEmail("");
       setRoomId(rooms.length === 1 ? rooms[0].id : "");
-      setCheckIn(defaultCheckIn);
-      setCheckOut(defaultCheckOut);
-      setNumGuests(1);
+      setDateRange(defaultCheckIn ? { from: defaultCheckIn, to: defaultCheckOut } : undefined);
+      setNumGuests("");
       setTotalPrice("");
       setBookingSource("");
       setNotes("");
     }
   }, [open, rooms, defaultCheckIn, defaultCheckOut]);
 
+  const checkIn = dateRange?.from;
+  const checkOut = dateRange?.to;
+
   const nights =
     checkIn && checkOut
       ? Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
       : 0;
-
-  const selectedRoom = rooms.find((r) => r.id === roomId);
-  const maxGuests = selectedRoom?.max_guests || 10;
 
   const canSubmit =
     guestName.trim() &&
@@ -121,8 +120,7 @@ export function QuickBookingDialog({
     roomId &&
     checkIn &&
     checkOut &&
-    nights > 0 &&
-    numGuests > 0;
+    nights > 0;
 
   const handleSubmit = async () => {
     if (!canSubmit || !checkIn || !checkOut) return;
@@ -140,7 +138,7 @@ export function QuickBookingDialog({
           guest_phone: guestPhone.trim(),
           check_in: format(checkIn, "yyyy-MM-dd"),
           check_out: format(checkOut, "yyyy-MM-dd"),
-          num_guests: numGuests,
+          num_guests: numGuests ? parseInt(numGuests, 10) : 2,
           total_price: totalPrice ? parseInt(totalPrice, 10) : 0,
           booking_source: bookingSource || "other",
           notes: notes.trim() || undefined,
@@ -233,85 +231,62 @@ export function QuickBookingDialog({
             </Select>
           </div>
 
-          {/* Check-in / Check-out row */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
-              <Label>{t("checkInLabel")}</Label>
-              <Popover open={checkInOpen} onOpenChange={setCheckInOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4 text-gray-400" />
-                    {checkIn ? format(checkIn, "d MMM yyyy", localeOpts) : <span className="text-gray-400">—</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={checkIn}
-                    onSelect={(d) => {
-                      setCheckIn(d);
-                      setCheckInOpen(false);
-                      if (d && checkOut && d >= checkOut) {
-                        setCheckOut(undefined);
-                      }
-                    }}
-                    disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
-            <div className="space-y-1.5">
-              <Label>{t("checkOutLabel")}</Label>
-              <Popover open={checkOutOpen} onOpenChange={setCheckOutOpen}>
-                <PopoverTrigger asChild>
-                  <Button
-                    variant="outline"
-                    className="w-full justify-start text-left font-normal"
-                  >
-                    <CalendarIcon className="mr-2 h-4 w-4 text-gray-400" />
-                    {checkOut ? format(checkOut, "d MMM yyyy", localeOpts) : <span className="text-gray-400">—</span>}
-                  </Button>
-                </PopoverTrigger>
-                <PopoverContent className="w-auto p-0" align="start">
-                  <Calendar
-                    mode="single"
-                    selected={checkOut}
-                    onSelect={(d) => {
-                      setCheckOut(d);
-                      setCheckOutOpen(false);
-                    }}
-                    disabled={(date) =>
-                      checkIn ? date <= checkIn : date <= new Date(new Date().setHours(0, 0, 0, 0))
+          {/* Check-in / Check-out date range */}
+          <div className="space-y-1.5">
+            <Label>{t("checkInLabel")} — {t("checkOutLabel")}</Label>
+            <Popover open={datePickerOpen} onOpenChange={setDatePickerOpen}>
+              <PopoverTrigger asChild>
+                <Button
+                  variant="outline"
+                  className="w-full justify-start text-left font-normal"
+                >
+                  <CalendarIcon className="mr-2 h-4 w-4 text-gray-400" />
+                  {checkIn && checkOut ? (
+                    <span>
+                      {format(checkIn, "d MMM yyyy", localeOpts)} — {format(checkOut, "d MMM yyyy", localeOpts)}
+                      <span className="ml-1.5 text-brand font-medium">
+                        ({t("nightsCount", { count: nights })})
+                      </span>
+                    </span>
+                  ) : checkIn ? (
+                    <span>
+                      {format(checkIn, "d MMM yyyy", localeOpts)} — <span className="text-gray-400">…</span>
+                    </span>
+                  ) : (
+                    <span className="text-gray-400">—</span>
+                  )}
+                </Button>
+              </PopoverTrigger>
+              <PopoverContent className="w-auto p-0" align="start">
+                <Calendar
+                  mode="range"
+                  selected={dateRange}
+                  onSelect={(range) => {
+                    setDateRange(range);
+                    if (range?.from && range?.to) {
+                      setDatePickerOpen(false);
                     }
-                  />
-                </PopoverContent>
-              </Popover>
-            </div>
+                  }}
+                  numberOfMonths={1}
+                  disabled={(date) => date < new Date(new Date().setHours(0, 0, 0, 0))}
+                />
+              </PopoverContent>
+            </Popover>
           </div>
-
-          {/* Nights indicator */}
-          {nights > 0 && (
-            <p className="text-xs text-brand font-medium -mt-2">
-              {t("nightsCount", { count: nights })}
-            </p>
-          )}
 
           {/* Guests + Total Price row */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label htmlFor="qb-guests">{t("numGuestsLabel")}</Label>
+              <Label htmlFor="qb-guests">{t("numGuestsLabel")} ({locale === "th" ? "ไม่บังคับ" : "optional"})</Label>
               <div className="flex items-center gap-2">
                 <Users className="h-4 w-4 text-gray-400 shrink-0" />
                 <Input
                   id="qb-guests"
                   type="number"
                   min={1}
-                  max={maxGuests}
                   value={numGuests}
-                  onChange={(e) => setNumGuests(Math.max(1, parseInt(e.target.value) || 1))}
+                  onChange={(e) => setNumGuests(e.target.value)}
+                  placeholder="2"
                 />
               </div>
             </div>
