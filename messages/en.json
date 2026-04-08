@@ -411,7 +411,21 @@
     "dcGuestMustPay": "Guest will need to pay ฿{amount} remaining balance",
     "dcPriceLowerNote": "New price is ฿{amount} lower than original",
     "selectRoom": "Select Room",
-    "currentRoom": "current"
+    "currentRoom": "current",
+    "occupancyRate": "Occupancy Rate",
+    "thisMonth": "This month",
+    "averageRating": "Average Rating",
+    "reviewsCount": "{count} reviews",
+    "noReviews": "No reviews yet",
+    "avgBookingValue": "Avg. Booking Value",
+    "perBooking": "per booking",
+    "todayCheckins": "Today's Check-ins",
+    "arrivals": "arrivals",
+    "monthlyRevenue": "Monthly Revenue",
+    "last6Months": "Last 6 months",
+    "statusBreakdown": "Booking Status",
+    "vsLastMonth": "vs last month",
+    "noChartData": "No data yet"
   },
   "setupProfile": {
     "title": "Complete Your Profile",

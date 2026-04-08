@@ -415,7 +415,21 @@
     "dcGuestMustPay": "แขกจะต้องชำระยอดค้าง ฿{amount}",
     "dcPriceLowerNote": "ราคาใหม่ต่ำกว่าเดิม ฿{amount}",
     "selectRoom": "เลือกห้อง",
-    "currentRoom": "ปัจจุบัน"
+    "currentRoom": "ปัจจุบัน",
+    "occupancyRate": "อัตราการเข้าพัก",
+    "thisMonth": "เดือนนี้",
+    "averageRating": "คะแนนเฉลี่ย",
+    "reviewsCount": "{count} รีวิว",
+    "noReviews": "ยังไม่มีรีวิว",
+    "avgBookingValue": "มูลค่าจองเฉลี่ย",
+    "perBooking": "ต่อการจอง",
+    "todayCheckins": "เช็คอินวันนี้",
+    "arrivals": "คนเข้าพัก",
+    "monthlyRevenue": "รายได้รายเดือน",
+    "last6Months": "6 เดือนล่าสุด",
+    "statusBreakdown": "สถานะการจอง",
+    "vsLastMonth": "เทียบเดือนก่อน",
+    "noChartData": "ยังไม่มีข้อมูล"
   },
   "setupProfile": {
     "title": "กรอกข้อมูลโปรไฟล์",
