@@ -130,7 +130,7 @@ export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, bo
   if (!rooms.length) return null;
 
   return (
-    <section className="py-14 md:py-20">
+    <section id="rooms-section" className="py-14 md:py-20">
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="overflow-hidden pt-2 -mt-2">
           <motion.h2
@@ -255,6 +255,7 @@ function SingleRoomHero({
 
   return (
     <motion.div
+      data-room-id={room.id}
       initial={{ opacity: 0, y: 30 }}
       whileInView={{ opacity: 1, y: 0 }}
       viewport={{ once: true }}
