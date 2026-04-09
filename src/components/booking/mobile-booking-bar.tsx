@@ -34,19 +34,17 @@ export function MobileBookingBar({ rooms, seasonalPrices }: MobileBookingBarProp
     return min;
   }, [rooms, seasonalPrices]);
 
-  // Visibility: show when scrolled past hero area, but NOT in rooms or booking sections
+  // Visibility: show when scrolled past hero area, but NOT in rooms section
   useEffect(() => {
     if (!isMobile) return;
 
     const roomsEl = document.getElementById("rooms-section");
-    const bookingEl = document.getElementById("booking-section");
 
     let roomsInView = false;
-    let bookingInView = false;
     let scrolledPastThreshold = false;
 
     const updateVisibility = () => {
-      setVisible(scrolledPastThreshold && !roomsInView && !bookingInView);
+      setVisible(scrolledPastThreshold && !roomsInView);
     };
 
     // Show bar once user scrolls past 40% of viewport height (past hero)
@@ -67,21 +65,11 @@ export function MobileBookingBar({ rooms, seasonalPrices }: MobileBookingBarProp
       { threshold: 0 }
     );
 
-    const bookingObserver = new IntersectionObserver(
-      ([entry]) => {
-        bookingInView = entry.isIntersecting;
-        updateVisibility();
-      },
-      { threshold: 0 }
-    );
-
     if (roomsEl) roomsObserver.observe(roomsEl);
-    if (bookingEl) bookingObserver.observe(bookingEl);
 
     return () => {
       window.removeEventListener("scroll", onScroll);
       roomsObserver.disconnect();
-      bookingObserver.disconnect();
     };
   }, [isMobile]);
 
