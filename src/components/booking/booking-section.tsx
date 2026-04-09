@@ -697,7 +697,7 @@ export function BookingSection({
 
   return (
     <>
-      <section ref={sectionRef} className="py-20 md:py-28">
+      <section id="booking-section" ref={sectionRef} className="py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           <div className="grid gap-10 lg:grid-cols-2 lg:gap-12 xl:gap-16 items-start">
             {/* ── Left Column: Heading & Trust Badges ── */}

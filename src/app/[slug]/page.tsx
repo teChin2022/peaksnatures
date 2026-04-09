@@ -16,6 +16,7 @@ import { ReviewsDisplay } from "@/components/reviews/reviews-display";
 
 const BookingSection = dynamic(() => import("@/components/booking/booking-section").then((m) => m.BookingSection));
 const ChatWidget = dynamic(() => import("@/components/chat/chat-widget").then((m) => m.ChatWidget));
+const MobileBookingBar = dynamic(() => import("@/components/booking/mobile-booking-bar").then((m) => m.MobileBookingBar));
 
 
 export const revalidate = 30;
@@ -144,7 +145,7 @@ export default async function HomestayPage({ params }: PageProps) {
     <div className="min-h-screen bg-white">
       <BookingHeader homestayName={homestay.name} logoUrl={homestay.logo_url} homestayId={homestay.id} promptpayId={homestay.host.promptpay_id} hostName={homestay.host.name} cancellationDays={homestay.host.cancellation_days} paymentDisplay={homestay.host.payment_display} bankName={homestay.host.bank_name} bankAccountNumber={homestay.host.bank_account_number} bankAccountName={homestay.host.bank_account_name} />
 
-      <main>
+      <main className="pb-16 md:pb-0">
         <HeroSection
           name={homestay.name}
           tagline={homestay.tagline}
@@ -223,6 +224,8 @@ export default async function HomestayPage({ params }: PageProps) {
         homestayName={homestay.name}
         themeColor={homestay.theme_color}
       /> */}
+
+      <MobileBookingBar rooms={rooms} seasonalPrices={seasonalPrices} />
     </div>
   );
 }
