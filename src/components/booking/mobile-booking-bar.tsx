@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { motion, AnimatePresence } from "motion/react";
 import { CalendarDays } from "lucide-react";
 import { useTranslations } from "next-intl";
@@ -12,18 +12,25 @@ import type { Room, RoomSeasonalPrice } from "@/types/database";
 interface MobileBookingBarProps {
   rooms: Room[];
   seasonalPrices: RoomSeasonalPrice[];
+  mostBookedRoomId: string | null;
+  hasConfirmedBookings: boolean;
   bookingDisabled?: boolean;
 }
 
-export function MobileBookingBar({ rooms, seasonalPrices, bookingDisabled = false }: MobileBookingBarProps) {
+type BookingStep = "dates" | "details" | "payment";
+
+export function MobileBookingBar({
+  rooms,
+  seasonalPrices,
+  mostBookedRoomId,
+  hasConfirmedBookings,
+  bookingDisabled = false,
+}: MobileBookingBarProps) {
   const t = useTranslations("common");
   const isMobile = useIsMobile();
   const [visible, setVisible] = useState(false);
-  const [focusedRoomId, setFocusedRoomId] = useState<string | null>(null);
-  const focusedRoomIdRef = useRef<string | null>(null);
-  const explicitSelectRef = useRef(false);
+  const [bookingStep, setBookingStep] = useState<BookingStep>("dates");
 
-  // Calculate cheapest price across all rooms
   const cheapestPrice = useMemo(() => {
     if (!rooms.length) return 0;
     let min = Infinity;
@@ -35,7 +42,20 @@ export function MobileBookingBar({ rooms, seasonalPrices, bookingDisabled = fals
     return min;
   }, [rooms, seasonalPrices]);
 
-  // Visibility: show when scrolled past hero area, but NOT in rooms section
+  const focusedRoom = useMemo(
+    () => rooms.find((r) => r.id === mostBookedRoomId) ?? rooms[0],
+    [mostBookedRoomId, rooms]
+  );
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { step } = (e as CustomEvent<{ step: BookingStep }>).detail;
+      setBookingStep(step);
+    };
+    document.addEventListener("booking-step", handler);
+    return () => document.removeEventListener("booking-step", handler);
+  }, []);
+
   useEffect(() => {
     if (!isMobile) return;
 
@@ -45,10 +65,9 @@ export function MobileBookingBar({ rooms, seasonalPrices, bookingDisabled = fals
     let scrolledPastThreshold = false;
 
     const updateVisibility = () => {
-      setVisible(scrolledPastThreshold && !roomsInView);
+      setVisible(scrolledPastThreshold && !roomsInView && bookingStep === "dates");
     };
 
-    // Show bar once user scrolls past 40% of viewport height (past hero)
     const onScroll = () => {
       scrolledPastThreshold = window.scrollY > window.innerHeight * 0.4;
       updateVisibility();
@@ -59,8 +78,6 @@ export function MobileBookingBar({ rooms, seasonalPrices, bookingDisabled = fals
     const roomsObserver = new IntersectionObserver(
       ([entry]) => {
         roomsInView = entry.isIntersecting;
-        // Reset explicit lock when user scrolls back to rooms
-        if (roomsInView) explicitSelectRef.current = false;
         updateVisibility();
       },
       { threshold: 0 }
@@ -72,65 +89,7 @@ export function MobileBookingBar({ rooms, seasonalPrices, bookingDisabled = fals
       window.removeEventListener("scroll", onScroll);
       roomsObserver.disconnect();
     };
-  }, [isMobile]);
-
-  // Sync with explicit room selection (from card buttons or this bar)
-  useEffect(() => {
-    const handler = (e: Event) => {
-      const { roomId } = (e as CustomEvent<{ roomId: string }>).detail;
-      if (roomId) {
-        explicitSelectRef.current = true;
-        focusedRoomIdRef.current = roomId;
-        setFocusedRoomId(roomId);
-      }
-    };
-    document.addEventListener("book-room", handler);
-    return () => document.removeEventListener("book-room", handler);
-  }, []);
-
-  // Track which room card is most visible (for auto-select)
-  // Only updates when user is naturally scrolling, not after an explicit book-room click
-  useEffect(() => {
-    if (!isMobile) return;
-
-    const roomCards = document.querySelectorAll<HTMLElement>("[data-room-id]");
-    if (!roomCards.length) return;
-
-    const ratios = new Map<string, number>();
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        // Skip observer updates while an explicit selection is active
-        if (explicitSelectRef.current) return;
-
-        for (const entry of entries) {
-          const id = (entry.target as HTMLElement).dataset.roomId;
-          if (id) ratios.set(id, entry.intersectionRatio);
-        }
-        let bestId: string | null = null;
-        let bestRatio = 0;
-        for (const [id, ratio] of ratios) {
-          if (ratio > bestRatio) {
-            bestRatio = ratio;
-            bestId = id;
-          }
-        }
-        if (bestId && bestId !== focusedRoomIdRef.current) {
-          focusedRoomIdRef.current = bestId;
-          setFocusedRoomId(bestId);
-        }
-      },
-      { threshold: [0, 0.25, 0.5, 0.75, 1] }
-    );
-
-    roomCards.forEach((el) => observer.observe(el));
-    return () => observer.disconnect();
-  }, [isMobile]);
-
-  const focusedRoom = useMemo(() => {
-    if (focusedRoomId) return rooms.find((r) => r.id === focusedRoomId) ?? rooms[0];
-    return rooms[0];
-  }, [focusedRoomId, rooms]);
+  }, [isMobile, bookingStep]);
 
   const handleBookNow = () => {
     if (!focusedRoom) return;
@@ -153,6 +112,11 @@ export function MobileBookingBar({ rooms, seasonalPrices, bookingDisabled = fals
         >
           <div className="flex items-center justify-between px-4 py-3">
             <div className="flex flex-col min-w-0">
+              {hasConfirmedBookings && (
+                <span className="text-[10px] font-bold text-brand uppercase tracking-wider leading-none mb-0.5">
+                  {t("mostPopular")}
+                </span>
+              )}
               <span className="text-xs text-earth-500 truncate">{focusedRoom?.name}</span>
               <span className="text-lg font-bold text-earth-900">
                 ฿{cheapestPrice.toLocaleString()}

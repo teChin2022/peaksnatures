@@ -7,6 +7,8 @@ import Image from "next/image";
 import { startOfToday, addMonths, parseISO } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
 import type { Room, RoomSeasonalPrice, BlockedDate } from "@/types/database";
+
+type BookingStep = "dates" | "details" | "payment";
 import { Badge } from "@/components/ui/badge";
 import { Users, CalendarDays, CalendarSearch, ChevronLeft, ChevronRight, X } from "lucide-react";
 
@@ -219,12 +221,14 @@ function SingleRoomHero({
   onLightbox,
   onCalendar,
   onDesc,
+  bookingLocked,
 }: {
   room: Room;
   seasonalPrices: RoomSeasonalPrice[];
   onLightbox: () => void;
   onCalendar: () => void;
   onDesc: () => void;
+  bookingLocked: boolean;
 }) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
@@ -390,7 +394,8 @@ function SingleRoomHero({
             {/* Right: CTA buttons — desktop only (inside overlay) */}
             <div className="hidden shrink-0 rounded-full overflow-hidden shadow-lg sm:flex">
               <Button
-                className="rounded-none rounded-l-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0"
+                disabled={bookingLocked}
+                className="rounded-none rounded-l-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={(e) => {
                   e.stopPropagation();
                   document.dispatchEvent(new CustomEvent("book-room", { detail: { roomId: room.id } }));
@@ -415,7 +420,8 @@ function SingleRoomHero({
       {/* Mobile CTA — outside image */}
       <div className="mt-3 mb-15 flex w-full rounded-full overflow-hidden shadow-lg sm:hidden">
         <Button
-          className="flex-1 rounded-none rounded-l-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0"
+          disabled={bookingLocked}
+          className="flex-1 rounded-none rounded-l-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => {
             document.dispatchEvent(new CustomEvent("book-room", { detail: { roomId: room.id } }));
           }}
@@ -443,8 +449,20 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
   const [lightbox, setLightbox] = useState<{ images: string[]; name: string } | null>(null);
   const [calendarRoomId, setCalendarRoomId] = useState<string | null>(null);
   const [descRoomId, setDescRoomId] = useState<string | null>(null);
+  const [bookingStep, setBookingStep] = useState<BookingStep>("dates");
   const isMobile = useIsMobile();
   const locale = useLocale();
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { step } = (e as CustomEvent<{ step: BookingStep }>).detail;
+      setBookingStep(step);
+    };
+    document.addEventListener("booking-step", handler);
+    return () => document.removeEventListener("booking-step", handler);
+  }, []);
+
+  const bookingLocked = bookingStep !== "dates";
 
   const calendarRoom = calendarRoomId ? rooms.find((r) => r.id === calendarRoomId) : null;
 
@@ -471,6 +489,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
             onLightbox={() => setLightbox({ images: room.images, name: room.name })}
             onCalendar={() => setCalendarRoomId(room.id)}
             onDesc={() => setDescRoomId(room.id)}
+            bookingLocked={bookingLocked}
           />
         ))}
       </div>
