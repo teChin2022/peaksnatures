@@ -12,9 +12,10 @@ import type { Room, RoomSeasonalPrice } from "@/types/database";
 interface MobileBookingBarProps {
   rooms: Room[];
   seasonalPrices: RoomSeasonalPrice[];
+  bookingDisabled?: boolean;
 }
 
-export function MobileBookingBar({ rooms, seasonalPrices }: MobileBookingBarProps) {
+export function MobileBookingBar({ rooms, seasonalPrices, bookingDisabled = false }: MobileBookingBarProps) {
   const t = useTranslations("common");
   const isMobile = useIsMobile();
   const [visible, setVisible] = useState(false);
@@ -160,10 +161,11 @@ export function MobileBookingBar({ rooms, seasonalPrices }: MobileBookingBarProp
             </div>
             <Button
               onClick={handleBookNow}
-              className="shrink-0 bg-brand text-white px-6 py-3 h-auto font-bold text-sm tracking-wider uppercase rounded-full hover:bg-brand-hover border-0"
+              disabled={bookingDisabled}
+              className="shrink-0 bg-brand text-white px-6 py-3 h-auto font-bold text-sm tracking-wider uppercase rounded-full hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
-              {t("bookNow")}
+              {bookingDisabled ? t("unavailable") : t("bookNow")}
             </Button>
           </div>
         </motion.div>

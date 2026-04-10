@@ -2,12 +2,14 @@ import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
 import { getBillingConfig, getEffectiveFixedRate } from "@/lib/billing";
+import { GRACE_PERIOD_DAYS } from "@/lib/plan-expiry";
 import type { Host, PlatformBillingConfig } from "@/types/database";
 
 /**
  * GET /api/cron/billing
  * Daily cron job (triggered by Vercel Cron via GET).
- * - Every day: send SMS 3 days before free plan expiry, send SMS on expiry day, mark overdue invoices.
+ * - Every day: send SMS 3 days before free plan expiry, send SMS on expiry day,
+ *   send SMS 5 days after expiry (grace period reminder), mark overdue invoices.
  * - 1st of month only: apply pending plan switches, generate invoices for fixed-rate hosts.
  * Secured with CRON_SECRET header.
  */
@@ -36,6 +38,11 @@ export async function GET(req: NextRequest) {
     const in3DaysNext = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 4))
       .toISOString().split("T")[0];
     const tomorrowStr = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1))
+      .toISOString().split("T")[0];
+    // 5 days ago = hosts whose plan expired 5 days ago (grace period reminder)
+    const ago5Days = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 5))
+      .toISOString().split("T")[0];
+    const ago5DaysNext = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 4))
       .toISOString().split("T")[0];
     const isFirstOfMonth = now.getUTCDate() === 1;
 
@@ -103,6 +110,35 @@ export async function GET(req: NextRequest) {
       });
     }
     results.expiry_notifications = expiryNotifications;
+
+    // ============================================================
+    // DAILY: Grace period reminder — 5 days after expiry (2 days before block)
+    // ============================================================
+    const graceDaysLeft = GRACE_PERIOD_DAYS - 5; // = 2
+    const { data: graceReminderHosts } = await supabase
+      .from("hosts")
+      .select("id, name, phone")
+      .eq("plan_type", "free")
+      .not("plan_free_expires_at", "is", null)
+      .gte("plan_free_expires_at", ago5Days + "T00:00:00Z")
+      .lt("plan_free_expires_at", ago5DaysNext + "T00:00:00Z");
+
+    let graceNotifications = 0;
+    for (const host of (graceReminderHosts || []) as { id: string; name: string; phone: string | null }[]) {
+      if (host.phone) {
+        try {
+          const { sendSms } = await import("@/lib/notifications");
+          const result = await sendSms(
+            host.phone,
+            `แพลนฟรีของคุณหมดอายุแล้ว การจองจะถูกระงับใน ${graceDaysLeft} วัน กรุณาเข้าระบบเพื่อเปลี่ยนแพลน`,
+          );
+          if (result.success) graceNotifications++;
+        } catch (err) {
+          console.error("[Cron] Grace reminder SMS error for host:", host.id, err);
+        }
+      }
+    }
+    results.grace_notifications = graceNotifications;
 
     // ============================================================
     // DAILY: Mark overdue invoices

@@ -94,6 +94,7 @@ interface BookingSectionProps {
   host: Host;
   seasonalPrices?: RoomSeasonalPrice[];
   roomOptions?: RoomOption[];
+  bookingDisabled?: boolean;
 }
 
 type BookingStep = "dates" | "details" | "payment";
@@ -106,6 +107,7 @@ export function BookingSection({
   host,
   seasonalPrices = EMPTY_SEASONAL_PRICES,
   roomOptions = EMPTY_ROOM_OPTIONS,
+  bookingDisabled = false,
 }: BookingSectionProps) {
   const t = useTranslations("booking");
   const tc = useTranslations("common");
@@ -699,7 +701,14 @@ export function BookingSection({
     <>
       <section id="booking-section" ref={sectionRef} className="py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="grid gap-10 lg:grid-cols-2 lg:gap-12 xl:gap-16 items-start">
+          {bookingDisabled && (
+            <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 px-6 py-5 text-center">
+              <Clock className="h-6 w-6 text-amber-500 mx-auto mb-2" />
+              <p className="text-base font-medium text-amber-800">{t("unavailableTitle")}</p>
+              <p className="text-sm text-amber-600 mt-1">{t("unavailableDesc")}</p>
+            </div>
+          )}
+          <div className={`grid gap-10 lg:grid-cols-2 lg:gap-12 xl:gap-16 items-start ${bookingDisabled ? "pointer-events-none opacity-50 select-none" : ""}`}>
             {/* ── Left Column: Heading & Trust Badges ── */}
             <div className="flex flex-col justify-center">
               <h2 className="font-serif text-4xl font-normal text-earth-900 leading-tight lg:text-5xl tracking-tight">

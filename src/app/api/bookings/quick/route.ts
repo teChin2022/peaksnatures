@@ -42,7 +42,7 @@ export async function POST(req: NextRequest) {
     // Verify host owns the homestay
     const { data: hostRow } = await supabase
       .from("hosts")
-      .select("id, name")
+      .select("id, name, plan_type, plan_free_expires_at")
       .eq("user_id", user.id)
       .single();
 
@@ -50,7 +50,16 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Host not found" }, { status: 404 });
     }
 
-    const host = hostRow as { id: string; name: string };
+    const host = hostRow as { id: string; name: string; plan_type: string; plan_free_expires_at: string | null };
+
+    // Check if host's free plan is soft-blocked
+    const { isHostBlocked } = await import("@/lib/plan-expiry");
+    if (isHostBlocked(host.plan_type, host.plan_free_expires_at)) {
+      return NextResponse.json(
+        { error: "Your free plan has expired. Please upgrade to continue creating bookings." },
+        { status: 403 }
+      );
+    }
 
     const { data: homestayRow } = await supabase
       .from("homestays")
