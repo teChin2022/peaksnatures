@@ -35,7 +35,8 @@
     "amenities": "Amenities",
     "houseRules": "House Rules",
     "done": "Done",
-    "bookNow": "Book Now"
+    "bookNow": "Book Now",
+    "unavailable": "Unavailable"
   },
   "home": {
     "badge": "Nature Places in Thailand",
@@ -233,6 +234,8 @@
     "sectionHeading": "Begin Your Next",
     "sectionHeadingAccent": "Escape",
     "sectionDesc": "Ready to experience nature at its finest? Select your dates and room, and we'll take care of the rest.",
+    "unavailableTitle": "Temporarily Unavailable",
+    "unavailableDesc": "This homestay is not accepting new bookings at the moment. Please check back later.",
     "trustResponse": "Priority Response",
     "trustResponseDesc": "Average response time: 45 minutes",
     "trustSecure": "Secure & Private",
@@ -1276,6 +1279,11 @@
     "cancelSwitchConfirm": "Cancel the pending plan switch?",
     "freeExpiredTitle": "Your free plan has expired",
     "freeExpiredDesc": "Please switch to a paid plan to continue receiving bookings.",
+    "graceTitle": "Your free plan has expired",
+    "graceDesc": "New bookings will be paused in {days} days. Upgrade now to avoid interruption.",
+    "blockedTitle": "New bookings are paused",
+    "blockedDesc": "Your free plan has expired and new bookings are blocked. Upgrade your plan to resume.",
+    "upgradePlan": "Upgrade",
     "walletBalance": "Balance",
     "topUpDesc": "Transfer funds and upload your payment slip for verification.",
     "dragOrClick": "Drag and drop or click to upload",

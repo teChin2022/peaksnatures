@@ -119,6 +119,24 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
+    // Check if host's free plan is soft-blocked
+    const { data: homestayHost } = await supabase
+      .from("homestays")
+      .select("hosts(plan_type, plan_free_expires_at)")
+      .eq("id", data.homestay_id)
+      .single();
+
+    const hostPlan = (homestayHost as unknown as { hosts: { plan_type: string; plan_free_expires_at: string | null } | null })?.hosts;
+    if (hostPlan) {
+      const { isHostBlocked } = await import("@/lib/plan-expiry");
+      if (isHostBlocked(hostPlan.plan_type, hostPlan.plan_free_expires_at)) {
+        return NextResponse.json(
+          { error: "This homestay is temporarily unavailable for new bookings" },
+          { status: 403 }
+        );
+      }
+    }
+
     // Server-side price verification: never trust client-supplied total_price
     if (data.room_id) {
       // Parallel: room price + seasonal prices + option prices (if any)

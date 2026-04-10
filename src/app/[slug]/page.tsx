@@ -4,6 +4,7 @@ import dynamic from "next/dynamic";
 import { notFound, permanentRedirect } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { resolveSlugRedirect } from "@/lib/slug-redirect";
+import { isHostBlocked } from "@/lib/plan-expiry";
 import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice, RoomOption } from "@/types/database";
 import { HeroSection } from "@/components/booking/hero-section";
 import { GallerySection } from "@/components/booking/gallery-section";
@@ -90,6 +91,8 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     value: computeAvg("rating_value"),
   };
 
+  const bookingDisabled = host ? isHostBlocked(host.plan_type, host.plan_free_expires_at) : false;
+
   return {
     homestay: { ...homestay, host: host! } as Homestay & { host: Host },
     rooms,
@@ -103,6 +106,7 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     reviewCount: reviewCount || 0,
     totalBookings: totalBookingsCount || 0,
     lastBookingDate: (lastBookingRow as { created_at: string } | null)?.created_at || null,
+    bookingDisabled,
   };
 });
 
@@ -139,7 +143,7 @@ export default async function HomestayPage({ params }: PageProps) {
     notFound();
   }
 
-  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, roomOptions, reviews, averageRating, categoryAverages, reviewCount, totalBookings, lastBookingDate } = data;
+  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, roomOptions, reviews, averageRating, categoryAverages, reviewCount, totalBookings, lastBookingDate, bookingDisabled } = data;
 
   return (
     <div className="min-h-screen bg-white">
@@ -189,6 +193,7 @@ export default async function HomestayPage({ params }: PageProps) {
           host={homestay.host}
           seasonalPrices={seasonalPrices}
           roomOptions={roomOptions}
+          bookingDisabled={bookingDisabled}
         />
 
         {/* Reviews */}
@@ -225,7 +230,7 @@ export default async function HomestayPage({ params }: PageProps) {
         themeColor={homestay.theme_color}
       /> */}
 
-      <MobileBookingBar rooms={rooms} seasonalPrices={seasonalPrices} />
+      <MobileBookingBar rooms={rooms} seasonalPrices={seasonalPrices} bookingDisabled={bookingDisabled} />
     </div>
   );
 }

@@ -1,4 +1,5 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { isHostBlocked } from "@/lib/plan-expiry";
 import type { Homestay, Room } from "@/types/database";
 import { LandingNavbar } from "@/components/landing/navbar";
 import { LandingContent } from "@/components/landing/landing-content";
@@ -28,7 +29,7 @@ export default async function Home() {
           .eq("is_active", true),
         supabase
           .from("hosts")
-          .select("id, is_verified")
+          .select("id, is_verified, plan_type, plan_free_expires_at")
           .in("id", hostIds),
         supabase
           .from("reviews")
@@ -47,8 +48,12 @@ export default async function Home() {
   }
 
   const hostVerifiedMap = new Map<string, boolean>();
-  for (const host of (hostRows as { id: string; is_verified: boolean }[]) || []) {
+  const blockedHostIds = new Set<string>();
+  for (const host of (hostRows as { id: string; is_verified: boolean; plan_type: string; plan_free_expires_at: string | null }[]) || []) {
     hostVerifiedMap.set(host.id, host.is_verified);
+    if (isHostBlocked(host.plan_type, host.plan_free_expires_at)) {
+      blockedHostIds.add(host.id);
+    }
   }
 
   const reviewData = (reviewRows as { homestay_id: string; rating: number }[]) || [];
@@ -59,7 +64,10 @@ export default async function Home() {
     reviewSumMap.set(rv.homestay_id, (reviewSumMap.get(rv.homestay_id) || 0) + rv.rating);
   }
 
-  const homestayData = homestays.map((h) => {
+  // Filter out homestays whose host is soft-blocked (expired free plan past grace period)
+  const activeHomestays = homestays.filter((h) => !blockedHostIds.has(h.host_id));
+
+  const homestayData = activeHomestays.map((h) => {
     const count = reviewCountMap.get(h.id) || 0;
     const sum = reviewSumMap.get(h.id) || 0;
     return {

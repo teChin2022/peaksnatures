@@ -73,6 +73,7 @@ EASYSLIP_API_KEY
 RESEND_API_KEY
 SMS_KUB_API_KEY
 SMS_KUB_SENDER
+CRON_SECRET              # Secures /api/cron/* endpoints. Generate with: openssl rand -base64 32
 ```
 
 Per-host LINE credentials (`line_channel_access_token`, `line_user_id`) are stored in the `hosts` DB table.
