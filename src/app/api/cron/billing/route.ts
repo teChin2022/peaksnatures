@@ -12,9 +12,12 @@ import type { Host, PlatformBillingConfig } from "@/types/database";
  *   send SMS 5 days after expiry (grace period reminder), mark overdue invoices.
  * - 1st of month only: apply pending plan switches, generate invoices for fixed-rate hosts.
  * Secured with CRON_SECRET header.
+ * Generate the secret: `openssl rand -base64 32`
+ * Set CRON_SECRET in Vercel Environment Variables (both Production & Preview).
+ * Vercel Cron sends `Authorization: Bearer <CRON_SECRET>` automatically.
  */
 export async function GET(req: NextRequest) {
-  // Verify cron secret
+  // Verify cron secret (skipped if CRON_SECRET env var is not set — useful for local testing)
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
   if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
