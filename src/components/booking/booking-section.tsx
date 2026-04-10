@@ -226,6 +226,11 @@ export function BookingSection({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rooms]);
 
+  // Broadcast the current step so MobileBookingBar can hide itself past step 1
+  useEffect(() => {
+    document.dispatchEvent(new CustomEvent("booking-step", { detail: { step } }));
+  }, [step]);
+
   // Live booked ranges fetched client-side to stay up-to-date
   const [liveBookedRanges, setLiveBookedRanges] = useState<BookedRange[]>(bookedRanges);
 

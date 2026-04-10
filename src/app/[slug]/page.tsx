@@ -53,6 +53,7 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     { data: reviewRows },
     { count: totalBookingsCount },
     { data: lastBookingRow },
+    { data: confirmedBookingRows },
   ] = await Promise.all([
     supabase.from("hosts").select("*").eq("id", homestay.host_id).single(),
     supabase.from("rooms").select("*, room_seasonal_prices(*), room_options(*)").eq("homestay_id", homestay.id).eq("is_active", true).order("created_at", { ascending: true }),
@@ -62,6 +63,7 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     supabase.from("reviews").select("*, bookings(guest_province)").eq("homestay_id", homestay.id).order("created_at", { ascending: false }).range(0, GRID_REVIEWS - 1),
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]),
     supabase.from("bookings").select("created_at").eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    supabase.from("bookings").select("room_id").eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]).not("room_id", "is", null),
   ]);
 
   const host = hostRow as unknown as Host | null;
@@ -93,6 +95,23 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
 
   const bookingDisabled = host ? isHostBlocked(host.plan_type, host.plan_free_expires_at) : false;
 
+  const roomBookingCounts = new Map<string, number>();
+  for (const row of (confirmedBookingRows as { room_id: string }[] | null) ?? []) {
+    roomBookingCounts.set(row.room_id, (roomBookingCounts.get(row.room_id) ?? 0) + 1);
+  }
+  let mostBookedRoomId: string | null = null;
+  let bestCount = 0;
+  for (const [id, count] of roomBookingCounts) {
+    if (count > bestCount) {
+      bestCount = count;
+      mostBookedRoomId = id;
+    }
+  }
+  const hasConfirmedBookings = mostBookedRoomId !== null;
+  if (!mostBookedRoomId && rooms.length > 0) {
+    mostBookedRoomId = rooms[0].id;
+  }
+
   return {
     homestay: { ...homestay, host: host! } as Homestay & { host: Host },
     rooms,
@@ -107,6 +126,8 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     totalBookings: totalBookingsCount || 0,
     lastBookingDate: (lastBookingRow as { created_at: string } | null)?.created_at || null,
     bookingDisabled,
+    mostBookedRoomId,
+    hasConfirmedBookings,
   };
 });
 
@@ -143,7 +164,7 @@ export default async function HomestayPage({ params }: PageProps) {
     notFound();
   }
 
-  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, roomOptions, reviews, averageRating, categoryAverages, reviewCount, totalBookings, lastBookingDate, bookingDisabled } = data;
+  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, roomOptions, reviews, averageRating, categoryAverages, reviewCount, totalBookings, lastBookingDate, bookingDisabled, mostBookedRoomId, hasConfirmedBookings } = data;
 
   return (
     <div className="min-h-screen bg-white">
@@ -230,7 +251,13 @@ export default async function HomestayPage({ params }: PageProps) {
         themeColor={homestay.theme_color}
       /> */}
 
-      <MobileBookingBar rooms={rooms} seasonalPrices={seasonalPrices} bookingDisabled={bookingDisabled} />
+      <MobileBookingBar
+        rooms={rooms}
+        seasonalPrices={seasonalPrices}
+        mostBookedRoomId={mostBookedRoomId}
+        hasConfirmedBookings={hasConfirmedBookings}
+        bookingDisabled={bookingDisabled}
+      />
     </div>
   );
 }
