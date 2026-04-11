@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { MapPin, ShieldCheck, CalendarDays, BookOpen, Clock } from "lucide-react";
+import { MapPin, ShieldCheck, CalendarDays, BookOpen, Clock, Phone } from "lucide-react";
 
 import { useTranslations } from "next-intl";
 import { motion } from "motion/react";
@@ -9,6 +9,7 @@ import { getInitials } from "@/lib/utils";
 
 interface HostLocationSectionProps {
   hostName: string;
+  hostPhone: string | null;
   hostAvatarUrl: string | null;
   isVerified: boolean;
   hostCreatedAt: string;
@@ -20,6 +21,7 @@ interface HostLocationSectionProps {
 
 export function HostLocationSection({
   hostName,
+  hostPhone,
   hostAvatarUrl,
   isVerified,
   hostCreatedAt,
@@ -125,6 +127,15 @@ export function HostLocationSection({
               <span className={`mt-1 text-xs font-medium ${isVerified ? "text-brand" : "text-amber-600"}`}>
                 {isVerified ? t("verifiedHost") : t("unverifiedHost")}
               </span>
+              {hostPhone && (
+                <a
+                  href={`tel:${hostPhone}`}
+                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-earth-700 hover:text-brand"
+                >
+                  <Phone className="h-3.5 w-3.5" />
+                  {hostPhone}
+                </a>
+              )}
 
               <div className="w-full h-px bg-earth-200 my-5" />
 

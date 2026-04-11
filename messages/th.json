@@ -112,13 +112,20 @@
     "noItems": "ไม่มีกฎที่พักระบุไว้"
   },
   "checkInInfo": {
-    "title": "ข้อมูลสำคัญก่อนเข้าพัก"
+    "title": "ข้อมูลสำคัญก่อนเข้าพัก",
+    "readMore": "อ่านเพิ่มเติม"
   },
   "policies": {
-    "title": "นโยบาย"
+    "title": "นโยบาย",
+    "readMore": "อ่านเพิ่มเติม"
   },
   "faq": {
     "title": "คำถามที่พบบ่อย"
+  },
+  "finalCta": {
+    "title": "พร้อมหนีความวุ่นวาย ไปพักผ่อนแล้วหรือยัง?",
+    "subtitle": "เลือกวันที่ เลือกห้อง แล้วปล่อยให้เราจัดการที่เหลือให้คุณ",
+    "button": "จองที่พักเลย"
   },
   "rooms": {
     "title": "ห้องพัก & ราคา",
@@ -126,11 +133,14 @@
     "available": "ว่าง {count} ห้อง",
     "fromPrice": "เริ่มต้น",
     "bookRoom": "จองห้องนี้",
-    "viewCalendar": "ปฏิทิน",
-    "availabilityTitle": "ตารางจอง",
+    "viewCalendar": "วันว่าง & ราคา",
+    "availabilityTitle": "ตารางจองและราคา",
     "legendBooked": "จองแล้ว",
     "legendAvailable": "ว่าง",
-    "readMore": "อ่านเพิ่มเติม"
+    "readMore": "อ่านเพิ่มเติม",
+    "priceDetailsTitle": "ราคาห้องพัก",
+    "basePrice": "ราคาปกติ",
+    "seasonalRates": "ราคาตามฤดูกาล"
   },
   "booking": {
     "title": "จองที่พัก",

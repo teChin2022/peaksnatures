@@ -112,13 +112,20 @@
     "noItems": "No house rules specified"
   },
   "checkInInfo": {
-    "title": "Important info before check-in"
+    "title": "Important info before check-in",
+    "readMore": "Read more"
   },
   "policies": {
-    "title": "Policies"
+    "title": "Policies",
+    "readMore": "Read more"
   },
   "faq": {
     "title": "Frequently Asked Questions"
+  },
+  "finalCta": {
+    "title": "Ready for your next escape?",
+    "subtitle": "Pick your dates, choose a room, and we'll take care of the rest.",
+    "button": "Book your stay"
   },
   "rooms": {
     "title": "Rooms & Pricing",
@@ -126,11 +133,14 @@
     "available": "{count} available",
     "fromPrice": "From",
     "bookRoom": "Book",
-    "viewCalendar": "Calendar",
-    "availabilityTitle": "Room Availability",
+    "viewCalendar": "Availability & Rates",
+    "availabilityTitle": "Availability & Rates",
     "legendBooked": "Booked",
     "legendAvailable": "Available",
-    "readMore": "Read more"
+    "readMore": "Read more",
+    "priceDetailsTitle": "Room Rates",
+    "basePrice": "Standard rate",
+    "seasonalRates": "Seasonal rates"
   },
   "booking": {
     "title": "Book Your Stay",

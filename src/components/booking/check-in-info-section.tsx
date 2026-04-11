@@ -1,10 +1,18 @@
 "use client";
 
+import { useState, useRef, useEffect } from "react";
 import { motion } from "motion/react";
 import { KeyRound } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import { HTMLContent } from "@/components/ui/html-content";
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from "@/components/ui/dialog";
 
 interface CheckInInfoSectionProps {
   content: string | null;
@@ -18,6 +26,16 @@ function isEmptyRichText(value: string | null): boolean {
 
 export function CheckInInfoSection({ content }: CheckInInfoSectionProps) {
   const t = useTranslations("checkInInfo");
+  const [modalOpen, setModalOpen] = useState(false);
+  const contentRef = useRef<HTMLDivElement>(null);
+  const [overflows, setOverflows] = useState(false);
+
+  useEffect(() => {
+    const el = contentRef.current;
+    if (el) {
+      setOverflows(el.scrollHeight > el.clientHeight);
+    }
+  }, [content]);
 
   if (isEmptyRichText(content)) return null;
 
@@ -38,12 +56,41 @@ export function CheckInInfoSection({ content }: CheckInInfoSectionProps) {
               {t("title")}
             </h2>
           </div>
-          <HTMLContent
-            content={content as string}
-            className="mt-5 leading-relaxed text-earth-600"
-          />
+          <div className="relative mt-5 overflow-hidden">
+            <div ref={contentRef} className="line-clamp-6 sm:line-clamp-10">
+              <HTMLContent
+                content={content as string}
+                className="leading-relaxed text-earth-600"
+              />
+            </div>
+            {overflows && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-earth-50 via-earth-50/80 to-transparent" />
+            )}
+          </div>
+          {overflows && (
+            <button
+              type="button"
+              className="mt-2 text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600"
+              onClick={() => setModalOpen(true)}
+            >
+              {t("readMore")}
+            </button>
+          )}
         </motion.div>
       </div>
+
+      <Dialog open={modalOpen} onOpenChange={setModalOpen}>
+        <DialogContent className="sm:max-w-2xl overflow-y-auto max-h-[90vh]">
+          <DialogHeader>
+            <DialogTitle>{t("title")}</DialogTitle>
+            <DialogDescription className="sr-only">{t("title")}</DialogDescription>
+          </DialogHeader>
+          <HTMLContent
+            content={content as string}
+            className="leading-relaxed text-earth-600"
+          />
+        </DialogContent>
+      </Dialog>
     </section>
   );
 }
