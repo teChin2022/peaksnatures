@@ -13,6 +13,9 @@ import { RoomsSection } from "@/components/booking/rooms-section";
 import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingFooter } from "@/components/booking/booking-footer";
 import { HostLocationSection } from "@/components/booking/host-location-section";
+import { CheckInInfoSection } from "@/components/booking/check-in-info-section";
+import { PoliciesSection } from "@/components/booking/policies-section";
+import { FaqSection } from "@/components/booking/faq-section";
 import { ReviewsDisplay } from "@/components/reviews/reviews-display";
 
 const BookingSection = dynamic(() => import("@/components/booking/booking-section").then((m) => m.BookingSection));
@@ -175,6 +178,9 @@ export default async function HomestayPage({ params }: PageProps) {
           name={homestay.name}
           tagline={homestay.tagline}
           heroImageUrl={homestay.hero_image_url}
+          isVerified={homestay.host.is_verified}
+          averageRating={averageRating}
+          reviewCount={reviewCount}
           // location={homestay.location}
         />
 
@@ -204,6 +210,10 @@ export default async function HomestayPage({ params }: PageProps) {
         <div className="bg-earth-50">
           <RoomsSection rooms={rooms} seasonalPrices={seasonalPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} />
         </div>
+
+        <CheckInInfoSection content={homestay.check_in_info} />
+        <PoliciesSection content={homestay.policies} />
+        <FaqSection items={homestay.faq} />
 
         {/* Booking (inline) */}
         <BookingSection
