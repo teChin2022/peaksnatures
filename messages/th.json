@@ -1,6 +1,8 @@
 {
   "hero": {
-    "verifiedHost": "โฮสต์ยืนยันตัวตนแล้ว"
+    "verifiedHost": "โฮสต์ยืนยันตัวตนแล้ว",
+    "instantConfirm": "จองแล้วได้รับการยืนยันทันที",
+    "freeCancellation": "ยกเลิกฟรีภายในเวลาที่กำหนด"
   },
   "hostCard": {
     "verifiedHost": "โฮสต์ยืนยันตัวตนแล้ว",
@@ -109,17 +111,36 @@
     "title": "กฎของที่พัก",
     "noItems": "ไม่มีกฎที่พักระบุไว้"
   },
+  "checkInInfo": {
+    "title": "ข้อมูลสำคัญก่อนเข้าพัก",
+    "readMore": "อ่านเพิ่มเติม"
+  },
+  "policies": {
+    "title": "นโยบาย",
+    "readMore": "อ่านเพิ่มเติม"
+  },
+  "faq": {
+    "title": "คำถามที่พบบ่อย"
+  },
+  "finalCta": {
+    "title": "พร้อมหนีความวุ่นวาย ไปพักผ่อนแล้วหรือยัง?",
+    "subtitle": "เลือกวันที่ เลือกห้อง แล้วปล่อยให้เราจัดการที่เหลือให้คุณ",
+    "button": "จองที่พักเลย"
+  },
   "rooms": {
     "title": "ห้องพัก & ราคา",
     "subtitle": "เลือกจากประเภทห้องพักที่มี",
     "available": "ว่าง {count} ห้อง",
     "fromPrice": "เริ่มต้น",
     "bookRoom": "จองห้องนี้",
-    "viewCalendar": "ปฏิทิน",
-    "availabilityTitle": "ตารางจอง",
+    "viewCalendar": "วันว่าง & ราคา",
+    "availabilityTitle": "ตารางจองและราคา",
     "legendBooked": "จองแล้ว",
     "legendAvailable": "ว่าง",
-    "readMore": "อ่านเพิ่มเติม"
+    "readMore": "อ่านเพิ่มเติม",
+    "priceDetailsTitle": "ราคาห้องพัก",
+    "basePrice": "ราคาปกติ",
+    "seasonalRates": "ราคาตามฤดูกาล"
   },
   "booking": {
     "title": "จองที่พัก",
@@ -777,7 +798,24 @@
     "month9": "ก.ย.",
     "month10": "ต.ค.",
     "month11": "พ.ย.",
-    "month12": "ธ.ค."
+    "month12": "ธ.ค.",
+    "checkInInfoTitle": "ข้อมูลสำคัญก่อนเข้าพัก",
+    "checkInInfoHint": "คำแนะนำที่ผู้เข้าพักควรอ่านก่อนเดินทางมาถึง (เส้นทาง การรับกุญแจ เวลาเงียบ ฯลฯ)",
+    "checkInInfoPlaceholder": "อธิบายขั้นตอนการเช็คอิน เส้นทางรถ ที่จอดรถ การรับกุญแจ…",
+    "policiesTitle": "นโยบาย",
+    "policiesHint": "นโยบายการยกเลิก การคืนเงิน ค่าเสียหาย และข้อกำหนดอื่น ๆ ที่ผู้เข้าพักต้องยอมรับ",
+    "policiesPlaceholder": "อธิบายนโยบายการยกเลิก การคืนเงิน และกฎของที่พัก…",
+    "faqTitle": "คำถามที่พบบ่อย",
+    "faqHint": "ตอบคำถามที่พบบ่อยเพื่อลดการโต้ตอบกับผู้เข้าพัก",
+    "faqEmpty": "ยังไม่มีคำถาม กดเพิ่มคำถามแรกด้านล่าง",
+    "faqAdd": "เพิ่มคำถาม",
+    "faqQuestion": "คำถาม",
+    "faqQuestionPlaceholder": "เช่น รวมอาหารเช้าหรือไม่?",
+    "faqAnswer": "คำตอบ",
+    "faqAnswerPlaceholder": "เขียนคำตอบที่ชัดเจนและกระชับ…",
+    "faqMoveUp": "ย้ายขึ้น",
+    "faqMoveDown": "ย้ายลง",
+    "faqRemove": "ลบ"
   },
   "dashboardRooms": {
     "title": "จัดการห้องพัก",

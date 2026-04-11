@@ -10,7 +10,8 @@ import type { Room, RoomSeasonalPrice, BlockedDate } from "@/types/database";
 
 type BookingStep = "dates" | "details" | "payment";
 import { Badge } from "@/components/ui/badge";
-import { Users, CalendarDays, CalendarSearch, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { Users, CalendarDays, CalendarSearch, ChevronLeft, ChevronRight, X, Sparkles } from "lucide-react";
+import { fmtDateStr } from "@/lib/format-date";
 
 import { useTranslations, useLocale } from "next-intl";
 import { motion } from "motion/react";
@@ -395,7 +396,7 @@ function SingleRoomHero({
             <div className="hidden shrink-0 rounded-full overflow-hidden shadow-lg sm:flex">
               <Button
                 disabled={bookingLocked}
-                className="rounded-none rounded-l-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
+                className="rounded-none rounded-l-full bg-brand text-white px-6 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
                 onClick={(e) => {
                   e.stopPropagation();
                   document.dispatchEvent(new CustomEvent("book-room", { detail: { roomId: room.id } }));
@@ -406,11 +407,11 @@ function SingleRoomHero({
               </Button>
               <button
                 type="button"
-                className="flex items-center justify-center px-4 rounded-r-full bg-brand hover:bg-brand-hover border-l border-white/30 transition-colors"
+                className="flex items-center justify-center gap-1.5 px-5 rounded-r-full bg-brand hover:bg-brand-hover border-l border-white/30 transition-colors text-sm font-bold tracking-widest uppercase text-white"
                 onClick={(e) => { e.stopPropagation(); onCalendar(); }}
-                title={t("viewCalendar")}
               >
-                <CalendarSearch className="h-3.5 w-3.5 text-white" />
+                {t("viewCalendar")}
+                <CalendarSearch className="h-3.5 w-3.5" />
               </button>
             </div>
           </div>
@@ -418,10 +419,10 @@ function SingleRoomHero({
       </div>
 
       {/* Mobile CTA — outside image */}
-      <div className="mt-3 mb-15 flex w-full rounded-full overflow-hidden shadow-lg sm:hidden">
+      <div className="mt-3 mb-15 flex w-full flex-col gap-2 sm:hidden">
         <Button
           disabled={bookingLocked}
-          className="flex-1 rounded-none rounded-l-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
+          className="w-full rounded-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase shadow-lg hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
           onClick={() => {
             document.dispatchEvent(new CustomEvent("book-room", { detail: { roomId: room.id } }));
           }}
@@ -431,11 +432,11 @@ function SingleRoomHero({
         </Button>
         <button
           type="button"
-          className="flex items-center justify-center px-4 rounded-r-full bg-brand hover:bg-brand-hover border-l border-white/30 transition-colors"
+          className="flex w-full items-center justify-center gap-1.5 rounded-full border border-earth-300 bg-white px-5 py-3.5 text-sm font-bold tracking-widest uppercase text-earth-800 shadow-sm transition-colors hover:bg-earth-50"
           onClick={() => onCalendar()}
-          title={t("viewCalendar")}
         >
-          <CalendarSearch className="h-3.5 w-3.5 text-white" />
+          {t("viewCalendar")}
+          <CalendarSearch className="h-3.5 w-3.5" />
         </button>
       </div>
 
@@ -564,6 +565,64 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
               {t("legendAvailable")}
             </span>
           </div>
+
+          {calendarRoom && (
+            <div className="mt-5 rounded-2xl bg-earth-50 px-5 py-5">
+              {/* Eyebrow + hairline */}
+              <div className="mb-4 flex items-center gap-3">
+                <h4 className="text-[10px] font-semibold uppercase tracking-[0.25em] text-earth-500">
+                  {t("priceDetailsTitle")}
+                </h4>
+                <div className="h-px flex-1 bg-earth-200" />
+              </div>
+
+              {/* Base price — the anchor */}
+              <div className="flex items-baseline justify-between gap-4">
+                <span className="text-sm font-medium text-earth-800">
+                  {t("basePrice")}
+                </span>
+                <div className="flex items-baseline gap-1 tabular-nums">
+                  <span className="text-2xl font-bold text-earth-900">
+                    ฿{calendarRoom.price_per_night.toLocaleString()}
+                  </span>
+                  <span className="text-xs text-earth-500">{tc("perNight")}</span>
+                </div>
+              </div>
+
+              {/* Seasonal rates */}
+              {(seasonsByRoom[calendarRoom.id] || []).length > 0 && (
+                <div className="mt-5 border-t border-dashed border-earth-300 pt-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Sparkles className="h-3 w-3 text-brand" strokeWidth={2.5} />
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-earth-500">
+                      {t("seasonalRates")}
+                    </span>
+                  </div>
+                  <ul className="space-y-3">
+                    {(seasonsByRoom[calendarRoom.id] || [])
+                      .slice()
+                      .sort((a, b) => a.start_date.localeCompare(b.start_date))
+                      .map((s) => (
+                        <li key={s.id} className="flex items-baseline justify-between gap-4">
+                          <div className="min-w-0 pr-2">
+                            <div className="truncate text-sm font-medium text-earth-900">{s.name}</div>
+                            <div className="mt-0.5 text-[11px] text-earth-500 tabular-nums">
+                              {fmtDateStr(s.start_date, "d MMM", locale)} – {fmtDateStr(s.end_date, "d MMM yyyy", locale)}
+                            </div>
+                          </div>
+                          <div className="flex shrink-0 items-baseline gap-1 tabular-nums">
+                            <span className="text-lg font-bold text-brand">
+                              ฿{s.price_per_night.toLocaleString()}
+                            </span>
+                            <span className="text-[10px] text-earth-500">{tc("perNight")}</span>
+                          </div>
+                        </li>
+                      ))}
+                  </ul>
+                </div>
+              )}
+            </div>
+          )}
         </DialogContent>
       </Dialog>
     </>

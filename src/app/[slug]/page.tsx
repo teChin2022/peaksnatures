@@ -13,6 +13,10 @@ import { RoomsSection } from "@/components/booking/rooms-section";
 import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingFooter } from "@/components/booking/booking-footer";
 import { HostLocationSection } from "@/components/booking/host-location-section";
+import { CheckInInfoSection } from "@/components/booking/check-in-info-section";
+import { PoliciesSection } from "@/components/booking/policies-section";
+import { FaqSection } from "@/components/booking/faq-section";
+import { FinalCtaSection } from "@/components/booking/final-cta-section";
 import { ReviewsDisplay } from "@/components/reviews/reviews-display";
 
 const BookingSection = dynamic(() => import("@/components/booking/booking-section").then((m) => m.BookingSection));
@@ -175,6 +179,9 @@ export default async function HomestayPage({ params }: PageProps) {
           name={homestay.name}
           tagline={homestay.tagline}
           heroImageUrl={homestay.hero_image_url}
+          isVerified={homestay.host.is_verified}
+          averageRating={averageRating}
+          reviewCount={reviewCount}
           // location={homestay.location}
         />
 
@@ -183,6 +190,7 @@ export default async function HomestayPage({ params }: PageProps) {
         <div className="bg-earth-50">
           <HostLocationSection
             hostName={homestay.host.name}
+            hostPhone={homestay.host.phone}
             hostAvatarUrl={homestay.host.avatar_url}
             isVerified={homestay.host.is_verified}
             hostCreatedAt={homestay.host.created_at}
@@ -190,6 +198,22 @@ export default async function HomestayPage({ params }: PageProps) {
             lastBookingDate={lastBookingDate}
             location={homestay.location}
             mapEmbedUrl={homestay.map_embed_url}
+          />
+        </div>
+
+        <RoomsSection rooms={rooms} seasonalPrices={seasonalPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} />
+
+        {/* Booking (inline) */}
+        <div className="bg-earth-50">
+          <BookingSection
+            homestay={homestay}
+            rooms={rooms}
+            blockedDates={blockedDates}
+            bookedRanges={bookedRanges}
+            host={homestay.host}
+            seasonalPrices={seasonalPrices}
+            roomOptions={roomOptions}
+            bookingDisabled={bookingDisabled}
           />
         </div>
 
@@ -202,23 +226,13 @@ export default async function HomestayPage({ params }: PageProps) {
         />
 
         <div className="bg-earth-50">
-          <RoomsSection rooms={rooms} seasonalPrices={seasonalPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} />
+          <CheckInInfoSection content={homestay.check_in_info} />
+          <PoliciesSection content={homestay.policies} />
+          <FaqSection items={homestay.faq} />
         </div>
 
-        {/* Booking (inline) */}
-        <BookingSection
-          homestay={homestay}
-          rooms={rooms}
-          blockedDates={blockedDates}
-          bookedRanges={bookedRanges}
-          host={homestay.host}
-          seasonalPrices={seasonalPrices}
-          roomOptions={roomOptions}
-          bookingDisabled={bookingDisabled}
-        />
-
         {/* Reviews */}
-        <section className="py-16 md:py-24 bg-earth-50">
+        <section className="py-16 md:py-24">
           <div className="mx-auto max-w-7xl px-4 sm:px-6">
             <ReviewsDisplay
               reviews={reviews}
@@ -230,6 +244,8 @@ export default async function HomestayPage({ params }: PageProps) {
             />
           </div>
         </section>
+
+        <FinalCtaSection />
       </main>
 
       <BookingFooter

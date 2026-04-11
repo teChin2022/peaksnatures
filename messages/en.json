@@ -1,6 +1,8 @@
 {
   "hero": {
-    "verifiedHost": "Verified Host"
+    "verifiedHost": "Verified Host",
+    "instantConfirm": "Instant confirmation",
+    "freeCancellation": "Free cancellation within policy"
   },
   "hostCard": {
     "verifiedHost": "Verified Host",
@@ -109,17 +111,36 @@
     "title": "House Rules",
     "noItems": "No house rules specified"
   },
+  "checkInInfo": {
+    "title": "Important info before check-in",
+    "readMore": "Read more"
+  },
+  "policies": {
+    "title": "Policies",
+    "readMore": "Read more"
+  },
+  "faq": {
+    "title": "Frequently Asked Questions"
+  },
+  "finalCta": {
+    "title": "Ready for your next escape?",
+    "subtitle": "Pick your dates, choose a room, and we'll take care of the rest.",
+    "button": "Book your stay"
+  },
   "rooms": {
     "title": "Rooms & Pricing",
     "subtitle": "Choose from our available room types",
     "available": "{count} available",
     "fromPrice": "From",
     "bookRoom": "Book",
-    "viewCalendar": "Calendar",
-    "availabilityTitle": "Room Availability",
+    "viewCalendar": "Availability & Rates",
+    "availabilityTitle": "Availability & Rates",
     "legendBooked": "Booked",
     "legendAvailable": "Available",
-    "readMore": "Read more"
+    "readMore": "Read more",
+    "priceDetailsTitle": "Room Rates",
+    "basePrice": "Standard rate",
+    "seasonalRates": "Seasonal rates"
   },
   "booking": {
     "title": "Book Your Stay",
@@ -773,7 +794,24 @@
     "month9": "Sep",
     "month10": "Oct",
     "month11": "Nov",
-    "month12": "Dec"
+    "month12": "Dec",
+    "checkInInfoTitle": "Check-in Information",
+    "checkInInfoHint": "Instructions guests should read before arrival (directions, key pickup, quiet hours, etc.)",
+    "checkInInfoPlaceholder": "Describe the check-in process, driving directions, parking, key collection…",
+    "policiesTitle": "Policies",
+    "policiesHint": "Cancellation, refund, damage, and other policies guests must accept.",
+    "policiesPlaceholder": "Describe your cancellation, refund, and house policies…",
+    "faqTitle": "FAQ",
+    "faqHint": "Answer common questions to reduce back-and-forth with guests.",
+    "faqEmpty": "No questions yet. Add your first one below.",
+    "faqAdd": "Add question",
+    "faqQuestion": "Question",
+    "faqQuestionPlaceholder": "e.g. Is breakfast included?",
+    "faqAnswer": "Answer",
+    "faqAnswerPlaceholder": "Write a clear, concise answer…",
+    "faqMoveUp": "Move up",
+    "faqMoveDown": "Move down",
+    "faqRemove": "Remove"
   },
   "dashboardRooms": {
     "title": "Manage Rooms",

@@ -12,7 +12,7 @@ import {
   Redo,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { useEffect } from "react";
+import { useEffect, useRef } from "react";
 
 interface RichTextEditorProps {
   value: string;
@@ -27,6 +27,8 @@ export function RichTextEditor({
   placeholder = "Start typing...",
   className = "",
 }: RichTextEditorProps) {
+  const lastEmittedRef = useRef<string>(value || "");
+
   const editor = useEditor({
     immediatelyRender: false,
     extensions: [
@@ -43,7 +45,9 @@ export function RichTextEditor({
     ],
     content: value || "",
     onUpdate: ({ editor }) => {
-      onChange(editor.getHTML());
+      const html = editor.getHTML();
+      lastEmittedRef.current = html;
+      onChange(html);
     },
     editorProps: {
       attributes: {
@@ -54,12 +58,10 @@ export function RichTextEditor({
   });
 
   useEffect(() => {
-    if (editor && value !== undefined && value !== null) {
-      const currentContent = editor.getHTML();
-      if (value !== currentContent) {
-        editor.commands.setContent(value || "");
-      }
-    }
+    if (!editor) return;
+    if (value === lastEmittedRef.current) return;
+    lastEmittedRef.current = value || "";
+    editor.commands.setContent(value || "", { emitUpdate: false });
   }, [value, editor]);
 
   if (!editor) {

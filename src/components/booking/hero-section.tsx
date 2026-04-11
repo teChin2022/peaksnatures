@@ -1,14 +1,19 @@
 "use client";
 
+import React from "react";
 import Image from "next/image";
-import { MapPin } from "lucide-react";
+import { MapPin, ShieldCheck, Star, BadgeCheck, CalendarX } from "lucide-react";
 import { motion, useScroll, useTransform } from "motion/react";
+import { useTranslations } from "next-intl";
 
 interface HeroSectionProps {
   name: string;
   tagline: string | null;
   heroImageUrl: string | null;
   location?: string;
+  isVerified?: boolean;
+  averageRating?: number;
+  reviewCount?: number;
 }
 
 export function HeroSection({
@@ -16,7 +21,11 @@ export function HeroSection({
   tagline,
   heroImageUrl,
   location,
+  isVerified,
+  averageRating = 0,
+  reviewCount = 0,
 }: HeroSectionProps) {
+  const t = useTranslations("hero");
   const { scrollY } = useScroll();
   const imageY = useTransform(scrollY, [0, 500], [0, 100]);
   const contentOpacity = useTransform(scrollY, [0, 400], [1, 0]);
@@ -73,6 +82,53 @@ export function HeroSection({
           >
             {name}
           </motion.h1>
+          <motion.div
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ duration: 0.6, delay: 0.3 }}
+            className="mt-4 flex flex-wrap items-center gap-x-2 gap-y-1 text-xs sm:text-sm text-white/90"
+          >
+            {(() => {
+              const items: React.ReactNode[] = [];
+              if (averageRating > 0) {
+                items.push(
+                  <span key="rating" className="inline-flex items-center gap-1.5">
+                    <Star size={14} className="fill-amber-300 text-amber-300" />
+                    {averageRating.toFixed(1)}
+                    {reviewCount > 0 && (
+                      <span className="text-white/70">({reviewCount})</span>
+                    )}
+                  </span>
+                );
+              }
+              if (isVerified) {
+                items.push(
+                  <span key="verified" className="inline-flex items-center gap-1.5">
+                    <ShieldCheck size={14} className="text-brand-200" />
+                    {t("verifiedHost")}
+                  </span>
+                );
+              }
+              items.push(
+                <span key="instantConfirm" className="inline-flex items-center gap-1.5">
+                  <BadgeCheck size={14} className="text-brand-200" />
+                  {t("instantConfirm")}
+                </span>
+              );
+              items.push(
+                <span key="freeCancellation" className="inline-flex items-center gap-1.5">
+                  <CalendarX size={14} className="text-brand-200" />
+                  {t("freeCancellation")}
+                </span>
+              );
+              return items.map((item, i) => (
+                <React.Fragment key={i}>
+                  {i > 0 && <span className="text-white/40">•</span>}
+                  {item}
+                </React.Fragment>
+              ));
+            })()}
+          </motion.div>
           <motion.div
             initial={{ opacity: 0, scaleX: 0 }}
             animate={{ opacity: 1, scaleX: 1 }}

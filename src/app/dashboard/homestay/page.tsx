@@ -23,6 +23,11 @@ import {
   Share2,
   Calendar,
   CreditCard,
+  Info,
+  Shield,
+  HelpCircle,
+  ArrowUp,
+  ArrowDown,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -59,6 +64,9 @@ interface HomestayData {
   tiktok_url: string | null;
   instagram_url: string | null;
   line_id: string | null;
+  check_in_info: string | null;
+  policies: string | null;
+  faq: { question: string; answer: string }[];
 }
 
 const COMMON_AMENITIES = [
@@ -110,6 +118,9 @@ export default function HomestayPage() {
   const [tiktokUrl, setTiktokUrl] = useState("");
   const [instagramUrl, setInstagramUrl] = useState("");
   const [lineId, setLineId] = useState("");
+  const [checkInInfo, setCheckInInfo] = useState("");
+  const [policies, setPolicies] = useState("");
+  const [faq, setFaq] = useState<{ question: string; answer: string }[]>([]);
   const [showSlugWarning, setShowSlugWarning] = useState(false);
   const [depositAmount, setDepositAmount] = useState(0);
   const [depositByMonth, setDepositByMonth] = useState<Record<string, number>>({});
@@ -172,6 +183,9 @@ export default function HomestayPage() {
         setTiktokUrl(h.tiktok_url || "");
         setInstagramUrl(h.instagram_url || "");
         setLineId(h.line_id || "");
+        setCheckInInfo(h.check_in_info || "");
+        setPolicies(h.policies || "");
+        setFaq(Array.isArray(h.faq) ? h.faq : []);
       } else {
         setIsNew(true);
       }
@@ -228,6 +242,28 @@ export default function HomestayPage() {
 
   const removeProhibition = (item: string) => {
     setProhibitions((prev) => prev.filter((p) => p !== item));
+  };
+
+  const addFaqItem = () => {
+    setFaq((prev) => [...prev, { question: "", answer: "" }]);
+  };
+
+  const removeFaqItem = (index: number) => {
+    setFaq((prev) => prev.filter((_, i) => i !== index));
+  };
+
+  const updateFaqItem = (index: number, field: "question" | "answer", value: string) => {
+    setFaq((prev) => prev.map((it, i) => (i === index ? { ...it, [field]: value } : it)));
+  };
+
+  const moveFaqItem = (index: number, delta: -1 | 1) => {
+    setFaq((prev) => {
+      const target = index + delta;
+      if (target < 0 || target >= prev.length) return prev;
+      const next = [...prev];
+      [next[index], next[target]] = [next[target], next[index]];
+      return next;
+    });
   };
 
   const uploadFile = async (file: File, folder: string): Promise<string | null> => {
@@ -430,6 +466,14 @@ export default function HomestayPage() {
         tiktok_url: tiktokUrl.trim() || null,
         instagram_url: instagramUrl.trim() || null,
         line_id: lineId.trim() || null,
+        check_in_info: checkInInfo.trim() || null,
+        policies: policies.trim() || null,
+        faq: faq
+          .map((item) => ({
+            question: item.question.trim(),
+            answer: item.answer.trim(),
+          }))
+          .filter((item) => item.question.length > 0 || item.answer.length > 0),
       };
 
       const wasNew = isNew;
@@ -850,6 +894,128 @@ export default function HomestayPage() {
                 ))}
               </div>
             </div>
+          </CardContent>
+        </Card>
+
+        {/* Check-in Information */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Info className="h-4 w-4" />
+              {t("checkInInfoTitle")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Label className="text-sm text-gray-500">{t("checkInInfoHint")}</Label>
+            <RichTextEditor
+              value={checkInInfo}
+              onChange={setCheckInInfo}
+              placeholder={t("checkInInfoPlaceholder")}
+            />
+          </CardContent>
+        </Card>
+
+        {/* Policies */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <Shield className="h-4 w-4" />
+              {t("policiesTitle")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-2">
+            <Label className="text-sm text-gray-500">{t("policiesHint")}</Label>
+            <RichTextEditor
+              value={policies}
+              onChange={setPolicies}
+              placeholder={t("policiesPlaceholder")}
+            />
+          </CardContent>
+        </Card>
+
+        {/* FAQ */}
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <HelpCircle className="h-4 w-4" />
+              {t("faqTitle")}
+            </CardTitle>
+          </CardHeader>
+          <CardContent className="space-y-4">
+            <p className="text-sm text-gray-500">{t("faqHint")}</p>
+            {faq.length === 0 ? (
+              <p className="rounded-lg border border-dashed border-gray-300 px-3 py-6 text-center text-sm text-gray-500">
+                {t("faqEmpty")}
+              </p>
+            ) : (
+              <div className="space-y-3">
+                {faq.map((item, i) => (
+                  <div
+                    key={i}
+                    className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 space-y-2"
+                  >
+                    <div className="flex items-center justify-between">
+                      <span className="text-xs font-medium text-gray-500">#{i + 1}</span>
+                      <div className="flex items-center gap-1">
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={i === 0}
+                          onClick={() => moveFaqItem(i, -1)}
+                          aria-label={t("faqMoveUp")}
+                        >
+                          <ArrowUp className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7"
+                          disabled={i === faq.length - 1}
+                          onClick={() => moveFaqItem(i, 1)}
+                          aria-label={t("faqMoveDown")}
+                        >
+                          <ArrowDown className="h-3.5 w-3.5" />
+                        </Button>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-red-600 hover:text-red-700"
+                          onClick={() => removeFaqItem(i)}
+                          aria-label={t("faqRemove")}
+                        >
+                          <X className="h-3.5 w-3.5" />
+                        </Button>
+                      </div>
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-500">{t("faqQuestion")}</Label>
+                      <Input
+                        value={item.question}
+                        onChange={(e) => updateFaqItem(i, "question", e.target.value)}
+                        placeholder={t("faqQuestionPlaceholder")}
+                      />
+                    </div>
+                    <div className="space-y-1">
+                      <Label className="text-xs text-gray-500">{t("faqAnswer")}</Label>
+                      <Textarea
+                        value={item.answer}
+                        rows={3}
+                        onChange={(e) => updateFaqItem(i, "answer", e.target.value)}
+                        placeholder={t("faqAnswerPlaceholder")}
+                      />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+            <Button type="button" variant="outline" onClick={addFaqItem}>
+              <Plus className="mr-2 h-4 w-4" />
+              {t("faqAdd")}
+            </Button>
           </CardContent>
         </Card>
 

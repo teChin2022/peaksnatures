@@ -145,6 +145,9 @@ export interface Database {
           tiktok_url: string | null;
           instagram_url: string | null;
           line_id: string | null;
+          check_in_info: string | null;
+          policies: string | null;
+          faq: { question: string; answer: string }[];
           created_at: string;
           created_by: string;
           updated_at: string;
@@ -173,6 +176,9 @@ export interface Database {
           tiktok_url?: string | null;
           instagram_url?: string | null;
           line_id?: string | null;
+          check_in_info?: string | null;
+          policies?: string | null;
+          faq?: { question: string; answer: string }[];
           created_at?: string;
           created_by?: string;
           updated_at?: string;
@@ -201,6 +207,9 @@ export interface Database {
           tiktok_url?: string | null;
           instagram_url?: string | null;
           line_id?: string | null;
+          check_in_info?: string | null;
+          policies?: string | null;
+          faq?: { question: string; answer: string }[];
           created_at?: string;
           created_by?: string;
           updated_at?: string;
