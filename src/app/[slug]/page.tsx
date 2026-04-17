@@ -26,6 +26,8 @@ const MobileBookingBar = dynamic(() => import("@/components/booking/mobile-booki
 
 export const revalidate = 30;
 
+const EMPTY_POPULAR_ROOM_IDS: ReadonlySet<string> = new Set();
+
 interface PageProps {
   params: Promise<{ slug: string }>;
 }
@@ -170,6 +172,12 @@ export default async function HomestayPage({ params }: PageProps) {
 
   const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, roomOptions, reviews, averageRating, categoryAverages, reviewCount, totalBookings, lastBookingDate, bookingDisabled, mostBookedRoomId, hasConfirmedBookings } = data;
 
+  const popularRoomId = hasConfirmedBookings && mostBookedRoomId && rooms.some((r) => r.id === mostBookedRoomId) ? mostBookedRoomId : null;
+  const popularRoomIds = popularRoomId ? new Set<string>([popularRoomId]) : EMPTY_POPULAR_ROOM_IDS;
+  const sortedRooms = popularRoomId
+    ? [...rooms.filter((r) => r.id === popularRoomId), ...rooms.filter((r) => r.id !== popularRoomId)]
+    : rooms;
+
   return (
     <div className="min-h-screen bg-white">
       <BookingHeader homestayName={homestay.name} logoUrl={homestay.logo_url} homestayId={homestay.id} promptpayId={homestay.host.promptpay_id} hostName={homestay.host.name} cancellationDays={homestay.host.cancellation_days} paymentDisplay={homestay.host.payment_display} bankName={homestay.host.bank_name} bankAccountNumber={homestay.host.bank_account_number} bankAccountName={homestay.host.bank_account_name} />
@@ -201,7 +209,7 @@ export default async function HomestayPage({ params }: PageProps) {
           />
         </div>
 
-        <RoomsSection rooms={rooms} seasonalPrices={seasonalPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} />
+        <RoomsSection rooms={sortedRooms} seasonalPrices={seasonalPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} popularRoomIds={popularRoomIds} />
 
         {/* Booking (inline) */}
         <div className="bg-earth-50">
