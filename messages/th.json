@@ -140,7 +140,8 @@
     "readMore": "อ่านเพิ่มเติม",
     "priceDetailsTitle": "ราคาห้องพัก",
     "basePrice": "ราคาปกติ",
-    "seasonalRates": "ราคาตามฤดูกาล"
+    "seasonalRates": "ราคาตามฤดูกาล",
+    "popular": "ยอดนิยม"
   },
   "booking": {
     "title": "จองที่พัก",
@@ -577,6 +578,10 @@
     "nights": "คืน",
     "checkedIn": "เช็คอินแล้ว",
     "notCheckedIn": "ยังไม่เช็คอิน",
+    "checkInNow": "เช็คอิน",
+    "checkingIn": "กำลังเช็คอิน…",
+    "checkInSuccess": "เช็คอินแขกเรียบร้อยแล้ว",
+    "checkInError": "เช็คอินไม่สำเร็จ โปรดลองอีกครั้ง",
     "balanceDue": "ค้างชำระ ฿{amount}",
     "depositPaid": "ชำระมัดจำแล้ว",
     "fullPaid": "ชำระเต็มจำนวน",

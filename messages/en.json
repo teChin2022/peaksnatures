@@ -140,7 +140,8 @@
     "readMore": "Read more",
     "priceDetailsTitle": "Room Rates",
     "basePrice": "Standard rate",
-    "seasonalRates": "Seasonal rates"
+    "seasonalRates": "Seasonal rates",
+    "popular": "Popular"
   },
   "booking": {
     "title": "Book Your Stay",
@@ -573,6 +574,10 @@
     "nights": "nights",
     "checkedIn": "Checked In",
     "notCheckedIn": "Not Checked In",
+    "checkInNow": "Check in",
+    "checkingIn": "Checking in…",
+    "checkInSuccess": "Guest checked in",
+    "checkInError": "Failed to check in. Please try again.",
     "balanceDue": "Balance due ฿{amount}",
     "depositPaid": "Deposit paid",
     "fullPaid": "Fully paid",

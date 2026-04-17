@@ -21,7 +21,9 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { toast } from "sonner";
 
 interface SelectedOption {
   id: string;
@@ -53,6 +55,31 @@ export default function CheckinsPage() {
   const locale = useLocale();
   const [bookings, setBookings] = useState<CheckinBooking[]>([]);
   const [loading, setLoading] = useState(true);
+  const [checkingInId, setCheckingInId] = useState<string | null>(null);
+
+  const handleCheckIn = async (bookingId: string) => {
+    setCheckingInId(bookingId);
+    try {
+      const res = await fetch("/api/bookings/host-checkin", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ booking_id: bookingId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(data?.message || t("checkInError"));
+        return;
+      }
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, checked_in_at: data.checked_in_at } : b))
+      );
+      toast.success(t("checkInSuccess"));
+    } catch {
+      toast.error(t("checkInError"));
+    } finally {
+      setCheckingInId(null);
+    }
+  };
 
   useEffect(() => {
     const fetchCheckins = async () => {
@@ -167,19 +194,31 @@ export default function CheckinsPage() {
                           ID: {booking.id.slice(0, 8)}
                         </p>
                       </div>
-                      <Badge
-                        variant="secondary"
-                        className={isCheckedIn
-                          ? "bg-brand-50 text-brand shrink-0"
-                          : "bg-amber-100 text-amber-700 shrink-0"
-                        }
-                      >
-                        {isCheckedIn ? (
-                          <><CheckCircle2 className="mr-1 h-3 w-3" />{t("checkedIn")}</>
-                        ) : (
-                          <><Clock className="mr-1 h-3 w-3" />{t("notCheckedIn")}</>
-                        )}
-                      </Badge>
+                      {isCheckedIn ? (
+                        <Badge variant="secondary" className="bg-brand-50 text-brand shrink-0">
+                          <CheckCircle2 className="mr-1 h-3 w-3" />
+                          {t("checkedIn")}
+                        </Badge>
+                      ) : (
+                        <Button
+                          size="sm"
+                          onClick={() => handleCheckIn(booking.id)}
+                          disabled={checkingInId === booking.id}
+                          className="shrink-0 h-8 bg-brand hover:bg-brand/90 text-white"
+                        >
+                          {checkingInId === booking.id ? (
+                            <>
+                              <Clock className="mr-1 h-3.5 w-3.5 animate-pulse" />
+                              {t("checkingIn")}
+                            </>
+                          ) : (
+                            <>
+                              <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
+                              {t("checkInNow")}
+                            </>
+                          )}
+                        </Button>
+                      )}
                     </div>
 
                     {/* Info grid */}

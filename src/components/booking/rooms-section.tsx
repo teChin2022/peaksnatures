@@ -109,15 +109,17 @@ interface BookedRange {
 const EMPTY_SEASONAL_PRICES: RoomSeasonalPrice[] = [];
 const EMPTY_BOOKED_RANGES: BookedRange[] = [];
 const EMPTY_BLOCKED_DATES: BlockedDate[] = [];
+const EMPTY_POPULAR_IDS: ReadonlySet<string> = new Set();
 
 interface RoomsSectionProps {
   rooms: Room[];
   seasonalPrices?: RoomSeasonalPrice[];
   bookedRanges?: BookedRange[];
   blockedDates?: BlockedDate[];
+  popularRoomIds?: ReadonlySet<string>;
 }
 
-export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, bookedRanges = EMPTY_BOOKED_RANGES, blockedDates = EMPTY_BLOCKED_DATES }: RoomsSectionProps) {
+export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, bookedRanges = EMPTY_BOOKED_RANGES, blockedDates = EMPTY_BLOCKED_DATES, popularRoomIds = EMPTY_POPULAR_IDS }: RoomsSectionProps) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
 
@@ -150,7 +152,7 @@ export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, bo
           {t("subtitle")}
         </p>
 
-        <RoomCards rooms={rooms} seasonsByRoom={seasonsByRoom} bookedRanges={bookedRanges} blockedDates={blockedDates} />
+        <RoomCards rooms={rooms} seasonsByRoom={seasonsByRoom} bookedRanges={bookedRanges} blockedDates={blockedDates} popularRoomIds={popularRoomIds} />
 
       </div>
     </section>
@@ -223,6 +225,7 @@ function SingleRoomHero({
   onCalendar,
   onDesc,
   bookingLocked,
+  isPopular,
 }: {
   room: Room;
   seasonalPrices: RoomSeasonalPrice[];
@@ -230,6 +233,7 @@ function SingleRoomHero({
   onCalendar: () => void;
   onDesc: () => void;
   bookingLocked: boolean;
+  isPopular?: boolean;
 }) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
@@ -273,6 +277,12 @@ function SingleRoomHero({
         className="group relative aspect-[4/3] md:aspect-[16/9] lg:aspect-[21/9] overflow-hidden rounded-2xl bg-earth-100"
         style={{ touchAction: "pan-y" }}
       >
+        {isPopular && (
+          <span className="pointer-events-none absolute left-3 top-3 z-20 inline-flex items-center gap-1 rounded-full bg-amber-500/95 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-white shadow-lg ring-1 ring-black/5">
+            <Sparkles className="h-3 w-3" />
+            {t("popular")}
+          </span>
+        )}
         {/* Sliding image strip — only nearby images are mounted to reduce DOM/decode cost */}
         <div
           className="absolute inset-0 flex transition-transform duration-500 ease-out will-change-transform"
@@ -444,7 +454,7 @@ function SingleRoomHero({
   );
 }
 
-function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms: Room[]; seasonsByRoom: Record<string, RoomSeasonalPrice[]>; bookedRanges: BookedRange[]; blockedDates: BlockedDate[] }) {
+function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRoomIds }: { rooms: Room[]; seasonsByRoom: Record<string, RoomSeasonalPrice[]>; bookedRanges: BookedRange[]; blockedDates: BlockedDate[]; popularRoomIds: ReadonlySet<string> }) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
   const [lightbox, setLightbox] = useState<{ images: string[]; name: string } | null>(null);
@@ -491,6 +501,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates }: { rooms
             onCalendar={() => setCalendarRoomId(room.id)}
             onDesc={() => setDescRoomId(room.id)}
             bookingLocked={bookingLocked}
+            isPopular={popularRoomIds.has(room.id)}
           />
         ))}
       </div>
