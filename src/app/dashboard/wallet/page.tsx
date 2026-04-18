@@ -448,7 +448,7 @@ export default function WalletPage() {
                     </span>
                   </motion.div>
 
-                  {billing.effective_commission_pct != null && (
+                  {billing.plan_type === "commission" && billing.effective_commission_pct != null && (
                     <p className="text-xs text-earth-400 mt-2">
                       {billing.effective_commission_pct}% {locale === "th" ? "คอมมิชชั่นต่อการจอง" : "commission per booking"}
                     </p>
