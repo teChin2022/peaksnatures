@@ -87,14 +87,15 @@ export async function POST(
     const fileBuffer = await file.arrayBuffer();
     const slipHash = await computeSlipHash(fileBuffer);
 
-    // Check duplicate
-    const { data: dupCheck } = await sc
-      .from("invoices")
-      .select("id")
-      .eq("slip_hash", slipHash)
-      .limit(1);
+    // Cross-table duplicate slip check
+    const [inv, wtx, bk, dc] = await Promise.all([
+      sc.from("invoices").select("id").eq("slip_hash", slipHash).limit(1),
+      sc.from("wallet_transactions").select("id").eq("slip_hash", slipHash).limit(1),
+      sc.from("bookings").select("id").eq("payment_slip_hash", slipHash).limit(1),
+      sc.from("date_change_requests").select("id").eq("slip_hash", slipHash).limit(1),
+    ]);
 
-    if ((dupCheck as unknown[] | null)?.length) {
+    if ([inv, wtx, bk, dc].some((r) => (r.data as unknown[] | null)?.length)) {
       return NextResponse.json({ error: "Slip already used", duplicate: true }, { status: 409 });
     }
 

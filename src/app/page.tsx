@@ -20,7 +20,7 @@ export default async function Home() {
   const homestayIds = homestays.map((h) => h.id);
   const hostIds = [...new Set(homestays.map((h) => h.host_id))];
 
-  const [{ data: roomRows }, { data: hostRows }, { data: reviewRows }] = homestayIds.length
+  const [{ data: roomRows }, { data: hostRows }, { data: reviewRows }, { data: overdueRows }] = homestayIds.length
     ? await Promise.all([
         supabase
           .from("rooms")
@@ -29,14 +29,19 @@ export default async function Home() {
           .eq("is_active", true),
         supabase
           .from("hosts")
-          .select("id, is_verified, plan_type, plan_free_expires_at")
+          .select("id, is_verified, plan_type, plan_free_expires_at, wallet_balance, wallet_credit_limit, wallet_negative_since")
           .in("id", hostIds),
         supabase
           .from("reviews")
           .select("homestay_id, rating")
           .in("homestay_id", homestayIds),
+        supabase
+          .from("invoices")
+          .select("host_id")
+          .in("host_id", hostIds)
+          .eq("status", "overdue"),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
 
   const rooms = (roomRows as unknown as Pick<Room, "homestay_id" | "price_per_night">[]) || [];
   const minPriceMap = new Map<string, number>();
@@ -47,11 +52,32 @@ export default async function Home() {
     }
   }
 
+  const overdueHostIds = new Set<string>(
+    ((overdueRows as { host_id: string }[]) || []).map((r) => r.host_id),
+  );
+
   const hostVerifiedMap = new Map<string, boolean>();
   const blockedHostIds = new Set<string>();
-  for (const host of (hostRows as { id: string; is_verified: boolean; plan_type: string; plan_free_expires_at: string | null }[]) || []) {
+  for (const host of (hostRows as {
+    id: string;
+    is_verified: boolean;
+    plan_type: string;
+    plan_free_expires_at: string | null;
+    wallet_balance: number | null;
+    wallet_credit_limit: number | null;
+    wallet_negative_since: string | null;
+  }[]) || []) {
     hostVerifiedMap.set(host.id, host.is_verified);
-    if (isHostBlocked(host.plan_type, host.plan_free_expires_at)) {
+    if (
+      isHostBlocked({
+        plan_type: host.plan_type,
+        plan_free_expires_at: host.plan_free_expires_at,
+        has_overdue_invoice: overdueHostIds.has(host.id),
+        wallet_balance: host.wallet_balance ?? 0,
+        wallet_credit_limit: host.wallet_credit_limit,
+        wallet_negative_since: host.wallet_negative_since,
+      })
+    ) {
       blockedHostIds.add(host.id);
     }
   }

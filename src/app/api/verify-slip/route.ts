@@ -61,13 +61,15 @@ export async function POST(req: NextRequest) {
     const fileBuffer = await file.arrayBuffer();
     const slipHash = await computeSlipHash(fileBuffer);
 
-    // Parallel: check both tables for duplicate slip hash
-    const [{ data: hashDuplicate }, { data: dcHashDuplicate }] = await Promise.all([
+    // Cross-table duplicate slip check
+    const [bk, dc, inv, wtx] = await Promise.all([
       supabase.from("bookings").select("id").eq("payment_slip_hash", slipHash).limit(1),
       supabase.from("date_change_requests").select("id").eq("slip_hash", slipHash).limit(1),
+      supabase.from("invoices").select("id").eq("slip_hash", slipHash).limit(1),
+      supabase.from("wallet_transactions").select("id").eq("slip_hash", slipHash).limit(1),
     ]);
 
-    if ((hashDuplicate as unknown[] | null)?.length || (dcHashDuplicate as unknown[] | null)?.length) {
+    if ([bk, dc, inv, wtx].some((r) => (r.data as unknown[] | null)?.length)) {
       return NextResponse.json(
         { error: "This payment slip has already been used for another booking.", duplicate: true },
         { status: 409 }
@@ -155,15 +157,17 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    // Check for duplicate transaction reference (our own DB-level check)
+    // Cross-table duplicate trans_ref check
     const transRef = rawSlip.transRef;
     if (transRef) {
-      const [{ data: transRefDuplicate }, { data: dcTransRefDuplicate }] = await Promise.all([
+      const [bkRef, dcRef, invRef, wtxRef] = await Promise.all([
         supabase.from("bookings").select("id").eq("slip_trans_ref", transRef).limit(1),
         supabase.from("date_change_requests").select("id").eq("slip_trans_ref", transRef).limit(1),
+        supabase.from("invoices").select("id").eq("slip_trans_ref", transRef).limit(1),
+        supabase.from("wallet_transactions").select("id").eq("slip_trans_ref", transRef).limit(1),
       ]);
 
-      if ((transRefDuplicate as unknown[] | null)?.length || (dcTransRefDuplicate as unknown[] | null)?.length) {
+      if ([bkRef, dcRef, invRef, wtxRef].some((r) => (r.data as unknown[] | null)?.length)) {
         return NextResponse.json(
           { error: "This payment transaction has already been used for another booking.", duplicate: true },
           { status: 409 }

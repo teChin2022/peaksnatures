@@ -43,10 +43,10 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
-    // Fetch the booking
+    // Fetch the booking (including homestay_id for host-block check)
     const { data: bookingRow, error: bookingError } = await supabase
       .from("bookings")
-      .select("id, status, guest_name, guest_email, total_price, amount_paid, payment_type")
+      .select("id, status, guest_name, guest_email, total_price, amount_paid, payment_type, homestay_id")
       .eq("id", data.booking_id)
       .single();
 
@@ -58,10 +58,32 @@ export async function POST(req: NextRequest) {
       total_price: number;
       amount_paid: number;
       payment_type: string;
+      homestay_id: string;
     } | null;
 
     if (bookingError || !booking) {
       return NextResponse.json({ error: "Booking not found" }, { status: 404 });
+    }
+
+    // Block if host is in bad standing
+    const { data: hsRow } = await supabase
+      .from("homestays")
+      .select("host_id")
+      .eq("id", booking.homestay_id)
+      .single();
+    const hostId = (hsRow as { host_id: string } | null)?.host_id;
+    if (hostId) {
+      const [{ isHostBlocked }, { getHostBlockState }] = await Promise.all([
+        import("@/lib/plan-expiry"),
+        import("@/lib/billing"),
+      ]);
+      const blockState = await getHostBlockState(hostId);
+      if (blockState && isHostBlocked(blockState)) {
+        return NextResponse.json(
+          { error: "HOST_BLOCKED", message: "This homestay is temporarily unavailable." },
+          { status: 403 }
+        );
+      }
     }
 
     // Verify guest identity

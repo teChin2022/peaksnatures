@@ -48,6 +48,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // Block if host is in bad standing
+    const [{ isHostBlocked }, { getHostBlockState }] = await Promise.all([
+      import("@/lib/plan-expiry"),
+      import("@/lib/billing"),
+    ]);
+    const blockState = await getHostBlockState(hostData.id);
+    if (blockState && isHostBlocked(blockState)) {
+      return NextResponse.json(
+        { error: "HOST_BLOCKED", message: "Please settle billing before checking in guests." },
+        { status: 403 }
+      );
+    }
+
     if (booking.status !== "confirmed" && booking.status !== "completed") {
       return NextResponse.json(
         { error: "INVALID_STATUS", message: "Only confirmed bookings can be checked in" },

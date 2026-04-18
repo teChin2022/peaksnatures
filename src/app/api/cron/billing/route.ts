@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
-import { getBillingConfig, getEffectiveFixedRate } from "@/lib/billing";
+import { getBillingConfig, getEffectiveFixedRate, processBillingRetryQueue } from "@/lib/billing";
 import { GRACE_PERIOD_DAYS } from "@/lib/plan-expiry";
 import type { Host, PlatformBillingConfig } from "@/types/database";
 
@@ -17,10 +17,13 @@ import type { Host, PlatformBillingConfig } from "@/types/database";
  * Vercel Cron sends `Authorization: Bearer <CRON_SECRET>` automatically.
  */
 export async function GET(req: NextRequest) {
-  // Verify cron secret (skipped if CRON_SECRET env var is not set — useful for local testing)
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret) {
+    console.error("[Cron] CRON_SECRET not configured");
+    return NextResponse.json({ error: "Cron not configured" }, { status: 500 });
+  }
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -28,6 +31,15 @@ export async function GET(req: NextRequest) {
   const results: Record<string, unknown> = {};
 
   try {
+    // Process billing retry queue first, so a transient RPC failure from
+    // yesterday gets resolved before today's new work runs.
+    try {
+      results.retryQueue = await processBillingRetryQueue();
+    } catch (err) {
+      console.error("[Cron] Retry queue processing failed:", err);
+      results.retryQueue = { error: err instanceof Error ? err.message : String(err) };
+    }
+
     const config = await getBillingConfig();
     if (!config) {
       return NextResponse.json({ error: "Billing config not found" }, { status: 500 });

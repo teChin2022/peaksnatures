@@ -119,17 +119,20 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
-    // Check if host's free plan is soft-blocked
+    // Check if host is soft-blocked (free expired, overdue invoice, or overdrawn wallet)
     const { data: homestayHost } = await supabase
       .from("homestays")
-      .select("hosts(plan_type, plan_free_expires_at)")
+      .select("host_id")
       .eq("id", data.homestay_id)
       .single();
-
-    const hostPlan = (homestayHost as unknown as { hosts: { plan_type: string; plan_free_expires_at: string | null } | null })?.hosts;
-    if (hostPlan) {
-      const { isHostBlocked } = await import("@/lib/plan-expiry");
-      if (isHostBlocked(hostPlan.plan_type, hostPlan.plan_free_expires_at)) {
+    const hostId = (homestayHost as { host_id: string } | null)?.host_id;
+    if (hostId) {
+      const [{ isHostBlocked }, { getHostBlockState }] = await Promise.all([
+        import("@/lib/plan-expiry"),
+        import("@/lib/billing"),
+      ]);
+      const blockState = await getHostBlockState(hostId);
+      if (blockState && isHostBlocked(blockState)) {
         return NextResponse.json(
           { error: "This homestay is temporarily unavailable for new bookings" },
           { status: 403 }
