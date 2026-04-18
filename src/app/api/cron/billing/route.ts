@@ -9,8 +9,9 @@ import type { Host, PlatformBillingConfig } from "@/types/database";
  * GET /api/cron/billing
  * Daily cron job (triggered by Vercel Cron via GET).
  * - Every day: send SMS 3 days before free plan expiry, send SMS on expiry day,
- *   send SMS 5 days after expiry (grace period reminder), mark overdue invoices.
- * - 1st of month only: apply pending plan switches, generate invoices for fixed-rate hosts.
+ *   send SMS 5 days after expiry (grace period reminder), mark overdue invoices,
+ *   apply pending plan switches whose effective date has arrived.
+ * - 1st of month only: generate invoices for fixed-rate hosts.
  * Secured with CRON_SECRET header.
  * Generate the secret: `openssl rand -base64 32`
  * Set CRON_SECRET in Vercel Environment Variables (both Production & Preview).
@@ -186,42 +187,43 @@ export async function GET(req: NextRequest) {
     results.invoices_overdue = overdueCount;
 
     // ============================================================
-    // MONTHLY (1st only): Apply pending plan switches
+    // DAILY: Apply pending plan switches whose effective date has arrived
+    // (free hosts past expiry schedule same-day switches to avoid a gap)
     // ============================================================
-    if (isFirstOfMonth) {
-      const { data: pendingSwitches } = await supabase
+    const { data: pendingSwitches } = await supabase
+      .from("hosts")
+      .select("id, plan_type, plan_pending_type, plan_pending_effective_at, name")
+      .not("plan_pending_type", "is", null)
+      .lte("plan_pending_effective_at", today);
+
+    let switchCount = 0;
+    for (const host of (pendingSwitches || []) as { id: string; plan_type: string; plan_pending_type: string; name: string }[]) {
+      const { error } = await supabase
         .from("hosts")
-        .select("id, plan_type, plan_pending_type, plan_pending_effective_at, name")
-        .not("plan_pending_type", "is", null)
-        .lte("plan_pending_effective_at", today);
+        .update({
+          plan_type: host.plan_pending_type,
+          plan_pending_type: null,
+          plan_pending_effective_at: null,
+          plan_free_expires_at: null,
+          updated_by: "system",
+        } as never)
+        .eq("id", host.id);
 
-      let switchCount = 0;
-      for (const host of (pendingSwitches || []) as { id: string; plan_type: string; plan_pending_type: string; name: string }[]) {
-        const { error } = await supabase
-          .from("hosts")
-          .update({
-            plan_type: host.plan_pending_type,
-            plan_pending_type: null,
-            plan_pending_effective_at: null,
-            plan_free_expires_at: null,
-            updated_by: "system",
-          } as never)
-          .eq("id", host.id);
-
-        if (!error) {
-          switchCount++;
-          await logEvent({
-            entityType: "host",
-            entityId: host.id,
-            eventType: EventType.PLAN_CHANGED,
-            actorType: "system",
-            actorId: null,
-            data: { from: host.plan_type, to: host.plan_pending_type },
-          });
-        }
+      if (!error) {
+        switchCount++;
+        await logEvent({
+          entityType: "host",
+          entityId: host.id,
+          eventType: EventType.PLAN_CHANGED,
+          actorType: "system",
+          actorId: null,
+          data: { from: host.plan_type, to: host.plan_pending_type },
+        });
       }
-      results.plan_switches = switchCount;
+    }
+    results.plan_switches = switchCount;
 
+    if (isFirstOfMonth) {
       // ============================================================
       // MONTHLY (1st only): Generate invoices for fixed_rate hosts
       // ============================================================

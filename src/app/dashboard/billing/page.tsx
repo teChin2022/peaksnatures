@@ -339,7 +339,10 @@ export default function DashboardBillingPage() {
   }
 
   const isFreeExpired =
-    data.plan_type === "free" && data.plan_free_expires_at && new Date(data.plan_free_expires_at) < new Date();
+    data.plan_type === "free" &&
+    data.plan_free_expires_at &&
+    new Date(data.plan_free_expires_at) < new Date() &&
+    !data.plan_pending_type;
 
   return (
     <div className="space-y-8">

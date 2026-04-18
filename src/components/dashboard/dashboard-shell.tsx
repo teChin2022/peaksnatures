@@ -33,16 +33,22 @@ export function DashboardShell({ children }: DashboardShellProps) {
 
       const { data: host } = await supabase
         .from("hosts")
-        .select("id, plan_type, plan_free_expires_at")
+        .select("id, plan_type, plan_free_expires_at, plan_pending_type")
         .eq("user_id", user.id)
         .single();
       if (!host) return;
 
-      const hostRow = host as { id: string; plan_type: string; plan_free_expires_at: string | null };
+      const hostRow = host as {
+        id: string;
+        plan_type: string;
+        plan_free_expires_at: string | null;
+        plan_pending_type: string | null;
+      };
 
-      // Compute plan expiry phase
+      // Compute plan expiry phase — suppress banner if a switch is pending,
+      // since the scheduled switch will resolve the expiry.
       const info = getPlanExpiryInfo(hostRow.plan_type, hostRow.plan_free_expires_at);
-      if (info.phase !== "active") {
+      if (info.phase !== "active" && !hostRow.plan_pending_type) {
         setExpiryInfo(info);
       }
 

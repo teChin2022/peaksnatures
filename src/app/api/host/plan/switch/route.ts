@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 
     const { data: host } = await sc
       .from("hosts")
-      .select("id, plan_type, name")
+      .select("id, plan_type, name, plan_free_expires_at")
       .eq("user_id", user.id)
       .single();
 
@@ -36,16 +36,28 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Host not found" }, { status: 404 });
     }
 
-    const typedHost = host as { id: string; plan_type: string; name: string };
+    const typedHost = host as {
+      id: string;
+      plan_type: string;
+      name: string;
+      plan_free_expires_at: string | null;
+    };
 
     if (typedHost.plan_type === plan_type) {
       return NextResponse.json({ error: "Already on this plan" }, { status: 400 });
     }
 
-    // Calculate 1st of next month
+    // Free hosts already past expiry switch immediately (no booking gap);
+    // everyone else switches on the 1st of next month.
     const now = new Date();
-    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const effectiveDate = nextMonth.toISOString().split("T")[0];
+    const isPastFreeExpiry =
+      typedHost.plan_type === "free" &&
+      typedHost.plan_free_expires_at !== null &&
+      new Date(typedHost.plan_free_expires_at) < now;
+
+    const effectiveDate = isPastFreeExpiry
+      ? now.toISOString().split("T")[0]
+      : new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().split("T")[0];
 
     const { error: updateError } = await sc
       .from("hosts")
