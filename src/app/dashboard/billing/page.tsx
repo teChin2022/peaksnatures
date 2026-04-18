@@ -219,6 +219,7 @@ export default function DashboardBillingPage() {
       if (res.ok) {
         toast.success(`Plan switch scheduled`);
         fetchBilling();
+        window.dispatchEvent(new Event("host:plan-changed"));
       } else {
         const d = await res.json();
         toast.error(d.error || "Failed to switch plan");
@@ -238,6 +239,7 @@ export default function DashboardBillingPage() {
       if (res.ok) {
         toast.success("Plan switch cancelled");
         fetchBilling();
+        window.dispatchEvent(new Event("host:plan-changed"));
       } else {
         const d = await res.json();
         toast.error(d.error || "Failed to cancel");

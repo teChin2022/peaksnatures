@@ -48,9 +48,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
       // Compute plan expiry phase — suppress banner if a switch is pending,
       // since the scheduled switch will resolve the expiry.
       const info = getPlanExpiryInfo(hostRow.plan_type, hostRow.plan_free_expires_at);
-      if (info.phase !== "active" && !hostRow.plan_pending_type) {
-        setExpiryInfo(info);
-      }
+      setExpiryInfo(info.phase !== "active" && !hostRow.plan_pending_type ? info : null);
 
       const { data: homestay } = await supabase
         .from("homestays")
@@ -66,6 +64,11 @@ export function DashboardShell({ children }: DashboardShellProps) {
       }
     };
     fetchBrand();
+
+    // Refetch when another part of the app mutates the host row (e.g. plan switch).
+    const onPlanChanged = () => { fetchBrand(); };
+    window.addEventListener("host:plan-changed", onPlanChanged);
+    return () => window.removeEventListener("host:plan-changed", onPlanChanged);
   }, []);
 
   return (
