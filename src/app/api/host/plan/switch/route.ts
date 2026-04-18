@@ -47,17 +47,54 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Already on this plan" }, { status: 400 });
     }
 
-    // Free hosts already past expiry switch immediately (no booking gap);
-    // everyone else switches on the 1st of next month.
+    // Free hosts already past expiry switch immediately (applied inline, no
+    // booking gap, no wait for cron). Everyone else schedules for 1st of next
+    // month and the cron applies it.
     const now = new Date();
     const isPastFreeExpiry =
       typedHost.plan_type === "free" &&
       typedHost.plan_free_expires_at !== null &&
       new Date(typedHost.plan_free_expires_at) < now;
 
-    const effectiveDate = isPastFreeExpiry
-      ? now.toISOString().split("T")[0]
-      : new Date(now.getFullYear(), now.getMonth() + 1, 1).toISOString().split("T")[0];
+    if (isPastFreeExpiry) {
+      const { error: applyError } = await sc
+        .from("hosts")
+        .update({
+          plan_type,
+          plan_pending_type: null,
+          plan_pending_effective_at: null,
+          plan_free_expires_at: null,
+          updated_by: typedHost.name,
+        } as never)
+        .eq("id", typedHost.id);
+
+      if (applyError) {
+        console.error("[Plan Switch] apply error:", applyError);
+        return NextResponse.json({ error: "Failed to switch plan" }, { status: 500 });
+      }
+
+      after(async () => {
+        await logEvent({
+          entityType: "host",
+          entityId: typedHost.id,
+          eventType: EventType.PLAN_CHANGED,
+          actorType: "host",
+          actorId: user.id,
+          data: { from: typedHost.plan_type, to: plan_type, immediate: true },
+          req,
+        });
+      });
+
+      return NextResponse.json({
+        success: true,
+        plan_type,
+        applied_immediately: true,
+      });
+    }
+
+    const effectiveDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+      .toISOString()
+      .split("T")[0];
 
     const { error: updateError } = await sc
       .from("hosts")

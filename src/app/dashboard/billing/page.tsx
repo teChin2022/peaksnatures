@@ -338,11 +338,12 @@ export default function DashboardBillingPage() {
     return <p className="text-sm text-gray-500 py-12 text-center">Failed to load billing information.</p>;
   }
 
-  const isFreeExpired =
+  const isPastFreeExpiry = Boolean(
     data.plan_type === "free" &&
-    data.plan_free_expires_at &&
-    new Date(data.plan_free_expires_at) < new Date() &&
-    !data.plan_pending_type;
+      data.plan_free_expires_at &&
+      new Date(data.plan_free_expires_at) < new Date(),
+  );
+  const isFreeExpired = isPastFreeExpiry && !data.plan_pending_type;
 
   return (
     <div className="space-y-8">
@@ -540,7 +541,7 @@ export default function DashboardBillingPage() {
       >
         <p className="text-earth-400 text-sm flex items-center justify-center">
           <HelpCircle className="w-4 h-4 mr-1.5" />
-          {t("switchNote")}
+          {t(isPastFreeExpiry ? "switchNoteImmediate" : "switchNote")}
         </p>
       </motion.div>
 
@@ -826,7 +827,9 @@ export default function DashboardBillingPage() {
               <DialogHeader>
                 <DialogTitle>{t("switchConfirmTitle")}</DialogTitle>
                 <DialogDescription>
-                  {t("switchConfirmDesc", { plan: planLabel(confirmDialog.planType || "") })}
+                  {t(isPastFreeExpiry ? "switchConfirmDescImmediate" : "switchConfirmDesc", {
+                    plan: planLabel(confirmDialog.planType || ""),
+                  })}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>
