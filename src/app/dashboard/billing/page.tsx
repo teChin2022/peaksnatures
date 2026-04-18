@@ -217,7 +217,8 @@ export default function DashboardBillingPage() {
         body: JSON.stringify({ plan_type: planType }),
       });
       if (res.ok) {
-        toast.success(`Plan switch scheduled`);
+        const d = await res.json();
+        toast.success(d.applied_immediately ? t("switchAppliedImmediate") : t("switchScheduled"));
         fetchBilling();
         window.dispatchEvent(new Event("host:plan-changed"));
       } else {
@@ -346,6 +347,8 @@ export default function DashboardBillingPage() {
       new Date(data.plan_free_expires_at) < new Date(),
   );
   const isFreeExpired = isPastFreeExpiry && !data.plan_pending_type;
+  // Free → paid switches apply immediately (no waiting for the 1st of the month).
+  const isImmediateSwitch = data.plan_type === "free";
 
   return (
     <div className="space-y-8">
@@ -543,7 +546,7 @@ export default function DashboardBillingPage() {
       >
         <p className="text-earth-400 text-sm flex items-center justify-center">
           <HelpCircle className="w-4 h-4 mr-1.5" />
-          {t(isPastFreeExpiry ? "switchNoteImmediate" : "switchNote")}
+          {t(isImmediateSwitch ? "switchNoteImmediate" : "switchNote")}
         </p>
       </motion.div>
 
@@ -829,7 +832,7 @@ export default function DashboardBillingPage() {
               <DialogHeader>
                 <DialogTitle>{t("switchConfirmTitle")}</DialogTitle>
                 <DialogDescription>
-                  {t(isPastFreeExpiry ? "switchConfirmDescImmediate" : "switchConfirmDesc", {
+                  {t(isImmediateSwitch ? "switchConfirmDescImmediate" : "switchConfirmDesc", {
                     plan: planLabel(confirmDialog.planType || ""),
                   })}
                 </DialogDescription>

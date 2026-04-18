@@ -47,16 +47,14 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Already on this plan" }, { status: 400 });
     }
 
-    // Free hosts already past expiry switch immediately (applied inline, no
-    // booking gap, no wait for cron). Everyone else schedules for 1st of next
-    // month and the cron applies it.
+    // Free → paid upgrades apply immediately (no charge on Free, no proration
+    // concern, and commission must take effect right away so new bookings
+    // actually deduct from the wallet). Paid → paid switches still schedule
+    // for the 1st of next month so billing cycles align.
     const now = new Date();
-    const isPastFreeExpiry =
-      typedHost.plan_type === "free" &&
-      typedHost.plan_free_expires_at !== null &&
-      new Date(typedHost.plan_free_expires_at) < now;
+    const isUpgradeFromFree = typedHost.plan_type === "free";
 
-    if (isPastFreeExpiry) {
+    if (isUpgradeFromFree) {
       const { error: applyError } = await sc
         .from("hosts")
         .update({
