@@ -299,6 +299,8 @@ export async function POST(req: NextRequest) {
           data: { guest_name: data.guest_name, check_in: data.check_in, check_out: data.check_out, total_price: data.total_price, room_id: data.room_id, payment_type: data.payment_type },
           req,
         });
+        console.log("DATA 1: ",data)
+        console.log("DATA 2: ",data.easyslip_verified)
         if (data.easyslip_verified) {
           await deductCommission(bookingId as string);
         }
