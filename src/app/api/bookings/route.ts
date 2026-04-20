@@ -116,7 +116,7 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data;
-
+    console.log("Received booking data:", data);
     const supabase = createServiceRoleClient();
 
     // Check if host is soft-blocked (free expired, overdue invoice, or overdrawn wallet)
