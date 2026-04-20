@@ -100,6 +100,24 @@ export default function WalletPage() {
   const t = useTranslations("walletPage");
   const locale = useLocale();
 
+  const getTxLabel = (tx: Transaction): string => {
+    const ref = tx.reference_id ? tx.reference_id.slice(0, 8) : "";
+    const desc = tx.description || "";
+
+    if (tx.type === "commission") {
+      const pctMatch = desc.match(/(\d+(?:\.\d+)?)\s*%/);
+      if (pctMatch && ref) return t("txCommission", { pct: pctMatch[1], ref });
+      return t("txCommissionGeneric");
+    }
+    if (tx.type === "refund") {
+      if (ref) return t("txRefund", { ref });
+      return t("txRefundGeneric");
+    }
+    if (tx.type === "topup") return t("txTopup");
+    if (tx.type === "adjustment") return desc || t("txAdjustment");
+    return desc || tx.type;
+  };
+
   // ── Billing data ──
   const [billing, setBilling] = useState<BillingData | null>(null);
   const [loading, setLoading] = useState(true);
@@ -564,10 +582,24 @@ export default function WalletPage() {
                       <Input
                         type="number"
                         min="1"
+                        max="3000"
+                        step="1"
                         value={topupAmount}
-                        onChange={(e) => setTopupAmount(e.target.value)}
+                        onChange={(e) => {
+                          const raw = e.target.value;
+                          if (raw === "") {
+                            setTopupAmount("");
+                            return;
+                          }
+                          const n = Math.floor(Number(raw));
+                          if (!Number.isFinite(n) || n < 1) {
+                            setTopupAmount("1");
+                            return;
+                          }
+                          setTopupAmount(String(Math.min(n, 3000)));
+                        }}
                         className="flex-1 text-lg font-mono h-10"
-                        placeholder="0"
+                        placeholder="1 - 3,000"
                         autoFocus
                       />
                     )}
@@ -802,7 +834,7 @@ export default function WalletPage() {
                         {/* Description */}
                         <div className="flex-1 min-w-0">
                           <p className="text-sm font-medium text-gray-800 truncate">
-                            {tx.description || tx.type}
+                            {getTxLabel(tx)}
                           </p>
                           <p className="text-[11px] text-earth-400 font-mono mt-0.5">
                             {fmtDateStr(tx.created_at, "d MMM yyyy, HH:mm", locale)}

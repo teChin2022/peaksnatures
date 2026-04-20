@@ -1410,6 +1410,12 @@
     "clickUpload": "Tap to upload payment slip",
     "changeSlip": "Change",
     "orUploadFromPhone": "Or upload from your phone",
-    "slipPreview": "Slip Preview"
+    "slipPreview": "Slip Preview",
+    "txCommission": "Commission {pct}% on booking {ref}",
+    "txCommissionGeneric": "Commission deduction",
+    "txRefund": "Commission refund for booking {ref}",
+    "txRefundGeneric": "Commission refund",
+    "txTopup": "Wallet top-up",
+    "txAdjustment": "Manual adjustment"
   }
 }
