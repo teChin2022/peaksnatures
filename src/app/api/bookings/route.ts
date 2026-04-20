@@ -285,9 +285,16 @@ export async function POST(req: NextRequest) {
         .eq("id", bookingId as string)
         .single();
 
-      // Log + deduct commission + notify in background — response returns immediately.
-      // Deduction runs before notifications so slow SMS/LINE/email retries can't
-      // starve it out of the after() time budget.
+      // Commission deduction is financial — run synchronously before response.
+      // after() is best-effort (can be killed by serverless time limits or dev
+      // recompiles), so we don't trust it for wallet operations.
+      console.log("DATA 1: ", data);
+      console.log("DATA 2: ", data.easyslip_verified);
+      if (data.easyslip_verified) {
+        await deductCommission(bookingId as string);
+      }
+
+      // Logging + notifications can safely live in after() — they're non-critical.
       after(async () => {
         await logEvent({
           homestayId: data.homestay_id,
@@ -299,11 +306,6 @@ export async function POST(req: NextRequest) {
           data: { guest_name: data.guest_name, check_in: data.check_in, check_out: data.check_out, total_price: data.total_price, room_id: data.room_id, payment_type: data.payment_type },
           req,
         });
-        console.log("DATA 1: ",data)
-        console.log("DATA 2: ",data.easyslip_verified)
-        if (data.easyslip_verified) {
-          await deductCommission(bookingId as string);
-        }
         await sendNotifications(bookingId as string, supabase, data.locale || "th", data.easyslip_verified);
       });
 
@@ -346,9 +348,12 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Log + deduct commission + notify in background — response returns immediately.
-    // Deduction runs before notifications so slow SMS/LINE/email retries can't
-    // starve it out of the after() time budget.
+    // Commission deduction is financial — run synchronously before response.
+    if (data.easyslip_verified) {
+      await deductCommission((booking as unknown as Booking).id);
+    }
+
+    // Logging + notifications can safely live in after() — they're non-critical.
     after(async () => {
       await logEvent({
         homestayId: data.homestay_id,
@@ -360,9 +365,6 @@ export async function POST(req: NextRequest) {
         data: { guest_name: data.guest_name, check_in: data.check_in, check_out: data.check_out, total_price: data.total_price, payment_type: data.payment_type },
         req,
       });
-      if (data.easyslip_verified) {
-        await deductCommission((booking as unknown as Booking).id);
-      }
       await sendNotifications((booking as unknown as Booking).id, supabase, data.locale || "th", data.easyslip_verified);
     });
 

@@ -163,9 +163,11 @@ export async function deductCommission(bookingId: string): Promise<void> {
       host as Pick<Host, "commission_pct_override">,
       config,
     );
-    const commissionAmount = Math.round(
-      booking.total_price * commissionPct / 100,
-    );
+    // Wallet stores integer baht. Floor sub-baht commissions up to 1 so
+    // small bookings still deduct something instead of silently rounding to 0.
+    const rawCommission = booking.total_price * commissionPct / 100;
+    const commissionAmount =
+      rawCommission > 0 && rawCommission < 1 ? 1 : Math.round(rawCommission);
 
     if (commissionAmount <= 0) return;
 
