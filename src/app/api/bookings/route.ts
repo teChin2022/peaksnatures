@@ -285,7 +285,9 @@ export async function POST(req: NextRequest) {
         .eq("id", bookingId as string)
         .single();
 
-      // Log + notify in background — response returns immediately
+      // Log + deduct commission + notify in background — response returns immediately.
+      // Deduction runs before notifications so slow SMS/LINE/email retries can't
+      // starve it out of the after() time budget.
       after(async () => {
         await logEvent({
           homestayId: data.homestay_id,
@@ -297,10 +299,10 @@ export async function POST(req: NextRequest) {
           data: { guest_name: data.guest_name, check_in: data.check_in, check_out: data.check_out, total_price: data.total_price, room_id: data.room_id, payment_type: data.payment_type },
           req,
         });
-        await sendNotifications(bookingId as string, supabase, data.locale || "th", data.easyslip_verified);
         if (data.easyslip_verified) {
           await deductCommission(bookingId as string);
         }
+        await sendNotifications(bookingId as string, supabase, data.locale || "th", data.easyslip_verified);
       });
 
       return NextResponse.json({ booking }, { status: 201 });
@@ -342,7 +344,9 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Log + notify in background — response returns immediately
+    // Log + deduct commission + notify in background — response returns immediately.
+    // Deduction runs before notifications so slow SMS/LINE/email retries can't
+    // starve it out of the after() time budget.
     after(async () => {
       await logEvent({
         homestayId: data.homestay_id,
@@ -354,10 +358,10 @@ export async function POST(req: NextRequest) {
         data: { guest_name: data.guest_name, check_in: data.check_in, check_out: data.check_out, total_price: data.total_price, payment_type: data.payment_type },
         req,
       });
-      await sendNotifications((booking as unknown as Booking).id, supabase, data.locale || "th", data.easyslip_verified);
       if (data.easyslip_verified) {
         await deductCommission((booking as unknown as Booking).id);
       }
+      await sendNotifications((booking as unknown as Booking).id, supabase, data.locale || "th", data.easyslip_verified);
     });
 
     return NextResponse.json({ booking }, { status: 201 });

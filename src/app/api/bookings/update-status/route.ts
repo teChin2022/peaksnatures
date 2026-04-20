@@ -110,7 +110,9 @@ export async function POST(req: NextRequest) {
         .eq("status", "pending");
     }
 
-    // Log event + send guest email notification in background
+    // Log event + send guest email notification in background.
+    // Commission deduction/refund runs before email so a slow guest-email
+    // send can't starve the wallet operation out of the after() time budget.
     after(async () => {
       await logEvent({
         homestayId: booking.homestay_id,
@@ -123,7 +125,7 @@ export async function POST(req: NextRequest) {
         req,
       });
 
-      // Commission handling
+      // Commission handling — must run before notifications
       if (status === "confirmed") {
         await deductCommission(booking_id);
       } else if (status === "cancelled" && booking.status === "confirmed") {
