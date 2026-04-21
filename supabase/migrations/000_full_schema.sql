@@ -1,6 +1,6 @@
 -- ============================================================
 -- Peaksnature — Full Database Schema
--- Combined from migrations 001–027 for one-shot production setup.
+-- Combined from migrations 001–048 for one-shot production setup.
 -- Run this in Supabase SQL Editor on a fresh project.
 -- ============================================================
 
@@ -805,6 +805,10 @@ CREATE TABLE date_change_requests (
 
 CREATE INDEX idx_date_change_booking ON date_change_requests (booking_id);
 CREATE INDEX idx_date_change_status ON date_change_requests (status);
+CREATE INDEX IF NOT EXISTS idx_date_change_requests_slip_hash
+  ON date_change_requests(slip_hash) WHERE slip_hash IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_date_change_requests_slip_trans_ref
+  ON date_change_requests(slip_trans_ref) WHERE slip_trans_ref IS NOT NULL;
 
 ALTER TABLE date_change_requests ENABLE ROW LEVEL SECURITY;
 
@@ -992,6 +996,10 @@ CREATE TABLE wallet_transactions (
 );
 
 CREATE INDEX idx_wallet_transactions_host_id ON wallet_transactions(host_id);
+CREATE INDEX IF NOT EXISTS idx_wallet_transactions_slip_hash
+  ON wallet_transactions(slip_hash) WHERE slip_hash IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_wallet_transactions_slip_trans_ref
+  ON wallet_transactions(slip_trans_ref) WHERE slip_trans_ref IS NOT NULL;
 
 ALTER TABLE wallet_transactions ENABLE ROW LEVEL SECURITY;
 
@@ -1027,6 +1035,10 @@ CREATE TABLE invoices (
 
 CREATE INDEX idx_invoices_host_status ON invoices(host_id, status);
 CREATE INDEX idx_invoices_due_date ON invoices(due_date);
+CREATE INDEX IF NOT EXISTS idx_invoices_slip_hash
+  ON invoices(slip_hash) WHERE slip_hash IS NOT NULL;
+CREATE UNIQUE INDEX IF NOT EXISTS idx_invoices_slip_trans_ref
+  ON invoices(slip_trans_ref) WHERE slip_trans_ref IS NOT NULL;
 
 ALTER TABLE invoices ENABLE ROW LEVEL SECURITY;
 
@@ -1057,7 +1069,11 @@ BEGIN
   PERFORM pg_advisory_xact_lock(hashtext(p_host_id::text));
 
   UPDATE hosts
-  SET wallet_balance = wallet_balance - p_amount
+  SET wallet_balance = wallet_balance - p_amount,
+      wallet_negative_since = CASE
+        WHEN (wallet_balance - p_amount) < 0 AND wallet_negative_since IS NULL THEN now()
+        ELSE wallet_negative_since
+      END
   WHERE id = p_host_id
   RETURNING wallet_balance INTO v_new_balance;
 
@@ -1091,7 +1107,11 @@ BEGIN
   PERFORM pg_advisory_xact_lock(hashtext(p_host_id::text));
 
   UPDATE hosts
-  SET wallet_balance = wallet_balance + p_amount
+  SET wallet_balance = wallet_balance + p_amount,
+      wallet_negative_since = CASE
+        WHEN (wallet_balance + p_amount) >= 0 THEN NULL
+        ELSE wallet_negative_since
+      END
   WHERE id = p_host_id
   RETURNING wallet_balance INTO v_new_balance;
 
@@ -1134,7 +1154,11 @@ BEGIN
   PERFORM pg_advisory_xact_lock(hashtext(p_host_id::text));
 
   UPDATE hosts
-  SET wallet_balance = wallet_balance + p_amount
+  SET wallet_balance = wallet_balance + p_amount,
+      wallet_negative_since = CASE
+        WHEN (wallet_balance + p_amount) >= 0 THEN NULL
+        ELSE wallet_negative_since
+      END
   WHERE id = p_host_id
   RETURNING wallet_balance INTO v_new_balance;
 
@@ -1149,3 +1173,22 @@ BEGIN
   RETURN QUERY SELECT v_new_balance, v_txn_id;
 END;
 $$ LANGUAGE plpgsql;
+
+-- ************************************************************
+-- 048: Admin Revenue RPC
+-- ************************************************************
+
+CREATE OR REPLACE FUNCTION public.get_admin_revenue_total()
+RETURNS BIGINT
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT COALESCE(SUM(total_price), 0)::BIGINT
+  FROM bookings
+  WHERE status IN ('confirmed', 'completed');
+$$;
+
+REVOKE ALL ON FUNCTION public.get_admin_revenue_total() FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION public.get_admin_revenue_total() TO service_role;
