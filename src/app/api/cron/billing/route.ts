@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
-import { getBillingConfig, getEffectiveFixedRate } from "@/lib/billing";
+import { getBillingConfig, getEffectiveFixedRate, processBillingRetryQueue } from "@/lib/billing";
 import { GRACE_PERIOD_DAYS } from "@/lib/plan-expiry";
 import type { Host, PlatformBillingConfig } from "@/types/database";
 
@@ -9,18 +9,22 @@ import type { Host, PlatformBillingConfig } from "@/types/database";
  * GET /api/cron/billing
  * Daily cron job (triggered by Vercel Cron via GET).
  * - Every day: send SMS 3 days before free plan expiry, send SMS on expiry day,
- *   send SMS 5 days after expiry (grace period reminder), mark overdue invoices.
- * - 1st of month only: apply pending plan switches, generate invoices for fixed-rate hosts.
+ *   send SMS 5 days after expiry (grace period reminder), mark overdue invoices,
+ *   apply pending plan switches whose effective date has arrived.
+ * - 1st of month only: generate invoices for fixed-rate hosts.
  * Secured with CRON_SECRET header.
  * Generate the secret: `openssl rand -base64 32`
  * Set CRON_SECRET in Vercel Environment Variables (both Production & Preview).
  * Vercel Cron sends `Authorization: Bearer <CRON_SECRET>` automatically.
  */
 export async function GET(req: NextRequest) {
-  // Verify cron secret (skipped if CRON_SECRET env var is not set — useful for local testing)
   const authHeader = req.headers.get("authorization");
   const cronSecret = process.env.CRON_SECRET;
-  if (cronSecret && authHeader !== `Bearer ${cronSecret}`) {
+  if (!cronSecret) {
+    console.error("[Cron] CRON_SECRET not configured");
+    return NextResponse.json({ error: "Cron not configured" }, { status: 500 });
+  }
+  if (authHeader !== `Bearer ${cronSecret}`) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
@@ -28,6 +32,15 @@ export async function GET(req: NextRequest) {
   const results: Record<string, unknown> = {};
 
   try {
+    // Process billing retry queue first, so a transient RPC failure from
+    // yesterday gets resolved before today's new work runs.
+    try {
+      results.retryQueue = await processBillingRetryQueue();
+    } catch (err) {
+      console.error("[Cron] Retry queue processing failed:", err);
+      results.retryQueue = { error: err instanceof Error ? err.message : String(err) };
+    }
+
     const config = await getBillingConfig();
     if (!config) {
       return NextResponse.json({ error: "Billing config not found" }, { status: 500 });
@@ -174,42 +187,43 @@ export async function GET(req: NextRequest) {
     results.invoices_overdue = overdueCount;
 
     // ============================================================
-    // MONTHLY (1st only): Apply pending plan switches
+    // DAILY: Apply pending plan switches whose effective date has arrived
+    // (free hosts past expiry schedule same-day switches to avoid a gap)
     // ============================================================
-    if (isFirstOfMonth) {
-      const { data: pendingSwitches } = await supabase
+    const { data: pendingSwitches } = await supabase
+      .from("hosts")
+      .select("id, plan_type, plan_pending_type, plan_pending_effective_at, name")
+      .not("plan_pending_type", "is", null)
+      .lte("plan_pending_effective_at", today);
+
+    let switchCount = 0;
+    for (const host of (pendingSwitches || []) as { id: string; plan_type: string; plan_pending_type: string; name: string }[]) {
+      const { error } = await supabase
         .from("hosts")
-        .select("id, plan_type, plan_pending_type, plan_pending_effective_at, name")
-        .not("plan_pending_type", "is", null)
-        .lte("plan_pending_effective_at", today);
+        .update({
+          plan_type: host.plan_pending_type,
+          plan_pending_type: null,
+          plan_pending_effective_at: null,
+          plan_free_expires_at: null,
+          updated_by: "system",
+        } as never)
+        .eq("id", host.id);
 
-      let switchCount = 0;
-      for (const host of (pendingSwitches || []) as { id: string; plan_type: string; plan_pending_type: string; name: string }[]) {
-        const { error } = await supabase
-          .from("hosts")
-          .update({
-            plan_type: host.plan_pending_type,
-            plan_pending_type: null,
-            plan_pending_effective_at: null,
-            plan_free_expires_at: null,
-            updated_by: "system",
-          } as never)
-          .eq("id", host.id);
-
-        if (!error) {
-          switchCount++;
-          await logEvent({
-            entityType: "host",
-            entityId: host.id,
-            eventType: EventType.PLAN_CHANGED,
-            actorType: "system",
-            actorId: null,
-            data: { from: host.plan_type, to: host.plan_pending_type },
-          });
-        }
+      if (!error) {
+        switchCount++;
+        await logEvent({
+          entityType: "host",
+          entityId: host.id,
+          eventType: EventType.PLAN_CHANGED,
+          actorType: "system",
+          actorId: null,
+          data: { from: host.plan_type, to: host.plan_pending_type },
+        });
       }
-      results.plan_switches = switchCount;
+    }
+    results.plan_switches = switchCount;
 
+    if (isFirstOfMonth) {
       // ============================================================
       // MONTHLY (1st only): Generate invoices for fixed_rate hosts
       // ============================================================

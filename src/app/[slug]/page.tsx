@@ -99,7 +99,26 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     value: computeAvg("rating_value"),
   };
 
-  const bookingDisabled = host ? isHostBlocked(host.plan_type, host.plan_free_expires_at) : false;
+  let bookingDisabled = false;
+  if (host) {
+    const { data: overdueRows } =
+      host.plan_type === "fixed_rate"
+        ? await supabase
+            .from("invoices")
+            .select("id")
+            .eq("host_id", host.id)
+            .eq("status", "overdue")
+            .limit(1)
+        : { data: [] as unknown[] };
+    bookingDisabled = isHostBlocked({
+      plan_type: host.plan_type,
+      plan_free_expires_at: host.plan_free_expires_at,
+      has_overdue_invoice: ((overdueRows as unknown[] | null)?.length ?? 0) > 0,
+      wallet_balance: host.wallet_balance,
+      wallet_credit_limit: host.wallet_credit_limit,
+      wallet_negative_since: host.wallet_negative_since,
+    });
+  }
 
   const roomBookingCounts = new Map<string, number>();
   for (const row of (confirmedBookingRows as { room_id: string }[] | null) ?? []) {

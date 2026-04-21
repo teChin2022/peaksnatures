@@ -89,6 +89,19 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
+    // Block approval if host is in bad standing (overdue invoice, overdrawn wallet, expired free plan)
+    const [{ isHostBlocked }, { getHostBlockState }] = await Promise.all([
+      import("@/lib/plan-expiry"),
+      import("@/lib/billing"),
+    ]);
+    const blockState = await getHostBlockState(host.id);
+    if (blockState && isHostBlocked(blockState)) {
+      return NextResponse.json(
+        { error: "HOST_BLOCKED", message: "Please settle billing before approving date changes." },
+        { status: 403 }
+      );
+    }
+
     // Call atomic RPC to approve
     const { error: rpcError } = await supabase.rpc(
       "approve_date_change_atomic" as never,

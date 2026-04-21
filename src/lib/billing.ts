@@ -1,5 +1,6 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
+import type { HostBlockState } from "@/lib/plan-expiry";
 import type { Host, PlatformBillingConfig } from "@/types/database";
 
 /**
@@ -43,6 +44,48 @@ export function getEffectiveFixedRate(
 }
 
 /**
+ * Fetch the full state needed by isHostBlocked for a given host.
+ * Does one hosts read and (for fixed_rate) one invoices read.
+ */
+export async function getHostBlockState(hostId: string): Promise<HostBlockState | null> {
+  const supabase = createServiceRoleClient();
+  const { data: hostRow } = await supabase
+    .from("hosts")
+    .select("plan_type, plan_free_expires_at, wallet_balance, wallet_credit_limit, wallet_negative_since")
+    .eq("id", hostId)
+    .single();
+
+  if (!hostRow) return null;
+  const host = hostRow as {
+    plan_type: string;
+    plan_free_expires_at: string | null;
+    wallet_balance: number | null;
+    wallet_credit_limit: number | null;
+    wallet_negative_since: string | null;
+  };
+
+  let has_overdue_invoice = false;
+  if (host.plan_type === "fixed_rate") {
+    const { data: overdueRows } = await supabase
+      .from("invoices")
+      .select("id")
+      .eq("host_id", hostId)
+      .eq("status", "overdue")
+      .limit(1);
+    has_overdue_invoice = ((overdueRows as unknown[] | null)?.length ?? 0) > 0;
+  }
+
+  return {
+    plan_type: host.plan_type,
+    plan_free_expires_at: host.plan_free_expires_at,
+    wallet_balance: host.wallet_balance ?? 0,
+    wallet_credit_limit: host.wallet_credit_limit,
+    wallet_negative_since: host.wallet_negative_since,
+    has_overdue_invoice,
+  };
+}
+
+/**
  * Deduct commission from host wallet when a booking is confirmed.
  * Called in the after() callback when:
  * - Guest books with verified slip (auto-confirmed)
@@ -82,7 +125,7 @@ export async function deductCommission(bookingId: string): Promise<void> {
 
     const { data: hostRow, error: hostError } = await supabase
       .from("hosts")
-      .select("id, plan_type, commission_pct_override, wallet_balance, name, phone, notification_preference, line_channel_access_token, line_user_id")
+      .select("id, plan_type, commission_pct_override, wallet_balance, wallet_credit_limit, name, email, phone, notification_preference, line_channel_access_token, line_user_id")
       .eq("id", homestay.host_id)
       .single();
 
@@ -91,7 +134,9 @@ export async function deductCommission(bookingId: string): Promise<void> {
       plan_type: string;
       commission_pct_override: number | null;
       wallet_balance: number;
+      wallet_credit_limit: number | null;
       name: string;
+      email: string | null;
       phone: string | null;
       notification_preference: string | null;
       line_channel_access_token: string | null;
@@ -118,9 +163,11 @@ export async function deductCommission(bookingId: string): Promise<void> {
       host as Pick<Host, "commission_pct_override">,
       config,
     );
-    const commissionAmount = Math.round(
-      booking.total_price * commissionPct / 100,
-    );
+    // Wallet stores integer baht. Floor sub-baht commissions up to 1 so
+    // small bookings still deduct something instead of silently rounding to 0.
+    const rawCommission = booking.total_price * commissionPct / 100;
+    const commissionAmount =
+      rawCommission > 0 && rawCommission < 1 ? 1 : Math.round(rawCommission);
 
     if (commissionAmount <= 0) return;
 
@@ -157,6 +204,7 @@ export async function deductCommission(bookingId: string): Promise<void> {
 
     if (deductError) {
       console.error("[Billing] Commission deduction failed:", deductError);
+      await enqueueBillingRetry(bookingId, "deduct_commission", deductError.message);
       return;
     }
 
@@ -186,7 +234,9 @@ export async function deductCommission(bookingId: string): Promise<void> {
 
     // Notify host if wallet balance went negative
     if (newBalance < 0) {
-      await notifyNegativeBalance(host, newBalance);
+      const creditLimit = host.wallet_credit_limit ?? 0;
+      const overLimit = newBalance < -creditLimit;
+      await notifyNegativeBalance(host, newBalance, overLimit);
     }
   } catch (error) {
     console.error("[Billing] Unexpected error in deductCommission:", error);
@@ -260,6 +310,7 @@ export async function refundCommission(bookingId: string): Promise<void> {
 
     if (refundError) {
       console.error("[Billing] Commission refund failed:", refundError);
+      await enqueueBillingRetry(bookingId, "refund_commission", refundError.message);
       return;
     }
 
@@ -293,25 +344,30 @@ export async function refundCommission(bookingId: string): Promise<void> {
 
 /**
  * Notify host when wallet balance goes negative after commission deduction.
- * Sends via SMS or LINE based on host preference, with email fallback.
+ * Tries LINE → SMS → email in order until one succeeds.
  */
 async function notifyNegativeBalance(
   host: {
     id: string;
     name: string;
+    email: string | null;
     phone: string | null;
     notification_preference: string | null;
     line_channel_access_token: string | null;
     line_user_id: string | null;
   },
   balance: number,
+  overLimit: boolean = false,
 ): Promise<void> {
-  const message = `[Peaksnature] ยอดเงินคงเหลือของคุณติดลบ ฿${Math.abs(balance).toLocaleString()} กรุณาเติมเงินเพื่อป้องกันการหยุดให้บริการ / Your wallet balance is -฿${Math.abs(balance).toLocaleString()}. Please top up to avoid service interruption.`;
+  const urgencyPrefix = overLimit ? "URGENT: " : "";
+  const message = overLimit
+    ? `[Peaksnature] ${urgencyPrefix}ยอดเงินติดลบเกินวงเงินเครดิตของคุณ ฿${Math.abs(balance).toLocaleString()} — การรับจองใหม่จะถูกระงับหากยังไม่ชำระ / Your wallet is overdrawn beyond your credit limit (-฿${Math.abs(balance).toLocaleString()}). New bookings will be blocked until you top up.`
+    : `[Peaksnature] ยอดเงินคงเหลือของคุณติดลบ ฿${Math.abs(balance).toLocaleString()} กรุณาเติมเงินเพื่อป้องกันการหยุดให้บริการ / Your wallet balance is -฿${Math.abs(balance).toLocaleString()}. Please top up to avoid service interruption.`;
 
   const preference = host.notification_preference || "sms";
 
   try {
-    // Try LINE first if preferred and configured
+    // LINE first if preferred and configured
     if (preference === "line" && host.line_channel_access_token && host.line_user_id) {
       const response = await fetch("https://api.line.me/v2/bot/message/push", {
         method: "POST",
@@ -332,12 +388,37 @@ async function notifyNegativeBalance(
       console.error("[Billing] LINE notification failed, falling back to SMS");
     }
 
-    // Fallback to SMS
+    // SMS fallback
     if (host.phone) {
       const { sendSms } = await import("@/lib/notifications");
       const result = await sendSms(host.phone, message);
       if (result.success) {
         console.log(`[Billing] Negative balance SMS sent to host ${host.id}`);
+        return;
+      }
+      console.error("[Billing] SMS notification failed, falling back to email");
+    }
+
+    // Email fallback via Resend
+    if (host.email) {
+      const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
+      if (!apiKey) {
+        console.warn(`[Billing] Email fallback skipped — RESEND_API_KEY not configured`);
+      } else {
+        const { Resend } = await import("resend");
+        const resend = new Resend(apiKey);
+        const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
+        const fromEmail = cleaned
+          ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
+          : "Peaksnature <onboarding@resend.dev>";
+
+        await resend.emails.send({
+          from: fromEmail,
+          to: [host.email],
+          subject: `${urgencyPrefix}Peaksnature: Wallet balance is -฿${Math.abs(balance).toLocaleString()}`,
+          text: message,
+        });
+        console.log(`[Billing] Negative balance email sent to host ${host.id}`);
         return;
       }
     }
@@ -346,4 +427,160 @@ async function notifyNegativeBalance(
   } catch (error) {
     console.error("[Billing] Failed to send negative balance notification:", error);
   }
+}
+
+/**
+ * Insert a row into billing_retry_queue so the cron can retry a failed
+ * deduct/refund. Idempotent: skips if a pending row already exists for this
+ * (booking_id, operation) — the partial unique index enforces this at the DB
+ * level, so we just swallow conflicts.
+ */
+export async function enqueueBillingRetry(
+  bookingId: string,
+  operation: "deduct_commission" | "refund_commission",
+  errorMessage: string | null,
+): Promise<void> {
+  const supabase = createServiceRoleClient();
+  const { error } = await supabase
+    .from("billing_retry_queue")
+    .insert({
+      booking_id: bookingId,
+      operation,
+      last_error: errorMessage,
+    } as never);
+  if (error && !String(error.message || "").toLowerCase().includes("duplicate")) {
+    console.error("[Billing] Failed to enqueue retry:", error);
+  }
+}
+
+const MAX_RETRY_ATTEMPTS = 5;
+
+/**
+ * Process pending billing_retry_queue rows whose next_attempt_at has passed.
+ * Called from the daily cron. Uses exponential backoff; escalates after
+ * MAX_RETRY_ATTEMPTS and emits a BILLING_RETRY_EXHAUSTED event.
+ */
+export async function processBillingRetryQueue(): Promise<{
+  processed: number;
+  resolved: number;
+  exhausted: number;
+}> {
+  const supabase = createServiceRoleClient();
+  const { data: rows } = await supabase
+    .from("billing_retry_queue")
+    .select("id, operation, booking_id, attempts")
+    .is("resolved_at", null)
+    .lte("next_attempt_at", new Date().toISOString())
+    .lt("attempts", MAX_RETRY_ATTEMPTS)
+    .limit(100);
+
+  const pending = (rows as {
+    id: string;
+    operation: "deduct_commission" | "refund_commission";
+    booking_id: string;
+    attempts: number;
+  }[]) || [];
+
+  let resolved = 0;
+  let exhausted = 0;
+
+  for (const row of pending) {
+    const nextAttempts = row.attempts + 1;
+
+    try {
+      if (row.operation === "deduct_commission") {
+        await deductCommission(row.booking_id);
+      } else {
+        await refundCommission(row.booking_id);
+      }
+
+      // Check whether the underlying operation succeeded by re-inspecting the
+      // ledger. The helpers above are idempotent, so if a matching txn exists
+      // the retry is resolved.
+      const type = row.operation === "deduct_commission" ? "commission" : "refund";
+      const { count: refundCount } = await supabase
+        .from("wallet_transactions")
+        .select("id", { count: "exact", head: true })
+        .eq("reference_id", row.booking_id)
+        .eq("type", "refund");
+      const { count: commissionCount } = await supabase
+        .from("wallet_transactions")
+        .select("id", { count: "exact", head: true })
+        .eq("reference_id", row.booking_id)
+        .eq("type", "commission");
+
+      const nowResolved =
+        type === "commission"
+          ? (commissionCount ?? 0) > (refundCount ?? 0)
+          : (refundCount ?? 0) >= (commissionCount ?? 0) && (commissionCount ?? 0) > 0;
+
+      if (nowResolved) {
+        await supabase
+          .from("billing_retry_queue")
+          .update({
+            resolved_at: new Date().toISOString(),
+            attempts: nextAttempts,
+            last_attempt_at: new Date().toISOString(),
+          } as never)
+          .eq("id", row.id);
+        resolved++;
+        continue;
+      }
+
+      // Still unresolved — schedule next attempt with exponential backoff.
+      const backoffMs = 60 * 60 * 1000 * Math.pow(2, nextAttempts); // 2h, 4h, 8h, 16h, 32h
+      const nextAt = new Date(Date.now() + backoffMs).toISOString();
+
+      if (nextAttempts >= MAX_RETRY_ATTEMPTS) {
+        await supabase
+          .from("billing_retry_queue")
+          .update({
+            attempts: nextAttempts,
+            last_attempt_at: new Date().toISOString(),
+            last_error: "Max attempts reached without resolution",
+          } as never)
+          .eq("id", row.id);
+
+        const { data: bk } = await supabase
+          .from("bookings")
+          .select("homestay_id")
+          .eq("id", row.booking_id)
+          .single();
+
+        await logEvent({
+          homestayId: (bk as { homestay_id: string } | null)?.homestay_id || null,
+          entityType: "billing",
+          entityId: row.booking_id,
+          eventType: EventType.BILLING_RETRY_EXHAUSTED,
+          actorType: "system",
+          actorId: null,
+          data: { operation: row.operation, attempts: nextAttempts },
+        });
+        exhausted++;
+      } else {
+        await supabase
+          .from("billing_retry_queue")
+          .update({
+            attempts: nextAttempts,
+            last_attempt_at: new Date().toISOString(),
+            next_attempt_at: nextAt,
+          } as never)
+          .eq("id", row.id);
+      }
+    } catch (err) {
+      console.error(`[Billing] Retry ${row.id} threw:`, err);
+      const backoffMs = 60 * 60 * 1000 * Math.pow(2, nextAttempts);
+      await supabase
+        .from("billing_retry_queue")
+        .update({
+          attempts: nextAttempts,
+          last_attempt_at: new Date().toISOString(),
+          next_attempt_at: new Date(Date.now() + backoffMs).toISOString(),
+          last_error: err instanceof Error ? err.message : String(err),
+        } as never)
+        .eq("id", row.id);
+    }
+  }
+
+  return { processed: pending.length, resolved, exhausted };
 }

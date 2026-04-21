@@ -659,7 +659,7 @@ export function BookingSection({
       }).catch(() => { });
 
       setShowConfirmedModal(true);
-      toast.success(t("successSubmitted"));
+      // toast.success(t("successSubmitted"));
     } catch {
       toast.error(t("errorGeneric"));
     } finally {

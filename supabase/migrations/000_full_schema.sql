@@ -41,6 +41,8 @@ CREATE TABLE hosts (
     CHECK (plan_pending_type IS NULL OR plan_pending_type IN ('commission', 'fixed_rate')),
   plan_pending_effective_at DATE DEFAULT NULL,
   wallet_balance INTEGER NOT NULL DEFAULT 0,
+  wallet_credit_limit NUMERIC(10,2) NOT NULL DEFAULT 0,
+  wallet_negative_since TIMESTAMPTZ DEFAULT NULL,
   commission_pct_override NUMERIC(5,2) DEFAULT NULL,
   fixed_rate_override INTEGER DEFAULT NULL,
   created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),

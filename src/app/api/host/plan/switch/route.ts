@@ -28,7 +28,7 @@ export async function POST(req: NextRequest) {
 
     const { data: host } = await sc
       .from("hosts")
-      .select("id, plan_type, name")
+      .select("id, plan_type, name, plan_free_expires_at")
       .eq("user_id", user.id)
       .single();
 
@@ -36,16 +36,63 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Host not found" }, { status: 404 });
     }
 
-    const typedHost = host as { id: string; plan_type: string; name: string };
+    const typedHost = host as {
+      id: string;
+      plan_type: string;
+      name: string;
+      plan_free_expires_at: string | null;
+    };
 
     if (typedHost.plan_type === plan_type) {
       return NextResponse.json({ error: "Already on this plan" }, { status: 400 });
     }
 
-    // Calculate 1st of next month
+    // Free → paid upgrades apply immediately (no charge on Free, no proration
+    // concern, and commission must take effect right away so new bookings
+    // actually deduct from the wallet). Paid → paid switches still schedule
+    // for the 1st of next month so billing cycles align.
     const now = new Date();
-    const nextMonth = new Date(now.getFullYear(), now.getMonth() + 1, 1);
-    const effectiveDate = nextMonth.toISOString().split("T")[0];
+    const isUpgradeFromFree = typedHost.plan_type === "free";
+
+    if (isUpgradeFromFree) {
+      const { error: applyError } = await sc
+        .from("hosts")
+        .update({
+          plan_type,
+          plan_pending_type: null,
+          plan_pending_effective_at: null,
+          plan_free_expires_at: null,
+          updated_by: typedHost.name,
+        } as never)
+        .eq("id", typedHost.id);
+
+      if (applyError) {
+        console.error("[Plan Switch] apply error:", applyError);
+        return NextResponse.json({ error: "Failed to switch plan" }, { status: 500 });
+      }
+
+      after(async () => {
+        await logEvent({
+          entityType: "host",
+          entityId: typedHost.id,
+          eventType: EventType.PLAN_CHANGED,
+          actorType: "host",
+          actorId: user.id,
+          data: { from: typedHost.plan_type, to: plan_type, immediate: true },
+          req,
+        });
+      });
+
+      return NextResponse.json({
+        success: true,
+        plan_type,
+        applied_immediately: true,
+      });
+    }
+
+    const effectiveDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+      .toISOString()
+      .split("T")[0];
 
     const { error: updateError } = await sc
       .from("hosts")

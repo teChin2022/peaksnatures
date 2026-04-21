@@ -94,7 +94,7 @@
     "contactFormError": "Failed to send message. Please try again."
   },
   "gallery": {
-    "title": "Gallery",
+    "title": "Atmosphere",
     "showAll": "Show all photos"
   },
   "about": {
@@ -262,7 +262,7 @@
     "trustResponse": "Priority Response",
     "trustResponseDesc": "Average response time: 45 minutes",
     "trustSecure": "Secure & Private",
-    "trustSecureDesc": "Your information is encrypted and confidential",
+    "trustSecureDesc": "We handle your information with care",
     "confirmedClose": "Close",
     "duplicateTitle": "Booking Already Exists",
     "duplicateDescEmail": "An active booking was found using this email address.",
@@ -1338,9 +1338,13 @@
     "fixedRatePlan": "Fixed Rate",
     "fixedRateDesc": "Pay a fixed monthly fee",
     "switchNote": "Changes take effect on the 1st of next month.",
+    "switchNoteImmediate": "Switching from Free takes effect immediately.",
     "switchConfirmTitle": "Switch Plan?",
     "switchConfirmDesc": "Switch to {plan}? This will take effect on the 1st of next month.",
+    "switchConfirmDescImmediate": "Switch to {plan}? This will take effect immediately and apply to all new bookings.",
     "switchConfirmAction": "Confirm Switch",
+    "switchScheduled": "Plan switch scheduled",
+    "switchAppliedImmediate": "Plan switched successfully",
     "cancelSwitchTitle": "Cancel Plan Switch?",
     "cancelSwitchDesc": "Cancel the pending switch to {plan}?",
     "payNow": "Pay Now",
@@ -1406,6 +1410,12 @@
     "clickUpload": "Tap to upload payment slip",
     "changeSlip": "Change",
     "orUploadFromPhone": "Or upload from your phone",
-    "slipPreview": "Slip Preview"
+    "slipPreview": "Slip Preview",
+    "txCommission": "Commission {pct}% on booking {ref}",
+    "txCommissionGeneric": "Commission deduction",
+    "txRefund": "Commission refund for booking {ref}",
+    "txRefundGeneric": "Commission refund",
+    "txTopup": "Wallet top-up",
+    "txAdjustment": "Manual adjustment"
   }
 }

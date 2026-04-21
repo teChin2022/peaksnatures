@@ -45,6 +45,8 @@ export interface Database {
           plan_pending_type: string | null;
           plan_pending_effective_at: string | null;
           wallet_balance: number;
+          wallet_credit_limit: number;
+          wallet_negative_since: string | null;
           commission_pct_override: number | null;
           fixed_rate_override: number | null;
           created_at: string;
@@ -79,6 +81,8 @@ export interface Database {
           plan_pending_type?: string | null;
           plan_pending_effective_at?: string | null;
           wallet_balance?: number;
+          wallet_credit_limit?: number;
+          wallet_negative_since?: string | null;
           commission_pct_override?: number | null;
           fixed_rate_override?: number | null;
           created_at?: string;
@@ -113,6 +117,8 @@ export interface Database {
           plan_pending_type?: string | null;
           plan_pending_effective_at?: string | null;
           wallet_balance?: number;
+          wallet_credit_limit?: number;
+          wallet_negative_since?: string | null;
           commission_pct_override?: number | null;
           fixed_rate_override?: number | null;
           created_at?: string;
@@ -798,6 +804,41 @@ export interface Database {
           status?: string;
           created_at?: string;
           created_by?: string;
+        };
+      };
+      billing_retry_queue: {
+        Row: {
+          id: string;
+          operation: string;
+          booking_id: string;
+          attempts: number;
+          last_error: string | null;
+          last_attempt_at: string | null;
+          next_attempt_at: string;
+          resolved_at: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          operation: string;
+          booking_id: string;
+          attempts?: number;
+          last_error?: string | null;
+          last_attempt_at?: string | null;
+          next_attempt_at?: string;
+          resolved_at?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          operation?: string;
+          booking_id?: string;
+          attempts?: number;
+          last_error?: string | null;
+          last_attempt_at?: string | null;
+          next_attempt_at?: string;
+          resolved_at?: string | null;
+          created_at?: string;
         };
       };
       invoices: {

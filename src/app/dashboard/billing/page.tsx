@@ -217,8 +217,10 @@ export default function DashboardBillingPage() {
         body: JSON.stringify({ plan_type: planType }),
       });
       if (res.ok) {
-        toast.success(`Plan switch scheduled`);
+        const d = await res.json();
+        toast.success(d.applied_immediately ? t("switchAppliedImmediate") : t("switchScheduled"));
         fetchBilling();
+        window.dispatchEvent(new Event("host:plan-changed"));
       } else {
         const d = await res.json();
         toast.error(d.error || "Failed to switch plan");
@@ -238,6 +240,7 @@ export default function DashboardBillingPage() {
       if (res.ok) {
         toast.success("Plan switch cancelled");
         fetchBilling();
+        window.dispatchEvent(new Event("host:plan-changed"));
       } else {
         const d = await res.json();
         toast.error(d.error || "Failed to cancel");
@@ -338,8 +341,14 @@ export default function DashboardBillingPage() {
     return <p className="text-sm text-gray-500 py-12 text-center">Failed to load billing information.</p>;
   }
 
-  const isFreeExpired =
-    data.plan_type === "free" && data.plan_free_expires_at && new Date(data.plan_free_expires_at) < new Date();
+  const isPastFreeExpiry = Boolean(
+    data.plan_type === "free" &&
+      data.plan_free_expires_at &&
+      new Date(data.plan_free_expires_at) < new Date(),
+  );
+  const isFreeExpired = isPastFreeExpiry && !data.plan_pending_type;
+  // Free → paid switches apply immediately (no waiting for the 1st of the month).
+  const isImmediateSwitch = data.plan_type === "free";
 
   return (
     <div className="space-y-8">
@@ -537,7 +546,7 @@ export default function DashboardBillingPage() {
       >
         <p className="text-earth-400 text-sm flex items-center justify-center">
           <HelpCircle className="w-4 h-4 mr-1.5" />
-          {t("switchNote")}
+          {t(isImmediateSwitch ? "switchNoteImmediate" : "switchNote")}
         </p>
       </motion.div>
 
@@ -823,7 +832,9 @@ export default function DashboardBillingPage() {
               <DialogHeader>
                 <DialogTitle>{t("switchConfirmTitle")}</DialogTitle>
                 <DialogDescription>
-                  {t("switchConfirmDesc", { plan: planLabel(confirmDialog.planType || "") })}
+                  {t(isImmediateSwitch ? "switchConfirmDescImmediate" : "switchConfirmDesc", {
+                    plan: planLabel(confirmDialog.planType || ""),
+                  })}
                 </DialogDescription>
               </DialogHeader>
               <DialogFooter>

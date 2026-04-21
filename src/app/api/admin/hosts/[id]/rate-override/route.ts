@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import {
   createServerSupabaseClient,
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
+import { logEvent, EventType } from "@/lib/history-log";
 
 export async function PATCH(
   req: NextRequest,
@@ -26,17 +27,22 @@ export async function PATCH(
 
     const sc = createServiceRoleClient();
 
-    // Fetch admin name
-    const { data: adminRow } = await sc
-      .from("platform_admins")
-      .select("name")
-      .eq("user_id", user.id)
-      .single();
+    const [{ data: adminRow }, { data: prevRow }] = await Promise.all([
+      sc.from("platform_admins").select("name").eq("user_id", user.id).single(),
+      sc
+        .from("hosts")
+        .select("commission_pct_override, fixed_rate_override")
+        .eq("id", id)
+        .single(),
+    ]);
     const adminName = (adminRow as { name: string } | null)?.name || user.id;
+    const previous = (prevRow as {
+      commission_pct_override: number | null;
+      fixed_rate_override: number | null;
+    } | null) || { commission_pct_override: null, fixed_rate_override: null };
 
     const updateData: Record<string, unknown> = { updated_by: adminName };
 
-    // Allow null to clear override
     if (commission_pct_override !== undefined) {
       updateData.commission_pct_override = commission_pct_override;
     }
@@ -53,6 +59,34 @@ export async function PATCH(
       console.error("[Admin RateOverride] update error:", updateError);
       return NextResponse.json({ error: "Failed to update rate override" }, { status: 500 });
     }
+
+    after(async () => {
+      await logEvent({
+        entityType: "host",
+        entityId: id,
+        eventType: EventType.RATE_OVERRIDE_CHANGED,
+        actorType: "admin",
+        actorId: user.id,
+        data: {
+          previous: {
+            commission_pct_override: previous.commission_pct_override,
+            fixed_rate_override: previous.fixed_rate_override,
+          },
+          new: {
+            commission_pct_override:
+              commission_pct_override !== undefined
+                ? commission_pct_override
+                : previous.commission_pct_override,
+            fixed_rate_override:
+              fixed_rate_override !== undefined
+                ? fixed_rate_override
+                : previous.fixed_rate_override,
+          },
+          set_by: adminName,
+        },
+        req,
+      });
+    });
 
     return NextResponse.json({ success: true });
   } catch {

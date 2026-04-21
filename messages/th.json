@@ -94,7 +94,7 @@
     "contactFormError": "ส่งข้อความไม่สำเร็จ กรุณาลองอีกครั้ง"
   },
   "gallery": {
-    "title": "แกลเลอรี่",
+    "title": "บรรยากาศ",
     "showAll": "แสดงรูปทั้งหมด"
   },
   "about": {
@@ -262,7 +262,7 @@
     "trustResponse": "ออกแบบเพื่อการจองที่สะดวกสบาย",
     "trustResponseDesc": "ทุกขั้นตอนชัดเจน เรียบง่าย และไม่ซับซ้อน",
     "trustSecure": "ปลอดภัยและเป็นส่วนตัว",
-    "trustSecureDesc": "ข้อมูลของคุณถูกเข้ารหัสและเป็นความลับ",
+    "trustSecureDesc": "เราดูแลข้อมูลของคุณอย่างระมัดระวัง",
     "trustData":"ข้อมูลการจอง",
     "trustDataDesc":"ข้อมูลของคุณถูกใช้เพื่อการจองเท่านั้น",
     "trustStep":"จองง่ายในไม่กี่ขั้นตอน",
@@ -1342,9 +1342,13 @@
     "fixedRatePlan": "รายเดือน",
     "fixedRateDesc": "จ่ายค่าบริการรายเดือนคงที่",
     "switchNote": "การเปลี่ยนแพลนจะมีผลวันที่ 1 ของเดือนถัดไป",
+    "switchNoteImmediate": "การเปลี่ยนจากแพลนฟรีจะมีผลทันที",
     "switchConfirmTitle": "เปลี่ยนแพลน?",
     "switchConfirmDesc": "เปลี่ยนเป็นแพลน{plan}? มีผลวันที่ 1 ของเดือนถัดไป",
+    "switchConfirmDescImmediate": "เปลี่ยนเป็นแพลน{plan}? มีผลทันทีและจะใช้กับการจองใหม่ทั้งหมด",
     "switchConfirmAction": "ยืนยันการเปลี่ยน",
+    "switchScheduled": "บันทึกการเปลี่ยนแพลนแล้ว",
+    "switchAppliedImmediate": "เปลี่ยนแพลนสำเร็จ",
     "cancelSwitchTitle": "ยกเลิกการเปลี่ยนแพลน?",
     "cancelSwitchDesc": "ยกเลิกการเปลี่ยนเป็นแพลน{plan}ที่รออยู่?",
     "payNow": "ชำระเงิน",
@@ -1410,6 +1414,12 @@
     "clickUpload": "แตะเพื่ออัพโหลดสลิป",
     "changeSlip": "เปลี่ยน",
     "orUploadFromPhone": "หรืออัพโหลดจากมือถือ",
-    "slipPreview": "ตัวอย่างสลิป"
+    "slipPreview": "ตัวอย่างสลิป",
+    "txCommission": "ค่าคอมมิชชั่น {pct}% จากการจอง {ref}",
+    "txCommissionGeneric": "หักค่าคอมมิชชั่น",
+    "txRefund": "คืนค่าคอมมิชชั่นจากการจอง {ref}",
+    "txRefundGeneric": "คืนค่าคอมมิชชั่น",
+    "txTopup": "เติมเงินเข้ากระเป๋า",
+    "txAdjustment": "ปรับยอดโดยผู้ดูแล"
   }
 }

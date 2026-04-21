@@ -60,6 +60,8 @@ export const EventType = {
   PLAN_CHANGED: "PLAN_CHANGED",
   PLAN_SWITCH_SCHEDULED: "PLAN_SWITCH_SCHEDULED",
   PLAN_EXPIRED: "PLAN_EXPIRED",
+  RATE_OVERRIDE_CHANGED: "RATE_OVERRIDE_CHANGED",
+  BILLING_RETRY_EXHAUSTED: "BILLING_RETRY_EXHAUSTED",
 } as const;
 
 export type EventTypeValue = (typeof EventType)[keyof typeof EventType];

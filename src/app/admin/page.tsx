@@ -52,18 +52,18 @@ export default async function AdminDashboardPage() {
         <p className="text-xs font-medium uppercase tracking-widest text-gray-400 mb-1">Dashboard</p>
         <h1 className="text-2xl font-serif text-gray-900">Platform Overview</h1>
       </div>
-      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+      <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {cards.map((card) => {
           const Icon = card.icon;
           const inner = (
             <Card key={card.label} className={(card as { href?: string }).href ? "hover:shadow-md transition-shadow cursor-pointer" : ""}>
-              <CardContent className="flex items-center gap-4 p-4">
-                <div className={`rounded-lg p-2.5 ${card.bg}`}>
+              <CardContent className="flex items-center gap-3 p-3 sm:gap-4 sm:p-4">
+                <div className={`rounded-lg p-2 sm:p-2.5 ${card.bg}`}>
                   <Icon className={`h-5 w-5 ${card.fg}`} />
                 </div>
-                <div>
-                  <p className="text-sm text-gray-500">{card.label}</p>
-                  <p className="text-2xl font-bold">{card.value}</p>
+                <div className="min-w-0">
+                  <p className="text-xs sm:text-sm text-gray-500 truncate">{card.label}</p>
+                  <p className="text-xl sm:text-2xl font-bold truncate">{card.value}</p>
                 </div>
               </CardContent>
             </Card>

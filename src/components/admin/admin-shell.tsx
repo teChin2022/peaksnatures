@@ -185,6 +185,12 @@ function AdminMobileSidebar({ open, onClose }: { open: boolean; onClose: () => v
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
+  const pathname = usePathname();
+
+  const currentNav = NAV_ITEMS.find((item) =>
+    item.href === "/admin" ? pathname === "/admin" : pathname.startsWith(item.href)
+  );
+  const currentTitle = currentNav?.key ?? "Platform Admin";
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -200,14 +206,22 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           collapsed ? "lg:ml-16" : "lg:ml-60"
         )}
       >
-        <header className="sticky top-0 z-30 flex h-14 items-center border-b bg-white px-4 lg:hidden">
-          <Button variant="ghost" size="icon" className="h-8 w-8" onClick={() => setMobileOpen(true)}>
+        <header
+          className="sticky top-0 z-30 flex h-14 items-center gap-3 border-b bg-white/80 px-4 backdrop-blur-md supports-[backdrop-filter]:bg-white/70 lg:hidden"
+          style={{ paddingTop: "env(safe-area-inset-top)" }}
+        >
+          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => setMobileOpen(true)}>
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="ml-3 text-sm font-medium text-gray-600">Platform Admin</span>
+          <div className="flex min-w-0 items-center gap-2">
+            <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-slate-900">
+              <Shield className="h-3.5 w-3.5 text-white" />
+            </div>
+            <span className="truncate text-sm font-semibold text-slate-900">{currentTitle}</span>
+          </div>
         </header>
 
-        <main className="p-4 sm:p-6">{children}</main>
+        <main className="p-4 sm:p-6 lg:p-8">{children}</main>
       </div>
     </div>
   );

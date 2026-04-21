@@ -20,5 +20,6 @@
       "Bash(node -e 'console.log\\(require\\(\"./package.json\"\\).dependencies[\"radix-ui\"], require\\(\"./package.json\"\\).dependencies[\"@radix-ui/react-accordion\"]\\)')",
       "Bash(node:*)"
     ]
-  }
+  },
+  "prefersReducedMotion": false
 }
