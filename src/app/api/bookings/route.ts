@@ -116,7 +116,6 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data;
-    console.log("Received booking data:", data);
     const supabase = createServiceRoleClient();
 
     // Check if host is soft-blocked (free expired, overdue invoice, or overdrawn wallet)
@@ -285,11 +284,6 @@ export async function POST(req: NextRequest) {
         .eq("id", bookingId as string)
         .single();
 
-      // Commission deduction is financial — run synchronously before response.
-      // after() is best-effort (can be killed by serverless time limits or dev
-      // recompiles), so we don't trust it for wallet operations.
-      console.log("DATA 1: ", data);
-      console.log("DATA 2: ", data.easyslip_verified);
       if (data.easyslip_verified) {
         await deductCommission(bookingId as string);
       }

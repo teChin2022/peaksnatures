@@ -165,22 +165,22 @@ export default function AdminBillingPage() {
                             </p>
                           </div>
                         </div>
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex flex-wrap items-center gap-1.5 shrink-0 justify-end">
                           {inv.status === "pending" && (
                             <>
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-7 px-2 text-[11px] text-green-700 border-green-300 hover:bg-green-50"
+                                className="h-9 px-3 text-xs text-green-700 border-green-300 hover:bg-green-50"
                                 onClick={() => setConfirmAction({ invoiceId: inv.id, status: "paid", hostName: inv.host?.name || "Unknown" })}
                                 disabled={actionLoading === inv.id}
                               >
-                                {actionLoading === inv.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Mark Paid"}
+                                {actionLoading === inv.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Mark Paid"}
                               </Button>
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-7 px-2 text-[11px] text-red-700 border-red-300 hover:bg-red-50"
+                                className="h-9 px-3 text-xs text-red-700 border-red-300 hover:bg-red-50"
                                 onClick={() => setConfirmAction({ invoiceId: inv.id, status: "overdue", hostName: inv.host?.name || "Unknown" })}
                                 disabled={actionLoading === inv.id}
                               >
@@ -192,11 +192,11 @@ export default function AdminBillingPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-7 px-2 text-[11px] text-green-700 border-green-300 hover:bg-green-50"
+                              className="h-9 px-3 text-xs text-green-700 border-green-300 hover:bg-green-50"
                               onClick={() => setConfirmAction({ invoiceId: inv.id, status: "paid", hostName: inv.host?.name || "Unknown" })}
                               disabled={actionLoading === inv.id}
                             >
-                              {actionLoading === inv.id ? <Loader2 className="h-3 w-3 animate-spin" /> : "Mark Paid"}
+                              {actionLoading === inv.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Mark Paid"}
                             </Button>
                           )}
                         </div>

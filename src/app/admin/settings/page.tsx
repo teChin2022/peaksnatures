@@ -176,7 +176,7 @@ export default function AdminSettingsPage() {
               </div>
             ) : (
               <form onSubmit={handleBillingSave} className="space-y-4">
-                <div className="grid grid-cols-2 gap-4">
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                   <div className="space-y-2">
                     <Label htmlFor="commission_pct">Commission (%)</Label>
                     <Input
@@ -225,7 +225,7 @@ export default function AdminSettingsPage() {
                         placeholder="e.g. Bangkok Bank"
                       />
                     </div>
-                    <div className="grid grid-cols-2 gap-3">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <div className="space-y-2">
                         <Label htmlFor="bank_account_number">Account Number</Label>
                         <Input

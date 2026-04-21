@@ -343,7 +343,7 @@ export default function AdminHostsPage() {
               >
                 <Card>
                   <CardContent className="p-4">
-                    <div className="flex items-start justify-between gap-3">
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
                         {/* Name + badges row */}
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -427,67 +427,65 @@ export default function AdminHostsPage() {
 
                       {/* ── Action Buttons ── */}
                       {host.status === "approved" && (
-                        <div className="flex flex-col items-end gap-1.5 shrink-0">
-                          <div className="flex items-center gap-1 flex-wrap justify-end">
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className={`h-7 px-2 text-[11px] ${
-                                host.is_verified
-                                  ? "text-emerald-700 border-emerald-300 hover:bg-emerald-50"
-                                  : "text-gray-600 border-gray-300 hover:bg-gray-50"
-                              }`}
-                              onClick={() => handleVerify(host.id)}
-                              disabled={actionLoading === host.id}
-                            >
-                              {actionLoading === host.id ? (
-                                <Loader2 className="h-3 w-3 animate-spin" />
-                              ) : (
-                                <ShieldCheck className="h-3 w-3 mr-0.5" />
-                              )}
-                              {host.is_verified ? "Unverify" : "Verify"}
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 px-2 text-[11px] text-violet-700 border-violet-300 hover:bg-violet-50"
-                              onClick={() => openPlanDialog(host)}
-                              disabled={actionLoading === host.id}
-                            >
-                              <CreditCard className="h-3 w-3 mr-0.5" />
-                              Plan
-                            </Button>
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-7 px-2 text-[11px] text-blue-700 border-blue-300 hover:bg-blue-50"
-                              onClick={() => openRateDialog(host)}
-                              disabled={actionLoading === host.id}
-                            >
-                              <Percent className="h-3 w-3 mr-0.5" />
-                              Rate
-                            </Button>
-                            {host.plan_type === "commission" && (
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-7 px-2 text-[11px] text-amber-700 border-amber-300 hover:bg-amber-50"
-                                onClick={() => openWalletDialog(host)}
-                                disabled={actionLoading === host.id}
-                              >
-                                <Wallet className="h-3 w-3 mr-0.5" />
-                                Adjust
-                              </Button>
-                            )}
-                          </div>
-                        </div>
-                      )}
-                      {host.status === "pending" && (
-                        <div className="flex items-center gap-1.5 shrink-0">
+                        <div className="flex shrink-0 flex-wrap items-center gap-1.5 justify-start sm:justify-end">
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-8 px-2.5 text-xs text-brand border-brand/30 hover:bg-brand-50"
+                            className={`h-9 px-3 text-xs ${
+                              host.is_verified
+                                ? "text-emerald-700 border-emerald-300 hover:bg-emerald-50"
+                                : "text-gray-600 border-gray-300 hover:bg-gray-50"
+                            }`}
+                            onClick={() => handleVerify(host.id)}
+                            disabled={actionLoading === host.id}
+                          >
+                            {actionLoading === host.id ? (
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                            ) : (
+                              <ShieldCheck className="h-3.5 w-3.5 mr-1" />
+                            )}
+                            {host.is_verified ? "Unverify" : "Verify"}
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-9 px-3 text-xs text-violet-700 border-violet-300 hover:bg-violet-50"
+                            onClick={() => openPlanDialog(host)}
+                            disabled={actionLoading === host.id}
+                          >
+                            <CreditCard className="h-3.5 w-3.5 mr-1" />
+                            Plan
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-9 px-3 text-xs text-blue-700 border-blue-300 hover:bg-blue-50"
+                            onClick={() => openRateDialog(host)}
+                            disabled={actionLoading === host.id}
+                          >
+                            <Percent className="h-3.5 w-3.5 mr-1" />
+                            Rate
+                          </Button>
+                          {host.plan_type === "commission" && (
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              className="h-9 px-3 text-xs text-amber-700 border-amber-300 hover:bg-amber-50"
+                              onClick={() => openWalletDialog(host)}
+                              disabled={actionLoading === host.id}
+                            >
+                              <Wallet className="h-3.5 w-3.5 mr-1" />
+                              Adjust
+                            </Button>
+                          )}
+                        </div>
+                      )}
+                      {host.status === "pending" && (
+                        <div className="flex shrink-0 flex-wrap items-center gap-1.5 justify-start sm:justify-end">
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="h-9 px-3 text-xs text-brand border-brand/30 hover:bg-brand-50"
                             onClick={() => setDialog({ type: "approve", hostId: host.id, hostName: host.name })}
                             disabled={actionLoading === host.id}
                           >
@@ -501,7 +499,7 @@ export default function AdminHostsPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-8 px-2.5 text-xs text-red-700 border-red-300 hover:bg-red-50"
+                            className="h-9 px-3 text-xs text-red-700 border-red-300 hover:bg-red-50"
                             onClick={() => setDialog({ type: "reject", hostId: host.id, hostName: host.name })}
                             disabled={actionLoading === host.id}
                           >
