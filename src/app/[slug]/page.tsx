@@ -17,7 +17,6 @@ import { CheckInInfoSection } from "@/components/booking/check-in-info-section";
 import { PoliciesSection } from "@/components/booking/policies-section";
 import { FaqSection } from "@/components/booking/faq-section";
 import { FinalCtaSection } from "@/components/booking/final-cta-section";
-import { RelatedHomestaysSection } from "@/components/booking/related-homestays-section";
 import { ReviewsDisplay } from "@/components/reviews/reviews-display";
 import { JsonLd } from "@/components/seo/json-ld";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
@@ -64,7 +63,6 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     { count: totalBookingsCount },
     { data: lastBookingRow },
     { data: confirmedBookingRows },
-    { data: relatedRows },
   ] = await Promise.all([
     supabase.from("hosts").select("*").eq("id", homestay.host_id).single(),
     supabase.from("rooms").select("*, room_seasonal_prices(*), room_options(*)").eq("homestay_id", homestay.id).eq("is_active", true).order("created_at", { ascending: true }),
@@ -75,13 +73,6 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     supabase.from("bookings").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]),
     supabase.from("bookings").select("created_at").eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
     supabase.from("bookings").select("room_id").eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]).not("room_id", "is", null),
-    supabase
-      .from("homestays")
-      .select("id, slug, name, location, hero_image_url, gallery, tagline, host_id")
-      .eq("is_active", true)
-      .neq("id", homestay.id)
-      .order("created_at", { ascending: false })
-      .limit(24),
   ]);
 
   const host = hostRow as unknown as Host | null;
@@ -149,134 +140,6 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     mostBookedRoomId = rooms[0].id;
   }
 
-  type RelatedRow = {
-    id: string;
-    slug: string;
-    name: string;
-    location: string;
-    hero_image_url: string | null;
-    gallery: string[] | null;
-    tagline: string | null;
-    host_id: string;
-  };
-  const relatedCandidates = (relatedRows as RelatedRow[] | null) ?? [];
-
-  let related: {
-    slug: string;
-    name: string;
-    location: string;
-    heroImageUrl: string | null;
-    gallery: string[];
-    tagline: string | null;
-    minPrice: number | null;
-    reviewCount: number;
-    averageRating: number;
-    isHostVerified: boolean;
-  }[] = [];
-
-  if (relatedCandidates.length > 0) {
-    const relatedIds = relatedCandidates.map((r) => r.id);
-    const relatedHostIds = [...new Set(relatedCandidates.map((r) => r.host_id))];
-
-    const [
-      { data: relatedRoomRows },
-      { data: relatedReviewRows },
-      { data: relatedHostRows },
-      { data: relatedOverdueRows },
-    ] = await Promise.all([
-      supabase
-        .from("rooms")
-        .select("homestay_id, price_per_night")
-        .in("homestay_id", relatedIds)
-        .eq("is_active", true),
-      supabase
-        .from("reviews")
-        .select("homestay_id, rating")
-        .in("homestay_id", relatedIds),
-      supabase
-        .from("hosts")
-        .select(
-          "id, is_verified, plan_type, plan_free_expires_at, wallet_balance, wallet_credit_limit, wallet_negative_since",
-        )
-        .in("id", relatedHostIds),
-      supabase
-        .from("invoices")
-        .select("host_id")
-        .in("host_id", relatedHostIds)
-        .eq("status", "overdue"),
-    ]);
-
-    const relMinPrice = new Map<string, number>();
-    for (const r of (relatedRoomRows as { homestay_id: string; price_per_night: number }[] | null) ??
-      []) {
-      const cur = relMinPrice.get(r.homestay_id);
-      if (cur === undefined || r.price_per_night < cur) relMinPrice.set(r.homestay_id, r.price_per_night);
-    }
-
-    const relCount = new Map<string, number>();
-    const relSum = new Map<string, number>();
-    for (const r of (relatedReviewRows as { homestay_id: string; rating: number }[] | null) ?? []) {
-      relCount.set(r.homestay_id, (relCount.get(r.homestay_id) ?? 0) + 1);
-      relSum.set(r.homestay_id, (relSum.get(r.homestay_id) ?? 0) + r.rating);
-    }
-
-    const overdueHostSet = new Set<string>(
-      ((relatedOverdueRows as { host_id: string }[] | null) ?? []).map((r) => r.host_id),
-    );
-    const verifiedMap = new Map<string, boolean>();
-    const blockedHostSet = new Set<string>();
-    for (const h of ((relatedHostRows as {
-      id: string;
-      is_verified: boolean;
-      plan_type: string;
-      plan_free_expires_at: string | null;
-      wallet_balance: number | null;
-      wallet_credit_limit: number | null;
-      wallet_negative_since: string | null;
-    }[] | null) ?? [])) {
-      verifiedMap.set(h.id, h.is_verified);
-      if (
-        isHostBlocked({
-          plan_type: h.plan_type,
-          plan_free_expires_at: h.plan_free_expires_at,
-          has_overdue_invoice: overdueHostSet.has(h.id),
-          wallet_balance: h.wallet_balance ?? 0,
-          wallet_credit_limit: h.wallet_credit_limit,
-          wallet_negative_since: h.wallet_negative_since,
-        })
-      ) {
-        blockedHostSet.add(h.id);
-      }
-    }
-
-    related = relatedCandidates
-      .filter((r) => !blockedHostSet.has(r.host_id))
-      .map((r) => {
-        const cnt = relCount.get(r.id) ?? 0;
-        const sum = relSum.get(r.id) ?? 0;
-        return {
-          slug: r.slug,
-          name: r.name,
-          location: r.location,
-          heroImageUrl: r.hero_image_url,
-          gallery: r.gallery ?? [],
-          tagline: r.tagline,
-          minPrice: relMinPrice.get(r.id) ?? null,
-          reviewCount: cnt,
-          averageRating: cnt > 0 ? Math.round((sum / cnt) * 10) / 10 : 0,
-          isHostVerified: verifiedMap.get(r.host_id) ?? false,
-          sameLocation: r.location === homestay.location,
-        };
-      })
-      .sort((a, b) => {
-        if (a.sameLocation !== b.sameLocation) return a.sameLocation ? -1 : 1;
-        if (a.averageRating !== b.averageRating) return b.averageRating - a.averageRating;
-        return b.reviewCount - a.reviewCount;
-      })
-      .slice(0, 6)
-      .map(({ sameLocation: _sameLocation, ...rest }) => rest);
-  }
-
   return {
     homestay: { ...homestay, host: host! } as Homestay & { host: Host },
     rooms,
@@ -291,7 +154,6 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     totalBookings: totalBookingsCount || 0,
     lastBookingDate: (lastBookingRow as { created_at: string } | null)?.created_at || null,
     bookingDisabled,
-    related,
     mostBookedRoomId,
     hasConfirmedBookings,
   };
@@ -353,7 +215,7 @@ export default async function HomestayPage({ params }: PageProps) {
     notFound();
   }
 
-  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, roomOptions, reviews, averageRating, categoryAverages, reviewCount, totalBookings, lastBookingDate, bookingDisabled, related, mostBookedRoomId, hasConfirmedBookings } = data;
+  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, roomOptions, reviews, averageRating, categoryAverages, reviewCount, totalBookings, lastBookingDate, bookingDisabled, mostBookedRoomId, hasConfirmedBookings } = data;
 
   const popularRoomId = hasConfirmedBookings && mostBookedRoomId && rooms.some((r) => r.id === mostBookedRoomId) ? mostBookedRoomId : null;
   const popularRoomIds = popularRoomId ? new Set<string>([popularRoomId]) : EMPTY_POPULAR_ROOM_IDS;
@@ -518,10 +380,6 @@ export default async function HomestayPage({ params }: PageProps) {
             />
           </div>
         </section>
-
-        <div className="bg-earth-50">
-          <RelatedHomestaysSection items={related} />
-        </div>
 
         <FinalCtaSection />
       </main>
