@@ -6,12 +6,26 @@ import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { PlatformFooter } from "@/components/platform-footer";
 import type { Metadata } from "next";
+import { SITE_NAME, buildAlternates } from "@/lib/seo";
 
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: "Trust & Safety — Peaksnature",
-  description: "Learn about Peaksnature's commitment to platform safety and trustworthiness.",
+  title: "Trust & Safety",
+  description: `Learn about ${SITE_NAME}'s commitment to platform safety and trustworthiness.`,
+  alternates: buildAlternates("/trust-safety"),
+  openGraph: {
+    title: `Trust & Safety | ${SITE_NAME}`,
+    description: `Learn about ${SITE_NAME}'s commitment to platform safety and trustworthiness.`,
+    url: "/trust-safety",
+    type: "article",
+    siteName: SITE_NAME,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `Trust & Safety | ${SITE_NAME}`,
+    description: `Learn about ${SITE_NAME}'s commitment to platform safety and trustworthiness.`,
+  },
 };
 
 export default async function TrustSafetyPage() {

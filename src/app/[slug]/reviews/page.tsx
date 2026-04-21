@@ -7,7 +7,9 @@ import { getTranslations } from "next-intl/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { resolveSlugRedirect } from "@/lib/slug-redirect";
 import { ReviewSubmission } from "@/components/reviews/review-submission";
+import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import type { Homestay } from "@/types/database";
+import { SITE_NAME, buildAlternates } from "@/lib/seo";
 
 export const revalidate = 30;
 
@@ -30,15 +32,31 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   const homestay = await getHomestayBasic(slug);
 
-  if (!homestay) return { title: "Not Found — Peaksnature" };
+  if (!homestay) return { title: "Not Found", robots: { index: false, follow: false } };
+
+  const title = `Write a Review — ${homestay.name} | ${SITE_NAME}`;
+  const description = `Share your experience at ${homestay.name}. Rate your stay and help future guests.`;
+  const image = homestay.hero_image_url;
 
   return {
-    title: `Write a Review — ${homestay.name} | Peaksnature`,
-    description: `Share your experience at ${homestay.name}. Rate your stay and help future guests.`,
+    title: { absolute: title },
+    description,
+    alternates: buildAlternates(`/${slug}/reviews`),
     openGraph: {
       title: `Review ${homestay.name}`,
-      images: homestay.hero_image_url ? [{ url: homestay.hero_image_url }] : [],
+      description,
+      url: `/${slug}/reviews`,
+      type: "website",
+      siteName: SITE_NAME,
+      images: image ? [{ url: image, alt: homestay.name }] : undefined,
     },
+    twitter: {
+      card: "summary_large_image",
+      title: `Review ${homestay.name}`,
+      description,
+      images: image ? [image] : undefined,
+    },
+    robots: { index: true, follow: true },
   };
 }
 
@@ -70,6 +88,14 @@ export default async function ReviewsPage({ params }: PageProps) {
       </header>
 
       <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
+        <Breadcrumbs
+          items={[
+            { label: SITE_NAME, href: "/" },
+            { label: homestay.name, href: `/${homestay.slug}` },
+            { label: "Reviews" },
+          ]}
+          className="mb-6 text-sm text-gray-500"
+        />
         {/* Title */}
         <div className="mb-8 text-center">
           <h1 className="text-2xl font-bold text-gray-900">{tp("title")}</h1>

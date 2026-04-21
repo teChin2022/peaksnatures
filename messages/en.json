@@ -1131,6 +1131,10 @@
     "description": "The homestay you're looking for doesn't exist or has been removed.",
     "browseAll": "Browse All Homestays"
   },
+  "relatedHomestays": {
+    "title": "More places like this",
+    "subtitle": "Other nature homestays guests love"
+  },
   "footer": {
     "company": "Peaksnature",
     "about": "About",

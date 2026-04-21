@@ -74,6 +74,9 @@ RESEND_API_KEY
 SMS_KUB_API_KEY
 SMS_KUB_SENDER
 CRON_SECRET              # Secures /api/cron/* endpoints. Generate with: openssl rand -base64 32
+NEXT_PUBLIC_SITE_URL     # Canonical domain for SEO (metadata, sitemap, robots, JSON-LD). Default: https://peaksnature.com
+GOOGLE_SITE_VERIFICATION # Optional. Google Search Console verification token.
+BING_SITE_VERIFICATION   # Optional. Bing Webmaster verification token.
 ```
 
 Per-host LINE credentials (`line_channel_access_token`, `line_user_id`) are stored in the `hosts` DB table.
