@@ -89,6 +89,7 @@ export async function callEasySlipV2(
       method: "POST",
       headers: { Authorization: `Bearer ${apiKey}` },
       body: form,
+      signal: AbortSignal.timeout(8000),
     });
 
     const data: EasySlipV2Response = await res.json();

@@ -18,37 +18,12 @@ import { logClientEvent } from "@/lib/history-log-client";
 
 import { SecurityPinDialog } from "@/components/security-pin-dialog";
 
-function maskEmail(email: string): string {
-  const [local, domain] = email.split("@");
-  if (!domain) return "***";
-  return local.charAt(0) + "***@" + domain;
-}
-
-function maskPhone(phone: string): string {
-  if (phone.length < 4) return "***";
-  return phone.slice(0, 2) + "x-xxx-x" + phone.slice(-3);
-}
-
-function maskPromptpay(id: string): string {
-  if (id.length < 4) return "***";
-  return "x-xxxx-xx" + id.slice(-3);
-}
-
 interface HostData {
   id: string;
   name: string;
-  email: string;
-  phone: string | null;
-  line_user_id: string | null;
-  line_channel_access_token: string | null;
-  promptpay_id: string;
-  notification_preference: string;
-  avatar_url: string | null;
-  bank_name: string | null;
-  bank_account_number: string | null;
-  bank_account_name: string | null;
-  payment_display: string;
-  require_otp: boolean;
+  maskedEmail: string;
+  maskedPhone: string;
+  maskedPromptpay: string;
 }
 
 export default function ProfilePage() {
@@ -94,50 +69,60 @@ export default function ProfilePage() {
   const [requireOtp, setRequireOtp] = useState(true);
 
   useEffect(() => {
+    const ctrl = new AbortController();
+    const { signal } = ctrl;
+
     const fetchHost = async () => {
       const supabase = createClient();
       const {
         data: { user },
       } = await supabase.auth.getUser();
-      if (!user) return;
+      if (signal.aborted || !user) return;
       setUserId(user.id);
 
-      const { data } = await supabase
-        .from("hosts")
-        .select("id, name, email, phone, line_user_id, line_channel_access_token, promptpay_id, notification_preference, security_pin_hash, avatar_url, bank_name, bank_account_number, bank_account_name, payment_display, require_otp")
-        .eq("user_id", user.id)
-        .single();
-
-      if (data) {
-        const h = data as HostData & { security_pin_hash: string | null };
-        setHost(h);
-        setName(h.name);
-        setHasPinSet(!!h.security_pin_hash);
-        // Always show masked values for sensitive fields
-        setEmail(maskEmail(h.email));
-        setPhone(h.phone ? maskPhone(h.phone) : "");
-        setLineUserId(h.line_user_id || "");
-        // Never expose the full LINE channel token to the browser
-        const token = h.line_channel_access_token || "";
-        if (token) {
-          setLineChannelToken("••••••••" + token.slice(-4));
-          setLineTokenMasked(true);
-        } else {
-          setLineChannelToken("");
-          setLineTokenMasked(false);
-        }
-        setPromptpayId(maskPromptpay(h.promptpay_id));
-        setNotificationPreference(h.notification_preference || "sms");
-        setAvatarUrl(h.avatar_url || null);
-        setPaymentDisplay((h.payment_display as "qr" | "bank") || "qr");
-        setBankName(h.bank_name || "");
-        setBankAccountNumber(h.bank_account_number || "");
-        setBankAccountName(h.bank_account_name || "");
-        setRequireOtp(h.require_otp !== false);
+      const res = await fetch("/api/host/profile", { signal });
+      if (signal.aborted) return;
+      if (!res.ok) {
+        setLoading(false);
+        return;
       }
+      const data = await res.json();
+      if (signal.aborted) return;
+
+      setHost({
+        id: data.id,
+        name: data.name,
+        maskedEmail: data.masked.email,
+        maskedPhone: data.masked.phone,
+        maskedPromptpay: data.masked.promptpay_id,
+      });
+      setName(data.name);
+      setHasPinSet(data.hasPinSet);
+      setEmail(data.masked.email);
+      setPhone(data.masked.phone);
+      setLineUserId(data.line_user_id || "");
+      if (data.hasLineToken) {
+        setLineChannelToken("••••••••" + (data.line_token_tail || ""));
+        setLineTokenMasked(true);
+      } else {
+        setLineChannelToken("");
+        setLineTokenMasked(false);
+      }
+      setPromptpayId(data.masked.promptpay_id);
+      setNotificationPreference(data.notification_preference || "sms");
+      setAvatarUrl(data.avatar_url || null);
+      setPaymentDisplay((data.payment_display as "qr" | "bank") || "qr");
+      setBankName(data.bank_name || "");
+      setBankAccountNumber(data.bank_account_number || "");
+      setBankAccountName(data.bank_account_name || "");
+      setRequireOtp(data.require_otp !== false);
       setLoading(false);
     };
-    fetchHost();
+    fetchHost().catch((e: unknown) => {
+      if ((e as Error)?.name !== "AbortError") throw e;
+    });
+
+    return () => ctrl.abort();
   }, []);
 
   const handleAvatarUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -288,9 +273,9 @@ export default function ProfilePage() {
     if (!host) return;
     setSensitiveUnlocked(false);
     setCurrentPin("");
-    setEmail(maskEmail(host.email));
-    setPhone(host.phone ? maskPhone(host.phone) : "");
-    setPromptpayId(maskPromptpay(host.promptpay_id));
+    setEmail(host.maskedEmail);
+    setPhone(host.maskedPhone);
+    setPromptpayId(host.maskedPromptpay);
   };
 
   const handleDeleteButtonClick = () => {

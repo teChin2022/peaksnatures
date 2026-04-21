@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
+import { revalidateTag } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendHostCancellationLineNotification, sendHostCancellationSmsNotification, dispatchHostNotification, buildCancellationMessage } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room } from "@/types/database";
@@ -170,6 +171,8 @@ export async function POST(req: NextRequest) {
       }
     });
 
+    revalidateTag("admin-stats", "max");
+    revalidateTag(`booking-availability:${booking.homestay_id}`, "max");
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[GuestCancel] Error:", error);

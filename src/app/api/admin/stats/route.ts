@@ -1,9 +1,46 @@
 import { NextResponse } from "next/server";
+import { unstable_cache } from "next/cache";
 import {
   createServerSupabaseClient,
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
+
+const getCachedStats = unstable_cache(
+  async () => {
+    const sc = createServiceRoleClient();
+
+    const [
+      hostsRes,
+      pendingHostsRes,
+      homestaysRes,
+      totalBookingsRes,
+      pendingBookingsRes,
+      confirmedBookingsRes,
+      revenueRes,
+    ] = await Promise.all([
+      sc.from("hosts").select("id", { count: "exact", head: true }),
+      sc.from("hosts").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      sc.from("homestays").select("id", { count: "exact", head: true }),
+      sc.from("bookings").select("id", { count: "exact", head: true }),
+      sc.from("bookings").select("id", { count: "exact", head: true }).eq("status", "pending"),
+      sc.from("bookings").select("id", { count: "exact", head: true }).eq("status", "confirmed"),
+      sc.rpc("get_admin_revenue_total"),
+    ]);
+
+    return {
+      totalHosts: hostsRes.count || 0,
+      pendingHosts: pendingHostsRes.count || 0,
+      totalHomestays: homestaysRes.count || 0,
+      totalBookings: totalBookingsRes.count || 0,
+      pendingBookings: pendingBookingsRes.count || 0,
+      confirmedBookings: confirmedBookingsRes.count || 0,
+      totalRevenue: Number(revenueRes.data ?? 0),
+    };
+  },
+  ["admin-stats"],
+  { revalidate: 300, tags: ["admin-stats"] },
+);
 
 export async function GET() {
   try {
@@ -17,36 +54,9 @@ export async function GET() {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
 
-    const sc = createServiceRoleClient();
+    const stats = await getCachedStats();
 
-    const [hostsRes, pendingHostsRes, homestaysRes, totalBookingsRes, pendingBookingsRes, confirmedBookingsRes, revenueRes] = await Promise.all([
-      sc.from("hosts").select("id", { count: "exact", head: true }),
-      sc.from("hosts").select("id", { count: "exact", head: true }).eq("status", "pending"),
-      sc.from("homestays").select("id", { count: "exact", head: true }),
-      sc.from("bookings").select("id", { count: "exact", head: true }),
-      sc.from("bookings").select("id", { count: "exact", head: true }).eq("status", "pending"),
-      sc.from("bookings").select("id", { count: "exact", head: true }).eq("status", "confirmed"),
-      sc.from("bookings").select("total_price").in("status", ["confirmed", "completed"]),
-    ]);
-
-    const totalHosts = hostsRes.count || 0;
-    const pendingHosts = pendingHostsRes.count || 0;
-    const totalHomestays = homestaysRes.count || 0;
-    const totalBookings = totalBookingsRes.count || 0;
-    const pendingBookings = pendingBookingsRes.count || 0;
-    const confirmedBookings = confirmedBookingsRes.count || 0;
-    const revenueRows = (revenueRes.data as { total_price: number }[]) || [];
-    const totalRevenue = revenueRows.reduce((sum, b) => sum + b.total_price, 0);
-
-    return NextResponse.json({
-      totalHosts,
-      pendingHosts,
-      totalHomestays,
-      totalBookings,
-      totalRevenue,
-      pendingBookings,
-      confirmedBookings,
-    }, {
+    return NextResponse.json(stats, {
       headers: { "Cache-Control": "private, no-store" },
     });
   } catch (error) {

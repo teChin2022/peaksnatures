@@ -314,6 +314,7 @@ export async function sendSms(phone: string, message: string): Promise<{ success
       from: sender,
       message,
     }),
+    signal: AbortSignal.timeout(5000),
   });
 
   if (!response.ok) {
@@ -706,6 +707,7 @@ export async function sendHostCancellationLineNotification(
         to: lineUserId,
         messages: [{ type: "text", text: messageText }],
       }),
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!response.ok) {
@@ -754,6 +756,7 @@ export async function sendHostLineNotification(
           },
         ],
       }),
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!response.ok) {
@@ -800,59 +803,31 @@ export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
     const appUrl = info.appUrl || process.env.NEXT_PUBLIC_APP_URL || "";
     const reviewLink = appUrl ? `${appUrl}/admin/hosts?status=pending` : "";
 
-    for (const admin of admins as { email: string; line_user_id: string | null; line_channel_access_token: string | null }[]) {
-      // Send LINE if configured
-      if (admin.line_user_id && admin.line_channel_access_token) {
-        try {
-          const lineMsg = [
-            `🆕 โฮสต์ใหม่สมัครเข้ามา`,
-            `━━━━━━━━━━━━━━━━`,
-            ``,
-            `👤 ชื่อ: ${info.hostName}`,
-            `📧 อีเมล: ${info.hostEmail}`,
-            ``,
-            `กรุณาตรวจสอบและอนุมัติที่ Admin Panel`,
-            ...(reviewLink ? [`🔗 ${reviewLink}`] : []),
-          ].join("\n");
+    const lineMsg = [
+      `🆕 โฮสต์ใหม่สมัครเข้ามา`,
+      `━━━━━━━━━━━━━━━━`,
+      ``,
+      `👤 ชื่อ: ${info.hostName}`,
+      `📧 อีเมล: ${info.hostEmail}`,
+      ``,
+      `กรุณาตรวจสอบและอนุมัติที่ Admin Panel`,
+      ...(reviewLink ? [`🔗 ${reviewLink}`] : []),
+    ].join("\n");
 
-          await fetch("https://api.line.me/v2/bot/message/push", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${admin.line_channel_access_token}`,
-            },
-            body: JSON.stringify({
-              to: admin.line_user_id,
-              messages: [{ type: "text", text: lineMsg }],
-            }),
-          });
-          console.log(`[Admin Notify] LINE sent to admin: ${admin.email}`);
-        } catch (err) {
-          console.error(`[Admin Notify] LINE failed for ${admin.email}:`, err);
-        }
-      }
+    const resendKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
+    let resendInstance: import("resend").Resend | null = null;
+    let fromEmail = "";
+    if (resendKey) {
+      const { Resend } = await import("resend");
+      resendInstance = new Resend(resendKey);
+      const DEFAULT_FROM = "Peaksnature <onboarding@resend.dev>";
+      const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
+      fromEmail = cleaned
+        ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
+        : DEFAULT_FROM;
+    }
 
-      // Always send email
-      try {
-        const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
-        if (!apiKey) {
-          console.log(`[Admin Notify] Email skipped — RESEND_API_KEY not configured. Would send to: ${admin.email}`);
-          continue;
-        }
-        const { Resend } = await import("resend");
-        const resend = new Resend(apiKey);
-
-        const DEFAULT_FROM = "Peaksnature <onboarding@resend.dev>";
-        const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
-        const fromEmail = cleaned
-          ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
-          : DEFAULT_FROM;
-
-        await resend.emails.send({
-          from: fromEmail,
-          to: admin.email,
-          subject: `New host registration – ${info.hostName}`,
-          html: `
+    const emailHtml = `
             <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
               <div style="background: #f9fafb; padding: 32px 24px; border-bottom: 1px solid #e5e7eb;">
                 <h1 style="color: #111827; margin: 0; font-size: 22px; font-weight: 700;">New Host Registration</h1>
@@ -872,13 +847,54 @@ export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
                 </div>
               </div>
             </div>
-          `,
+          `;
+
+    type Admin = { email: string; line_user_id: string | null; line_channel_access_token: string | null };
+
+    const sendLine = async (admin: Admin) => {
+      if (!admin.line_user_id || !admin.line_channel_access_token) return;
+      try {
+        await fetch("https://api.line.me/v2/bot/message/push", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${admin.line_channel_access_token}`,
+          },
+          body: JSON.stringify({
+            to: admin.line_user_id,
+            messages: [{ type: "text", text: lineMsg }],
+          }),
+          signal: AbortSignal.timeout(5000),
+        });
+        console.log(`[Admin Notify] LINE sent to admin: ${admin.email}`);
+      } catch (err) {
+        console.error(`[Admin Notify] LINE failed for ${admin.email}:`, err);
+      }
+    };
+
+    const sendEmail = async (admin: Admin) => {
+      if (!resendInstance) {
+        console.log(`[Admin Notify] Email skipped — RESEND_API_KEY not configured. Would send to: ${admin.email}`);
+        return;
+      }
+      try {
+        await resendInstance.emails.send({
+          from: fromEmail,
+          to: admin.email,
+          subject: `New host registration – ${info.hostName}`,
+          html: emailHtml,
         });
         console.log(`[Admin Notify] Email sent to admin: ${admin.email}`);
       } catch (err) {
         console.error(`[Admin Notify] Email failed for ${admin.email}:`, err);
       }
-    }
+    };
+
+    await Promise.allSettled(
+      (admins as Admin[]).map((admin) =>
+        Promise.allSettled([sendLine(admin), sendEmail(admin)]),
+      ),
+    );
   } catch (error) {
     console.error("[Admin Notify] Error:", error);
   }
@@ -984,6 +1000,7 @@ export async function sendDateChangeLineNotification(
         to: lineUserId,
         messages: [{ type: "text", text: messageText }],
       }),
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!response.ok) {

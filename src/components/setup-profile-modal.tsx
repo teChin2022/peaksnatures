@@ -17,29 +17,29 @@ import { createClient } from "@/lib/supabase/client";
 
 interface SetupProfileModalProps {
   hostId: string;
-  currentPhone: string | null;
-  currentPromptpay: string | null;
+  hasPhone: boolean;
+  hasPromptpay: boolean;
   hasPinSet: boolean;
   onComplete: () => void;
 }
 
 export function SetupProfileModal({
   hostId,
-  currentPhone,
-  currentPromptpay,
+  hasPhone,
+  hasPromptpay,
   hasPinSet,
   onComplete,
 }: SetupProfileModalProps) {
   const t = useTranslations("setupProfile");
-  const [phone, setPhone] = useState(currentPhone || "");
-  const [promptpayId, setPromptpayId] = useState(currentPromptpay || "");
+  const [phone, setPhone] = useState("");
+  const [promptpayId, setPromptpayId] = useState("");
   const [pin, setPin] = useState("");
   const [confirmPin, setConfirmPin] = useState("");
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const needsPhone = !currentPhone;
-  const needsPromptpay = !currentPromptpay;
+  const needsPhone = !hasPhone;
+  const needsPromptpay = !hasPromptpay;
   const needsPin = !hasPinSet;
   const isOpen = needsPhone || needsPromptpay || needsPin;
 

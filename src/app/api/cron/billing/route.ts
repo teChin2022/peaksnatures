@@ -3,7 +3,29 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
 import { getBillingConfig, getEffectiveFixedRate, processBillingRetryQueue } from "@/lib/billing";
 import { GRACE_PERIOD_DAYS } from "@/lib/plan-expiry";
+import { sendSms } from "@/lib/notifications";
 import type { Host, PlatformBillingConfig } from "@/types/database";
+
+async function runWithConcurrency<T>(
+  items: T[],
+  limit: number,
+  worker: (item: T) => Promise<void>,
+): Promise<void> {
+  let cursor = 0;
+  const n = Math.min(limit, items.length);
+  const runners = Array.from({ length: n }, async () => {
+    while (true) {
+      const i = cursor++;
+      if (i >= items.length) return;
+      try {
+        await worker(items[i]);
+      } catch (err) {
+        console.error("[Cron] worker error:", err);
+      }
+    }
+  });
+  await Promise.all(runners);
+}
 
 /**
  * GET /api/cron/billing
@@ -74,10 +96,12 @@ export async function GET(req: NextRequest) {
       .lt("plan_free_expires_at", in3DaysNext + "T00:00:00Z");
 
     let preExpiryNotifications = 0;
-    for (const host of (expiringIn3DaysHosts || []) as { id: string; name: string; phone: string | null }[]) {
-      if (host.phone) {
+    await runWithConcurrency(
+      (expiringIn3DaysHosts || []) as { id: string; name: string; phone: string | null }[],
+      10,
+      async (host) => {
+        if (!host.phone) return;
         try {
-          const { sendSms } = await import("@/lib/notifications");
           const result = await sendSms(
             host.phone,
             `แพลนฟรีของคุณจะหมดอายุใน 3 วัน กรุณาเข้าระบบเพื่อเปลี่ยนแพลน`,
@@ -86,8 +110,8 @@ export async function GET(req: NextRequest) {
         } catch (err) {
           console.error("[Cron] Pre-expiry SMS error for host:", host.id, err);
         }
-      }
-    }
+      },
+    );
     results.pre_expiry_notifications = preExpiryNotifications;
 
     // ============================================================
@@ -102,29 +126,32 @@ export async function GET(req: NextRequest) {
       .gte("plan_free_expires_at", today + "T00:00:00Z");
 
     let expiryNotifications = 0;
-    for (const host of (expiredFreeHosts || []) as { id: string; name: string; phone: string | null }[]) {
-      if (host.phone) {
-        try {
-          const { sendSms } = await import("@/lib/notifications");
-          const result = await sendSms(
-            host.phone,
-            `แพลนฟรีหมดอายุแล้ว กรุณาเข้าระบบเพื่อเปลี่ยนแพลน`,
-          );
-          if (result.success) expiryNotifications++;
-        } catch (err) {
-          console.error("[Cron] Expiry SMS error for host:", host.id, err);
+    await runWithConcurrency(
+      (expiredFreeHosts || []) as { id: string; name: string; phone: string | null }[],
+      10,
+      async (host) => {
+        if (host.phone) {
+          try {
+            const result = await sendSms(
+              host.phone,
+              `แพลนฟรีหมดอายุแล้ว กรุณาเข้าระบบเพื่อเปลี่ยนแพลน`,
+            );
+            if (result.success) expiryNotifications++;
+          } catch (err) {
+            console.error("[Cron] Expiry SMS error for host:", host.id, err);
+          }
         }
-      }
 
-      await logEvent({
-        entityType: "host",
-        entityId: host.id,
-        eventType: EventType.PLAN_EXPIRED,
-        actorType: "system",
-        actorId: null,
-        data: { plan_type: "free", host_name: host.name },
-      });
-    }
+        await logEvent({
+          entityType: "host",
+          entityId: host.id,
+          eventType: EventType.PLAN_EXPIRED,
+          actorType: "system",
+          actorId: null,
+          data: { plan_type: "free", host_name: host.name },
+        });
+      },
+    );
     results.expiry_notifications = expiryNotifications;
 
     // ============================================================
@@ -140,10 +167,12 @@ export async function GET(req: NextRequest) {
       .lt("plan_free_expires_at", ago5DaysNext + "T00:00:00Z");
 
     let graceNotifications = 0;
-    for (const host of (graceReminderHosts || []) as { id: string; name: string; phone: string | null }[]) {
-      if (host.phone) {
+    await runWithConcurrency(
+      (graceReminderHosts || []) as { id: string; name: string; phone: string | null }[],
+      10,
+      async (host) => {
+        if (!host.phone) return;
         try {
-          const { sendSms } = await import("@/lib/notifications");
           const result = await sendSms(
             host.phone,
             `แพลนฟรีของคุณหมดอายุแล้ว การจองจะถูกระงับใน ${graceDaysLeft} วัน กรุณาเข้าระบบเพื่อเปลี่ยนแพลน`,
@@ -152,8 +181,8 @@ export async function GET(req: NextRequest) {
         } catch (err) {
           console.error("[Cron] Grace reminder SMS error for host:", host.id, err);
         }
-      }
-    }
+      },
+    );
     results.grace_notifications = graceNotifications;
 
     // ============================================================
@@ -239,37 +268,41 @@ export async function GET(req: NextRequest) {
 
       let invoiceCount = 0;
       let invoiceNotifications = 0;
-      for (const host of (fixedRateHosts || []) as { id: string; fixed_rate_override: number | null; name: string; phone: string | null; notification_preference: string | null; line_channel_access_token: string | null; line_user_id: string | null }[]) {
-        const { data: existing } = await supabase
-          .from("invoices")
-          .select("id")
-          .eq("host_id", host.id)
-          .eq("period_start", periodStart)
-          .limit(1);
+      await runWithConcurrency(
+        (fixedRateHosts || []) as { id: string; fixed_rate_override: number | null; name: string; phone: string | null; notification_preference: string | null; line_channel_access_token: string | null; line_user_id: string | null }[],
+        5,
+        async (host) => {
+          const { data: existing } = await supabase
+            .from("invoices")
+            .select("id")
+            .eq("host_id", host.id)
+            .eq("period_start", periodStart)
+            .limit(1);
 
-        if ((existing as unknown[] | null)?.length) continue;
+          if ((existing as unknown[] | null)?.length) return;
 
-        const amount = getEffectiveFixedRate(
-          host as unknown as Pick<Host, "fixed_rate_override">,
-          config as PlatformBillingConfig,
-        );
+          const amount = getEffectiveFixedRate(
+            host as unknown as Pick<Host, "fixed_rate_override">,
+            config as PlatformBillingConfig,
+          );
 
-        if (amount <= 0) continue;
+          if (amount <= 0) return;
 
-        const { error } = await supabase
-          .from("invoices")
-          .insert({
-            host_id: host.id,
-            amount,
-            period_start: periodStart,
-            period_end: periodEnd,
-            due_date: dueDate,
-            status: "pending",
-            created_by: "system",
-            updated_by: "system",
-          } as never);
+          const { error } = await supabase
+            .from("invoices")
+            .insert({
+              host_id: host.id,
+              amount,
+              period_start: periodStart,
+              period_end: periodEnd,
+              due_date: dueDate,
+              status: "pending",
+              created_by: "system",
+              updated_by: "system",
+            } as never);
 
-        if (!error) {
+          if (error) return;
+
           invoiceCount++;
           await logEvent({
             entityType: "billing",
@@ -280,7 +313,6 @@ export async function GET(req: NextRequest) {
             data: { amount, period_start: periodStart, period_end: periodEnd },
           });
 
-          // Send payment reminder SMS/LINE
           const message = `ใบแจ้งหนี้ประจำเดือน ฿${amount.toLocaleString()} ครบกำหนดชำระภายในวันที่ 5 กรุณาเข้าระบบเพื่อชำระเงิน`;
           try {
             const preference = host.notification_preference || "sms";
@@ -297,12 +329,12 @@ export async function GET(req: NextRequest) {
                   to: host.line_user_id,
                   messages: [{ type: "text", text: message }],
                 }),
+                signal: AbortSignal.timeout(5000),
               });
               sent = response.ok;
             }
 
             if (!sent && host.phone) {
-              const { sendSms } = await import("@/lib/notifications");
               const result = await sendSms(host.phone, message);
               sent = result.success;
             }
@@ -311,8 +343,8 @@ export async function GET(req: NextRequest) {
           } catch (err) {
             console.error("[Cron] Invoice reminder error for host:", host.id, err);
           }
-        }
-      }
+        },
+      );
       results.invoices_created = invoiceCount;
       results.invoice_notifications = invoiceNotifications;
     }
