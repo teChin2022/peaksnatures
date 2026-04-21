@@ -94,7 +94,7 @@
     "contactFormError": "Failed to send message. Please try again."
   },
   "gallery": {
-    "title": "Gallery",
+    "title": "Atmosphere",
     "showAll": "Show all photos"
   },
   "about": {
@@ -262,7 +262,7 @@
     "trustResponse": "Priority Response",
     "trustResponseDesc": "Average response time: 45 minutes",
     "trustSecure": "Secure & Private",
-    "trustSecureDesc": "Your information is encrypted and confidential",
+    "trustSecureDesc": "We handle your information with care",
     "confirmedClose": "Close",
     "duplicateTitle": "Booking Already Exists",
     "duplicateDescEmail": "An active booking was found using this email address.",
