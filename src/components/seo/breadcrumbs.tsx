@@ -11,9 +11,10 @@ export type BreadcrumbItem = {
 interface BreadcrumbsProps {
   items: BreadcrumbItem[];
   className?: string;
+  visuallyHidden?: boolean;
 }
 
-export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
+export function Breadcrumbs({ items, className, visuallyHidden }: BreadcrumbsProps) {
   if (!items.length) return null;
 
   const ld = {
@@ -33,8 +34,10 @@ export function Breadcrumbs({ items, className }: BreadcrumbsProps) {
       <nav
         aria-label="Breadcrumb"
         className={
-          className ??
-          "mx-auto max-w-7xl px-4 pt-4 pb-2 text-sm text-gray-500 sm:px-6"
+          visuallyHidden
+            ? "sr-only"
+            : className ??
+              "mx-auto max-w-7xl px-4 pt-4 pb-2 text-sm text-gray-500 sm:px-6"
         }
       >
         <ol className="flex flex-wrap items-center gap-1.5">

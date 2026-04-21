@@ -74,32 +74,31 @@ export default async function ReviewsPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-gray-50/50">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-md">
+      <Breadcrumbs
+        items={[
+          { label: SITE_NAME, href: "/" },
+          { label: homestay.name, href: `/${homestay.slug}` },
+          { label: "Reviews" },
+        ]}
+        visuallyHidden
+      />
+
+      <header className="sticky top-0 z-50 border-b border-gray-200/70 bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-2xl items-center gap-3 px-4 sm:px-6">
           <Link
             href={`/${homestay.slug}`}
-            className="flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-900"
+            className="group flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-brand"
           >
-            <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">{tp("backToHomestay", { name: homestay.name })}</span>
+            <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+            <span className="hidden truncate sm:inline">{tp("backToHomestay", { name: homestay.name })}</span>
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
-        <Breadcrumbs
-          items={[
-            { label: SITE_NAME, href: "/" },
-            { label: homestay.name, href: `/${homestay.slug}` },
-            { label: "Reviews" },
-          ]}
-          className="mb-6 text-sm text-gray-500"
-        />
-        {/* Title */}
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-gray-900">{tp("title")}</h1>
-          <p className="mt-1 text-sm text-gray-500">{tp("subtitle", { name: homestay.name })}</p>
+      <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-12">
+        <div className="mb-10 text-center">
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">{tp("title")}</h1>
+          <p className="mt-2 text-sm text-gray-500">{tp("subtitle", { name: homestay.name })}</p>
         </div>
 
         <ReviewSubmission
