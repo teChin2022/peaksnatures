@@ -379,8 +379,13 @@ export async function sendHostSmsNotification(
   const roomName = (room?.name || "Standard").slice(0, 12);
   const status = type === "confirmed" ? "ยืนยันแล้ว" : "รอตรวจสอบ";
 
+  const isDeposit = booking.payment_type === "deposit";
+  const priceLabel = isDeposit
+    ? `มัดจำ ฿${(booking.amount_paid || 0).toLocaleString()}`
+    : ` ฿${booking.total_price.toLocaleString()}`;
+
   const message = truncateForSms(
-    `จองใหม่ ${guest} ${roomName} ${formatSmsDate(booking.check_in)} ${nights}คืน ฿${booking.total_price.toLocaleString()} ${status}`
+    `จองใหม่ ${guest} ${roomName} ${formatSmsDate(booking.check_in)} ${nights}คืน ${priceLabel} ${status}`
   );
 
   return sendSms(phone, message);
