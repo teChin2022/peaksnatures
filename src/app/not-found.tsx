@@ -1,6 +1,16 @@
+import type { Metadata } from "next";
 import Link from "next/link";
-import { Mountain, ArrowLeft } from "lucide-react";
+import { Mountain, ArrowLeft, Compass } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { buildAlternates } from "@/lib/seo";
+
+export const metadata: Metadata = {
+  title: "Page not found",
+  description:
+    "The page you are looking for doesn't exist. Browse our nature homestays in Thailand instead.",
+  robots: { index: false, follow: true },
+  alternates: buildAlternates("/404"),
+};
 
 export default function NotFound() {
   return (
@@ -10,12 +20,20 @@ export default function NotFound() {
       <p className="mt-2 text-lg text-gray-600">
         This page doesn&apos;t exist or has been moved.
       </p>
-      <Button asChild className="mt-6 bg-brand hover:bg-brand-hover">
-        <Link href="/">
-          <ArrowLeft className="mr-2 h-4 w-4" />
-          Back to Home
-        </Link>
-      </Button>
+      <div className="mt-6 flex flex-col gap-3 sm:flex-row">
+        <Button asChild className="bg-brand hover:bg-brand-hover">
+          <Link href="/">
+            <ArrowLeft className="mr-2 h-4 w-4" />
+            Back to Home
+          </Link>
+        </Button>
+        <Button asChild variant="outline">
+          <Link href="/#homestays">
+            <Compass className="mr-2 h-4 w-4" />
+            Browse homestays
+          </Link>
+        </Button>
+      </div>
     </div>
   );
 }

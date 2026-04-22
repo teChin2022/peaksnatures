@@ -59,8 +59,8 @@ import {
 
 interface HostProfile {
   id: string;
-  phone: string | null;
-  promptpay_id: string | null;
+  hasPhone: boolean;
+  hasPromptpay: boolean;
   hasPinSet: boolean;
 }
 
@@ -153,35 +153,37 @@ export default function DashboardPage() {
   const localeOpts = locale === "th" ? { locale: thLocale } : undefined;
 
   useEffect(() => {
+    const ctrl = new AbortController();
+    const { signal } = ctrl;
+
     const fetchData = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
-      if (!user) return;
+      if (signal.aborted || !user) return;
 
-      const { data: hostRow } = await supabase
-        .from("hosts")
-        .select("id, phone, promptpay_id, security_pin_hash")
-        .eq("user_id", user.id)
-        .single();
+      const profileRes = await fetch("/api/host/profile", { signal });
+      if (signal.aborted) return;
+      const profile = profileRes.ok ? await profileRes.json() : null;
+      if (signal.aborted) return;
 
-      const rawHost = hostRow as { id: string; phone: string | null; promptpay_id: string | null; security_pin_hash: string | null } | null;
-      if (rawHost) {
+      if (profile) {
         setHostProfile({
-          id: rawHost.id,
-          phone: rawHost.phone,
-          promptpay_id: rawHost.promptpay_id,
-          hasPinSet: !!rawHost.security_pin_hash,
+          id: profile.id,
+          hasPhone: profile.hasPhone,
+          hasPromptpay: profile.hasPromptpay,
+          hasPinSet: profile.hasPinSet,
         });
       }
       setProfileLoaded(true);
-      if (!rawHost) { setLoading(false); return; }
+      if (!profile) { setLoading(false); return; }
 
       const { data: homestayRow } = await supabase
         .from("homestays")
         .select("id, name, slug")
-        .eq("host_id", rawHost.id)
+        .eq("host_id", profile.id)
         .limit(1)
         .single();
+      if (signal.aborted) return;
 
       const homestay = homestayRow as { id: string; name: string; slug: string } | null;
       if (!homestay) { setLoading(false); return; }
@@ -194,6 +196,7 @@ export default function DashboardPage() {
         supabase.from("rooms").select("id, name, quantity, price_per_night, max_guests").eq("homestay_id", homestay.id).eq("is_active", true),
         supabase.from("bookings").select("id, guest_name, guest_email, status, total_price").eq("homestay_id", homestay.id).order("created_at", { ascending: false }).limit(5),
       ]);
+      if (signal.aborted) return;
 
       const bookings = (bookingRows as { status: string; total_price: number; guest_province: string | null; check_in: string; check_out: string; room_id: string | null; booking_source: string }[]) || [];
       const rooms = (roomRows as { id: string; name: string; quantity: number; price_per_night: number; max_guests: number }[]) || [];
@@ -375,7 +378,11 @@ export default function DashboardPage() {
       setLoading(false);
     };
 
-    fetchData();
+    fetchData().catch((e: unknown) => {
+      if ((e as Error)?.name !== "AbortError") throw e;
+    });
+
+    return () => ctrl.abort();
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -400,15 +407,15 @@ export default function DashboardPage() {
 
   return (
     <div>
-      {profileLoaded && hostProfile && (!hostProfile.phone || !hostProfile.promptpay_id || !hostProfile.hasPinSet) && (
+      {profileLoaded && hostProfile && (!hostProfile.hasPhone || !hostProfile.hasPromptpay || !hostProfile.hasPinSet) && (
         <SetupProfileModal
           hostId={hostProfile.id}
-          currentPhone={hostProfile.phone}
-          currentPromptpay={hostProfile.promptpay_id}
+          hasPhone={hostProfile.hasPhone}
+          hasPromptpay={hostProfile.hasPromptpay}
           hasPinSet={hostProfile.hasPinSet}
           onComplete={() => {
             setHostProfile((prev) =>
-              prev ? { ...prev, phone: "set", promptpay_id: "set", hasPinSet: true } : prev
+              prev ? { ...prev, hasPhone: true, hasPromptpay: true, hasPinSet: true } : prev
             );
           }}
         />

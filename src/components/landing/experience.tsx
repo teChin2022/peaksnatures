@@ -16,7 +16,7 @@ export function LandingExperience() {
             <div className="aspect-[4/5] rounded-[3rem] overflow-hidden shadow-xl">
               <img
                 src="https://images.unsplash.com/photo-1551632811-561732d1e306?auto=format&fit=crop&q=80&w=1000"
-                alt="Hiking Experience"
+                alt="Guest hiking through misty mountain trail on a nature homestay experience"
                 className="w-full h-full object-cover"
                 referrerPolicy="no-referrer"
               />

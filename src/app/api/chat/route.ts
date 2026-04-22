@@ -36,12 +36,11 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
-    // Fetch homestay from DB
-    const { data: homestayRow } = await supabase
-      .from("homestays")
-      .select("*")
-      .eq("id", homestayId)
-      .single();
+    const [{ data: homestayRow }, { data: roomRows }, { data: blockedRows }] = await Promise.all([
+      supabase.from("homestays").select("*").eq("id", homestayId).single(),
+      supabase.from("rooms").select("*").eq("homestay_id", homestayId),
+      supabase.from("blocked_dates").select("*").eq("homestay_id", homestayId),
+    ]);
 
     if (!homestayRow) {
       return NextResponse.json({
@@ -49,19 +48,7 @@ export async function POST(req: NextRequest) {
       });
     }
     const homestay = homestayRow as unknown as Homestay;
-
-    // Fetch rooms
-    const { data: roomRows } = await supabase
-      .from("rooms")
-      .select("*")
-      .eq("homestay_id", homestayId);
     const rooms = (roomRows as unknown as Room[]) || [];
-
-    // Fetch blocked dates
-    const { data: blockedRows } = await supabase
-      .from("blocked_dates")
-      .select("*")
-      .eq("homestay_id", homestayId);
     const blockedDates = (blockedRows as unknown as BlockedDate[]) || [];
 
     const systemPrompt = `You are a friendly booking assistant for "${homestay.name}" — a nature place in ${homestay.location}, Thailand.
@@ -188,6 +175,7 @@ Today's date: ${format(new Date(), "yyyy-MM-dd")}`;
         }),
       },
       stopWhen: stepCountIs(3),
+      maxOutputTokens: 1024,
     });
 
     return NextResponse.json({ message: result.text });

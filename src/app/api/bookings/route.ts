@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
+import { revalidateTag } from "next/cache";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendBookingConfirmationEmail, sendHostLineNotification, sendHostSmsNotification, dispatchHostNotification, buildNewBookingMessage } from "@/lib/notifications";
@@ -42,45 +43,33 @@ const bookingSchema = z.object({
 async function sendNotifications(bookingId: string, supabase: ReturnType<typeof createServiceRoleClient>, locale: string = "th", isVerified: boolean = true) {
   console.log(`[Notification] Starting for booking ${bookingId}, locale=${locale}, verified=${isVerified}`);
   try {
-    const { data: booking, error: bookingErr } = await supabase
+    const { data: row, error: rowErr } = await supabase
       .from("bookings")
-      .select("*")
+      .select("*, homestay:homestays(*, host:hosts(*)), room:rooms(*)")
       .eq("id", bookingId)
       .single();
 
-    if (!booking) { console.error("[Notification] Booking not found:", bookingId, bookingErr); return; }
+    if (!row) { console.error("[Notification] Booking not found:", bookingId, rowErr); return; }
 
-    const { data: homestay, error: homestayErr } = await supabase
-      .from("homestays")
-      .select("*")
-      .eq("id", (booking as unknown as Booking).homestay_id)
-      .single();
+    const joined = row as unknown as Booking & {
+      homestay: (Homestay & { host: Host | null }) | null;
+      room: Room | null;
+    };
+    const homestay = joined.homestay;
+    if (!homestay) { console.error("[Notification] Homestay not found for booking:", bookingId); return; }
+    const host = homestay.host;
+    if (!host) { console.error("[Notification] Host not found for homestay:", homestay.id); return; }
 
-    if (!homestay) { console.error("[Notification] Homestay not found:", (booking as unknown as Booking).homestay_id, homestayErr); return; }
-
-    const { data: host, error: hostErr } = await supabase
-      .from("hosts")
-      .select("*")
-      .eq("id", (homestay as unknown as Homestay).host_id)
-      .single();
-
-    if (!host) { console.error("[Notification] Host not found:", (homestay as unknown as Homestay).host_id, hostErr); return; }
-
-    let room = null;
-    if ((booking as unknown as Booking).room_id) {
-      const { data: roomData } = await supabase
-        .from("rooms")
-        .select("*")
-        .eq("id", (booking as unknown as Booking).room_id!)
-        .single();
-      room = roomData;
-    }
+    const { homestay: _h, room: roomFromJoin, ...bookingFields } = joined;
+    void _h;
+    const booking = bookingFields as Booking;
+    const room = roomFromJoin;
 
     const details = {
-      booking: booking as unknown as Booking,
-      homestay: homestay as unknown as Homestay,
-      host: host as unknown as Host,
-      room: (room as unknown as Room) || undefined,
+      booking,
+      homestay: homestay as Homestay,
+      host: host as Host,
+      room: (room as Room) || undefined,
     };
 
     const emailType = isVerified ? "confirmed" : "pending";
@@ -303,6 +292,8 @@ export async function POST(req: NextRequest) {
         await sendNotifications(bookingId as string, supabase, data.locale || "th", data.easyslip_verified);
       });
 
+      if (data.easyslip_verified) revalidateTag("admin-stats", "max");
+      revalidateTag(`booking-availability:${data.homestay_id}`, "max");
       return NextResponse.json({ booking }, { status: 201 });
     }
 
@@ -362,6 +353,8 @@ export async function POST(req: NextRequest) {
       await sendNotifications((booking as unknown as Booking).id, supabase, data.locale || "th", data.easyslip_verified);
     });
 
+    if (data.easyslip_verified) revalidateTag("admin-stats", "max");
+    revalidateTag(`booking-availability:${data.homestay_id}`, "max");
     return NextResponse.json({ booking }, { status: 201 });
   } catch (error) {
     console.error("Booking creation error:", error);

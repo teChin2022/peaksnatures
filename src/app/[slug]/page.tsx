@@ -18,6 +18,9 @@ import { PoliciesSection } from "@/components/booking/policies-section";
 import { FaqSection } from "@/components/booking/faq-section";
 import { FinalCtaSection } from "@/components/booking/final-cta-section";
 import { ReviewsDisplay } from "@/components/reviews/reviews-display";
+import { JsonLd } from "@/components/seo/json-ld";
+import { Breadcrumbs } from "@/components/seo/breadcrumbs";
+import { SITE_NAME, SITE_URL, buildAlternates } from "@/lib/seo";
 
 const BookingSection = dynamic(() => import("@/components/booking/booking-section").then((m) => m.BookingSection));
 const ChatWidget = dynamic(() => import("@/components/chat/chat-widget").then((m) => m.ChatWidget));
@@ -161,17 +164,40 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const data = await getHomestayData(slug);
 
   if (!data) {
-    return { title: "Not Found — Peaksnature" };
+    return {
+      title: "Not Found",
+      robots: { index: false, follow: false },
+    };
   }
 
   const { homestay } = data;
+  const titleAbsolute = `${homestay.name} — Book Now | ${SITE_NAME}`;
+  const rawDescription = homestay.description || homestay.tagline || homestay.name;
+  const description =
+    rawDescription.length > 155 ? `${rawDescription.slice(0, 155).trim()}…` : rawDescription;
+  const ogDescription = homestay.tagline || description;
+  const canonicalPath = `/${slug}`;
+
   return {
-    title: `${homestay.name} — Book Now | Peaksnature`,
-    description: `${homestay.description.slice(0, 155)}...`,
+    title: { absolute: titleAbsolute },
+    description,
+    alternates: buildAlternates(canonicalPath),
     openGraph: {
       title: homestay.name,
-      description: homestay.tagline || homestay.description.slice(0, 155),
-      images: homestay.hero_image_url ? [{ url: homestay.hero_image_url }] : [],
+      description: ogDescription,
+      url: canonicalPath,
+      type: "website",
+      siteName: SITE_NAME,
+    },
+    twitter: {
+      card: "summary_large_image",
+      title: homestay.name,
+      description: ogDescription,
+    },
+    robots: {
+      index: true,
+      follow: true,
+      googleBot: { index: true, follow: true, "max-image-preview": "large" },
     },
   };
 }
@@ -197,11 +223,94 @@ export default async function HomestayPage({ params }: PageProps) {
     ? [...rooms.filter((r) => r.id === popularRoomId), ...rooms.filter((r) => r.id !== popularRoomId)]
     : rooms;
 
+  const pageUrl = `${SITE_URL}/${homestay.slug}`;
+  const roomPrices = rooms
+    .map((r) => r.price_per_night)
+    .filter((p): p is number => typeof p === "number" && p > 0);
+  const minRoomPrice = roomPrices.length > 0 ? Math.min(...roomPrices) : null;
+
+  const lodgingLd: Record<string, unknown> = {
+    "@context": "https://schema.org",
+    "@type": "LodgingBusiness",
+    "@id": pageUrl,
+    name: homestay.name,
+    description: homestay.description,
+    url: pageUrl,
+    image: [homestay.hero_image_url, ...(homestay.gallery || [])].filter(Boolean),
+    address: {
+      "@type": "PostalAddress",
+      addressLocality: homestay.location,
+      addressCountry: "TH",
+    },
+    amenityFeature: (homestay.amenities || []).map((name) => ({
+      "@type": "LocationFeatureSpecification",
+      name,
+      value: true,
+    })),
+    petsAllowed: (homestay.prohibitions || []).some((p) => /pet|สัตว์/i.test(p)) ? false : undefined,
+  };
+  if (minRoomPrice !== null) {
+    lodgingLd.priceRange = `฿${minRoomPrice.toLocaleString()}+`;
+    lodgingLd.makesOffer = rooms.map((r) => ({
+      "@type": "Offer",
+      name: r.name,
+      price: r.price_per_night,
+      priceCurrency: "THB",
+      availability: "https://schema.org/InStock",
+    }));
+  }
+  if (reviewCount > 0 && averageRating > 0) {
+    lodgingLd.aggregateRating = {
+      "@type": "AggregateRating",
+      ratingValue: averageRating,
+      reviewCount,
+      bestRating: 5,
+      worstRating: 1,
+    };
+  }
+  if (reviews.length > 0) {
+    lodgingLd.review = reviews.slice(0, 5).map((r) => ({
+      "@type": "Review",
+      author: { "@type": "Person", name: r.guest_name },
+      datePublished: r.created_at,
+      reviewRating: {
+        "@type": "Rating",
+        ratingValue: r.rating,
+        bestRating: 5,
+        worstRating: 1,
+      },
+      reviewBody: r.comment ?? undefined,
+    }));
+  }
+
+  const breadcrumbItems = [
+    { label: SITE_NAME, href: "/" },
+    { label: homestay.name },
+  ];
+
+  const faqItems = (homestay.faq || []).filter(
+    (f) => f.question?.trim() && f.answer?.trim(),
+  );
+  const faqLd = faqItems.length > 0
+    ? {
+        "@context": "https://schema.org",
+        "@type": "FAQPage",
+        mainEntity: faqItems.map((f) => ({
+          "@type": "Question",
+          name: f.question,
+          acceptedAnswer: { "@type": "Answer", text: f.answer },
+        })),
+      }
+    : null;
+
   return (
     <div className="min-h-screen bg-white">
+      <JsonLd data={lodgingLd} id="ld-lodging" />
+      {faqLd && <JsonLd data={faqLd} id="ld-faq" />}
       <BookingHeader homestayName={homestay.name} logoUrl={homestay.logo_url} homestayId={homestay.id} promptpayId={homestay.host.promptpay_id} hostName={homestay.host.name} cancellationDays={homestay.host.cancellation_days} paymentDisplay={homestay.host.payment_display} bankName={homestay.host.bank_name} bankAccountNumber={homestay.host.bank_account_number} bankAccountName={homestay.host.bank_account_name} />
 
       <main className="pb-16 md:pb-0">
+        <Breadcrumbs items={breadcrumbItems} visuallyHidden />
         <HeroSection
           name={homestay.name}
           tagline={homestay.tagline}

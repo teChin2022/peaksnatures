@@ -7,7 +7,9 @@ import { getTranslations } from "next-intl/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { resolveSlugRedirect } from "@/lib/slug-redirect";
 import { ReviewSubmission } from "@/components/reviews/review-submission";
+import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import type { Homestay } from "@/types/database";
+import { SITE_NAME, buildAlternates } from "@/lib/seo";
 
 export const revalidate = 30;
 
@@ -30,15 +32,31 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   const { slug } = await params;
   const homestay = await getHomestayBasic(slug);
 
-  if (!homestay) return { title: "Not Found — Peaksnature" };
+  if (!homestay) return { title: "Not Found", robots: { index: false, follow: false } };
+
+  const title = `Write a Review — ${homestay.name} | ${SITE_NAME}`;
+  const description = `Share your experience at ${homestay.name}. Rate your stay and help future guests.`;
+  const image = homestay.hero_image_url;
 
   return {
-    title: `Write a Review — ${homestay.name} | Peaksnature`,
-    description: `Share your experience at ${homestay.name}. Rate your stay and help future guests.`,
+    title: { absolute: title },
+    description,
+    alternates: buildAlternates(`/${slug}/reviews`),
     openGraph: {
       title: `Review ${homestay.name}`,
-      images: homestay.hero_image_url ? [{ url: homestay.hero_image_url }] : [],
+      description,
+      url: `/${slug}/reviews`,
+      type: "website",
+      siteName: SITE_NAME,
+      images: image ? [{ url: image, alt: homestay.name }] : undefined,
     },
+    twitter: {
+      card: "summary_large_image",
+      title: `Review ${homestay.name}`,
+      description,
+      images: image ? [image] : undefined,
+    },
+    robots: { index: true, follow: true },
   };
 }
 
@@ -56,24 +74,31 @@ export default async function ReviewsPage({ params }: PageProps) {
 
   return (
     <div className="min-h-screen bg-gray-50/50">
-      {/* Header */}
-      <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-md">
+      <Breadcrumbs
+        items={[
+          { label: SITE_NAME, href: "/" },
+          { label: homestay.name, href: `/${homestay.slug}` },
+          { label: "Reviews" },
+        ]}
+        visuallyHidden
+      />
+
+      <header className="sticky top-0 z-50 border-b border-gray-200/70 bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex h-14 max-w-2xl items-center gap-3 px-4 sm:px-6">
           <Link
             href={`/${homestay.slug}`}
-            className="flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-gray-900"
+            className="group flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-brand"
           >
-            <ArrowLeft className="h-4 w-4" />
-            <span className="hidden sm:inline">{tp("backToHomestay", { name: homestay.name })}</span>
+            <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
+            <span className="hidden truncate sm:inline">{tp("backToHomestay", { name: homestay.name })}</span>
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-4 py-8 sm:px-6">
-        {/* Title */}
-        <div className="mb-8 text-center">
-          <h1 className="text-2xl font-bold text-gray-900">{tp("title")}</h1>
-          <p className="mt-1 text-sm text-gray-500">{tp("subtitle", { name: homestay.name })}</p>
+      <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-12">
+        <div className="mb-10 text-center">
+          <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">{tp("title")}</h1>
+          <p className="mt-2 text-sm text-gray-500">{tp("subtitle", { name: homestay.name })}</p>
         </div>
 
         <ReviewSubmission

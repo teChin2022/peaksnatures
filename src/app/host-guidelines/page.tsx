@@ -6,12 +6,26 @@ import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { PlatformFooter } from "@/components/platform-footer";
 import type { Metadata } from "next";
+import { SITE_NAME, buildAlternates } from "@/lib/seo";
 
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: "Host Guidelines — Peaksnature",
-  description: "Guidelines for hosts on Peaksnature to provide quality service.",
+  title: "Host Guidelines",
+  description: `Guidelines for hosts on ${SITE_NAME} to provide quality service.`,
+  alternates: buildAlternates("/host-guidelines"),
+  openGraph: {
+    title: `Host Guidelines | ${SITE_NAME}`,
+    description: `Guidelines for hosts on ${SITE_NAME} to provide quality service.`,
+    url: "/host-guidelines",
+    type: "article",
+    siteName: SITE_NAME,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `Host Guidelines | ${SITE_NAME}`,
+    description: `Guidelines for hosts on ${SITE_NAME} to provide quality service.`,
+  },
 };
 
 export default async function HostGuidelinesPage() {

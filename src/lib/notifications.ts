@@ -303,28 +303,46 @@ export async function sendSms(phone: string, message: string): Promise<{ success
     return { success: false, error: "SMS API key not configured" };
   }
 
-  const response = await fetch("https://console.sms-kub.com/api/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "key": apiKey,
-    },
-    body: JSON.stringify({
-      to: [phone],
-      from: sender,
-      message,
-    }),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    console.error("[SMS] API error:", response.status, errorData);
-    return { success: false, error: errorData };
+  // sms-kub accepts "0812345678" or "66812345678", but NOT "+66812345678".
+  // Strip non-digits to normalize "+66...", spaces, dashes, parens.
+  const normalizedPhone = phone.replace(/\D/g, "");
+  if (!normalizedPhone) {
+    console.log("[SMS] Skipped — phone has no digits:", phone);
+    return { success: false, error: "Invalid phone number" };
   }
 
-  const result = await response.json().catch(() => ({}));
-  console.log("[SMS] Sent to", phone, result);
-  return { success: true };
+  try {
+    const response = await fetch("https://console.sms-kub.com/api/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "key": apiKey,
+      },
+      body: JSON.stringify({
+        to: [normalizedPhone],
+        from: sender,
+        message,
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    const bodyText = await response.text().catch(() => "");
+    let body: unknown = bodyText;
+    try { body = JSON.parse(bodyText); } catch { /* keep raw text */ }
+
+    if (!response.ok) {
+      console.error("[SMS] API error:", response.status, body);
+      return { success: false, error: { status: response.status, body } };
+    }
+
+    console.log("[SMS] Sent to", normalizedPhone, body);
+    return { success: true };
+  } catch (error) {
+    // fetch throws on network error, DNS failure, or AbortSignal timeout.
+    // Return a failure result so withRetry + email fallback can run instead of propagating.
+    console.error("[SMS] Request threw:", error);
+    return { success: false, error };
+  }
 }
 
 async function withRetry(
@@ -336,6 +354,9 @@ async function withRetry(
     lastResult = await fn();
     if (lastResult.success) return lastResult;
     console.log(`[Retry] Attempt ${i + 1}/${retries} failed`);
+    if (i < retries - 1) {
+      await new Promise((r) => setTimeout(r, 500 * 2 ** i));
+    }
   }
   return lastResult;
 }
@@ -358,8 +379,13 @@ export async function sendHostSmsNotification(
   const roomName = (room?.name || "Standard").slice(0, 12);
   const status = type === "confirmed" ? "ยืนยันแล้ว" : "รอตรวจสอบ";
 
+  const isDeposit = booking.payment_type === "deposit";
+  const priceLabel = isDeposit
+    ? `มัดจำ ฿${(booking.amount_paid || 0).toLocaleString()}`
+    : ` ฿${booking.total_price.toLocaleString()}`;
+
   const message = truncateForSms(
-    `จองใหม่ ${guest} ${roomName} ${formatSmsDate(booking.check_in)} ${nights}คืน ฿${booking.total_price.toLocaleString()} ${status}`
+    `จองใหม่ ${guest} ${roomName} ${formatSmsDate(booking.check_in)} ${nights}คืน ${priceLabel} ${status}`
   );
 
   return sendSms(phone, message);
@@ -706,6 +732,7 @@ export async function sendHostCancellationLineNotification(
         to: lineUserId,
         messages: [{ type: "text", text: messageText }],
       }),
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!response.ok) {
@@ -754,6 +781,7 @@ export async function sendHostLineNotification(
           },
         ],
       }),
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!response.ok) {
@@ -800,59 +828,31 @@ export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
     const appUrl = info.appUrl || process.env.NEXT_PUBLIC_APP_URL || "";
     const reviewLink = appUrl ? `${appUrl}/admin/hosts?status=pending` : "";
 
-    for (const admin of admins as { email: string; line_user_id: string | null; line_channel_access_token: string | null }[]) {
-      // Send LINE if configured
-      if (admin.line_user_id && admin.line_channel_access_token) {
-        try {
-          const lineMsg = [
-            `🆕 โฮสต์ใหม่สมัครเข้ามา`,
-            `━━━━━━━━━━━━━━━━`,
-            ``,
-            `👤 ชื่อ: ${info.hostName}`,
-            `📧 อีเมล: ${info.hostEmail}`,
-            ``,
-            `กรุณาตรวจสอบและอนุมัติที่ Admin Panel`,
-            ...(reviewLink ? [`🔗 ${reviewLink}`] : []),
-          ].join("\n");
+    const lineMsg = [
+      `🆕 โฮสต์ใหม่สมัครเข้ามา`,
+      `━━━━━━━━━━━━━━━━`,
+      ``,
+      `👤 ชื่อ: ${info.hostName}`,
+      `📧 อีเมล: ${info.hostEmail}`,
+      ``,
+      `กรุณาตรวจสอบและอนุมัติที่ Admin Panel`,
+      ...(reviewLink ? [`🔗 ${reviewLink}`] : []),
+    ].join("\n");
 
-          await fetch("https://api.line.me/v2/bot/message/push", {
-            method: "POST",
-            headers: {
-              "Content-Type": "application/json",
-              Authorization: `Bearer ${admin.line_channel_access_token}`,
-            },
-            body: JSON.stringify({
-              to: admin.line_user_id,
-              messages: [{ type: "text", text: lineMsg }],
-            }),
-          });
-          console.log(`[Admin Notify] LINE sent to admin: ${admin.email}`);
-        } catch (err) {
-          console.error(`[Admin Notify] LINE failed for ${admin.email}:`, err);
-        }
-      }
+    const resendKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
+    let resendInstance: import("resend").Resend | null = null;
+    let fromEmail = "";
+    if (resendKey) {
+      const { Resend } = await import("resend");
+      resendInstance = new Resend(resendKey);
+      const DEFAULT_FROM = "Peaksnature <onboarding@resend.dev>";
+      const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
+      fromEmail = cleaned
+        ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
+        : DEFAULT_FROM;
+    }
 
-      // Always send email
-      try {
-        const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
-        if (!apiKey) {
-          console.log(`[Admin Notify] Email skipped — RESEND_API_KEY not configured. Would send to: ${admin.email}`);
-          continue;
-        }
-        const { Resend } = await import("resend");
-        const resend = new Resend(apiKey);
-
-        const DEFAULT_FROM = "Peaksnature <onboarding@resend.dev>";
-        const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
-        const fromEmail = cleaned
-          ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
-          : DEFAULT_FROM;
-
-        await resend.emails.send({
-          from: fromEmail,
-          to: admin.email,
-          subject: `New host registration – ${info.hostName}`,
-          html: `
+    const emailHtml = `
             <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
               <div style="background: #f9fafb; padding: 32px 24px; border-bottom: 1px solid #e5e7eb;">
                 <h1 style="color: #111827; margin: 0; font-size: 22px; font-weight: 700;">New Host Registration</h1>
@@ -872,13 +872,54 @@ export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
                 </div>
               </div>
             </div>
-          `,
+          `;
+
+    type Admin = { email: string; line_user_id: string | null; line_channel_access_token: string | null };
+
+    const sendLine = async (admin: Admin) => {
+      if (!admin.line_user_id || !admin.line_channel_access_token) return;
+      try {
+        await fetch("https://api.line.me/v2/bot/message/push", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${admin.line_channel_access_token}`,
+          },
+          body: JSON.stringify({
+            to: admin.line_user_id,
+            messages: [{ type: "text", text: lineMsg }],
+          }),
+          signal: AbortSignal.timeout(5000),
+        });
+        console.log(`[Admin Notify] LINE sent to admin: ${admin.email}`);
+      } catch (err) {
+        console.error(`[Admin Notify] LINE failed for ${admin.email}:`, err);
+      }
+    };
+
+    const sendEmail = async (admin: Admin) => {
+      if (!resendInstance) {
+        console.log(`[Admin Notify] Email skipped — RESEND_API_KEY not configured. Would send to: ${admin.email}`);
+        return;
+      }
+      try {
+        await resendInstance.emails.send({
+          from: fromEmail,
+          to: admin.email,
+          subject: `New host registration – ${info.hostName}`,
+          html: emailHtml,
         });
         console.log(`[Admin Notify] Email sent to admin: ${admin.email}`);
       } catch (err) {
         console.error(`[Admin Notify] Email failed for ${admin.email}:`, err);
       }
-    }
+    };
+
+    await Promise.allSettled(
+      (admins as Admin[]).map((admin) =>
+        Promise.allSettled([sendLine(admin), sendEmail(admin)]),
+      ),
+    );
   } catch (error) {
     console.error("[Admin Notify] Error:", error);
   }
@@ -984,6 +1025,7 @@ export async function sendDateChangeLineNotification(
         to: lineUserId,
         messages: [{ type: "text", text: messageText }],
       }),
+      signal: AbortSignal.timeout(5000),
     });
 
     if (!response.ok) {

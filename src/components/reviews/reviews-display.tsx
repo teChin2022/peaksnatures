@@ -151,7 +151,7 @@ function PhotoLightbox({
         <img
           key={photos[current]}
           src={photos[current]}
-          alt=""
+          alt={`Guest review photo ${current + 1} of ${photos.length}`}
           className="max-h-[80vh] max-w-full h-auto w-auto rounded-2xl object-contain"
         />
       </div>
@@ -261,7 +261,7 @@ function ReviewCard({
         <div className="mt-3 flex gap-1.5 overflow-x-auto">
           {review.photos.map((url, i) => (
             <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-earth-100 transition-transform hover:scale-105">
-              <img src={url} alt="" className="h-full w-full object-cover" />
+              <img src={url} alt={`Photo ${i + 1} from ${review.guest_name}'s review`} className="h-full w-full object-cover" />
             </button>
           ))}
         </div>
@@ -371,7 +371,7 @@ function ModalReviewCard({ review, locale, t, onPhotoClick }: { review: ReviewWi
         <div className="mt-3 flex gap-2 overflow-x-auto">
           {review.photos.map((url, i) => (
             <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-earth-100 transition-transform hover:scale-105">
-              <img src={url} alt="" className="h-full w-full object-cover" />
+              <img src={url} alt={`Photo ${i + 1} from ${review.guest_name}'s review`} className="h-full w-full object-cover" />
             </button>
           ))}
         </div>

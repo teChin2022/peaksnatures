@@ -6,12 +6,26 @@ import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/language-switcher";
 import { PlatformFooter } from "@/components/platform-footer";
 import type { Metadata } from "next";
+import { SITE_NAME, buildAlternates } from "@/lib/seo";
 
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: "About — Peaksnature",
-  description: "Learn about Peaksnature — a platform for discovering and booking nature places in Thailand.",
+  title: "About",
+  description: `Learn about ${SITE_NAME} — a platform for discovering and booking nature homestays in Thailand.`,
+  alternates: buildAlternates("/about"),
+  openGraph: {
+    title: `About ${SITE_NAME}`,
+    description: `Learn about ${SITE_NAME} — a platform for discovering and booking nature homestays in Thailand.`,
+    url: "/about",
+    type: "website",
+    siteName: SITE_NAME,
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: `About ${SITE_NAME}`,
+    description: `Learn about ${SITE_NAME} — a platform for discovering and booking nature homestays in Thailand.`,
+  },
 };
 
 export default async function AboutPage() {

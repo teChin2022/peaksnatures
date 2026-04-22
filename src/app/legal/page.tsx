@@ -1,12 +1,26 @@
 import { Scale, Shield, FileText, Cookie, AlertTriangle, Handshake, MessageSquare, ScrollText } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import type { Metadata } from "next";
+import { SITE_NAME, buildAlternates } from "@/lib/seo";
 
 export const revalidate = 3600;
 
 export const metadata: Metadata = {
-  title: "Legal & Policies — Peaksnature",
-  description: "Important policies and agreements governing the use of Peaksnature.",
+  title: "Legal & Policies",
+  description: `Important policies and agreements governing the use of ${SITE_NAME}.`,
+  alternates: buildAlternates("/legal"),
+  openGraph: {
+    title: `Legal & Policies | ${SITE_NAME}`,
+    description: `Important policies and agreements governing the use of ${SITE_NAME}.`,
+    url: "/legal",
+    type: "article",
+    siteName: SITE_NAME,
+  },
+  twitter: {
+    card: "summary",
+    title: `Legal & Policies | ${SITE_NAME}`,
+    description: `Important policies and agreements governing the use of ${SITE_NAME}.`,
+  },
 };
 
 export default async function LegalPage() {

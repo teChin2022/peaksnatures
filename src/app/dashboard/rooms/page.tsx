@@ -696,7 +696,7 @@ export default function RoomsPage() {
                       </div>
                       {room.description && (
                         <p className="mt-0.5 text-sm text-gray-500 line-clamp-1">
-                          {room.description}
+                          {room.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}
                         </p>
                       )}
                     </div>

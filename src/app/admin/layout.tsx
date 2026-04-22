@@ -1,15 +1,12 @@
-"use client";
+import type { Metadata } from "next";
+import { AdminLayoutClient } from "./admin-layout-client";
 
-import { usePathname } from "next/navigation";
-import { AdminShell } from "@/components/admin/admin-shell";
+export const metadata: Metadata = {
+  title: "Admin — Peaksnature",
+  description: "Platform administration dashboard.",
+  robots: { index: false, follow: false, nocache: true },
+};
 
 export default function AdminLayout({ children }: { children: React.ReactNode }) {
-  const pathname = usePathname();
-
-  // Don't wrap the login page with the admin shell
-  if (pathname === "/admin/login") {
-    return <>{children}</>;
-  }
-
-  return <AdminShell>{children}</AdminShell>;
+  return <AdminLayoutClient>{children}</AdminLayoutClient>;
 }

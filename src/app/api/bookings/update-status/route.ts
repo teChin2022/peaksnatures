@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
+import { revalidateTag } from "next/cache";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { sendBookingStatusUpdateEmail } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room } from "@/types/database";
@@ -164,6 +165,8 @@ export async function POST(req: NextRequest) {
       }
     });
 
+    revalidateTag("admin-stats", "max");
+    revalidateTag(`booking-availability:${booking.homestay_id}`, "max");
     return NextResponse.json({ success: true, status });
   } catch (error) {
     console.error("[UpdateStatus] Error:", error);

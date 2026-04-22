@@ -1,9 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
+import { revalidateTag } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendHostCancellationLineNotification, sendHostCancellationSmsNotification, dispatchHostNotification, buildCancellationMessage } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room } from "@/types/database";
 import { logEvent, EventType } from "@/lib/history-log";
+import { refundCommission } from "@/lib/billing";
 
 export async function POST(req: NextRequest) {
   try {
@@ -142,8 +144,7 @@ export async function POST(req: NextRequest) {
         req,
       });
 
-      // No commission refund on guest cancellation — host keeps the payment
-      // Commission is only refunded when host cancels (via update-status route)
+      await refundCommission(booking_id);
 
       try {
         let room = undefined;
@@ -170,6 +171,8 @@ export async function POST(req: NextRequest) {
       }
     });
 
+    revalidateTag("admin-stats", "max");
+    revalidateTag(`booking-availability:${booking.homestay_id}`, "max");
     return NextResponse.json({ success: true });
   } catch (error) {
     console.error("[GuestCancel] Error:", error);

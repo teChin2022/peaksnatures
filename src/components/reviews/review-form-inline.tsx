@@ -253,7 +253,7 @@ export function ReviewFormInline({
         <div className="flex flex-wrap gap-2">
           {photos.map((photo, i) => (
             <div key={i} className="relative h-20 w-20 rounded-lg overflow-hidden border border-gray-200">
-              <img src={photo.preview} alt="" className="h-full w-full object-cover" />
+              <img src={photo.preview} alt="" aria-hidden="true" className="h-full w-full object-cover" />
               <button type="button" onClick={() => removePhoto(i)} className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80">
                 <X className="h-3 w-3" />
               </button>

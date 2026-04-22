@@ -1,11 +1,41 @@
+import type { Metadata } from "next";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { isHostBlocked } from "@/lib/plan-expiry";
 import type { Homestay, Room } from "@/types/database";
 import { LandingNavbar } from "@/components/landing/navbar";
 import { LandingContent } from "@/components/landing/landing-content";
 import { LandingFooter } from "@/components/landing/footer";
+import {
+  SITE_NAME,
+  SITE_TITLE_DEFAULT,
+  SITE_DESCRIPTION,
+  DEFAULT_OG_IMAGE,
+  buildAlternates,
+} from "@/lib/seo";
 
 export const revalidate = 60;
+
+export const metadata: Metadata = {
+  title: {
+    absolute: SITE_TITLE_DEFAULT,
+  },
+  description: SITE_DESCRIPTION,
+  alternates: buildAlternates("/"),
+  openGraph: {
+    title: SITE_TITLE_DEFAULT,
+    description: SITE_DESCRIPTION,
+    url: "/",
+    type: "website",
+    siteName: SITE_NAME,
+    images: [DEFAULT_OG_IMAGE],
+  },
+  twitter: {
+    card: "summary_large_image",
+    title: SITE_TITLE_DEFAULT,
+    description: SITE_DESCRIPTION,
+    images: [DEFAULT_OG_IMAGE],
+  },
+};
 
 export default async function Home() {
   const supabase = createServiceRoleClient();
