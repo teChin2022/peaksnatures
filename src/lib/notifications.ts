@@ -303,29 +303,46 @@ export async function sendSms(phone: string, message: string): Promise<{ success
     return { success: false, error: "SMS API key not configured" };
   }
 
-  const response = await fetch("https://console.sms-kub.com/api/messages", {
-    method: "POST",
-    headers: {
-      "Content-Type": "application/json",
-      "key": apiKey,
-    },
-    body: JSON.stringify({
-      to: [phone],
-      from: sender,
-      message,
-    }),
-    signal: AbortSignal.timeout(5000),
-  });
-
-  if (!response.ok) {
-    const errorData = await response.json().catch(() => ({}));
-    console.error("[SMS] API error:", response.status, errorData);
-    return { success: false, error: errorData };
+  // sms-kub accepts "0812345678" or "66812345678", but NOT "+66812345678".
+  // Strip non-digits to normalize "+66...", spaces, dashes, parens.
+  const normalizedPhone = phone.replace(/\D/g, "");
+  if (!normalizedPhone) {
+    console.log("[SMS] Skipped — phone has no digits:", phone);
+    return { success: false, error: "Invalid phone number" };
   }
 
-  const result = await response.json().catch(() => ({}));
-  console.log("[SMS] Sent to", phone, result);
-  return { success: true };
+  try {
+    const response = await fetch("https://console.sms-kub.com/api/messages", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        "key": apiKey,
+      },
+      body: JSON.stringify({
+        to: [normalizedPhone],
+        from: sender,
+        message,
+      }),
+      signal: AbortSignal.timeout(15000),
+    });
+
+    const bodyText = await response.text().catch(() => "");
+    let body: unknown = bodyText;
+    try { body = JSON.parse(bodyText); } catch { /* keep raw text */ }
+
+    if (!response.ok) {
+      console.error("[SMS] API error:", response.status, body);
+      return { success: false, error: { status: response.status, body } };
+    }
+
+    console.log("[SMS] Sent to", normalizedPhone, body);
+    return { success: true };
+  } catch (error) {
+    // fetch throws on network error, DNS failure, or AbortSignal timeout.
+    // Return a failure result so withRetry + email fallback can run instead of propagating.
+    console.error("[SMS] Request threw:", error);
+    return { success: false, error };
+  }
 }
 
 async function withRetry(
@@ -337,6 +354,9 @@ async function withRetry(
     lastResult = await fn();
     if (lastResult.success) return lastResult;
     console.log(`[Retry] Attempt ${i + 1}/${retries} failed`);
+    if (i < retries - 1) {
+      await new Promise((r) => setTimeout(r, 500 * 2 ** i));
+    }
   }
   return lastResult;
 }
