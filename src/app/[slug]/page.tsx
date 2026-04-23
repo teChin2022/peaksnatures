@@ -65,7 +65,7 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     { data: confirmedBookingRows },
   ] = await Promise.all([
     supabase.from("hosts").select("*").eq("id", homestay.host_id).single(),
-    supabase.from("rooms").select("*, room_seasonal_prices(*), room_options(*)").eq("homestay_id", homestay.id).eq("is_active", true).order("created_at", { ascending: true }),
+    supabase.from("rooms").select("*, room_seasonal_prices(*), room_options(*)").eq("homestay_id", homestay.id).order("created_at", { ascending: true }),
     supabase.from("blocked_dates").select("*").eq("homestay_id", homestay.id),
     supabase.from("bookings").select("room_id, check_in, check_out").eq("homestay_id", homestay.id).in("status", ["pending", "confirmed", "verified"]),
     supabase.from("reviews").select("rating, rating_environment, rating_cleanliness, rating_service, rating_value", { count: "exact" }).eq("homestay_id", homestay.id),
@@ -217,14 +217,18 @@ export default async function HomestayPage({ params }: PageProps) {
 
   const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, roomOptions, reviews, averageRating, categoryAverages, reviewCount, totalBookings, lastBookingDate, bookingDisabled, mostBookedRoomId, hasConfirmedBookings } = data;
 
-  const popularRoomId = hasConfirmedBookings && mostBookedRoomId && rooms.some((r) => r.id === mostBookedRoomId) ? mostBookedRoomId : null;
+  const activeRooms = rooms.filter((r) => r.is_active);
+  const inactiveRooms = rooms.filter((r) => !r.is_active);
+
+  const popularRoomId = hasConfirmedBookings && mostBookedRoomId && activeRooms.some((r) => r.id === mostBookedRoomId) ? mostBookedRoomId : null;
   const popularRoomIds = popularRoomId ? new Set<string>([popularRoomId]) : EMPTY_POPULAR_ROOM_IDS;
-  const sortedRooms = popularRoomId
-    ? [...rooms.filter((r) => r.id === popularRoomId), ...rooms.filter((r) => r.id !== popularRoomId)]
-    : rooms;
+  const sortedActiveRooms = popularRoomId
+    ? [...activeRooms.filter((r) => r.id === popularRoomId), ...activeRooms.filter((r) => r.id !== popularRoomId)]
+    : activeRooms;
+  const sortedRooms = [...sortedActiveRooms, ...inactiveRooms];
 
   const pageUrl = `${SITE_URL}/${homestay.slug}`;
-  const roomPrices = rooms
+  const roomPrices = activeRooms
     .map((r) => r.price_per_night)
     .filter((p): p is number => typeof p === "number" && p > 0);
   const minRoomPrice = roomPrices.length > 0 ? Math.min(...roomPrices) : null;
@@ -251,7 +255,7 @@ export default async function HomestayPage({ params }: PageProps) {
   };
   if (minRoomPrice !== null) {
     lodgingLd.priceRange = `฿${minRoomPrice.toLocaleString()}+`;
-    lodgingLd.makesOffer = rooms.map((r) => ({
+    lodgingLd.makesOffer = activeRooms.map((r) => ({
       "@type": "Offer",
       name: r.name,
       price: r.price_per_night,
@@ -343,7 +347,7 @@ export default async function HomestayPage({ params }: PageProps) {
         <div className="bg-earth-50">
           <BookingSection
             homestay={homestay}
-            rooms={rooms}
+            rooms={activeRooms}
             blockedDates={blockedDates}
             bookedRanges={bookedRanges}
             host={homestay.host}

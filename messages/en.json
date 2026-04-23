@@ -141,7 +141,8 @@
     "priceDetailsTitle": "Room Rates",
     "basePrice": "Standard rate",
     "seasonalRates": "Seasonal rates",
-    "popular": "Popular"
+    "popular": "Popular",
+    "temporarilyClosed": "This room is temporarily closed for renovation"
   },
   "booking": {
     "title": "Book Your Stay",
