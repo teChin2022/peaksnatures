@@ -1,7 +1,7 @@
 "use client";
 
 import Image from "next/image";
-import { MapPin, ShieldCheck, CalendarDays, BookOpen, Clock, Phone } from "lucide-react";
+import { ShieldCheck, CalendarDays, BookOpen, Phone, BadgeCheck } from "lucide-react";
 
 import { useTranslations } from "next-intl";
 import { motion } from "motion/react";
@@ -124,39 +124,48 @@ export function HostLocationSection({
               <h3 className="mt-4 text-lg font-bold text-earth-900 text-center leading-tight">
                 {hostName}
               </h3>
-              <span className={`mt-1 text-xs font-medium ${isVerified ? "text-brand" : "text-amber-600"}`}>
+              <span
+                className={`mt-2 inline-flex items-center gap-1 rounded-full px-2.5 py-1 text-[11px] font-semibold ${
+                  isVerified
+                    ? "bg-brand/10 text-brand ring-1 ring-brand/20"
+                    : "bg-amber-50 text-amber-700 ring-1 ring-amber-200"
+                }`}
+              >
+                <BadgeCheck className="h-3.5 w-3.5" />
                 {isVerified ? t("verifiedHost") : t("unverifiedHost")}
               </span>
               {hostPhone && (
                 <a
                   href={`tel:${hostPhone}`}
-                  className="mt-2 inline-flex items-center gap-1.5 text-xs font-medium text-earth-700 hover:text-brand"
+                  className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-earth-50 px-3 py-1.5 text-xs font-medium text-earth-700 transition-colors hover:bg-earth-100 hover:text-brand"
                 >
                   <Phone className="h-3.5 w-3.5" />
                   {hostPhone}
                 </a>
               )}
 
-              <div className="w-full h-px bg-earth-200 my-5" />
+              <div className="w-full h-px bg-earth-200 my-4" />
 
               {/* Stats */}
-              <div className="flex items-center gap-8">
-                <div className="flex flex-col items-center">
-                  <CalendarDays className="h-4.5 w-4.5 text-earth-400 mb-1" />
-                  <span className="text-2xl font-bold text-earth-900">{hostingCount}</span>
-                  <p className="text-[11px] text-earth-500 leading-tight text-center">
+              <div className="grid w-full grid-cols-2 gap-3">
+                <div className="flex flex-col items-center rounded-xl bg-earth-50/60 p-3">
+                  <span className="mb-1.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-brand/10 text-brand">
+                    <CalendarDays className="h-4 w-4" />
+                  </span>
+                  <span className="text-2xl font-bold text-earth-900 leading-none">{hostingCount}</span>
+                  <p className="mt-1 text-[11px] text-earth-500 leading-tight text-center">
                     {isUnderOneYear
                       ? t("monthsHosting", { count: totalMonths })
                       : t("yearsHosting", { count: yearsHosting })}
                   </p>
                 </div>
 
-                {/* <div className="h-12 w-px bg-earth-200" /> */}
-
-                <div className="flex flex-col items-center">
-                  <BookOpen className="h-4.5 w-4.5 text-earth-400 mb-1" />
-                  <span className="text-2xl font-bold text-earth-900">{totalBookings}</span>
-                  <p className="text-[11px] text-earth-500 leading-tight text-center">
+                <div className="flex flex-col items-center rounded-xl bg-earth-50/60 p-3">
+                  <span className="mb-1.5 inline-flex h-8 w-8 items-center justify-center rounded-full bg-brand/10 text-brand">
+                    <BookOpen className="h-4 w-4" />
+                  </span>
+                  <span className="text-2xl font-bold text-earth-900 leading-none">{totalBookings}</span>
+                  <p className="mt-1 text-[11px] text-earth-500 leading-tight text-center">
                     {t("totalBookings", { count: totalBookings })}
                   </p>
                 </div>
@@ -167,7 +176,10 @@ export function HostLocationSection({
                 <>
                   <div className="w-full h-px bg-earth-200 my-4" />
                   <div className="flex items-center gap-2 text-earth-500">
-                    <Clock className="h-3.5 w-3.5" />
+                    <span className="relative inline-flex h-2 w-2">
+                      <span className="absolute inline-flex h-full w-full animate-ping rounded-full bg-emerald-400 opacity-75" />
+                      <span className="relative inline-flex h-2 w-2 rounded-full bg-emerald-500" />
+                    </span>
                     <p className="text-[11px]">
                       {t("lastBooking")}{" "}
                       <span className="font-semibold text-earth-700">
