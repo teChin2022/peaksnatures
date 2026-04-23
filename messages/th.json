@@ -141,7 +141,8 @@
     "priceDetailsTitle": "ราคาห้องพัก",
     "basePrice": "ราคาปกติ",
     "seasonalRates": "ราคาตามฤดูกาล",
-    "popular": "ยอดนิยม"
+    "popular": "ยอดนิยม",
+    "temporarilyClosed": "ห้องพักนี้ปิดให้บริการชั่วคราวเพื่อการปรับปรุง"
   },
   "booking": {
     "title": "จองที่พัก",

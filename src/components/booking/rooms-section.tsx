@@ -10,7 +10,7 @@ import type { Room, RoomSeasonalPrice, BlockedDate } from "@/types/database";
 
 type BookingStep = "dates" | "details" | "payment";
 import { Badge } from "@/components/ui/badge";
-import { Users, CalendarDays, CalendarSearch, ChevronLeft, ChevronRight, X, Sparkles } from "lucide-react";
+import { Users, CalendarDays, CalendarSearch, ChevronLeft, ChevronRight, X, Sparkles, Wrench } from "lucide-react";
 import { fmtDateStr } from "@/lib/format-date";
 
 import { useTranslations, useLocale } from "next-intl";
@@ -261,6 +261,47 @@ function SingleRoomHero({
 
   const { min, max } = getPriceRange(room.price_per_night, seasonalPrices);
   const hasRange = min !== max;
+
+  if (!room.is_active) {
+    const cover = images[0];
+    return (
+      <motion.div
+        data-room-id={room.id}
+        initial={{ opacity: 0, y: 30 }}
+        whileInView={{ opacity: 1, y: 0 }}
+        viewport={{ once: true }}
+        transition={{ duration: 0.5, ease: [0.25, 0.1, 0, 1] }}
+        className="mt-6"
+      >
+        <div
+          aria-disabled="true"
+          className="relative aspect-[4/3] md:aspect-[16/9] lg:aspect-[21/9] overflow-hidden rounded-2xl bg-earth-100"
+        >
+          {cover && (
+            <Image
+              src={cover}
+              alt={room.name}
+              fill
+              sizes="(max-width: 768px) 100vw, (max-width: 1280px) 90vw, 1280px"
+              placeholder="blur"
+              blurDataURL={BLUR_DATA_URL}
+              className="h-full w-full object-cover grayscale opacity-60"
+            />
+          )}
+
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-earth-900/85 via-earth-900/40 to-earth-900/20" />
+
+          <div className="absolute inset-0 z-[2] flex flex-col items-center justify-center gap-4 p-6 text-center">
+            <h3 className="text-2xl md:text-3xl font-serif text-white tracking-tight drop-shadow-lg">{room.name}</h3>
+            <div className="inline-flex items-center gap-2 rounded-full bg-earth-900/70 backdrop-blur-md px-4 py-2 text-sm font-medium text-white ring-1 ring-white/20 shadow-lg">
+              <Wrench className="h-4 w-4" />
+              <span>{t("temporarilyClosed")}</span>
+            </div>
+          </div>
+        </div>
+      </motion.div>
+    );
+  }
 
   return (
     <motion.div
