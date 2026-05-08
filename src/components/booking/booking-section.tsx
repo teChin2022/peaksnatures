@@ -466,6 +466,7 @@ export function BookingSection({
           check_in: format(dateRange.from, "yyyy-MM-dd"),
           check_out: format(dateRange.to, "yyyy-MM-dd"),
           session_id: uploadSessionId,
+          guest_phone: guestPhone.trim(),
         }),
       });
 
@@ -1324,6 +1325,10 @@ export function BookingSection({
                             {host.payment_display !== "bank" && (
                               <p className="text-xs text-earth-400">{t("promptpayId")}: {host.promptpay_id}</p>
                             )}
+                          </div>
+
+                          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">
+                            {t("doNotClosePage")}
                           </div>
 
                           <button onClick={() => setPaymentPhase("upload")}
