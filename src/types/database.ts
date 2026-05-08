@@ -449,6 +449,7 @@ export interface Database {
           session_id: string;
           expires_at: string;
           created_at: string;
+          guest_phone: string | null;
         };
         Insert: {
           id?: string;
@@ -458,6 +459,7 @@ export interface Database {
           session_id: string;
           expires_at: string;
           created_at?: string;
+          guest_phone?: string | null;
         };
         Update: {
           id?: string;
@@ -467,6 +469,7 @@ export interface Database {
           session_id?: string;
           expires_at?: string;
           created_at?: string;
+          guest_phone?: string | null;
         };
       };
       reviews: {

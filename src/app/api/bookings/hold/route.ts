@@ -10,6 +10,7 @@ const holdSchema = z.object({
   check_in: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
   check_out: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
   session_id: z.string().min(1, "Session ID is required"),
+  guest_phone: z.string().trim().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -28,7 +29,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const { room_id, check_in, check_out, session_id } = parsed.data;
+    const { room_id, check_in, check_out, session_id, guest_phone } = parsed.data;
     const supabase = createServiceRoleClient();
 
     const { data, error } = await supabase.rpc(
@@ -39,6 +40,7 @@ export async function POST(req: NextRequest) {
         p_check_out: check_out,
         p_session_id: session_id,
         p_hold_minutes: 10,
+        p_guest_phone: guest_phone || null,
       } as never
     );
 

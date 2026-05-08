@@ -132,7 +132,7 @@ export function BookingSection({
   const [paymentPhase, setPaymentPhase] = useState<"qr" | "upload">("qr");
   const [paymentOption, setPaymentOption] = useState<"full" | "deposit">("full");
   const [showWelcomeBack, setShowWelcomeBack] = useState(false);
-  const [uploadSessionId] = useState(() => crypto.randomUUID());
+  const [uploadSessionId, setUploadSessionId] = useState(() => crypto.randomUUID());
   const [holdId, setHoldId] = useState<string | null>(null);
   const [holdExpiresAt, setHoldExpiresAt] = useState<number | null>(null);
   const [showHeldModal, setShowHeldModal] = useState(false);
@@ -466,6 +466,7 @@ export function BookingSection({
           check_in: format(dateRange.from, "yyyy-MM-dd"),
           check_out: format(dateRange.to, "yyyy-MM-dd"),
           session_id: uploadSessionId,
+          guest_phone: guestPhone.trim(),
         }),
       });
 
@@ -693,6 +694,7 @@ export function BookingSection({
     setGuestProvince("");
     setGuestNote("");
     handleRemoveSlip();
+    setUploadSessionId(crypto.randomUUID());
     setBookingId(null);
     setPdpaConsent(false);
     setShowCalendar(false);
@@ -1324,6 +1326,10 @@ export function BookingSection({
                             {host.payment_display !== "bank" && (
                               <p className="text-xs text-earth-400">{t("promptpayId")}: {host.promptpay_id}</p>
                             )}
+                          </div>
+
+                          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">
+                            {t("doNotClosePage")}
                           </div>
 
                           <button onClick={() => setPaymentPhase("upload")}
