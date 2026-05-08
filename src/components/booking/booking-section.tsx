@@ -132,7 +132,7 @@ export function BookingSection({
   const [paymentPhase, setPaymentPhase] = useState<"qr" | "upload">("qr");
   const [paymentOption, setPaymentOption] = useState<"full" | "deposit">("full");
   const [showWelcomeBack, setShowWelcomeBack] = useState(false);
-  const [uploadSessionId] = useState(() => crypto.randomUUID());
+  const [uploadSessionId, setUploadSessionId] = useState(() => crypto.randomUUID());
   const [holdId, setHoldId] = useState<string | null>(null);
   const [holdExpiresAt, setHoldExpiresAt] = useState<number | null>(null);
   const [showHeldModal, setShowHeldModal] = useState(false);
@@ -694,6 +694,7 @@ export function BookingSection({
     setGuestProvince("");
     setGuestNote("");
     handleRemoveSlip();
+    setUploadSessionId(crypto.randomUUID());
     setBookingId(null);
     setPdpaConsent(false);
     setShowCalendar(false);
