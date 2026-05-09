@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { format, parse, parseISO, subDays } from "date-fns";
+import { format, parse, parseISO, subDays, subMonths, startOfMonth } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations, useLocale } from "next-intl";
@@ -29,13 +29,24 @@ const PAGE_SIZE = 20;
 import type { PromoCode, PromoRedemption } from "@/types/database";
 import {
   ResponsiveContainer,
-  BarChart,
-  Bar,
+  LineChart,
+  Line,
+  CartesianGrid,
   XAxis,
   YAxis,
   Tooltip,
   Legend,
 } from "recharts";
+
+const LINE_COLORS = [
+  "#2F5D50",
+  "#F59E0B",
+  "#7C3AED",
+  "#DC2626",
+  "#0EA5E9",
+  "#EC4899",
+];
+const MAX_LINES = 6;
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -469,28 +480,50 @@ export default function PromoCodesPage() {
     [redemptions],
   );
 
-  const recommenderCommissionData = useMemo(() => {
-    const map = new Map<string, { paid: number; pending: number; count: number }>();
+  const recommenderTrendData = useMemo(() => {
+    // Step 1: rank recommenders by total commission (paid + pending, excluding cancelled).
+    const totals = new Map<string, number>();
     for (const r of redemptions) {
       const name = r.promo_code?.recommender_name;
       if (!name || r.commission_amount <= 0 || r.payout_status === "cancelled") continue;
-      const entry = map.get(name) || { paid: 0, pending: 0, count: 0 };
-      if (r.payout_status === "paid") entry.paid += Number(r.commission_amount);
-      else if (r.payout_status === "pending") entry.pending += Number(r.commission_amount);
-      entry.count += 1;
-      map.set(name, entry);
+      totals.set(name, (totals.get(name) || 0) + Number(r.commission_amount));
     }
-    return Array.from(map.entries())
-      .map(([fullName, v]) => ({
-        fullName,
-        name: fullName.length > 16 ? `${fullName.slice(0, 16)}…` : fullName,
-        paid: v.paid,
-        pending: v.pending,
-        total: v.paid + v.pending,
-        count: v.count,
-      }))
-      .sort((a, b) => b.total - a.total);
-  }, [redemptions]);
+    const ranked = Array.from(totals.entries()).sort((a, b) => b[1] - a[1]);
+    const topNames = ranked.slice(0, MAX_LINES).map(([n]) => n);
+
+    if (topNames.length === 0) {
+      return { data: [] as Record<string, string | number>[], names: [], totalRecommenders: 0 };
+    }
+
+    // Step 2: build the last 6 month buckets (oldest → newest).
+    const now = new Date();
+    const months: { key: string; label: string }[] = [];
+    for (let i = MAX_LINES - 1; i >= 0; i--) {
+      const d = startOfMonth(subMonths(now, i));
+      const key = format(d, "yyyy-MM");
+      const label =
+        locale === "th" ? format(d, "MMM", { locale: thLocale }) : format(d, "MMM");
+      months.push({ key, label });
+    }
+
+    const rows: Record<string, string | number>[] = months.map(({ key, label }) => {
+      const row: Record<string, string | number> = { month: label, monthKey: key };
+      for (const n of topNames) row[n] = 0;
+      return row;
+    });
+
+    // Step 3: distribute commission into the right month bucket for each top recommender.
+    for (const r of redemptions) {
+      const name = r.promo_code?.recommender_name;
+      if (!name || !topNames.includes(name)) continue;
+      if (r.commission_amount <= 0 || r.payout_status === "cancelled") continue;
+      const monthKey = (r.created_at || "").slice(0, 7);
+      const row = rows.find((x) => x.monthKey === monthKey);
+      if (row) row[name] = (row[name] as number) + Number(r.commission_amount);
+    }
+
+    return { data: rows, names: topNames, totalRecommenders: ranked.length };
+  }, [redemptions, locale]);
 
   const filteredRedemptions = useMemo(() => {
     const q = redemptionSearch.trim().toLowerCase();
@@ -636,92 +669,70 @@ export default function PromoCodesPage() {
         />
       </div>
 
-      {/* Recommender ranking chart */}
+      {/* Recommender commission trend (multi-line) */}
       <Card className={`rounded-2xl border-earth-100 shadow-sm ${enabled ? "" : "opacity-70"}`}>
         <CardHeader className="px-6 pb-2 pt-5">
           <CardTitle className="text-sm font-semibold text-earth-900">
             {t("chartCommissionTitle")}
           </CardTitle>
           <p className="text-xs text-earth-400">{t("chartCommissionDesc")}</p>
+          {recommenderTrendData.totalRecommenders > MAX_LINES && (
+            <p className="text-xs text-earth-400">
+              {t("chartTopOf", {
+                shown: recommenderTrendData.names.length,
+                total: recommenderTrendData.totalRecommenders,
+              })}
+            </p>
+          )}
         </CardHeader>
         <CardContent className="px-2 pb-4">
-          {recommenderCommissionData.length > 0 ? (
-            <div
-              className="overflow-y-auto pr-1"
-              style={{ maxHeight: 460 }}
-            >
-              <ResponsiveContainer
-                width="100%"
-                height={Math.max(180, recommenderCommissionData.length * 40 + 40)}
+          {recommenderTrendData.names.length > 0 ? (
+            <ResponsiveContainer width="100%" height={300}>
+              <LineChart
+                data={recommenderTrendData.data}
+                margin={{ top: 16, right: 24, left: 8, bottom: 0 }}
               >
-                <BarChart
-                  data={recommenderCommissionData}
-                  layout="vertical"
-                  margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
-                  barCategoryGap={8}
-                >
-                  <XAxis
-                    type="number"
-                    tick={{ fontSize: 12, fill: "#9ca3af" }}
-                    axisLine={false}
-                    tickLine={false}
-                    tickFormatter={(v) =>
-                      v >= 1000 ? `฿${(v / 1000).toFixed(0)}k` : `฿${v}`
-                    }
+                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                <XAxis
+                  dataKey="month"
+                  tick={{ fontSize: 12, fill: "#9ca3af" }}
+                  axisLine={false}
+                  tickLine={false}
+                />
+                <YAxis
+                  tick={{ fontSize: 12, fill: "#9ca3af" }}
+                  axisLine={false}
+                  tickLine={false}
+                  tickFormatter={(v) =>
+                    v >= 1000 ? `฿${(v / 1000).toFixed(0)}k` : `฿${v}`
+                  }
+                  width={55}
+                />
+                <Tooltip
+                  contentStyle={{
+                    borderRadius: 8,
+                    border: "1px solid #e5e7eb",
+                    fontSize: 13,
+                  }}
+                  formatter={(value, name) => [
+                    `฿${Number(value).toLocaleString()}`,
+                    name,
+                  ]}
+                />
+                <Legend wrapperStyle={{ fontSize: 12 }} />
+                {recommenderTrendData.names.map((name, i) => (
+                  <Line
+                    key={name}
+                    type="monotone"
+                    dataKey={name}
+                    stroke={LINE_COLORS[i % LINE_COLORS.length]}
+                    strokeWidth={2}
+                    dot={{ r: 3, strokeWidth: 0 }}
+                    activeDot={{ r: 5 }}
                   />
-                  <YAxis
-                    type="category"
-                    dataKey="name"
-                    tick={{ fontSize: 12, fill: "#374151" }}
-                    axisLine={false}
-                    tickLine={false}
-                    width={130}
-                    interval={0}
-                  />
-                  <Tooltip
-                    cursor={{ fill: "rgba(47, 93, 80, 0.06)" }}
-                    contentStyle={{
-                      borderRadius: 8,
-                      border: "1px solid #e5e7eb",
-                      fontSize: 13,
-                    }}
-                    labelFormatter={(_, payload) => {
-                      const p = payload?.[0]?.payload as
-                        | { fullName?: string; count?: number }
-                        | undefined;
-                      if (!p?.fullName) return "";
-                      return p.count != null
-                        ? `${p.fullName} · ${p.count} ${t("tooltipRedemptions").toLowerCase()}`
-                        : p.fullName;
-                    }}
-                    formatter={(value, name) => [
-                      `฿${Number(value).toLocaleString()}`,
-                      name === "paid" ? t("tooltipPaid") : t("tooltipPending"),
-                    ]}
-                  />
-                  <Legend
-                    wrapperStyle={{ fontSize: 12 }}
-                    formatter={(v) =>
-                      v === "paid" ? t("tooltipPaid") : t("tooltipPending")
-                    }
-                  />
-                  <Bar
-                    dataKey="paid"
-                    stackId="a"
-                    fill="#2F5D50"
-                    radius={[0, 0, 0, 0]}
-                    maxBarSize={28}
-                  />
-                  <Bar
-                    dataKey="pending"
-                    stackId="a"
-                    fill="#F59E0B"
-                    radius={[0, 4, 4, 0]}
-                    maxBarSize={28}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            </div>
+                ))}
+              </LineChart>
+            </ResponsiveContainer>
           ) : (
             <p className="py-16 text-center text-sm text-earth-400">{t("chartEmpty")}</p>
           )}
