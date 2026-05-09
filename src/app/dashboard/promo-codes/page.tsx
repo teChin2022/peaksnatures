@@ -316,7 +316,7 @@ export default function PromoCodesPage() {
       return;
     }
     const discountValue = Number(form.discount_value);
-    if (!Number.isFinite(discountValue) || discountValue <= 0) {
+    if (!Number.isFinite(discountValue) || discountValue < 0) {
       toast.error(t("errorDiscountValue"));
       return;
     }

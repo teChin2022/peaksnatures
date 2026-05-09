@@ -224,15 +224,15 @@ export async function POST(req: NextRequest) {
           }
         }
 
+        // Always attach _promo (even when discount = 0) so commission-only /
+        // pure-attribution codes still write a redemption row and tick times_used.
         const discount = computePromoDiscount(promo, subtotal);
-        if (discount > 0) {
-          serverPrice = Math.max(0, subtotal - discount);
-          (data as typeof data & { _promo: { promo: PromoCode; discount: number; subtotal: number } })._promo = {
-            promo,
-            discount,
-            subtotal,
-          };
-        }
+        serverPrice = Math.max(0, subtotal - discount);
+        (data as typeof data & { _promo: { promo: PromoCode; discount: number; subtotal: number } })._promo = {
+          promo,
+          discount,
+          subtotal,
+        };
       }
 
       if (data.total_price !== serverPrice) {

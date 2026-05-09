@@ -87,10 +87,8 @@ export async function POST(req: NextRequest) {
     }
   }
 
+  // Discount may be 0 for commission-only / pure-attribution codes — still valid.
   const discount = computePromoDiscount(promo, subtotal);
-  if (discount <= 0) {
-    return NextResponse.json({ valid: false, reason: "INVALID_AMOUNT" });
-  }
 
   return NextResponse.json({
     valid: true,
