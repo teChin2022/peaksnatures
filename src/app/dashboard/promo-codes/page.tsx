@@ -27,18 +27,17 @@ import {
 
 const PAGE_SIZE = 20;
 import type { PromoCode, PromoRedemption } from "@/types/database";
+import { LineChart, Line, CartesianGrid, XAxis, YAxis } from "recharts";
 import {
-  ResponsiveContainer,
-  LineChart,
-  Line,
-  CartesianGrid,
-  XAxis,
-  YAxis,
-  Tooltip,
-  Legend,
-} from "recharts";
+  ChartContainer,
+  ChartTooltip,
+  ChartTooltipContent,
+  ChartLegend,
+  ChartLegendContent,
+  type ChartConfig,
+} from "@/components/ui/chart";
 
-const LINE_COLORS = [
+const LINE_PALETTE = [
   "#2F5D50",
   "#F59E0B",
   "#7C3AED",
@@ -492,10 +491,24 @@ export default function PromoCodesPage() {
     const topNames = ranked.slice(0, MAX_LINES).map(([n]) => n);
 
     if (topNames.length === 0) {
-      return { data: [] as Record<string, string | number>[], names: [], totalRecommenders: 0 };
+      return {
+        data: [] as Record<string, string | number>[],
+        aliases: [] as string[],
+        chartConfig: {} as ChartConfig,
+        totalRecommenders: 0,
+      };
     }
 
-    // Step 2: build the last 6 month buckets (oldest → newest).
+    // Step 2: alias each recommender as r0/r1/... so names work as CSS-var keys.
+    const chartConfig: ChartConfig = {};
+    const aliasOfName = new Map<string, string>();
+    topNames.forEach((name, i) => {
+      const alias = `r${i}`;
+      aliasOfName.set(name, alias);
+      chartConfig[alias] = { label: name, color: LINE_PALETTE[i % LINE_PALETTE.length] };
+    });
+
+    // Step 3: build the last 6 month buckets (oldest → newest).
     const now = new Date();
     const months: { key: string; label: string }[] = [];
     for (let i = MAX_LINES - 1; i >= 0; i--) {
@@ -508,21 +521,28 @@ export default function PromoCodesPage() {
 
     const rows: Record<string, string | number>[] = months.map(({ key, label }) => {
       const row: Record<string, string | number> = { month: label, monthKey: key };
-      for (const n of topNames) row[n] = 0;
+      for (const a of aliasOfName.values()) row[a] = 0;
       return row;
     });
 
-    // Step 3: distribute commission into the right month bucket for each top recommender.
+    // Step 4: distribute commission into the right month bucket for each top recommender.
     for (const r of redemptions) {
       const name = r.promo_code?.recommender_name;
-      if (!name || !topNames.includes(name)) continue;
+      if (!name) continue;
+      const alias = aliasOfName.get(name);
+      if (!alias) continue;
       if (r.commission_amount <= 0 || r.payout_status === "cancelled") continue;
       const monthKey = (r.created_at || "").slice(0, 7);
       const row = rows.find((x) => x.monthKey === monthKey);
-      if (row) row[name] = (row[name] as number) + Number(r.commission_amount);
+      if (row) row[alias] = (row[alias] as number) + Number(r.commission_amount);
     }
 
-    return { data: rows, names: topNames, totalRecommenders: ranked.length };
+    return {
+      data: rows,
+      aliases: Array.from(aliasOfName.values()),
+      chartConfig,
+      totalRecommenders: ranked.length,
+    };
   }, [redemptions, locale]);
 
   const filteredRedemptions = useMemo(() => {
@@ -679,60 +699,78 @@ export default function PromoCodesPage() {
           {recommenderTrendData.totalRecommenders > MAX_LINES && (
             <p className="text-xs text-earth-400">
               {t("chartTopOf", {
-                shown: recommenderTrendData.names.length,
+                shown: recommenderTrendData.aliases.length,
                 total: recommenderTrendData.totalRecommenders,
               })}
             </p>
           )}
         </CardHeader>
         <CardContent className="px-2 pb-4">
-          {recommenderTrendData.names.length > 0 ? (
-            <ResponsiveContainer width="100%" height={300}>
+          {recommenderTrendData.aliases.length > 0 ? (
+            <ChartContainer
+              config={recommenderTrendData.chartConfig}
+              className="aspect-auto h-[300px] w-full"
+            >
               <LineChart
+                accessibilityLayer
                 data={recommenderTrendData.data}
                 margin={{ top: 16, right: 24, left: 8, bottom: 0 }}
               >
-                <CartesianGrid strokeDasharray="3 3" stroke="#f3f4f6" vertical={false} />
+                <CartesianGrid vertical={false} strokeDasharray="3 3" />
                 <XAxis
                   dataKey="month"
-                  tick={{ fontSize: 12, fill: "#9ca3af" }}
-                  axisLine={false}
                   tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
                 />
                 <YAxis
-                  tick={{ fontSize: 12, fill: "#9ca3af" }}
-                  axisLine={false}
                   tickLine={false}
+                  axisLine={false}
+                  tickMargin={8}
                   tickFormatter={(v) =>
                     v >= 1000 ? `฿${(v / 1000).toFixed(0)}k` : `฿${v}`
                   }
                   width={55}
                 />
-                <Tooltip
-                  contentStyle={{
-                    borderRadius: 8,
-                    border: "1px solid #e5e7eb",
-                    fontSize: 13,
-                  }}
-                  formatter={(value, name) => [
-                    `฿${Number(value).toLocaleString()}`,
-                    name,
-                  ]}
+                <ChartTooltip
+                  cursor={false}
+                  content={
+                    <ChartTooltipContent
+                      indicator="line"
+                      formatter={(value, name) => (
+                        <>
+                          <div
+                            className="h-2.5 w-2.5 shrink-0 rounded-[2px]"
+                            style={{ backgroundColor: `var(--color-${name})` }}
+                          />
+                          <div className="flex flex-1 items-center justify-between gap-4 leading-none">
+                            <span className="text-muted-foreground">
+                              {(recommenderTrendData.chartConfig[String(name)]
+                                ?.label as string) ?? String(name)}
+                            </span>
+                            <span className="font-mono font-medium tabular-nums">
+                              ฿{Number(value).toLocaleString()}
+                            </span>
+                          </div>
+                        </>
+                      )}
+                    />
+                  }
                 />
-                <Legend wrapperStyle={{ fontSize: 12 }} />
-                {recommenderTrendData.names.map((name, i) => (
+                <ChartLegend content={<ChartLegendContent />} />
+                {recommenderTrendData.aliases.map((alias) => (
                   <Line
-                    key={name}
+                    key={alias}
                     type="monotone"
-                    dataKey={name}
-                    stroke={LINE_COLORS[i % LINE_COLORS.length]}
+                    dataKey={alias}
+                    stroke={`var(--color-${alias})`}
                     strokeWidth={2}
-                    dot={{ r: 3, strokeWidth: 0 }}
-                    activeDot={{ r: 5 }}
+                    dot={false}
+                    activeDot={{ r: 4 }}
                   />
                 ))}
               </LineChart>
-            </ResponsiveContainer>
+            </ChartContainer>
           ) : (
             <p className="py-16 text-center text-sm text-earth-400">{t("chartEmpty")}</p>
           )}
