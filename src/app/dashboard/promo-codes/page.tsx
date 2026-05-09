@@ -273,7 +273,8 @@ export default function PromoCodesPage() {
       one_use_per_guest: form.one_use_per_guest,
       is_active: form.is_active,
       recommender_name: form.recommender_enabled ? form.recommender_name.trim() : null,
-      recommender_phone: form.recommender_enabled ? form.recommender_phone.trim() || null : null,
+      // Strip non-digits so the /recommender stats lookup can match exactly.
+      recommender_phone: form.recommender_enabled ? form.recommender_phone.replace(/\D/g, "") || null : null,
       recommender_promptpay: form.recommender_enabled ? form.recommender_promptpay.trim() || null : null,
       recommender_note: form.recommender_enabled ? form.recommender_note.trim() || null : null,
       commission_type: commissionType,

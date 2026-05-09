@@ -1026,6 +1026,26 @@
     "errorDuplicate": "A code with this name already exists",
     "noHomestay": "Create a homestay first to manage promo codes."
   },
+  "recommenderStats": {
+    "title": "Recommender Stats",
+    "subtitle": "Enter your phone number to see codes attached to you and how much you've earned.",
+    "phoneLabel": "Phone Number",
+    "phonePlaceholder": "0812345678",
+    "search": "Search",
+    "noResults": "No promo codes are attached to this phone number.",
+    "yourCodes": "Your Codes",
+    "redemptions": "Uses",
+    "totalEarned": "Total earned",
+    "paid": "Paid",
+    "pending": "Pending",
+    "recentActivity": "Recent Activity",
+    "statusPending": "Pending",
+    "statusPaid": "Paid",
+    "statusCancelled": "Cancelled",
+    "payoutHint": "Pending amounts are commissions the host hasn't paid out yet. Reach out to the host to arrange payment.",
+    "errorInvalidPhone": "Please enter a valid phone number (digits only).",
+    "errorGeneric": "Something went wrong. Please try again."
+  },
   "bookingSearch": {
     "searchBooking": "Search Booking",
     "title": "Search Your Booking",
