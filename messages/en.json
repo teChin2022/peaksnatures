@@ -439,6 +439,7 @@
     "loadingMore": "Loading...",
     "showingCount": "Showing {count} of {total}",
     "searchGuestPlaceholder": "Search name, email, or phone…",
+    "searchMinCharsHint": "Type at least 3 characters",
     "filterStatus": "Status",
     "filterAllStatuses": "All statuses",
     "clearFilters": "Clear filters",

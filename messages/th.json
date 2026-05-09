@@ -443,6 +443,7 @@
     "loadingMore": "กำลังโหลด...",
     "showingCount": "แสดง {count} จาก {total}",
     "searchGuestPlaceholder": "ค้นหาชื่อ อีเมล หรือเบอร์โทร…",
+    "searchMinCharsHint": "กรอกอย่างน้อย 3 ตัวอักษร",
     "filterStatus": "สถานะ",
     "filterAllStatuses": "ทุกสถานะ",
     "clearFilters": "ล้างตัวกรอง",

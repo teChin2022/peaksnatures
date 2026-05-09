@@ -103,6 +103,7 @@ interface DisplayBooking extends BookingRow {
 }
 
 const PAGE_SIZE = 20;
+const SEARCH_MIN_CHARS = 3;
 
 /**
  * Converts a storage path (or legacy signed URL) stored in payment_slip_url
@@ -196,7 +197,11 @@ export default function BookingsPage() {
   const [searchInput, setSearchInput] = useState("");
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<BookingStatus | "all">("all");
-  const filtersActive = searchQuery.trim().length > 0 || statusFilter !== "all";
+  const searchActive = searchQuery.trim().length >= SEARCH_MIN_CHARS;
+  const filtersActive = searchActive || statusFilter !== "all";
+  const filtersDirty = searchInput.trim().length > 0 || statusFilter !== "all";
+  const showSearchHint =
+    searchInput.trim().length > 0 && searchInput.trim().length < SEARCH_MIN_CHARS;
 
   // Separate bookings list for the All tab when filters are active
   const [filteredBookings, setFilteredBookings] = useState<DisplayBooking[]>([]);
@@ -308,7 +313,7 @@ export default function BookingsPage() {
     if (!bootstrappedRef.current) {
       bootstrappedRef.current = true;
       // If user already changed filters before bootstrap finished, apply now.
-      if (searchQuery.trim() || statusFilter !== "all") {
+      if (searchQuery.trim().length >= SEARCH_MIN_CHARS || statusFilter !== "all") {
         fetchAllTabBookings(searchQuery, statusFilter);
       }
       return;
@@ -322,7 +327,9 @@ export default function BookingsPage() {
     status: BookingStatus | "all"
   ) => {
     if (homestayIdsRef.current.length === 0) return;
-    const isFiltered = search.trim().length > 0 || status !== "all";
+    const trimmed = search.trim();
+    const useSearch = trimmed.length >= SEARCH_MIN_CHARS;
+    const isFiltered = useSearch || status !== "all";
     if (!isFiltered) {
       setFilteredBookings([]);
       setFilteredCount(0);
@@ -331,14 +338,14 @@ export default function BookingsPage() {
     }
     setLoadingMore(true);
     const supabase = createClient();
-    const sanitized = search.trim().replace(/[%,]/g, "");
+    const sanitized = trimmed.replace(/[%,]/g, "");
 
     let query = supabase
       .from("bookings")
       .select("*", { count: "exact" })
       .in("homestay_id", homestayIdsRef.current);
     if (status !== "all") query = query.eq("status", status);
-    if (sanitized) {
+    if (useSearch && sanitized) {
       query = query.or(
         `guest_name.ilike.%${sanitized}%,guest_email.ilike.%${sanitized}%,guest_phone.ilike.%${sanitized}%`
       );
@@ -388,7 +395,7 @@ export default function BookingsPage() {
       .in("homestay_id", homestayIdsRef.current);
     if (filtersActive) {
       if (statusFilter !== "all") query = query.eq("status", statusFilter);
-      if (sanitized) {
+      if (searchActive && sanitized) {
         query = query.or(
           `guest_name.ilike.%${sanitized}%,guest_email.ilike.%${sanitized}%,guest_phone.ilike.%${sanitized}%`
         );
@@ -682,14 +689,18 @@ export default function BookingsPage() {
           return (
             <TabsContent key={tab} value={tab} className="mt-4 space-y-3">
               {tab === "all" && (
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
-                  <Input
-                    type="search"
-                    placeholder={t("searchGuestPlaceholder")}
-                    value={searchInput}
-                    onChange={(e) => setSearchInput(e.target.value)}
-                    className="sm:max-w-xs"
-                  />
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+                  <div className="flex flex-col gap-1 sm:max-w-xs sm:flex-1">
+                    <Input
+                      type="search"
+                      placeholder={t("searchGuestPlaceholder")}
+                      value={searchInput}
+                      onChange={(e) => setSearchInput(e.target.value)}
+                    />
+                    {showSearchHint && (
+                      <p className="text-xs text-gray-400">{t("searchMinCharsHint")}</p>
+                    )}
+                  </div>
                   <Select
                     value={statusFilter}
                     onValueChange={(v) => setStatusFilter(v as BookingStatus | "all")}
@@ -707,7 +718,7 @@ export default function BookingsPage() {
                       <SelectItem value="completed">{t("statusCompleted")}</SelectItem>
                     </SelectContent>
                   </Select>
-                  {filtersActive && (
+                  {filtersDirty && (
                     <Button
                       variant="ghost"
                       size="sm"
