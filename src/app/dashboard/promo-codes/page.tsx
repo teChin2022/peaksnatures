@@ -1182,6 +1182,7 @@ export default function PromoCodesPage() {
                 checked={form.is_active}
                 onCheckedChange={(v) => setForm({ ...form, is_active: v })}
                 id="is-active"
+                className="data-[state=checked]:bg-brand"
               />
             </div>
 
@@ -1311,6 +1312,7 @@ export default function PromoCodesPage() {
                     checked={form.one_use_per_guest}
                     onCheckedChange={(v) => setForm({ ...form, one_use_per_guest: v })}
                     id="one-use"
+                    className="data-[state=checked]:bg-brand"
                   />
                   <Label htmlFor="one-use" className="text-sm">
                     {t("oneUsePerGuest")}
@@ -1329,6 +1331,7 @@ export default function PromoCodesPage() {
                 <Switch
                   checked={form.recommender_enabled}
                   onCheckedChange={(v) => setForm({ ...form, recommender_enabled: v })}
+                  className="data-[state=checked]:bg-brand"
                 />
               </div>
               {form.recommender_enabled && (
@@ -1411,7 +1414,7 @@ export default function PromoCodesPage() {
             <Button variant="outline" onClick={() => setDialogOpen(false)} className="cursor-pointer">
               {tc("cancel")}
             </Button>
-            <Button onClick={handleSave} disabled={saving} className="cursor-pointer">
+            <Button onClick={handleSave} disabled={saving} className="cursor-pointer bg-brand text-white hover:brightness-90">
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {tc("save")}
             </Button>
@@ -1448,7 +1451,7 @@ export default function PromoCodesPage() {
             <Button variant="outline" onClick={() => setPayDialogOpen(false)} className="cursor-pointer">
               {tc("cancel")}
             </Button>
-            <Button onClick={confirmMarkPaid} className="cursor-pointer">
+            <Button onClick={confirmMarkPaid} className="cursor-pointer bg-brand text-white hover:brightness-90">
               <CheckCircle2 className="mr-2 h-4 w-4" />
               {t("confirmPaid")}
             </Button>
