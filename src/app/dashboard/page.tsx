@@ -1,7 +1,6 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations, useLocale } from "next-intl";
 import { motion } from "motion/react";
@@ -20,11 +19,6 @@ import {
   CalendarDays,
   CheckCircle2,
   AlertTriangle,
-  Home,
-  BedDouble,
-  ArrowRight,
-  QrCode,
-  Download,
   TrendingUp,
   TrendingDown,
   DollarSign,
@@ -41,7 +35,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SetupProfileModal } from "@/components/setup-profile-modal";
 import { getProvinceLabel } from "@/lib/provinces";
 import { getInitials } from "@/lib/utils";
-import { QRCodeSVG } from "qrcode.react";
 import { QuickBookingDialog } from "@/components/dashboard/quick-booking-dialog";
 import {
   AreaChart,
@@ -130,7 +123,6 @@ function pctChange(current: number, previous: number): number | null {
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
   const ta = useTranslations("auth");
-  const tn = useTranslations("dashboardNav");
   const locale = useLocale();
   const [hostProfile, setHostProfile] = useState<HostProfile | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
@@ -676,108 +668,6 @@ export default function DashboardPage() {
                 </CardContent>
               </Card>
 
-              {/* Quick Links */}
-              <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
-                <Card className="border border-gray-100 shadow-sm rounded-2xl dashboard-card">
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-violet-50 flex items-center justify-center shrink-0">
-                          <CalendarDays className="h-[18px] w-[18px] text-violet-500" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{tn("bookings")}</p>
-                          <p className="text-sm text-gray-400">{stats.totalBookings} {t("total")}</p>
-                        </div>
-                      </div>
-                      <Link href="/dashboard/bookings">
-                        <Button variant="ghost" size="sm" className="text-gray-300 hover:text-brand">
-                          <ArrowRight className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                    </div>
-                  </CardContent>
-                </Card>
-
-                <Card className="border border-gray-100 shadow-sm rounded-2xl dashboard-card">
-                  <CardContent className="p-5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        <div className="h-10 w-10 rounded-xl bg-orange-50 flex items-center justify-center shrink-0">
-                          <Home className="h-[18px] w-[18px] text-orange-500" />
-                        </div>
-                        <div>
-                          <p className="font-medium text-gray-900">{stats.homestayName || tn("homestay")}</p>
-                          <p className="text-sm text-gray-400">
-                            <BedDouble className="mr-1 inline h-3.5 w-3.5" />
-                            {stats.roomCount} {tn("rooms")}
-                          </p>
-                        </div>
-                      </div>
-                      <Link href="/dashboard/homestay">
-                        <Button variant="ghost" size="sm" className="text-gray-300 hover:text-brand">
-                          <ArrowRight className="h-4 w-4" />
-                        </Button>
-                      </Link>
-                    </div>
-                  </CardContent>
-                </Card>
-              </div>
-
-              {/* QR Code */}
-              {stats.homestaySlug && (
-                <Card className="border border-gray-100 shadow-sm rounded-2xl overflow-hidden">
-                  <div className="flex flex-col sm:flex-row items-center gap-6 p-6">
-                    <div className="shrink-0 rounded-xl bg-gray-50 p-4">
-                      <QRCodeSVG
-                        id="checkin-qr"
-                        value={`${typeof window !== "undefined" ? window.location.origin : ""}/${stats.homestaySlug}`}
-                        size={120}
-                        fgColor="#2F5D50"
-                        level="M"
-                      />
-                    </div>
-                    <div className="flex flex-col gap-2 text-center sm:text-left">
-                      <h3 className="font-semibold text-gray-900 flex items-center gap-2 justify-center sm:justify-start">
-                        <QrCode className="h-4 w-4 text-brand" />
-                        {t("qrCodeTitle")}
-                      </h3>
-                      <p className="text-sm text-gray-500 leading-relaxed">{t("qrCodeDesc")}</p>
-                      <ol className="text-xs text-gray-400 space-y-0.5 list-decimal list-inside">
-                        <li>{t("qrStep1")}</li>
-                        <li>{t("qrStep2")}</li>
-                        <li>{t("qrStep3")}</li>
-                      </ol>
-                      <Button
-                        variant="outline"
-                        size="sm"
-                        className="mt-2 w-fit self-center sm:self-start rounded-full"
-                        onClick={() => {
-                          const svg = document.getElementById("checkin-qr");
-                          if (!svg) return;
-                          const svgData = new XMLSerializer().serializeToString(svg);
-                          const canvas = document.createElement("canvas");
-                          canvas.width = 400;
-                          canvas.height = 400;
-                          const ctx = canvas.getContext("2d");
-                          const img = new Image();
-                          img.onload = () => {
-                            ctx?.drawImage(img, 0, 0, 400, 400);
-                            const a = document.createElement("a");
-                            a.download = `${stats.homestaySlug}-qr.png`;
-                            a.href = canvas.toDataURL("image/png");
-                            a.click();
-                          };
-                          img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
-                        }}
-                      >
-                        <Download className="mr-1.5 h-3.5 w-3.5" />
-                        {t("qrDownload")}
-                      </Button>
-                    </div>
-                  </div>
-                </Card>
-              )}
             </motion.div>
           ) : (
             <motion.div

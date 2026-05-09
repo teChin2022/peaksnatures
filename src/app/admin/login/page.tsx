@@ -17,6 +17,7 @@ import {
   CardTitle,
 } from "@/components/ui/card";
 import OtpModal from "@/components/otp-modal";
+import { isValidEmail } from "@/lib/utils";
 
 export default function AdminLoginPage() {
   const router = useRouter();
@@ -35,6 +36,11 @@ export default function AdminLoginPage() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+
+    if (!isValidEmail(email)) {
+      setError("Please enter a valid email address");
+      return;
+    }
 
     if (!turnstileToken && !turnstileError) {
       setError("Please complete the CAPTCHA verification");

@@ -101,7 +101,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
-import { getInitials } from "@/lib/utils";
+import { getInitials, sanitizePhoneInput } from "@/lib/utils";
 
 interface PromoFormState {
   code: string;
@@ -1321,8 +1321,10 @@ export default function PromoCodesPage() {
                       <Label>{t("recommenderPhone")}</Label>
                       <Input
                         type="tel"
+                        inputMode="numeric"
+                        maxLength={10}
                         value={form.recommender_phone}
-                        onChange={(e) => setForm({ ...form, recommender_phone: e.target.value })}
+                        onChange={(e) => setForm({ ...form, recommender_phone: sanitizePhoneInput(e.target.value) })}
                       />
                     </div>
                     <div className="space-y-1.5">

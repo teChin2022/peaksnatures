@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import Link from "next/link";
 import Image from "next/image";
+import { isValidEmail } from "@/lib/utils";
 
 export default function ForgotPasswordPage() {
   const t = useTranslations("auth");
@@ -25,6 +26,11 @@ export default function ForgotPasswordPage() {
     e.preventDefault();
     setError(null);
     setTouched(true);
+
+    if (!isValidEmail(email)) {
+      setError(t("errorInvalidEmail"));
+      return;
+    }
 
     if (!turnstileToken && !turnstileError) {
       setError(t("errorCaptcha"));

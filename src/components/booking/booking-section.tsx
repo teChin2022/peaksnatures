@@ -29,6 +29,7 @@ import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
 import type { Homestay, Room, BlockedDate, Host, RoomSeasonalPrice, RoomOption } from "@/types/database";
 import { calculateTotalPrice, getPriceRange } from "@/lib/calculate-price";
+import { isValidEmail, isValidPhone, sanitizePhoneInput } from "@/lib/utils";
 import { getFullyBookedForRoom } from "@/lib/booking-dates";
 import { getDepositForMonth } from "@/lib/get-deposit";
 import { THAI_PROVINCES, getProvinceLabel } from "@/lib/provinces";
@@ -492,6 +493,14 @@ export function BookingSection({
   const handleProceedToPayment = async (skipDuplicateCheck = false) => {
     if (!guestName || !guestEmail || !guestPhone) {
       toast.error(t("errorFillFields"));
+      return;
+    }
+    if (!isValidEmail(guestEmail)) {
+      toast.error(t("errorInvalidEmail"));
+      return;
+    }
+    if (!isValidPhone(guestPhone)) {
+      toast.error(t("errorInvalidPhone"));
       return;
     }
     if (!dateRange?.from || !dateRange?.to || !selectedRoomId) return;
@@ -1178,7 +1187,7 @@ export function BookingSection({
                               <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("phone")} <span className="text-red-500">*</span></label>
                               <div className="relative">
                                 <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-400" size={16} />
-                                <Input type="number" value={guestPhone} onChange={(e) => setGuestPhone(e.target.value)} placeholder={t("phonePlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400" />
+                                <Input type="tel" inputMode="numeric" maxLength={10} value={guestPhone} onChange={(e) => setGuestPhone(sanitizePhoneInput(e.target.value))} placeholder={t("phonePlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400" />
                               </div>
                             </div>
 
@@ -1246,6 +1255,8 @@ export function BookingSection({
                           <button
                             onClick={() => {
                               if (!guestName || !guestEmail || !guestPhone || !guestProvince) { toast.error(t("errorFillFields")); return; }
+                              if (!isValidEmail(guestEmail)) { toast.error(t("errorInvalidEmail")); return; }
+                              if (!isValidPhone(guestPhone)) { toast.error(t("errorInvalidPhone")); return; }
                               setShowConfirmModal(true);
                             }}
                             className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
