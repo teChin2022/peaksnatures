@@ -695,7 +695,7 @@ export default function PromoCodesPage() {
             )}
             {enabled ? t("masterStatusOn") : t("masterStatusOff")}
           </button>
-          <Button onClick={openCreate} className="cursor-pointer">
+          <Button onClick={openCreate} className="cursor-pointer bg-brand text-white hover:brightness-90">
             <Plus className="mr-2 h-4 w-4" />
             {t("newCode")}
           </Button>
@@ -842,7 +842,7 @@ export default function PromoCodesPage() {
                     <Tag className="h-6 w-6 text-brand" />
                   </div>
                   <p className="text-sm text-earth-500">{t("emptyCodes")}</p>
-                  <Button onClick={openCreate} className="mt-1 cursor-pointer">
+                  <Button onClick={openCreate} className="mt-1 cursor-pointer bg-brand text-white hover:brightness-90">
                     <Plus className="mr-2 h-4 w-4" />
                     {t("newCode")}
                   </Button>

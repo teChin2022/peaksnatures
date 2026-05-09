@@ -528,7 +528,7 @@ export default function BookingsPage() {
         {firstHomestayId && quickBookingRooms.length > 0 && (
           <Button
             size="sm"
-            className="rounded-full"
+            className="rounded-full bg-brand text-white hover:brightness-90"
             onClick={() => setQuickBookingOpen(true)}
           >
             <Zap className="mr-1.5 h-4 w-4" />
