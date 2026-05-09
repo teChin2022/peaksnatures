@@ -1270,7 +1270,9 @@ export function BookingSection({
                                     <div className="flex items-center gap-2 text-sm">
                                       <CheckCircle2 className="h-4 w-4 text-emerald-600" />
                                       <span className="font-mono font-semibold text-emerald-800">{appliedPromo.code}</span>
-                                      <span className="text-emerald-700">−฿{promoDiscount.toLocaleString()}</span>
+                                      {promoDiscount > 0 && (
+                                        <span className="text-emerald-700">−฿{promoDiscount.toLocaleString()}</span>
+                                      )}
                                     </div>
                                     <button
                                       type="button"

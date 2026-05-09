@@ -228,12 +228,12 @@
     "errorFillFields": "Please fill in all required fields",
     "errorInvalidEmail": "Please enter a valid email address",
     "errorInvalidPhone": "Phone number must be 10 digits",
-    "promoLabel": "Promo Code",
+    "promoLabel": "Referral Code",
     "promoPlaceholder": "Enter code",
     "promoApply": "Apply",
     "promoRemove": "Remove",
-    "promoApplied": "Promo code applied",
-    "promoFromLinkBanner": "Promo {code}",
+    "promoApplied": "Referral code applied",
+    "promoFromLinkBanner": "Referral code {code}",
     "promoFromLinkDiscountPct": " — {value}% off",
     "promoFromLinkDiscountFixed": " — ฿{value} off",
     "promoFromLinkRef": " · referred by {name}",
@@ -597,7 +597,7 @@
     "checkins": "Today's Check-ins",
     "billing": "Billing",
     "wallet": "Wallet & Invoices",
-    "promoCodes": "Promo Codes"
+    "promoCodes": "Discount / Referrer"
   },
   "checkins": {
     "title": "Today's Check-ins",

@@ -228,12 +228,12 @@
     "errorFillFields": "กรุณากรอกข้อมูลที่จำเป็นทั้งหมด",
     "errorInvalidEmail": "กรุณากรอกอีเมลให้ถูกต้อง",
     "errorInvalidPhone": "เบอร์โทรต้องเป็นตัวเลข 10 หลัก",
-    "promoLabel": "รหัสส่วนลด",
+    "promoLabel": "รหัสแนะนำ",
     "promoPlaceholder": "กรอกรหัส",
     "promoApply": "ใช้รหัส",
     "promoRemove": "ลบ",
-    "promoApplied": "ใช้รหัสส่วนลดเรียบร้อย",
-    "promoFromLinkBanner": "โปรโมชั่น {code}",
+    "promoApplied": "ใช้รหัสแนะนำเรียบร้อย",
+    "promoFromLinkBanner": "รหัสแนะนำ {code}",
     "promoFromLinkDiscountPct": " — ส่วนลด {value}%",
     "promoFromLinkDiscountFixed": " — ส่วนลด ฿{value}",
     "promoFromLinkRef": " · แนะนำโดย {name}",
@@ -601,7 +601,7 @@
     "checkins": "เช็คอินวันนี้",
     "billing": "การเรียกเก็บเงิน",
     "wallet": "กระเป๋างเงิน/ใบแจ้งหนี้",
-    "promoCodes": "รหัสส่วนลด"
+    "promoCodes": "ส่วนลด/ผู้แนะนำ"
   },
   "checkins": {
     "title": "เช็คอินวันนี้",
