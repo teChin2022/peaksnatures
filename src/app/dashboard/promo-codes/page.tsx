@@ -38,14 +38,20 @@ import {
 } from "@/components/ui/chart";
 
 const LINE_PALETTE = [
-  "#2F5D50",
-  "#F59E0B",
-  "#7C3AED",
-  "#DC2626",
-  "#0EA5E9",
-  "#EC4899",
+  "#2F5D50", // brand green
+  "#F59E0B", // amber
+  "#7C3AED", // violet
+  "#DC2626", // red
+  "#0EA5E9", // sky
+  "#EC4899", // pink
+  "#10B981", // emerald
+  "#6366F1", // indigo
+  "#F97316", // orange
+  "#14B8A6", // teal
+  "#A855F7", // purple
+  "#EAB308", // yellow
 ];
-const MAX_LINES = 6;
+const MONTHS_WINDOW = 6;
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -488,21 +494,20 @@ export default function PromoCodesPage() {
       totals.set(name, (totals.get(name) || 0) + Number(r.commission_amount));
     }
     const ranked = Array.from(totals.entries()).sort((a, b) => b[1] - a[1]);
-    const topNames = ranked.slice(0, MAX_LINES).map(([n]) => n);
+    const allNames = ranked.map(([n]) => n);
 
-    if (topNames.length === 0) {
+    if (allNames.length === 0) {
       return {
         data: [] as Record<string, string | number>[],
         aliases: [] as string[],
         chartConfig: {} as ChartConfig,
-        totalRecommenders: 0,
       };
     }
 
     // Step 2: alias each recommender as r0/r1/... so names work as CSS-var keys.
     const chartConfig: ChartConfig = {};
     const aliasOfName = new Map<string, string>();
-    topNames.forEach((name, i) => {
+    allNames.forEach((name, i) => {
       const alias = `r${i}`;
       aliasOfName.set(name, alias);
       chartConfig[alias] = { label: name, color: LINE_PALETTE[i % LINE_PALETTE.length] };
@@ -511,7 +516,7 @@ export default function PromoCodesPage() {
     // Step 3: build the last 6 month buckets (oldest → newest).
     const now = new Date();
     const months: { key: string; label: string }[] = [];
-    for (let i = MAX_LINES - 1; i >= 0; i--) {
+    for (let i = MONTHS_WINDOW - 1; i >= 0; i--) {
       const d = startOfMonth(subMonths(now, i));
       const key = format(d, "yyyy-MM");
       const label =
@@ -541,7 +546,6 @@ export default function PromoCodesPage() {
       data: rows,
       aliases: Array.from(aliasOfName.values()),
       chartConfig,
-      totalRecommenders: ranked.length,
     };
   }, [redemptions, locale]);
 
@@ -696,14 +700,6 @@ export default function PromoCodesPage() {
             {t("chartCommissionTitle")}
           </CardTitle>
           <p className="text-xs text-earth-400">{t("chartCommissionDesc")}</p>
-          {recommenderTrendData.totalRecommenders > MAX_LINES && (
-            <p className="text-xs text-earth-400">
-              {t("chartTopOf", {
-                shown: recommenderTrendData.aliases.length,
-                total: recommenderTrendData.totalRecommenders,
-              })}
-            </p>
-          )}
         </CardHeader>
         <CardContent className="px-2 pb-4">
           {recommenderTrendData.aliases.length > 0 ? (
@@ -757,7 +753,7 @@ export default function PromoCodesPage() {
                     />
                   }
                 />
-                <ChartLegend content={<ChartLegendContent />} />
+                <ChartLegend content={<ChartLegendContent className="flex-wrap" />} />
                 {recommenderTrendData.aliases.map((alias) => (
                   <Line
                     key={alias}
