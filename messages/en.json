@@ -1056,6 +1056,8 @@
     "maxUsesHelp": "Leave empty for unlimited uses.",
     "recommenderHelp": "Pay this person a commission each time their code is used. Commission is calculated on the pre-discount subtotal.",
     "codeHelp": "Uppercase letters and digits, e.g. SUMMER25.",
+    "codeHelpAuto": "Type your own code (e.g. SUMMER25) or click ↻ to generate one from your homestay slug + date.",
+    "generateCode": "Generate code from homestay slug + current date",
     "pickDate": "Pick a date",
     "clearDate": "Clear",
     "copyCode": "Copy code",

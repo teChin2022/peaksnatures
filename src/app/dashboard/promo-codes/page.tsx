@@ -23,7 +23,29 @@ import {
   TrendingUp,
   ChevronLeft,
   ChevronRight,
+  RefreshCw,
 } from "lucide-react";
+
+function slugPrefix(slug: string | null | undefined): string {
+  if (!slug) return "PN";
+  const parts = slug
+    .split("-")
+    .map((p) => p.replace(/[^a-zA-Z0-9]/g, ""))
+    .filter(Boolean);
+  if (parts.length === 0) return "PN";
+  if (parts.length === 1) return parts[0].slice(0, 3).toUpperCase();
+  return parts.map((p) => p[0]).join("").slice(0, 4).toUpperCase();
+}
+
+function generateCodeFromSlug(slug: string | null | undefined, now = new Date()): string {
+  const yyyy = now.getFullYear();
+  const mm = String(now.getMonth() + 1).padStart(2, "0");
+  const dd = String(now.getDate()).padStart(2, "0");
+  const hh = String(now.getHours()).padStart(2, "0");
+  const min = String(now.getMinutes()).padStart(2, "0");
+  const ss = String(now.getSeconds()).padStart(2, "0");
+  return `${slugPrefix(slug)}${yyyy}${mm}${dd}${hh}${min}${ss}`;
+}
 
 const PAGE_SIZE = 20;
 import type { PromoCode, PromoRedemption } from "@/types/database";
@@ -131,6 +153,7 @@ export default function PromoCodesPage() {
   const [loading, setLoading] = useState(true);
   const [hostName, setHostName] = useState<string | null>(null);
   const [homestayId, setHomestayId] = useState<string | null>(null);
+  const [homestaySlug, setHomestaySlug] = useState<string | null>(null);
   const [enabled, setEnabled] = useState(false);
   const [savingFlag, setSavingFlag] = useState(false);
   const [codes, setCodes] = useState<PromoCode[]>([]);
@@ -199,16 +222,19 @@ export default function PromoCodesPage() {
 
     const { data: homestayRow } = await supabase
       .from("homestays")
-      .select("id, promo_codes_enabled")
+      .select("id, slug, promo_codes_enabled")
       .eq("host_id", host.id)
       .limit(1)
       .single();
-    const homestay = homestayRow as { id: string; promo_codes_enabled: boolean } | null;
+    const homestay = homestayRow as
+      | { id: string; slug: string | null; promo_codes_enabled: boolean }
+      | null;
     if (!homestay) {
       setLoading(false);
       return;
     }
     setHomestayId(homestay.id);
+    setHomestaySlug(homestay.slug);
     setEnabled(homestay.promo_codes_enabled);
 
     const [{ data: codeRows }, { data: redemptionRows }] = await Promise.all([
@@ -1142,14 +1168,28 @@ export default function PromoCodesPage() {
                   value={form.code}
                   onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
                   placeholder="SUMMER25"
-                  className={`font-mono uppercase ${editing ? "pr-9" : ""}`}
+                  className={`font-mono uppercase ${editing ? "pr-9" : "pr-10"}`}
                   disabled={!!editing}
                 />
-                {editing && (
+                {editing ? (
                   <Lock className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-earth-400" />
+                ) : (
+                  <Button
+                    type="button"
+                    size="icon"
+                    variant="ghost"
+                    onClick={() =>
+                      setForm({ ...form, code: generateCodeFromSlug(homestaySlug) })
+                    }
+                    aria-label={t("generateCode")}
+                    title={t("generateCode")}
+                    className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 cursor-pointer text-earth-500 hover:text-brand"
+                  >
+                    <RefreshCw className="h-3.5 w-3.5" />
+                  </Button>
                 )}
               </div>
-              <p className="text-xs text-earth-500">{t("codeHelp")}</p>
+              <p className="text-xs text-earth-500">{t("codeHelpAuto")}</p>
             </div>
 
             {/* Discount section */}
