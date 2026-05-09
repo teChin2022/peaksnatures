@@ -27,8 +27,17 @@ import {
 
 const PAGE_SIZE = 20;
 import type { PromoCode, PromoRedemption } from "@/types/database";
+import {
+  ResponsiveContainer,
+  BarChart,
+  Bar,
+  XAxis,
+  YAxis,
+  Tooltip,
+  Legend,
+} from "recharts";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent } from "@/components/ui/card";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -460,6 +469,45 @@ export default function PromoCodesPage() {
     [redemptions],
   );
 
+  const recommenderCommissionData = useMemo(() => {
+    const map = new Map<string, { paid: number; pending: number }>();
+    for (const r of redemptions) {
+      const name = r.promo_code?.recommender_name;
+      if (!name || r.commission_amount <= 0 || r.payout_status === "cancelled") continue;
+      const entry = map.get(name) || { paid: 0, pending: 0 };
+      if (r.payout_status === "paid") entry.paid += Number(r.commission_amount);
+      else if (r.payout_status === "pending") entry.pending += Number(r.commission_amount);
+      map.set(name, entry);
+    }
+    return Array.from(map.entries())
+      .map(([fullName, v]) => ({
+        fullName,
+        name: fullName.length > 10 ? `${fullName.slice(0, 10)}…` : fullName,
+        paid: v.paid,
+        pending: v.pending,
+        total: v.paid + v.pending,
+      }))
+      .sort((a, b) => b.total - a.total)
+      .slice(0, 8);
+  }, [redemptions]);
+
+  const recommenderCountData = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const r of redemptions) {
+      const name = r.promo_code?.recommender_name;
+      if (!name || r.payout_status === "cancelled") continue;
+      map.set(name, (map.get(name) || 0) + 1);
+    }
+    return Array.from(map.entries())
+      .map(([fullName, count]) => ({
+        fullName,
+        name: fullName.length > 10 ? `${fullName.slice(0, 10)}…` : fullName,
+        count,
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 8);
+  }, [redemptions]);
+
   const filteredRedemptions = useMemo(() => {
     const q = redemptionSearch.trim().toLowerCase();
     return redemptions.filter((r) => {
@@ -602,6 +650,135 @@ export default function PromoCodesPage() {
           value={`฿${commissionPaid.toLocaleString()}`}
           sub={t("kpiToRecommenders")}
         />
+      </div>
+
+      {/* Recommender comparison charts */}
+      <div className={`grid grid-cols-1 gap-3 lg:grid-cols-2 ${enabled ? "" : "opacity-70"}`}>
+        <Card className="rounded-2xl border-earth-100 shadow-sm">
+          <CardHeader className="px-6 pb-2 pt-5">
+            <CardTitle className="text-sm font-semibold text-earth-900">
+              {t("chartCommissionTitle")}
+            </CardTitle>
+            <p className="text-xs text-earth-400">{t("chartCommissionDesc")}</p>
+          </CardHeader>
+          <CardContent className="px-2 pb-4">
+            {recommenderCommissionData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart
+                  data={recommenderCommissionData}
+                  margin={{ top: 20, right: 20, left: 10, bottom: 0 }}
+                >
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 11, fill: "#9ca3af" }}
+                    axisLine={false}
+                    tickLine={false}
+                    interval={0}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 12, fill: "#9ca3af" }}
+                    axisLine={false}
+                    tickLine={false}
+                    tickFormatter={(v) =>
+                      v >= 1000 ? `฿${(v / 1000).toFixed(0)}k` : `฿${v}`
+                    }
+                    width={55}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: 8,
+                      border: "1px solid #e5e7eb",
+                      fontSize: 13,
+                    }}
+                    labelFormatter={(_, payload) => {
+                      const p = payload?.[0]?.payload as { fullName?: string } | undefined;
+                      return p?.fullName || "";
+                    }}
+                    formatter={(value, name) => [
+                      `฿${Number(value).toLocaleString()}`,
+                      name === "paid" ? t("tooltipPaid") : t("tooltipPending"),
+                    ]}
+                  />
+                  <Legend
+                    wrapperStyle={{ fontSize: 12 }}
+                    formatter={(v) =>
+                      v === "paid" ? t("tooltipPaid") : t("tooltipPending")
+                    }
+                  />
+                  <Bar
+                    dataKey="paid"
+                    stackId="a"
+                    fill="#2F5D50"
+                    radius={[0, 0, 0, 0]}
+                    maxBarSize={48}
+                  />
+                  <Bar
+                    dataKey="pending"
+                    stackId="a"
+                    fill="#F59E0B"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={48}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="py-16 text-center text-sm text-earth-400">{t("chartEmpty")}</p>
+            )}
+          </CardContent>
+        </Card>
+
+        <Card className="rounded-2xl border-earth-100 shadow-sm">
+          <CardHeader className="px-6 pb-2 pt-5">
+            <CardTitle className="text-sm font-semibold text-earth-900">
+              {t("chartCountTitle")}
+            </CardTitle>
+            <p className="text-xs text-earth-400">{t("chartCountDesc")}</p>
+          </CardHeader>
+          <CardContent className="px-2 pb-4">
+            {recommenderCountData.length > 0 ? (
+              <ResponsiveContainer width="100%" height={240}>
+                <BarChart
+                  data={recommenderCountData}
+                  margin={{ top: 20, right: 20, left: 10, bottom: 0 }}
+                >
+                  <XAxis
+                    dataKey="name"
+                    tick={{ fontSize: 11, fill: "#9ca3af" }}
+                    axisLine={false}
+                    tickLine={false}
+                    interval={0}
+                  />
+                  <YAxis
+                    tick={{ fontSize: 12, fill: "#9ca3af" }}
+                    axisLine={false}
+                    tickLine={false}
+                    allowDecimals={false}
+                  />
+                  <Tooltip
+                    contentStyle={{
+                      borderRadius: 8,
+                      border: "1px solid #e5e7eb",
+                      fontSize: 13,
+                    }}
+                    labelFormatter={(_, payload) => {
+                      const p = payload?.[0]?.payload as { fullName?: string } | undefined;
+                      return p?.fullName || "";
+                    }}
+                    formatter={(value) => [value, t("tooltipRedemptions")]}
+                  />
+                  <Bar
+                    dataKey="count"
+                    fill="#2F5D50"
+                    radius={[4, 4, 0, 0]}
+                    maxBarSize={48}
+                  />
+                </BarChart>
+              </ResponsiveContainer>
+            ) : (
+              <p className="py-16 text-center text-sm text-earth-400">{t("chartEmpty")}</p>
+            )}
+          </CardContent>
+        </Card>
       </div>
 
       {/* Tabs */}

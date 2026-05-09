@@ -1067,7 +1067,15 @@
     "previous": "ก่อนหน้า",
     "next": "ถัดไป",
     "pageOf": "หน้า {page}",
-    "showingRange": "แสดง {from}–{to} จาก {total}"
+    "showingRange": "แสดง {from}–{to} จาก {total}",
+    "chartCommissionTitle": "ผู้แนะนำที่ทำคอมมิชชั่นสูงสุด",
+    "chartCommissionDesc": "ยอดคอมมิชชั่นรวม แยกระหว่างจ่ายแล้วและรอจ่าย",
+    "chartCountTitle": "ผู้แนะนำที่มียอดใช้รหัสสูงสุด",
+    "chartCountDesc": "จำนวนการจองที่แต่ละผู้แนะนำพามา",
+    "chartEmpty": "เพิ่มผู้แนะนำให้กับรหัสส่วนลดเพื่อเริ่มดูสถิติ",
+    "tooltipPaid": "จ่ายแล้ว",
+    "tooltipPending": "รอจ่าย",
+    "tooltipRedemptions": "การใช้งาน"
   },
   "recommenderStats": {
     "title": "สถิติของผู้แนะนำ",

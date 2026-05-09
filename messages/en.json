@@ -1063,7 +1063,15 @@
     "previous": "Previous",
     "next": "Next",
     "pageOf": "Page {page}",
-    "showingRange": "Showing {from}–{to} of {total}"
+    "showingRange": "Showing {from}–{to} of {total}",
+    "chartCommissionTitle": "Top Recommenders by Commission",
+    "chartCommissionDesc": "Total ฿ earned, split by Paid and Pending",
+    "chartCountTitle": "Top Recommenders by Redemptions",
+    "chartCountDesc": "Number of bookings each recommender brought in",
+    "chartEmpty": "Add a recommender to a promo code to start tracking performance.",
+    "tooltipPaid": "Paid",
+    "tooltipPending": "Pending",
+    "tooltipRedemptions": "Redemptions"
   },
   "recommenderStats": {
     "title": "Recommender Stats",
