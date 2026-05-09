@@ -1,4 +1,10 @@
-const RAW_SITE_URL = process.env.NEXT_PUBLIC_SITE_URL ?? "https://peaksnature.com";
+// Single source of truth for the canonical/runtime URL.
+// Read NEXT_PUBLIC_APP_URL first (the var actually set across .env.local and Vercel),
+// fall back to NEXT_PUBLIC_SITE_URL for back-compat, then to the production domain.
+const RAW_SITE_URL =
+  process.env.NEXT_PUBLIC_APP_URL ??
+  process.env.NEXT_PUBLIC_SITE_URL ??
+  "https://peaksnature.com";
 export const SITE_URL = RAW_SITE_URL.replace(/\/$/, "");
 
 export const SITE_NAME = "Peaksnature";

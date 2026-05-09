@@ -74,7 +74,7 @@ RESEND_API_KEY
 SMS_KUB_API_KEY
 SMS_KUB_SENDER
 CRON_SECRET              # Secures /api/cron/* endpoints. Generate with: openssl rand -base64 32
-NEXT_PUBLIC_SITE_URL     # Canonical domain for SEO (metadata, sitemap, robots, JSON-LD). Default: https://peaksnature.com
+NEXT_PUBLIC_APP_URL      # Canonical/runtime URL. Used by SEO (metadata, sitemap, robots, JSON-LD), magic-link emails, and notifications. Set per-environment in Vercel: prod = https://peaksnature.com, preview = the preview hostname, local = http://localhost:3000. NEXT_PUBLIC_SITE_URL is still read as a fallback for back-compat but new envs should use NEXT_PUBLIC_APP_URL only.
 GOOGLE_SITE_VERIFICATION # Optional. Google Search Console verification token.
 BING_SITE_VERIFICATION   # Optional. Bing Webmaster verification token.
 ```

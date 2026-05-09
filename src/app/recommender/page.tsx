@@ -10,7 +10,6 @@ import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
-import { SITE_URL } from "@/lib/seo";
 
 interface CodeAggregate {
   id: string;
@@ -86,7 +85,8 @@ export default function RecommenderStatsPage() {
 
   async function copyShareLink(slug: string | null, code: string) {
     if (!slug) return;
-    const url = `${SITE_URL}/${slug}?promo=${encodeURIComponent(code)}`;
+    // Click-time origin keeps preview deploys producing preview URLs, prod producing prod URLs.
+    const url = `${window.location.origin}/${slug}?promo=${encodeURIComponent(code)}`;
     try {
       await navigator.clipboard.writeText(url);
       toast.success(t("copyLinkDone"));

@@ -26,7 +26,6 @@ import {
   ChevronRight,
   RefreshCw,
 } from "lucide-react";
-import { SITE_URL } from "@/lib/seo";
 
 function slugPrefix(slug: string | null | undefined): string {
   if (!slug) return "PN";
@@ -492,7 +491,8 @@ export default function PromoCodesPage() {
 
   async function copyShareLink(code: string) {
     if (!homestaySlug) return;
-    const url = `${SITE_URL}/${homestaySlug}?promo=${encodeURIComponent(code)}`;
+    // Click-time origin keeps preview deploys producing preview URLs, prod producing prod URLs.
+    const url = `${window.location.origin}/${homestaySlug}?promo=${encodeURIComponent(code)}`;
     try {
       await navigator.clipboard.writeText(url);
       toast.success(t("copyLinkDone"));
