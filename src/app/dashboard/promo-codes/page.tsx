@@ -1273,9 +1273,17 @@ export default function PromoCodesPage() {
                   <Label>{t("startAt")}</Label>
                   <DatePickerField
                     value={form.start_at}
-                    onChange={(v) => setForm({ ...form, start_at: v })}
+                    onChange={(v) => {
+                      // Clear expires_at if it would now be before the new start_at.
+                      if (form.expires_at && v && form.expires_at < v) {
+                        setForm({ ...form, start_at: v, expires_at: "" });
+                      } else {
+                        setForm({ ...form, start_at: v });
+                      }
+                    }}
                     placeholder={t("pickDate")}
                     clearLabel={t("clearDate")}
+                    locale={locale}
                   />
                 </div>
                 <div className="space-y-1.5">
@@ -1285,6 +1293,8 @@ export default function PromoCodesPage() {
                     onChange={(v) => setForm({ ...form, expires_at: v })}
                     placeholder={t("pickDate")}
                     clearLabel={t("clearDate")}
+                    locale={locale}
+                    disabledBefore={form.start_at || undefined}
                   />
                 </div>
               </div>
@@ -1535,14 +1545,19 @@ function DatePickerField({
   onChange,
   placeholder,
   clearLabel,
+  locale,
+  disabledBefore,
 }: {
   value: string;
   onChange: (v: string) => void;
   placeholder: string;
   clearLabel: string;
+  locale?: string;
+  disabledBefore?: string;
 }) {
   const [open, setOpen] = useState(false);
   const date = value ? parse(value, "yyyy-MM-dd", new Date()) : undefined;
+  const minDate = disabledBefore ? parse(disabledBefore, "yyyy-MM-dd", new Date()) : undefined;
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
@@ -1558,10 +1573,20 @@ function DatePickerField({
         <Calendar
           mode="single"
           selected={date}
+          defaultMonth={date ?? minDate}
           onSelect={(d) => {
             onChange(d ? format(d, "yyyy-MM-dd") : "");
             setOpen(false);
           }}
+          locale={locale === "th" ? thLocale : undefined}
+          formatters={locale === "th" ? {
+            formatMonthDropdown: (d) => d.toLocaleDateString("th-TH", { month: "long" }),
+            formatYearDropdown: (d) => String(d.getFullYear() + 543),
+            formatCaption: (d) =>
+              `${d.toLocaleDateString("th-TH", { month: "long" })} ${d.getFullYear() + 543}`,
+            formatWeekdayName: (d) => d.toLocaleDateString("th-TH", { weekday: "narrow" }),
+          } : undefined}
+          disabled={minDate ? { before: minDate } : undefined}
         />
         {value && (
           <div className="border-t p-2">
