@@ -470,42 +470,26 @@ export default function PromoCodesPage() {
   );
 
   const recommenderCommissionData = useMemo(() => {
-    const map = new Map<string, { paid: number; pending: number }>();
+    const map = new Map<string, { paid: number; pending: number; count: number }>();
     for (const r of redemptions) {
       const name = r.promo_code?.recommender_name;
       if (!name || r.commission_amount <= 0 || r.payout_status === "cancelled") continue;
-      const entry = map.get(name) || { paid: 0, pending: 0 };
+      const entry = map.get(name) || { paid: 0, pending: 0, count: 0 };
       if (r.payout_status === "paid") entry.paid += Number(r.commission_amount);
       else if (r.payout_status === "pending") entry.pending += Number(r.commission_amount);
+      entry.count += 1;
       map.set(name, entry);
     }
     return Array.from(map.entries())
       .map(([fullName, v]) => ({
         fullName,
-        name: fullName.length > 10 ? `${fullName.slice(0, 10)}…` : fullName,
+        name: fullName.length > 16 ? `${fullName.slice(0, 16)}…` : fullName,
         paid: v.paid,
         pending: v.pending,
         total: v.paid + v.pending,
+        count: v.count,
       }))
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 8);
-  }, [redemptions]);
-
-  const recommenderCountData = useMemo(() => {
-    const map = new Map<string, number>();
-    for (const r of redemptions) {
-      const name = r.promo_code?.recommender_name;
-      if (!name || r.payout_status === "cancelled") continue;
-      map.set(name, (map.get(name) || 0) + 1);
-    }
-    return Array.from(map.entries())
-      .map(([fullName, count]) => ({
-        fullName,
-        name: fullName.length > 10 ? `${fullName.slice(0, 10)}…` : fullName,
-        count,
-      }))
-      .sort((a, b) => b.count - a.count)
-      .slice(0, 8);
+      .sort((a, b) => b.total - a.total);
   }, [redemptions]);
 
   const filteredRedemptions = useMemo(() => {
@@ -652,47 +636,63 @@ export default function PromoCodesPage() {
         />
       </div>
 
-      {/* Recommender comparison charts */}
-      <div className={`grid grid-cols-1 gap-3 lg:grid-cols-2 ${enabled ? "" : "opacity-70"}`}>
-        <Card className="rounded-2xl border-earth-100 shadow-sm">
-          <CardHeader className="px-6 pb-2 pt-5">
-            <CardTitle className="text-sm font-semibold text-earth-900">
-              {t("chartCommissionTitle")}
-            </CardTitle>
-            <p className="text-xs text-earth-400">{t("chartCommissionDesc")}</p>
-          </CardHeader>
-          <CardContent className="px-2 pb-4">
-            {recommenderCommissionData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={240}>
+      {/* Recommender ranking chart */}
+      <Card className={`rounded-2xl border-earth-100 shadow-sm ${enabled ? "" : "opacity-70"}`}>
+        <CardHeader className="px-6 pb-2 pt-5">
+          <CardTitle className="text-sm font-semibold text-earth-900">
+            {t("chartCommissionTitle")}
+          </CardTitle>
+          <p className="text-xs text-earth-400">{t("chartCommissionDesc")}</p>
+        </CardHeader>
+        <CardContent className="px-2 pb-4">
+          {recommenderCommissionData.length > 0 ? (
+            <div
+              className="overflow-y-auto pr-1"
+              style={{ maxHeight: 460 }}
+            >
+              <ResponsiveContainer
+                width="100%"
+                height={Math.max(180, recommenderCommissionData.length * 40 + 40)}
+              >
                 <BarChart
                   data={recommenderCommissionData}
-                  margin={{ top: 20, right: 20, left: 10, bottom: 0 }}
+                  layout="vertical"
+                  margin={{ top: 8, right: 24, left: 8, bottom: 8 }}
+                  barCategoryGap={8}
                 >
                   <XAxis
-                    dataKey="name"
-                    tick={{ fontSize: 11, fill: "#9ca3af" }}
-                    axisLine={false}
-                    tickLine={false}
-                    interval={0}
-                  />
-                  <YAxis
+                    type="number"
                     tick={{ fontSize: 12, fill: "#9ca3af" }}
                     axisLine={false}
                     tickLine={false}
                     tickFormatter={(v) =>
                       v >= 1000 ? `฿${(v / 1000).toFixed(0)}k` : `฿${v}`
                     }
-                    width={55}
+                  />
+                  <YAxis
+                    type="category"
+                    dataKey="name"
+                    tick={{ fontSize: 12, fill: "#374151" }}
+                    axisLine={false}
+                    tickLine={false}
+                    width={130}
+                    interval={0}
                   />
                   <Tooltip
+                    cursor={{ fill: "rgba(47, 93, 80, 0.06)" }}
                     contentStyle={{
                       borderRadius: 8,
                       border: "1px solid #e5e7eb",
                       fontSize: 13,
                     }}
                     labelFormatter={(_, payload) => {
-                      const p = payload?.[0]?.payload as { fullName?: string } | undefined;
-                      return p?.fullName || "";
+                      const p = payload?.[0]?.payload as
+                        | { fullName?: string; count?: number }
+                        | undefined;
+                      if (!p?.fullName) return "";
+                      return p.count != null
+                        ? `${p.fullName} · ${p.count} ${t("tooltipRedemptions").toLowerCase()}`
+                        : p.fullName;
                     }}
                     formatter={(value, name) => [
                       `฿${Number(value).toLocaleString()}`,
@@ -710,76 +710,23 @@ export default function PromoCodesPage() {
                     stackId="a"
                     fill="#2F5D50"
                     radius={[0, 0, 0, 0]}
-                    maxBarSize={48}
+                    maxBarSize={28}
                   />
                   <Bar
                     dataKey="pending"
                     stackId="a"
                     fill="#F59E0B"
-                    radius={[4, 4, 0, 0]}
-                    maxBarSize={48}
+                    radius={[0, 4, 4, 0]}
+                    maxBarSize={28}
                   />
                 </BarChart>
               </ResponsiveContainer>
-            ) : (
-              <p className="py-16 text-center text-sm text-earth-400">{t("chartEmpty")}</p>
-            )}
-          </CardContent>
-        </Card>
-
-        <Card className="rounded-2xl border-earth-100 shadow-sm">
-          <CardHeader className="px-6 pb-2 pt-5">
-            <CardTitle className="text-sm font-semibold text-earth-900">
-              {t("chartCountTitle")}
-            </CardTitle>
-            <p className="text-xs text-earth-400">{t("chartCountDesc")}</p>
-          </CardHeader>
-          <CardContent className="px-2 pb-4">
-            {recommenderCountData.length > 0 ? (
-              <ResponsiveContainer width="100%" height={240}>
-                <BarChart
-                  data={recommenderCountData}
-                  margin={{ top: 20, right: 20, left: 10, bottom: 0 }}
-                >
-                  <XAxis
-                    dataKey="name"
-                    tick={{ fontSize: 11, fill: "#9ca3af" }}
-                    axisLine={false}
-                    tickLine={false}
-                    interval={0}
-                  />
-                  <YAxis
-                    tick={{ fontSize: 12, fill: "#9ca3af" }}
-                    axisLine={false}
-                    tickLine={false}
-                    allowDecimals={false}
-                  />
-                  <Tooltip
-                    contentStyle={{
-                      borderRadius: 8,
-                      border: "1px solid #e5e7eb",
-                      fontSize: 13,
-                    }}
-                    labelFormatter={(_, payload) => {
-                      const p = payload?.[0]?.payload as { fullName?: string } | undefined;
-                      return p?.fullName || "";
-                    }}
-                    formatter={(value) => [value, t("tooltipRedemptions")]}
-                  />
-                  <Bar
-                    dataKey="count"
-                    fill="#2F5D50"
-                    radius={[4, 4, 0, 0]}
-                    maxBarSize={48}
-                  />
-                </BarChart>
-              </ResponsiveContainer>
-            ) : (
-              <p className="py-16 text-center text-sm text-earth-400">{t("chartEmpty")}</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
+            </div>
+          ) : (
+            <p className="py-16 text-center text-sm text-earth-400">{t("chartEmpty")}</p>
+          )}
+        </CardContent>
+      </Card>
 
       {/* Tabs */}
       <div className={enabled ? "" : "pointer-events-none opacity-60"}>
