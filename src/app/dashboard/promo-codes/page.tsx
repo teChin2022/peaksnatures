@@ -486,14 +486,29 @@ export default function PromoCodesPage() {
   );
 
   const recommenderTrendData = useMemo(() => {
-    // Step 1: rank recommenders by total commission (paid + pending, excluding cancelled).
+    // Step 1: collect every recommender ever assigned to a promo code (source of truth)
+    // plus any that appear in redemptions (defensive — covers deleted codes).
+    const recommenderSet = new Set<string>();
+    for (const c of codes) {
+      if (c.recommender_name) recommenderSet.add(c.recommender_name);
+    }
+    for (const r of redemptions) {
+      const name = r.promo_code?.recommender_name;
+      if (name) recommenderSet.add(name);
+    }
+
+    // Step 2: total commission per recommender (used for line order; zero is allowed).
     const totals = new Map<string, number>();
+    for (const name of recommenderSet) totals.set(name, 0);
     for (const r of redemptions) {
       const name = r.promo_code?.recommender_name;
       if (!name || r.commission_amount <= 0 || r.payout_status === "cancelled") continue;
       totals.set(name, (totals.get(name) || 0) + Number(r.commission_amount));
     }
-    const ranked = Array.from(totals.entries()).sort((a, b) => b[1] - a[1]);
+
+    const ranked = Array.from(recommenderSet)
+      .map((name) => [name, totals.get(name) || 0] as [string, number])
+      .sort((a, b) => b[1] - a[1]);
     const allNames = ranked.map(([n]) => n);
 
     if (allNames.length === 0) {
@@ -547,7 +562,7 @@ export default function PromoCodesPage() {
       aliases: Array.from(aliasOfName.values()),
       chartConfig,
     };
-  }, [redemptions, locale]);
+  }, [codes, redemptions, locale]);
 
   const filteredRedemptions = useMemo(() => {
     const q = redemptionSearch.trim().toLowerCase();
