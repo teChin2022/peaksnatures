@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
-import { format, parse } from "date-fns";
+import { format, parse, parseISO, subDays } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations, useLocale } from "next-intl";
@@ -17,10 +17,14 @@ import {
   Banknote,
   UserPlus,
   CalendarDays,
+  Copy,
+  Search,
+  Lock,
+  TrendingUp,
 } from "lucide-react";
 import type { PromoCode, PromoRedemption } from "@/types/database";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Textarea } from "@/components/ui/textarea";
@@ -46,6 +50,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
+import { getInitials } from "@/lib/utils";
 
 interface PromoFormState {
   code: string;
@@ -87,6 +92,8 @@ type RedemptionRow = PromoRedemption & {
   promo_code: Pick<PromoCode, "code" | "recommender_name"> | null;
 };
 
+type RedemptionFilter = "all" | "pending" | "paid" | "cancelled";
+
 export default function PromoCodesPage() {
   const t = useTranslations("dashboardPromoCodes");
   const tc = useTranslations("common");
@@ -109,6 +116,12 @@ export default function PromoCodesPage() {
   const [payTarget, setPayTarget] = useState<RedemptionRow | null>(null);
   const [payNote, setPayNote] = useState("");
 
+  const [deleteTarget, setDeleteTarget] = useState<PromoCode | null>(null);
+  const [deleting, setDeleting] = useState(false);
+
+  const [redemptionFilter, setRedemptionFilter] = useState<RedemptionFilter>("all");
+  const [redemptionSearch, setRedemptionSearch] = useState("");
+
   const fmtDate = (s: string | null) => {
     if (!s) return "—";
     const d = parse(s, "yyyy-MM-dd", new Date());
@@ -117,6 +130,19 @@ export default function PromoCodesPage() {
       return `${formatted} ${d.getFullYear() + 543}`;
     }
     return format(d, "d MMM yyyy");
+  };
+
+  const fmtDateTime = (iso: string) => {
+    try {
+      const d = parseISO(iso);
+      if (locale === "th") {
+        const formatted = format(d, "d MMM", { locale: thLocale });
+        return `${formatted} ${d.getFullYear() + 543}`;
+      }
+      return format(d, "d MMM yyyy");
+    } catch {
+      return "";
+    }
   };
 
   const fetchData = async () => {
@@ -315,11 +341,15 @@ export default function PromoCodesPage() {
     await fetchData();
   }
 
-  async function handleDelete(code: PromoCode) {
-    const used = redemptions.some((r) => r.promo_code_id === code.id);
-    const message = used ? t("confirmDeactivate") : t("confirmDelete");
-    if (!window.confirm(message)) return;
+  function requestDelete(code: PromoCode) {
+    setDeleteTarget(code);
+  }
 
+  async function confirmDelete() {
+    if (!deleteTarget) return;
+    const code = deleteTarget;
+    const used = redemptions.some((r) => r.promo_code_id === code.id);
+    setDeleting(true);
     const supabase = createClient();
     if (used) {
       const { error } = await supabase
@@ -328,6 +358,7 @@ export default function PromoCodesPage() {
         .eq("id", code.id);
       if (error) {
         toast.error(t("errorSave"));
+        setDeleting(false);
         return;
       }
       toast.success(t("deactivated"));
@@ -335,10 +366,13 @@ export default function PromoCodesPage() {
       const { error } = await supabase.from("promo_codes").delete().eq("id", code.id);
       if (error) {
         toast.error(t("errorSave"));
+        setDeleting(false);
         return;
       }
       toast.success(t("deleted"));
     }
+    setDeleteTarget(null);
+    setDeleting(false);
     await fetchData();
   }
 
@@ -369,129 +403,332 @@ export default function PromoCodesPage() {
     }
   }
 
-  const codeStatus = (c: PromoCode): { label: string; color: string } => {
+  function isActiveNow(c: PromoCode): boolean {
     const today = format(new Date(), "yyyy-MM-dd");
-    if (!c.is_active) return { label: t("statusInactive"), color: "bg-gray-100 text-gray-600" };
-    if (c.expires_at && c.expires_at < today) return { label: t("statusExpired"), color: "bg-red-100 text-red-700" };
-    if (c.max_uses != null && c.times_used >= c.max_uses) return { label: t("statusUsedUp"), color: "bg-amber-100 text-amber-700" };
-    if (c.start_at && c.start_at > today) return { label: t("statusScheduled"), color: "bg-blue-100 text-blue-700" };
-    return { label: t("statusActive"), color: "bg-emerald-100 text-emerald-700" };
+    if (!c.is_active) return false;
+    if (c.expires_at && c.expires_at < today) return false;
+    if (c.max_uses != null && c.times_used >= c.max_uses) return false;
+    if (c.start_at && c.start_at > today) return false;
+    return true;
+  }
+
+  const codeStatus = (c: PromoCode): { label: string; pill: string; dot: string } => {
+    const today = format(new Date(), "yyyy-MM-dd");
+    if (!c.is_active) return { label: t("statusInactive"), pill: "bg-gray-100 text-gray-700", dot: "bg-gray-400" };
+    if (c.expires_at && c.expires_at < today) return { label: t("statusExpired"), pill: "bg-red-100 text-red-700", dot: "bg-red-500" };
+    if (c.max_uses != null && c.times_used >= c.max_uses) return { label: t("statusUsedUp"), pill: "bg-amber-100 text-amber-700", dot: "bg-amber-500" };
+    if (c.start_at && c.start_at > today) return { label: t("statusScheduled"), pill: "bg-blue-100 text-blue-700", dot: "bg-blue-500" };
+    return { label: t("statusActive"), pill: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500" };
   };
 
-  const pendingCount = useMemo(
-    () => redemptions.filter((r) => r.payout_status === "pending" && r.commission_amount > 0).length,
+  async function copyCode(code: string) {
+    try {
+      await navigator.clipboard.writeText(code);
+      toast.success(t("copied"));
+    } catch {
+      // Silently ignore — clipboard may be unavailable in insecure contexts.
+    }
+  }
+
+  const activeCodesCount = useMemo(() => codes.filter(isActiveNow).length, [codes]);
+
+  const recentRedemptionsCount = useMemo(() => {
+    const cutoff = format(subDays(new Date(), 30), "yyyy-MM-dd'T'00:00:00");
+    return redemptions.filter((r) => r.created_at >= cutoff).length;
+  }, [redemptions]);
+
+  const pendingPayouts = useMemo(() => {
+    const list = redemptions.filter((r) => r.payout_status === "pending" && r.commission_amount > 0);
+    return {
+      count: list.length,
+      amount: list.reduce((sum, r) => sum + Number(r.commission_amount || 0), 0),
+    };
+  }, [redemptions]);
+
+  const commissionPaid = useMemo(
+    () =>
+      redemptions
+        .filter((r) => r.payout_status === "paid")
+        .reduce((sum, r) => sum + Number(r.commission_amount || 0), 0),
     [redemptions],
   );
 
+  const filteredRedemptions = useMemo(() => {
+    const q = redemptionSearch.trim().toLowerCase();
+    return redemptions.filter((r) => {
+      if (redemptionFilter !== "all" && r.payout_status !== redemptionFilter) return false;
+      if (!q) return true;
+      const haystack = [
+        r.promo_code?.code,
+        r.guest_phone,
+        r.guest_email,
+        r.promo_code?.recommender_name,
+      ]
+        .filter(Boolean)
+        .join(" ")
+        .toLowerCase();
+      return haystack.includes(q);
+    });
+  }, [redemptions, redemptionFilter, redemptionSearch]);
+
+  const livePreview = useMemo(() => {
+    const v = Number(form.discount_value);
+    if (!Number.isFinite(v) || v <= 0) return t("previewEmpty");
+    return form.discount_type === "percentage"
+      ? t("previewPercent", { value: v })
+      : t("previewFixed", { value: v.toLocaleString() });
+  }, [form.discount_type, form.discount_value, t]);
+
   if (loading) {
     return (
-      <div className="space-y-4 p-6">
-        <Skeleton className="h-8 w-64" />
-        <Skeleton className="h-32 w-full" />
-        <Skeleton className="h-64 w-full" />
+      <div className="space-y-6 p-4 md:p-6">
+        <div className="flex items-center justify-between">
+          <Skeleton className="h-8 w-48" />
+          <Skeleton className="h-9 w-32" />
+        </div>
+        <div className="grid grid-cols-2 gap-3 md:grid-cols-4">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-24 w-full" />
+          ))}
+        </div>
+        <Skeleton className="h-9 w-64" />
+        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
+          {[0, 1, 2, 3].map((i) => (
+            <Skeleton key={i} className="h-44 w-full" />
+          ))}
+        </div>
       </div>
     );
   }
 
   if (!homestayId) {
-    return <div className="p-6 text-sm text-gray-500">{t("noHomestay")}</div>;
+    return <div className="p-6 text-sm text-earth-500">{t("noHomestay")}</div>;
   }
 
   return (
     <div className="space-y-6 p-4 md:p-6">
-      <div>
-        <h1 className="text-2xl font-bold text-earth-900">{t("title")}</h1>
-        <p className="mt-1 text-sm text-earth-500">{t("subtitle")}</p>
+      {/* Header */}
+      <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+        <div className="flex items-center gap-3">
+          <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-brand-50">
+            <Tag className="h-5 w-5 text-brand" />
+          </div>
+          <div>
+            <h1 className="text-2xl font-bold text-earth-900">{t("title")}</h1>
+            <p className="mt-0.5 text-sm text-earth-500">{t("subtitle")}</p>
+          </div>
+        </div>
+        <div className="flex items-center gap-2">
+          <button
+            type="button"
+            onClick={() => toggleEnabled(!enabled)}
+            disabled={savingFlag}
+            aria-pressed={enabled}
+            className={`group inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-60 ${
+              enabled
+                ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                : "border-earth-200 bg-earth-50 text-earth-600 hover:bg-earth-100"
+            }`}
+          >
+            {savingFlag ? (
+              <Loader2 className="h-3.5 w-3.5 animate-spin" />
+            ) : (
+              <span className={`h-2 w-2 rounded-full ${enabled ? "bg-emerald-500" : "bg-earth-400"}`} />
+            )}
+            {enabled ? t("masterStatusOn") : t("masterStatusOff")}
+          </button>
+          <Button onClick={openCreate} className="cursor-pointer">
+            <Plus className="mr-2 h-4 w-4" />
+            {t("newCode")}
+          </Button>
+        </div>
       </div>
 
-      <Card>
-        <CardContent className="flex flex-col gap-3 p-5 md:flex-row md:items-center md:justify-between">
-          <div className="flex items-start gap-3">
-            <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-brand-50">
-              <Tag className="h-5 w-5 text-brand" />
-            </div>
-            <div>
-              <p className="text-base font-semibold text-earth-900">{t("masterTitle")}</p>
-              <p className="text-sm text-earth-500">{t("masterDesc")}</p>
-            </div>
-          </div>
-          <div className="flex items-center gap-3">
-            {savingFlag && <Loader2 className="h-4 w-4 animate-spin text-earth-400" />}
-            <Switch checked={enabled} onCheckedChange={toggleEnabled} disabled={savingFlag} />
-          </div>
-        </CardContent>
-      </Card>
+      {/* KPI strip */}
+      <div className={`grid grid-cols-2 gap-3 md:grid-cols-4 ${enabled ? "" : "opacity-70"}`}>
+        <KpiTile
+          icon={<Tag className="h-4 w-4" />}
+          tone="brand"
+          label={t("kpiActiveCodes")}
+          value={activeCodesCount.toLocaleString()}
+          sub={t("kpiActiveOf", { total: codes.length })}
+        />
+        <KpiTile
+          icon={<TrendingUp className="h-4 w-4" />}
+          tone="emerald"
+          label={t("kpiRedemptions30d")}
+          value={recentRedemptionsCount.toLocaleString()}
+          sub={t("kpiAllTime", { total: redemptions.length })}
+        />
+        <KpiTile
+          icon={<Clock className="h-4 w-4" />}
+          tone="amber"
+          label={t("kpiPendingPayouts")}
+          value={pendingPayouts.count.toLocaleString()}
+          sub={t("kpiPendingAmount", { amount: pendingPayouts.amount.toLocaleString() })}
+        />
+        <KpiTile
+          icon={<Banknote className="h-4 w-4" />}
+          tone="violet"
+          label={t("kpiCommissionPaid")}
+          value={`฿${commissionPaid.toLocaleString()}`}
+          sub={t("kpiToRecommenders")}
+        />
+      </div>
 
-      <div className={enabled ? "" : "opacity-60 pointer-events-none"}>
+      {/* Tabs */}
+      <div className={enabled ? "" : "pointer-events-none opacity-60"}>
         <Tabs defaultValue="codes" className="w-full">
           <TabsList>
-            <TabsTrigger value="codes">{t("tabCodes")} ({codes.length})</TabsTrigger>
+            <TabsTrigger value="codes">
+              {t("tabCodes")} <span className="ml-1 text-earth-500">({codes.length})</span>
+            </TabsTrigger>
             <TabsTrigger value="redemptions">
-              {t("tabRedemptions")} ({redemptions.length})
-              {pendingCount > 0 && (
-                <Badge className="ml-2 bg-amber-100 text-amber-700">{pendingCount}</Badge>
+              <span>
+                {t("tabRedemptions")} <span className="text-earth-500">({redemptions.length})</span>
+              </span>
+              {pendingPayouts.count > 0 && (
+                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-700">
+                  {pendingPayouts.count}
+                </span>
               )}
             </TabsTrigger>
           </TabsList>
 
+          {/* Codes tab */}
           <TabsContent value="codes" className="mt-4 space-y-4">
-            <div className="flex justify-end">
-              <Button onClick={openCreate}>
-                <Plus className="mr-2 h-4 w-4" /> {t("newCode")}
-              </Button>
-            </div>
-
             {codes.length === 0 ? (
               <Card>
-                <CardContent className="p-10 text-center text-sm text-earth-500">
-                  {t("emptyCodes")}
+                <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-50">
+                    <Tag className="h-6 w-6 text-brand" />
+                  </div>
+                  <p className="text-sm text-earth-500">{t("emptyCodes")}</p>
+                  <Button onClick={openCreate} className="mt-1 cursor-pointer">
+                    <Plus className="mr-2 h-4 w-4" />
+                    {t("newCode")}
+                  </Button>
                 </CardContent>
               </Card>
             ) : (
-              <div className="grid gap-3 md:grid-cols-2">
+              <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
                 {codes.map((c) => {
                   const status = codeStatus(c);
+                  const usesPct =
+                    c.max_uses != null && c.max_uses > 0
+                      ? Math.min(100, Math.round((c.times_used / c.max_uses) * 100))
+                      : null;
                   return (
-                    <Card key={c.id}>
-                      <CardHeader className="pb-3">
+                    <Card
+                      key={c.id}
+                      className="border-earth-100 transition-shadow duration-200 hover:shadow-md"
+                    >
+                      <CardContent className="space-y-3 p-4">
+                        {/* Code chip + status */}
                         <div className="flex items-start justify-between gap-2">
-                          <div>
-                            <CardTitle className="font-mono text-lg">{c.code}</CardTitle>
-                            <p className="mt-1 text-xs text-earth-500">
-                              {c.discount_type === "percentage"
-                                ? `${c.discount_value}% ${t("off")}`
-                                : `฿${c.discount_value.toLocaleString()} ${t("off")}`}
-                            </p>
+                          <div className="flex min-w-0 items-center gap-2">
+                            <div className="rounded-lg bg-brand-50 px-3 py-1.5 font-mono text-xl font-bold tracking-wider text-brand-700">
+                              {c.code}
+                            </div>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 cursor-pointer text-earth-400 hover:text-brand"
+                              aria-label={t("copyCode")}
+                              onClick={() => copyCode(c.code)}
+                            >
+                              <Copy className="h-4 w-4" />
+                            </Button>
                           </div>
-                          <Badge className={status.color}>{status.label}</Badge>
+                          <span
+                            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${status.pill}`}
+                          >
+                            <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
+                            {status.label}
+                          </span>
                         </div>
-                      </CardHeader>
-                      <CardContent className="space-y-2 pt-0">
-                        <div className="grid grid-cols-2 gap-2 text-xs text-earth-600">
-                          <div className="flex items-center gap-1.5">
+
+                        {/* Discount + validity */}
+                        <div className="space-y-1.5 text-sm">
+                          <div className="font-semibold text-earth-900">
+                            {c.discount_type === "percentage"
+                              ? `${c.discount_value}% ${t("off")}`
+                              : `฿${c.discount_value.toLocaleString()} ${t("off")}`}
+                          </div>
+                          <div className="flex items-center gap-1.5 text-xs text-earth-500">
                             <CalendarDays className="h-3.5 w-3.5 text-earth-400" />
-                            <span>{fmtDate(c.start_at)} → {fmtDate(c.expires_at)}</span>
-                          </div>
-                          <div>
-                            {t("uses")}: {c.times_used}{c.max_uses != null ? ` / ${c.max_uses}` : ""}
-                          </div>
-                        </div>
-                        {c.recommender_name && (
-                          <div className="rounded-lg bg-violet-50 p-2 text-xs text-violet-800">
-                            <p className="font-medium">{t("recommender")}: {c.recommender_name}</p>
-                            {c.commission_type && c.commission_value != null && (
-                              <p>
-                                {t("commission")}: {c.commission_type === "percentage" ? `${c.commission_value}%` : `฿${c.commission_value.toLocaleString()}`}
-                              </p>
+                            {c.start_at || c.expires_at ? (
+                              <span>
+                                {c.start_at ? fmtDate(c.start_at) : t("anytime")} →{" "}
+                                {c.expires_at ? fmtDate(c.expires_at) : t("noExpiry")}
+                              </span>
+                            ) : (
+                              <span>{t("alwaysValid")}</span>
                             )}
                           </div>
+                        </div>
+
+                        {/* Uses */}
+                        <div className="space-y-1">
+                          <div className="flex justify-between text-xs text-earth-600">
+                            <span>{t("uses")}</span>
+                            <span className="font-medium text-earth-900">
+                              {c.times_used}
+                              {c.max_uses != null ? ` / ${c.max_uses}` : ""}
+                            </span>
+                          </div>
+                          {usesPct !== null && (
+                            <div className="h-1 w-full overflow-hidden rounded-full bg-earth-100">
+                              <div
+                                className="h-full rounded-full bg-brand transition-[width] duration-300"
+                                style={{ width: `${usesPct}%` }}
+                              />
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Recommender */}
+                        {c.recommender_name && (
+                          <div className="flex items-center gap-2 rounded-lg bg-violet-50 p-2">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-200 text-xs font-bold text-violet-800">
+                              {getInitials(c.recommender_name)}
+                            </div>
+                            <div className="min-w-0 flex-1">
+                              <p className="truncate text-xs font-medium text-violet-900">
+                                {c.recommender_name}
+                              </p>
+                              {c.commission_type && c.commission_value != null && (
+                                <p className="text-[11px] text-violet-700">
+                                  {t("commission")}:{" "}
+                                  {c.commission_type === "percentage"
+                                    ? `${c.commission_value}%`
+                                    : `฿${c.commission_value.toLocaleString()}`}
+                                </p>
+                              )}
+                            </div>
+                          </div>
                         )}
-                        <div className="flex justify-end gap-2 pt-2">
-                          <Button size="sm" variant="outline" onClick={() => openEdit(c)}>
+
+                        {/* Actions */}
+                        <div className="flex justify-end gap-1.5 border-t border-earth-100 pt-3">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => openEdit(c)}
+                            className="cursor-pointer text-earth-700 hover:bg-earth-50"
+                            aria-label={tc("edit")}
+                          >
                             <Pencil className="mr-1.5 h-3.5 w-3.5" />
                             {tc("edit")}
                           </Button>
-                          <Button size="sm" variant="ghost" onClick={() => handleDelete(c)} className="text-red-600 hover:bg-red-50">
+                          <Button
+                            size="sm"
+                            variant="ghost"
+                            onClick={() => requestDelete(c)}
+                            className="cursor-pointer text-red-600 hover:bg-red-50"
+                            aria-label={tc("delete")}
+                          >
                             <Trash2 className="mr-1.5 h-3.5 w-3.5" />
                             {tc("delete")}
                           </Button>
@@ -504,61 +741,136 @@ export default function PromoCodesPage() {
             )}
           </TabsContent>
 
+          {/* Redemptions tab */}
           <TabsContent value="redemptions" className="mt-4 space-y-3">
+            {/* Filter chips + search */}
+            {redemptions.length > 0 && (
+              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                <div className="flex flex-wrap gap-1.5">
+                  {(["all", "pending", "paid", "cancelled"] as const).map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => setRedemptionFilter(f)}
+                      className={`cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors duration-200 ${
+                        redemptionFilter === f
+                          ? "bg-brand text-white"
+                          : "bg-earth-50 text-earth-600 hover:bg-earth-100"
+                      }`}
+                    >
+                      {f === "all"
+                        ? t("filterAll")
+                        : f === "pending"
+                          ? t("filterPending")
+                          : f === "paid"
+                            ? t("filterPaid")
+                            : t("filterCancelled")}
+                    </button>
+                  ))}
+                </div>
+                <div className="relative md:w-72">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-earth-400" />
+                  <Input
+                    value={redemptionSearch}
+                    onChange={(e) => setRedemptionSearch(e.target.value)}
+                    placeholder={t("searchRedemptions")}
+                    className="pl-8"
+                  />
+                </div>
+              </div>
+            )}
+
             {redemptions.length === 0 ? (
               <Card>
-                <CardContent className="p-10 text-center text-sm text-earth-500">
-                  {t("emptyRedemptions")}
+                <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
+                    <Percent className="h-6 w-6 text-emerald-600" />
+                  </div>
+                  <p className="text-sm text-earth-500">{t("emptyRedemptions")}</p>
+                </CardContent>
+              </Card>
+            ) : filteredRedemptions.length === 0 ? (
+              <Card>
+                <CardContent className="p-8 text-center text-sm text-earth-500">
+                  {t("emptyFiltered")}
                 </CardContent>
               </Card>
             ) : (
-              redemptions.map((r) => (
-                <Card key={r.id}>
-                  <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2">
-                        <span className="font-mono text-sm font-semibold text-earth-900">
-                          {r.promo_code?.code || "—"}
-                        </span>
-                        {r.payout_status === "pending" ? (
-                          <Badge className="bg-amber-100 text-amber-700"><Clock className="mr-1 h-3 w-3" />{t("statusPending")}</Badge>
-                        ) : r.payout_status === "paid" ? (
-                          <Badge className="bg-emerald-100 text-emerald-700"><CheckCircle2 className="mr-1 h-3 w-3" />{t("statusPaid")}</Badge>
-                        ) : (
-                          <Badge className="bg-gray-100 text-gray-600">{t("statusCancelled")}</Badge>
+              filteredRedemptions.map((r) => {
+                const borderColor =
+                  r.payout_status === "pending"
+                    ? "border-l-amber-400"
+                    : r.payout_status === "paid"
+                      ? "border-l-emerald-400"
+                      : "border-l-earth-200";
+                return (
+                  <Card key={r.id} className={`border-l-4 ${borderColor} border-earth-100`}>
+                    <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                      <div className="space-y-1">
+                        <div className="flex flex-wrap items-center gap-2">
+                          <span className="font-mono text-sm font-semibold text-earth-900">
+                            {r.promo_code?.code || "—"}
+                          </span>
+                          {r.payout_status === "pending" ? (
+                            <Badge className="bg-amber-100 text-amber-700">
+                              <Clock className="mr-1 h-3 w-3" />
+                              {t("statusPending")}
+                            </Badge>
+                          ) : r.payout_status === "paid" ? (
+                            <Badge className="bg-emerald-100 text-emerald-700">
+                              <CheckCircle2 className="mr-1 h-3 w-3" />
+                              {t("statusPaid")}
+                            </Badge>
+                          ) : (
+                            <Badge className="bg-gray-100 text-gray-600">
+                              {t("statusCancelled")}
+                            </Badge>
+                          )}
+                          <span className="text-xs text-earth-400">{fmtDateTime(r.created_at)}</span>
+                        </div>
+                        <p className="text-xs text-earth-500">
+                          {r.guest_phone} · {r.guest_email}
+                        </p>
+                        <p className="text-xs text-earth-600">
+                          {t("discount")}: ฿{r.discount_amount.toLocaleString()}
+                          {r.commission_amount > 0 && (
+                            <>
+                              {" · "}
+                              {t("commission")}:{" "}
+                              <span className="font-semibold text-violet-700">
+                                ฿{r.commission_amount.toLocaleString()}
+                              </span>
+                              {r.promo_code?.recommender_name && ` (${r.promo_code.recommender_name})`}
+                            </>
+                          )}
+                        </p>
+                        {r.paid_note && (
+                          <p className="text-xs italic text-earth-500">
+                            {t("paidNote")}: {r.paid_note}
+                          </p>
                         )}
                       </div>
-                      <p className="text-xs text-earth-500">
-                        {r.guest_phone} · {r.guest_email}
-                      </p>
-                      <p className="text-xs text-earth-600">
-                        {t("discount")}: ฿{r.discount_amount.toLocaleString()}
-                        {r.commission_amount > 0 && (
-                          <>
-                            {" · "}
-                            {t("commission")}: <span className="font-semibold text-violet-700">฿{r.commission_amount.toLocaleString()}</span>
-                            {r.promo_code?.recommender_name && ` (${r.promo_code.recommender_name})`}
-                          </>
-                        )}
-                      </p>
-                      {r.paid_note && (
-                        <p className="text-xs text-earth-500 italic">{t("paidNote")}: {r.paid_note}</p>
+                      {r.commission_amount > 0 && r.payout_status === "pending" && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => openMarkPaid(r)}
+                          className="cursor-pointer"
+                        >
+                          <Banknote className="mr-1.5 h-3.5 w-3.5" />
+                          {t("markPaid")}
+                        </Button>
                       )}
-                    </div>
-                    {r.commission_amount > 0 && r.payout_status === "pending" && (
-                      <Button size="sm" variant="outline" onClick={() => openMarkPaid(r)}>
-                        <Banknote className="mr-1.5 h-3.5 w-3.5" />
-                        {t("markPaid")}
-                      </Button>
-                    )}
-                  </CardContent>
-                </Card>
-              ))
+                    </CardContent>
+                  </Card>
+                );
+              })
             )}
           </TabsContent>
         </Tabs>
       </div>
 
+      {/* Create / Edit dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
         <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
           <DialogHeader>
@@ -566,85 +878,150 @@ export default function PromoCodesPage() {
             <DialogDescription>{t("formDesc")}</DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4">
-            <div>
-              <Label>{t("codeLabel")}</Label>
-              <Input
-                value={form.code}
-                onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
-                placeholder="SUMMER25"
-                className="font-mono uppercase"
-                disabled={!!editing}
+          <div className="space-y-5">
+            {/* Visibility (active toggle moved to top) */}
+            <div className="flex items-center justify-between rounded-lg bg-earth-50 px-3 py-2.5">
+              <div className="flex items-center gap-2">
+                <span
+                  className={`h-2 w-2 rounded-full ${form.is_active ? "bg-emerald-500" : "bg-earth-400"}`}
+                />
+                <Label htmlFor="is-active" className="text-sm font-medium text-earth-800">
+                  {t("active")}
+                </Label>
+              </div>
+              <Switch
+                checked={form.is_active}
+                onCheckedChange={(v) => setForm({ ...form, is_active: v })}
+                id="is-active"
               />
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>{t("discountType")}</Label>
-                <Select
-                  value={form.discount_type}
-                  onValueChange={(v) => setForm({ ...form, discount_type: v as "percentage" | "fixed" })}
-                >
-                  <SelectTrigger><SelectValue /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="percentage"><Percent className="mr-1 inline h-3.5 w-3.5" />{t("percentage")}</SelectItem>
-                    <SelectItem value="fixed"><Banknote className="mr-1 inline h-3.5 w-3.5" />{t("fixed")}</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div>
-                <Label>{t("discountValue")}</Label>
+            {/* Code */}
+            <div className="space-y-1.5">
+              <Label>{t("codeLabel")}</Label>
+              <div className="relative">
                 <Input
-                  type="number"
-                  value={form.discount_value}
-                  onChange={(e) => setForm({ ...form, discount_value: e.target.value })}
-                  placeholder={form.discount_type === "percentage" ? "10" : "500"}
+                  value={form.code}
+                  onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
+                  placeholder="SUMMER25"
+                  className={`font-mono uppercase ${editing ? "pr-9" : ""}`}
+                  disabled={!!editing}
                 />
+                {editing && (
+                  <Lock className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-earth-400" />
+                )}
               </div>
+              <p className="text-xs text-earth-500">{t("codeHelp")}</p>
             </div>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>{t("startAt")}</Label>
-                <DatePickerField
-                  value={form.start_at}
-                  onChange={(v) => setForm({ ...form, start_at: v })}
-                />
+            {/* Discount section */}
+            <section className="space-y-3 border-t border-earth-100 pt-4">
+              <h3 className="text-sm font-semibold text-earth-800">{t("sectionDiscount")}</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>{t("discountType")}</Label>
+                  <Select
+                    value={form.discount_type}
+                    onValueChange={(v) => setForm({ ...form, discount_type: v as "percentage" | "fixed" })}
+                  >
+                    <SelectTrigger>
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="percentage">
+                        <Percent className="mr-1 inline h-3.5 w-3.5" />
+                        {t("percentage")}
+                      </SelectItem>
+                      <SelectItem value="fixed">
+                        <Banknote className="mr-1 inline h-3.5 w-3.5" />
+                        {t("fixed")}
+                      </SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t("discountValue")}</Label>
+                  <div className="relative">
+                    <Input
+                      type="number"
+                      value={form.discount_value}
+                      onChange={(e) => setForm({ ...form, discount_value: e.target.value })}
+                      placeholder={form.discount_type === "percentage" ? "10" : "500"}
+                      className={form.discount_type === "fixed" ? "pl-7" : "pr-7"}
+                    />
+                    <span className="pointer-events-none absolute top-1/2 -translate-y-1/2 text-sm text-earth-500"
+                      style={form.discount_type === "fixed" ? { left: 12 } : { right: 12 }}>
+                      {form.discount_type === "fixed" ? "฿" : "%"}
+                    </span>
+                  </div>
+                </div>
               </div>
-              <div>
-                <Label>{t("expiresAt")}</Label>
-                <DatePickerField
-                  value={form.expires_at}
-                  onChange={(v) => setForm({ ...form, expires_at: v })}
-                />
-              </div>
-            </div>
+              <p className="rounded-md bg-brand-50 px-3 py-2 text-xs text-brand-700">
+                {livePreview}
+              </p>
+            </section>
 
-            <div className="grid grid-cols-2 gap-3">
-              <div>
-                <Label>{t("maxUses")}</Label>
-                <Input
-                  type="number"
-                  value={form.max_uses}
-                  onChange={(e) => setForm({ ...form, max_uses: e.target.value })}
-                  placeholder={t("unlimited")}
-                />
+            {/* Validity section */}
+            <section className="space-y-3 border-t border-earth-100 pt-4">
+              <h3 className="text-sm font-semibold text-earth-800">{t("sectionValidity")}</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>{t("startAt")}</Label>
+                  <DatePickerField
+                    value={form.start_at}
+                    onChange={(v) => setForm({ ...form, start_at: v })}
+                    placeholder={t("pickDate")}
+                    clearLabel={t("clearDate")}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>{t("expiresAt")}</Label>
+                  <DatePickerField
+                    value={form.expires_at}
+                    onChange={(v) => setForm({ ...form, expires_at: v })}
+                    placeholder={t("pickDate")}
+                    clearLabel={t("clearDate")}
+                  />
+                </div>
               </div>
-              <div className="flex items-end gap-2">
-                <Switch
-                  checked={form.one_use_per_guest}
-                  onCheckedChange={(v) => setForm({ ...form, one_use_per_guest: v })}
-                  id="one-use"
-                />
-                <Label htmlFor="one-use" className="text-sm">{t("oneUsePerGuest")}</Label>
-              </div>
-            </div>
+              {!form.start_at && !form.expires_at && (
+                <p className="text-xs text-earth-500">{t("validityAnytime")}</p>
+              )}
+            </section>
 
-            <div className="rounded-lg border border-earth-200 p-3">
+            {/* Limits section */}
+            <section className="space-y-3 border-t border-earth-100 pt-4">
+              <h3 className="text-sm font-semibold text-earth-800">{t("sectionLimits")}</h3>
+              <div className="grid grid-cols-2 gap-3">
+                <div className="space-y-1.5">
+                  <Label>{t("maxUses")}</Label>
+                  <Input
+                    type="number"
+                    value={form.max_uses}
+                    onChange={(e) => setForm({ ...form, max_uses: e.target.value })}
+                    placeholder={t("unlimited")}
+                  />
+                  <p className="text-xs text-earth-500">{t("maxUsesHelp")}</p>
+                </div>
+                <div className="flex items-end gap-2 pb-1">
+                  <Switch
+                    checked={form.one_use_per_guest}
+                    onCheckedChange={(v) => setForm({ ...form, one_use_per_guest: v })}
+                    id="one-use"
+                  />
+                  <Label htmlFor="one-use" className="text-sm">
+                    {t("oneUsePerGuest")}
+                  </Label>
+                </div>
+              </div>
+            </section>
+
+            {/* Recommender section */}
+            <section className="space-y-3 border-t border-earth-100 pt-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
                   <UserPlus className="h-4 w-4 text-violet-600" />
-                  <Label className="text-sm font-semibold">{t("recommenderSection")}</Label>
+                  <h3 className="text-sm font-semibold text-earth-800">{t("sectionRecommender")}</h3>
                 </div>
                 <Switch
                   checked={form.recommender_enabled}
@@ -652,8 +1029,9 @@ export default function PromoCodesPage() {
                 />
               </div>
               {form.recommender_enabled && (
-                <div className="mt-3 space-y-3">
-                  <div>
+                <div className="space-y-3 rounded-lg border border-violet-100 bg-violet-50/40 p-3">
+                  <p className="text-xs text-violet-800">{t("recommenderHelp")}</p>
+                  <div className="space-y-1.5">
                     <Label>{t("recommenderName")}</Label>
                     <Input
                       value={form.recommender_name}
@@ -661,7 +1039,7 @@ export default function PromoCodesPage() {
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
+                    <div className="space-y-1.5">
                       <Label>{t("recommenderPhone")}</Label>
                       <Input
                         type="tel"
@@ -669,7 +1047,7 @@ export default function PromoCodesPage() {
                         onChange={(e) => setForm({ ...form, recommender_phone: e.target.value })}
                       />
                     </div>
-                    <div>
+                    <div className="space-y-1.5">
                       <Label>{t("recommenderPromptpay")}</Label>
                       <Input
                         value={form.recommender_promptpay}
@@ -677,7 +1055,7 @@ export default function PromoCodesPage() {
                       />
                     </div>
                   </div>
-                  <div>
+                  <div className="space-y-1.5">
                     <Label>{t("recommenderNote")}</Label>
                     <Textarea
                       value={form.recommender_note}
@@ -686,45 +1064,49 @@ export default function PromoCodesPage() {
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
-                    <div>
+                    <div className="space-y-1.5">
                       <Label>{t("commissionType")}</Label>
                       <Select
                         value={form.commission_type}
-                        onValueChange={(v) => setForm({ ...form, commission_type: v as "percentage" | "fixed" })}
+                        onValueChange={(v) =>
+                          setForm({ ...form, commission_type: v as "percentage" | "fixed" })
+                        }
                       >
-                        <SelectTrigger><SelectValue /></SelectTrigger>
+                        <SelectTrigger>
+                          <SelectValue />
+                        </SelectTrigger>
                         <SelectContent>
                           <SelectItem value="percentage">{t("percentage")}</SelectItem>
                           <SelectItem value="fixed">{t("fixed")}</SelectItem>
                         </SelectContent>
                       </Select>
                     </div>
-                    <div>
+                    <div className="space-y-1.5">
                       <Label>{t("commissionValue")}</Label>
-                      <Input
-                        type="number"
-                        value={form.commission_value}
-                        onChange={(e) => setForm({ ...form, commission_value: e.target.value })}
-                      />
+                      <div className="relative">
+                        <Input
+                          type="number"
+                          value={form.commission_value}
+                          onChange={(e) => setForm({ ...form, commission_value: e.target.value })}
+                          className={form.commission_type === "fixed" ? "pl-7" : "pr-7"}
+                        />
+                        <span className="pointer-events-none absolute top-1/2 -translate-y-1/2 text-sm text-earth-500"
+                          style={form.commission_type === "fixed" ? { left: 12 } : { right: 12 }}>
+                          {form.commission_type === "fixed" ? "฿" : "%"}
+                        </span>
+                      </div>
                     </div>
                   </div>
                 </div>
               )}
-            </div>
-
-            <div className="flex items-center gap-2">
-              <Switch
-                checked={form.is_active}
-                onCheckedChange={(v) => setForm({ ...form, is_active: v })}
-                id="is-active"
-              />
-              <Label htmlFor="is-active" className="text-sm">{t("active")}</Label>
-            </div>
+            </section>
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialogOpen(false)}>{tc("cancel")}</Button>
-            <Button onClick={handleSave} disabled={saving}>
+            <Button variant="outline" onClick={() => setDialogOpen(false)} className="cursor-pointer">
+              {tc("cancel")}
+            </Button>
+            <Button onClick={handleSave} disabled={saving} className="cursor-pointer">
               {saving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
               {tc("save")}
             </Button>
@@ -732,6 +1114,7 @@ export default function PromoCodesPage() {
         </DialogContent>
       </Dialog>
 
+      {/* Mark paid dialog */}
       <Dialog open={payDialogOpen} onOpenChange={setPayDialogOpen}>
         <DialogContent className="sm:max-w-md">
           <DialogHeader>
@@ -739,7 +1122,10 @@ export default function PromoCodesPage() {
             <DialogDescription>
               {payTarget && (
                 <span>
-                  {t("markPaidDesc", { amount: payTarget.commission_amount.toLocaleString(), name: payTarget.promo_code?.recommender_name || "—" })}
+                  {t("markPaidDesc", {
+                    amount: payTarget.commission_amount.toLocaleString(),
+                    name: payTarget.promo_code?.recommender_name || "—",
+                  })}
                 </span>
               )}
             </DialogDescription>
@@ -754,10 +1140,45 @@ export default function PromoCodesPage() {
             />
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setPayDialogOpen(false)}>{tc("cancel")}</Button>
-            <Button onClick={confirmMarkPaid}>
+            <Button variant="outline" onClick={() => setPayDialogOpen(false)} className="cursor-pointer">
+              {tc("cancel")}
+            </Button>
+            <Button onClick={confirmMarkPaid} className="cursor-pointer">
               <CheckCircle2 className="mr-2 h-4 w-4" />
               {t("confirmPaid")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Delete confirmation dialog */}
+      <Dialog open={!!deleteTarget} onOpenChange={(o) => !o && setDeleteTarget(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{tc("delete")}</DialogTitle>
+            <DialogDescription>
+              {deleteTarget &&
+                (redemptions.some((r) => r.promo_code_id === deleteTarget.id)
+                  ? t("confirmDeactivate")
+                  : t("confirmDelete"))}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setDeleteTarget(null)}
+              disabled={deleting}
+              className="cursor-pointer"
+            >
+              {tc("cancel")}
+            </Button>
+            <Button
+              onClick={confirmDelete}
+              disabled={deleting}
+              className="cursor-pointer bg-red-600 text-white hover:bg-red-700"
+            >
+              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+              {tc("delete")}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -766,15 +1187,63 @@ export default function PromoCodesPage() {
   );
 }
 
-function DatePickerField({ value, onChange }: { value: string; onChange: (v: string) => void }) {
+function KpiTile({
+  icon,
+  tone,
+  label,
+  value,
+  sub,
+}: {
+  icon: React.ReactNode;
+  tone: "brand" | "emerald" | "amber" | "violet";
+  label: string;
+  value: string;
+  sub: string;
+}) {
+  const toneClasses: Record<typeof tone, string> = {
+    brand: "bg-brand-50 text-brand",
+    emerald: "bg-emerald-50 text-emerald-600",
+    amber: "bg-amber-50 text-amber-600",
+    violet: "bg-violet-50 text-violet-600",
+  };
+  return (
+    <Card className="border-earth-100">
+      <CardContent className="space-y-2 p-4">
+        <div className="flex items-center gap-2">
+          <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${toneClasses[tone]}`}>
+            {icon}
+          </span>
+          <span className="text-xs font-medium text-earth-500">{label}</span>
+        </div>
+        <p className="text-2xl font-semibold text-earth-900">{value}</p>
+        <p className="truncate text-xs text-earth-500">{sub}</p>
+      </CardContent>
+    </Card>
+  );
+}
+
+function DatePickerField({
+  value,
+  onChange,
+  placeholder,
+  clearLabel,
+}: {
+  value: string;
+  onChange: (v: string) => void;
+  placeholder: string;
+  clearLabel: string;
+}) {
   const [open, setOpen] = useState(false);
   const date = value ? parse(value, "yyyy-MM-dd", new Date()) : undefined;
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="outline" className="w-full justify-start text-left font-normal">
+        <Button
+          variant="outline"
+          className={`w-full cursor-pointer justify-start text-left font-normal ${value ? "" : "text-earth-400"}`}
+        >
           <CalendarDays className="mr-2 h-4 w-4" />
-          {value || "—"}
+          {value || placeholder}
         </Button>
       </PopoverTrigger>
       <PopoverContent className="w-auto p-0">
@@ -788,8 +1257,16 @@ function DatePickerField({ value, onChange }: { value: string; onChange: (v: str
         />
         {value && (
           <div className="border-t p-2">
-            <Button variant="ghost" size="sm" className="w-full" onClick={() => { onChange(""); setOpen(false); }}>
-              Clear
+            <Button
+              variant="ghost"
+              size="sm"
+              className="w-full cursor-pointer"
+              onClick={() => {
+                onChange("");
+                setOpen(false);
+              }}
+            >
+              {clearLabel}
             </Button>
           </div>
         )}
