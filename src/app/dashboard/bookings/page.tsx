@@ -29,6 +29,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { Input } from "@/components/ui/input";
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from "@/components/ui/select";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Dialog,
@@ -184,6 +192,23 @@ export default function BookingsPage() {
   const [quickBookingRooms, setQuickBookingRooms] = useState<{ id: string; name: string; price_per_night: number; max_guests: number }[]>([]);
   const [firstHomestayId, setFirstHomestayId] = useState<string | null>(null);
 
+  // Filters (All tab only) — Pending/Confirmed tabs always read from `bookings`
+  const [searchInput, setSearchInput] = useState("");
+  const [searchQuery, setSearchQuery] = useState("");
+  const [statusFilter, setStatusFilter] = useState<BookingStatus | "all">("all");
+  const filtersActive = searchQuery.trim().length > 0 || statusFilter !== "all";
+
+  // Separate bookings list for the All tab when filters are active
+  const [filteredBookings, setFilteredBookings] = useState<DisplayBooking[]>([]);
+  const [filteredCount, setFilteredCount] = useState(0);
+  const [hasMoreFiltered, setHasMoreFiltered] = useState(false);
+
+  // Debounce searchInput → searchQuery
+  useEffect(() => {
+    const timer = setTimeout(() => setSearchQuery(searchInput), 300);
+    return () => clearTimeout(timer);
+  }, [searchInput]);
+
   const fetchBookings = async () => {
     const supabase = createClient();
     const {
@@ -276,25 +301,114 @@ export default function BookingsPage() {
     fetchBookings();
   }, []);
 
-  const loadMore = async () => {
-    if (loadingMore || !hasMore) return;
+  // Refetch the All-tab list when filters change (skips first run before bootstrap)
+  const bootstrappedRef = useRef(false);
+  useEffect(() => {
+    if (loading) return;
+    if (!bootstrappedRef.current) {
+      bootstrappedRef.current = true;
+      // If user already changed filters before bootstrap finished, apply now.
+      if (searchQuery.trim() || statusFilter !== "all") {
+        fetchAllTabBookings(searchQuery, statusFilter);
+      }
+      return;
+    }
+    fetchAllTabBookings(searchQuery, statusFilter);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [searchQuery, statusFilter, loading]);
+
+  const fetchAllTabBookings = async (
+    search: string,
+    status: BookingStatus | "all"
+  ) => {
+    if (homestayIdsRef.current.length === 0) return;
+    const isFiltered = search.trim().length > 0 || status !== "all";
+    if (!isFiltered) {
+      setFilteredBookings([]);
+      setFilteredCount(0);
+      setHasMoreFiltered(false);
+      return;
+    }
     setLoadingMore(true);
     const supabase = createClient();
-    const from = bookings.length;
-    const to = from + PAGE_SIZE - 1;
+    const sanitized = search.trim().replace(/[%,]/g, "");
 
-    const { data: bookingRows } = await supabase
+    let query = supabase
+      .from("bookings")
+      .select("*", { count: "exact" })
+      .in("homestay_id", homestayIdsRef.current);
+    if (status !== "all") query = query.eq("status", status);
+    if (sanitized) {
+      query = query.or(
+        `guest_name.ilike.%${sanitized}%,guest_email.ilike.%${sanitized}%,guest_phone.ilike.%${sanitized}%`
+      );
+    }
+
+    const { data, count } = await query
+      .order("created_at", { ascending: false })
+      .range(0, PAGE_SIZE - 1);
+
+    const rawRows = (data as unknown as BookingRow[]) || [];
+    const rows = await resolveSlipUrls(rawRows, supabase);
+
+    const bookingIds = rows.map((b) => b.id);
+    const dcrResult = bookingIds.length > 0
+      ? await supabase.from("date_change_requests").select("id, booking_id, old_check_in, old_check_out, new_check_in, new_check_out, old_total_price, new_total_price, price_difference, status, requested_by, easyslip_verified, payment_slip_url").in("booking_id", bookingIds).eq("status", "pending")
+      : { data: null };
+
+    setFilteredBookings(toDisplay(rows));
+    setFilteredCount(count || 0);
+    setHasMoreFiltered(rows.length === PAGE_SIZE && rows.length < (count || 0));
+
+    if (dcrResult.data) {
+      setDateChangeRequests((prev) => {
+        const next = { ...prev };
+        for (const row of dcrResult.data as unknown as DateChangeRequestRow[]) {
+          next[row.booking_id] = row;
+        }
+        return next;
+      });
+    }
+
+    setLoadingMore(false);
+  };
+
+  const loadMore = async () => {
+    if (loadingMore) return;
+    if (filtersActive ? !hasMoreFiltered : !hasMore) return;
+    setLoadingMore(true);
+    const supabase = createClient();
+    const from = filtersActive ? filteredBookings.length : bookings.length;
+    const to = from + PAGE_SIZE - 1;
+    const sanitized = searchQuery.trim().replace(/[%,]/g, "");
+
+    let query = supabase
       .from("bookings")
       .select("*")
-      .in("homestay_id", homestayIdsRef.current)
+      .in("homestay_id", homestayIdsRef.current);
+    if (filtersActive) {
+      if (statusFilter !== "all") query = query.eq("status", statusFilter);
+      if (sanitized) {
+        query = query.or(
+          `guest_name.ilike.%${sanitized}%,guest_email.ilike.%${sanitized}%,guest_phone.ilike.%${sanitized}%`
+        );
+      }
+    }
+
+    const { data: bookingRows } = await query
       .order("created_at", { ascending: false })
       .range(from, to);
 
     const rawRows = (bookingRows as unknown as BookingRow[]) || [];
     const rows = await resolveSlipUrls(rawRows, supabase);
     const newBookings = toDisplay(rows);
-    setBookings((prev) => [...prev, ...newBookings]);
-    setHasMore(rows.length === PAGE_SIZE && from + rows.length < totalCount);
+    if (filtersActive) {
+      setFilteredBookings((prev) => [...prev, ...newBookings]);
+      setHasMoreFiltered(rows.length === PAGE_SIZE && from + rows.length < filteredCount);
+    } else {
+      setBookings((prev) => [...prev, ...newBookings]);
+      setHasMore(rows.length === PAGE_SIZE && from + rows.length < totalCount);
+    }
     setLoadingMore(false);
   };
 
@@ -550,7 +664,7 @@ export default function BookingsPage() {
       <Tabs defaultValue="all">
         <TabsList>
           <TabsTrigger value="all">
-            {t("allBookings")} ({totalCount})
+            {t("allBookings")} ({filtersActive ? filteredCount : totalCount})
           </TabsTrigger>
           <TabsTrigger value="pending">
             {t("pending")} ({totalPendingCount + Object.keys(dateChangeRequests).filter(bid => { const b = bookings.find(bk => bk.id === bid); return b && b.status !== "pending" && b.status !== "verified"; }).length})
@@ -561,16 +675,58 @@ export default function BookingsPage() {
         </TabsList>
 
         {(["all", "pending", "confirmed"] as const).map((tab) => {
-          const filtered = bookings.filter(
+          const sourceList = tab === "all" && filtersActive ? filteredBookings : bookings;
+          const filtered = sourceList.filter(
             (b) => tab === "all" || b.status === tab || (tab === "pending" && b.status === "verified") || (tab === "pending" && dateChangeRequests[b.id])
           );
           return (
             <TabsContent key={tab} value={tab} className="mt-4 space-y-3">
+              {tab === "all" && (
+                <div className="flex flex-col gap-2 sm:flex-row sm:items-center">
+                  <Input
+                    type="search"
+                    placeholder={t("searchGuestPlaceholder")}
+                    value={searchInput}
+                    onChange={(e) => setSearchInput(e.target.value)}
+                    className="sm:max-w-xs"
+                  />
+                  <Select
+                    value={statusFilter}
+                    onValueChange={(v) => setStatusFilter(v as BookingStatus | "all")}
+                  >
+                    <SelectTrigger className="sm:w-48">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="all">{t("filterAllStatuses")}</SelectItem>
+                      <SelectItem value="pending">{t("statusPending")}</SelectItem>
+                      <SelectItem value="verified">{t("statusVerified")}</SelectItem>
+                      <SelectItem value="confirmed">{t("statusConfirmed")}</SelectItem>
+                      <SelectItem value="rejected">{t("statusRejected")}</SelectItem>
+                      <SelectItem value="cancelled">{t("statusCancelled")}</SelectItem>
+                      <SelectItem value="completed">{t("statusCompleted")}</SelectItem>
+                    </SelectContent>
+                  </Select>
+                  {filtersActive && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      onClick={() => {
+                        setSearchInput("");
+                        setSearchQuery("");
+                        setStatusFilter("all");
+                      }}
+                    >
+                      {t("clearFilters")}
+                    </Button>
+                  )}
+                </div>
+              )}
               {filtered.length === 0 ? (
                 <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 py-12 text-center">
                   <CalendarDays className="h-10 w-10 text-gray-300" />
                   <p className="mt-3 text-sm font-medium text-gray-500">
-                    {t("noBookings")}
+                    {tab === "all" && filtersActive ? t("noFilterResults") : t("noBookings")}
                   </p>
                 </div>
               ) : (
@@ -828,10 +984,13 @@ export default function BookingsPage() {
                 })}
 
                 {/* Load More */}
-                {tab === "all" && hasMore && (
+                {tab === "all" && (filtersActive ? hasMoreFiltered : hasMore) && (
                   <div className="flex flex-col items-center gap-2 pt-4">
                     <p className="text-xs text-gray-400">
-                      {t("showingCount", { count: bookings.length, total: totalCount })}
+                      {t("showingCount", {
+                        count: filtersActive ? filteredBookings.length : bookings.length,
+                        total: filtersActive ? filteredCount : totalCount,
+                      })}
                     </p>
                     <Button
                       variant="outline"
