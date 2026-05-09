@@ -6,6 +6,7 @@ import { sendHostCancellationLineNotification, sendHostCancellationSmsNotificati
 import type { Booking, Homestay, Host, Room } from "@/types/database";
 import { logEvent, EventType } from "@/lib/history-log";
 import { refundCommission } from "@/lib/billing";
+import { cancelRedemptionForBooking } from "@/lib/promo-redemptions-server";
 
 export async function POST(req: NextRequest) {
   try {
@@ -130,6 +131,9 @@ export async function POST(req: NextRequest) {
       .update({ status: "rejected", reject_reason: "Booking cancelled", updated_by: booking.guest_name } as never)
       .eq("booking_id", booking_id)
       .eq("status", "pending");
+
+    // Cancel any pending recommender commission for this booking
+    await cancelRedemptionForBooking(supabase, booking_id, booking.guest_name);
 
     // Log + notify host in background
     after(async () => {

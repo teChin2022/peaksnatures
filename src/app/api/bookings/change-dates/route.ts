@@ -114,6 +114,7 @@ export async function POST(req: NextRequest) {
     // --- Parallel Batch 1: availability checks + room info + seasonal prices ---
     // All queries below are independent and can run simultaneously
     let newTotalPrice = booking.total_price;
+    let newDiscountAmount = booking.discount_amount || 0;
     if (targetRoomId) {
       const [
         { data: roomInfoRow },
@@ -189,7 +190,12 @@ export async function POST(req: NextRequest) {
         const newNights = Math.round((newCheckOut.getTime() - newCheckIn.getTime()) / (1000 * 60 * 60 * 24));
         optionsSum = (freshOptions as { id: string; price: number }[] || []).reduce((s, o) => s + o.price * newNights, 0);
       }
-      newTotalPrice = total + optionsSum;
+      // Preserve the original promo discount (locked-in at the original booking
+      // time). Cap it at the new subtotal so it can never make the total negative,
+      // which guarantees the guest still owes ≥ 0.
+      const newSubtotal = total + optionsSum;
+      newDiscountAmount = Math.min(booking.discount_amount || 0, newSubtotal);
+      newTotalPrice = Math.max(0, newSubtotal - newDiscountAmount);
     }
 
     const priceDifference = newTotalPrice - booking.total_price;
@@ -255,6 +261,7 @@ export async function POST(req: NextRequest) {
         new_check_out: data.new_check_out,
         old_total_price: booking.total_price,
         new_total_price: newTotalPrice,
+        new_discount_amount: newDiscountAmount,
         price_difference: priceDifference,
         additional_payment: additionalPayment,
         status: "pending",

@@ -1,6 +1,6 @@
 import { format, parseISO } from "date-fns";
 import { th as thLocale, enUS as enLocale } from "date-fns/locale";
-import type { Booking, Homestay, Host, Room } from "@/types/database";
+import type { Booking, Homestay, Host, PromoCode, Room } from "@/types/database";
 import { getProvinceLabel } from "@/lib/provinces";
 
 interface BookingDetails {
@@ -49,6 +49,13 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
       ? (isTh ? `การจองของคุณได้รับการยืนยันแล้ว – ${homestay.name}` : `Your Booking Has Been Confirmed – ${homestay.name}`)
       : (isTh ? `ได้รับการจองแล้ว — รอการตรวจสอบ — ${homestay.name}` : `Booking Received — Pending Review — ${homestay.name}`);
 
+    const discountAmount = (booking as Record<string, unknown>).discount_amount as number | null | undefined;
+    const discountRow = discountAmount && discountAmount > 0 ? `
+                <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ยอดก่อนหักส่วนลด" : "Subtotal"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px;">฿${(booking.total_price + discountAmount).toLocaleString()}</td></tr>
+                <tr><td style="padding: 8px 0; color: #047857; font-size: 14px; vertical-align: top;">${isTh ? "ส่วนลด" : "Discount"}</td><td style="padding: 8px 0; color: #047857; font-size: 14px; font-weight: 600;">−฿${discountAmount.toLocaleString()}</td></tr>` : "";
+    const discountRowSimple = discountAmount && discountAmount > 0 ? `
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "ส่วนลด" : "Discount"}</td><td style="padding: 8px 0; color: #047857; font-weight: bold;">−฿${discountAmount.toLocaleString()}</td></tr>` : "";
+
     let html: string;
 
     if (type === "confirmed") {
@@ -75,6 +82,7 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
                 <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "วันเช็กเอาต์" : "Check-out"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px;">${checkOutFmt}${homestay.check_out_time ? ` (${isTh ? "เช็กเอาต์ก่อน" : "before"} ${homestay.check_out_time}${isTh ? " น." : ""})` : ""}</td></tr>
                 <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "จำนวนผู้เข้าพัก" : "Guests"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px;">${booking.num_guests} ${isTh ? "ท่าน" : ""}</td></tr>
                 ${Array.isArray(booking.selected_options) && (booking.selected_options as { name: string; price: number }[]).length > 0 ? `<tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ออปชันเพิ่มเติม" : "Options"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px;">${(booking.selected_options as { name: string; price: number }[]).map((o) => `${o.name} (+฿${o.price.toLocaleString()})`).join(", ")}</td></tr>` : ""}
+                ${discountRow}
                 <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ยอดชำระรวม" : "Total"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 700;">฿${booking.total_price.toLocaleString()}</td></tr>
                 ${depositRows}
               </table>
@@ -112,6 +120,7 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
               <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "เช็คเอาท์" : "Check-out"}</td><td style="padding: 8px 0;">${checkOutFmt}${homestay.check_out_time ? ` (${isTh ? "ก่อน" : "before"} ${homestay.check_out_time} ${isTh ? "น." : ""})` : ""}</td></tr>
               <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "จำนวนผู้เข้าพัก" : "Guests"}</td><td style="padding: 8px 0;">${booking.num_guests}</td></tr>
               ${Array.isArray(booking.selected_options) && (booking.selected_options as { name: string; price: number }[]).length > 0 ? `<tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "ออปชันเพิ่มเติม" : "Options"}</td><td style="padding: 8px 0;">${(booking.selected_options as { name: string; price: number }[]).map((o) => `${o.name} (+฿${o.price.toLocaleString()})`).join(", ")}</td></tr>` : ""}
+              ${discountRowSimple}
               <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "ยอดรวม" : "Total"}</td><td style="padding: 8px 0; font-weight: bold; color: ${homestay.theme_color};">฿${booking.total_price.toLocaleString()}</td></tr>
               ${(booking as Record<string, unknown>).payment_type === "deposit" ? `
               <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "ยอดที่ชำระ" : "Amount Paid"}</td><td style="padding: 8px 0; font-weight: bold; color: ${homestay.theme_color};">฿${((booking as Record<string, unknown>).amount_paid as number || 0).toLocaleString()}</td></tr>
@@ -1226,4 +1235,29 @@ export async function sendHostRejectionEmail(hostEmail: string, hostName: string
     console.error("[Email] Rejection email error:", error);
     return { success: false, error };
   }
+}
+
+// ============================================================
+// RECOMMENDER PROMO USAGE NOTIFICATION (SMS only — recommenders
+// only have a phone field on the promo_codes table for v1)
+// ============================================================
+export async function sendRecommenderPromoUsedNotification(args: {
+  promo: PromoCode;
+  bookingId: string;
+  guestName: string;
+  discountAmount: number;
+  commissionAmount: number;
+}, locale: string = "th"): Promise<{ success: boolean; skipped?: boolean }> {
+  const { promo, guestName, commissionAmount } = args;
+  if (!promo.recommender_phone || commissionAmount <= 0) {
+    return { success: true, skipped: true };
+  }
+
+  const isTh = locale !== "en";
+  const guestShort = guestName.slice(0, 18);
+  const message = isTh
+    ? `รหัส ${promo.code} ถูกใช้โดย ${guestShort} คอมมิชชั่น ฿${commissionAmount.toLocaleString()} เจ้าของที่พักจะติดต่อโอนให้`
+    : `Code ${promo.code} used by ${guestShort}. Commission ฿${commissionAmount.toLocaleString()}. Host will pay out shortly.`;
+
+  return sendSms(promo.recommender_phone, truncateForSms(message, 140));
 }

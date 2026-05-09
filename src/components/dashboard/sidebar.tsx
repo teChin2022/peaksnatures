@@ -19,6 +19,7 @@ import {
   ClipboardCheck,
   Wallet,
   Receipt,
+  Tag,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, getInitials } from "@/lib/utils";
@@ -33,6 +34,7 @@ const NAV_ITEMS = [
   { key: "bookings", href: "/dashboard/bookings", icon: CalendarDays },
   { key: "calendar", href: "/dashboard/calendar", icon: CalendarCheck },
   { key: "checkins", href: "/dashboard/checkins", icon: ClipboardCheck },
+  { key: "promoCodes", href: "/dashboard/promo-codes", icon: Tag },
   { key: "billing", href: "/dashboard/billing", icon: Wallet },
   { key: "wallet", href: "/dashboard/wallet", icon: Receipt },
   { key: "guide", href: "/dashboard/guide", icon: BookOpen },

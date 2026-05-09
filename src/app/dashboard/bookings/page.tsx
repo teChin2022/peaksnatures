@@ -57,6 +57,7 @@ interface BookingRow {
   check_out: string;
   num_guests: number;
   total_price: number;
+  discount_amount: number | null;
   amount_paid: number;
   payment_type: string;
   status: BookingStatus;
@@ -957,6 +958,18 @@ export default function BookingsPage() {
                         ))}
                       </div>
                     </div>
+                  )}
+                  {(detailTarget.discount_amount ?? 0) > 0 && (
+                    <>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-gray-500">{t("subtotal")}</span>
+                        <span className="font-medium text-gray-900">฿{(detailTarget.total_price + (detailTarget.discount_amount ?? 0)).toLocaleString()}</span>
+                      </div>
+                      <div className="flex justify-between text-sm">
+                        <span className="text-emerald-700">{t("promoDiscount")}</span>
+                        <span className="font-medium text-emerald-700">−฿{(detailTarget.discount_amount ?? 0).toLocaleString()}</span>
+                      </div>
+                    </>
                   )}
                   <div className="flex justify-between">
                     <span className="text-gray-500">{t("total")}</span>

@@ -143,6 +143,9 @@ export function BookingSection({
   const [showOptions, setShowOptions] = useState(false);
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([]);
   const [pdpaConsent, setPdpaConsent] = useState(false);
+  const [promoInput, setPromoInput] = useState("");
+  const [appliedPromo, setAppliedPromo] = useState<{ id: string; code: string; discount_type: "percentage" | "fixed"; discount_value: number } | null>(null);
+  const [promoApplying, setPromoApplying] = useState(false);
   const [phoneSlipReceived, setPhoneSlipReceived] = useState(false);
   const [phoneSlipUrl, setPhoneSlipUrl] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -349,7 +352,19 @@ export function BookingSection({
     return calculateTotalPrice(selectedRoom.price_per_night, dateRange.from, dateRange.to, roomSeasons);
   }, [selectedRoom, nights, dateRange, seasonsByRoom]);
 
-  const totalPrice = (priceResult?.total ?? 0) + optionsTotal;
+  const subtotalPrice = (priceResult?.total ?? 0) + optionsTotal;
+
+  const promoDiscount = useMemo(() => {
+    if (!appliedPromo || subtotalPrice <= 0) return 0;
+    const v = Number(appliedPromo.discount_value || 0);
+    if (!Number.isFinite(v) || v <= 0) return 0;
+    const raw = appliedPromo.discount_type === "percentage"
+      ? Math.floor((subtotalPrice * v) / 100)
+      : Math.floor(v);
+    return Math.max(0, Math.min(raw, subtotalPrice));
+  }, [appliedPromo, subtotalPrice]);
+
+  const totalPrice = Math.max(0, subtotalPrice - promoDiscount);
 
   const resolvedDeposit = useMemo(() => {
     return getDepositForMonth(host, dateRange?.from);
@@ -411,6 +426,51 @@ export function BookingSection({
   const handleDateSelect = (range: DateRange | undefined) => {
     setDateRange(range);
   };
+
+  const handleApplyPromo = useCallback(async () => {
+    const codeRaw = promoInput.trim();
+    if (!codeRaw) return;
+    if (subtotalPrice <= 0) {
+      toast.error(t("promoErrorNoSubtotal"));
+      return;
+    }
+    setPromoApplying(true);
+    try {
+      const res = await fetch("/api/promos/validate", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          homestay_id: homestay.id,
+          code: codeRaw,
+          subtotal: subtotalPrice,
+          guest_phone: guestPhone || undefined,
+          guest_email: guestEmail || undefined,
+        }),
+      });
+      const data = await res.json();
+      if (!res.ok || !data.valid) {
+        const reason = data.reason || "INVALID";
+        toast.error(t(`promoError${reason}` as Parameters<typeof t>[0], { default: t("promoErrorINVALID") }));
+        return;
+      }
+      setAppliedPromo({
+        id: data.code_id,
+        code: data.code,
+        discount_type: data.discount_type,
+        discount_value: Number(data.discount_value),
+      });
+      toast.success(t("promoApplied"));
+    } catch {
+      toast.error(t("promoErrorINVALID"));
+    } finally {
+      setPromoApplying(false);
+    }
+  }, [promoInput, subtotalPrice, homestay.id, guestPhone, guestEmail, t]);
+
+  const handleRemovePromo = useCallback(() => {
+    setAppliedPromo(null);
+    setPromoInput("");
+  }, []);
 
   const handleProceedToDetails = () => {
     if (!dateRange?.from || !dateRange?.to) {
@@ -623,6 +683,7 @@ export function BookingSection({
             const opt = roomOptions.find((o) => o.id === id);
             return { id, name: opt?.name || "", price: (opt?.price || 0) * nights };
           }),
+          promo_code_id: appliedPromo?.id || undefined,
         }),
       });
 
@@ -702,6 +763,8 @@ export function BookingSection({
     setShowConfirmModal(false);
     setShowConfirmedModal(false);
     setSelectedOptionIds([]);
+    setAppliedPromo(null);
+    setPromoInput("");
   };
 
   return (
@@ -932,6 +995,12 @@ export function BookingSection({
                                   <span>+฿{optionsTotal.toLocaleString()}</span>
                                 </div>
                               )}
+                              {appliedPromo && promoDiscount > 0 && (
+                                <div className="flex justify-between text-sm text-emerald-700">
+                                  <span>{t("promoLabel")} ({appliedPromo.code})</span>
+                                  <span>−฿{promoDiscount.toLocaleString()}</span>
+                                </div>
+                              )}
                               <div className="flex justify-between text-base font-bold text-earth-900 pt-2 border-t border-earth-100">
                                 <span>{tc("total")}</span>
                                 <span>฿{totalPrice.toLocaleString()}</span>
@@ -1133,6 +1202,45 @@ export function BookingSection({
                               <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("notes")}</label>
                               <Textarea value={guestNote} onChange={(e) => setGuestNote(e.target.value)} placeholder={t("notesPlaceholder")} className="p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400" rows={2} />
                             </div>
+
+                            {homestay.promo_codes_enabled && (
+                              <div className="space-y-1.5">
+                                <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("promoLabel")}</label>
+                                {appliedPromo ? (
+                                  <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 p-3">
+                                    <div className="flex items-center gap-2 text-sm">
+                                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
+                                      <span className="font-mono font-semibold text-emerald-800">{appliedPromo.code}</span>
+                                      <span className="text-emerald-700">−฿{promoDiscount.toLocaleString()}</span>
+                                    </div>
+                                    <button
+                                      type="button"
+                                      onClick={handleRemovePromo}
+                                      className="text-xs font-medium text-emerald-700 hover:text-emerald-900 underline"
+                                    >
+                                      {t("promoRemove")}
+                                    </button>
+                                  </div>
+                                ) : (
+                                  <div className="flex gap-2">
+                                    <Input
+                                      value={promoInput}
+                                      onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                                      placeholder={t("promoPlaceholder")}
+                                      className="flex-1 !p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-mono uppercase text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400"
+                                    />
+                                    <button
+                                      type="button"
+                                      disabled={promoApplying || !promoInput.trim() || subtotalPrice <= 0}
+                                      onClick={handleApplyPromo}
+                                      className="rounded-xl border border-earth-900 bg-earth-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-earth-800 disabled:opacity-40"
+                                    >
+                                      {promoApplying ? <Loader2 className="h-4 w-4 animate-spin" /> : t("promoApply")}
+                                    </button>
+                                  </div>
+                                )}
+                              </div>
+                            )}
                           </div>
 
                           <button
@@ -1216,6 +1324,12 @@ export function BookingSection({
                               </div>
                             )}
                             <Separator />
+                            {appliedPromo && promoDiscount > 0 && (
+                              <div className="flex justify-between text-sm text-emerald-700">
+                                <span>{t("promoLabel")} ({appliedPromo.code})</span>
+                                <span>−฿{promoDiscount.toLocaleString()}</span>
+                              </div>
+                            )}
                             <div className="flex justify-between">
                               <span className="font-semibold text-earth-900">{tc("total")}</span>
                               <span className="text-lg font-bold text-earth-900">฿{totalPrice.toLocaleString()}</span>
