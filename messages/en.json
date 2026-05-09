@@ -1059,7 +1059,11 @@
     "pickDate": "Pick a date",
     "clearDate": "Clear",
     "copyCode": "Copy code",
-    "copied": "Code copied"
+    "copied": "Code copied",
+    "previous": "Previous",
+    "next": "Next",
+    "pageOf": "Page {page}",
+    "showingRange": "Showing {from}–{to} of {total}"
   },
   "recommenderStats": {
     "title": "Recommender Stats",

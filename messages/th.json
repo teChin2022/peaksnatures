@@ -1063,7 +1063,11 @@
     "pickDate": "เลือกวันที่",
     "clearDate": "ล้าง",
     "copyCode": "คัดลอกรหัส",
-    "copied": "คัดลอกรหัสแล้ว"
+    "copied": "คัดลอกรหัสแล้ว",
+    "previous": "ก่อนหน้า",
+    "next": "ถัดไป",
+    "pageOf": "หน้า {page}",
+    "showingRange": "แสดง {from}–{to} จาก {total}"
   },
   "recommenderStats": {
     "title": "สถิติของผู้แนะนำ",

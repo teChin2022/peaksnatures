@@ -21,7 +21,11 @@ import {
   Search,
   Lock,
   TrendingUp,
+  ChevronLeft,
+  ChevronRight,
 } from "lucide-react";
+
+const PAGE_SIZE = 20;
 import type { PromoCode, PromoRedemption } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -121,6 +125,9 @@ export default function PromoCodesPage() {
 
   const [redemptionFilter, setRedemptionFilter] = useState<RedemptionFilter>("all");
   const [redemptionSearch, setRedemptionSearch] = useState("");
+
+  const [codesPage, setCodesPage] = useState(1);
+  const [redemptionsPage, setRedemptionsPage] = useState(1);
 
   const fmtDate = (s: string | null) => {
     if (!s) return "—";
@@ -471,6 +478,27 @@ export default function PromoCodesPage() {
     });
   }, [redemptions, redemptionFilter, redemptionSearch]);
 
+  const codesTotalPages = Math.max(1, Math.ceil(codes.length / PAGE_SIZE));
+  const redemptionsTotalPages = Math.max(1, Math.ceil(filteredRedemptions.length / PAGE_SIZE));
+
+  // Clamp during render so the slice stays valid when the list shrinks
+  // (e.g. after delete or filter narrows results).
+  const effectiveCodesPage = Math.min(codesPage, codesTotalPages);
+  const effectiveRedemptionsPage = Math.min(redemptionsPage, redemptionsTotalPages);
+
+  const pagedCodes = useMemo(
+    () => codes.slice((effectiveCodesPage - 1) * PAGE_SIZE, effectiveCodesPage * PAGE_SIZE),
+    [codes, effectiveCodesPage],
+  );
+  const pagedRedemptions = useMemo(
+    () =>
+      filteredRedemptions.slice(
+        (effectiveRedemptionsPage - 1) * PAGE_SIZE,
+        effectiveRedemptionsPage * PAGE_SIZE,
+      ),
+    [filteredRedemptions, effectiveRedemptionsPage],
+  );
+
   const livePreview = useMemo(() => {
     const v = Number(form.discount_value);
     if (!Number.isFinite(v) || v <= 0) return t("previewEmpty");
@@ -611,8 +639,9 @@ export default function PromoCodesPage() {
                 </CardContent>
               </Card>
             ) : (
+              <>
               <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-                {codes.map((c) => {
+                {pagedCodes.map((c) => {
                   const status = codeStatus(c);
                   const usesPct =
                     c.max_uses != null && c.max_uses > 0
@@ -738,6 +767,15 @@ export default function PromoCodesPage() {
                   );
                 })}
               </div>
+              <PaginationBar
+                page={effectiveCodesPage}
+                totalPages={codesTotalPages}
+                total={codes.length}
+                pageSize={PAGE_SIZE}
+                onChange={setCodesPage}
+                t={t}
+              />
+              </>
             )}
           </TabsContent>
 
@@ -751,7 +789,10 @@ export default function PromoCodesPage() {
                     <button
                       key={f}
                       type="button"
-                      onClick={() => setRedemptionFilter(f)}
+                      onClick={() => {
+                        setRedemptionFilter(f);
+                        setRedemptionsPage(1);
+                      }}
                       className={`cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors duration-200 ${
                         redemptionFilter === f
                           ? "bg-brand text-white"
@@ -772,7 +813,10 @@ export default function PromoCodesPage() {
                   <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-earth-400" />
                   <Input
                     value={redemptionSearch}
-                    onChange={(e) => setRedemptionSearch(e.target.value)}
+                    onChange={(e) => {
+                      setRedemptionSearch(e.target.value);
+                      setRedemptionsPage(1);
+                    }}
                     placeholder={t("searchRedemptions")}
                     className="pl-8"
                   />
@@ -796,7 +840,8 @@ export default function PromoCodesPage() {
                 </CardContent>
               </Card>
             ) : (
-              filteredRedemptions.map((r) => {
+              <>
+              {pagedRedemptions.map((r) => {
                 const borderColor =
                   r.payout_status === "pending"
                     ? "border-l-amber-400"
@@ -864,7 +909,16 @@ export default function PromoCodesPage() {
                     </CardContent>
                   </Card>
                 );
-              })
+              })}
+              <PaginationBar
+                page={effectiveRedemptionsPage}
+                totalPages={redemptionsTotalPages}
+                total={filteredRedemptions.length}
+                pageSize={PAGE_SIZE}
+                onChange={setRedemptionsPage}
+                t={t}
+              />
+              </>
             )}
           </TabsContent>
         </Tabs>
@@ -1272,5 +1326,57 @@ function DatePickerField({
         )}
       </PopoverContent>
     </Popover>
+  );
+}
+
+function PaginationBar({
+  page,
+  totalPages,
+  total,
+  pageSize,
+  onChange,
+  t,
+}: {
+  page: number;
+  totalPages: number;
+  total: number;
+  pageSize: number;
+  onChange: (p: number) => void;
+  t: (key: string, values?: Record<string, string | number>) => string;
+}) {
+  if (total <= pageSize) return null;
+  const from = (page - 1) * pageSize + 1;
+  const to = Math.min(page * pageSize, total);
+  return (
+    <div className="flex flex-col items-center justify-between gap-2 pt-2 sm:flex-row">
+      <p className="text-xs text-earth-500">
+        {t("showingRange", { from, to, total })}
+      </p>
+      <div className="flex items-center gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onChange(Math.max(1, page - 1))}
+          disabled={page <= 1}
+          className="cursor-pointer"
+        >
+          <ChevronLeft className="mr-1 h-4 w-4" />
+          {t("previous")}
+        </Button>
+        <span className="text-xs font-medium text-earth-700">
+          {t("pageOf", { page })}
+        </span>
+        <Button
+          variant="outline"
+          size="sm"
+          onClick={() => onChange(Math.min(totalPages, page + 1))}
+          disabled={page >= totalPages}
+          className="cursor-pointer"
+        >
+          {t("next")}
+          <ChevronRight className="ml-1 h-4 w-4" />
+        </Button>
+      </div>
+    </div>
   );
 }
