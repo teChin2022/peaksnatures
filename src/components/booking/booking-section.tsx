@@ -23,7 +23,7 @@ import {
   Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope,
   CalendarDays, Calendar as CalendarIcon, Users, CreditCard, Upload, CheckCircle2, Loader2,
   Camera, ImageIcon, X, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle,
-  Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, Sparkles, FileText, Lock, MousePointerClick, ListPlus,
+  Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, Sparkles, FileText, Lock, MousePointerClick, ListPlus, Gift,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
@@ -87,6 +87,14 @@ const AMENITY_ICONS: Record<string, React.ElementType> = {
   Swimming: Waves, Telescope: Telescope, Fireplace: Flame, Library: BookOpen,
 };
 
+interface InitialPromoInfo {
+  id: string;
+  code: string;
+  discount_type: "percentage" | "fixed";
+  discount_value: number;
+  recommender_name: string | null;
+}
+
 interface BookingSectionProps {
   homestay: Homestay;
   rooms: Room[];
@@ -96,6 +104,7 @@ interface BookingSectionProps {
   seasonalPrices?: RoomSeasonalPrice[];
   roomOptions?: RoomOption[];
   bookingDisabled?: boolean;
+  initialPromo?: InitialPromoInfo | null;
 }
 
 type BookingStep = "dates" | "details" | "payment";
@@ -109,6 +118,7 @@ export function BookingSection({
   seasonalPrices = EMPTY_SEASONAL_PRICES,
   roomOptions = EMPTY_ROOM_OPTIONS,
   bookingDisabled = false,
+  initialPromo = null,
 }: BookingSectionProps) {
   const t = useTranslations("booking");
   const tc = useTranslations("common");
@@ -144,9 +154,10 @@ export function BookingSection({
   const [showOptions, setShowOptions] = useState(false);
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([]);
   const [pdpaConsent, setPdpaConsent] = useState(false);
-  const [promoInput, setPromoInput] = useState("");
+  const [promoInput, setPromoInput] = useState(initialPromo?.code ?? "");
   const [appliedPromo, setAppliedPromo] = useState<{ id: string; code: string; discount_type: "percentage" | "fixed"; discount_value: number } | null>(null);
   const [promoApplying, setPromoApplying] = useState(false);
+  const autoPromoTriedRef = useRef(false);
   const [phoneSlipReceived, setPhoneSlipReceived] = useState(false);
   const [phoneSlipUrl, setPhoneSlipUrl] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
@@ -428,11 +439,12 @@ export function BookingSection({
     setDateRange(range);
   };
 
-  const handleApplyPromo = useCallback(async () => {
+  const handleApplyPromo = useCallback(async (opts?: { silent?: boolean }) => {
+    const silent = opts?.silent === true;
     const codeRaw = promoInput.trim();
     if (!codeRaw) return;
     if (subtotalPrice <= 0) {
-      toast.error(t("promoErrorNoSubtotal"));
+      if (!silent) toast.error(t("promoErrorNoSubtotal"));
       return;
     }
     setPromoApplying(true);
@@ -450,8 +462,10 @@ export function BookingSection({
       });
       const data = await res.json();
       if (!res.ok || !data.valid) {
-        const reason = data.reason || "INVALID";
-        toast.error(t(`promoError${reason}` as Parameters<typeof t>[0], { default: t("promoErrorINVALID") }));
+        if (!silent) {
+          const reason = data.reason || "INVALID";
+          toast.error(t(`promoError${reason}` as Parameters<typeof t>[0], { default: t("promoErrorINVALID") }));
+        }
         return;
       }
       setAppliedPromo({
@@ -460,13 +474,26 @@ export function BookingSection({
         discount_type: data.discount_type,
         discount_value: Number(data.discount_value),
       });
-      toast.success(t("promoApplied"));
+      if (!silent) toast.success(t("promoApplied"));
     } catch {
-      toast.error(t("promoErrorINVALID"));
+      if (!silent) toast.error(t("promoErrorINVALID"));
     } finally {
       setPromoApplying(false);
     }
   }, [promoInput, subtotalPrice, homestay.id, guestPhone, guestEmail, t]);
+
+  // Auto-apply when a recommender link supplied ?promo= and dates+room produce a subtotal.
+  // Fires at most once per session (autoPromoTriedRef), and only if the user has not
+  // already applied or replaced the code manually.
+  useEffect(() => {
+    if (!initialPromo) return;
+    if (autoPromoTriedRef.current) return;
+    if (appliedPromo) return;
+    if (subtotalPrice <= 0) return;
+    if (promoInput.trim().toUpperCase() !== initialPromo.code.toUpperCase()) return;
+    autoPromoTriedRef.current = true;
+    void handleApplyPromo({ silent: true });
+  }, [initialPromo, appliedPromo, subtotalPrice, promoInput, handleApplyPromo]);
 
   const handleRemovePromo = useCallback(() => {
     setAppliedPromo(null);
@@ -843,6 +870,29 @@ export function BookingSection({
               transition={{ duration: 0.6, ease: [0.25, 0.1, 0, 1] }}
               className="bg-white rounded-3xl shadow-xl border border-earth-100 p-5 lg:p-8 relative flex flex-col lg:sticky lg:top-8"
             >
+            {initialPromo && promoInput.trim().toUpperCase() === initialPromo.code.toUpperCase() && (
+              <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-brand-100 bg-brand-50 p-3.5">
+                <Gift className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
+                <div className="text-sm leading-snug text-earth-900">
+                  <span className="font-semibold">
+                    {t("promoFromLinkBanner", { code: initialPromo.code })}
+                  </span>
+                  {initialPromo.discount_value > 0 && (
+                    <span>
+                      {initialPromo.discount_type === "percentage"
+                        ? t("promoFromLinkDiscountPct", { value: initialPromo.discount_value })
+                        : t("promoFromLinkDiscountFixed", { value: initialPromo.discount_value.toLocaleString() })}
+                    </span>
+                  )}
+                  {initialPromo.recommender_name && (
+                    <span className="text-earth-600">
+                      {t("promoFromLinkRef", { name: initialPromo.recommender_name })}
+                    </span>
+                  )}
+                </div>
+              </div>
+            )}
+
             {/* Step indicator (compact) */}
             <div className="flex items-center gap-1 mb-6">
               {steps.map((s, i) => {
@@ -1241,7 +1291,7 @@ export function BookingSection({
                                     <button
                                       type="button"
                                       disabled={promoApplying || !promoInput.trim() || subtotalPrice <= 0}
-                                      onClick={handleApplyPromo}
+                                      onClick={() => handleApplyPromo()}
                                       className="rounded-xl border border-earth-900 bg-earth-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-earth-800 disabled:opacity-40"
                                     >
                                       {promoApplying ? <Loader2 className="h-4 w-4 animate-spin" /> : t("promoApply")}

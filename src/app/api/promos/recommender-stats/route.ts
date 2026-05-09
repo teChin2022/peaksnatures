@@ -13,6 +13,7 @@ interface CodeAggregate {
   id: string;
   code: string;
   homestay_name: string;
+  homestay_slug: string | null;
   total_redemptions: number;
   total_commission: number;
   paid_commission: number;
@@ -54,7 +55,7 @@ export async function POST(req: NextRequest) {
 
   const { data: codeRows, error: codeErr } = await sc
     .from("promo_codes")
-    .select("id, code, homestay:homestays(name)")
+    .select("id, code, homestay:homestays(name, slug)")
     .eq("recommender_phone", digits)
     .order("created_at", { ascending: false });
 
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ ok: false, reason: "INTERNAL" }, { status: 500 });
   }
 
-  const codes = (codeRows as unknown as { id: string; code: string; homestay: { name: string } | null }[]) || [];
+  const codes = (codeRows as unknown as { id: string; code: string; homestay: { name: string; slug: string | null } | null }[]) || [];
 
   if (codes.length === 0) {
     return NextResponse.json({
@@ -103,6 +104,7 @@ export async function POST(req: NextRequest) {
       id: c.id,
       code: c.code,
       homestay_name: c.homestay?.name || "—",
+      homestay_slug: c.homestay?.slug ?? null,
       total_redemptions: 0,
       total_commission: 0,
       paid_commission: 0,

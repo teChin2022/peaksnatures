@@ -18,6 +18,7 @@ import {
   UserPlus,
   CalendarDays,
   Copy,
+  Link as LinkIcon,
   Search,
   Lock,
   TrendingUp,
@@ -25,6 +26,7 @@ import {
   ChevronRight,
   RefreshCw,
 } from "lucide-react";
+import { SITE_URL } from "@/lib/seo";
 
 function slugPrefix(slug: string | null | undefined): string {
   if (!slug) return "PN";
@@ -488,6 +490,17 @@ export default function PromoCodesPage() {
     }
   }
 
+  async function copyShareLink(code: string) {
+    if (!homestaySlug) return;
+    const url = `${SITE_URL}/${homestaySlug}?promo=${encodeURIComponent(code)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success(t("copyLinkDone"));
+    } catch {
+      // Silently ignore — clipboard may be unavailable in insecure contexts.
+    }
+  }
+
   const activeCodesCount = useMemo(() => codes.filter(isActiveNow).length, [codes]);
 
   const recentRedemptionsCount = useMemo(() => {
@@ -878,6 +891,18 @@ export default function PromoCodesPage() {
                               onClick={() => copyCode(c.code)}
                             >
                               <Copy className="h-4 w-4" />
+                            </Button>
+                            <Button
+                              type="button"
+                              size="icon"
+                              variant="ghost"
+                              className="h-8 w-8 cursor-pointer text-earth-400 hover:text-brand disabled:opacity-40"
+                              aria-label={t("copyLink")}
+                              title={t("copyLink")}
+                              disabled={!homestaySlug}
+                              onClick={() => copyShareLink(c.code)}
+                            >
+                              <LinkIcon className="h-4 w-4" />
                             </Button>
                           </div>
                           <span

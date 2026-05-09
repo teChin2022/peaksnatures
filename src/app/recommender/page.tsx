@@ -4,17 +4,19 @@ import { useState } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { format, parseISO } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
-import { Phone, Search, Loader2, CheckCircle2, Clock, XCircle, Tag, Wallet } from "lucide-react";
+import { Phone, Search, Loader2, CheckCircle2, Clock, XCircle, Tag, Wallet, Link as LinkIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { toast } from "sonner";
+import { SITE_URL } from "@/lib/seo";
 
 interface CodeAggregate {
   id: string;
   code: string;
   homestay_name: string;
+  homestay_slug: string | null;
   total_redemptions: number;
   total_commission: number;
   paid_commission: number;
@@ -79,6 +81,17 @@ export default function RecommenderStatsPage() {
       toast.error(t("errorGeneric"));
     } finally {
       setLoading(false);
+    }
+  }
+
+  async function copyShareLink(slug: string | null, code: string) {
+    if (!slug) return;
+    const url = `${SITE_URL}/${slug}?promo=${encodeURIComponent(code)}`;
+    try {
+      await navigator.clipboard.writeText(url);
+      toast.success(t("copyLinkDone"));
+    } catch {
+      // Silently ignore.
     }
   }
 
@@ -162,6 +175,19 @@ export default function RecommenderStatsPage() {
                       <div className="flex items-center gap-2">
                         <Tag className="h-4 w-4 text-earth-400" />
                         <CardTitle className="font-mono text-base">{c.code}</CardTitle>
+                        {c.homestay_slug && (
+                          <Button
+                            type="button"
+                            size="sm"
+                            variant="ghost"
+                            className="h-7 gap-1 px-2 text-xs text-earth-500 hover:text-brand"
+                            onClick={() => copyShareLink(c.homestay_slug, c.code)}
+                            aria-label={t("copyLink")}
+                          >
+                            <LinkIcon className="h-3.5 w-3.5" />
+                            {t("copyLink")}
+                          </Button>
+                        )}
                       </div>
                       <span className="text-xs text-earth-500">{c.homestay_name}</span>
                     </div>
