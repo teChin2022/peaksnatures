@@ -605,9 +605,10 @@ export default function PromoCodesPage() {
 
   const filteredRedemptions = useMemo(() => {
     const q = redemptionSearch.trim().toLowerCase();
+    const activeQuery = q.length >= 3 ? q : "";
     return redemptions.filter((r) => {
       if (redemptionFilter !== "all" && r.payout_status !== redemptionFilter) return false;
-      if (!q) return true;
+      if (!activeQuery) return true;
       const haystack = [
         r.promo_code?.code,
         r.guest_phone,
@@ -617,7 +618,7 @@ export default function PromoCodesPage() {
         .filter(Boolean)
         .join(" ")
         .toLowerCase();
-      return haystack.includes(q);
+      return haystack.includes(activeQuery);
     });
   }, [redemptions, redemptionFilter, redemptionSearch]);
 
