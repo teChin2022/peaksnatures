@@ -101,11 +101,11 @@ export async function deductCommission(bookingId: string): Promise<void> {
     // Fetch booking with homestay and host info
     const { data: bookingRow, error: bookingError } = await supabase
       .from("bookings")
-      .select("id, total_price, homestay_id")
+      .select("id, total_price, discount_amount, homestay_id")
       .eq("id", bookingId)
       .single();
 
-    const booking = bookingRow as { id: string; total_price: number; homestay_id: string } | null;
+    const booking = bookingRow as { id: string; total_price: number; discount_amount: number | null; homestay_id: string } | null;
     if (bookingError || !booking) {
       console.error("[Billing] Booking not found for commission:", bookingId);
       return;
@@ -163,9 +163,14 @@ export async function deductCommission(bookingId: string): Promise<void> {
       host as Pick<Host, "commission_pct_override">,
       config,
     );
+    // Platform commission is charged on the original subtotal (GMV) so
+    // a host-issued promo doesn't silently shrink the platform's cut.
+    // total_price is post-discount; adding discount_amount reconstructs
+    // the original subtotal.
+    const commissionBase = booking.total_price + (booking.discount_amount || 0);
     // Wallet stores integer baht. Floor sub-baht commissions up to 1 so
     // small bookings still deduct something instead of silently rounding to 0.
-    const rawCommission = booking.total_price * commissionPct / 100;
+    const rawCommission = commissionBase * commissionPct / 100;
     const commissionAmount =
       rawCommission > 0 && rawCommission < 1 ? 1 : Math.round(rawCommission);
 
@@ -226,6 +231,8 @@ export async function deductCommission(bookingId: string): Promise<void> {
         host_id: host.id,
         booking_id: bookingId,
         total_price: booking.total_price,
+        discount_amount: booking.discount_amount || 0,
+        commission_base: commissionBase,
         commission_pct: commissionPct,
         commission_amount: commissionAmount,
         new_balance: newBalance,

@@ -12,6 +12,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import OtpModal from "@/components/otp-modal";
+import { isValidEmail } from "@/lib/utils";
 
 export default function LoginPage() {
   const router = useRouter();
@@ -38,6 +39,11 @@ export default function LoginPage() {
     e.preventDefault();
     setError(null);
     setTouched(new Set(["email", "password"]));
+
+    if (!isValidEmail(email)) {
+      setError(t("errorInvalidEmail"));
+      return;
+    }
 
     if (!turnstileToken && !turnstileError) {
       setError(t("errorCaptcha"));
@@ -135,6 +141,10 @@ export default function LoginPage() {
 
   const handleMagicLink = async () => {
     if (!magicLinkEmail.trim()) return;
+    if (!isValidEmail(magicLinkEmail)) {
+      setMagicLinkError(t("errorInvalidEmail"));
+      return;
+    }
     setMagicLinkError(null);
     setMagicLinkLoading(true);
     try {

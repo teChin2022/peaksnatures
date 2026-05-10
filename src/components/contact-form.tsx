@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
+import { isValidEmail } from "@/lib/utils";
 
 export function ContactForm({ onSuccess }: { onSuccess?: () => void } = {}) {
   const t = useTranslations("home");
@@ -15,10 +16,16 @@ export function ContactForm({ onSuccess }: { onSuccess?: () => void } = {}) {
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
-    setSending(true);
 
     const form = e.currentTarget;
     const formData = new FormData(form);
+    const emailValue = String(formData.get("email") ?? "");
+    if (!isValidEmail(emailValue)) {
+      toast.error(t("errorInvalidEmail"));
+      return;
+    }
+
+    setSending(true);
 
     try {
       const res = await fetch("/api/contact", {

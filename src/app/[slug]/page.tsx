@@ -5,7 +5,8 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { resolveSlugRedirect } from "@/lib/slug-redirect";
 import { isHostBlocked } from "@/lib/plan-expiry";
-import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice, RoomOption } from "@/types/database";
+import { evaluatePromoCode } from "@/lib/promo-codes";
+import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice, RoomOption, PromoCode } from "@/types/database";
 import { HeroSection } from "@/components/booking/hero-section";
 import { GallerySection } from "@/components/booking/gallery-section";
 import { AboutSection } from "@/components/booking/about-section";
@@ -33,7 +34,48 @@ const EMPTY_POPULAR_ROOM_IDS: ReadonlySet<string> = new Set();
 
 interface PageProps {
   params: Promise<{ slug: string }>;
+  searchParams: Promise<{ promo?: string }>;
 }
+
+export type InitialPromoInfo = {
+  id: string;
+  code: string;
+  discount_type: "percentage" | "fixed";
+  discount_value: number;
+  recommender_name: string | null;
+};
+
+const getPromoLinkInfo = cache(async function getPromoLinkInfo(
+  homestayId: string,
+  rawCode: string,
+): Promise<InitialPromoInfo | null> {
+  const code = rawCode.trim().toUpperCase();
+  if (!code) return null;
+
+  const supabase = createServiceRoleClient();
+  const { data: row } = await supabase
+    .from("promo_codes")
+    .select(
+      "id, code, discount_type, discount_value, recommender_name, start_at, expires_at, max_uses, times_used, is_active",
+    )
+    .eq("homestay_id", homestayId)
+    .ilike("code", code)
+    .maybeSingle();
+
+  if (!row) return null;
+
+  const promo = row as unknown as PromoCode;
+  const verdict = evaluatePromoCode(promo);
+  if (!verdict.ok) return null;
+
+  return {
+    id: promo.id,
+    code: promo.code,
+    discount_type: promo.discount_type,
+    discount_value: Number(promo.discount_value || 0),
+    recommender_name: promo.recommender_name,
+  };
+});
 
 const getHomestayData = cache(async function getHomestayData(slug: string) {
   const supabase = createServiceRoleClient();
@@ -202,8 +244,9 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   };
 }
 
-export default async function HomestayPage({ params }: PageProps) {
+export default async function HomestayPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
+  const { promo: promoParam } = await searchParams;
   const data = await getHomestayData(slug);
 
   if (!data) {
@@ -216,6 +259,11 @@ export default async function HomestayPage({ params }: PageProps) {
   }
 
   const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, roomOptions, reviews, averageRating, categoryAverages, reviewCount, totalBookings, lastBookingDate, bookingDisabled, mostBookedRoomId, hasConfirmedBookings } = data;
+
+  const initialPromo =
+    promoParam && homestay.promo_codes_enabled
+      ? await getPromoLinkInfo(homestay.id, promoParam)
+      : null;
 
   const activeRooms = rooms.filter((r) => r.is_active);
   const inactiveRooms = rooms.filter((r) => !r.is_active);
@@ -354,6 +402,7 @@ export default async function HomestayPage({ params }: PageProps) {
             seasonalPrices={seasonalPrices}
             roomOptions={roomOptions}
             bookingDisabled={bookingDisabled}
+            initialPromo={initialPromo}
           />
         </div>
 

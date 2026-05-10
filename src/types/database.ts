@@ -154,6 +154,7 @@ export interface Database {
           check_in_info: string | null;
           policies: string | null;
           faq: { question: string; answer: string }[];
+          promo_codes_enabled: boolean;
           created_at: string;
           created_by: string;
           updated_at: string;
@@ -185,6 +186,7 @@ export interface Database {
           check_in_info?: string | null;
           policies?: string | null;
           faq?: { question: string; answer: string }[];
+          promo_codes_enabled?: boolean;
           created_at?: string;
           created_by?: string;
           updated_at?: string;
@@ -216,6 +218,7 @@ export interface Database {
           check_in_info?: string | null;
           policies?: string | null;
           faq?: { question: string; answer: string }[];
+          promo_codes_enabled?: boolean;
           created_at?: string;
           created_by?: string;
           updated_at?: string;
@@ -320,6 +323,7 @@ export interface Database {
           check_out: string;
           num_guests: number;
           total_price: number;
+          discount_amount: number;
           status: BookingStatus;
           payment_slip_url: string | null;
           easyslip_verified: boolean;
@@ -352,6 +356,7 @@ export interface Database {
           check_out: string;
           num_guests: number;
           total_price: number;
+          discount_amount?: number;
           status?: BookingStatus;
           payment_slip_url?: string | null;
           easyslip_verified?: boolean;
@@ -384,6 +389,7 @@ export interface Database {
           check_out?: string;
           num_guests?: number;
           total_price?: number;
+          discount_amount?: number;
           status?: BookingStatus;
           payment_slip_url?: string | null;
           easyslip_verified?: boolean;
@@ -903,6 +909,127 @@ export interface Database {
           updated_by?: string;
         };
       };
+      promo_codes: {
+        Row: {
+          id: string;
+          homestay_id: string;
+          code: string;
+          discount_type: "percentage" | "fixed";
+          discount_value: number;
+          recommender_name: string | null;
+          recommender_phone: string | null;
+          recommender_promptpay: string | null;
+          recommender_note: string | null;
+          commission_type: "percentage" | "fixed" | null;
+          commission_value: number | null;
+          start_at: string | null;
+          expires_at: string | null;
+          max_uses: number | null;
+          times_used: number;
+          one_use_per_guest: boolean;
+          is_active: boolean;
+          created_at: string;
+          created_by: string;
+          updated_at: string;
+          updated_by: string;
+        };
+        Insert: {
+          id?: string;
+          homestay_id: string;
+          code: string;
+          discount_type: "percentage" | "fixed";
+          discount_value: number;
+          recommender_name?: string | null;
+          recommender_phone?: string | null;
+          recommender_promptpay?: string | null;
+          recommender_note?: string | null;
+          commission_type?: "percentage" | "fixed" | null;
+          commission_value?: number | null;
+          start_at?: string | null;
+          expires_at?: string | null;
+          max_uses?: number | null;
+          times_used?: number;
+          one_use_per_guest?: boolean;
+          is_active?: boolean;
+          created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
+        };
+        Update: {
+          id?: string;
+          homestay_id?: string;
+          code?: string;
+          discount_type?: "percentage" | "fixed";
+          discount_value?: number;
+          recommender_name?: string | null;
+          recommender_phone?: string | null;
+          recommender_promptpay?: string | null;
+          recommender_note?: string | null;
+          commission_type?: "percentage" | "fixed" | null;
+          commission_value?: number | null;
+          start_at?: string | null;
+          expires_at?: string | null;
+          max_uses?: number | null;
+          times_used?: number;
+          one_use_per_guest?: boolean;
+          is_active?: boolean;
+          created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
+        };
+      };
+      promo_redemptions: {
+        Row: {
+          id: string;
+          promo_code_id: string;
+          booking_id: string;
+          discount_amount: number;
+          commission_amount: number;
+          payout_status: "pending" | "paid" | "cancelled";
+          paid_at: string | null;
+          paid_note: string | null;
+          guest_phone: string;
+          guest_email: string;
+          created_at: string;
+          created_by: string;
+          updated_at: string;
+          updated_by: string;
+        };
+        Insert: {
+          id?: string;
+          promo_code_id: string;
+          booking_id: string;
+          discount_amount: number;
+          commission_amount?: number;
+          payout_status?: "pending" | "paid" | "cancelled";
+          paid_at?: string | null;
+          paid_note?: string | null;
+          guest_phone: string;
+          guest_email: string;
+          created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
+        };
+        Update: {
+          id?: string;
+          promo_code_id?: string;
+          booking_id?: string;
+          discount_amount?: number;
+          commission_amount?: number;
+          payout_status?: "pending" | "paid" | "cancelled";
+          paid_at?: string | null;
+          paid_note?: string | null;
+          guest_phone?: string;
+          guest_email?: string;
+          created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
+        };
+      };
       date_change_requests: {
         Row: {
           id: string;
@@ -913,6 +1040,7 @@ export interface Database {
           new_check_out: string;
           old_total_price: number;
           new_total_price: number;
+          new_discount_amount: number;
           price_difference: number;
           status: string;
           requested_by: string;
@@ -939,6 +1067,7 @@ export interface Database {
           new_check_out: string;
           old_total_price: number;
           new_total_price: number;
+          new_discount_amount?: number;
           price_difference?: number;
           status?: string;
           requested_by: string;
@@ -965,6 +1094,7 @@ export interface Database {
           new_check_out?: string;
           old_total_price?: number;
           new_total_price?: number;
+          new_discount_amount?: number;
           price_difference?: number;
           status?: string;
           requested_by?: string;
@@ -1002,5 +1132,9 @@ export type DateChangeRequest = Database["public"]["Tables"]["date_change_reques
 export type PlatformBillingConfig = Database["public"]["Tables"]["platform_billing_config"]["Row"];
 export type WalletTransaction = Database["public"]["Tables"]["wallet_transactions"]["Row"];
 export type Invoice = Database["public"]["Tables"]["invoices"]["Row"];
+export type PromoCode = Database["public"]["Tables"]["promo_codes"]["Row"];
+export type PromoRedemption = Database["public"]["Tables"]["promo_redemptions"]["Row"];
 
 export type PlanType = "free" | "commission" | "fixed_rate";
+export type PromoDiscountType = "percentage" | "fixed";
+export type PromoPayoutStatus = "pending" | "paid" | "cancelled";

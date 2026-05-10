@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Phone, CreditCard, Loader2, Lock } from "lucide-react";
+import { isValidPhone, sanitizePhoneInput } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -49,6 +50,10 @@ export function SetupProfileModal({
 
     if (needsPhone && !phone.trim()) {
       setError(t("errorPhone"));
+      return;
+    }
+    if (needsPhone && !isValidPhone(phone)) {
+      setError(t("errorInvalidPhone"));
       return;
     }
     if (needsPromptpay && !promptpayId.trim()) {
@@ -138,9 +143,11 @@ export function SetupProfileModal({
               <Input
                 id="setup-phone"
                 type="tel"
+                inputMode="numeric"
+                maxLength={10}
                 placeholder={t("phonePlaceholder")}
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
                 required
               />
             </div>

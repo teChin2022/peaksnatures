@@ -6,7 +6,7 @@ import { useTranslations } from "next-intl";
 import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key, Lock, Eye, EyeOff, Bell, Trash2, AlertTriangle, ShieldCheck, Unlock, Camera } from "lucide-react";
 import Image from "next/image";
 import { compressImage } from "@/lib/compress-image";
-import { getInitials } from "@/lib/utils";
+import { getInitials, isValidEmail, isValidPhone, sanitizePhoneInput } from "@/lib/utils";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -187,6 +187,20 @@ export default function ProfilePage() {
         toast.error(t("bankFieldsRequired"));
         setSaving(false);
         return;
+      }
+
+      // Validate email/phone format when sensitive fields are being saved
+      if (sensitiveUnlocked) {
+        if (email.trim() && !isValidEmail(email)) {
+          toast.error(t("errorInvalidEmail"));
+          setSaving(false);
+          return;
+        }
+        if (phone.trim() && !isValidPhone(phone)) {
+          toast.error(t("errorInvalidPhone"));
+          setSaving(false);
+          return;
+        }
       }
 
       // Save non-sensitive fields via Supabase client
@@ -530,8 +544,10 @@ export default function ProfilePage() {
               <Input
                 id="host-phone"
                 type="tel"
+                inputMode="numeric"
+                maxLength={10}
                 value={phone}
-                onChange={(e) => setPhone(e.target.value)}
+                onChange={(e) => setPhone(sensitiveUnlocked ? sanitizePhoneInput(e.target.value) : e.target.value)}
                 placeholder={t("phonePlaceholder")}
                 readOnly={!sensitiveUnlocked}
                 className={!sensitiveUnlocked ? "bg-gray-50 cursor-not-allowed" : ""}

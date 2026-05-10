@@ -36,6 +36,7 @@ import {
 } from "@/components/ui/popover";
 import { Calendar } from "@/components/ui/calendar";
 import { toast } from "sonner";
+import { isValidEmail, isValidPhone, sanitizePhoneInput } from "@/lib/utils";
 
 interface Room {
   id: string;
@@ -122,6 +123,14 @@ export function QuickBookingDialog({
 
   const handleSubmit = async () => {
     if (!canSubmit || !checkIn || !checkOut) return;
+    if (!isValidPhone(guestPhone)) {
+      toast.error(t("errorInvalidPhone"));
+      return;
+    }
+    if (guestEmail.trim() && !isValidEmail(guestEmail)) {
+      toast.error(t("errorInvalidEmail"));
+      return;
+    }
     setSaving(true);
 
     try {
@@ -197,8 +206,11 @@ export function QuickBookingDialog({
               <Label htmlFor="qb-phone">{t("guestPhoneLabel")}</Label>
               <Input
                 id="qb-phone"
+                type="tel"
+                inputMode="numeric"
+                maxLength={10}
                 value={guestPhone}
-                onChange={(e) => setGuestPhone(e.target.value)}
+                onChange={(e) => setGuestPhone(sanitizePhoneInput(e.target.value))}
                 placeholder={t("guestPhonePlaceholder")}
               />
             </div>

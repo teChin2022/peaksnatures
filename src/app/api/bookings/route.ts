@@ -3,12 +3,13 @@ import { after } from "next/server";
 import { revalidateTag } from "next/cache";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
-import { sendBookingConfirmationEmail, sendHostLineNotification, sendHostSmsNotification, dispatchHostNotification, buildNewBookingMessage } from "@/lib/notifications";
-import type { Booking, Homestay, Host, Room, RoomSeasonalPrice } from "@/types/database";
+import { sendBookingConfirmationEmail, sendHostLineNotification, sendHostSmsNotification, dispatchHostNotification, buildNewBookingMessage, sendRecommenderPromoUsedNotification } from "@/lib/notifications";
+import type { Booking, Homestay, Host, PromoCode, Room, RoomSeasonalPrice } from "@/types/database";
 import { calculateTotalPrice } from "@/lib/calculate-price";
 import { getDepositForMonth } from "@/lib/get-deposit";
 import { logEvent, EventType } from "@/lib/history-log";
 import { deductCommission } from "@/lib/billing";
+import { computeCommissionAmount, computePromoDiscount, evaluatePromoCode } from "@/lib/promo-codes";
 
 const bookingSchema = z.object({
   homestay_id: z.string().uuid(),
@@ -38,6 +39,7 @@ const bookingSchema = z.object({
     name: z.string(),
     price: z.number().int().min(0),
   })).optional().default([]),
+  promo_code_id: z.string().uuid().optional(),
 });
 
 async function sendNotifications(bookingId: string, supabase: ReturnType<typeof createServiceRoleClient>, locale: string = "th", isVerified: boolean = true) {
@@ -176,7 +178,63 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const serverPrice = serverBasePrice + serverOptionsTotal;
+      const subtotal = serverBasePrice + serverOptionsTotal;
+
+      // Resolve promo code (if supplied) and apply discount before price-mismatch check.
+      // Promo state is stashed on `req` via locals — use a closure on the outer scope.
+      let serverPrice = subtotal;
+      if (data.promo_code_id) {
+        const { data: homestayFlag } = await supabase
+          .from("homestays")
+          .select("promo_codes_enabled")
+          .eq("id", data.homestay_id)
+          .single();
+        const flagEnabled = (homestayFlag as { promo_codes_enabled: boolean } | null)?.promo_codes_enabled;
+        if (!flagEnabled) {
+          return NextResponse.json({ error: "Promo codes are not enabled for this homestay" }, { status: 400 });
+        }
+
+        const { data: promoRow } = await supabase
+          .from("promo_codes")
+          .select("*")
+          .eq("id", data.promo_code_id)
+          .eq("homestay_id", data.homestay_id)
+          .maybeSingle();
+        const promo = promoRow as unknown as PromoCode | null;
+        if (!promo) {
+          return NextResponse.json({ error: "Invalid promo code" }, { status: 400 });
+        }
+
+        const verdict = evaluatePromoCode(promo);
+        if (!verdict.ok) {
+          return NextResponse.json({ error: `Promo code rejected (${verdict.reason})` }, { status: 400 });
+        }
+
+        if (promo.one_use_per_guest) {
+          const phone = data.guest_phone.trim();
+          const email = data.guest_email.trim().toLowerCase();
+          const { data: existing } = await supabase
+            .from("promo_redemptions")
+            .select("id")
+            .eq("promo_code_id", promo.id)
+            .or(`guest_phone.eq.${phone},guest_email.eq.${email}`)
+            .limit(1);
+          if (existing && existing.length > 0) {
+            return NextResponse.json({ error: "Promo code already used by this guest" }, { status: 400 });
+          }
+        }
+
+        // Always attach _promo (even when discount = 0) so commission-only /
+        // pure-attribution codes still write a redemption row and tick times_used.
+        const discount = computePromoDiscount(promo, subtotal);
+        serverPrice = Math.max(0, subtotal - discount);
+        (data as typeof data & { _promo: { promo: PromoCode; discount: number; subtotal: number } })._promo = {
+          promo,
+          discount,
+          subtotal,
+        };
+      }
+
       if (data.total_price !== serverPrice) {
         console.warn(`[Security] Price mismatch: client=${data.total_price}, server=${serverPrice} (base=${serverBasePrice}, options=${serverOptionsTotal})`);
         data.total_price = serverPrice;
@@ -209,6 +267,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Atomic booking creation: checks overlap + blocked dates + inserts in one transaction
+    const promoState = (data as typeof data & { _promo?: { promo: PromoCode; discount: number; subtotal: number } })._promo;
     if (data.room_id) {
       const { data: bookingId, error: rpcError } = await supabase.rpc(
         "create_booking_atomic" as never,
@@ -235,6 +294,7 @@ export async function POST(req: NextRequest) {
           p_amount_paid: data.amount_paid || data.total_price,
           p_created_by: data.guest_name,
           p_selected_options: data.selected_options,
+          p_discount_amount: promoState?.discount || 0,
         } as never
       );
 
@@ -273,6 +333,33 @@ export async function POST(req: NextRequest) {
         .eq("id", bookingId as string)
         .single();
 
+      // Persist promo redemption (if applied) and increment usage counter.
+      if (promoState) {
+        const { promo, discount, subtotal } = promoState;
+        const commission = computeCommissionAmount(promo, subtotal);
+        const { error: redemptionErr } = await supabase
+          .from("promo_redemptions")
+          .insert({
+            promo_code_id: promo.id,
+            booking_id: bookingId as string,
+            discount_amount: discount,
+            commission_amount: commission,
+            payout_status: "pending",
+            guest_phone: data.guest_phone.trim(),
+            guest_email: data.guest_email.trim().toLowerCase(),
+            created_by: data.guest_name,
+            updated_by: data.guest_name,
+          } as never);
+        if (redemptionErr) {
+          console.error("[Promo] Failed to record redemption:", redemptionErr);
+        } else {
+          await supabase
+            .from("promo_codes")
+            .update({ times_used: promo.times_used + 1 } as never)
+            .eq("id", promo.id);
+        }
+      }
+
       if (data.easyslip_verified) {
         await deductCommission(bookingId as string);
       }
@@ -286,10 +373,19 @@ export async function POST(req: NextRequest) {
           eventType: data.easyslip_verified ? EventType.BOOKING_CONFIRMED : EventType.BOOKING_CREATED,
           actorType: "guest",
           actorId: null,
-          data: { guest_name: data.guest_name, check_in: data.check_in, check_out: data.check_out, total_price: data.total_price, room_id: data.room_id, payment_type: data.payment_type },
+          data: { guest_name: data.guest_name, check_in: data.check_in, check_out: data.check_out, total_price: data.total_price, room_id: data.room_id, payment_type: data.payment_type, promo_code_id: data.promo_code_id || null },
           req,
         });
         await sendNotifications(bookingId as string, supabase, data.locale || "th", data.easyslip_verified);
+        if (promoState && data.easyslip_verified) {
+          await sendRecommenderPromoUsedNotification({
+            promo: promoState.promo,
+            bookingId: bookingId as string,
+            guestName: data.guest_name,
+            discountAmount: promoState.discount,
+            commissionAmount: computeCommissionAmount(promoState.promo, promoState.subtotal),
+          }, data.locale || "th").catch((e) => console.error("[Promo] Recommender notify failed:", e));
+        }
       });
 
       if (data.easyslip_verified) revalidateTag("admin-stats", "max");
@@ -311,6 +407,7 @@ export async function POST(req: NextRequest) {
         check_out: data.check_out,
         num_guests: data.num_guests,
         total_price: data.total_price,
+        discount_amount: promoState?.discount || 0,
         status: data.easyslip_verified ? "confirmed" : "pending",
         easyslip_verified: data.easyslip_verified,
         payment_slip_hash: data.slip_hash,
