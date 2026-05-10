@@ -171,10 +171,15 @@ export default function RecommenderStatsPage() {
               {result.codes.map((c) => (
                 <Card key={c.id}>
                   <CardHeader className="pb-2">
-                    <div className="flex items-center justify-between gap-2">
-                      <div className="flex items-center gap-2">
-                        <Tag className="h-4 w-4 text-earth-400" />
-                        <CardTitle className="font-mono text-base">{c.code}</CardTitle>
+                    <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+                      <CardTitle className="order-1 truncate text-base font-semibold text-earth-900 md:order-2 md:text-xs md:font-normal md:text-earth-500">
+                        {c.homestay_name}
+                      </CardTitle>
+                      <div className="order-2 flex flex-wrap items-center gap-x-2 gap-y-1 md:order-1">
+                        <div className="flex min-w-0 items-center gap-2">
+                          <Tag className="h-4 w-4 shrink-0 text-earth-400" />
+                          <span className="truncate font-mono text-sm text-earth-900 md:text-base">{c.code}</span>
+                        </div>
                         {c.homestay_slug && (
                           <Button
                             type="button"
@@ -189,7 +194,6 @@ export default function RecommenderStatsPage() {
                           </Button>
                         )}
                       </div>
-                      <span className="text-xs text-earth-500">{c.homestay_name}</span>
                     </div>
                   </CardHeader>
                   <CardContent className="grid grid-cols-2 gap-3 pt-0 text-sm md:grid-cols-4">

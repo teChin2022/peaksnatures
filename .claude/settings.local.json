@@ -23,7 +23,8 @@
       "Bash(gh repo *)",
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
-      "WebFetch(domain:api.github.com)"
+      "WebFetch(domain:api.github.com)",
+      "Bash(python3 .claude/skills/ui-ux-pro-max/scripts/search.py \"mobile card header layout long text\" --domain ux -n 6)"
     ]
   },
   "prefersReducedMotion": false
