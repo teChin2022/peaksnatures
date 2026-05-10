@@ -151,6 +151,7 @@ export function BookingSection({
   const [duplicateMatchType, setDuplicateMatchType] = useState<"email" | "phone" | "both" | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
+  const [showIncompleteDatesModal, setShowIncompleteDatesModal] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([]);
   const [pdpaConsent, setPdpaConsent] = useState(false);
@@ -1194,7 +1195,17 @@ export function BookingSection({
                           </div>
 
                           <button
-                            onClick={() => setShowCalendar(false)}
+                            onClick={() => {
+                              const incomplete =
+                                !dateRange?.from ||
+                                !dateRange?.to ||
+                                dateRange.to.getTime() === dateRange.from.getTime();
+                              if (incomplete) {
+                                setShowIncompleteDatesModal(true);
+                                return;
+                              }
+                              setShowCalendar(false);
+                            }}
                             className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
                           >
                             {tc("done")}
@@ -1711,6 +1722,22 @@ export function BookingSection({
           </DialogHeader>
           <DialogFooter>
             <Button className="w-full bg-brand text-white hover:bg-brand-hover" onClick={handleHeldModalClose}>{t("chooseDifferentDates")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Incomplete Dates Modal */}
+      <Dialog open={showIncompleteDatesModal} onOpenChange={setShowIncompleteDatesModal}>
+        <DialogContent showCloseButton={false} className="z-70" overlayClassName="z-70">
+          <DialogHeader>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+              <AlertTriangle className="h-6 w-6 text-amber-600" />
+            </div>
+            <DialogTitle className="text-center">{t("incompleteDatesTitle")}</DialogTitle>
+            <DialogDescription className="text-center">{t("incompleteDatesDesc")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button className="w-full bg-brand text-white hover:bg-brand-hover" onClick={() => setShowIncompleteDatesModal(false)}>{t("incompleteDatesAction")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
