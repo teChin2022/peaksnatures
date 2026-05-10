@@ -147,6 +147,7 @@ export async function POST(req: NextRequest) {
         p_created_by: host.name,
         p_selected_options: [],
         p_booking_source: data.booking_source,
+        p_discount_amount: 0,
       } as never
     );
 
