@@ -149,6 +149,16 @@ type RedemptionRow = PromoRedemption & {
 
 type RedemptionFilter = "all" | "pending" | "paid" | "cancelled";
 
+type RecommenderRow = {
+  name: string;
+  phone: string | null;
+  promptpay: string | null;
+  pending: number;
+  paid: number;
+  total: number;
+  count: number;
+};
+
 export default function PromoCodesPage() {
   const t = useTranslations("dashboardPromoCodes");
   const tc = useTranslations("common");
@@ -172,6 +182,11 @@ export default function PromoCodesPage() {
   const [payTarget, setPayTarget] = useState<RedemptionRow | null>(null);
   const [payNote, setPayNote] = useState("");
 
+  const [bulkPayDialogOpen, setBulkPayDialogOpen] = useState(false);
+  const [bulkPayTarget, setBulkPayTarget] = useState<RecommenderRow | null>(null);
+  const [bulkPayNote, setBulkPayNote] = useState("");
+  const [bulkPaying, setBulkPaying] = useState(false);
+
   const [deleteTarget, setDeleteTarget] = useState<PromoCode | null>(null);
   const [deleting, setDeleting] = useState(false);
 
@@ -181,7 +196,7 @@ export default function PromoCodesPage() {
   const [codesPage, setCodesPage] = useState(1);
   const [redemptionsPage, setRedemptionsPage] = useState(1);
   const [recommendersPage, setRecommendersPage] = useState(1);
-  const [activeTab, setActiveTab] = useState<"codes" | "redemptions" | "recommenders">("codes");
+  const [activeTab, setActiveTab] = useState<"codes" | "redemptions" | "payments">("codes");
 
   const fmtDate = (s: string | null) => {
     if (!s) return "—";
@@ -467,6 +482,56 @@ export default function PromoCodesPage() {
     }
   }
 
+  function openBulkMarkPaid(row: RecommenderRow) {
+    setBulkPayTarget(row);
+    setBulkPayNote("");
+    setBulkPayDialogOpen(true);
+  }
+
+  async function confirmBulkMarkPaid() {
+    if (!bulkPayTarget) return;
+    const targetIds = redemptions
+      .filter(
+        (r) =>
+          r.promo_code?.recommender_name?.trim() === bulkPayTarget.name &&
+          r.payout_status === "pending" &&
+          Number(r.commission_amount || 0) > 0,
+      )
+      .map((r) => r.id);
+    if (targetIds.length === 0) {
+      setBulkPayDialogOpen(false);
+      setBulkPayTarget(null);
+      await fetchData();
+      return;
+    }
+    setBulkPaying(true);
+    const note = bulkPayNote.trim() || null;
+    const results = await Promise.allSettled(
+      targetIds.map((id) =>
+        fetch(`/api/host/promo-redemptions/${id}/mark-paid`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ paid_note: note }),
+        }).then((res) => {
+          if (!res.ok) throw new Error(String(res.status));
+          return res;
+        }),
+      ),
+    );
+    setBulkPaying(false);
+    const failed = results.filter((r) => r.status === "rejected").length;
+    if (failed === 0) {
+      toast.success(t("bulkPaidSaved", { count: targetIds.length }));
+    } else if (failed < targetIds.length) {
+      toast.error(t("bulkPaidPartial", { paid: targetIds.length - failed, failed }));
+    } else {
+      toast.error(t("errorSave"));
+    }
+    setBulkPayDialogOpen(false);
+    setBulkPayTarget(null);
+    await fetchData();
+  }
+
   function isActiveNow(c: PromoCode): boolean {
     const today = format(new Date(), "yyyy-MM-dd");
     if (!c.is_active) return false;
@@ -669,6 +734,11 @@ export default function PromoCodesPage() {
         return a.name.localeCompare(b.name);
       });
   }, [codes, redemptions]);
+
+  const pendingByRecommenderCount = useMemo(
+    () => recommenderSummary.filter((r) => r.pending > 0).length,
+    [recommenderSummary],
+  );
 
   const codesTotalPages = Math.max(1, Math.ceil(codes.length / PAGE_SIZE));
   const redemptionsTotalPages = Math.max(1, Math.ceil(filteredRedemptions.length / PAGE_SIZE));
@@ -890,7 +960,7 @@ export default function PromoCodesPage() {
       <div className={enabled ? "" : "pointer-events-none opacity-60"}>
         <Tabs
           value={activeTab}
-          onValueChange={(v) => setActiveTab(v as "codes" | "redemptions" | "recommenders")}
+          onValueChange={(v) => setActiveTab(v as "codes" | "redemptions" | "payments")}
           className="w-full"
         >
           <TabsList>
@@ -907,11 +977,16 @@ export default function PromoCodesPage() {
                 </span>
               )}
             </TabsTrigger>
-            <TabsTrigger value="recommenders">
+            <TabsTrigger value="payments">
               <span>
-                {t("tabRecommenders")}{" "}
+                {t("tabPayments")}{" "}
                 <span className="text-earth-500">({recommenderSummary.length})</span>
               </span>
+              {pendingByRecommenderCount > 0 && (
+                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-700">
+                  {pendingByRecommenderCount}
+                </span>
+              )}
             </TabsTrigger>
           </TabsList>
 
@@ -1228,15 +1303,15 @@ export default function PromoCodesPage() {
             )}
           </TabsContent>
 
-          {/* Recommenders tab */}
-          <TabsContent value="recommenders" className="mt-4 space-y-3">
+          {/* Payments tab */}
+          <TabsContent value="payments" className="mt-4 space-y-3">
             {recommenderSummary.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-50">
                     <Users className="h-6 w-6 text-violet-600" />
                   </div>
-                  <p className="text-sm text-earth-500">{t("recommenderEmpty")}</p>
+                  <p className="text-sm text-earth-500">{t("paymentsEmpty")}</p>
                 </CardContent>
               </Card>
             ) : (
@@ -1341,16 +1416,14 @@ export default function PromoCodesPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          onClick={() => {
-                            setRedemptionSearch(row.name);
-                            setRedemptionFilter("all");
-                            setRedemptionsPage(1);
-                            setActiveTab("redemptions");
-                          }}
+                          onClick={() => openBulkMarkPaid(row)}
+                          disabled={row.pending <= 0}
                           className="cursor-pointer"
                         >
-                          <Search className="mr-1.5 h-3.5 w-3.5" />
-                          {t("recommenderViewRedemptions")}
+                          <Banknote className="mr-1.5 h-3.5 w-3.5" />
+                          {row.pending > 0
+                            ? t("markAllPaid", { amount: row.pending.toLocaleString() })
+                            : t("allPaid")}
                         </Button>
                       </CardContent>
                     </Card>
@@ -1674,6 +1747,100 @@ export default function PromoCodesPage() {
             </Button>
             <Button onClick={confirmMarkPaid} className="cursor-pointer bg-brand text-white hover:brightness-90">
               <CheckCircle2 className="mr-2 h-4 w-4" />
+              {t("confirmPaid")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bulk mark-paid dialog (per recommender) */}
+      <Dialog
+        open={bulkPayDialogOpen}
+        onOpenChange={(o) => {
+          if (bulkPaying) return;
+          setBulkPayDialogOpen(o);
+          if (!o) setBulkPayTarget(null);
+        }}
+      >
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>{t("bulkPaidTitle")}</DialogTitle>
+            <DialogDescription>
+              {bulkPayTarget && (
+                <span>
+                  {t("bulkPaidDesc", {
+                    name: bulkPayTarget.name,
+                    amount: bulkPayTarget.pending.toLocaleString(),
+                    count: redemptions.filter(
+                      (r) =>
+                        r.promo_code?.recommender_name?.trim() === bulkPayTarget.name &&
+                        r.payout_status === "pending" &&
+                        Number(r.commission_amount || 0) > 0,
+                    ).length,
+                  })}
+                </span>
+              )}
+            </DialogDescription>
+          </DialogHeader>
+          {bulkPayTarget && (bulkPayTarget.phone || bulkPayTarget.promptpay) && (
+            <div className="space-y-1.5 rounded-md bg-earth-50 p-3 text-xs text-earth-700">
+              {bulkPayTarget.phone && (
+                <div className="flex items-center gap-2">
+                  <Phone className="h-3.5 w-3.5 text-earth-400" />
+                  <span className="font-mono">{bulkPayTarget.phone}</span>
+                </div>
+              )}
+              {bulkPayTarget.promptpay && (
+                <div className="flex items-center gap-2">
+                  <Wallet className="h-3.5 w-3.5 text-earth-400" />
+                  <span className="font-mono">{bulkPayTarget.promptpay}</span>
+                  <button
+                    type="button"
+                    onClick={async () => {
+                      try {
+                        await navigator.clipboard.writeText(bulkPayTarget.promptpay!);
+                        toast.success(t("copied"));
+                      } catch {
+                        // clipboard unavailable
+                      }
+                    }}
+                    className="cursor-pointer rounded p-0.5 text-earth-400 hover:bg-earth-100 hover:text-earth-700"
+                    aria-label={t("copied")}
+                  >
+                    <Copy className="h-3 w-3" />
+                  </button>
+                </div>
+              )}
+            </div>
+          )}
+          <div className="space-y-2">
+            <Label>{t("paidNote")}</Label>
+            <Textarea
+              value={bulkPayNote}
+              onChange={(e) => setBulkPayNote(e.target.value)}
+              placeholder={t("paidNotePlaceholder")}
+              rows={2}
+            />
+          </div>
+          <DialogFooter>
+            <Button
+              variant="outline"
+              onClick={() => setBulkPayDialogOpen(false)}
+              disabled={bulkPaying}
+              className="cursor-pointer"
+            >
+              {tc("cancel")}
+            </Button>
+            <Button
+              onClick={confirmBulkMarkPaid}
+              disabled={bulkPaying}
+              className="cursor-pointer bg-brand text-white hover:brightness-90"
+            >
+              {bulkPaying ? (
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              ) : (
+                <CheckCircle2 className="mr-2 h-4 w-4" />
+              )}
               {t("confirmPaid")}
             </Button>
           </DialogFooter>
