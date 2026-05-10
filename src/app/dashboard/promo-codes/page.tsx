@@ -25,6 +25,9 @@ import {
   ChevronLeft,
   ChevronRight,
   RefreshCw,
+  Phone,
+  Users,
+  Wallet,
 } from "lucide-react";
 
 function slugPrefix(slug: string | null | undefined): string {
@@ -177,6 +180,8 @@ export default function PromoCodesPage() {
 
   const [codesPage, setCodesPage] = useState(1);
   const [redemptionsPage, setRedemptionsPage] = useState(1);
+  const [recommendersPage, setRecommendersPage] = useState(1);
+  const [activeTab, setActiveTab] = useState<"codes" | "redemptions" | "recommenders">("codes");
 
   const fmtDate = (s: string | null) => {
     if (!s) return "—";
@@ -622,13 +627,58 @@ export default function PromoCodesPage() {
     });
   }, [redemptions, redemptionFilter, redemptionSearch]);
 
+  const recommenderSummary = useMemo(() => {
+    const contactByName = new Map<string, { phone: string | null; promptpay: string | null }>();
+    for (const c of codes) {
+      const name = c.recommender_name?.trim();
+      if (!name) continue;
+      const existing = contactByName.get(name);
+      contactByName.set(name, {
+        phone: existing?.phone ?? c.recommender_phone ?? null,
+        promptpay: existing?.promptpay ?? c.recommender_promptpay ?? null,
+      });
+    }
+
+    const byName = new Map<string, { pending: number; paid: number; count: number }>();
+    for (const r of redemptions) {
+      const name = r.promo_code?.recommender_name?.trim();
+      if (!name) continue;
+      if (r.payout_status === "cancelled") continue;
+      const amount = Number(r.commission_amount || 0);
+      if (amount <= 0) continue;
+      const cur = byName.get(name) ?? { pending: 0, paid: 0, count: 0 };
+      if (r.payout_status === "paid") cur.paid += amount;
+      else cur.pending += amount;
+      cur.count += 1;
+      byName.set(name, cur);
+    }
+
+    return Array.from(byName.entries())
+      .map(([name, agg]) => ({
+        name,
+        phone: contactByName.get(name)?.phone ?? null,
+        promptpay: contactByName.get(name)?.promptpay ?? null,
+        pending: agg.pending,
+        paid: agg.paid,
+        total: agg.pending + agg.paid,
+        count: agg.count,
+      }))
+      .sort((a, b) => {
+        if (b.pending !== a.pending) return b.pending - a.pending;
+        if (b.paid !== a.paid) return b.paid - a.paid;
+        return a.name.localeCompare(b.name);
+      });
+  }, [codes, redemptions]);
+
   const codesTotalPages = Math.max(1, Math.ceil(codes.length / PAGE_SIZE));
   const redemptionsTotalPages = Math.max(1, Math.ceil(filteredRedemptions.length / PAGE_SIZE));
+  const recommendersTotalPages = Math.max(1, Math.ceil(recommenderSummary.length / PAGE_SIZE));
 
   // Clamp during render so the slice stays valid when the list shrinks
   // (e.g. after delete or filter narrows results).
   const effectiveCodesPage = Math.min(codesPage, codesTotalPages);
   const effectiveRedemptionsPage = Math.min(redemptionsPage, redemptionsTotalPages);
+  const effectiveRecommendersPage = Math.min(recommendersPage, recommendersTotalPages);
 
   const pagedCodes = useMemo(
     () => codes.slice((effectiveCodesPage - 1) * PAGE_SIZE, effectiveCodesPage * PAGE_SIZE),
@@ -641,6 +691,14 @@ export default function PromoCodesPage() {
         effectiveRedemptionsPage * PAGE_SIZE,
       ),
     [filteredRedemptions, effectiveRedemptionsPage],
+  );
+  const pagedRecommenders = useMemo(
+    () =>
+      recommenderSummary.slice(
+        (effectiveRecommendersPage - 1) * PAGE_SIZE,
+        effectiveRecommendersPage * PAGE_SIZE,
+      ),
+    [recommenderSummary, effectiveRecommendersPage],
   );
 
   const livePreview = useMemo(() => {
@@ -830,7 +888,11 @@ export default function PromoCodesPage() {
 
       {/* Tabs */}
       <div className={enabled ? "" : "pointer-events-none opacity-60"}>
-        <Tabs defaultValue="codes" className="w-full">
+        <Tabs
+          value={activeTab}
+          onValueChange={(v) => setActiveTab(v as "codes" | "redemptions" | "recommenders")}
+          className="w-full"
+        >
           <TabsList>
             <TabsTrigger value="codes">
               {t("tabCodes")} <span className="ml-1 text-earth-500">({codes.length})</span>
@@ -844,6 +906,12 @@ export default function PromoCodesPage() {
                   {pendingPayouts.count}
                 </span>
               )}
+            </TabsTrigger>
+            <TabsTrigger value="recommenders">
+              <span>
+                {t("tabRecommenders")}{" "}
+                <span className="text-earth-500">({recommenderSummary.length})</span>
+              </span>
             </TabsTrigger>
           </TabsList>
 
@@ -1156,6 +1224,146 @@ export default function PromoCodesPage() {
                 onChange={setRedemptionsPage}
                 t={t}
               />
+              </>
+            )}
+          </TabsContent>
+
+          {/* Recommenders tab */}
+          <TabsContent value="recommenders" className="mt-4 space-y-3">
+            {recommenderSummary.length === 0 ? (
+              <Card>
+                <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-50">
+                    <Users className="h-6 w-6 text-violet-600" />
+                  </div>
+                  <p className="text-sm text-earth-500">{t("recommenderEmpty")}</p>
+                </CardContent>
+              </Card>
+            ) : (
+              <>
+                {pagedRecommenders.map((row) => {
+                  const borderColor =
+                    row.pending > 0 ? "border-l-amber-400" : "border-l-emerald-400";
+                  return (
+                    <Card
+                      key={row.name}
+                      className={`border-l-4 ${borderColor} border-earth-100`}
+                    >
+                      <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
+                        <div className="min-w-0 space-y-1.5">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-sm font-semibold text-earth-900">
+                              {row.name}
+                            </span>
+                            <span className="text-xs text-earth-400">
+                              {row.count} {t("recommenderColCount")}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-600">
+                            <span className="inline-flex items-center gap-1">
+                              <Phone className="h-3.5 w-3.5 text-earth-400" />
+                              {row.phone ? (
+                                <a
+                                  href={`tel:${row.phone}`}
+                                  className="font-mono text-earth-800 hover:underline"
+                                >
+                                  {row.phone}
+                                </a>
+                              ) : (
+                                <span className="italic text-earth-400">
+                                  {t("recommenderNoPhone")}
+                                </span>
+                              )}
+                            </span>
+                            <span className="inline-flex items-center gap-1">
+                              <Wallet className="h-3.5 w-3.5 text-earth-400" />
+                              {row.promptpay ? (
+                                <>
+                                  <span className="font-mono text-earth-800">
+                                    {row.promptpay}
+                                  </span>
+                                  <button
+                                    type="button"
+                                    onClick={async () => {
+                                      try {
+                                        await navigator.clipboard.writeText(row.promptpay!);
+                                        toast.success(t("copied"));
+                                      } catch {
+                                        // clipboard unavailable
+                                      }
+                                    }}
+                                    className="cursor-pointer rounded p-0.5 text-earth-400 hover:bg-earth-100 hover:text-earth-700"
+                                    aria-label={t("copied")}
+                                  >
+                                    <Copy className="h-3 w-3" />
+                                  </button>
+                                </>
+                              ) : (
+                                <span className="italic text-earth-400">
+                                  {t("recommenderNoPromptpay")}
+                                </span>
+                              )}
+                            </span>
+                          </div>
+                          <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-xs">
+                            <span>
+                              <span className="text-earth-500">
+                                {t("recommenderColPending")}:{" "}
+                              </span>
+                              <span
+                                className={
+                                  row.pending > 0
+                                    ? "font-semibold text-amber-700"
+                                    : "text-earth-500"
+                                }
+                              >
+                                ฿{row.pending.toLocaleString()}
+                              </span>
+                            </span>
+                            <span>
+                              <span className="text-earth-500">
+                                {t("recommenderColPaid")}:{" "}
+                              </span>
+                              <span className="text-earth-700">
+                                ฿{row.paid.toLocaleString()}
+                              </span>
+                            </span>
+                            <span>
+                              <span className="text-earth-500">
+                                {t("recommenderColTotal")}:{" "}
+                              </span>
+                              <span className="font-semibold text-violet-700">
+                                ฿{row.total.toLocaleString()}
+                              </span>
+                            </span>
+                          </div>
+                        </div>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setRedemptionSearch(row.name);
+                            setRedemptionFilter("all");
+                            setRedemptionsPage(1);
+                            setActiveTab("redemptions");
+                          }}
+                          className="cursor-pointer"
+                        >
+                          <Search className="mr-1.5 h-3.5 w-3.5" />
+                          {t("recommenderViewRedemptions")}
+                        </Button>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+                <PaginationBar
+                  page={effectiveRecommendersPage}
+                  totalPages={recommendersTotalPages}
+                  total={recommenderSummary.length}
+                  pageSize={PAGE_SIZE}
+                  onChange={setRecommendersPage}
+                  t={t}
+                />
               </>
             )}
           </TabsContent>
