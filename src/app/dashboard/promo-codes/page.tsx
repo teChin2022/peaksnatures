@@ -877,16 +877,24 @@ export default function PromoCodesPage() {
                     >
                       <CardContent className="space-y-3 p-4">
                         {/* Code chip + status */}
-                        <div className="flex items-start justify-between gap-2">
-                          <div className="flex min-w-0 items-center gap-2">
-                            <div className="rounded-lg bg-brand-50 px-3 py-1.5 font-mono text-xl font-bold tracking-wider text-brand-700">
+                        <div className="space-y-2">
+                          <div className="flex items-center justify-between gap-2">
+                            <div className="min-w-0 truncate rounded-lg bg-brand-50 px-3 py-1.5 font-mono text-base font-bold tracking-wide text-brand-700 sm:text-lg">
                               {c.code}
                             </div>
+                            <span
+                              className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${status.pill}`}
+                            >
+                              <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
+                              {status.label}
+                            </span>
+                          </div>
+                          <div className="flex items-center justify-end gap-1">
                             <Button
                               type="button"
                               size="icon"
                               variant="ghost"
-                              className="h-8 w-8 cursor-pointer text-earth-400 hover:text-brand"
+                              className="h-9 w-9 cursor-pointer text-earth-400 hover:text-brand"
                               aria-label={t("copyCode")}
                               onClick={() => copyCode(c.code)}
                             >
@@ -896,7 +904,7 @@ export default function PromoCodesPage() {
                               type="button"
                               size="icon"
                               variant="ghost"
-                              className="h-8 w-8 cursor-pointer text-earth-400 hover:text-brand disabled:opacity-40"
+                              className="h-9 w-9 cursor-pointer text-earth-400 hover:text-brand disabled:opacity-40"
                               aria-label={t("copyLink")}
                               title={t("copyLink")}
                               disabled={!homestaySlug}
@@ -905,12 +913,6 @@ export default function PromoCodesPage() {
                               <LinkIcon className="h-4 w-4" />
                             </Button>
                           </div>
-                          <span
-                            className={`inline-flex shrink-0 items-center gap-1.5 rounded-full px-2.5 py-1 text-xs font-medium ${status.pill}`}
-                          >
-                            <span className={`h-1.5 w-1.5 rounded-full ${status.dot}`} />
-                            {status.label}
-                          </span>
                         </div>
 
                         {/* Discount + validity */}
