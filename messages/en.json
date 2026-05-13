@@ -1114,11 +1114,15 @@
   "recommenderStats": {
     "title": "Recommender Stats",
     "subtitle": "Enter your phone number to see codes attached to you and how much you've earned.",
+    "programPill": "Recommender program",
     "phoneLabel": "Phone Number",
     "phonePlaceholder": "0812345678",
     "search": "Search",
+    "privacyHint": "Enter your phone number to look up the codes attached to you.",
+    "backToSite": "Back",
     "noResults": "No referral codes are attached to this phone number.",
     "yourCodes": "Your Codes",
+    "activeCodes": "active codes",
     "redemptions": "Uses",
     "totalEarned": "Total earned",
     "paid": "Paid",
@@ -1129,9 +1133,32 @@
     "statusCancelled": "Cancelled",
     "copyLink": "Copy share link",
     "copyLinkDone": "Share link copied",
+    "copyDone": "Copied",
     "payoutHint": "Pending amounts are commissions the host hasn't paid out yet. Reach out to the host to arrange payment.",
     "errorInvalidPhone": "Please enter a valid phone number (digits only).",
-    "errorGeneric": "Something went wrong. Please try again."
+    "errorGeneric": "Something went wrong. Please try again.",
+    "howItWorks": {
+      "title": "How it works",
+      "step1Title": "Share your code",
+      "step1Body": "Send your unique code or share link to friends planning a getaway.",
+      "step2Title": "They book a stay",
+      "step2Body": "When they reserve a homestay on peaksnature.com using your code, the host sees the referral.",
+      "step3Title": "You earn commission",
+      "step3Body": "Once the booking is confirmed, your commission is logged. The host pays you out directly via PromptPay."
+    },
+    "faq": {
+      "title": "Common questions",
+      "q1": "What is the Peaksnature recommender program?",
+      "a1": "Recommenders are people the hosts trust to bring guests to their homestays. Each recommender gets a unique code. When a guest uses that code to book, the host pays the recommender a commission.",
+      "q2": "How do I get a recommender code?",
+      "a2": "Codes are created by hosts inside their dashboard. If you'd like to become a recommender for a specific homestay, reach out to the host directly and ask them to add you.",
+      "q3": "When do I get paid?",
+      "a3": "Payouts happen outside of Peaksnature — the host pays you directly, usually via PromptPay. The page tracks what's been paid versus what's still pending so you have a clear record.",
+      "q4": "What does 'pending' mean on my dashboard?",
+      "a4": "Pending means a guest has redeemed your code on a confirmed booking, but the host hasn't recorded a payout to you yet. Contact the host to arrange payment.",
+      "q5": "I don't see any of my codes — what should I do?",
+      "a5": "Double-check the phone number you entered. Codes are attached to the exact number the host saved. If it still doesn't show up, the host may not have added a code under that number yet."
+    }
   },
   "bookingSearch": {
     "searchBooking": "Search Booking",
