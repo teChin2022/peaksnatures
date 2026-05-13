@@ -7,6 +7,8 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { PageHeader } from "@/components/admin/page-header";
+import { cn } from "@/lib/utils";
 
 interface BillingConfig {
   id: string;
@@ -28,8 +30,7 @@ export default function AdminSettingsPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  // Billing config state
-  const [billingConfig, setBillingConfig] = useState<BillingConfig | null>(null);
+  const [, setBillingConfig] = useState<BillingConfig | null>(null);
   const [billingLoading, setBillingLoading] = useState(true);
   const [billingSaving, setBillingSaving] = useState(false);
   const [billingForm, setBillingForm] = useState({
@@ -147,32 +148,27 @@ export default function AdminSettingsPage() {
 
   return (
     <div>
-      {/* ── Header ── */}
-      <div className="mb-6">
-        <p className="text-xs font-medium uppercase tracking-widest text-gray-400 mb-1">Manage your admin account</p>
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-slate-200 p-2">
-            <Settings className="h-5 w-5 text-slate-600" />
-          </div>
-          <h1 className="text-2xl font-serif text-gray-900">Settings</h1>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow="Manage your admin account"
+        title="Settings"
+        icon={Settings}
+      />
 
-      {/* ── Two-column layout ── */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* ── Billing Configuration ── */}
-        <Card>
+        <Card className="border-earth-100">
           <CardHeader>
             <div className="flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-gray-500" />
-              <CardTitle className="text-base">Billing Configuration</CardTitle>
+              <CreditCard className="h-4 w-4 text-brand" />
+              <CardTitle className="text-base font-serif text-earth-900">Billing Configuration</CardTitle>
             </div>
-            <CardDescription>Platform commission, fixed rate, and payment details for hosts</CardDescription>
+            <CardDescription className="text-earth-500">
+              Platform commission, fixed rate, and payment details for hosts
+            </CardDescription>
           </CardHeader>
           <CardContent>
             {billingLoading ? (
               <div className="flex items-center justify-center py-8">
-                <Loader2 className="h-5 w-5 animate-spin text-gray-400" />
+                <Loader2 className="h-5 w-5 animate-spin text-earth-400" />
               </div>
             ) : (
               <form onSubmit={handleBillingSave} className="space-y-4">
@@ -201,9 +197,9 @@ export default function AdminSettingsPage() {
                   </div>
                 </div>
 
-                <div className="border-t pt-4">
-                  <p className="text-sm font-medium text-gray-700 mb-1">Platform Payment Details</p>
-                  <p className="text-xs text-gray-400 mb-3">
+                <div className="border-t border-earth-100 pt-4">
+                  <p className="text-sm font-medium text-earth-900 mb-1">Platform Payment Details</p>
+                  <p className="text-xs text-earth-500 mb-3">
                     Shown to hosts when they need to pay (wallet top-up or monthly invoice).
                   </p>
                   <div className="space-y-3">
@@ -251,9 +247,13 @@ export default function AdminSettingsPage() {
                             key={opt}
                             type="button"
                             size="sm"
-                            variant={billingForm.payment_display === opt ? "default" : "outline"}
                             onClick={() => setBillingForm((f) => ({ ...f, payment_display: opt }))}
-                            className={billingForm.payment_display === opt ? "bg-slate-800" : ""}
+                            className={cn(
+                              "cursor-pointer",
+                              billingForm.payment_display === opt
+                                ? "bg-brand hover:bg-brand-hover text-white"
+                                : "bg-white border border-earth-200 text-earth-700 hover:bg-earth-50 hover:text-brand"
+                            )}
                           >
                             {opt === "qr" ? "PromptPay QR" : "Bank Transfer"}
                           </Button>
@@ -265,7 +265,7 @@ export default function AdminSettingsPage() {
 
                 <Button
                   type="submit"
-                  className="w-full bg-slate-900 hover:bg-slate-800"
+                  className="w-full cursor-pointer bg-brand hover:bg-brand-hover text-white"
                   disabled={billingSaving}
                 >
                   {billingSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -276,11 +276,10 @@ export default function AdminSettingsPage() {
           </CardContent>
         </Card>
 
-        {/* ── Change Password ── */}
-        <Card className="h-fit">
+        <Card className="h-fit border-earth-100">
           <CardHeader>
-            <CardTitle className="text-base">Change Password</CardTitle>
-            <CardDescription>Update your admin login password</CardDescription>
+            <CardTitle className="text-base font-serif text-earth-900">Change Password</CardTitle>
+            <CardDescription className="text-earth-500">Update your admin login password</CardDescription>
           </CardHeader>
           <CardContent>
             <form onSubmit={handleSubmit} className="space-y-4">
@@ -299,7 +298,7 @@ export default function AdminSettingsPage() {
                   <button
                     type="button"
                     onClick={() => setShowCurrent(!showCurrent)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-400 hover:text-brand"
                     tabIndex={-1}
                   >
                     {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -323,13 +322,13 @@ export default function AdminSettingsPage() {
                   <button
                     type="button"
                     onClick={() => setShowNew(!showNew)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-400 hover:text-brand"
                     tabIndex={-1}
                   >
                     {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
-                <p className="text-xs text-gray-400">Minimum 8 characters</p>
+                <p className="text-xs text-earth-500">Minimum 8 characters</p>
               </div>
 
               <div className="space-y-2">
@@ -348,7 +347,7 @@ export default function AdminSettingsPage() {
                   <button
                     type="button"
                     onClick={() => setShowConfirm(!showConfirm)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-400 hover:text-brand"
                     tabIndex={-1}
                   >
                     {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -358,7 +357,7 @@ export default function AdminSettingsPage() {
 
               <Button
                 type="submit"
-                className="w-full bg-slate-900 hover:bg-slate-800"
+                className="w-full cursor-pointer bg-brand hover:bg-brand-hover text-white"
                 disabled={loading || !currentPassword || !newPassword || !confirmPassword}
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}

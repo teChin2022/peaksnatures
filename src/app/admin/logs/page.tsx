@@ -4,8 +4,10 @@ import { useState, useEffect, useCallback } from "react";
 import { ScrollText, Loader2, Filter } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/admin/page-header";
+import { StatusBadge } from "@/components/admin/status-badge";
+import { EmptyState } from "@/components/admin/empty-state";
+import { cn } from "@/lib/utils";
 
 interface LogRow {
   id: string;
@@ -61,42 +63,35 @@ const ENTITY_TYPE_OPTIONS = ["booking", "homestay", "room", "host", "review", "b
 
 const ACTOR_TYPE_OPTIONS = ["guest", "host", "admin", "system"];
 
-const ACTOR_COLORS: Record<string, string> = {
-  guest: "bg-blue-100 text-blue-700",
-  host: "bg-purple-100 text-purple-700",
-  admin: "bg-slate-200 text-slate-700",
-  system: "bg-gray-100 text-gray-600",
-};
+type EventTone = "brand" | "earth" | "amber" | "destructive" | "muted";
 
-const EVENT_COLORS: Record<string, string> = {
-  BOOKING_CREATED: "bg-green-100 text-green-700",
-  BOOKING_CONFIRMED: "bg-green-100 text-green-700",
-  BOOKING_CANCELLED: "bg-red-100 text-red-700",
-  BOOKING_REJECTED: "bg-red-100 text-red-700",
-  BALANCE_PAID: "bg-emerald-100 text-emerald-700",
-  CHECKIN: "bg-blue-100 text-blue-700",
-  CHECKOUT: "bg-blue-100 text-blue-700",
-  HOST_REGISTERED: "bg-indigo-100 text-indigo-700",
-  HOST_APPROVED: "bg-green-100 text-green-700",
-  HOST_REJECTED: "bg-red-100 text-red-700",
-  HOST_LOGIN: "bg-sky-100 text-sky-700",
-  HOST_LOGOUT: "bg-gray-100 text-gray-600",
-  FAILED_LOGIN: "bg-red-100 text-red-700",
-  PROPERTY_CREATED: "bg-purple-100 text-purple-700",
-  PROPERTY_UPDATED: "bg-purple-100 text-purple-700",
-  PROPERTY_TOGGLED: "bg-amber-100 text-amber-700",
-  ROOM_CREATED: "bg-teal-100 text-teal-700",
-  ROOM_UPDATED: "bg-teal-100 text-teal-700",
-  ROOM_DELETED: "bg-red-100 text-red-700",
-  PRICE_UPDATED: "bg-orange-100 text-orange-700",
-  PROFILE_UPDATED: "bg-indigo-100 text-indigo-700",
-  BLOCKED_DATE_ADDED: "bg-amber-100 text-amber-700",
-  BLOCKED_DATE_REMOVED: "bg-amber-100 text-amber-700",
-  REVIEW_SUBMITTED: "bg-yellow-100 text-yellow-700",
-  BOOKING_DATE_CHANGE_REQUESTED: "bg-orange-100 text-orange-700",
-  BOOKING_DATE_CHANGE_APPROVED: "bg-green-100 text-green-700",
-  BOOKING_DATE_CHANGE_REJECTED: "bg-red-100 text-red-700",
-  PASSWORD_CHANGED: "bg-slate-200 text-slate-700",
+const POSITIVE_EVENTS = new Set([
+  "BOOKING_CREATED", "BOOKING_CONFIRMED", "BALANCE_PAID",
+  "HOST_APPROVED", "BOOKING_DATE_CHANGE_APPROVED",
+]);
+const NEGATIVE_EVENTS = new Set([
+  "BOOKING_CANCELLED", "BOOKING_REJECTED", "HOST_REJECTED",
+  "FAILED_LOGIN", "ROOM_DELETED", "BOOKING_DATE_CHANGE_REJECTED",
+]);
+const WARNING_EVENTS = new Set([
+  "PROPERTY_TOGGLED", "BLOCKED_DATE_ADDED", "BLOCKED_DATE_REMOVED",
+  "BOOKING_DATE_CHANGE_REQUESTED", "PASSWORD_CHANGED", "HOST_REGISTERED",
+]);
+const MUTED_EVENTS = new Set(["HOST_LOGOUT"]);
+
+function getEventTone(eventType: string): EventTone {
+  if (POSITIVE_EVENTS.has(eventType)) return "brand";
+  if (NEGATIVE_EVENTS.has(eventType)) return "destructive";
+  if (WARNING_EVENTS.has(eventType)) return "amber";
+  if (MUTED_EVENTS.has(eventType)) return "muted";
+  return "earth";
+}
+
+const ACTOR_TONES: Record<string, EventTone> = {
+  guest:  "earth",
+  host:   "brand",
+  admin:  "earth",
+  system: "muted",
 };
 
 export default function AdminLogsPage() {
@@ -107,7 +102,6 @@ export default function AdminLogsPage() {
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
 
-  // Filters
   const [eventType, setEventType] = useState("");
   const [entityType, setEntityType] = useState("");
   const [actorType, setActorType] = useState("");
@@ -152,10 +146,7 @@ export default function AdminLogsPage() {
 
   const hasActiveFilters = eventType || entityType || actorType;
 
-  const formatDate = (iso: string) => {
-    const d = new Date(iso);
-    return d.toLocaleString();
-  };
+  const formatDate = (iso: string) => new Date(iso).toLocaleString();
 
   const renderDataSummary = (data: Record<string, unknown>) => {
     const entries = Object.entries(data).filter(([, v]) => v !== null && v !== undefined && v !== "");
@@ -164,13 +155,13 @@ export default function AdminLogsPage() {
     return (
       <div className="mt-1.5 flex flex-wrap gap-1">
         {shown.map(([k, v]) => (
-          <span key={k} className="inline-flex items-center rounded bg-gray-50 px-1.5 py-0.5 text-[11px] text-gray-500">
-            <span className="font-medium text-gray-600 mr-0.5">{k}:</span>
+          <span key={k} className="inline-flex items-center rounded bg-earth-50 px-1.5 py-0.5 text-[11px] text-earth-600">
+            <span className="font-medium text-earth-700 mr-0.5">{k}:</span>
             {typeof v === "object" ? JSON.stringify(v).slice(0, 40) : String(v).slice(0, 40)}
           </span>
         ))}
         {entries.length > 4 && (
-          <span className="text-[11px] text-gray-400">+{entries.length - 4} more</span>
+          <span className="text-[11px] text-earth-400">+{entries.length - 4} more</span>
         )}
       </div>
     );
@@ -178,42 +169,42 @@ export default function AdminLogsPage() {
 
   return (
     <div>
-      <div className="mb-6 flex items-end justify-between">
-        <div>
-          <p className="text-xs font-medium uppercase tracking-widest text-gray-400 mb-1">Activity audit trail</p>
-          <div className="flex items-center gap-3">
-            <div className="rounded-lg bg-slate-200 p-2">
-              <ScrollText className="h-5 w-5 text-slate-600" />
-            </div>
-            <h1 className="text-2xl font-serif text-gray-900">History Logs</h1>
-          </div>
-        </div>
-        <Button
-          variant={showFilters ? "default" : "outline"}
-          size="sm"
-          onClick={() => setShowFilters(!showFilters)}
-          className={showFilters ? "bg-slate-800 hover:bg-slate-700" : ""}
-        >
-          <Filter className="h-4 w-4 mr-1.5" />
-          Filters
-          {hasActiveFilters && (
-            <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[10px] text-slate-800 font-bold">
-              {[eventType, entityType, actorType].filter(Boolean).length}
-            </span>
-          )}
-        </Button>
-      </div>
+      <PageHeader
+        eyebrow="Activity audit trail"
+        title="History Logs"
+        icon={ScrollText}
+        actions={
+          <Button
+            size="sm"
+            onClick={() => setShowFilters(!showFilters)}
+            className={cn(
+              "cursor-pointer",
+              showFilters
+                ? "bg-brand hover:bg-brand-hover text-white"
+                : "bg-white border border-earth-200 text-earth-700 hover:bg-earth-50 hover:text-brand"
+            )}
+          >
+            <Filter className="h-4 w-4 mr-1.5" />
+            Filters
+            {hasActiveFilters && (
+              <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[10px] text-brand font-bold">
+                {[eventType, entityType, actorType].filter(Boolean).length}
+              </span>
+            )}
+          </Button>
+        }
+      />
 
       {showFilters && (
-        <Card className="mb-4">
+        <Card className="mb-4 border-earth-100">
           <CardContent className="p-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="text-xs font-medium text-gray-500 mb-1 block">Event Type</label>
+                <label className="text-xs font-medium text-earth-700 mb-1 block">Event Type</label>
                 <select
                   value={eventType}
                   onChange={(e) => setEventType(e.target.value)}
-                  className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                  className="w-full cursor-pointer rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-900 focus:outline-none focus:ring-2 focus:ring-brand/40"
                 >
                   <option value="">All events</option>
                   {EVENT_TYPE_OPTIONS.map((e) => (
@@ -222,11 +213,11 @@ export default function AdminLogsPage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-500 mb-1 block">Entity Type</label>
+                <label className="text-xs font-medium text-earth-700 mb-1 block">Entity Type</label>
                 <select
                   value={entityType}
                   onChange={(e) => setEntityType(e.target.value)}
-                  className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                  className="w-full cursor-pointer rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-900 focus:outline-none focus:ring-2 focus:ring-brand/40"
                 >
                   <option value="">All entities</option>
                   {ENTITY_TYPE_OPTIONS.map((e) => (
@@ -235,11 +226,11 @@ export default function AdminLogsPage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium text-gray-500 mb-1 block">Actor Type</label>
+                <label className="text-xs font-medium text-earth-700 mb-1 block">Actor Type</label>
                 <select
                   value={actorType}
                   onChange={(e) => setActorType(e.target.value)}
-                  className="w-full rounded-md border border-gray-200 bg-white px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-slate-400"
+                  className="w-full cursor-pointer rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-900 focus:outline-none focus:ring-2 focus:ring-brand/40"
                 >
                   <option value="">All actors</option>
                   {ACTOR_TYPE_OPTIONS.map((a) => (
@@ -250,7 +241,7 @@ export default function AdminLogsPage() {
             </div>
             {hasActiveFilters && (
               <div className="mt-3 flex justify-end">
-                <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-xs text-gray-500">
+                <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-xs cursor-pointer text-earth-500 hover:text-brand">
                   Clear all filters
                 </Button>
               </div>
@@ -262,44 +253,53 @@ export default function AdminLogsPage() {
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-xl" />
+            <div key={i} className="skeleton-warm h-20 w-full rounded-xl" />
           ))}
         </div>
       ) : logs.length === 0 ? (
-        <p className="text-sm text-gray-500 py-12 text-center">No logs found.</p>
+        <EmptyState
+          icon={ScrollText}
+          title="No logs found"
+          description={hasActiveFilters ? "Try clearing filters to see more activity." : "Platform activity will be recorded here as it happens."}
+        />
       ) : (
         <>
           <div className="space-y-2">
             {logs.map((log) => (
-              <Card key={log.id}>
+              <Card key={log.id} className="dashboard-card border-earth-100">
                 <CardContent className="p-3 sm:p-4">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0 flex-1">
                       <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                        <Badge className={`text-[10px] ${EVENT_COLORS[log.event_type] || "bg-gray-100 text-gray-700"}`}>
-                          {log.event_type}
-                        </Badge>
-                        <Badge className={`text-[10px] ${ACTOR_COLORS[log.actor_type] || "bg-gray-100 text-gray-600"}`}>
-                          {log.actor_type}
-                        </Badge>
+                        <StatusBadge
+                          status={log.event_type}
+                          tone={getEventTone(log.event_type)}
+                          label={log.event_type}
+                          className="font-mono normal-case"
+                        />
+                        <StatusBadge
+                          status={log.actor_type}
+                          tone={ACTOR_TONES[log.actor_type] ?? "muted"}
+                          label={log.actor_type}
+                        />
                       </div>
-                      <div className="text-sm text-gray-600">
+                      <div className="text-sm text-earth-700">
                         <span className="font-medium">{log.entity_type}</span>
-                        <span className="text-gray-400 mx-1">/</span>
-                        <span className="font-mono text-xs text-gray-400">{log.entity_id.slice(0, 8)}</span>
+                        <span className="text-earth-400 mx-1">/</span>
+                        <span className="font-mono text-xs text-earth-500">{log.entity_id.slice(0, 8)}</span>
                         {log.actor_id && (
                           <>
-                            <span className="text-gray-400 mx-1">by</span>
-                            <span className="font-mono text-xs text-gray-400">{log.actor_id.slice(0, 8)}</span>
+                            <span className="text-earth-400 mx-1">by</span>
+                            <span className="font-mono text-xs text-earth-500">{log.actor_id.slice(0, 8)}</span>
                           </>
                         )}
                       </div>
                       {renderDataSummary(log.data)}
                     </div>
                     <div className="text-right shrink-0">
-                      <p className="text-xs text-gray-400 whitespace-nowrap">{formatDate(log.created_at)}</p>
+                      <p className="text-xs text-earth-500 whitespace-nowrap tabular-nums">{formatDate(log.created_at)}</p>
                       {log.ip_address && (
-                        <p className="text-[11px] text-gray-300 font-mono">{log.ip_address}</p>
+                        <p className="text-[11px] text-earth-400 font-mono">{log.ip_address}</p>
                       )}
                     </div>
                   </div>
@@ -310,7 +310,7 @@ export default function AdminLogsPage() {
 
           {hasMore && (
             <div className="mt-4 flex justify-center">
-              <Button variant="outline" size="sm" onClick={handleLoadMore} disabled={loadingMore}>
+              <Button variant="outline" size="sm" className="cursor-pointer border-earth-200" onClick={handleLoadMore} disabled={loadingMore}>
                 {loadingMore && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Load More
               </Button>

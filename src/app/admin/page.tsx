@@ -1,9 +1,9 @@
-import Link from "next/link";
 import { Users, Home, CalendarDays, DollarSign, AlertTriangle, CheckCircle2, UserCheck } from "lucide-react";
-import { Card, CardContent } from "@/components/ui/card";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { redirect } from "next/navigation";
+import { PageHeader } from "@/components/admin/page-header";
+import { KpiCard } from "@/components/admin/kpi-card";
 
 async function getAdminStats() {
   const supabase = await createServerSupabaseClient();
@@ -37,40 +37,29 @@ export default async function AdminDashboardPage() {
   const stats = await getAdminStats();
 
   const cards = [
-    { label: "Total Hosts", value: stats.totalHosts, icon: Users, bg: "bg-blue-100", fg: "text-blue-600" },
-    { label: "Pending Hosts", value: stats.pendingHosts, icon: UserCheck, bg: "bg-amber-100", fg: "text-amber-600", href: "/admin/hosts?status=pending" },
-    { label: "Total Homestays", value: stats.totalHomestays, icon: Home, bg: "bg-purple-100", fg: "text-purple-600" },
-    { label: "Total Bookings", value: stats.totalBookings, icon: CalendarDays, bg: "bg-orange-100", fg: "text-orange-600" },
-    { label: "Total Revenue", value: `฿${stats.totalRevenue.toLocaleString()}`, icon: DollarSign, bg: "bg-brand-50", fg: "text-brand" },
-    { label: "Confirmed", value: stats.confirmedBookings, icon: CheckCircle2, bg: "bg-brand-50", fg: "text-brand" },
-    { label: "Pending Bookings", value: stats.pendingBookings, icon: AlertTriangle, bg: "bg-yellow-100", fg: "text-yellow-600" },
+    { label: "Total Revenue", value: `฿${stats.totalRevenue.toLocaleString()}`, icon: DollarSign, tone: "brand" as const },
+    { label: "Confirmed Bookings", value: stats.confirmedBookings, icon: CheckCircle2, tone: "brand" as const },
+    { label: "Pending Bookings", value: stats.pendingBookings, icon: AlertTriangle, tone: "amber" as const, href: "/admin/bookings" },
+    { label: "Pending Hosts", value: stats.pendingHosts, icon: UserCheck, tone: "amber" as const, href: "/admin/hosts?status=pending" },
+    { label: "Total Hosts", value: stats.totalHosts, icon: Users, tone: "earth" as const, href: "/admin/hosts" },
+    { label: "Total Homestays", value: stats.totalHomestays, icon: Home, tone: "earth" as const, href: "/admin/homestays" },
+    { label: "Total Bookings", value: stats.totalBookings, icon: CalendarDays, tone: "neutral" as const, href: "/admin/bookings" },
   ];
 
   return (
     <div>
-      <div className="mb-6">
-        <p className="text-xs font-medium uppercase tracking-widest text-gray-400 mb-1">Dashboard</p>
-        <h1 className="text-2xl font-serif text-gray-900">Platform Overview</h1>
-      </div>
+      <PageHeader eyebrow="Dashboard" title="Platform Overview" />
       <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map((card) => {
-          const Icon = card.icon;
-          const inner = (
-            <Card key={card.label} className={(card as { href?: string }).href ? "hover:shadow-md transition-shadow cursor-pointer" : ""}>
-              <CardContent className="flex items-center gap-3 p-3 sm:gap-4 sm:p-4">
-                <div className={`rounded-lg p-2 sm:p-2.5 ${card.bg}`}>
-                  <Icon className={`h-5 w-5 ${card.fg}`} />
-                </div>
-                <div className="min-w-0">
-                  <p className="text-xs sm:text-sm text-gray-500 truncate">{card.label}</p>
-                  <p className="text-xl sm:text-2xl font-bold truncate">{card.value}</p>
-                </div>
-              </CardContent>
-            </Card>
-          );
-          const href = (card as { href?: string }).href;
-          return href ? <Link key={card.label} href={href}>{inner}</Link> : <div key={card.label}>{inner}</div>;
-        })}
+        {cards.map((card) => (
+          <KpiCard
+            key={card.label}
+            label={card.label}
+            value={card.value}
+            icon={card.icon}
+            tone={card.tone}
+            href={card.href}
+          />
+        ))}
       </div>
     </div>
   );
