@@ -6,11 +6,13 @@ import { toast } from "sonner";
 import { CreditCard, Loader2, CheckCircle, AlertCircle, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
+import { PageHeader } from "@/components/admin/page-header";
+import { StatusBadge } from "@/components/admin/status-badge";
+import { EmptyState } from "@/components/admin/empty-state";
+import { cn } from "@/lib/utils";
 
 interface InvoiceRow {
   id: string;
@@ -25,10 +27,16 @@ interface InvoiceRow {
   host: { id: string; name: string; email: string } | null;
 }
 
-const STATUS_CONFIG: Record<string, { label: string; color: string; icon: typeof CheckCircle }> = {
-  pending: { label: "Pending", color: "bg-amber-100 text-amber-700", icon: Clock },
-  paid: { label: "Paid", color: "bg-green-100 text-green-700", icon: CheckCircle },
-  overdue: { label: "Overdue", color: "bg-red-100 text-red-700", icon: AlertCircle },
+const STATUS_ICONS: Record<string, typeof CheckCircle> = {
+  pending: Clock,
+  paid: CheckCircle,
+  overdue: AlertCircle,
+};
+
+const STATUS_LABELS: Record<string, string> = {
+  pending: "Pending",
+  paid: "Paid",
+  overdue: "Overdue",
 };
 
 export default function AdminBillingPage() {
@@ -90,49 +98,48 @@ export default function AdminBillingPage() {
 
   return (
     <div>
-      {/* ── Header ── */}
-      <div className="mb-6">
-        <p className="text-xs font-medium uppercase tracking-widest text-gray-400 mb-1">
-          {total > 0 ? `${total} invoices` : "Invoice management"}
-        </p>
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-violet-100 p-2">
-            <CreditCard className="h-5 w-5 text-violet-600" />
-          </div>
-          <h1 className="text-2xl font-serif text-gray-900">Billing</h1>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow={total > 0 ? `${total} invoices` : "Invoice management"}
+        title="Billing"
+        icon={CreditCard}
+      />
 
-      {/* ── Filter tabs ── */}
       <div className="mb-4 flex gap-2">
         {["all", "pending", "paid", "overdue"].map((f) => (
           <Button
             key={f}
-            variant={statusFilter === f ? "default" : "outline"}
             size="sm"
             onClick={() => { setStatusFilter(f); setPage(1); }}
-            className={statusFilter === f ? "bg-slate-800 hover:bg-slate-700" : ""}
+            className={cn(
+              "cursor-pointer",
+              statusFilter === f
+                ? "bg-brand hover:bg-brand-hover text-white"
+                : "bg-white border border-earth-200 text-earth-700 hover:bg-earth-50 hover:text-brand"
+            )}
           >
             {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
           </Button>
         ))}
       </div>
 
-      {/* ── Content ── */}
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3].map((i) => (
-            <Skeleton key={i} className="h-20 w-full rounded-xl" />
+            <div key={i} className="skeleton-warm h-20 w-full rounded-xl" />
           ))}
         </div>
       ) : invoices.length === 0 ? (
-        <p className="text-sm text-gray-500 py-12 text-center">No invoices found.</p>
+        <EmptyState
+          icon={CreditCard}
+          title="No invoices found"
+          description={statusFilter !== "all" ? "Try a different filter to see more invoices." : "Generated invoices for hosts will appear here."}
+        />
       ) : (
         <>
           <div className="space-y-3">
             {invoices.map((inv, i) => {
-              const cfg = STATUS_CONFIG[inv.status] || STATUS_CONFIG.pending;
-              const Icon = cfg.icon;
+              const Icon = STATUS_ICONS[inv.status] || Clock;
+              const label = STATUS_LABELS[inv.status] || inv.status;
               return (
                 <motion.div
                   key={inv.id}
@@ -140,22 +147,23 @@ export default function AdminBillingPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.03, duration: 0.25 }}
                 >
-                  <Card>
+                  <Card className="dashboard-card border-earth-100">
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-gray-900 truncate">
+                            <h3 className="font-semibold text-earth-900 truncate">
                               {inv.host?.name || "Unknown Host"}
                             </h3>
-                            <Badge className={`text-[10px] shrink-0 ${cfg.color}`}>
-                              <Icon className="h-3 w-3 mr-0.5" />
-                              {cfg.label}
-                            </Badge>
+                            <StatusBadge
+                              status={inv.status}
+                              label={label}
+                              icon={<Icon className="h-3 w-3" />}
+                            />
                           </div>
-                          <div className="text-sm text-gray-500 space-y-0.5">
+                          <div className="text-sm text-earth-600 space-y-0.5">
                             <p>
-                              <span className="font-medium text-gray-700">฿{inv.amount.toLocaleString()}</span>
+                              <span className="font-medium text-earth-900 tabular-nums">฿{inv.amount.toLocaleString()}</span>
                               {" — "}
                               {new Date(inv.period_start).toLocaleDateString()} - {new Date(inv.period_end).toLocaleDateString()}
                             </p>
@@ -170,8 +178,7 @@ export default function AdminBillingPage() {
                             <>
                               <Button
                                 size="sm"
-                                variant="outline"
-                                className="h-9 px-3 text-xs text-green-700 border-green-300 hover:bg-green-50"
+                                className="h-9 px-3 text-xs cursor-pointer bg-brand hover:bg-brand-hover text-white"
                                 onClick={() => setConfirmAction({ invoiceId: inv.id, status: "paid", hostName: inv.host?.name || "Unknown" })}
                                 disabled={actionLoading === inv.id}
                               >
@@ -180,7 +187,7 @@ export default function AdminBillingPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-9 px-3 text-xs text-red-700 border-red-300 hover:bg-red-50"
+                                className="h-9 px-3 text-xs cursor-pointer text-destructive border-destructive/30 hover:bg-destructive/5"
                                 onClick={() => setConfirmAction({ invoiceId: inv.id, status: "overdue", hostName: inv.host?.name || "Unknown" })}
                                 disabled={actionLoading === inv.id}
                               >
@@ -191,8 +198,7 @@ export default function AdminBillingPage() {
                           {inv.status === "overdue" && (
                             <Button
                               size="sm"
-                              variant="outline"
-                              className="h-9 px-3 text-xs text-green-700 border-green-300 hover:bg-green-50"
+                              className="h-9 px-3 text-xs cursor-pointer bg-brand hover:bg-brand-hover text-white"
                               onClick={() => setConfirmAction({ invoiceId: inv.id, status: "paid", hostName: inv.host?.name || "Unknown" })}
                               disabled={actionLoading === inv.id}
                             >
@@ -210,12 +216,12 @@ export default function AdminBillingPage() {
 
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between pt-2">
-              <p className="text-sm text-gray-500">Page {page} of {totalPages}</p>
+              <p className="text-sm text-earth-500">Page {page} of {totalPages}</p>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
+                <Button variant="outline" size="sm" className="cursor-pointer border-earth-200" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
                   Previous
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
+                <Button variant="outline" size="sm" className="cursor-pointer border-earth-200" onClick={() => setPage((p) => Math.min(totalPages, p + 1))} disabled={page >= totalPages}>
                   Next
                 </Button>
               </div>
@@ -228,7 +234,7 @@ export default function AdminBillingPage() {
       <Dialog open={!!confirmAction} onOpenChange={(open) => { if (!open) setConfirmAction(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>
+            <DialogTitle className="font-serif">
               {confirmAction?.status === "paid" ? "Mark as Paid" : "Mark as Overdue"}
             </DialogTitle>
             <DialogDescription>
@@ -236,11 +242,16 @@ export default function AdminBillingPage() {
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setConfirmAction(null)}>Cancel</Button>
+            <Button variant="outline" className="cursor-pointer border-earth-200" onClick={() => setConfirmAction(null)}>Cancel</Button>
             <Button
               onClick={() => confirmAction && handleMarkStatus(confirmAction.invoiceId, confirmAction.status)}
               disabled={actionLoading !== null}
-              className={confirmAction?.status === "paid" ? "bg-green-600 hover:bg-green-700" : "bg-red-600 hover:bg-red-700"}
+              className={cn(
+                "cursor-pointer text-white",
+                confirmAction?.status === "paid"
+                  ? "bg-brand hover:bg-brand-hover"
+                  : "bg-destructive hover:bg-destructive/90"
+              )}
             >
               {actionLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               {confirmAction?.status === "paid" ? "Mark Paid" : "Mark Overdue"}

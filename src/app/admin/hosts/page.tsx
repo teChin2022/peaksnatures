@@ -12,15 +12,17 @@ import { format, parseISO } from "date-fns";
 import { enUS } from "date-fns/locale";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
-import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { PageHeader } from "@/components/admin/page-header";
+import { StatusBadge } from "@/components/admin/status-badge";
+import { EmptyState } from "@/components/admin/empty-state";
+import { cn } from "@/lib/utils";
 
 interface HostRow {
   id: string;
@@ -45,10 +47,10 @@ const PLAN_LABELS: Record<string, string> = {
   fixed_rate: "Fixed Rate",
 };
 
-const PLAN_COLORS: Record<string, string> = {
-  free: "bg-gray-100 text-gray-700",
-  commission: "bg-violet-100 text-violet-700",
-  fixed_rate: "bg-blue-100 text-blue-700",
+const PLAN_TONES: Record<string, string> = {
+  free:       "bg-earth-50 text-earth-700 border-earth-200/60",
+  commission: "bg-brand-50 text-brand border-brand/15",
+  fixed_rate: "bg-earth-100/60 text-earth-700 border-earth-200",
 };
 
 interface PaginatedResponse {
@@ -61,7 +63,6 @@ interface PaginatedResponse {
 
 type StatusFilter = "all" | "pending" | "approved";
 
-// Dialog types
 type DialogState =
   | { type: "plan"; hostId: string; hostName: string }
   | { type: "rate"; host: HostRow }
@@ -82,15 +83,12 @@ export default function AdminHostsPage() {
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
 
-  // Plan dialog form state
   const [planType, setPlanType] = useState("free");
   const [planExpiry, setPlanExpiry] = useState("");
 
-  // Rate override dialog form state
   const [rateCommission, setRateCommission] = useState("");
   const [rateFixed, setRateFixed] = useState("");
 
-  // Wallet adjust dialog form state
   const [walletAmount, setWalletAmount] = useState("");
   const [walletReason, setWalletReason] = useState("");
 
@@ -120,7 +118,6 @@ export default function AdminHostsPage() {
     router.replace(`/admin/hosts${params.toString() ? `?${params}` : ""}`);
   };
 
-  // ── Actions ──
   const handleApprove = async (hostId: string) => {
     setActionLoading(hostId);
     try {
@@ -273,7 +270,6 @@ export default function AdminHostsPage() {
     }
   };
 
-  // Dialog openers (reset form state)
   const openPlanDialog = (host: HostRow) => {
     setPlanType(host.plan_type);
     setPlanExpiry(host.plan_free_expires_at ? host.plan_free_expires_at.split("T")[0] : "");
@@ -294,20 +290,12 @@ export default function AdminHostsPage() {
 
   return (
     <div>
-      {/* ── Header ── */}
-      <div className="mb-6">
-        <p className="text-xs font-medium uppercase tracking-widest text-gray-400 mb-1">
-          {res ? `${res.total} total` : "Loading..."}
-        </p>
-        <div className="flex items-center gap-3">
-          <div className="rounded-lg bg-blue-100 p-2">
-            <Users className="h-5 w-5 text-blue-600" />
-          </div>
-          <h1 className="text-2xl font-serif text-gray-900">Hosts</h1>
-        </div>
-      </div>
+      <PageHeader
+        eyebrow={res ? `${res.total} total` : "Loading…"}
+        title="Hosts"
+        icon={Users}
+      />
 
-      {/* ── Filter tabs ── */}
       <div className="mb-4 flex gap-2">
         {(["all", "pending", "approved"] as StatusFilter[]).map((f) => (
           <Button
@@ -315,22 +303,30 @@ export default function AdminHostsPage() {
             variant={statusFilter === f ? "default" : "outline"}
             size="sm"
             onClick={() => handleFilterChange(f)}
-            className={statusFilter === f ? "bg-slate-800 hover:bg-slate-700" : ""}
+            className={cn(
+              "cursor-pointer",
+              statusFilter === f
+                ? "bg-brand hover:bg-brand-hover text-white"
+                : "border-earth-200 text-earth-700 hover:bg-earth-50 hover:text-brand"
+            )}
           >
             {f === "all" ? "All" : f === "pending" ? "Pending" : "Approved"}
           </Button>
         ))}
       </div>
 
-      {/* ── Content ── */}
       {loading ? (
         <div className="space-y-3">
           {[1, 2, 3, 4, 5].map((i) => (
-            <Skeleton key={i} className="h-28 w-full rounded-xl" />
+            <div key={i} className="skeleton-warm h-28 w-full rounded-xl" />
           ))}
         </div>
       ) : !res || res.data.length === 0 ? (
-        <p className="text-sm text-gray-500 py-12 text-center">No hosts found.</p>
+        <EmptyState
+          icon={Users}
+          title="No hosts found"
+          description={statusFilter !== "all" ? "Try a different filter to see more hosts." : "New host signups will appear here."}
+        />
       ) : (
         <>
           <div className="space-y-3">
@@ -341,101 +337,110 @@ export default function AdminHostsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.03, duration: 0.25 }}
               >
-                <Card>
+                <Card className="dashboard-card border-earth-100">
                   <CardContent className="p-4">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
-                        {/* Name + badges row */}
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <h3 className="font-semibold text-gray-900 truncate">{host.name}</h3>
-                          <Badge
-                            className={`text-[10px] shrink-0 ${
-                              host.status === "approved"
-                                ? "bg-brand-50 text-brand"
-                                : "bg-amber-100 text-amber-700"
-                            }`}
-                          >
-                            {host.status}
-                          </Badge>
+                          <h3 className="font-semibold text-earth-900 truncate">{host.name}</h3>
+                          <StatusBadge status={host.status} />
                           {host.is_verified && (
-                            <Badge className="text-[10px] shrink-0 bg-emerald-100 text-emerald-700">
-                              <ShieldCheck className="h-3 w-3 mr-0.5" />
-                              Verified
-                            </Badge>
+                            <StatusBadge
+                              status="verified"
+                              tone="brand"
+                              label="Verified"
+                              icon={<ShieldCheck className="h-3 w-3" />}
+                            />
                           )}
                         </div>
 
-                        {/* Plan info row */}
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <Badge className={`text-[10px] shrink-0 ${PLAN_COLORS[host.plan_type] || PLAN_COLORS.free}`}>
+                          <span
+                            className={cn(
+                              "inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+                              PLAN_TONES[host.plan_type] || PLAN_TONES.free
+                            )}
+                          >
                             {PLAN_LABELS[host.plan_type] || "Free"}
-                          </Badge>
+                          </span>
                           {host.plan_type === "free" && host.plan_free_expires_at && (
-                            <span className={`text-[10px] ${new Date(host.plan_free_expires_at) < new Date() ? "text-red-600 font-medium" : "text-gray-400"}`}>
+                            <span
+                              className={cn(
+                                "text-[10px]",
+                                new Date(host.plan_free_expires_at) < new Date()
+                                  ? "text-destructive font-medium"
+                                  : "text-earth-500"
+                              )}
+                            >
                               exp {new Date(host.plan_free_expires_at).toLocaleDateString()}
                             </span>
                           )}
                           {host.commission_pct_override != null && (
-                            <span className="text-[10px] text-violet-500 bg-violet-50 rounded px-1.5 py-0.5">
+                            <span className="rounded px-1.5 py-0.5 text-[10px] text-brand bg-brand-50">
                               {host.commission_pct_override}% override
                             </span>
                           )}
                           {host.fixed_rate_override != null && (
-                            <span className="text-[10px] text-blue-500 bg-blue-50 rounded px-1.5 py-0.5">
+                            <span className="rounded px-1.5 py-0.5 text-[10px] text-earth-700 bg-earth-50 tabular-nums">
                               ฿{host.fixed_rate_override.toLocaleString()}/mo override
                             </span>
                           )}
                           {host.plan_type === "commission" && (
-                            <span className={`text-[10px] font-medium ${host.wallet_balance < 0 ? "text-red-600" : "text-gray-500"}`}>
-                              <Wallet className="h-3 w-3 inline mr-0.5" />
+                            <span
+                              className={cn(
+                                "inline-flex items-center gap-1 text-[10px] font-medium tabular-nums",
+                                host.wallet_balance < 0 ? "text-destructive" : "text-earth-600"
+                              )}
+                            >
+                              <Wallet className="h-3 w-3" />
                               {host.wallet_balance < 0 ? "-" : ""}฿{Math.abs(host.wallet_balance).toLocaleString()}
                             </span>
                           )}
                         </div>
 
-                        {/* Contact details */}
-                        <div className="space-y-1 text-sm text-gray-500">
+                        <div className="space-y-1 text-sm text-earth-600">
                           <div className="flex items-center gap-1.5">
-                            <Mail className="h-3.5 w-3.5 shrink-0" />
+                            <Mail className="h-3.5 w-3.5 shrink-0 text-earth-400" />
                             <span className="truncate">{host.email}</span>
                           </div>
                           {host.phone && (
                             <div className="flex items-center gap-1.5">
-                              <Phone className="h-3.5 w-3.5 shrink-0" />
+                              <Phone className="h-3.5 w-3.5 shrink-0 text-earth-400" />
                               <span>{host.phone}</span>
                             </div>
                           )}
                           <div className="flex items-center gap-1.5">
-                            <Home className="h-3.5 w-3.5 shrink-0" />
+                            <Home className="h-3.5 w-3.5 shrink-0 text-earth-400" />
                             {host.homestay ? (
                               <span className="flex items-center gap-1.5">
                                 {host.homestay.name}
-                                <Badge variant={host.homestay.is_active ? "default" : "secondary"} className="text-[10px] px-1.5 py-0">
-                                  {host.homestay.is_active ? "Active" : "Inactive"}
-                                </Badge>
+                                <StatusBadge
+                                  status={host.homestay.is_active ? "active" : "inactive"}
+                                  className="px-1.5 py-0"
+                                />
                               </span>
                             ) : (
-                              <span className="text-gray-400">No homestay</span>
+                              <span className="text-earth-400">No homestay</span>
                             )}
                           </div>
                           <div className="flex items-center gap-1.5">
-                            <CalendarIcon className="h-3.5 w-3.5 shrink-0" />
+                            <CalendarIcon className="h-3.5 w-3.5 shrink-0 text-earth-400" />
                             <span>{new Date(host.created_at).toLocaleDateString()}</span>
                           </div>
                         </div>
                       </div>
 
-                      {/* ── Action Buttons ── */}
                       {host.status === "approved" && (
                         <div className="flex shrink-0 flex-wrap items-center gap-1.5 justify-start sm:justify-end">
                           <Button
                             size="sm"
                             variant="outline"
-                            className={`h-9 px-3 text-xs ${
+                            className={cn(
+                              "h-9 px-3 text-xs cursor-pointer",
                               host.is_verified
-                                ? "text-emerald-700 border-emerald-300 hover:bg-emerald-50"
-                                : "text-gray-600 border-gray-300 hover:bg-gray-50"
-                            }`}
+                                ? "text-brand border-brand/30 hover:bg-brand-50"
+                                : "text-earth-700 border-earth-200 hover:bg-earth-50"
+                            )}
                             onClick={() => handleVerify(host.id)}
                             disabled={actionLoading === host.id}
                           >
@@ -449,7 +454,7 @@ export default function AdminHostsPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-9 px-3 text-xs text-violet-700 border-violet-300 hover:bg-violet-50"
+                            className="h-9 px-3 text-xs cursor-pointer text-earth-700 border-earth-200 hover:bg-earth-50 hover:text-brand"
                             onClick={() => openPlanDialog(host)}
                             disabled={actionLoading === host.id}
                           >
@@ -459,7 +464,7 @@ export default function AdminHostsPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-9 px-3 text-xs text-blue-700 border-blue-300 hover:bg-blue-50"
+                            className="h-9 px-3 text-xs cursor-pointer text-earth-700 border-earth-200 hover:bg-earth-50 hover:text-brand"
                             onClick={() => openRateDialog(host)}
                             disabled={actionLoading === host.id}
                           >
@@ -470,7 +475,7 @@ export default function AdminHostsPage() {
                             <Button
                               size="sm"
                               variant="outline"
-                              className="h-9 px-3 text-xs text-amber-700 border-amber-300 hover:bg-amber-50"
+                              className="h-9 px-3 text-xs cursor-pointer text-amber-700 border-amber-200 hover:bg-amber-50"
                               onClick={() => openWalletDialog(host)}
                               disabled={actionLoading === host.id}
                             >
@@ -484,8 +489,7 @@ export default function AdminHostsPage() {
                         <div className="flex shrink-0 flex-wrap items-center gap-1.5 justify-start sm:justify-end">
                           <Button
                             size="sm"
-                            variant="outline"
-                            className="h-9 px-3 text-xs text-brand border-brand/30 hover:bg-brand-50"
+                            className="h-9 px-3 text-xs cursor-pointer bg-brand hover:bg-brand-hover text-white"
                             onClick={() => setDialog({ type: "approve", hostId: host.id, hostName: host.name })}
                             disabled={actionLoading === host.id}
                           >
@@ -499,7 +503,7 @@ export default function AdminHostsPage() {
                           <Button
                             size="sm"
                             variant="outline"
-                            className="h-9 px-3 text-xs text-red-700 border-red-300 hover:bg-red-50"
+                            className="h-9 px-3 text-xs cursor-pointer text-destructive border-destructive/30 hover:bg-destructive/5"
                             onClick={() => setDialog({ type: "reject", hostId: host.id, hostName: host.name })}
                             disabled={actionLoading === host.id}
                           >
@@ -517,14 +521,14 @@ export default function AdminHostsPage() {
 
           {res.totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between pt-2">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-earth-500">
                 Page {res.page} of {res.totalPages}
               </p>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
+                <Button variant="outline" size="sm" className="cursor-pointer border-earth-200" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
                   Previous
                 </Button>
-                <Button variant="outline" size="sm" onClick={() => setPage((p) => Math.min(res.totalPages, p + 1))} disabled={page >= res.totalPages}>
+                <Button variant="outline" size="sm" className="cursor-pointer border-earth-200" onClick={() => setPage((p) => Math.min(res.totalPages, p + 1))} disabled={page >= res.totalPages}>
                   Next
                 </Button>
               </div>
@@ -533,25 +537,21 @@ export default function AdminHostsPage() {
         </>
       )}
 
-      {/* ═══════════════════════════════════════
-          DIALOGS
-      ═════════════════════════��═════════════ */}
-
       {/* ── Approve Confirmation ── */}
       <Dialog open={dialog?.type === "approve"} onOpenChange={(open) => { if (!open) setDialog(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Approve Host</DialogTitle>
+            <DialogTitle className="font-serif">Approve Host</DialogTitle>
             <DialogDescription>
               Approve <strong>{dialog?.type === "approve" ? dialog.hostName : ""}</strong> to start using the platform?
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
+            <Button variant="outline" className="cursor-pointer border-earth-200" onClick={() => setDialog(null)}>Cancel</Button>
             <Button
               onClick={() => dialog?.type === "approve" && handleApprove(dialog.hostId)}
               disabled={actionLoading !== null}
-              className="bg-brand hover:bg-brand-hover text-white"
+              className="cursor-pointer bg-brand hover:bg-brand-hover text-white"
             >
               {actionLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Approve
@@ -564,15 +564,16 @@ export default function AdminHostsPage() {
       <Dialog open={dialog?.type === "reject"} onOpenChange={(open) => { if (!open) setDialog(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Reject Host</DialogTitle>
+            <DialogTitle className="font-serif">Reject Host</DialogTitle>
             <DialogDescription>
               Reject and delete <strong>{dialog?.type === "reject" ? dialog.hostName : ""}</strong>? This will send a rejection email and permanently delete their account.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
+            <Button variant="outline" className="cursor-pointer border-earth-200" onClick={() => setDialog(null)}>Cancel</Button>
             <Button
               variant="destructive"
+              className="cursor-pointer"
               onClick={() => dialog?.type === "reject" && handleReject(dialog.hostId)}
               disabled={actionLoading !== null}
             >
@@ -587,7 +588,7 @@ export default function AdminHostsPage() {
       <Dialog open={dialog?.type === "plan"} onOpenChange={(open) => { if (!open) setDialog(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Set Plan</DialogTitle>
+            <DialogTitle className="font-serif">Set Plan</DialogTitle>
             <DialogDescription>
               Set plan for <strong>{dialog?.type === "plan" ? dialog.hostName : ""}</strong>
             </DialogDescription>
@@ -601,9 +602,13 @@ export default function AdminHostsPage() {
                     key={pt}
                     type="button"
                     size="sm"
-                    variant={planType === pt ? "default" : "outline"}
                     onClick={() => setPlanType(pt)}
-                    className={planType === pt ? "bg-slate-800 hover:bg-slate-700" : ""}
+                    className={cn(
+                      "cursor-pointer",
+                      planType === pt
+                        ? "bg-brand hover:bg-brand-hover text-white"
+                        : "bg-white border border-earth-200 text-earth-700 hover:bg-earth-50"
+                    )}
                   >
                     {PLAN_LABELS[pt]}
                   </Button>
@@ -617,7 +622,7 @@ export default function AdminHostsPage() {
                   <PopoverTrigger asChild>
                     <Button
                       variant="outline"
-                      className="w-full justify-start text-left font-normal"
+                      className="w-full justify-start text-left font-normal cursor-pointer border-earth-200"
                     >
                       <CalendarIcon className="mr-2 h-4 w-4" />
                       {planExpiry
@@ -641,19 +646,19 @@ export default function AdminHostsPage() {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="text-xs text-gray-400 px-0 h-auto"
+                    className="text-xs text-earth-500 px-0 h-auto cursor-pointer hover:text-brand"
                     onClick={() => setPlanExpiry("")}
                   >
                     Clear date
                   </Button>
                 )}
-                <p className="text-[11px] text-gray-400">Leave empty for no expiry</p>
+                <p className="text-[11px] text-earth-400">Leave empty for no expiry</p>
               </div>
             )}
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
-            <Button onClick={handleSetPlan} disabled={actionLoading !== null} className="bg-slate-900 hover:bg-slate-800">
+            <Button variant="outline" className="cursor-pointer border-earth-200" onClick={() => setDialog(null)}>Cancel</Button>
+            <Button onClick={handleSetPlan} disabled={actionLoading !== null} className="cursor-pointer bg-brand hover:bg-brand-hover text-white">
               {actionLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Save Plan
             </Button>
@@ -665,7 +670,7 @@ export default function AdminHostsPage() {
       <Dialog open={dialog?.type === "rate"} onOpenChange={(open) => { if (!open) setDialog(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Rate Override</DialogTitle>
+            <DialogTitle className="font-serif">Rate Override</DialogTitle>
             <DialogDescription>
               Set per-host rate for <strong>{dialog?.type === "rate" ? dialog.host.name : ""}</strong>. Leave empty to use global defaults.
             </DialogDescription>
@@ -697,8 +702,8 @@ export default function AdminHostsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
-            <Button onClick={handleRateOverride} disabled={actionLoading !== null} className="bg-slate-900 hover:bg-slate-800">
+            <Button variant="outline" className="cursor-pointer border-earth-200" onClick={() => setDialog(null)}>Cancel</Button>
+            <Button onClick={handleRateOverride} disabled={actionLoading !== null} className="cursor-pointer bg-brand hover:bg-brand-hover text-white">
               {actionLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Save Override
             </Button>
@@ -710,7 +715,7 @@ export default function AdminHostsPage() {
       <Dialog open={dialog?.type === "wallet"} onOpenChange={(open) => { if (!open) setDialog(null); }}>
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
-            <DialogTitle>Wallet Adjustment</DialogTitle>
+            <DialogTitle className="font-serif">Wallet Adjustment</DialogTitle>
             <DialogDescription>
               Adjust wallet for <strong>{dialog?.type === "wallet" ? dialog.hostName : ""}</strong>
             </DialogDescription>
@@ -737,11 +742,11 @@ export default function AdminHostsPage() {
             </div>
           </div>
           <DialogFooter>
-            <Button variant="outline" onClick={() => setDialog(null)}>Cancel</Button>
+            <Button variant="outline" className="cursor-pointer border-earth-200" onClick={() => setDialog(null)}>Cancel</Button>
             <Button
               onClick={handleWalletAdjust}
               disabled={actionLoading !== null || !walletAmount || !walletReason.trim()}
-              className="bg-slate-900 hover:bg-slate-800"
+              className="cursor-pointer bg-brand hover:bg-brand-hover text-white"
             >
               {actionLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Adjust Wallet

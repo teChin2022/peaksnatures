@@ -1223,8 +1223,11 @@ export default function PromoCodesPage() {
             ) : (
               <>
               {pagedRedemptions.map((r) => {
-                const borderColor =
-                  r.payout_status === "pending"
+                const isZeroCommission =
+                  Number(r.commission_amount || 0) === 0 && r.payout_status !== "cancelled";
+                const borderColor = isZeroCommission
+                  ? "border-l-earth-200"
+                  : r.payout_status === "pending"
                     ? "border-l-amber-400"
                     : r.payout_status === "paid"
                       ? "border-l-emerald-400"
@@ -1237,7 +1240,7 @@ export default function PromoCodesPage() {
                           <span className="font-mono text-sm font-semibold text-earth-900">
                             {r.promo_code?.code || "—"}
                           </span>
-                          {r.payout_status === "pending" ? (
+                          {isZeroCommission ? null : r.payout_status === "pending" ? (
                             <Badge className="bg-amber-100 text-amber-700">
                               <Clock className="mr-1 h-3 w-3" />
                               {t("statusPending")}

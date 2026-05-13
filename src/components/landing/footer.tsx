@@ -76,6 +76,11 @@ export function LandingFooter() {
                   คำถามที่พบบ่อย
                 </button>
               </li>
+              <li>
+                <Link href="/recommender" className="hover:text-white transition-colors">
+                  สถิติของผู้แนะนำ
+                </Link>
+              </li>
             </ul>
           </div>
         </div>

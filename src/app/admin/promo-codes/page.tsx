@@ -5,9 +5,11 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
-import { Skeleton } from "@/components/ui/skeleton";
 import { Tag, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
 import type { PromoCode, PromoRedemption } from "@/types/database";
+import { PageHeader } from "@/components/admin/page-header";
+import { StatusBadge } from "@/components/admin/status-badge";
+import { EmptyState } from "@/components/admin/empty-state";
 
 const PAGE_SIZE = 20;
 
@@ -77,42 +79,69 @@ export default function AdminPromoCodesPage() {
   }, [redemptionsPage, loadRedemptions]);
 
   return (
-    <div className="space-y-6 p-4 md:p-6">
-      <div>
-        <h1 className="text-2xl font-bold text-earth-900">Promo Codes</h1>
-        <p className="mt-1 text-sm text-earth-500">Read-only view of all promo codes and redemptions across hosts.</p>
-      </div>
+    <div>
+      <PageHeader
+        eyebrow="Read-only audit"
+        title="Promo Codes"
+        icon={Tag}
+        actions={
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              loadCodes(codesPage);
+              loadRedemptions(redemptionsPage);
+            }}
+            className="cursor-pointer border-earth-200 text-earth-700 hover:bg-earth-50 hover:text-brand"
+          >
+            {(loadingCodes || loadingRedemptions) && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
+            Refresh
+          </Button>
+        }
+      />
 
       <Tabs defaultValue="codes" className="w-full">
-        <TabsList>
-          <TabsTrigger value="codes">Codes</TabsTrigger>
-          <TabsTrigger value="redemptions">Redemptions</TabsTrigger>
+        <TabsList className="mb-4 bg-earth-50 border border-earth-100">
+          <TabsTrigger value="codes" className="cursor-pointer data-[state=active]:bg-white data-[state=active]:text-brand data-[state=active]:shadow-sm">
+            Codes
+          </TabsTrigger>
+          <TabsTrigger value="redemptions" className="cursor-pointer data-[state=active]:bg-white data-[state=active]:text-brand data-[state=active]:shadow-sm">
+            Redemptions
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="codes" className="mt-4 space-y-2">
+        <TabsContent value="codes" className="space-y-2">
           {loadingCodes ? (
-            <Skeleton className="h-40 w-full" />
+            <div className="skeleton-warm h-40 w-full rounded-xl" />
           ) : codes.length === 0 ? (
-            <Card><CardContent className="p-6 text-center text-sm text-earth-500">No promo codes yet.</CardContent></Card>
+            <EmptyState
+              icon={Tag}
+              title="No promo codes yet"
+              description="Promo codes created by hosts will appear here."
+            />
           ) : (
             <>
               {codes.map((c) => (
-                <Card key={c.id}>
+                <Card key={c.id} className="dashboard-card border-earth-100">
                   <CardContent className="flex flex-col gap-2 p-4 md:flex-row md:items-center md:justify-between">
                     <div className="space-y-1">
-                      <div className="flex items-center gap-2">
+                      <div className="flex items-center gap-2 flex-wrap">
                         <Tag className="h-4 w-4 text-earth-400" />
-                        <span className="font-mono font-semibold">{c.code}</span>
-                        <Badge variant="outline">
+                        <span className="font-mono font-semibold text-earth-900">{c.code}</span>
+                        <Badge variant="outline" className="border-earth-200 text-earth-700 tabular-nums">
                           {c.discount_type === "percentage" ? `${c.discount_value}%` : `฿${c.discount_value}`}
                         </Badge>
-                        {!c.is_active && <Badge className="bg-gray-100 text-gray-600">inactive</Badge>}
-                        {c.recommender_name && <Badge className="bg-violet-100 text-violet-700">{c.recommender_name}</Badge>}
+                        {!c.is_active && <StatusBadge status="inactive" />}
+                        {c.recommender_name && (
+                          <Badge className="bg-brand-50 text-brand border border-brand/15 text-[10px] px-1.5 py-0.5">
+                            {c.recommender_name}
+                          </Badge>
+                        )}
                       </div>
                       <p className="text-xs text-earth-500">
                         {c.homestay?.host?.name || "—"} · {c.homestay?.name || "—"}
                       </p>
-                      <p className="text-xs text-earth-500">
+                      <p className="text-xs text-earth-500 tabular-nums">
                         Used: {c.times_used}{c.max_uses != null ? ` / ${c.max_uses}` : ""}
                         {c.start_at && ` · From ${c.start_at}`}
                         {c.expires_at && ` · Until ${c.expires_at}`}
@@ -131,30 +160,28 @@ export default function AdminPromoCodesPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="redemptions" className="mt-4 space-y-2">
+        <TabsContent value="redemptions" className="space-y-2">
           {loadingRedemptions ? (
-            <Skeleton className="h-40 w-full" />
+            <div className="skeleton-warm h-40 w-full rounded-xl" />
           ) : redemptions.length === 0 ? (
-            <Card><CardContent className="p-6 text-center text-sm text-earth-500">No redemptions yet.</CardContent></Card>
+            <EmptyState
+              icon={Tag}
+              title="No redemptions yet"
+              description="Once guests redeem a promo code, the activity will show up here."
+            />
           ) : (
             <>
               {redemptions.map((r) => (
-                <Card key={r.id}>
+                <Card key={r.id} className="dashboard-card border-earth-100">
                   <CardContent className="flex flex-col gap-1 p-4">
                     <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm font-semibold">{r.promo_code?.code || "—"}</span>
-                      <Badge className={
-                        r.payout_status === "paid"
-                          ? "bg-emerald-100 text-emerald-700"
-                          : r.payout_status === "pending"
-                          ? "bg-amber-100 text-amber-700"
-                          : "bg-gray-100 text-gray-600"
-                      }>{r.payout_status}</Badge>
+                      <span className="font-mono text-sm font-semibold text-earth-900">{r.promo_code?.code || "—"}</span>
+                      <StatusBadge status={r.payout_status} />
                     </div>
                     <p className="text-xs text-earth-500">
                       {r.promo_code?.homestay?.host?.name || "—"} · {r.promo_code?.homestay?.name || "—"}
                     </p>
-                    <p className="text-xs text-earth-600">
+                    <p className="text-xs text-earth-600 tabular-nums">
                       Discount ฿{r.discount_amount.toLocaleString()}
                       {r.commission_amount > 0 && (
                         <> · Commission ฿{r.commission_amount.toLocaleString()} → {r.promo_code?.recommender_name || "—"}</>
@@ -173,21 +200,6 @@ export default function AdminPromoCodesPage() {
           )}
         </TabsContent>
       </Tabs>
-
-      <div className="flex justify-end">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={() => {
-            loadCodes(codesPage);
-            loadRedemptions(redemptionsPage);
-          }}
-          className="cursor-pointer"
-        >
-          {(loadingCodes || loadingRedemptions) && <Loader2 className="mr-2 h-3 w-3 animate-spin" />}
-          Refresh
-        </Button>
-      </div>
     </div>
   );
 }
@@ -213,7 +225,7 @@ function PaginationBar({
           size="sm"
           onClick={() => onChange(Math.max(1, page - 1))}
           disabled={page <= 1 || loading}
-          className="cursor-pointer"
+          className="cursor-pointer border-earth-200"
         >
           <ChevronLeft className="mr-1 h-4 w-4" />
           Previous
@@ -223,7 +235,7 @@ function PaginationBar({
           size="sm"
           onClick={() => onChange(page + 1)}
           disabled={!hasMore || loading}
-          className="cursor-pointer"
+          className="cursor-pointer border-earth-200"
         >
           Next
           <ChevronRight className="ml-1 h-4 w-4" />
