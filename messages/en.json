@@ -941,7 +941,8 @@
     "errorOptionName": "Please enter a service name",
     "errorOptionPrice": "Please enter a valid price",
     "errorOptionSave": "Failed to save service. Please try again.",
-    "errorOptionDelete": "Failed to delete service. Please try again."
+    "errorOptionDelete": "Failed to delete service. Please try again.",
+    "confirmDeleteOption": "Delete this service? This action cannot be undone."
   },
   "dashboardCalendar": {
     "title": "Availability Calendar",
