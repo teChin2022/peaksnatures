@@ -38,6 +38,8 @@ const bookingSchema = z.object({
     id: z.string().uuid(),
     name: z.string(),
     price: z.number().int().min(0),
+    unit_price: z.number().int().min(0).optional(),
+    pricing_type: z.enum(["per_night", "per_time"]).optional(),
   })).optional().default([]),
   promo_code_id: z.string().uuid().optional(),
 });
@@ -178,6 +180,8 @@ export async function POST(req: NextRequest) {
           if (row !== undefined) {
             const enforced = row.pricing_type === "per_time" ? row.price : row.price * nights;
             opt.price = enforced;
+            opt.unit_price = row.price;
+            opt.pricing_type = row.pricing_type;
             serverOptionsTotal += enforced;
           }
         }
