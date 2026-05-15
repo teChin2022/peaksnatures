@@ -76,6 +76,7 @@ export default function AdminBookingsPage() {
   const [hasMore, setHasMore] = useState(false);
   const [hosts, setHosts] = useState<HostOption[]>([]);
   const [selectedHostId, setSelectedHostId] = useState<string>("all");
+  const [activeTab, setActiveTab] = useState<string>("bookings");
   const [holds, setHolds] = useState<HoldRow[]>([]);
   const [holdsLoading, setHoldsLoading] = useState(true);
   const [deletingHoldId, setDeletingHoldId] = useState<string | null>(null);
@@ -177,24 +178,22 @@ export default function AdminBookingsPage() {
         icon={CalendarDays}
       />
 
-      <Tabs defaultValue="bookings">
-        <TabsList className="mb-4 bg-earth-50 border border-earth-100">
-          <TabsTrigger value="bookings" className="cursor-pointer data-[state=active]:bg-white data-[state=active]:text-brand data-[state=active]:shadow-sm">
-            Bookings
-          </TabsTrigger>
-          <TabsTrigger value="holds" className="cursor-pointer data-[state=active]:bg-white data-[state=active]:text-brand data-[state=active]:shadow-sm">
-            Holds
-            {holds.length > 0 && (
-              <Badge className="ml-1.5 bg-amber-50 text-amber-700 border border-amber-200/70 text-[10px] px-1.5">
-                {holds.length}
-              </Badge>
-            )}
-          </TabsTrigger>
-        </TabsList>
-
-        {/* ── Bookings Tab ── */}
-        <TabsContent value="bookings">
-          <div className="flex justify-end mb-4">
+      <Tabs value={activeTab} onValueChange={setActiveTab}>
+        <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <TabsList className="bg-earth-50 border border-earth-100">
+            <TabsTrigger value="bookings" className="cursor-pointer data-[state=active]:bg-white data-[state=active]:text-brand data-[state=active]:shadow-sm">
+              Bookings
+            </TabsTrigger>
+            <TabsTrigger value="holds" className="cursor-pointer data-[state=active]:bg-white data-[state=active]:text-brand data-[state=active]:shadow-sm">
+              Holds
+              {holds.length > 0 && (
+                <Badge className="ml-1.5 bg-amber-50 text-amber-700 border border-amber-200/70 text-[10px] px-1.5">
+                  {holds.length}
+                </Badge>
+              )}
+            </TabsTrigger>
+          </TabsList>
+          {activeTab === "bookings" && (
             <Select value={selectedHostId} onValueChange={setSelectedHostId}>
               <SelectTrigger className="w-[180px] cursor-pointer border-earth-200">
                 <SelectValue placeholder="All Hosts" />
@@ -208,8 +207,11 @@ export default function AdminBookingsPage() {
                 ))}
               </SelectContent>
             </Select>
-          </div>
+          )}
+        </div>
 
+        {/* ── Bookings Tab ── */}
+        <TabsContent value="bookings">
           {loading ? (
             <div className="space-y-3">
               {[1, 2, 3, 4, 5].map((i) => (
