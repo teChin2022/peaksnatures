@@ -67,6 +67,7 @@ interface OptionFormData {
   id?: string;
   name: string;
   price: string;
+  pricing_type: 'per_night' | 'per_time';
 }
 
 export default function RoomsPage() {
@@ -101,7 +102,7 @@ export default function RoomsPage() {
 
   // Room options state
   const [roomOptions, setRoomOptions] = useState<Record<string, RoomOption[]>>({});
-  const [optionForm, setOptionForm] = useState<OptionFormData>({ name: "", price: "" });
+  const [optionForm, setOptionForm] = useState<OptionFormData>({ name: "", price: "", pricing_type: "per_night" });
   const [editingOption, setEditingOption] = useState<RoomOption | null>(null);
   const [savingOption, setSavingOption] = useState(false);
   const [pendingOptions, setPendingOptions] = useState<Omit<RoomOption, "id" | "room_id" | "created_at" | "created_by" | "updated_at" | "updated_by">[]>([]);
@@ -524,13 +525,13 @@ export default function RoomsPage() {
 
   // --- Room options handlers ---
   const resetOptionForm = () => {
-    setOptionForm({ name: "", price: "" });
+    setOptionForm({ name: "", price: "", pricing_type: "per_night" });
     setEditingOption(null);
   };
 
   const startEditOption = (option: RoomOption) => {
     setEditingOption(option);
-    setOptionForm({ id: option.id, name: option.name, price: option.price.toString() });
+    setOptionForm({ id: option.id, name: option.name, price: option.price.toString(), pricing_type: option.pricing_type });
   };
 
   const handleSaveOption = async () => {
@@ -542,7 +543,7 @@ export default function RoomsPage() {
     if (!editingRoom) {
       setPendingOptions((prev) => [
         ...prev,
-        { name: optionForm.name.trim(), price, sort_order: prev.length, is_active: true },
+        { name: optionForm.name.trim(), price, pricing_type: optionForm.pricing_type, sort_order: prev.length, is_active: true },
       ]);
       toast.success(t("optionCreated"));
       resetOptionForm();
@@ -557,6 +558,7 @@ export default function RoomsPage() {
         room_id: editingRoom.id,
         name: optionForm.name.trim(),
         price,
+        pricing_type: optionForm.pricing_type,
         sort_order: (roomOptions[editingRoom.id] || []).length,
       };
 
@@ -830,7 +832,7 @@ export default function RoomsPage() {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-gray-900">{option.name}</p>
                           <p className="text-xs text-gray-500">
-                            <span className="font-medium text-brand">+฿{option.price.toLocaleString()}{tc("perNight")}</span>
+                            <span className="font-medium text-brand">+฿{option.price.toLocaleString()}{option.pricing_type === "per_time" ? tc("perStay") : tc("perNight")}</span>
                           </p>
                         </div>
                         <div className="flex items-center gap-1">
@@ -868,7 +870,7 @@ export default function RoomsPage() {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-gray-900">{option.name}</p>
                           <p className="text-xs text-gray-500">
-                            <span className="font-medium text-brand">+฿{option.price.toLocaleString()}{tc("perNight")}</span>
+                            <span className="font-medium text-brand">+฿{option.price.toLocaleString()}{option.pricing_type === "per_time" ? tc("perStay") : tc("perNight")}</span>
                           </p>
                         </div>
                         <Button
@@ -908,6 +910,25 @@ export default function RoomsPage() {
                       value={optionForm.price}
                       onChange={(e) => setOptionForm((f) => ({ ...f, price: e.target.value }))}
                     />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">{t("pricingType")}</Label>
+                  <div className="mt-1 inline-flex rounded-md border bg-gray-50 p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setOptionForm((f) => ({ ...f, pricing_type: "per_night" }))}
+                      className={`rounded px-3 py-1 text-xs font-medium transition-colors ${optionForm.pricing_type === "per_night" ? "bg-white text-brand shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
+                    >
+                      {t("pricingTypePerNight")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOptionForm((f) => ({ ...f, pricing_type: "per_time" }))}
+                      className={`rounded px-3 py-1 text-xs font-medium transition-colors ${optionForm.pricing_type === "per_time" ? "bg-white text-brand shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
+                    >
+                      {t("pricingTypePerStay")}
+                    </button>
                   </div>
                 </div>
                 <div className="flex gap-2">

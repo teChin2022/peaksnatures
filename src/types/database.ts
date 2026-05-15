@@ -278,6 +278,7 @@ export interface Database {
           room_id: string;
           name: string;
           price: number;
+          pricing_type: 'per_night' | 'per_time';
           sort_order: number;
           is_active: boolean;
           created_at: string;
@@ -290,6 +291,7 @@ export interface Database {
           room_id: string;
           name: string;
           price: number;
+          pricing_type?: 'per_night' | 'per_time';
           sort_order?: number;
           is_active?: boolean;
           created_at?: string;
@@ -302,6 +304,7 @@ export interface Database {
           room_id?: string;
           name?: string;
           price?: number;
+          pricing_type?: 'per_night' | 'per_time';
           sort_order?: number;
           is_active?: boolean;
           created_at?: string;

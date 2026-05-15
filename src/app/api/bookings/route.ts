@@ -138,7 +138,7 @@ export async function POST(req: NextRequest) {
         supabase.from("rooms").select("price_per_night").eq("id", data.room_id).single(),
         supabase.from("room_seasonal_prices").select("*").eq("room_id", data.room_id),
         optionIds.length > 0
-          ? supabase.from("room_options").select("id, price").eq("room_id", data.room_id).in("id", optionIds)
+          ? supabase.from("room_options").select("id, price, pricing_type").eq("room_id", data.room_id).in("id", optionIds)
           : Promise.resolve({ data: null }),
       ]);
 
@@ -165,15 +165,20 @@ export async function POST(req: NextRequest) {
 
       const { total: serverBasePrice } = calculateTotalPrice(room.price_per_night, checkIn, checkOut, seasons);
 
-      // Validate selected options prices against DB (per-night pricing)
+      // Validate selected options prices against DB.
+      // per_night options charge price × nights; per_time options charge a single flat fee.
       let serverOptionsTotal = 0;
       if (optionIds.length > 0) {
-        const dbMap = new Map((dbOptions as { id: string; price: number }[] || []).map((o) => [o.id, o.price]));
+        const dbMap = new Map(
+          (dbOptions as { id: string; price: number; pricing_type: 'per_night' | 'per_time' }[] || [])
+            .map((o) => [o.id, { price: o.price, pricing_type: o.pricing_type }])
+        );
         for (const opt of data.selected_options) {
-          const dbPrice = dbMap.get(opt.id);
-          if (dbPrice !== undefined) {
-            opt.price = dbPrice * nights; // enforce DB price × nights
-            serverOptionsTotal += dbPrice * nights;
+          const row = dbMap.get(opt.id);
+          if (row !== undefined) {
+            const enforced = row.pricing_type === "per_time" ? row.price : row.price * nights;
+            opt.price = enforced;
+            serverOptionsTotal += enforced;
           }
         }
       }

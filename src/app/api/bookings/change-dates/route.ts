@@ -177,7 +177,8 @@ export async function POST(req: NextRequest) {
       // Calculate price using room info + seasonal prices from parallel batch
       const seasons = (seasonRows as unknown as RoomSeasonalPrice[]) || [];
       const { total } = calculateTotalPrice(roomInfo.price_per_night, newCheckIn, newCheckOut, seasons);
-      // Recalculate options per new nights (fetch fresh per-night prices from DB)
+      // Recalculate options for new nights. per_night options scale with the
+      // new night count; per_time options stay flat regardless of date change.
       const optionIds = Array.isArray(booking.selected_options)
         ? (booking.selected_options as { id: string }[]).map((o) => o.id).filter(Boolean)
         : [];
@@ -185,10 +186,11 @@ export async function POST(req: NextRequest) {
       if (optionIds.length > 0) {
         const { data: freshOptions } = await supabase
           .from("room_options")
-          .select("id, price")
+          .select("id, price, pricing_type")
           .in("id", optionIds);
         const newNights = Math.round((newCheckOut.getTime() - newCheckIn.getTime()) / (1000 * 60 * 60 * 24));
-        optionsSum = (freshOptions as { id: string; price: number }[] || []).reduce((s, o) => s + o.price * newNights, 0);
+        optionsSum = (freshOptions as { id: string; price: number; pricing_type: 'per_night' | 'per_time' }[] || [])
+          .reduce((s, o) => s + (o.pricing_type === "per_time" ? o.price : o.price * newNights), 0);
       }
       // Preserve the original promo discount (locked-in at the original booking
       // time). Cap it at the new subtotal so it can never make the total negative,

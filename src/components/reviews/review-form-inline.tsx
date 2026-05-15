@@ -61,25 +61,24 @@ function InteractiveStars({
 }) {
   return (
     <div className="flex items-center gap-0.5">
-      {[1, 2, 3, 4, 5].map((star) => (
-        <button
-          key={star}
-          type="button"
-          className="p-0.5 transition-transform hover:scale-110"
-          onClick={() => onSelect(star)}
-          onMouseEnter={() => onHover(star)}
-          onMouseLeave={onLeave}
-        >
-          <Star
-            style={{
-              width: size,
-              height: size,
-              fill: star <= (hover || value) ? "#2F5D50" : "transparent",
-              color: star <= (hover || value) ? "#2F5D50" : "#d1d5db",
-            }}
-          />
-        </button>
-      ))}
+      {[1, 2, 3, 4, 5].map((star) => {
+        const filled = star <= (hover || value);
+        return (
+          <button
+            key={star}
+            type="button"
+            className="cursor-pointer p-0.5 transition-transform hover:scale-110"
+            onClick={() => onSelect(star)}
+            onMouseEnter={() => onHover(star)}
+            onMouseLeave={onLeave}
+          >
+            <Star
+              className={filled ? "fill-brand text-brand" : "fill-transparent text-earth-200"}
+              style={{ width: size, height: size }}
+            />
+          </button>
+        );
+      })}
     </div>
   );
 }
@@ -208,119 +207,155 @@ export function ReviewFormInline({
   };
 
   return (
-    <div className="space-y-6">
-      {/* Overall rating */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">{t("ratingLabel")}</Label>
-        <div className="flex items-center gap-2">
-          <InteractiveStars value={overallRating} hover={overallHover} onSelect={setOverallRating} onHover={setOverallHover} onLeave={() => setOverallHover(0)} size={28} />
-          {overallRating === 0 && <span className="text-xs text-gray-400">{t("tapToRate")}</span>}
-        </div>
-      </div>
-
-      {/* Category ratings */}
-      <div className="space-y-3">
-        {RATING_CATEGORIES.map((cat) => (
-          <div key={cat.key} className="flex items-center justify-between">
-            <div className="min-w-0 flex-1">
-              <p className="text-sm font-medium text-gray-900">{t(CATEGORY_I18N_MAP[cat.key].label)}</p>
-              {/* <p className="text-xs text-gray-400">{t(CATEGORY_I18N_MAP[cat.key].sub)}</p> */}
-            </div>
-            <InteractiveStars
-              value={categoryRatings[cat.key]}
-              hover={categoryHovers[cat.key]}
-              onSelect={(v) => setCategoryRatings((prev) => ({ ...prev, [cat.key]: v }))}
-              onHover={(v) => setCategoryHovers((prev) => ({ ...prev, [cat.key]: v }))}
-              onLeave={() => setCategoryHovers((prev) => ({ ...prev, [cat.key]: 0 }))}
-              size={20}
-            />
+    <div className="rounded-2xl border border-earth-200 bg-white p-4 shadow-sm md:p-6">
+      <div className="space-y-6">
+        {/* Overall rating */}
+        <div className="space-y-1.5">
+          <Label className="text-sm font-medium text-earth-900">{t("ratingLabel")}</Label>
+          <div className="flex items-center gap-2">
+            <InteractiveStars value={overallRating} hover={overallHover} onSelect={setOverallRating} onHover={setOverallHover} onLeave={() => setOverallHover(0)} size={28} />
+            {overallRating === 0 && <span className="text-xs text-earth-500">{t("tapToRate")}</span>}
           </div>
-        ))}
-      </div>
-
-      {/* Comment */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">{t("commentLabel")}</Label>
-        <Textarea placeholder={t("commentPlaceholder")} value={comment} onChange={(e) => setComment(e.target.value)} rows={3} maxLength={1000} />
-      </div>
-
-      {/* Photos */}
-      <div className="space-y-2">
-        <div>
-          <Label className="text-sm font-medium">{t("photosLabel")}</Label>
-          <p className="text-xs text-gray-400">{t("photosHint")}</p>
         </div>
-        <div className="flex flex-wrap gap-2">
-          {photos.map((photo, i) => (
-            <div key={i} className="relative h-20 w-20 rounded-lg overflow-hidden border border-gray-200">
-              <img src={photo.preview} alt="" aria-hidden="true" className="h-full w-full object-cover" />
-              <button type="button" onClick={() => removePhoto(i)} className="absolute right-0.5 top-0.5 flex h-5 w-5 items-center justify-center rounded-full bg-black/60 text-white transition-colors hover:bg-black/80">
-                <X className="h-3 w-3" />
-              </button>
+
+        {/* Category ratings */}
+        <div className="space-y-3">
+          {RATING_CATEGORIES.map((cat) => (
+            <div key={cat.key} className="flex items-center justify-between">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-medium text-earth-900">{t(CATEGORY_I18N_MAP[cat.key].label)}</p>
+              </div>
+              <InteractiveStars
+                value={categoryRatings[cat.key]}
+                hover={categoryHovers[cat.key]}
+                onSelect={(v) => setCategoryRatings((prev) => ({ ...prev, [cat.key]: v }))}
+                onHover={(v) => setCategoryHovers((prev) => ({ ...prev, [cat.key]: v }))}
+                onLeave={() => setCategoryHovers((prev) => ({ ...prev, [cat.key]: 0 }))}
+                size={20}
+              />
             </div>
           ))}
-          {photos.length < MAX_REVIEW_PHOTOS && (
-            <button type="button" onClick={() => fileInputRef.current?.click()} className="flex h-20 w-20 items-center justify-center rounded-lg border-2 border-dashed border-gray-200 text-gray-400 transition-colors hover:border-gray-300 hover:text-gray-500">
-              <ImagePlus className="h-6 w-6" />
-            </button>
+        </div>
+
+        {/* Comment */}
+        <div className="space-y-1.5">
+          <Label className="text-sm font-medium text-earth-900">{t("commentLabel")}</Label>
+          <Textarea
+            placeholder={t("commentPlaceholder")}
+            value={comment}
+            onChange={(e) => setComment(e.target.value)}
+            rows={3}
+            maxLength={1000}
+            className="!rounded-xl !border-earth-200 hover:!border-earth-400"
+          />
+        </div>
+
+        {/* Photos */}
+        <div className="space-y-2">
+          <div>
+            <Label className="text-sm font-medium text-earth-900">{t("photosLabel")}</Label>
+            <p className="text-xs text-earth-500">{t("photosHint")}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {photos.map((photo, i) => (
+              <div key={i} className="relative h-20 w-20 rounded-lg overflow-hidden border border-earth-200">
+                <img src={photo.preview} alt="" aria-hidden="true" className="h-full w-full object-cover" />
+                <button type="button" onClick={() => removePhoto(i)} className="absolute right-0.5 top-0.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full bg-earth-900/60 text-white transition-colors hover:bg-earth-900/80">
+                  <X className="h-3 w-3" />
+                </button>
+              </div>
+            ))}
+            {photos.length < MAX_REVIEW_PHOTOS && (
+              <button type="button" onClick={() => fileInputRef.current?.click()} className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-earth-200 text-earth-400 transition-colors hover:border-earth-400 hover:text-earth-600">
+                <ImagePlus className="h-6 w-6" />
+              </button>
+            )}
+          </div>
+          <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoSelect} />
+        </div>
+
+        {/* Impression tags */}
+        <div className="space-y-2">
+          <div>
+            <Label className="text-sm font-medium text-earth-900">{t("impressionTagsLabel")}</Label>
+            <p className="text-xs text-earth-500">{t("impressionTagsHint")}</p>
+          </div>
+          <div className="flex flex-wrap gap-2">
+            {IMPRESSION_TAGS.map((tag) => {
+              const selected = selectedTags.includes(tag);
+              return (
+                <button
+                  key={tag}
+                  type="button"
+                  onClick={() => toggleTag(tag)}
+                  className={`inline-flex cursor-pointer items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${
+                    selected
+                      ? "bg-brand text-white"
+                      : "bg-earth-100 text-earth-600 hover:bg-earth-200"
+                  }`}
+                >
+                  {selected && <Sparkles className="h-3 w-3" />}
+                  {t(TAG_I18N_MAP[tag])}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Would return */}
+        <div className="space-y-2">
+          <Label className="text-sm font-medium text-earth-900">{t("wouldReturnLabel")}</Label>
+          <div className="flex gap-2">
+            {WOULD_RETURN_OPTIONS.map((option) => {
+              const selected = wouldReturn === option;
+              const Icon = WOULD_RETURN_I18N[option].icon;
+              return (
+                <button
+                  key={option}
+                  type="button"
+                  onClick={() => setWouldReturn(selected ? null : option)}
+                  className={`flex flex-1 cursor-pointer items-center justify-center gap-1.5 rounded-xl border-2 px-3 py-2.5 text-sm font-medium transition-colors ${
+                    selected
+                      ? "border-brand bg-brand-50 text-brand"
+                      : "border-earth-200 text-earth-500 hover:border-earth-400"
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  {t(WOULD_RETURN_I18N[option].label)}
+                </button>
+              );
+            })}
+          </div>
+        </div>
+
+        {/* Stay highlight */}
+        <div className="space-y-1.5">
+          <Label className="text-sm font-medium text-earth-900">{t("stayHighlightLabel")}</Label>
+          <Input
+            placeholder={t("stayHighlightPlaceholder")}
+            value={stayHighlight}
+            onChange={(e) => setStayHighlight(e.target.value)}
+            maxLength={200}
+            className="!h-12 rounded-xl !border-earth-200 hover:!border-earth-400"
+          />
+        </div>
+
+        {/* Submit */}
+        <Button
+          className="h-12 w-full cursor-pointer rounded-xl bg-brand text-white hover:bg-brand-hover"
+          disabled={!isValid || submitting}
+          onClick={handleSubmit}
+        >
+          {submitting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+              {uploadingPhotos ? t("photosLabel") : t("submitting")}
+            </>
+          ) : (
+            t("submitReview")
           )}
-        </div>
-        <input ref={fileInputRef} type="file" accept="image/*" multiple className="hidden" onChange={handlePhotoSelect} />
+        </Button>
       </div>
-
-      {/* Impression tags */}
-      <div className="space-y-2">
-        <div>
-          <Label className="text-sm font-medium">{t("impressionTagsLabel")}</Label>
-          <p className="text-xs text-gray-400">{t("impressionTagsHint")}</p>
-        </div>
-        <div className="flex flex-wrap gap-2">
-          {IMPRESSION_TAGS.map((tag) => {
-            const selected = selectedTags.includes(tag);
-            return (
-              <button key={tag} type="button" onClick={() => toggleTag(tag)} className={`inline-flex items-center gap-1 rounded-full px-3 py-1.5 text-xs font-medium transition-colors ${selected ? "bg-[#2F5D50] text-white" : "bg-gray-100 text-gray-600 hover:bg-gray-200"}`}>
-                {selected && <Sparkles className="h-3 w-3" />}
-                {t(TAG_I18N_MAP[tag])}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Would return */}
-      <div className="space-y-2">
-        <Label className="text-sm font-medium">{t("wouldReturnLabel")}</Label>
-        <div className="flex gap-2">
-          {WOULD_RETURN_OPTIONS.map((option) => {
-            const selected = wouldReturn === option;
-            const Icon = WOULD_RETURN_I18N[option].icon;
-            return (
-              <button key={option} type="button" onClick={() => setWouldReturn(selected ? null : option)} className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border-2 px-3 py-2.5 text-sm font-medium transition-colors ${selected ? "border-[#2F5D50] bg-[#2F5D50]/5 text-[#2F5D50]" : "border-gray-200 text-gray-500 hover:border-gray-300"}`}>
-                <Icon className="h-4 w-4" />
-                {t(WOULD_RETURN_I18N[option].label)}
-              </button>
-            );
-          })}
-        </div>
-      </div>
-
-      {/* Stay highlight */}
-      <div className="space-y-1.5">
-        <Label className="text-sm font-medium">{t("stayHighlightLabel")}</Label>
-        <Input placeholder={t("stayHighlightPlaceholder")} value={stayHighlight} onChange={(e) => setStayHighlight(e.target.value)} maxLength={200} />
-      </div>
-
-      {/* Submit */}
-      <Button className="w-full bg-[#2F5D50] text-white hover:bg-[#264A40]" disabled={!isValid || submitting} onClick={handleSubmit}>
-        {submitting ? (
-          <>
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-            {uploadingPhotos ? t("photosLabel") : t("submitting")}
-          </>
-        ) : (
-          t("submitReview")
-        )}
-      </Button>
     </div>
   );
 }

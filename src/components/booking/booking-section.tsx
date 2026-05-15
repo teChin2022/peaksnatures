@@ -355,7 +355,8 @@ export function BookingSection({
   const optionsTotal = useMemo(() => {
     return selectedOptionIds.reduce((sum, id) => {
       const opt = roomOptions.find((o) => o.id === id);
-      return sum + (opt?.price || 0) * (nights || 1);
+      if (!opt) return sum;
+      return sum + (opt.pricing_type === "per_time" ? opt.price : opt.price * (nights || 1));
     }, 0);
   }, [selectedOptionIds, roomOptions, nights]);
 
@@ -718,7 +719,8 @@ export function BookingSection({
           locale,
           selected_options: selectedOptionIds.map((id) => {
             const opt = roomOptions.find((o) => o.id === id);
-            return { id, name: opt?.name || "", price: (opt?.price || 0) * nights };
+            const price = opt?.pricing_type === "per_time" ? (opt?.price || 0) : (opt?.price || 0) * nights;
+            return { id, name: opt?.name || "", price };
           }),
           promo_code_id: appliedPromo?.id || undefined,
         }),
@@ -1051,7 +1053,7 @@ export function BookingSection({
                               })()}
                               {optionsTotal > 0 && (
                                 <div className="flex justify-between text-sm text-earth-600">
-                                  <span>{t("options")} ({selectedOptionIds.length}) × {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
+                                  <span>{t("options")} ({selectedOptionIds.length})</span>
                                   <span>+฿{optionsTotal.toLocaleString()}</span>
                                 </div>
                               )}
@@ -1117,7 +1119,7 @@ export function BookingSection({
                                   <div className="flex-1 min-w-0">
                                     <p className="text-sm font-medium text-earth-900">{option.name}</p>
                                   </div>
-                                  <span className="text-sm font-semibold text-brand whitespace-nowrap">+฿{option.price.toLocaleString()}/{tc("night")}</span>
+                                  <span className="text-sm font-semibold text-brand whitespace-nowrap">+฿{option.price.toLocaleString()}{option.pricing_type === "per_time" ? tc("perStay") : `/${tc("night")}`}</span>
                                 </label>
                               );
                             })}
@@ -1357,15 +1359,18 @@ export function BookingSection({
                             </div>
                             {selectedOptionIds.length > 0 && (
                               <div>
-                                <span className="text-earth-500">{t("options")} × {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
+                                <span className="text-earth-500">{t("options")}</span>
                                 <div className="mt-1 space-y-1">
                                   {selectedOptionIds.map((id) => {
                                     const opt = roomOptions.find((o) => o.id === id);
                                     if (!opt) return null;
+                                    const isPerTime = opt.pricing_type === "per_time";
+                                    const lineTotal = isPerTime ? opt.price : opt.price * nights;
+                                    const unitLabel = isPerTime ? tc("perStay") : `/${tc("night")}`;
                                     return (
                                       <div key={id} className="flex justify-between text-xs">
-                                        <span className="text-earth-600">{opt.name} (฿{opt.price.toLocaleString()}/{tc("night")})</span>
-                                        <span className="font-medium text-brand">+฿{(opt.price * nights).toLocaleString()}</span>
+                                        <span className="text-earth-600">{opt.name} (฿{opt.price.toLocaleString()}{unitLabel})</span>
+                                        <span className="font-medium text-brand">+฿{lineTotal.toLocaleString()}</span>
                                       </div>
                                     );
                                   })}
