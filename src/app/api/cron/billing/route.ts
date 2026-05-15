@@ -1,9 +1,16 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
-import { getBillingConfig, getEffectiveFixedRate, processBillingRetryQueue } from "@/lib/billing";
+import {
+  computeFixedRateInvoice,
+  getBillingConfig,
+  getEffectiveFixedRate,
+  isValidTermMonths,
+  processBillingRetryQueue,
+} from "@/lib/billing";
 import { GRACE_PERIOD_DAYS } from "@/lib/plan-expiry";
 import { sendSms } from "@/lib/notifications";
+import { fmtDateStr } from "@/lib/format-date";
 import type { Host, PlatformBillingConfig } from "@/types/database";
 
 async function runWithConcurrency<T>(
@@ -186,6 +193,69 @@ export async function GET(req: NextRequest) {
     results.grace_notifications = graceNotifications;
 
     // ============================================================
+    // DAILY: 7 days before fixed_rate term ends — pre-expiry SMS
+    // ============================================================
+    const in7Days = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 7))
+      .toISOString().split("T")[0];
+    const in7DaysNext = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 8))
+      .toISOString().split("T")[0];
+    const { data: termExpiringIn7Days } = await supabase
+      .from("hosts")
+      .select("id, name, phone, fixed_rate_term_ends_at")
+      .eq("plan_type", "fixed_rate")
+      .gte("fixed_rate_term_ends_at", in7Days)
+      .lt("fixed_rate_term_ends_at", in7DaysNext);
+
+    let termExpiryPreNotifications = 0;
+    await runWithConcurrency(
+      (termExpiringIn7Days || []) as { id: string; name: string; phone: string | null; fixed_rate_term_ends_at: string | null }[],
+      10,
+      async (host) => {
+        if (!host.phone || !host.fixed_rate_term_ends_at) return;
+        try {
+          const endDate = fmtDateStr(host.fixed_rate_term_ends_at, "d MMM yyyy", "th");
+          const result = await sendSms(
+            host.phone,
+            `แพลน Fixed Rate ของคุณจะหมดอายุใน 7 วัน (${endDate}) กรุณาเข้าระบบเพื่อต่ออายุหรือเลือกระยะเวลาใหม่เพื่อรับส่วนลด`,
+          );
+          if (result.success) termExpiryPreNotifications++;
+        } catch (err) {
+          console.error("[Cron] Term pre-expiry SMS error for host:", host.id, err);
+        }
+      },
+    );
+    results.term_expiry_pre_notifications = termExpiryPreNotifications;
+
+    // ============================================================
+    // DAILY: On fixed_rate term expiry day — SMS to host
+    // ============================================================
+    const { data: termExpiringToday } = await supabase
+      .from("hosts")
+      .select("id, name, phone, fixed_rate_term_ends_at")
+      .eq("plan_type", "fixed_rate")
+      .gte("fixed_rate_term_ends_at", today)
+      .lt("fixed_rate_term_ends_at", tomorrowStr);
+
+    let termExpiryNotifications = 0;
+    await runWithConcurrency(
+      (termExpiringToday || []) as { id: string; name: string; phone: string | null; fixed_rate_term_ends_at: string | null }[],
+      10,
+      async (host) => {
+        if (!host.phone) return;
+        try {
+          const result = await sendSms(
+            host.phone,
+            `แพลน Fixed Rate ของคุณหมดอายุแล้ว ระบบจะออกใบแจ้งหนี้รายเดือน 1 เดือนโดยอัตโนมัติ เลือกระยะเวลานานขึ้นในระบบเพื่อรับส่วนลด`,
+          );
+          if (result.success) termExpiryNotifications++;
+        } catch (err) {
+          console.error("[Cron] Term expiry SMS error for host:", host.id, err);
+        }
+      },
+    );
+    results.term_expiry_notifications = termExpiryNotifications;
+
+    // ============================================================
     // DAILY: Mark overdue invoices
     // ============================================================
     const { data: overdueInvoices } = await supabase
@@ -221,44 +291,125 @@ export async function GET(req: NextRequest) {
     // ============================================================
     const { data: pendingSwitches } = await supabase
       .from("hosts")
-      .select("id, plan_type, plan_pending_type, plan_pending_effective_at, name")
+      .select("id, plan_type, plan_pending_type, plan_pending_effective_at, plan_pending_term_months, fixed_rate_override, name")
       .not("plan_pending_type", "is", null)
       .lte("plan_pending_effective_at", today);
 
     let switchCount = 0;
-    for (const host of (pendingSwitches || []) as { id: string; plan_type: string; plan_pending_type: string; name: string }[]) {
+    let switchInvoiceCount = 0;
+    for (const host of (pendingSwitches || []) as {
+      id: string;
+      plan_type: string;
+      plan_pending_type: string;
+      plan_pending_term_months: number | null;
+      fixed_rate_override: number | null;
+      name: string;
+    }[]) {
+      const switchingToFixedRate = host.plan_pending_type === "fixed_rate";
+
+      let termInvoice: ReturnType<typeof computeFixedRateInvoice> | null = null;
+      let appliedTerm: number = 1;
+      if (switchingToFixedRate) {
+        const pendingTerm = host.plan_pending_term_months ?? 1;
+        appliedTerm = isValidTermMonths(pendingTerm, config as PlatformBillingConfig)
+          ? pendingTerm
+          : 1;
+        termInvoice = computeFixedRateInvoice(
+          host as unknown as Pick<Host, "fixed_rate_override">,
+          config as PlatformBillingConfig,
+          appliedTerm,
+          todayUTC,
+        );
+      }
+
+      const updateFields: Record<string, unknown> = {
+        plan_type: host.plan_pending_type,
+        plan_pending_type: null,
+        plan_pending_effective_at: null,
+        plan_pending_term_months: null,
+        plan_free_expires_at: null,
+        updated_by: "system",
+      };
+      if (switchingToFixedRate && termInvoice) {
+        updateFields.fixed_rate_term_months = appliedTerm;
+        updateFields.fixed_rate_term_started_at = termInvoice.period_start;
+        updateFields.fixed_rate_term_ends_at = termInvoice.period_end;
+      } else if (host.plan_pending_type === "commission") {
+        // Leaving fixed_rate behind — clear stale term fields.
+        updateFields.fixed_rate_term_months = null;
+        updateFields.fixed_rate_term_started_at = null;
+        updateFields.fixed_rate_term_ends_at = null;
+      }
+
       const { error } = await supabase
         .from("hosts")
-        .update({
-          plan_type: host.plan_pending_type,
-          plan_pending_type: null,
-          plan_pending_effective_at: null,
-          plan_free_expires_at: null,
-          updated_by: "system",
-        } as never)
+        .update(updateFields as never)
         .eq("id", host.id);
 
-      if (!error) {
-        switchCount++;
-        await logEvent({
-          entityType: "host",
-          entityId: host.id,
-          eventType: EventType.PLAN_CHANGED,
-          actorType: "system",
-          actorId: null,
-          data: { from: host.plan_type, to: host.plan_pending_type },
-        });
+      if (error) continue;
+
+      switchCount++;
+      await logEvent({
+        entityType: "host",
+        entityId: host.id,
+        eventType: EventType.PLAN_CHANGED,
+        actorType: "system",
+        actorId: null,
+        data: {
+          from: host.plan_type,
+          to: host.plan_pending_type,
+          ...(switchingToFixedRate ? { term_months: appliedTerm } : {}),
+        },
+      });
+
+      if (termInvoice && termInvoice.amount > 0) {
+        const dueDate = new Date(Date.UTC(todayUTC.getUTCFullYear(), todayUTC.getUTCMonth(), todayUTC.getUTCDate() + 5))
+          .toISOString().split("T")[0];
+        const { error: invErr } = await supabase
+          .from("invoices")
+          .insert({
+            host_id: host.id,
+            amount: termInvoice.amount,
+            period_start: termInvoice.period_start,
+            period_end: termInvoice.period_end,
+            term_months: termInvoice.term_months,
+            discount_pct: termInvoice.discount_pct,
+            due_date: dueDate,
+            status: "pending",
+            created_by: "system",
+            updated_by: "system",
+          } as never);
+        if (!invErr) {
+          switchInvoiceCount++;
+          await logEvent({
+            entityType: "billing",
+            entityId: host.id,
+            eventType: EventType.INVOICE_CREATED,
+            actorType: "system",
+            actorId: null,
+            data: {
+              amount: termInvoice.amount,
+              period_start: termInvoice.period_start,
+              period_end: termInvoice.period_end,
+              term_months: termInvoice.term_months,
+              discount_pct: termInvoice.discount_pct,
+            },
+          });
+        }
       }
     }
     results.plan_switches = switchCount;
+    results.plan_switch_invoices = switchInvoiceCount;
 
     if (isFirstOfMonth) {
       // ============================================================
-      // MONTHLY (1st only): Generate invoices for fixed_rate hosts
+      // MONTHLY (1st only): Generate 1-month revert invoice for fixed_rate
+      // hosts whose multi-month term has ended (or who never had one).
+      // Hosts mid-term skip — they already paid upfront.
       // ============================================================
       const { data: fixedRateHosts } = await supabase
         .from("hosts")
-        .select("id, fixed_rate_override, name, phone, notification_preference, line_channel_access_token, line_user_id")
+        .select("id, fixed_rate_override, fixed_rate_term_ends_at, name, phone, notification_preference, line_channel_access_token, line_user_id")
         .eq("plan_type", "fixed_rate")
         .eq("status", "approved");
 
@@ -269,14 +420,17 @@ export async function GET(req: NextRequest) {
       let invoiceCount = 0;
       let invoiceNotifications = 0;
       await runWithConcurrency(
-        (fixedRateHosts || []) as { id: string; fixed_rate_override: number | null; name: string; phone: string | null; notification_preference: string | null; line_channel_access_token: string | null; line_user_id: string | null }[],
+        (fixedRateHosts || []) as { id: string; fixed_rate_override: number | null; fixed_rate_term_ends_at: string | null; name: string; phone: string | null; notification_preference: string | null; line_channel_access_token: string | null; line_user_id: string | null }[],
         5,
         async (host) => {
+          // Mid-term hosts already paid upfront — skip.
+          if (host.fixed_rate_term_ends_at && host.fixed_rate_term_ends_at >= today) return;
+
           const { data: existing } = await supabase
             .from("invoices")
-            .select("id")
+            .select("id, status")
             .eq("host_id", host.id)
-            .eq("period_start", periodStart)
+            .in("status", ["pending", "overdue"])
             .limit(1);
 
           if ((existing as unknown[] | null)?.length) return;
@@ -295,6 +449,8 @@ export async function GET(req: NextRequest) {
               amount,
               period_start: periodStart,
               period_end: periodEnd,
+              term_months: 1,
+              discount_pct: 0,
               due_date: dueDate,
               status: "pending",
               created_by: "system",
@@ -303,6 +459,18 @@ export async function GET(req: NextRequest) {
 
           if (error) return;
 
+          // Roll the host's term to this new 1-month period so future cron
+          // runs correctly treat them as mid-term until month-end.
+          await supabase
+            .from("hosts")
+            .update({
+              fixed_rate_term_months: 1,
+              fixed_rate_term_started_at: periodStart,
+              fixed_rate_term_ends_at: periodEnd,
+              updated_by: "system",
+            } as never)
+            .eq("id", host.id);
+
           invoiceCount++;
           await logEvent({
             entityType: "billing",
@@ -310,7 +478,7 @@ export async function GET(req: NextRequest) {
             eventType: EventType.INVOICE_CREATED,
             actorType: "system",
             actorId: null,
-            data: { amount, period_start: periodStart, period_end: periodEnd },
+            data: { amount, period_start: periodStart, period_end: periodEnd, term_months: 1, discount_pct: 0 },
           });
 
           const message = `ใบแจ้งหนี้ประจำเดือน ฿${amount.toLocaleString()} ครบกำหนดชำระภายในวันที่ 5 กรุณาเข้าระบบเพื่อชำระเงิน`;

@@ -1,7 +1,7 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
 import type { HostBlockState } from "@/lib/plan-expiry";
-import type { Host, PlatformBillingConfig } from "@/types/database";
+import type { FixedRateTermTier, Host, PlatformBillingConfig } from "@/types/database";
 
 /**
  * Get the platform billing config (singleton row).
@@ -41,6 +41,55 @@ export function getEffectiveFixedRate(
   config: PlatformBillingConfig,
 ): number {
   return host.fixed_rate_override || config.fixed_rate_amount;
+}
+
+function getTermTiers(config: PlatformBillingConfig): FixedRateTermTier[] {
+  return Array.isArray(config.fixed_rate_term_tiers)
+    ? (config.fixed_rate_term_tiers as FixedRateTermTier[])
+    : [];
+}
+
+export function getFixedRateDiscount(
+  months: number,
+  config: PlatformBillingConfig,
+): number {
+  const tier = getTermTiers(config).find((t) => Number(t.months) === months);
+  return tier ? Number(tier.discount_pct) : 0;
+}
+
+export function isValidTermMonths(
+  months: number,
+  config: PlatformBillingConfig,
+): boolean {
+  return getTermTiers(config).some((t) => Number(t.months) === months);
+}
+
+/**
+ * Compute one upfront invoice covering `months` calendar months starting at
+ * `startDate`. The amount is `monthly_rate × months × (1 − discount%)`.
+ * `period_end` is the last day of the (startDate.month + months - 1) month.
+ */
+export function computeFixedRateInvoice(
+  host: Pick<Host, "fixed_rate_override">,
+  config: PlatformBillingConfig,
+  months: number,
+  startDate: Date,
+): {
+  amount: number;
+  period_start: string;
+  period_end: string;
+  term_months: number;
+  discount_pct: number;
+} {
+  const monthly = getEffectiveFixedRate(host, config);
+  const discount = getFixedRateDiscount(months, config);
+  const amount = Math.round(monthly * months * (1 - discount / 100));
+  const period_start = startDate.toISOString().split("T")[0];
+  const end = new Date(
+    Date.UTC(startDate.getUTCFullYear(), startDate.getUTCMonth() + months, 0),
+  );
+  const period_end = end.toISOString().split("T")[0];
+  return { amount, period_start, period_end, term_months: months, discount_pct: discount };
 }
 
 /**

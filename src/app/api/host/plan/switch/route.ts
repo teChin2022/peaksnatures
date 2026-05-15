@@ -4,6 +4,11 @@ import {
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
+import {
+  computeFixedRateInvoice,
+  getBillingConfig,
+  isValidTermMonths,
+} from "@/lib/billing";
 
 export async function POST(req: NextRequest) {
   try {
@@ -19,16 +24,33 @@ export async function POST(req: NextRequest) {
 
     const body = await req.json();
     const { plan_type } = body;
+    const term_months_raw = body?.term_months;
 
     if (!plan_type || !["commission", "fixed_rate"].includes(plan_type)) {
       return NextResponse.json({ error: "Invalid plan type. Choose commission or fixed_rate." }, { status: 400 });
+    }
+
+    let term_months: number | null = null;
+    if (plan_type === "fixed_rate") {
+      const config = await getBillingConfig();
+      if (!config) {
+        return NextResponse.json({ error: "Billing config not found" }, { status: 500 });
+      }
+      const parsed = Number(term_months_raw);
+      if (!Number.isInteger(parsed) || !isValidTermMonths(parsed, config)) {
+        return NextResponse.json(
+          { error: "Invalid term_months. Pick one of the configured subscription terms." },
+          { status: 400 },
+        );
+      }
+      term_months = parsed;
     }
 
     const sc = createServiceRoleClient();
 
     const { data: host } = await sc
       .from("hosts")
-      .select("id, plan_type, name, plan_free_expires_at")
+      .select("id, plan_type, name, plan_free_expires_at, fixed_rate_override")
       .eq("user_id", user.id)
       .single();
 
@@ -41,6 +63,7 @@ export async function POST(req: NextRequest) {
       plan_type: string;
       name: string;
       plan_free_expires_at: string | null;
+      fixed_rate_override: number | null;
     };
 
     if (typedHost.plan_type === plan_type) {
@@ -52,23 +75,80 @@ export async function POST(req: NextRequest) {
     // actually deduct from the wallet). Paid → paid switches still schedule
     // for the 1st of next month so billing cycles align.
     const now = new Date();
+    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
     const isUpgradeFromFree = typedHost.plan_type === "free";
 
     if (isUpgradeFromFree) {
+      const updateFields: Record<string, unknown> = {
+        plan_type,
+        plan_pending_type: null,
+        plan_pending_effective_at: null,
+        plan_pending_term_months: null,
+        plan_free_expires_at: null,
+        updated_by: typedHost.name,
+      };
+
+      let invoicePayload: ReturnType<typeof computeFixedRateInvoice> | null = null;
+      if (plan_type === "fixed_rate" && term_months) {
+        const config = await getBillingConfig();
+        if (!config) {
+          return NextResponse.json({ error: "Billing config not found" }, { status: 500 });
+        }
+        invoicePayload = computeFixedRateInvoice(typedHost, config, term_months, today);
+        updateFields.fixed_rate_term_months = term_months;
+        updateFields.fixed_rate_term_started_at = invoicePayload.period_start;
+        updateFields.fixed_rate_term_ends_at = invoicePayload.period_end;
+      }
+
       const { error: applyError } = await sc
         .from("hosts")
-        .update({
-          plan_type,
-          plan_pending_type: null,
-          plan_pending_effective_at: null,
-          plan_free_expires_at: null,
-          updated_by: typedHost.name,
-        } as never)
+        .update(updateFields as never)
         .eq("id", typedHost.id);
 
       if (applyError) {
         console.error("[Plan Switch] apply error:", applyError);
         return NextResponse.json({ error: "Failed to switch plan" }, { status: 500 });
+      }
+
+      if (invoicePayload) {
+        const dueDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + 5))
+          .toISOString().split("T")[0];
+        const { error: invoiceError } = await sc
+          .from("invoices")
+          .insert({
+            host_id: typedHost.id,
+            amount: invoicePayload.amount,
+            period_start: invoicePayload.period_start,
+            period_end: invoicePayload.period_end,
+            term_months: invoicePayload.term_months,
+            discount_pct: invoicePayload.discount_pct,
+            due_date: dueDate,
+            status: "pending",
+            created_by: typedHost.name,
+            updated_by: typedHost.name,
+          } as never);
+
+        if (invoiceError) {
+          console.error("[Plan Switch] invoice insert error:", invoiceError);
+          return NextResponse.json({ error: "Plan switched but failed to create invoice" }, { status: 500 });
+        }
+
+        after(async () => {
+          await logEvent({
+            entityType: "billing",
+            entityId: typedHost.id,
+            eventType: EventType.INVOICE_CREATED,
+            actorType: "host",
+            actorId: user.id,
+            data: {
+              amount: invoicePayload!.amount,
+              period_start: invoicePayload!.period_start,
+              period_end: invoicePayload!.period_end,
+              term_months: invoicePayload!.term_months,
+              discount_pct: invoicePayload!.discount_pct,
+            },
+          });
+        });
       }
 
       after(async () => {
@@ -78,7 +158,12 @@ export async function POST(req: NextRequest) {
           eventType: EventType.PLAN_CHANGED,
           actorType: "host",
           actorId: user.id,
-          data: { from: typedHost.plan_type, to: plan_type, immediate: true },
+          data: {
+            from: typedHost.plan_type,
+            to: plan_type,
+            immediate: true,
+            ...(term_months ? { term_months } : {}),
+          },
           req,
         });
       });
@@ -87,6 +172,15 @@ export async function POST(req: NextRequest) {
         success: true,
         plan_type,
         applied_immediately: true,
+        ...(invoicePayload
+          ? {
+              invoice: {
+                amount: invoicePayload.amount,
+                term_months: invoicePayload.term_months,
+                discount_pct: invoicePayload.discount_pct,
+              },
+            }
+          : {}),
       });
     }
 
@@ -94,13 +188,16 @@ export async function POST(req: NextRequest) {
       .toISOString()
       .split("T")[0];
 
+    const pendingFields: Record<string, unknown> = {
+      plan_pending_type: plan_type,
+      plan_pending_effective_at: effectiveDate,
+      plan_pending_term_months: plan_type === "fixed_rate" ? term_months : null,
+      updated_by: typedHost.name,
+    };
+
     const { error: updateError } = await sc
       .from("hosts")
-      .update({
-        plan_pending_type: plan_type,
-        plan_pending_effective_at: effectiveDate,
-        updated_by: typedHost.name,
-      } as never)
+      .update(pendingFields as never)
       .eq("id", typedHost.id);
 
     if (updateError) {
@@ -119,6 +216,7 @@ export async function POST(req: NextRequest) {
           current_plan: typedHost.plan_type,
           new_plan: plan_type,
           effective_date: effectiveDate,
+          ...(term_months ? { term_months } : {}),
         },
         req,
       });
@@ -128,8 +226,10 @@ export async function POST(req: NextRequest) {
       success: true,
       plan_pending_type: plan_type,
       plan_pending_effective_at: effectiveDate,
+      ...(term_months ? { plan_pending_term_months: term_months } : {}),
     });
-  } catch {
+  } catch (err) {
+    console.error("[Plan Switch] unexpected error:", err);
     return NextResponse.json({ error: "Something went wrong" }, { status: 500 });
   }
 }

@@ -49,6 +49,10 @@ export interface Database {
           wallet_negative_since: string | null;
           commission_pct_override: number | null;
           fixed_rate_override: number | null;
+          fixed_rate_term_months: number | null;
+          fixed_rate_term_started_at: string | null;
+          fixed_rate_term_ends_at: string | null;
+          plan_pending_term_months: number | null;
           created_at: string;
           created_by: string;
           updated_at: string;
@@ -85,6 +89,10 @@ export interface Database {
           wallet_negative_since?: string | null;
           commission_pct_override?: number | null;
           fixed_rate_override?: number | null;
+          fixed_rate_term_months?: number | null;
+          fixed_rate_term_started_at?: string | null;
+          fixed_rate_term_ends_at?: string | null;
+          plan_pending_term_months?: number | null;
           created_at?: string;
           created_by?: string;
           updated_at?: string;
@@ -121,6 +129,10 @@ export interface Database {
           wallet_negative_since?: string | null;
           commission_pct_override?: number | null;
           fixed_rate_override?: number | null;
+          fixed_rate_term_months?: number | null;
+          fixed_rate_term_started_at?: string | null;
+          fixed_rate_term_ends_at?: string | null;
+          plan_pending_term_months?: number | null;
           created_at?: string;
           created_by?: string;
           updated_at?: string;
@@ -732,6 +744,7 @@ export interface Database {
           id: string;
           commission_pct: number;
           fixed_rate_amount: number;
+          fixed_rate_term_tiers: FixedRateTermTier[];
           promptpay_id: string | null;
           bank_name: string | null;
           bank_account_number: string | null;
@@ -744,6 +757,7 @@ export interface Database {
           id?: string;
           commission_pct?: number;
           fixed_rate_amount?: number;
+          fixed_rate_term_tiers?: FixedRateTermTier[];
           promptpay_id?: string | null;
           bank_name?: string | null;
           bank_account_number?: string | null;
@@ -756,6 +770,7 @@ export interface Database {
           id?: string;
           commission_pct?: number;
           fixed_rate_amount?: number;
+          fixed_rate_term_tiers?: FixedRateTermTier[];
           promptpay_id?: string | null;
           bank_name?: string | null;
           bank_account_number?: string | null;
@@ -868,6 +883,8 @@ export interface Database {
           easyslip_response: Json | null;
           paid_at: string | null;
           due_date: string;
+          term_months: number;
+          discount_pct: number;
           created_at: string;
           updated_at: string;
           created_by: string;
@@ -887,6 +904,8 @@ export interface Database {
           easyslip_response?: Json | null;
           paid_at?: string | null;
           due_date: string;
+          term_months?: number;
+          discount_pct?: number;
           created_at?: string;
           updated_at?: string;
           created_by?: string;
@@ -906,6 +925,8 @@ export interface Database {
           easyslip_response?: Json | null;
           paid_at?: string | null;
           due_date?: string;
+          term_months?: number;
+          discount_pct?: number;
           created_at?: string;
           updated_at?: string;
           created_by?: string;
@@ -1141,3 +1162,8 @@ export type PromoRedemption = Database["public"]["Tables"]["promo_redemptions"][
 export type PlanType = "free" | "commission" | "fixed_rate";
 export type PromoDiscountType = "percentage" | "fixed";
 export type PromoPayoutStatus = "pending" | "paid" | "cancelled";
+
+export interface FixedRateTermTier {
+  months: number;
+  discount_pct: number;
+}
