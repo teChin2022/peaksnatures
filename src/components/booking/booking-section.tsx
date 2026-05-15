@@ -1663,6 +1663,32 @@ export function BookingSection({
                 <span className="text-earth-400">{t("guestInfo")}</span>
                 <span className="font-bold text-earth-900">{guestName}</span>
               </div>
+              {selectedOptionIds.length > 0 && (
+                <div>
+                  <div className="text-earth-400 mb-1.5">{t("options")}</div>
+                  <div className="space-y-1.5 pl-2">
+                    {selectedOptionIds.map((id) => {
+                      const opt = roomOptions.find((o) => o.id === id);
+                      if (!opt) return null;
+                      const isPerTime = opt.pricing_type === "per_time";
+                      const lineTotal = isPerTime ? opt.price : opt.price * nights;
+                      const unitLabel = isPerTime ? tc("perStay") : `/${tc("night")}`;
+                      const detail = isPerTime
+                        ? `฿${opt.price.toLocaleString()}${unitLabel}`
+                        : `฿${opt.price.toLocaleString()}${unitLabel} × ${nights}`;
+                      return (
+                        <div key={id} className="flex justify-between gap-2 text-xs">
+                          <div className="min-w-0">
+                            <div className="text-earth-900 truncate">{opt.name}</div>
+                            <div className="text-earth-400">{detail}</div>
+                          </div>
+                          <span className="font-medium text-earth-900 whitespace-nowrap">+฿{lineTotal.toLocaleString()}</span>
+                        </div>
+                      );
+                    })}
+                  </div>
+                </div>
+              )}
               <Separator />
               <div className="flex justify-between">
                 <span className="text-earth-400">{tc("total")}</span>
