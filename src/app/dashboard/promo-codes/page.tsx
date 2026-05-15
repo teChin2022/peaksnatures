@@ -963,32 +963,75 @@ export default function PromoCodesPage() {
           onValueChange={(v) => setActiveTab(v as "codes" | "redemptions" | "payments")}
           className="w-full"
         >
-          <TabsList>
-            <TabsTrigger value="codes">
-              {t("tabCodes")} <span className="ml-1 text-earth-500">({codes.length})</span>
-            </TabsTrigger>
-            <TabsTrigger value="redemptions">
-              <span>
-                {t("tabRedemptions")} <span className="text-earth-500">({redemptions.length})</span>
-              </span>
-              {pendingPayouts.count > 0 && (
-                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-700">
-                  {pendingPayouts.count}
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <TabsList>
+              <TabsTrigger value="codes">
+                {t("tabCodes")} <span className="ml-1 text-earth-500">({codes.length})</span>
+              </TabsTrigger>
+              <TabsTrigger value="redemptions">
+                <span>
+                  {t("tabRedemptions")} <span className="text-earth-500">({redemptions.length})</span>
                 </span>
-              )}
-            </TabsTrigger>
-            <TabsTrigger value="payments">
-              <span>
-                {t("tabPayments")}{" "}
-                <span className="text-earth-500">({recommenderSummary.length})</span>
-              </span>
-              {pendingByRecommenderCount > 0 && (
-                <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-700">
-                  {pendingByRecommenderCount}
+                {pendingPayouts.count > 0 && (
+                  <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-700">
+                    {pendingPayouts.count}
+                  </span>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="payments">
+                <span>
+                  {t("tabPayments")}{" "}
+                  <span className="text-earth-500">({recommenderSummary.length})</span>
                 </span>
-              )}
-            </TabsTrigger>
-          </TabsList>
+                {pendingByRecommenderCount > 0 && (
+                  <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-700">
+                    {pendingByRecommenderCount}
+                  </span>
+                )}
+              </TabsTrigger>
+            </TabsList>
+            {activeTab === "redemptions" && redemptions.length > 0 && (
+              <div className="flex flex-col gap-2 md:flex-row md:items-center">
+                <div className="flex flex-wrap gap-1.5">
+                  {(["all", "pending", "paid", "cancelled"] as const).map((f) => (
+                    <button
+                      key={f}
+                      type="button"
+                      onClick={() => {
+                        setRedemptionFilter(f);
+                        setRedemptionsPage(1);
+                      }}
+                      className={`cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors duration-200 ${
+                        redemptionFilter === f
+                          ? "bg-brand text-white"
+                          : "bg-earth-50 text-earth-600 hover:bg-earth-100"
+                      }`}
+                    >
+                      {f === "all"
+                        ? t("filterAll")
+                        : f === "pending"
+                          ? t("filterPending")
+                          : f === "paid"
+                            ? t("filterPaid")
+                            : t("filterCancelled")}
+                    </button>
+                  ))}
+                </div>
+                <div className="relative md:w-72">
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-earth-400" />
+                  <Input
+                    value={redemptionSearch}
+                    onChange={(e) => {
+                      setRedemptionSearch(e.target.value);
+                      setRedemptionsPage(1);
+                    }}
+                    placeholder={t("searchRedemptions")}
+                    className="pl-8"
+                  />
+                </div>
+              </div>
+            )}
+          </div>
 
           {/* Codes tab */}
           <TabsContent value="codes" className="mt-4 space-y-4">
@@ -1162,49 +1205,6 @@ export default function PromoCodesPage() {
 
           {/* Redemptions tab */}
           <TabsContent value="redemptions" className="mt-4 space-y-3">
-            {/* Filter chips + search */}
-            {redemptions.length > 0 && (
-              <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-                <div className="flex flex-wrap gap-1.5">
-                  {(["all", "pending", "paid", "cancelled"] as const).map((f) => (
-                    <button
-                      key={f}
-                      type="button"
-                      onClick={() => {
-                        setRedemptionFilter(f);
-                        setRedemptionsPage(1);
-                      }}
-                      className={`cursor-pointer rounded-full px-3 py-1 text-xs font-medium transition-colors duration-200 ${
-                        redemptionFilter === f
-                          ? "bg-brand text-white"
-                          : "bg-earth-50 text-earth-600 hover:bg-earth-100"
-                      }`}
-                    >
-                      {f === "all"
-                        ? t("filterAll")
-                        : f === "pending"
-                          ? t("filterPending")
-                          : f === "paid"
-                            ? t("filterPaid")
-                            : t("filterCancelled")}
-                    </button>
-                  ))}
-                </div>
-                <div className="relative md:w-72">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-earth-400" />
-                  <Input
-                    value={redemptionSearch}
-                    onChange={(e) => {
-                      setRedemptionSearch(e.target.value);
-                      setRedemptionsPage(1);
-                    }}
-                    placeholder={t("searchRedemptions")}
-                    className="pl-8"
-                  />
-                </div>
-              </div>
-            )}
-
             {redemptions.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center gap-3 p-10 text-center">

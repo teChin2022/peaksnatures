@@ -669,75 +669,75 @@ export default function BookingsPage() {
       )}
 
       <Tabs defaultValue="all">
-        <TabsList>
-          <TabsTrigger value="all">
-            {t("allBookings")} ({filtersActive ? filteredCount : totalCount})
-          </TabsTrigger>
-          <TabsTrigger value="pending">
-            {t("pending")} ({totalPendingCount + Object.keys(dateChangeRequests).filter(bid => { const b = bookings.find(bk => bk.id === bid); return b && b.status !== "pending" && b.status !== "verified"; }).length})
-          </TabsTrigger>
-          <TabsTrigger value="confirmed">
-            {t("confirmedTab")} ({totalConfirmedCount})
-          </TabsTrigger>
-        </TabsList>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <TabsList>
+            <TabsTrigger value="all">
+              {t("allBookings")} ({filtersActive ? filteredCount : totalCount})
+            </TabsTrigger>
+            <TabsTrigger value="pending">
+              {t("pending")} ({totalPendingCount + Object.keys(dateChangeRequests).filter(bid => { const b = bookings.find(bk => bk.id === bid); return b && b.status !== "pending" && b.status !== "verified"; }).length})
+            </TabsTrigger>
+            <TabsTrigger value="confirmed">
+              {t("confirmedTab")} ({totalConfirmedCount})
+            </TabsTrigger>
+          </TabsList>
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
+            <div className="flex flex-col gap-1 sm:max-w-xs sm:flex-1">
+              <Input
+                type="search"
+                placeholder={t("searchGuestPlaceholder")}
+                value={searchInput}
+                onChange={(e) => setSearchInput(e.target.value)}
+              />
+              {showSearchHint && (
+                <p className="text-xs text-gray-400">{t("searchMinCharsHint")}</p>
+              )}
+            </div>
+            <Select
+              value={statusFilter}
+              onValueChange={(v) => setStatusFilter(v as BookingStatus | "all")}
+            >
+              <SelectTrigger className="sm:w-48">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="all">{t("filterAllStatuses")}</SelectItem>
+                <SelectItem value="pending">{t("statusPending")}</SelectItem>
+                <SelectItem value="verified">{t("statusVerified")}</SelectItem>
+                <SelectItem value="confirmed">{t("statusConfirmed")}</SelectItem>
+                <SelectItem value="rejected">{t("statusRejected")}</SelectItem>
+                <SelectItem value="cancelled">{t("statusCancelled")}</SelectItem>
+                <SelectItem value="completed">{t("statusCompleted")}</SelectItem>
+              </SelectContent>
+            </Select>
+            {filtersDirty && (
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={() => {
+                  setSearchInput("");
+                  setSearchQuery("");
+                  setStatusFilter("all");
+                }}
+              >
+                {t("clearFilters")}
+              </Button>
+            )}
+          </div>
+        </div>
 
         {(["all", "pending", "confirmed"] as const).map((tab) => {
-          const sourceList = tab === "all" && filtersActive ? filteredBookings : bookings;
+          const sourceList = filtersActive ? filteredBookings : bookings;
           const filtered = sourceList.filter(
             (b) => tab === "all" || b.status === tab || (tab === "pending" && b.status === "verified") || (tab === "pending" && dateChangeRequests[b.id])
           );
           return (
             <TabsContent key={tab} value={tab} className="mt-4 space-y-3">
-              {tab === "all" && (
-                <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-                  <div className="flex flex-col gap-1 sm:max-w-xs sm:flex-1">
-                    <Input
-                      type="search"
-                      placeholder={t("searchGuestPlaceholder")}
-                      value={searchInput}
-                      onChange={(e) => setSearchInput(e.target.value)}
-                    />
-                    {showSearchHint && (
-                      <p className="text-xs text-gray-400">{t("searchMinCharsHint")}</p>
-                    )}
-                  </div>
-                  <Select
-                    value={statusFilter}
-                    onValueChange={(v) => setStatusFilter(v as BookingStatus | "all")}
-                  >
-                    <SelectTrigger className="sm:w-48">
-                      <SelectValue />
-                    </SelectTrigger>
-                    <SelectContent>
-                      <SelectItem value="all">{t("filterAllStatuses")}</SelectItem>
-                      <SelectItem value="pending">{t("statusPending")}</SelectItem>
-                      <SelectItem value="verified">{t("statusVerified")}</SelectItem>
-                      <SelectItem value="confirmed">{t("statusConfirmed")}</SelectItem>
-                      <SelectItem value="rejected">{t("statusRejected")}</SelectItem>
-                      <SelectItem value="cancelled">{t("statusCancelled")}</SelectItem>
-                      <SelectItem value="completed">{t("statusCompleted")}</SelectItem>
-                    </SelectContent>
-                  </Select>
-                  {filtersDirty && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => {
-                        setSearchInput("");
-                        setSearchQuery("");
-                        setStatusFilter("all");
-                      }}
-                    >
-                      {t("clearFilters")}
-                    </Button>
-                  )}
-                </div>
-              )}
               {filtered.length === 0 ? (
                 <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 py-12 text-center">
                   <CalendarDays className="h-10 w-10 text-gray-300" />
                   <p className="mt-3 text-sm font-medium text-gray-500">
-                    {tab === "all" && filtersActive ? t("noFilterResults") : t("noBookings")}
+                    {filtersActive ? t("noFilterResults") : t("noBookings")}
                   </p>
                 </div>
               ) : (

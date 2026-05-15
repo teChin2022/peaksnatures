@@ -16,8 +16,10 @@ import {
   isBefore,
   startOfDay,
 } from "date-fns";
+import Image from "next/image";
 import { createClient } from "@/lib/supabase/client";
 import { fmtDate, fmtDateStr } from "@/lib/format-date";
+import { getProvinceLabel } from "@/lib/provinces";
 import { useTranslations } from "next-intl";
 import {
   ChevronLeft,
@@ -28,6 +30,14 @@ import {
   Loader2,
   Info,
   Zap,
+  User,
+  Mail,
+  Phone,
+  MapPin,
+  CreditCard,
+  ImageIcon,
+  ShieldCheck,
+  ShieldAlert,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -68,6 +78,51 @@ interface BookingRow {
   status: BookingStatus;
 }
 
+interface FullBookingRow extends BookingRow {
+  guest_email: string;
+  guest_phone: string;
+  guest_province: string | null;
+  easyslip_verified: boolean;
+  payment_slip_url: string | null;
+  discount_amount: number | null;
+  selected_options: { name: string; price: number }[] | null;
+  checked_in_at: string | null;
+  checked_out_at: string | null;
+  cancelled_by: string | null;
+  cancel_reason: string | null;
+  created_at: string;
+  booking_source: string | null;
+}
+
+function extractStoragePath(value: string | null): string | null {
+  if (!value) return null;
+  if (!value.startsWith("http")) return value;
+  const match = value.match(/\/payment-slips\/([^?]+)/);
+  return match ? decodeURIComponent(match[1]) : null;
+}
+
+async function resolveSingleSlipUrl(
+  row: FullBookingRow,
+  supabase: ReturnType<typeof createClient>
+): Promise<FullBookingRow> {
+  const path = extractStoragePath(row.payment_slip_url);
+  if (!path) return row;
+  const { data } = await supabase.storage
+    .from("payment-slips")
+    .createSignedUrl(path, 60 * 60);
+  if (!data?.signedUrl) return row;
+  return { ...row, payment_slip_url: data.signedUrl };
+}
+
+const STATUS_BADGE: Record<BookingStatus, string> = {
+  pending: "bg-yellow-100 text-yellow-700",
+  verified: "bg-blue-100 text-blue-700",
+  confirmed: "bg-green-100 text-green-700",
+  rejected: "bg-red-100 text-red-700",
+  cancelled: "bg-gray-100 text-gray-500",
+  completed: "bg-purple-100 text-purple-700",
+};
+
 interface BlockedDateRow {
   id: string;
   homestay_id: string;
@@ -100,6 +155,7 @@ const WEEKDAYS_TH = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.
 
 export default function CalendarPage() {
   const t = useTranslations("dashboardCalendar");
+  const tDash = useTranslations("dashboard");
 
   const [loading, setLoading] = useState(true);
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
@@ -117,6 +173,38 @@ export default function CalendarPage() {
   const [selectedRoomFilter, setSelectedRoomFilter] = useState<string>("all");
   const [actionModalOpen, setActionModalOpen] = useState(false);
   const [quickBookingOpen, setQuickBookingOpen] = useState(false);
+
+  // Slide-in detail pane state
+  const [detailView, setDetailView] = useState<"list" | "detail">("list");
+  const [activeBookingId, setActiveBookingId] = useState<string | null>(null);
+  const [fullBookingCache, setFullBookingCache] = useState<Record<string, FullBookingRow>>({});
+  const [loadingDetail, setLoadingDetail] = useState(false);
+
+  const loadBookingDetails = useCallback(
+    async (id: string) => {
+      setActiveBookingId(id);
+      setDetailView("detail");
+      if (fullBookingCache[id]) return;
+      setLoadingDetail(true);
+      try {
+        const supabase = createClient();
+        const { data } = await supabase
+          .from("bookings")
+          .select(
+            "id, homestay_id, room_id, guest_name, guest_email, guest_phone, guest_province, check_in, check_out, num_guests, total_price, discount_amount, amount_paid, payment_type, status, easyslip_verified, payment_slip_url, selected_options, checked_in_at, checked_out_at, cancelled_by, cancel_reason, created_at, booking_source"
+          )
+          .eq("id", id)
+          .single();
+        if (data) {
+          const resolved = await resolveSingleSlipUrl(data as unknown as FullBookingRow, supabase);
+          setFullBookingCache((prev) => ({ ...prev, [id]: resolved }));
+        }
+      } finally {
+        setLoadingDetail(false);
+      }
+    },
+    [fullBookingCache]
+  );
 
   // Detect locale
   useEffect(() => {
@@ -874,108 +962,343 @@ export default function CalendarPage() {
 
 
       {/* Booking Detail Modal */}
-      <Dialog open={!!detailDay} onOpenChange={(open) => !open && setDetailDay(null)}>
-        <DialogContent className="max-w-md">
+      <Dialog
+        open={!!detailDay}
+        onOpenChange={(open) => {
+          if (!open) {
+            setDetailDay(null);
+            setDetailView("list");
+            setActiveBookingId(null);
+          }
+        }}
+      >
+        <DialogContent className="max-w-lg overflow-hidden">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <CalendarDays className="h-5 w-5 text-brand" />
-              {detailDay && fmtDate(detailDay.date, "EEE, d MMM yyyy", locale)}
+              {detailView === "detail" ? (
+                <>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-7 w-7 -ml-1"
+                    onClick={() => setDetailView("list")}
+                    aria-label={t("back")}
+                  >
+                    <ChevronLeft className="h-4 w-4" />
+                  </Button>
+                  <span className="truncate">
+                    {(activeBookingId && fullBookingCache[activeBookingId]?.guest_name) ||
+                      tDash("bookingDetails")}
+                  </span>
+                </>
+              ) : (
+                <>
+                  <CalendarDays className="h-5 w-5 text-brand" />
+                  {detailDay && fmtDate(detailDay.date, "EEE, d MMM yyyy", locale)}
+                </>
+              )}
             </DialogTitle>
             <DialogDescription>
-              {detailDay && detailDay.bookings.length > 0
+              {detailView === "list" && detailDay && detailDay.bookings.length > 0
                 ? t("bookingDetailDesc", { count: detailDay.bookings.length })
                 : ""}
             </DialogDescription>
           </DialogHeader>
 
-          {detailDay && detailDay.isBlocked && (
-            <div className="flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
-              <Ban className="h-4 w-4 shrink-0" />
-              <div>
-                <span className="font-medium">{t("blocked")}</span>
-                {detailDay.blockedRoomName && (
-                  <span className="text-red-500"> — {detailDay.blockedRoomName}</span>
-                )}
-                {detailDay.blockedReason && (
-                  <span className="text-red-500"> — {detailDay.blockedReason}</span>
-                )}
-              </div>
-            </div>
-          )}
-
-          {detailDay && detailDay.bookings.length > 0 && (
-            <div className="max-h-[60vh] overflow-y-auto space-y-3 pr-1">
-              {detailDay.bookings.map((bi) => (
-                <div
-                  key={bi.booking.id}
-                  className="rounded-lg border p-3 text-sm"
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <span className="font-semibold text-gray-900">
-                      {bi.booking.guest_name}
-                    </span>
-                    <div className="flex items-center gap-1.5">
-                      <Badge
-                        variant="outline"
-                        className={`text-[10px] px-1.5 py-0 ${
-                          bi.position === "start"
-                            ? "border-brand/30 text-brand bg-brand-50"
-                            : bi.position === "end"
-                            ? "border-orange-300 text-orange-700 bg-orange-50"
-                            : "border-blue-300 text-blue-700 bg-blue-50"
-                        }`}
-                      >
-                        {bi.position === "start" ? t("checkIn") : bi.position === "end" ? t("checkOut") : t("staying")}
-                      </Badge>
-                      <Badge
-                        variant="secondary"
-                        className={`text-[10px] px-1.5 py-0 ${
-                          bi.booking.status === "confirmed" || bi.booking.status === "verified"
-                            ? "bg-green-100 text-green-700"
-                            : bi.booking.status === "pending"
-                            ? "bg-yellow-100 text-yellow-700"
-                            : "bg-gray-100 text-gray-500"
-                        }`}
-                      >
-                        {bi.booking.status}
-                      </Badge>
-                    </div>
-                  </div>
-                  <div className="grid grid-cols-2 gap-2 text-xs">
-                    <div className="rounded-md bg-brand-50 px-2.5 py-1.5">
-                      <p className="text-brand font-medium mb-0.5">{t("checkIn")}</p>
-                      <p className="text-gray-900 font-semibold">{fmtDateStr(bi.booking.check_in, "d MMM yyyy", locale)}</p>
-                    </div>
-                    <div className="rounded-md bg-orange-50 px-2.5 py-1.5">
-                      <p className="text-orange-600 font-medium mb-0.5">{t("checkOut")}</p>
-                      <p className="text-gray-900 font-semibold">{fmtDateStr(bi.booking.check_out, "d MMM yyyy", locale)}</p>
-                    </div>
-                  </div>
-                  <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
-                    <span>
-                      {bi.booking.room_id ? roomMap[bi.booking.room_id] || "—" : "—"} · {bi.booking.num_guests} {t("guests")}
-                    </span>
-                    <div className="text-right">
-                      <span className="font-semibold text-sm text-brand">
-                        ฿{bi.booking.total_price.toLocaleString()}
-                      </span>
-                      {bi.booking.payment_type === "deposit" && bi.booking.amount_paid < bi.booking.total_price && (
-                        <span className="ml-1.5 text-[10px] font-medium text-amber-600">
-                          (มัดจำ ฿{bi.booking.amount_paid.toLocaleString()})
-                        </span>
+          <div className="relative w-full overflow-hidden" style={{ minHeight: 320 }}>
+            <div
+              className="flex w-[200%] transition-transform duration-300 ease-out"
+              style={{ transform: detailView === "list" ? "translateX(0)" : "translateX(-50%)" }}
+            >
+              {/* PANE A — list */}
+              <div className="w-1/2 shrink-0 pr-1 space-y-3">
+                {detailDay && detailDay.isBlocked && (
+                  <div className="flex items-center gap-2 rounded-md bg-red-50 px-3 py-2 text-xs text-red-700">
+                    <Ban className="h-4 w-4 shrink-0" />
+                    <div>
+                      <span className="font-medium">{t("blocked")}</span>
+                      {detailDay.blockedRoomName && (
+                        <span className="text-red-500"> — {detailDay.blockedRoomName}</span>
+                      )}
+                      {detailDay.blockedReason && (
+                        <span className="text-red-500"> — {detailDay.blockedReason}</span>
                       )}
                     </div>
                   </div>
-                </div>
-              ))}
-            </div>
-          )}
+                )}
 
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setDetailDay(null)}>
-              {t("closeAction")}
-            </Button>
-          </DialogFooter>
+                {detailDay && detailDay.bookings.length > 0 && (
+                  <div className="max-h-[60vh] overflow-y-auto space-y-3 pr-1">
+                    {detailDay.bookings.map((bi) => (
+                      <div
+                        key={bi.booking.id}
+                        className="rounded-lg border p-3 text-sm"
+                      >
+                        <div className="flex items-center justify-between mb-2">
+                          <span className="font-semibold text-gray-900">
+                            {bi.booking.guest_name}
+                          </span>
+                          <div className="flex items-center gap-1.5">
+                            <Badge
+                              variant="outline"
+                              className={`text-[10px] px-1.5 py-0 ${
+                                bi.position === "start"
+                                  ? "border-brand/30 text-brand bg-brand-50"
+                                  : bi.position === "end"
+                                  ? "border-orange-300 text-orange-700 bg-orange-50"
+                                  : "border-blue-300 text-blue-700 bg-blue-50"
+                              }`}
+                            >
+                              {bi.position === "start" ? t("checkIn") : bi.position === "end" ? t("checkOut") : t("staying")}
+                            </Badge>
+                            <Badge
+                              variant="secondary"
+                              className={`text-[10px] px-1.5 py-0 ${STATUS_BADGE[bi.booking.status]}`}
+                            >
+                              {bi.booking.status}
+                            </Badge>
+                          </div>
+                        </div>
+                        <div className="grid grid-cols-2 gap-2 text-xs">
+                          <div className="rounded-md bg-brand-50 px-2.5 py-1.5">
+                            <p className="text-brand font-medium mb-0.5">{t("checkIn")}</p>
+                            <p className="text-gray-900 font-semibold">{fmtDateStr(bi.booking.check_in, "d MMM yyyy", locale)}</p>
+                          </div>
+                          <div className="rounded-md bg-orange-50 px-2.5 py-1.5">
+                            <p className="text-orange-600 font-medium mb-0.5">{t("checkOut")}</p>
+                            <p className="text-gray-900 font-semibold">{fmtDateStr(bi.booking.check_out, "d MMM yyyy", locale)}</p>
+                          </div>
+                        </div>
+                        <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                          <span>
+                            {bi.booking.room_id ? roomMap[bi.booking.room_id] || "—" : "—"} · {bi.booking.num_guests} {t("guests")}
+                          </span>
+                          <div className="text-right">
+                            <span className="font-semibold text-sm text-brand">
+                              ฿{bi.booking.total_price.toLocaleString()}
+                            </span>
+                            {bi.booking.payment_type === "deposit" && bi.booking.amount_paid < bi.booking.total_price && (
+                              <span className="ml-1.5 text-[10px] font-medium text-amber-600">
+                                (มัดจำ ฿{bi.booking.amount_paid.toLocaleString()})
+                              </span>
+                            )}
+                          </div>
+                        </div>
+                        <button
+                          type="button"
+                          onClick={() => loadBookingDetails(bi.booking.id)}
+                          className="mt-2 w-full text-right text-xs font-medium text-brand hover:underline"
+                        >
+                          {tDash("bookingDetails")} →
+                        </button>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+
+              {/* PANE B — read-only detail */}
+              <div className="w-1/2 shrink-0 pl-1">
+                {loadingDetail || !activeBookingId || !fullBookingCache[activeBookingId] ? (
+                  <div
+                    className="space-y-4 pr-1"
+                    role="status"
+                    aria-label={t("loadingDetails")}
+                  >
+                    <Skeleton className="h-5 w-20 rounded-full" />
+                    <div className="space-y-2">
+                      <div className="flex items-center justify-between">
+                        <Skeleton className="h-4 w-28" />
+                        <Skeleton className="h-5 w-24 rounded-full" />
+                      </div>
+                      <Skeleton className="h-56 w-full rounded-lg" />
+                    </div>
+                    <div className="rounded-lg border bg-gray-50 p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-4 w-4 rounded-full" />
+                        <Skeleton className="h-4 w-32" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-4 w-4 rounded-full" />
+                        <Skeleton className="h-4 w-44" />
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <Skeleton className="h-4 w-4 rounded-full" />
+                        <Skeleton className="h-4 w-28" />
+                      </div>
+                      <div className="border-t border-gray-200 pt-3 space-y-2">
+                        <div className="flex justify-between">
+                          <Skeleton className="h-4 w-16" />
+                          <Skeleton className="h-4 w-24" />
+                        </div>
+                        <div className="flex justify-between">
+                          <Skeleton className="h-4 w-16" />
+                          <Skeleton className="h-4 w-40" />
+                        </div>
+                        <div className="flex justify-between">
+                          <Skeleton className="h-4 w-16" />
+                          <Skeleton className="h-4 w-12" />
+                        </div>
+                        <div className="flex justify-between">
+                          <Skeleton className="h-4 w-12" />
+                          <Skeleton className="h-4 w-20" />
+                        </div>
+                        <div className="flex justify-between">
+                          <Skeleton className="h-4 w-20" />
+                          <Skeleton className="h-4 w-20" />
+                        </div>
+                      </div>
+                    </div>
+                  </div>
+                ) : (
+                  (() => {
+                    const fb = fullBookingCache[activeBookingId];
+                    const balance = fb.total_price - fb.amount_paid;
+                    return (
+                      <div className="max-h-[70vh] overflow-y-auto space-y-4 pr-1">
+                        <div className="flex items-center gap-2">
+                          <Badge variant="secondary" className={STATUS_BADGE[fb.status]}>
+                            {fb.status}
+                          </Badge>
+                        </div>
+
+                        {fb.payment_slip_url ? (
+                          <div className="space-y-2">
+                            <div className="flex items-center justify-between">
+                              <h4 className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                                <CreditCard className="h-4 w-4" />
+                                {tDash("paymentSlip")}
+                              </h4>
+                              {fb.easyslip_verified ? (
+                                <Badge variant="secondary" className="bg-brand/5 text-brand">
+                                  <ShieldCheck className="mr-1 h-3 w-3" />
+                                  {tDash("paymentVerified")}
+                                </Badge>
+                              ) : (
+                                <Badge variant="secondary" className="bg-amber-50 text-amber-700">
+                                  <ShieldAlert className="mr-1 h-3 w-3" />
+                                  {tDash("paymentPending")}
+                                </Badge>
+                              )}
+                            </div>
+                            <div className="rounded-lg border bg-gray-50 p-2">
+                              <Image
+                                src={fb.payment_slip_url}
+                                alt="Payment slip"
+                                width={400}
+                                height={320}
+                                className="mx-auto max-h-72 rounded-lg object-contain"
+                                unoptimized
+                              />
+                            </div>
+                          </div>
+                        ) : (
+                          <div className="flex items-center gap-2 rounded-lg border border-dashed border-gray-200 p-4 text-sm text-gray-400">
+                            <ImageIcon className="h-5 w-5" />
+                            {tDash("noSlip")}
+                          </div>
+                        )}
+
+                        <div className="rounded-lg border bg-gray-50 p-4 space-y-2 text-sm">
+                          <div className="flex items-center gap-2">
+                            <User className="h-4 w-4 text-gray-400" />
+                            <span className="font-medium text-gray-900">{fb.guest_name}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Mail className="h-4 w-4 text-gray-400" />
+                            <span className="text-gray-600 break-all">{fb.guest_email}</span>
+                          </div>
+                          <div className="flex items-center gap-2">
+                            <Phone className="h-4 w-4 text-gray-400" />
+                            <span className="text-gray-600">{fb.guest_phone}</span>
+                          </div>
+                          {fb.guest_province && (
+                            <div className="flex items-center gap-2">
+                              <MapPin className="h-4 w-4 text-gray-400" />
+                              <span className="text-gray-600">{getProvinceLabel(fb.guest_province, locale)}</span>
+                            </div>
+                          )}
+
+                          <div className="border-t border-gray-200 pt-2 mt-2 space-y-1">
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">{tDash("room")}</span>
+                              <span className="font-medium">
+                                {fb.room_id ? roomMap[fb.room_id] || "—" : "—"}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">{tDash("dates")}</span>
+                              <span>
+                                {fmtDateStr(fb.check_in, "d MMM yyyy", locale)} → {fmtDateStr(fb.check_out, "d MMM yyyy", locale)}
+                              </span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">{tDash("guests")}</span>
+                              <span>{fb.num_guests}</span>
+                            </div>
+                            {fb.selected_options && fb.selected_options.length > 0 && (
+                              <div>
+                                <span className="text-gray-500">{tDash("options")}</span>
+                                <div className="mt-1 space-y-0.5">
+                                  {fb.selected_options.map((o, i) => (
+                                    <div key={i} className="flex justify-between text-xs">
+                                      <span className="text-gray-600">{o.name}</span>
+                                      <span className="font-medium text-brand">+฿{o.price.toLocaleString()}</span>
+                                    </div>
+                                  ))}
+                                </div>
+                              </div>
+                            )}
+                            {(fb.discount_amount ?? 0) > 0 && (
+                              <>
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-gray-500">{tDash("subtotal")}</span>
+                                  <span className="font-medium text-gray-900">
+                                    ฿{(fb.total_price + (fb.discount_amount ?? 0)).toLocaleString()}
+                                  </span>
+                                </div>
+                                <div className="flex justify-between text-sm">
+                                  <span className="text-emerald-700">{tDash("promoDiscount")}</span>
+                                  <span className="font-medium text-emerald-700">
+                                    −฿{(fb.discount_amount ?? 0).toLocaleString()}
+                                  </span>
+                                </div>
+                              </>
+                            )}
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">{tDash("total")}</span>
+                              <span className="font-bold text-brand">฿{fb.total_price.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between">
+                              <span className="text-gray-500">{tDash("amountPaid")}</span>
+                              <span className="font-medium text-gray-900">฿{fb.amount_paid.toLocaleString()}</span>
+                            </div>
+                            {balance > 0 && (
+                              <div className="flex justify-between">
+                                <span className="text-amber-600">
+                                  {tDash("balanceDue", { amount: "" }).replace(/[:\s฿]+$/, "")}
+                                </span>
+                                <span className="font-medium text-amber-600">฿{balance.toLocaleString()}</span>
+                              </div>
+                            )}
+                          </div>
+                          <p className="text-xs text-gray-400 pt-1">ID: {fb.id}</p>
+                        </div>
+                      </div>
+                    );
+                  })()
+                )}
+              </div>
+            </div>
+          </div>
+
+          {detailView === "list" && (
+            <DialogFooter>
+              <Button variant="outline" onClick={() => setDetailDay(null)}>
+                {t("closeAction")}
+              </Button>
+            </DialogFooter>
+          )}
         </DialogContent>
       </Dialog>
 

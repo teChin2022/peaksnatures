@@ -978,7 +978,9 @@
     "filterRoom": "Room",
     "allRooms": "All Rooms",
     "forRoom": "Room",
-    "quickBooking": "Quick Booking"
+    "quickBooking": "Quick Booking",
+    "loadingDetails": "Loading…",
+    "back": "Back"
   },
   "dashboardPromoCodes": {
     "title": "Discount / Referrer",
