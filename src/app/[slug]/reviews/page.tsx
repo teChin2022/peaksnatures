@@ -73,7 +73,7 @@ export default async function ReviewsPage({ params }: PageProps) {
   const tp = await getTranslations("reviewsPage");
 
   return (
-    <div className="min-h-screen bg-gray-50/50">
+    <div className="flex min-h-screen flex-col bg-earth-50 pb-[env(safe-area-inset-bottom)]">
       <Breadcrumbs
         items={[
           { label: SITE_NAME, href: "/" },
@@ -83,29 +83,38 @@ export default async function ReviewsPage({ params }: PageProps) {
         visuallyHidden
       />
 
-      <header className="sticky top-0 z-50 border-b border-gray-200/70 bg-white/80 backdrop-blur-md">
-        <div className="mx-auto flex h-14 max-w-2xl items-center gap-3 px-4 sm:px-6">
+      <header className="sticky top-0 z-30 border-b border-earth-200 bg-earth-50/80 backdrop-blur-sm">
+        <div className="mx-auto flex h-14 max-w-3xl items-center px-4">
           <Link
             href={`/${homestay.slug}`}
-            className="group flex items-center gap-1.5 text-sm text-gray-500 transition-colors hover:text-brand"
+            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-earth-600 transition-colors hover:bg-earth-100 hover:text-earth-900"
           >
-            <ArrowLeft className="h-4 w-4 transition-transform group-hover:-translate-x-0.5" />
-            <span className="hidden truncate sm:inline">{tp("backToHomestay", { name: homestay.name })}</span>
+            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            <span className="hidden sm:inline">{tp("backToHomestay")}</span>
           </Link>
         </div>
       </header>
 
-      <main className="mx-auto max-w-2xl px-4 py-10 sm:px-6 sm:py-12">
-        <div className="mb-10 text-center">
-          <h1 className="text-3xl font-bold tracking-tight text-gray-900 sm:text-4xl">{tp("title")}</h1>
-          <p className="mt-2 text-sm text-gray-500">{tp("subtitle", { name: homestay.name })}</p>
-        </div>
+      <main className="flex-1 px-4 py-10 md:py-14">
+        <div className="mx-auto max-w-3xl space-y-10">
+          <header className="text-center">
+            <span className="inline-block rounded-full bg-brand-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand">
+              {tp("pill")}
+            </span>
+            <h1 className="mt-4 font-serif text-4xl font-normal leading-tight text-earth-900 md:text-5xl">
+              {tp("title")}
+            </h1>
+            <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-earth-500">
+              {tp("subtitle", { name: homestay.name })}
+            </p>
+          </header>
 
-        <ReviewSubmission
-          homestayId={homestay.id}
-          homestayName={homestay.name}
-          homestaySlug={homestay.slug}
-        />
+          <ReviewSubmission
+            homestayId={homestay.id}
+            homestayName={homestay.name}
+            homestaySlug={homestay.slug}
+          />
+        </div>
       </main>
     </div>
   );

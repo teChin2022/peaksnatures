@@ -94,17 +94,21 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
   if (submitted) {
     return (
       <div className="flex flex-col items-center justify-center py-16 text-center">
-        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-[#2F5D50]/10">
-          <CheckCircle className="h-8 w-8 text-[#2F5D50]" />
+        <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-50">
+          <CheckCircle className="h-8 w-8 text-brand" />
         </div>
-        <h2 className="mt-4 text-xl font-semibold text-gray-900">{t("thankYou")}</h2>
-        <p className="mt-2 max-w-sm text-sm text-gray-500">{t("reviewSubmittedDesc")}</p>
+        <h2 className="mt-4 text-xl font-semibold text-earth-900">{t("thankYou")}</h2>
+        <p className="mt-2 max-w-sm text-sm text-earth-500">{t("reviewSubmittedDesc")}</p>
         <div className="mt-6 flex gap-3">
-          <Button variant="outline" onClick={handleWriteAnother}>
+          <Button
+            variant="outline"
+            onClick={handleWriteAnother}
+            className="cursor-pointer border-earth-200 text-earth-700 hover:border-brand hover:text-brand"
+          >
             {t("writeAnother")}
           </Button>
           <Link href={`/${homestaySlug}`}>
-            <Button className="bg-[#2F5D50] text-white hover:bg-[#264A40]">
+            <Button className="h-11 cursor-pointer rounded-xl bg-brand px-5 text-white hover:bg-brand-hover">
               {t("backToHomestayBtn", { name: homestayName })}
             </Button>
           </Link>
@@ -118,14 +122,19 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
     return (
       <div className="space-y-4">
         {/* Selected booking summary */}
-        <div className="flex items-center justify-between rounded-xl border border-[#2F5D50]/20 bg-[#2F5D50]/5 p-4">
+        <div className="flex flex-col gap-3 rounded-2xl border border-brand/20 bg-brand-50 p-4 md:flex-row md:items-center md:justify-between md:p-5">
           <div>
-            <p className="text-sm font-medium text-gray-900">{selectedBooking.guest_name}</p>
-            <p className="text-xs text-gray-500">
+            <p className="text-sm font-semibold text-earth-900">{selectedBooking.guest_name}</p>
+            <p className="text-xs text-earth-600">
               {selectedBooking.room_name} · {fmtDateStr(selectedBooking.check_in, "d MMM yyyy", locale)} — {fmtDateStr(selectedBooking.check_out, "d MMM yyyy", locale)}
             </p>
           </div>
-          <Button variant="ghost" size="sm" className="text-xs" onClick={() => setSelectedBooking(null)}>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="cursor-pointer self-start text-xs text-earth-600 hover:bg-white hover:text-brand md:self-auto"
+            onClick={() => setSelectedBooking(null)}
+          >
             {t("changeBooking")}
           </Button>
         </div>
@@ -144,33 +153,51 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
   return (
     <div className="space-y-6">
       {/* Lookup form */}
-      <div className="mx-auto max-w-md space-y-4">
-        <div className="space-y-1.5">
-          <Label className="text-sm font-medium">{t("identifierLabel")}</Label>
-          <div className="flex gap-2">
-            <Input
-              placeholder={t("identifierPlaceholder")}
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleLookup()}
-            />
-            <Button
-              onClick={handleLookup}
-              disabled={!identifier.trim() || loading || (!turnstileVerified && !turnstileToken && !turnstileError)}
-              className="bg-[#2F5D50] text-white hover:bg-[#264A40] shrink-0"
-            >
-              {loading ? (
-                <Loader2 className="h-4 w-4 animate-spin" />
-              ) : (
-                <Search className="h-4 w-4" />
-              )}
-            </Button>
-          </div>
+      <div className="rounded-2xl border border-earth-200 bg-white p-4 shadow-sm md:p-5">
+        <Label
+          htmlFor="reviews-identifier"
+          className="block text-[12px] font-semibold uppercase tracking-[0.18em] text-earth-500"
+        >
+          {t("identifierLabel")}
+        </Label>
+        <div className="mt-2 flex flex-col gap-2 md:flex-row">
+          <Input
+            id="reviews-identifier"
+            placeholder={t("identifierPlaceholder")}
+            value={identifier}
+            onChange={(e) => setIdentifier(e.target.value)}
+            onKeyDown={(e) => e.key === "Enter" && handleLookup()}
+            aria-describedby="reviews-lookup-hint"
+            className="!h-12 flex-1 rounded-xl !border-earth-200 !bg-white text-base transition-colors hover:!border-earth-400"
+          />
+          <Button
+            onClick={handleLookup}
+            disabled={!identifier.trim() || loading || (!turnstileVerified && !turnstileToken && !turnstileError)}
+            className="h-12 cursor-pointer rounded-xl bg-brand px-6 text-white hover:bg-brand-hover md:min-w-[140px]"
+          >
+            {loading ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
+                {t("lookupLoading")}
+              </>
+            ) : (
+              <>
+                <Search className="mr-2 h-4 w-4" aria-hidden="true" />
+                {t("lookupButton")}
+              </>
+            )}
+          </Button>
         </div>
+        <p
+          id="reviews-lookup-hint"
+          className="mt-3 text-xs leading-relaxed text-earth-500"
+        >
+          {t("noBookingsHint")}
+        </p>
 
         {/* Turnstile CAPTCHA — hidden once solved or verified */}
         {!turnstileToken && !turnstileVerified && (
-          <div className="flex justify-center">
+          <div className="mt-4 flex justify-center">
             <Turnstile
               ref={turnstileRef}
               siteKey={process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY!}
@@ -185,33 +212,34 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
 
       {/* Results */}
       {bookings !== null && bookings.length === 0 && (
-        <div className="mx-auto max-w-md rounded-xl border border-dashed border-gray-200 bg-gray-50/50 p-6 text-center">
-          <p className="text-sm text-gray-600">{t("noEligibleBookings")}</p>
-          <p className="mt-1 text-xs text-gray-400">{t("noBookingsHint")}</p>
+        <div className="rounded-2xl border border-dashed border-earth-200 bg-white/60 p-6 text-center">
+          <p className="text-sm text-earth-600">{t("noEligibleBookings")}</p>
         </div>
       )}
 
       {bookings !== null && bookings.length > 0 && (
-        <div className="mx-auto max-w-md space-y-3">
-          <p className="text-sm font-medium text-gray-700">{t("selectBooking")}</p>
+        <div className="space-y-3">
+          <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-earth-500">
+            {t("selectBooking")}
+          </h2>
           {bookings.map((booking) => (
             <button
               key={booking.id}
               type="button"
               onClick={() => setSelectedBooking(booking)}
-              className="w-full rounded-xl border border-gray-200 bg-white p-4 text-left transition-colors hover:border-[#2F5D50]/30 hover:bg-[#2F5D50]/5"
+              className="w-full cursor-pointer rounded-2xl border border-earth-200 bg-white p-5 text-left shadow-sm transition-colors hover:border-brand"
             >
-              <p className="text-sm font-semibold text-gray-900">{booking.guest_name}</p>
-              <p className="mt-0.5 text-xs text-gray-500">
+              <p className="text-sm font-semibold text-earth-900">{booking.guest_name}</p>
+              <p className="mt-0.5 text-xs text-earth-500">
                 {t("stayedAt", { room: booking.room_name })}
               </p>
-              <div className="mt-2 flex items-center gap-4 text-xs text-gray-400">
+              <div className="mt-2 flex items-center gap-4 text-xs text-earth-500">
                 <span className="inline-flex items-center gap-1">
-                  <CalendarDays className="h-3 w-3" />
+                  <CalendarDays className="h-3 w-3 text-earth-400" aria-hidden="true" />
                   {fmtDateStr(booking.check_in, "d MMM", locale)} — {fmtDateStr(booking.check_out, "d MMM", locale)}
                 </span>
                 <span className="inline-flex items-center gap-1">
-                  <Users className="h-3 w-3" />
+                  <Users className="h-3 w-3 text-earth-400" aria-hidden="true" />
                   {booking.num_guests}
                 </span>
               </div>
