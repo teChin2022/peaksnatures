@@ -982,7 +982,9 @@
     "filterRoom": "ห้อง",
     "allRooms": "ทุกห้อง",
     "forRoom": "ห้อง",
-    "quickBooking": "จองด่วน"
+    "quickBooking": "จองด่วน",
+    "loadingDetails": "กำลังโหลด...",
+    "back": "กลับ"
   },
   "dashboardPromoCodes": {
     "title": "ส่วนลด/ผู้แนะนำ",
