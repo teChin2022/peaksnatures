@@ -994,11 +994,11 @@ export default function DashboardBillingPage() {
                   <div className="rounded-xl border border-earth-200 bg-earth-50 px-4 py-3 text-sm text-earth-700">
                     {t("termSummaryLine", {
                       months: confirmDialog.termMonths,
-                      total: `฿${computeTermTotal(
+                      total: computeTermTotal(
                         confirmDialog.termMonths,
                         (data.fixed_rate_term_tiers.find((t) => t.months === confirmDialog.termMonths)
                           ?.discount_pct) || 0,
-                      ).toLocaleString()}`,
+                      ).toLocaleString(),
                     })}
                   </div>
                 )}
