@@ -467,10 +467,23 @@ export default function DashboardBillingPage() {
               <div className="flex items-center gap-2 text-sm text-brand-700">
                 <Clock className="h-4 w-4 shrink-0" />
                 <span>
-                  {t("pendingSwitch")}{" "}
-                  <strong>{planLabel(data.plan_pending_type)}</strong>{" "}
-                  {t("effectiveOn")}{" "}
-                  {data.plan_pending_effective_at && fmtDateStr(data.plan_pending_effective_at, "d MMM yyyy", locale)}
+                  {data.plan_pending_type === "fixed_rate" && data.plan_type === "fixed_rate" ? (
+                    <>
+                      {t("pendingRenewal", {
+                        months: data.plan_pending_term_months ?? 0,
+                        date: data.plan_pending_effective_at
+                          ? fmtDateStr(data.plan_pending_effective_at, "d MMM yyyy", locale)
+                          : "",
+                      })}
+                    </>
+                  ) : (
+                    <>
+                      {t("pendingSwitch")}{" "}
+                      <strong>{planLabel(data.plan_pending_type)}</strong>{" "}
+                      {t("effectiveOn")}{" "}
+                      {data.plan_pending_effective_at && fmtDateStr(data.plan_pending_effective_at, "d MMM yyyy", locale)}
+                    </>
+                  )}
                 </span>
               </div>
               <Button
@@ -708,7 +721,7 @@ export default function DashboardBillingPage() {
                       {termExpired && (
                         <p className="mt-2 text-xs text-red-600">{t("termExpired")}</p>
                       )}
-                      {(termExpired || (daysUntilTermEnd != null && daysUntilTermEnd <= 14)) && !data.plan_pending_type && (
+                      {!data.plan_pending_type && (
                         <Button
                           size="sm"
                           className="mt-3 bg-brand hover:bg-brand-hover text-white"
@@ -929,26 +942,44 @@ export default function DashboardBillingPage() {
             const showLeaveTermWarning =
               hasActiveTerm && confirmDialog.planType !== "fixed_rate";
             const isFixedRateSwitch = confirmDialog.planType === "fixed_rate";
+            const isRenewal =
+              isFixedRateSwitch && data.plan_type === "fixed_rate";
+            const renewalEffectiveDate = data.fixed_rate_term_ends_at
+              ? (() => {
+                  const end = new Date(data.fixed_rate_term_ends_at);
+                  const next = new Date(
+                    Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate() + 1),
+                  );
+                  return fmtDateStr(next.toISOString().split("T")[0], "d MMM yyyy", locale);
+                })()
+              : "";
             return (
               <>
                 <DialogHeader>
                   <DialogTitle>
-                    {showLeaveTermWarning
-                      ? t("switchFromActiveTermTitle")
-                      : t("switchConfirmTitle")}
+                    {isRenewal
+                      ? t("renewConfirmTitle")
+                      : showLeaveTermWarning
+                        ? t("switchFromActiveTermTitle")
+                        : t("switchConfirmTitle")}
                   </DialogTitle>
                   <DialogDescription>
-                    {showLeaveTermWarning
-                      ? t("switchFromActiveTermDesc", {
-                          months: data.fixed_rate_term_months ?? 0,
-                          endDate: data.fixed_rate_term_ends_at
-                            ? fmtDateStr(data.fixed_rate_term_ends_at, "d MMM yyyy", locale)
-                            : "",
-                          plan: planLabel(confirmDialog.planType || ""),
+                    {isRenewal
+                      ? t("renewConfirmDesc", {
+                          months: confirmDialog.termMonths ?? 0,
+                          date: renewalEffectiveDate,
                         })
-                      : t(isImmediateSwitch ? "switchConfirmDescImmediate" : "switchConfirmDesc", {
-                          plan: planLabel(confirmDialog.planType || ""),
-                        })}
+                      : showLeaveTermWarning
+                        ? t("switchFromActiveTermDesc", {
+                            months: data.fixed_rate_term_months ?? 0,
+                            endDate: data.fixed_rate_term_ends_at
+                              ? fmtDateStr(data.fixed_rate_term_ends_at, "d MMM yyyy", locale)
+                              : "",
+                            plan: planLabel(confirmDialog.planType || ""),
+                          })
+                        : t(isImmediateSwitch ? "switchConfirmDescImmediate" : "switchConfirmDesc", {
+                            plan: planLabel(confirmDialog.planType || ""),
+                          })}
                   </DialogDescription>
                 </DialogHeader>
                 {showLeaveTermWarning && (

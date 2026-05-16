@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
 
     const { data: host } = await sc
       .from("hosts")
-      .select("id, plan_type, name, plan_free_expires_at, fixed_rate_override")
+      .select("id, plan_type, name, plan_free_expires_at, fixed_rate_override, fixed_rate_term_ends_at, plan_pending_type")
       .eq("user_id", user.id)
       .single();
 
@@ -64,10 +64,29 @@ export async function POST(req: NextRequest) {
       name: string;
       plan_free_expires_at: string | null;
       fixed_rate_override: number | null;
+      fixed_rate_term_ends_at: string | null;
+      plan_pending_type: string | null;
     };
 
-    if (typedHost.plan_type === plan_type) {
+    const isFixedRateRenewal =
+      typedHost.plan_type === "fixed_rate" && plan_type === "fixed_rate";
+
+    if (typedHost.plan_type === plan_type && !isFixedRateRenewal) {
       return NextResponse.json({ error: "Already on this plan" }, { status: 400 });
+    }
+
+    if (isFixedRateRenewal && !typedHost.fixed_rate_term_ends_at) {
+      return NextResponse.json(
+        { error: "No active term to renew. Pick a term to start fresh." },
+        { status: 400 },
+      );
+    }
+
+    if (typedHost.plan_pending_type) {
+      return NextResponse.json(
+        { error: "A plan switch is already pending — cancel it first." },
+        { status: 400 },
+      );
     }
 
     // Free → paid upgrades apply immediately (no charge on Free, no proration
@@ -184,9 +203,25 @@ export async function POST(req: NextRequest) {
       });
     }
 
-    const effectiveDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-      .toISOString()
-      .split("T")[0];
+    // For fixed_rate → fixed_rate transitions (same-term renewal or cross-term
+    // change), the new term starts the day after the current term ends so there
+    // is no gap and no overlap. For all other transitions, schedule for the 1st
+    // of next month so billing cycles align.
+    const isFixedRateTransition =
+      typedHost.plan_type === "fixed_rate" && plan_type === "fixed_rate";
+
+    let effectiveDate: string;
+    if (isFixedRateTransition && typedHost.fixed_rate_term_ends_at) {
+      const end = new Date(typedHost.fixed_rate_term_ends_at);
+      const next = new Date(
+        Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate() + 1),
+      );
+      effectiveDate = next.toISOString().split("T")[0];
+    } else {
+      effectiveDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
+        .toISOString()
+        .split("T")[0];
+    }
 
     const pendingFields: Record<string, unknown> = {
       plan_pending_type: plan_type,
@@ -217,6 +252,7 @@ export async function POST(req: NextRequest) {
           new_plan: plan_type,
           effective_date: effectiveDate,
           ...(term_months ? { term_months } : {}),
+          ...(isFixedRateTransition ? { renewal: true } : {}),
         },
         req,
       });

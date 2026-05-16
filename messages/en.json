@@ -1602,7 +1602,10 @@
     "termSummaryLine": "{months}-month term • Total ฿{total} payable upfront.",
     "switchFromActiveTermTitle": "Leave your prepaid term?",
     "switchFromActiveTermDesc": "You're currently on a {months}-month Fixed Rate term that ends on {endDate}. Switching to {plan} will take effect on the 1st of next month.",
-    "switchFromActiveTermWarning": "The remaining months of your prepaid term will not be refunded automatically. Contact support if you need a refund."
+    "switchFromActiveTermWarning": "The remaining months of your prepaid term will not be refunded automatically. Contact support if you need a refund.",
+    "pendingRenewal": "Renewal scheduled — next {months}-month term starts on {date}",
+    "renewConfirmTitle": "Renew Fixed Rate plan?",
+    "renewConfirmDesc": "Your next {months}-month term will start on {date} (the day after your current term ends). You'll receive an upfront invoice for the new term on that date."
   },
   "walletPage": {
     "title": "Wallet",

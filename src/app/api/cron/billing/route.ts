@@ -203,6 +203,7 @@ export async function GET(req: NextRequest) {
       .from("hosts")
       .select("id, name, phone, fixed_rate_term_ends_at")
       .eq("plan_type", "fixed_rate")
+      .is("plan_pending_type", null)
       .gte("fixed_rate_term_ends_at", in7Days)
       .lt("fixed_rate_term_ends_at", in7DaysNext);
 
@@ -214,9 +215,10 @@ export async function GET(req: NextRequest) {
         if (!host.phone || !host.fixed_rate_term_ends_at) return;
         try {
           const endDate = fmtDateStr(host.fixed_rate_term_ends_at, "d MMM yyyy", "th");
+          const billingUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://peaksnature.com"}/dashboard/billing`;
           const result = await sendSms(
             host.phone,
-            `แพลน Fixed Rate ของคุณจะหมดอายุใน 7 วัน (${endDate}) กรุณาเข้าระบบเพื่อต่ออายุหรือเลือกระยะเวลาใหม่เพื่อรับส่วนลด`,
+            `แพลน Fixed Rate ของคุณจะหมดอายุใน 7 วัน (${endDate}) ต่ออายุหรือเลือกระยะเวลาใหม่เพื่อรับส่วนลด: ${billingUrl}`,
           );
           if (result.success) termExpiryPreNotifications++;
         } catch (err) {
@@ -233,6 +235,7 @@ export async function GET(req: NextRequest) {
       .from("hosts")
       .select("id, name, phone, fixed_rate_term_ends_at")
       .eq("plan_type", "fixed_rate")
+      .is("plan_pending_type", null)
       .gte("fixed_rate_term_ends_at", today)
       .lt("fixed_rate_term_ends_at", tomorrowStr);
 
@@ -243,9 +246,10 @@ export async function GET(req: NextRequest) {
       async (host) => {
         if (!host.phone) return;
         try {
+          const billingUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://peaksnature.com"}/dashboard/billing`;
           const result = await sendSms(
             host.phone,
-            `แพลน Fixed Rate ของคุณหมดอายุแล้ว ระบบจะออกใบแจ้งหนี้รายเดือน 1 เดือนโดยอัตโนมัติ เลือกระยะเวลานานขึ้นในระบบเพื่อรับส่วนลด`,
+            `แพลน Fixed Rate ของคุณหมดอายุแล้ว ระบบจะออกใบแจ้งหนี้รายเดือน 1 เดือนโดยอัตโนมัติ เลือกระยะเวลานานขึ้นเพื่อรับส่วนลด: ${billingUrl}`,
           );
           if (result.success) termExpiryNotifications++;
         } catch (err) {
@@ -291,7 +295,7 @@ export async function GET(req: NextRequest) {
     // ============================================================
     const { data: pendingSwitches } = await supabase
       .from("hosts")
-      .select("id, plan_type, plan_pending_type, plan_pending_effective_at, plan_pending_term_months, fixed_rate_override, name")
+      .select("id, plan_type, plan_pending_type, plan_pending_effective_at, plan_pending_term_months, fixed_rate_override, fixed_rate_term_months, name")
       .not("plan_pending_type", "is", null)
       .lte("plan_pending_effective_at", today);
 
@@ -303,6 +307,7 @@ export async function GET(req: NextRequest) {
       plan_pending_type: string;
       plan_pending_term_months: number | null;
       fixed_rate_override: number | null;
+      fixed_rate_term_months: number | null;
       name: string;
     }[]) {
       const switchingToFixedRate = host.plan_pending_type === "fixed_rate";
@@ -349,6 +354,7 @@ export async function GET(req: NextRequest) {
       if (error) continue;
 
       switchCount++;
+      const isRenewal = host.plan_type === "fixed_rate" && switchingToFixedRate;
       await logEvent({
         entityType: "host",
         entityId: host.id,
@@ -359,6 +365,13 @@ export async function GET(req: NextRequest) {
           from: host.plan_type,
           to: host.plan_pending_type,
           ...(switchingToFixedRate ? { term_months: appliedTerm } : {}),
+          ...(isRenewal
+            ? {
+                renewal: true,
+                from_term_months: host.fixed_rate_term_months,
+                to_term_months: appliedTerm,
+              }
+            : {}),
         },
       });
 
