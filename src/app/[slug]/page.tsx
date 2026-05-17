@@ -193,19 +193,21 @@ const getHomestayData = cache(async function getHomestayData(
     mostBookedRoomId = rooms[0].id;
   }
 
-  const localized = await localizeHomestay(
-    { homestay, rooms, roomOptions: roomOptionsList },
-    locale,
-  );
+  const localized = host
+    ? await localizeHomestay(
+        { homestay, rooms, roomOptions: roomOptionsList, reviews, seasonalPrices, host },
+        locale,
+      )
+    : { homestay, rooms, roomOptions: roomOptionsList, reviews, seasonalPrices, host };
 
   return {
-    homestay: { ...localized.homestay, host: host! } as Homestay & { host: Host },
+    homestay: { ...localized.homestay, host: localized.host! } as Homestay & { host: Host },
     rooms: localized.rooms,
     blockedDates,
     bookedRanges,
-    seasonalPrices,
+    seasonalPrices: localized.seasonalPrices,
     roomOptions: localized.roomOptions,
-    reviews,
+    reviews: localized.reviews,
     averageRating,
     categoryAverages,
     reviewCount: reviewCount || 0,

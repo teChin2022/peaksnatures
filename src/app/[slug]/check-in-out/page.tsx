@@ -1,5 +1,6 @@
 import { cache } from "react";
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import { notFound, permanentRedirect } from "next/navigation";
 import Link from "next/link";
 import { ArrowLeft } from "lucide-react";
@@ -8,6 +9,8 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { resolveSlugRedirect } from "@/lib/slug-redirect";
 import { BookingSearchView } from "@/components/booking/booking-search-view";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
+import { localizeStrings } from "@/lib/translation/localize-strings";
+import type { SupportedLocale } from "@/lib/translation/types";
 import type { Homestay, Host } from "@/types/database";
 import { SITE_NAME, buildAlternates } from "@/lib/seo";
 
@@ -60,6 +63,20 @@ export default async function CheckInOutPage({ params }: PageProps) {
   }
 
   const { homestay, host } = data;
+  const cookieStore = await cookies();
+  const locale: SupportedLocale = cookieStore.get("locale")?.value === "en" ? "en" : "th";
+
+  const localized = await localizeStrings(
+    `homestay:${homestay.id}`,
+    {
+      name: homestay.name,
+      bank_name: host?.bank_name ?? null,
+    },
+    locale,
+  );
+  const localizedHomestay = { ...homestay, name: localized.name ?? homestay.name };
+  const localizedHost = host ? { ...host, bank_name: localized.bank_name } : host;
+
   const tp = await getTranslations("checkInOutPage");
   const tNav = await getTranslations("reviewsPage");
 
@@ -68,7 +85,7 @@ export default async function CheckInOutPage({ params }: PageProps) {
       <Breadcrumbs
         items={[
           { label: SITE_NAME, href: "/" },
-          { label: homestay.name, href: `/${homestay.slug}` },
+          { label: localizedHomestay.name, href: `/${homestay.slug}` },
           { label: "Check-in / Check-out" },
         ]}
         visuallyHidden
@@ -103,13 +120,13 @@ export default async function CheckInOutPage({ params }: PageProps) {
           <BookingSearchView
             mode="check-in-out"
             homestayId={homestay.id}
-            hostName={host?.name}
-            promptpayId={host?.promptpay_id}
-            cancellationDays={host?.cancellation_days}
-            paymentDisplay={host?.payment_display}
-            bankName={host?.bank_name}
-            bankAccountNumber={host?.bank_account_number}
-            bankAccountName={host?.bank_account_name}
+            hostName={localizedHost?.name}
+            promptpayId={localizedHost?.promptpay_id}
+            cancellationDays={localizedHost?.cancellation_days}
+            paymentDisplay={localizedHost?.payment_display}
+            bankName={localizedHost?.bank_name}
+            bankAccountNumber={localizedHost?.bank_account_number}
+            bankAccountName={localizedHost?.bank_account_name}
           />
         </div>
       </main>
