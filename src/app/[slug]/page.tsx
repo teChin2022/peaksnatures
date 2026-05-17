@@ -1,11 +1,14 @@
 import { cache } from "react";
 import type { Metadata } from "next";
+import { cookies } from "next/headers";
 import dynamic from "next/dynamic";
 import { notFound, permanentRedirect } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { resolveSlugRedirect } from "@/lib/slug-redirect";
 import { isHostBlocked } from "@/lib/plan-expiry";
 import { evaluatePromoCode } from "@/lib/promo-codes";
+import { localizeHomestay } from "@/lib/translation/translate-homestay";
+import type { SupportedLocale } from "@/lib/translation/types";
 import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice, RoomOption, PromoCode } from "@/types/database";
 import { HeroSection } from "@/components/booking/hero-section";
 import { GallerySection } from "@/components/booking/gallery-section";
@@ -77,7 +80,15 @@ const getPromoLinkInfo = cache(async function getPromoLinkInfo(
   };
 });
 
-const getHomestayData = cache(async function getHomestayData(slug: string) {
+async function readLocale(): Promise<SupportedLocale> {
+  const cookieStore = await cookies();
+  return cookieStore.get("locale")?.value === "en" ? "en" : "th";
+}
+
+const getHomestayData = cache(async function getHomestayData(
+  slug: string,
+  locale: SupportedLocale,
+) {
   const supabase = createServiceRoleClient();
 
   const { data: homestayRow } = await supabase
@@ -182,14 +193,21 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
     mostBookedRoomId = rooms[0].id;
   }
 
+  const localized = host
+    ? await localizeHomestay(
+        { homestay, rooms, roomOptions: roomOptionsList, reviews, seasonalPrices, host },
+        locale,
+      )
+    : { homestay, rooms, roomOptions: roomOptionsList, reviews, seasonalPrices, host };
+
   return {
-    homestay: { ...homestay, host: host! } as Homestay & { host: Host },
-    rooms,
+    homestay: { ...localized.homestay, host: localized.host! } as Homestay & { host: Host },
+    rooms: localized.rooms,
     blockedDates,
     bookedRanges,
-    seasonalPrices,
-    roomOptions: roomOptionsList,
-    reviews,
+    seasonalPrices: localized.seasonalPrices,
+    roomOptions: localized.roomOptions,
+    reviews: localized.reviews,
     averageRating,
     categoryAverages,
     reviewCount: reviewCount || 0,
@@ -203,7 +221,8 @@ const getHomestayData = cache(async function getHomestayData(slug: string) {
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const data = await getHomestayData(slug);
+  const locale = await readLocale();
+  const data = await getHomestayData(slug, locale);
 
   if (!data) {
     return {
@@ -247,7 +266,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 export default async function HomestayPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
   const { promo: promoParam } = await searchParams;
-  const data = await getHomestayData(slug);
+  const locale = await readLocale();
+  const data = await getHomestayData(slug, locale);
 
   if (!data) {
     // Check if this is an old slug that should redirect
@@ -359,7 +379,7 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
     <div className="min-h-screen bg-white">
       <JsonLd data={lodgingLd} id="ld-lodging" />
       {faqLd && <JsonLd data={faqLd} id="ld-faq" />}
-      <BookingHeader homestayName={homestay.name} logoUrl={homestay.logo_url} homestayId={homestay.id} promptpayId={homestay.host.promptpay_id} hostName={homestay.host.name} cancellationDays={homestay.host.cancellation_days} paymentDisplay={homestay.host.payment_display} bankName={homestay.host.bank_name} bankAccountNumber={homestay.host.bank_account_number} bankAccountName={homestay.host.bank_account_name} />
+      <BookingHeader homestayName={homestay.name} logoUrl={homestay.logo_url} slug={homestay.slug} />
 
       <main className="pb-16 md:pb-0">
         <Breadcrumbs items={breadcrumbItems} visuallyHidden />

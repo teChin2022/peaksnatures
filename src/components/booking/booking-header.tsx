@@ -1,28 +1,27 @@
 "use client";
 
 import { useState, useEffect } from "react";
-import dynamic from "next/dynamic";
 import Link from "next/link";
 import Image from "next/image";
-import { ArrowLeft } from "lucide-react";
-
-const BookingSearchDialog = dynamic(() => import("@/components/booking/booking-search-dialog").then((m) => m.BookingSearchDialog));
+import { Menu, LogIn, ArrowRightLeft } from "lucide-react";
+import { useTranslations } from "next-intl";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
+import { LanguageSwitcherIcon } from "@/components/language-switcher-icon";
 
 interface BookingHeaderProps {
   homestayName: string;
   logoUrl?: string | null;
-  homestayId: string;
-  promptpayId?: string;
-  hostName?: string;
-  cancellationDays?: number;
-  paymentDisplay?: string;
-  bankName?: string | null;
-  bankAccountNumber?: string | null;
-  bankAccountName?: string | null;
+  slug: string;
 }
 
-export function BookingHeader({ homestayName, logoUrl, homestayId, promptpayId, hostName, cancellationDays, paymentDisplay, bankName, bankAccountNumber, bankAccountName }: BookingHeaderProps) {
+export function BookingHeader({ homestayName, logoUrl, slug }: BookingHeaderProps) {
   const [scrolled, setScrolled] = useState(false);
+  const t = useTranslations("bookingMenu");
 
   useEffect(() => {
     const handleScroll = () => setScrolled(window.scrollY > window.innerHeight * 0.15);
@@ -38,14 +37,6 @@ export function BookingHeader({ homestayName, logoUrl, homestayId, promptpayId, 
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
         <div className="flex items-center gap-3 min-w-0">
-          <Link
-            href="/"
-            className={`flex items-center gap-1.5 text-sm transition-colors shrink-0 p-3 -ml-3 ${
-              scrolled ? "text-earth-400 hover:text-earth-700" : "text-white/70 hover:text-white"
-            }`}
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </Link>
           {logoUrl ? (
             <Image
               src={logoUrl}
@@ -66,7 +57,34 @@ export function BookingHeader({ homestayName, logoUrl, homestayId, promptpayId, 
           </span>
         </div>
         <div className="flex items-center gap-2">
-          <BookingSearchDialog homestayId={homestayId} promptpayId={promptpayId} hostName={hostName} cancellationDays={cancellationDays} scrolled={scrolled} paymentDisplay={paymentDisplay} bankName={bankName} bankAccountNumber={bankAccountNumber} bankAccountName={bankAccountName} />
+          <LanguageSwitcherIcon scrolled={scrolled} />
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <button
+                type="button"
+                aria-label={t("aria")}
+                className={`p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${
+                  scrolled ? "text-[#111111]" : "text-white"
+                }`}
+              >
+                <Menu size={20} />
+              </button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end" className="w-56">
+              <DropdownMenuItem asChild>
+                <Link href={`/${slug}/check-in-out`} className="cursor-pointer">
+                  <LogIn className="mr-2 h-4 w-4" />
+                  {t("checkInOut")}
+                </Link>
+              </DropdownMenuItem>
+              <DropdownMenuItem asChild>
+                <Link href={`/${slug}/change-booking`} className="cursor-pointer">
+                  <ArrowRightLeft className="mr-2 h-4 w-4" />
+                  {t("changeBooking")}
+                </Link>
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </div>
     </nav>
