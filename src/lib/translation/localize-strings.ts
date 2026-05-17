@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
-import { getRedis, getCacheEnvPrefix } from "@/lib/redis";
+import { getRedis, getReadyRedis, getCacheEnvPrefix } from "@/lib/redis";
 import type { SupportedLocale } from "./types";
 
 const CACHE_TTL_SECONDS = 60 * 60 * 24 * 7;
@@ -37,7 +37,7 @@ export async function localizeStrings<T extends StringMap>(
 }
 
 async function readCache(key: string, keys: string[]): Promise<StringMap | null> {
-  const redis = getRedis();
+  const redis = await getReadyRedis();
   if (!redis) return null;
   try {
     const raw = await redis.get(key);
