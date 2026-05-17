@@ -1,7 +1,7 @@
 import { createHash } from "crypto";
 import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
-import { getRedis, getCacheEnvPrefix } from "@/lib/redis";
+import { getRedis, getReadyRedis, getCacheEnvPrefix } from "@/lib/redis";
 import type { Homestay, Room, RoomOption, Review, RoomSeasonalPrice, Host } from "@/types/database";
 import {
   translationPayloadSchema,
@@ -85,7 +85,7 @@ function hashSource(payload: TranslationPayload): string {
 }
 
 async function readCache(key: string): Promise<TranslationPayload | null> {
-  const redis = getRedis();
+  const redis = await getReadyRedis();
   if (!redis) return null;
   try {
     const raw = await redis.get(key);

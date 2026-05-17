@@ -12,8 +12,8 @@ export function getRedis(): Redis | null {
     const client = new Redis(url, {
       lazyConnect: false,
       maxRetriesPerRequest: 1,
-      enableOfflineQueue: false,
-      connectTimeout: 2000,
+      enableOfflineQueue: true,
+      connectTimeout: 5000,
     });
     client.on("error", (err) => {
       console.error("[redis] error:", err.message);
@@ -22,6 +22,29 @@ export function getRedis(): Redis | null {
   }
 
   return globalThis.__redis;
+}
+
+// Returns the client once the connection is `ready`, or null if the
+// handshake doesn't complete within `timeoutMs`. Avoids the cold-start
+// race where a command fires before the TCP/TLS handshake finishes.
+export async function getReadyRedis(timeoutMs = 2000): Promise<Redis | null> {
+  const client = getRedis();
+  if (!client) return null;
+  if (client.status === "ready") return client;
+
+  return new Promise<Redis | null>((resolve) => {
+    let settled = false;
+    const finish = (val: Redis | null) => {
+      if (settled) return;
+      settled = true;
+      clearTimeout(timer);
+      client.off("ready", onReady);
+      resolve(val);
+    };
+    const onReady = () => finish(client);
+    const timer = setTimeout(() => finish(null), timeoutMs);
+    client.once("ready", onReady);
+  });
 }
 
 export function getCacheEnvPrefix(): string {
