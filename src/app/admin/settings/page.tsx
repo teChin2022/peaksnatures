@@ -2,23 +2,30 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
-import { Settings, Eye, EyeOff, Loader2, CreditCard } from "lucide-react";
+import { Settings, Eye, EyeOff, Loader2, CreditCard, Plus, Trash2 } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { PageHeader } from "@/components/admin/page-header";
 import { cn } from "@/lib/utils";
+import type { FixedRateTermTier } from "@/types/database";
 
 interface BillingConfig {
   id: string;
   commission_pct: number;
   fixed_rate_amount: number;
+  fixed_rate_term_tiers: FixedRateTermTier[];
   promptpay_id: string | null;
   bank_name: string | null;
   bank_account_number: string | null;
   bank_account_name: string | null;
   payment_display: string;
+}
+
+interface TierDraft {
+  months: string;
+  discount_pct: string;
 }
 
 export default function AdminSettingsPage() {
@@ -42,6 +49,8 @@ export default function AdminSettingsPage() {
     bank_account_name: "",
     payment_display: "qr",
   });
+  const [tierDrafts, setTierDrafts] = useState<TierDraft[]>([]);
+  const [tierError, setTierError] = useState<string | null>(null);
 
   const fetchBillingConfig = useCallback(async () => {
     try {
@@ -58,6 +67,12 @@ export default function AdminSettingsPage() {
           bank_account_name: data.bank_account_name || "",
           payment_display: data.payment_display,
         });
+        setTierDrafts(
+          (data.fixed_rate_term_tiers || []).map((t) => ({
+            months: String(t.months),
+            discount_pct: String(t.discount_pct),
+          })),
+        );
       }
     } catch {
       console.error("Failed to fetch billing config");
@@ -72,6 +87,30 @@ export default function AdminSettingsPage() {
 
   const handleBillingSave = async (e: React.FormEvent) => {
     e.preventDefault();
+
+    setTierError(null);
+    const seen = new Set<number>();
+    const tiers: FixedRateTermTier[] = [];
+    for (const draft of tierDrafts) {
+      const months = parseInt(draft.months, 10);
+      const discount = parseFloat(draft.discount_pct);
+      if (!Number.isInteger(months) || months < 1 || months > 60) {
+        setTierError(`Months must be a whole number between 1 and 60.`);
+        return;
+      }
+      if (!Number.isFinite(discount) || discount < 0 || discount > 100) {
+        setTierError(`Discount must be between 0 and 100.`);
+        return;
+      }
+      if (seen.has(months)) {
+        setTierError(`Duplicate term: ${months} months.`);
+        return;
+      }
+      seen.add(months);
+      tiers.push({ months, discount_pct: discount });
+    }
+    tiers.sort((a, b) => a.months - b.months);
+
     setBillingSaving(true);
     try {
       const res = await fetch("/api/admin/billing-config", {
@@ -80,6 +119,7 @@ export default function AdminSettingsPage() {
         body: JSON.stringify({
           commission_pct: parseFloat(billingForm.commission_pct) || 0,
           fixed_rate_amount: parseInt(billingForm.fixed_rate_amount) || 0,
+          fixed_rate_term_tiers: tiers,
           promptpay_id: billingForm.promptpay_id || null,
           bank_name: billingForm.bank_name || null,
           bank_account_number: billingForm.bank_account_number || null,
@@ -91,6 +131,12 @@ export default function AdminSettingsPage() {
         toast.success("Billing configuration saved");
         const data = await res.json();
         setBillingConfig(data);
+        setTierDrafts(
+          (data.fixed_rate_term_tiers || []).map((t: FixedRateTermTier) => ({
+            months: String(t.months),
+            discount_pct: String(t.discount_pct),
+          })),
+        );
       } else {
         const data = await res.json();
         toast.error(data.error || "Failed to save");
@@ -100,6 +146,19 @@ export default function AdminSettingsPage() {
     } finally {
       setBillingSaving(false);
     }
+  };
+
+  const addTier = () => {
+    setTierError(null);
+    setTierDrafts((prev) => [...prev, { months: "1", discount_pct: "0" }]);
+  };
+  const removeTier = (idx: number) => {
+    setTierError(null);
+    setTierDrafts((prev) => prev.filter((_, i) => i !== idx));
+  };
+  const updateTier = (idx: number, key: keyof TierDraft, value: string) => {
+    setTierError(null);
+    setTierDrafts((prev) => prev.map((t, i) => (i === idx ? { ...t, [key]: value } : t)));
   };
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -194,6 +253,69 @@ export default function AdminSettingsPage() {
                       value={billingForm.fixed_rate_amount}
                       onChange={(e) => setBillingForm((f) => ({ ...f, fixed_rate_amount: e.target.value }))}
                     />
+                  </div>
+                </div>
+
+                <div className="border-t border-earth-100 pt-4">
+                  <p className="text-sm font-medium text-earth-900 mb-1">Fixed Rate Subscription Terms</p>
+                  <p className="text-xs text-earth-500 mb-3">
+                    Durations (in months) that hosts can choose. Hosts pay upfront for the whole term; the discount % reduces the total.
+                  </p>
+                  <div className="space-y-2">
+                    {tierDrafts.length === 0 && (
+                      <p className="text-xs text-earth-400 italic">No terms configured. Hosts will only see the default 1-month option after their term expires.</p>
+                    )}
+                    {tierDrafts.map((tier, i) => (
+                      <div key={i} className="flex items-end gap-2">
+                        <div className="flex-1 space-y-1">
+                          <Label htmlFor={`tier-months-${i}`} className="text-xs">Months</Label>
+                          <Input
+                            id={`tier-months-${i}`}
+                            type="number"
+                            min="1"
+                            max="60"
+                            step="1"
+                            value={tier.months}
+                            onChange={(e) => updateTier(i, "months", e.target.value)}
+                          />
+                        </div>
+                        <div className="flex-1 space-y-1">
+                          <Label htmlFor={`tier-discount-${i}`} className="text-xs">Discount (%)</Label>
+                          <Input
+                            id={`tier-discount-${i}`}
+                            type="number"
+                            min="0"
+                            max="100"
+                            step="0.01"
+                            value={tier.discount_pct}
+                            onChange={(e) => updateTier(i, "discount_pct", e.target.value)}
+                          />
+                        </div>
+                        <Button
+                          type="button"
+                          variant="ghost"
+                          size="icon"
+                          className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                          onClick={() => removeTier(i)}
+                          aria-label="Remove term"
+                        >
+                          <Trash2 className="h-4 w-4" />
+                        </Button>
+                      </div>
+                    ))}
+                    {tierError && (
+                      <p className="text-xs text-red-600">{tierError}</p>
+                    )}
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={addTier}
+                      className="mt-2"
+                    >
+                      <Plus className="h-3.5 w-3.5 mr-1" />
+                      Add Term
+                    </Button>
                   </div>
                 </div>
 

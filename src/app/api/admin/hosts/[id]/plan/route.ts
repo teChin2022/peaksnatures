@@ -54,6 +54,7 @@ export async function PATCH(
     // Clear pending plan switch when admin sets plan directly
     updateData.plan_pending_type = null;
     updateData.plan_pending_effective_at = null;
+    updateData.plan_pending_term_months = null;
 
     const { error: updateError } = await sc
       .from("hosts")

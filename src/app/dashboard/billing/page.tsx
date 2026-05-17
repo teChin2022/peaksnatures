@@ -46,14 +46,24 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 
+interface TermTier {
+  months: number;
+  discount_pct: number;
+}
+
 interface BillingData {
   plan_type: string;
   plan_free_expires_at: string | null;
   plan_pending_type: string | null;
   plan_pending_effective_at: string | null;
+  plan_pending_term_months: number | null;
   wallet_balance: number;
   effective_commission_pct: number | null;
   effective_fixed_rate: number | null;
+  fixed_rate_term_months: number | null;
+  fixed_rate_term_started_at: string | null;
+  fixed_rate_term_ends_at: string | null;
+  fixed_rate_term_tiers: TermTier[];
   platform_payment: {
     promptpay_id: string | null;
     bank_name: string | null;
@@ -183,7 +193,10 @@ export default function DashboardBillingPage() {
   const [confirmDialog, setConfirmDialog] = useState<{
     type: "switch" | "cancelSwitch";
     planType?: string;
+    termMonths?: number;
   } | null>(null);
+  const [termPickerOpen, setTermPickerOpen] = useState(false);
+  const [selectedTermMonths, setSelectedTermMonths] = useState<number | null>(null);
   const [hoveredPlan, setHoveredPlan] = useState<string | null>(null);
 
   const isMobile = useIsMobile();
@@ -208,13 +221,16 @@ export default function DashboardBillingPage() {
   }, [fetchBilling]);
 
   // ── Plan Switch ──
-  const handlePlanSwitch = async (planType: string) => {
+  const handlePlanSwitch = async (planType: string, termMonths?: number) => {
     setSwitching(true);
     try {
       const res = await fetch("/api/host/plan/switch", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan_type: planType }),
+        body: JSON.stringify({
+          plan_type: planType,
+          ...(termMonths ? { term_months: termMonths } : {}),
+        }),
       });
       if (res.ok) {
         const d = await res.json();
@@ -341,6 +357,7 @@ export default function DashboardBillingPage() {
     return <p className="text-sm text-gray-500 py-12 text-center">Failed to load billing information.</p>;
   }
 
+  const todayStr = new Date().toISOString().split("T")[0];
   const isPastFreeExpiry = Boolean(
     data.plan_type === "free" &&
       data.plan_free_expires_at &&
@@ -349,6 +366,43 @@ export default function DashboardBillingPage() {
   const isFreeExpired = isPastFreeExpiry && !data.plan_pending_type;
   // Free → paid switches apply immediately (no waiting for the 1st of the month).
   const isImmediateSwitch = data.plan_type === "free";
+
+  const hasActiveTerm = Boolean(
+    data.plan_type === "fixed_rate" &&
+      data.fixed_rate_term_months &&
+      data.fixed_rate_term_months > 1 &&
+      data.fixed_rate_term_ends_at &&
+      data.fixed_rate_term_ends_at >= todayStr,
+  );
+
+  const handlePlanCtaClick = (planKey: string) => {
+    if (planKey === "fixed_rate") {
+      setSelectedTermMonths(null);
+      setTermPickerOpen(true);
+      return;
+    }
+    setConfirmDialog({ type: "switch", planType: planKey });
+  };
+
+  const monthlyRate = data.effective_fixed_rate ?? 0;
+  const computeTermTotal = (months: number, discountPct: number) =>
+    Math.round(monthlyRate * months * (1 - discountPct / 100));
+
+  const daysUntilTermEnd = data.fixed_rate_term_ends_at
+    ? Math.ceil(
+        (new Date(data.fixed_rate_term_ends_at).getTime() - new Date(todayStr).getTime()) /
+          (1000 * 60 * 60 * 24),
+      )
+    : null;
+  const termExpired = data.fixed_rate_term_ends_at
+    ? data.fixed_rate_term_ends_at < todayStr
+    : true;
+  const currentDiscountPct = (() => {
+    const tier = (data.fixed_rate_term_tiers || []).find(
+      (t) => t.months === data.fixed_rate_term_months,
+    );
+    return tier ? tier.discount_pct : 0;
+  })();
 
   return (
     <div className="space-y-8">
@@ -413,10 +467,23 @@ export default function DashboardBillingPage() {
               <div className="flex items-center gap-2 text-sm text-brand-700">
                 <Clock className="h-4 w-4 shrink-0" />
                 <span>
-                  {t("pendingSwitch")}{" "}
-                  <strong>{planLabel(data.plan_pending_type)}</strong>{" "}
-                  {t("effectiveOn")}{" "}
-                  {data.plan_pending_effective_at && fmtDateStr(data.plan_pending_effective_at, "d MMM yyyy", locale)}
+                  {data.plan_pending_type === "fixed_rate" && data.plan_type === "fixed_rate" ? (
+                    <>
+                      {t("pendingRenewal", {
+                        months: data.plan_pending_term_months ?? 0,
+                        date: data.plan_pending_effective_at
+                          ? fmtDateStr(data.plan_pending_effective_at, "d MMM yyyy", locale)
+                          : "",
+                      })}
+                    </>
+                  ) : (
+                    <>
+                      {t("pendingSwitch")}{" "}
+                      <strong>{planLabel(data.plan_pending_type)}</strong>{" "}
+                      {t("effectiveOn")}{" "}
+                      {data.plan_pending_effective_at && fmtDateStr(data.plan_pending_effective_at, "d MMM yyyy", locale)}
+                    </>
+                  )}
                 </span>
               </div>
               <Button
@@ -520,7 +587,7 @@ export default function DashboardBillingPage() {
               ) : (
                 <button
                   type="button"
-                  onClick={() => canSwitch && setConfirmDialog({ type: "switch", planType: plan.key })}
+                  onClick={() => canSwitch && handlePlanCtaClick(plan.key)}
                   disabled={!canSwitch}
                   className={`w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center transition-colors mt-auto disabled:opacity-50 disabled:cursor-not-allowed ${
                     isPopular && !isCurrent
@@ -622,6 +689,50 @@ export default function DashboardBillingPage() {
                     <CalendarClock className="h-4 w-4 text-earth-700" />
                     <span className="text-sm font-medium text-gray-600">{t("fixedRatePlan")}</span>
                   </div>
+
+                  {/* Term summary — always visible for fixed_rate hosts */}
+                  {data.fixed_rate_term_months && data.fixed_rate_term_started_at && data.fixed_rate_term_ends_at && (
+                    <div className="mb-5 rounded-xl border border-earth-100 bg-white/60 px-4 py-3">
+                      <div className="flex items-center justify-between flex-wrap gap-2">
+                        <p className="text-sm font-medium text-earth-900">
+                          {t("nMonths", { n: data.fixed_rate_term_months })} {t("termSuffix")}
+                        </p>
+                        {currentDiscountPct > 0 && (
+                          <span className="bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wider py-0.5 px-2 rounded-full">
+                            {t("saveX", { pct: currentDiscountPct })}
+                          </span>
+                        )}
+                      </div>
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-earth-500">
+                        <div>
+                          <p className="uppercase tracking-wider text-[10px] text-earth-400">{t("termStartsOn")}</p>
+                          <p className="text-earth-700 mt-0.5">{fmtDateStr(data.fixed_rate_term_started_at, "d MMM yyyy", locale)}</p>
+                        </div>
+                        <div>
+                          <p className="uppercase tracking-wider text-[10px] text-earth-400">{t("termEndsOn")}</p>
+                          <p className="text-earth-700 mt-0.5">{fmtDateStr(data.fixed_rate_term_ends_at, "d MMM yyyy", locale)}</p>
+                        </div>
+                      </div>
+                      {daysUntilTermEnd != null && !termExpired && (
+                        <p className={`mt-2 text-xs ${daysUntilTermEnd <= 14 ? "text-amber-700" : "text-earth-400"}`}>
+                          {t("daysLeft", { n: daysUntilTermEnd })}
+                        </p>
+                      )}
+                      {termExpired && (
+                        <p className="mt-2 text-xs text-red-600">{t("termExpired")}</p>
+                      )}
+                      {!data.plan_pending_type && (
+                        <Button
+                          size="sm"
+                          className="mt-3 bg-brand hover:bg-brand-hover text-white"
+                          onClick={() => { setSelectedTermMonths(null); setTermPickerOpen(true); }}
+                        >
+                          {t("renewTerm")}
+                          <ArrowRight className="w-3.5 h-3.5 ml-1.5" />
+                        </Button>
+                      )}
+                    </div>
+                  )}
 
                   {pendingInvoice ? (
                     <div className="space-y-5">
@@ -827,31 +938,95 @@ export default function DashboardBillingPage() {
       {/* ── Confirm Dialog (switch / cancel-switch) ── */}
       <Dialog open={!!confirmDialog} onOpenChange={(open) => { if (!open) setConfirmDialog(null); }}>
         <DialogContent className="sm:max-w-md">
-          {confirmDialog?.type === "switch" && (
-            <>
-              <DialogHeader>
-                <DialogTitle>{t("switchConfirmTitle")}</DialogTitle>
-                <DialogDescription>
-                  {t(isImmediateSwitch ? "switchConfirmDescImmediate" : "switchConfirmDesc", {
-                    plan: planLabel(confirmDialog.planType || ""),
-                  })}
-                </DialogDescription>
-              </DialogHeader>
-              <DialogFooter>
-                <Button variant="outline" onClick={() => setConfirmDialog(null)}>
-                  {t("cancel")}
-                </Button>
-                <Button
-                  onClick={() => handlePlanSwitch(confirmDialog.planType!)}
-                  disabled={switching}
-                  className="bg-brand hover:bg-brand-hover"
-                >
-                  {switching && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-                  {t("switchConfirmAction")}
-                </Button>
-              </DialogFooter>
-            </>
-          )}
+          {confirmDialog?.type === "switch" && (() => {
+            const showLeaveTermWarning =
+              hasActiveTerm && confirmDialog.planType !== "fixed_rate";
+            const isFixedRateSwitch = confirmDialog.planType === "fixed_rate";
+            const isRenewal =
+              isFixedRateSwitch && data.plan_type === "fixed_rate";
+            const renewalEffectiveDate = data.fixed_rate_term_ends_at
+              ? (() => {
+                  const end = new Date(data.fixed_rate_term_ends_at);
+                  const next = new Date(
+                    Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate() + 1),
+                  );
+                  return fmtDateStr(next.toISOString().split("T")[0], "d MMM yyyy", locale);
+                })()
+              : "";
+            return (
+              <>
+                <DialogHeader>
+                  <DialogTitle>
+                    {isRenewal
+                      ? t("renewConfirmTitle")
+                      : showLeaveTermWarning
+                        ? t("switchFromActiveTermTitle")
+                        : t("switchConfirmTitle")}
+                  </DialogTitle>
+                  <DialogDescription>
+                    {isRenewal
+                      ? t("renewConfirmDesc", {
+                          months: confirmDialog.termMonths ?? 0,
+                          date: renewalEffectiveDate,
+                        })
+                      : showLeaveTermWarning
+                        ? t("switchFromActiveTermDesc", {
+                            months: data.fixed_rate_term_months ?? 0,
+                            endDate: data.fixed_rate_term_ends_at
+                              ? fmtDateStr(data.fixed_rate_term_ends_at, "d MMM yyyy", locale)
+                              : "",
+                            plan: planLabel(confirmDialog.planType || ""),
+                          })
+                        : t(isImmediateSwitch ? "switchConfirmDescImmediate" : "switchConfirmDesc", {
+                            plan: planLabel(confirmDialog.planType || ""),
+                          })}
+                  </DialogDescription>
+                </DialogHeader>
+                {showLeaveTermWarning && (
+                  <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3">
+                    <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
+                    <p className="text-xs text-amber-700">
+                      {t("switchFromActiveTermWarning")}
+                    </p>
+                  </div>
+                )}
+                {isFixedRateSwitch && confirmDialog.termMonths && (
+                  <div className="rounded-xl border border-earth-200 bg-earth-50 px-4 py-3 text-sm text-earth-700">
+                    {t("termSummaryLine", {
+                      months: confirmDialog.termMonths,
+                      total: computeTermTotal(
+                        confirmDialog.termMonths,
+                        (data.fixed_rate_term_tiers.find((t) => t.months === confirmDialog.termMonths)
+                          ?.discount_pct) || 0,
+                      ).toLocaleString(),
+                    })}
+                  </div>
+                )}
+                <DialogFooter>
+                  <Button variant="outline" onClick={() => setConfirmDialog(null)}>
+                    {t("cancel")}
+                  </Button>
+                  <Button
+                    onClick={() =>
+                      handlePlanSwitch(
+                        confirmDialog.planType!,
+                        confirmDialog.termMonths,
+                      )
+                    }
+                    disabled={switching}
+                    className={
+                      showLeaveTermWarning
+                        ? "bg-amber-600 hover:bg-amber-700"
+                        : "bg-brand hover:bg-brand-hover"
+                    }
+                  >
+                    {switching && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+                    {t("switchConfirmAction")}
+                  </Button>
+                </DialogFooter>
+              </>
+            );
+          })()}
           {confirmDialog?.type === "cancelSwitch" && (
             <>
               <DialogHeader>
@@ -875,6 +1050,69 @@ export default function DashboardBillingPage() {
               </DialogFooter>
             </>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* ── Term Picker Dialog (Fixed Rate term selection) ── */}
+      <Dialog open={termPickerOpen} onOpenChange={(open) => { if (!open) { setTermPickerOpen(false); setSelectedTermMonths(null); } }}>
+        <DialogContent className="sm:max-w-2xl">
+          <DialogHeader>
+            <DialogTitle>{t("chooseTerm")}</DialogTitle>
+            <DialogDescription>{t("chooseTermDesc")}</DialogDescription>
+          </DialogHeader>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
+            {(data.fixed_rate_term_tiers || []).map((tier) => {
+              const total = computeTermTotal(tier.months, tier.discount_pct);
+              const perMonth = tier.months > 0 ? Math.round(total / tier.months) : 0;
+              const isSelected = selectedTermMonths === tier.months;
+              return (
+                <button
+                  key={tier.months}
+                  type="button"
+                  onClick={() => setSelectedTermMonths(tier.months)}
+                  className={`relative text-left rounded-2xl border-2 p-4 transition-colors ${
+                    isSelected
+                      ? "border-brand bg-brand-50/60"
+                      : "border-earth-100 hover:border-earth-300 hover:bg-earth-50/30"
+                  }`}
+                >
+                  {tier.discount_pct > 0 && (
+                    <span className="absolute top-2 right-2 bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wider py-0.5 px-2 rounded-full">
+                      {t("saveX", { pct: tier.discount_pct })}
+                    </span>
+                  )}
+                  <p className="font-serif text-lg text-gray-900">
+                    {t("nMonths", { n: tier.months })}
+                  </p>
+                  <p className="text-2xl font-bold tracking-tight text-earth-900 mt-1">
+                    ฿{total.toLocaleString()}
+                  </p>
+                  <p className="text-xs text-earth-500 mt-0.5">
+                    ≈ ฿{perMonth.toLocaleString()} {t("perMonth")}
+                  </p>
+                </button>
+              );
+            })}
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => { setTermPickerOpen(false); setSelectedTermMonths(null); }}>
+              {t("cancel")}
+            </Button>
+            <Button
+              disabled={!selectedTermMonths}
+              onClick={() => {
+                if (!selectedTermMonths) return;
+                setTermPickerOpen(false);
+                setConfirmDialog({ type: "switch", planType: "fixed_rate", termMonths: selectedTermMonths });
+              }}
+              className="bg-brand hover:bg-brand-hover"
+            >
+              {t("continue")}
+              <ArrowRight className="w-4 h-4 ml-2" />
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

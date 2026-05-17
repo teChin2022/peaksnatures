@@ -22,7 +22,7 @@ export async function GET() {
 
     const { data: host, error: hostError } = await sc
       .from("hosts")
-      .select("id, plan_type, plan_free_expires_at, plan_pending_type, plan_pending_effective_at, wallet_balance, commission_pct_override, fixed_rate_override")
+      .select("id, plan_type, plan_free_expires_at, plan_pending_type, plan_pending_effective_at, plan_pending_term_months, wallet_balance, commission_pct_override, fixed_rate_override, fixed_rate_term_months, fixed_rate_term_started_at, fixed_rate_term_ends_at")
       .eq("user_id", user.id)
       .single();
 
@@ -62,7 +62,12 @@ export async function GET() {
       plan_free_expires_at: typedHost.plan_free_expires_at,
       plan_pending_type: typedHost.plan_pending_type,
       plan_pending_effective_at: typedHost.plan_pending_effective_at,
+      plan_pending_term_months: typedHost.plan_pending_term_months,
       wallet_balance: typedHost.wallet_balance,
+      fixed_rate_term_months: typedHost.fixed_rate_term_months,
+      fixed_rate_term_started_at: typedHost.fixed_rate_term_started_at,
+      fixed_rate_term_ends_at: typedHost.fixed_rate_term_ends_at,
+      fixed_rate_term_tiers: config?.fixed_rate_term_tiers ?? [],
       effective_commission_pct: config
         ? getEffectiveCommissionPct(typedHost, config)
         : null,

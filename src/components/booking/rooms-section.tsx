@@ -240,6 +240,8 @@ function SingleRoomHero({
   const [index, setIndex] = useState(0);
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   const [seen, setSeen] = useState<Set<number>>(() => new Set([0]));
+  const [overlayHidden, setOverlayHidden] = useState(false);
+  const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const images = room.images;
   const multi = images.length > 1;
 
@@ -257,7 +259,27 @@ function SingleRoomHero({
       return nxt;
     });
   }, [images.length]);
-  useSwipe(containerEl, { onSwipeLeft: next, onSwipeRight: prev });
+
+  const handleSwipeStart = useCallback(() => {
+    if (showTimerRef.current) {
+      clearTimeout(showTimerRef.current);
+      showTimerRef.current = null;
+    }
+    setOverlayHidden(true);
+  }, []);
+  const scheduleShow = useCallback(() => {
+    if (showTimerRef.current) clearTimeout(showTimerRef.current);
+    showTimerRef.current = setTimeout(() => setOverlayHidden(false), 3000);
+  }, []);
+  useEffect(() => () => {
+    if (showTimerRef.current) clearTimeout(showTimerRef.current);
+  }, []);
+  useSwipe(containerEl, {
+    onSwipeLeft: next,
+    onSwipeRight: prev,
+    onSwipeStart: handleSwipeStart,
+    onSwipeEnd: scheduleShow,
+  });
 
   const { min, max } = getPriceRange(room.price_per_night, seasonalPrices);
   const hasRange = min !== max;
@@ -407,10 +429,14 @@ function SingleRoomHero({
         )}
 
         {/* Bottom gradient overlay */}
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/40 to-transparent" />
+        <div
+          className={`pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/40 to-transparent transition-opacity duration-300 ease-out md:opacity-100 ${overlayHidden ? "opacity-0" : "opacity-100"}`}
+        />
 
         {/* Overlaid content */}
-        <div className="absolute inset-x-0 bottom-0 z-[2] flex flex-col gap-3 p-5 md:p-8">
+        <div
+          className={`absolute inset-x-0 bottom-0 z-[2] flex flex-col gap-3 p-5 md:p-8 transition-all duration-300 ease-out md:opacity-100 md:translate-y-0 md:pointer-events-auto ${overlayHidden ? "opacity-0 translate-y-4 pointer-events-none" : "opacity-100 translate-y-0"}`}
+        >
           {/* Bottom row: info left, CTA right */}
           <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
             {/* Left: name + price + badges */}

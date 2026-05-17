@@ -42,6 +42,7 @@ export async function POST(req: NextRequest) {
       .update({
         plan_pending_type: null,
         plan_pending_effective_at: null,
+        plan_pending_term_months: null,
         updated_by: typedHost.name,
       } as never)
       .eq("id", typedHost.id);
