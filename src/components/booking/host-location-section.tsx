@@ -3,9 +3,10 @@
 import Image from "next/image";
 import { ShieldCheck, CalendarDays, BookOpen, Phone, BadgeCheck } from "lucide-react";
 
-import { useTranslations } from "next-intl";
+import { useTranslations, useLocale } from "next-intl";
 import { motion } from "motion/react";
 import { getInitials } from "@/lib/utils";
+import { fmtDateStr } from "@/lib/format-date";
 
 interface HostLocationSectionProps {
   hostName: string;
@@ -32,6 +33,7 @@ export function HostLocationSection({
 }: HostLocationSectionProps) {
   const t = useTranslations("hostCard");
   const ta = useTranslations("about");
+  const locale = useLocale();
 
   const diffMs = Date.now() - new Date(hostCreatedAt).getTime();
   const totalMonths = Math.max(0, Math.floor(diffMs / (30.44 * 24 * 60 * 60 * 1000)));
@@ -183,11 +185,7 @@ export function HostLocationSection({
                     <p className="text-[11px]">
                       {t("lastBooking")}{" "}
                       <span className="font-semibold text-earth-700">
-                        {new Date(lastBookingDate).toLocaleDateString("th-TH", {
-                          day: "numeric",
-                          month: "short",
-                          year: "numeric",
-                        })}
+                        {fmtDateStr(lastBookingDate, "d MMM yyyy", locale)}
                       </span>
                     </p>
                   </div>
