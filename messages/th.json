@@ -1677,7 +1677,10 @@
   "bookingMenu": {
     "aria": "ตัวเลือกการจอง",
     "checkInOut": "เช็คอิน / เช็คเอาท์",
-    "changeBooking": "เปลี่ยนห้อง / วันที่"
+    "changeBooking": "เปลี่ยนห้อง / วันที่",
+    "languageAria": "เปลี่ยนภาษา",
+    "english": "English",
+    "thai": "ไทย"
   },
   "checkInOutPage": {
     "pill": "เช็คอิน / เช็คเอาท์",

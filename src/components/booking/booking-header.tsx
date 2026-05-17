@@ -11,6 +11,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { LanguageSwitcherIcon } from "@/components/language-switcher-icon";
 
 interface BookingHeaderProps {
   homestayName: string;
@@ -56,6 +57,7 @@ export function BookingHeader({ homestayName, logoUrl, slug }: BookingHeaderProp
           </span>
         </div>
         <div className="flex items-center gap-2">
+          <LanguageSwitcherIcon scrolled={scrolled} />
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
               <button

@@ -292,8 +292,12 @@
     "unavailableDesc": "This homestay is not accepting new bookings at the moment. Please check back later.",
     "trustResponse": "Priority Response",
     "trustResponseDesc": "Average response time: 45 minutes",
+    "trustData": "Booking Information",
+    "trustDataDesc": "Your details are used only for this booking",
     "trustSecure": "Secure & Private",
     "trustSecureDesc": "We handle your information with care",
+    "trustStep": "Quick & Easy Booking",
+    "trustStepDesc": "Pick your dates, choose a room, and send your request",
     "confirmedClose": "Close",
     "duplicateTitle": "Booking Already Exists",
     "duplicateDescEmail": "An active booking was found using this email address.",
@@ -1673,7 +1677,10 @@
   "bookingMenu": {
     "aria": "Booking actions",
     "checkInOut": "Check-in / Check-out",
-    "changeBooking": "Change Room / Date"
+    "changeBooking": "Change Room / Date",
+    "languageAria": "Change language",
+    "english": "English",
+    "thai": "ไทย"
   },
   "checkInOutPage": {
     "pill": "Check-in / Check-out",

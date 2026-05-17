@@ -77,6 +77,8 @@ CRON_SECRET              # Secures /api/cron/* endpoints. Generate with: openssl
 NEXT_PUBLIC_APP_URL      # Canonical/runtime URL. Used by SEO (metadata, sitemap, robots, JSON-LD), magic-link emails, and notifications. Set per-environment in Vercel: prod = https://peaksnature.com, preview = the preview hostname, local = http://localhost:3000. NEXT_PUBLIC_SITE_URL is still read as a fallback for back-compat but new envs should use NEXT_PUBLIC_APP_URL only.
 GOOGLE_SITE_VERIFICATION # Optional. Google Search Console verification token.
 BING_SITE_VERIFICATION   # Optional. Bing Webmaster verification token.
+REDIS_URL                # Redis Cloud connection string for the Thai→English translation cache used on /[slug]. Format: redis://default:<password>@<host>:<port> (use rediss:// if TLS). Optional: if unset, EN locale silently falls back to TH content.
+GOOGLE_GENERATIVE_AI_API_KEY # Gemini API key consumed by @ai-sdk/google. Used by /api/chat and the homestay translation cache.
 ```
 
 Per-host LINE credentials (`line_channel_access_token`, `line_user_id`) are stored in the `hosts` DB table.
