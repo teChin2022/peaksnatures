@@ -1669,5 +1669,20 @@
     "txRefundGeneric": "Commission refund",
     "txTopup": "Wallet top-up",
     "txAdjustment": "Manual adjustment"
+  },
+  "bookingMenu": {
+    "aria": "Booking actions",
+    "checkInOut": "Check-in / Check-out",
+    "changeBooking": "Change Room / Date"
+  },
+  "checkInOutPage": {
+    "pill": "Check-in / Check-out",
+    "title": "Check In or Out",
+    "subtitle": "Find your booking to check in or check out."
+  },
+  "changeBookingPage": {
+    "pill": "Change Booking",
+    "title": "Change Room or Dates",
+    "subtitle": "Find your booking to change your room or stay dates."
   }
 }
