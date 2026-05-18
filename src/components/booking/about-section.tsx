@@ -73,107 +73,104 @@ export function AboutSection({
 
   return (
     <section className="py-14 md:py-20">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
-        <div className="grid grid-cols-1 gap-8 md:grid-cols-3">
-          {/* Description */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6 }}
-            className="md:col-span-2"
-          >
-            <div className="overflow-hidden pt-2 -mt-2">
-              <motion.h2
-                initial={{ y: "100%" }}
-                whileInView={{ y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
-                className="text-2xl md:text-3xl font-serif text-earth-900 tracking-tight"
-              >
-                {t("title")}
-              </motion.h2>
-            </div>
+      <div className="mx-auto max-w-4xl px-4 sm:px-6">
+        {/* Description */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6 }}
+        >
+          <div className="overflow-hidden pt-2 -mt-2">
+            <motion.h2
+              initial={{ y: "100%" }}
+              whileInView={{ y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
+              className="text-2xl md:text-3xl font-serif text-earth-900 tracking-tight"
+            >
+              {t("title")}
+            </motion.h2>
+          </div>
 
-            {/* Description card with accent bar */}
-            <div className="relative mt-3 px-3 flex gap-0 overflow-hidden rounded-xl">
-              <div ref={descRef} className="line-clamp-6 sm:line-clamp-10">
-                <HTMLContent content={description} className="py-4 leading-relaxed text-earth-600" />
-              </div>
-              {descOverflows && (
-                <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white via-white/80 to-transparent" />
-              )}
+          {/* Description card with accent bar */}
+          <div className="relative mt-3 flex gap-0 overflow-hidden rounded-xl">
+            <div ref={descRef} className="line-clamp-6 sm:line-clamp-10">
+              <HTMLContent content={description} className="py-4 leading-relaxed text-earth-600" />
             </div>
             {descOverflows && (
+              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white via-white/80 to-transparent" />
+            )}
+          </div>
+          {descOverflows && (
+            <button
+              type="button"
+              className="mt-2 text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600"
+              onClick={() => setDescModal(true)}
+            >
+              {t("readMore")}
+            </button>
+          )}
+        </motion.div>
+
+        {/* Amenities & House Rules */}
+        <motion.div
+          initial={{ opacity: 0, y: 20 }}
+          whileInView={{ opacity: 1, y: 0 }}
+          viewport={{ once: true }}
+          transition={{ duration: 0.6, delay: 0.15 }}
+          className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2"
+        >
+          <div>
+            <h3 className="text-lg font-serif text-earth-800">{t("amenities")}</h3>
+            <div className="mt-3 space-y-2">
+              {amenities.slice(0, VISIBLE_ITEMS).map((amenity) => (
+                <div
+                  key={amenity}
+                  className="flex items-center gap-2 text-sm text-earth-700"
+                >
+                  <Check className="h-4 w-4 shrink-0 text-brand" />
+                  <span>{amenity}</span>
+                </div>
+              ))}
+            </div>
+            {amenities.length > VISIBLE_ITEMS && (
               <button
                 type="button"
-                className="mt-2 px-3 text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600"
-                onClick={() => setDescModal(true)}
+                className="mt-2 text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600"
+                onClick={() => setAmenitiesModal(true)}
               >
                 {t("readMore")}
               </button>
             )}
-          </motion.div>
+          </div>
 
-          {/* Amenities & House Rules */}
-          <motion.div
-            initial={{ opacity: 0, y: 20 }}
-            whileInView={{ opacity: 1, y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.6, delay: 0.15 }}
-            className="space-y-6"
-          >
+          {prohibitions.length > 0 && (
             <div>
-              <h3 className="text-lg font-serif text-earth-800">{t("amenities")}</h3>
+              <h3 className="text-lg font-serif text-earth-800">{t("rules")}</h3>
               <div className="mt-3 space-y-2">
-                {amenities.slice(0, VISIBLE_ITEMS).map((amenity) => (
+                {prohibitions.slice(0, VISIBLE_ITEMS).map((rule) => (
                   <div
-                    key={amenity}
+                    key={rule}
                     className="flex items-center gap-2 text-sm text-earth-700"
                   >
                     <Check className="h-4 w-4 shrink-0 text-brand" />
-                    <span>{amenity}</span>
+                    <span>{rule}</span>
                   </div>
                 ))}
               </div>
-              {amenities.length > VISIBLE_ITEMS && (
+              {prohibitions.length > VISIBLE_ITEMS && (
                 <button
                   type="button"
                   className="mt-2 text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600"
-                  onClick={() => setAmenitiesModal(true)}
+                  onClick={() => setRulesModal(true)}
                 >
                   {t("readMore")}
                 </button>
               )}
             </div>
-
-            {prohibitions.length > 0 && (
-              <div>
-                <h3 className="text-lg font-serif text-earth-800">{t("rules")}</h3>
-                <div className="mt-3 space-y-2">
-                  {prohibitions.slice(0, VISIBLE_ITEMS).map((rule) => (
-                    <div
-                      key={rule}
-                      className="flex items-center gap-2 text-sm text-earth-700"
-                    >
-                      <Check className="h-4 w-4 shrink-0 text-brand" />
-                      <span>{rule}</span>
-                    </div>
-                  ))}
-                </div>
-                {prohibitions.length > VISIBLE_ITEMS && (
-                  <button
-                    type="button"
-                    className="mt-2 text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600"
-                    onClick={() => setRulesModal(true)}
-                  >
-                    {t("readMore")}
-                  </button>
-                )}
-              </div>
-            )}
-          </motion.div>
-        </div>
+          )}
+        </motion.div>
 
       </div>
 
