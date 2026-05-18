@@ -9,7 +9,7 @@ import {
   type TranslationPayload,
 } from "./types";
 
-const CACHE_TTL_SECONDS = 60 * 60 * 24 * 7;
+const CACHE_TTL_SECONDS = 60 * 60 * 24 * 365;
 
 interface LocalizeInput {
   homestay: Homestay;
@@ -28,7 +28,8 @@ export async function localizeHomestay<T extends LocalizeInput>(
 
   const sourcePayload = extractSourcePayload(input);
   const contentHash = hashSource(sourcePayload);
-  const cacheKey = `${getCacheEnvPrefix()}:homestay:i18n:${locale}:${input.homestay.id}:${contentHash}`;
+  const keyPrefix = `${getCacheEnvPrefix()}:homestay:i18n:${locale}:${input.homestay.id}`;
+  const cacheKey = `${keyPrefix}:${contentHash}`;
 
   const cached = await readCache(cacheKey);
   if (cached) {
@@ -38,7 +39,7 @@ export async function localizeHomestay<T extends LocalizeInput>(
   const translated = await translateWithGemini(sourcePayload, locale);
   if (!translated) return input;
 
-  await writeCache(cacheKey, translated);
+  await writeCache(keyPrefix, cacheKey, translated);
   return mergeTranslation(input, translated);
 }
 
@@ -98,11 +99,21 @@ async function readCache(key: string): Promise<TranslationPayload | null> {
   }
 }
 
-async function writeCache(key: string, value: TranslationPayload): Promise<void> {
+async function writeCache(
+  keyPrefix: string,
+  cacheKey: string,
+  value: TranslationPayload,
+): Promise<void> {
   const redis = getRedis();
   if (!redis) return;
   try {
-    await redis.set(key, JSON.stringify(value), "EX", CACHE_TTL_SECONDS);
+    const stream = redis.scanStream({ match: `${keyPrefix}:*`, count: 100 });
+    const stale: string[] = [];
+    for await (const keys of stream as AsyncIterable<string[]>) {
+      for (const k of keys) if (k !== cacheKey) stale.push(k);
+    }
+    if (stale.length) await redis.del(...stale);
+    await redis.set(cacheKey, JSON.stringify(value), "EX", CACHE_TTL_SECONDS);
   } catch (err) {
     console.error("[translation] redis write failed:", (err as Error).message);
   }
