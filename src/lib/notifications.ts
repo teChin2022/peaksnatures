@@ -2,6 +2,8 @@ import { format, parseISO } from "date-fns";
 import { th as thLocale, enUS as enLocale } from "date-fns/locale";
 import type { Booking, Homestay, Host, PromoCode, Room } from "@/types/database";
 import { getProvinceLabel } from "@/lib/provinces";
+import { localizeStrings } from "@/lib/translation/localize-strings";
+import type { SupportedLocale } from "@/lib/translation/types";
 
 interface BookingDetails {
   booking: Booking;
@@ -51,6 +53,54 @@ function bookingNights(checkIn: string, checkOut: string): number {
   );
 }
 
+interface LocalizedGuestEmailContent {
+  homestayName: string;
+  homestayLocation: string;
+  roomName: string | null;
+  selectedOptions: SelectedOptionForEmail[];
+}
+
+async function localizeGuestEmailContent(
+  homestay: Homestay,
+  roomName: string | null,
+  selectedOptions: SelectedOptionForEmail[],
+  locale: string,
+): Promise<LocalizedGuestEmailContent> {
+  if (locale !== "en") {
+    return {
+      homestayName: homestay.name,
+      homestayLocation: homestay.location,
+      roomName,
+      selectedOptions,
+    };
+  }
+
+  const strings: Record<string, string | null> = {
+    homestayName: homestay.name,
+    homestayLocation: homestay.location,
+    roomName,
+  };
+  selectedOptions.forEach((o, i) => {
+    strings[`option_${i}`] = o.name;
+  });
+
+  const translated = await localizeStrings(
+    `email:homestay:${homestay.id}`,
+    strings,
+    "en" as SupportedLocale,
+  );
+
+  return {
+    homestayName: translated.homestayName ?? homestay.name,
+    homestayLocation: translated.homestayLocation ?? homestay.location,
+    roomName: translated.roomName ?? roomName,
+    selectedOptions: selectedOptions.map((o, i) => ({
+      ...o,
+      name: translated[`option_${i}`] ?? o.name,
+    })),
+  };
+}
+
 // ============================================================
 // EMAIL NOTIFICATION (Resend)
 // ============================================================
@@ -76,9 +126,16 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
     const isTh = locale === "th";
     const nights = bookingNights(booking.check_in, booking.check_out);
 
+    const localized = await localizeGuestEmailContent(
+      homestay,
+      room?.name ?? null,
+      Array.isArray(booking.selected_options) ? (booking.selected_options as SelectedOptionForEmail[]) : [],
+      locale,
+    );
+
     const subject = type === "confirmed"
-      ? (isTh ? `การจองของคุณได้รับการยืนยันแล้ว – ${homestay.name}` : `Your Booking Has Been Confirmed – ${homestay.name}`)
-      : (isTh ? `ได้รับการจองแล้ว — รอการตรวจสอบ — ${homestay.name}` : `Booking Received — Pending Review — ${homestay.name}`);
+      ? (isTh ? `การจองของคุณได้รับการยืนยันแล้ว – ${localized.homestayName}` : `Your Booking Has Been Confirmed – ${localized.homestayName}`)
+      : (isTh ? `ได้รับการจองแล้ว — รอการตรวจสอบ — ${localized.homestayName}` : `Booking Received — Pending Review — ${localized.homestayName}`);
 
     const discountAmount = (booking as Record<string, unknown>).discount_amount as number | null | undefined;
     const discountRow = discountAmount && discountAmount > 0 ? `
@@ -106,18 +163,18 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
           <div style="padding: 32px 24px;">
             <p style="font-size: 16px; color: #111827; margin: 0 0 16px;">${isTh ? `เรียน คุณ${booking.guest_name}` : `Dear ${booking.guest_name}`},</p>
             <p style="font-size: 14px; color: #374151; margin: 0 0 8px; line-height: 1.6;">${isTh ? "ขอขอบพระคุณที่เลือกจองที่พักผ่าน Peaksnature" : "Thank you for booking your stay through Peaksnature."}</p>
-            <p style="font-size: 14px; color: #374151; margin: 0 0 24px; line-height: 1.6;">${isTh ? `การจองของคุณสำหรับ ${homestay.name} ได้รับการยืนยันเรียบร้อยแล้ว โดยมีรายละเอียดดังต่อไปนี้` : `Your booking at ${homestay.name} has been confirmed. Here are the details:`}</p>
+            <p style="font-size: 14px; color: #374151; margin: 0 0 24px; line-height: 1.6;">${isTh ? `การจองของคุณสำหรับ ${localized.homestayName} ได้รับการยืนยันเรียบร้อยแล้ว โดยมีรายละเอียดดังต่อไปนี้` : `Your booking at ${localized.homestayName} has been confirmed. Here are the details:`}</p>
             <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px 24px; margin-bottom: 24px;">
               <h2 style="color: #111827; font-size: 16px; font-weight: 700; margin: 0 0 16px;">${isTh ? "รายละเอียดการจอง" : "Booking Details"}</h2>
               <table style="width: 100%; border-collapse: collapse;">
                 <colgroup><col style="width: 38%;"><col></colgroup>
                 <tr><td style="${labelStyle}">${isTh ? "รหัสการจอง" : "Booking ID"}</td><td style="${valueStyle} font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 12px; word-break: break-all; color: #374151;">${booking.id}</td></tr>
                 <tr><td style="${labelStyle}">${isTh ? "ผู้เข้าพัก" : "Guest"}</td><td style="${valueStyle}">${booking.guest_name}</td></tr>
-                <tr><td style="${labelStyle}">${isTh ? "ประเภทห้องพัก" : "Room Type"}</td><td style="${valueStyle}">${room?.name || "Standard"}</td></tr>
+                <tr><td style="${labelStyle}">${isTh ? "ประเภทห้องพัก" : "Room Type"}</td><td style="${valueStyle}">${localized.roomName || "Standard"}</td></tr>
                 <tr><td style="${labelStyle}">${isTh ? "วันเช็กอิน" : "Check-in"}</td><td style="${valueStyle}">${checkInFmt}${homestay.check_in_time ? `<div style="color: #6b7280; font-size: 12px; margin-top: 2px;">${isTh ? "เช็กอินได้ตั้งแต่" : "from"} ${homestay.check_in_time}${isTh ? " น." : ""}</div>` : ""}</td></tr>
                 <tr><td style="${labelStyle}">${isTh ? "วันเช็กเอาต์" : "Check-out"}</td><td style="${valueStyle}">${checkOutFmt}${homestay.check_out_time ? `<div style="color: #6b7280; font-size: 12px; margin-top: 2px;">${isTh ? "เช็กเอาต์ก่อน" : "before"} ${homestay.check_out_time}${isTh ? " น." : ""}</div>` : ""}</td></tr>
                 <tr><td style="${labelStyle}">${isTh ? "จำนวนผู้เข้าพัก" : "Guests"}</td><td style="${valueStyle}">${booking.num_guests} ${isTh ? "ท่าน" : ""}</td></tr>
-                ${Array.isArray(booking.selected_options) && (booking.selected_options as SelectedOptionForEmail[]).length > 0 ? `<tr><td style="${labelStyle}">${isTh ? "บริการเพิ่มเติม" : "Services"}</td><td style="${valueStyle}">${renderSelectedOptionsHtmlList(booking.selected_options as SelectedOptionForEmail[], nights, isTh)}</td></tr>` : ""}
+                ${localized.selectedOptions.length > 0 ? `<tr><td style="${labelStyle}">${isTh ? "บริการเพิ่มเติม" : "Services"}</td><td style="${valueStyle}">${renderSelectedOptionsHtmlList(localized.selectedOptions, nights, isTh)}</td></tr>` : ""}
                 ${discountRow}
                 <tr><td style="${totalLabelStyle}">${isTh ? "ยอดชำระรวม" : "Total"}</td><td style="${totalValueStyle}">฿${booking.total_price.toLocaleString()}</td></tr>
                 ${depositRows}
@@ -125,16 +182,16 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
             </div>
             <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
               <h2 style="color: #111827; font-size: 16px; font-weight: 700; margin: 0 0 8px;">${isTh ? "สถานที่เข้าพัก" : "Property"}</h2>
-              <p style="color: #111827; font-size: 14px; margin: 0 0 4px; font-weight: 600;">${homestay.name}</p>
-              <p style="color: #6b7280; font-size: 14px; margin: 0;">${homestay.location}</p>
+              <p style="color: #111827; font-size: 14px; margin: 0 0 4px; font-weight: 600;">${localized.homestayName}</p>
+              <p style="color: #6b7280; font-size: 14px; margin: 0;">${localized.homestayLocation}</p>
             </div>
             <div style="border-top: 1px solid #e5e7eb; padding-top: 24px;">
               <p style="font-size: 14px; color: #374151; margin: 0 0 16px;">${isTh ? "การชำระเงินของคุณได้รับการยืนยันเรียบร้อยแล้ว" : "Your payment has been confirmed."}</p>
               <p style="font-size: 14px; color: #374151; margin: 0 0 16px;">${isTh ? "หากท่านมีข้อสงสัยเพิ่มเติม หรือต้องการความช่วยเหลือเกี่ยวกับการเข้าพัก สามารถติดต่อเจ้าของที่พักหรือทีมงานของเราได้ทุกเมื่อ" : "If you have any questions or need assistance with your stay, feel free to contact the property host or our team at any time."}</p>
               <p style="font-size: 14px; color: #374151; margin: 0 0 16px;">${isTh ? "ขอขอบพระคุณอีกครั้งสำหรับความไว้วางใจ" : "Thank you again for your trust."}</p>
-              <p style="font-size: 14px; color: #374151; margin: 0 0 24px;">${isTh ? `${homestay.name} หวังเป็นอย่างยิ่งว่าจะได้เป็นส่วนหนึ่งของประสบการณ์การพักผ่อนท่ามกลางธรรมชาติของคุณ` : `${homestay.name} hopes to be part of your nature retreat experience.`}</p>
+              <p style="font-size: 14px; color: #374151; margin: 0 0 24px;">${isTh ? `${localized.homestayName} หวังเป็นอย่างยิ่งว่าจะได้เป็นส่วนหนึ่งของประสบการณ์การพักผ่อนท่ามกลางธรรมชาติของคุณ` : `${localized.homestayName} hopes to be part of your nature retreat experience.`}</p>
               <p style="font-size: 14px; color: #374151; margin: 0;">${isTh ? "ด้วยความเคารพ" : "Best regards,"}</p>
-              <p style="font-size: 14px; color: #111827; font-weight: 700; margin: 4px 0 0;">${homestay.name}</p>
+              <p style="font-size: 14px; color: #111827; font-weight: 700; margin: 4px 0 0;">${localized.homestayName}</p>
               <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Nature Places in Thailand</p>
             </div>
           </div>
@@ -147,16 +204,16 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
           </div>
           <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: 0; border-radius: 0 0 12px 12px;">
             <p style="font-size: 16px; margin-top: 0;">${isTh ? `สวัสดีคุณ ${booking.guest_name}` : `Hi ${booking.guest_name}`},</p>
-            <h2 style="margin-top: 0;">${homestay.name}</h2>
+            <h2 style="margin-top: 0;">${localized.homestayName}</h2>
             <table style="width: 100%; border-collapse: collapse;">
               <colgroup><col style="width: 38%;"><col></colgroup>
               <tr><td style="padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top;">${isTh ? "รหัสการจอง" : "Booking ID"}</td><td style="padding: 10px 0; font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 12px; word-break: break-all; color: #374151; vertical-align: top;">${booking.id}</td></tr>
               <tr><td style="padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top;">${isTh ? "ผู้เข้าพัก" : "Guest"}</td><td style="padding: 10px 0; font-size: 14px; vertical-align: top;">${booking.guest_name}</td></tr>
-              <tr><td style="padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top;">${isTh ? "ห้องพัก" : "Room"}</td><td style="padding: 10px 0; font-size: 14px; vertical-align: top;">${room?.name || "Standard"}</td></tr>
+              <tr><td style="padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top;">${isTh ? "ห้องพัก" : "Room"}</td><td style="padding: 10px 0; font-size: 14px; vertical-align: top;">${localized.roomName || "Standard"}</td></tr>
               <tr><td style="padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top;">${isTh ? "เช็คอิน" : "Check-in"}</td><td style="padding: 10px 0; font-size: 14px; vertical-align: top;">${checkInFmt}${homestay.check_in_time ? `<div style="color: #6b7280; font-size: 12px; margin-top: 2px;">${isTh ? "หลัง" : "after"} ${homestay.check_in_time} ${isTh ? "น." : ""}</div>` : ""}</td></tr>
               <tr><td style="padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top;">${isTh ? "เช็คเอาท์" : "Check-out"}</td><td style="padding: 10px 0; font-size: 14px; vertical-align: top;">${checkOutFmt}${homestay.check_out_time ? `<div style="color: #6b7280; font-size: 12px; margin-top: 2px;">${isTh ? "ก่อน" : "before"} ${homestay.check_out_time} ${isTh ? "น." : ""}</div>` : ""}</td></tr>
               <tr><td style="padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top;">${isTh ? "จำนวนผู้เข้าพัก" : "Guests"}</td><td style="padding: 10px 0; font-size: 14px; vertical-align: top;">${booking.num_guests}</td></tr>
-              ${Array.isArray(booking.selected_options) && (booking.selected_options as SelectedOptionForEmail[]).length > 0 ? `<tr><td style="padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top;">${isTh ? "บริการเพิ่มเติม" : "Services"}</td><td style="padding: 10px 0; font-size: 14px; vertical-align: top;">${renderSelectedOptionsHtmlList(booking.selected_options as SelectedOptionForEmail[], nights, isTh)}</td></tr>` : ""}
+              ${localized.selectedOptions.length > 0 ? `<tr><td style="padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top;">${isTh ? "บริการเพิ่มเติม" : "Services"}</td><td style="padding: 10px 0; font-size: 14px; vertical-align: top;">${renderSelectedOptionsHtmlList(localized.selectedOptions, nights, isTh)}</td></tr>` : ""}
               ${discountRowSimple}
               <tr><td style="padding: 16px 12px 0 0; color: #6b7280; font-size: 14px; vertical-align: middle; border-top: 1px solid #e5e7eb;">${isTh ? "ยอดรวม" : "Total"}</td><td style="padding: 16px 0 0; font-size: 18px; font-weight: 700; color: ${homestay.theme_color}; vertical-align: middle; border-top: 1px solid #e5e7eb; text-align: right;">฿${booking.total_price.toLocaleString()}</td></tr>
               ${(booking as Record<string, unknown>).payment_type === "deposit" ? `
@@ -165,7 +222,7 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
               ` : ""}
             </table>
             <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 16px 0;" />
-            <p style="color: #6b7280; font-size: 14px;">${homestay.location}</p>
+            <p style="color: #6b7280; font-size: 14px;">${localized.homestayLocation}</p>
             <p style="color: #6b7280; font-size: 14px;">${isTh ? "สลิปการชำระเงินไม่สามารถตรวจสอบอัตโนมัติได้ เจ้าของที่พักจะตรวจสอบและยืนยันให้ในเร็วๆ นี้" : "Your payment slip could not be auto-verified. The host will review and confirm your booking shortly."}</p>
             <p style="color: #9ca3af; font-size: 12px; margin-top: 24px;">Peaksnature — Nature Places in Thailand</p>
           </div>
@@ -223,9 +280,16 @@ export async function sendBookingStatusUpdateEmail(
     const nights = bookingNights(booking.check_in, booking.check_out);
     const isConfirmed = newStatus === "confirmed";
 
+    const localized = await localizeGuestEmailContent(
+      homestay,
+      room?.name ?? null,
+      Array.isArray(booking.selected_options) ? (booking.selected_options as SelectedOptionForEmail[]) : [],
+      locale,
+    );
+
     const subject = isConfirmed
-      ? (isTh ? `การจองของคุณได้รับการยืนยันแล้ว – ${homestay.name}` : `Your Booking Has Been Confirmed – ${homestay.name}`)
-      : (isTh ? `อัปเดตการจอง — ${homestay.name}` : `Booking Update — ${homestay.name}`);
+      ? (isTh ? `การจองของคุณได้รับการยืนยันแล้ว – ${localized.homestayName}` : `Your Booking Has Been Confirmed – ${localized.homestayName}`)
+      : (isTh ? `อัปเดตการจอง — ${localized.homestayName}` : `Booking Update — ${localized.homestayName}`);
 
     const reasonHtml = !isConfirmed && reason
       ? `<div style="margin: 16px 0; padding: 12px 16px; background: #fef2f2; border-left: 4px solid #ef4444; border-radius: 4px;">
@@ -245,33 +309,33 @@ export async function sendBookingStatusUpdateEmail(
           <div style="padding: 32px 24px;">
             <p style="font-size: 16px; color: #111827; margin: 0 0 16px;">${isTh ? `เรียน คุณ${booking.guest_name}` : `Dear ${booking.guest_name}`},</p>
             <p style="font-size: 14px; color: #374151; margin: 0 0 8px;">${isTh ? "ขอขอบพระคุณที่เลือกจองที่พักผ่าน Peaksnature" : "Thank you for booking your stay through Peaksnature."}</p>
-            <p style="font-size: 14px; color: #374151; margin: 0 0 24px;">${isTh ? `การจองของคุณสำหรับ ${homestay.name} ได้รับการยืนยันเรียบร้อยแล้ว โดยมีรายละเอียดดังต่อไปนี้` : `Your booking at ${homestay.name} has been confirmed. Here are the details:`}</p>
+            <p style="font-size: 14px; color: #374151; margin: 0 0 24px;">${isTh ? `การจองของคุณสำหรับ ${localized.homestayName} ได้รับการยืนยันเรียบร้อยแล้ว โดยมีรายละเอียดดังต่อไปนี้` : `Your booking at ${localized.homestayName} has been confirmed. Here are the details:`}</p>
             <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px 24px; margin-bottom: 24px;">
               <h2 style="color: #111827; font-size: 16px; font-weight: 700; margin: 0 0 16px;">${isTh ? "รายละเอียดการจอง" : "Booking Details"}</h2>
               <table style="width: 100%; border-collapse: collapse;">
                 <colgroup><col style="width: 38%;"><col></colgroup>
                 <tr><td style="padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top;">${isTh ? "รหัสการจอง" : "Booking ID"}</td><td style="padding: 10px 0; color: #374151; font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 12px; word-break: break-all; vertical-align: top;">${booking.id}</td></tr>
                 <tr><td style="padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top;">${isTh ? "ผู้เข้าพัก" : "Guest"}</td><td style="padding: 10px 0; color: #111827; font-size: 14px; vertical-align: top;">${booking.guest_name}</td></tr>
-                <tr><td style="padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top;">${isTh ? "ประเภทห้องพัก" : "Room Type"}</td><td style="padding: 10px 0; color: #111827; font-size: 14px; vertical-align: top;">${room?.name || "Standard"}</td></tr>
+                <tr><td style="padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top;">${isTh ? "ประเภทห้องพัก" : "Room Type"}</td><td style="padding: 10px 0; color: #111827; font-size: 14px; vertical-align: top;">${localized.roomName || "Standard"}</td></tr>
                 <tr><td style="padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top;">${isTh ? "วันเช็กอิน" : "Check-in"}</td><td style="padding: 10px 0; color: #111827; font-size: 14px; vertical-align: top;">${checkInFmt}${homestay.check_in_time ? `<div style="color: #6b7280; font-size: 12px; margin-top: 2px;">${isTh ? "เช็กอินได้ตั้งแต่" : "from"} ${homestay.check_in_time}${isTh ? " น." : ""}</div>` : ""}</td></tr>
                 <tr><td style="padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top;">${isTh ? "วันเช็กเอาต์" : "Check-out"}</td><td style="padding: 10px 0; color: #111827; font-size: 14px; vertical-align: top;">${checkOutFmt}${homestay.check_out_time ? `<div style="color: #6b7280; font-size: 12px; margin-top: 2px;">${isTh ? "เช็กเอาต์ก่อน" : "before"} ${homestay.check_out_time}${isTh ? " น." : ""}</div>` : ""}</td></tr>
                 <tr><td style="padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top;">${isTh ? "จำนวนผู้เข้าพัก" : "Guests"}</td><td style="padding: 10px 0; color: #111827; font-size: 14px; vertical-align: top;">${booking.num_guests} ${isTh ? "ท่าน" : ""}</td></tr>
-                ${Array.isArray(booking.selected_options) && (booking.selected_options as SelectedOptionForEmail[]).length > 0 ? `<tr><td style="padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top;">${isTh ? "บริการเพิ่มเติม" : "Services"}</td><td style="padding: 10px 0; color: #111827; font-size: 14px; vertical-align: top;">${renderSelectedOptionsHtmlList(booking.selected_options as SelectedOptionForEmail[], nights, isTh)}</td></tr>` : ""}
+                ${localized.selectedOptions.length > 0 ? `<tr><td style="padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top;">${isTh ? "บริการเพิ่มเติม" : "Services"}</td><td style="padding: 10px 0; color: #111827; font-size: 14px; vertical-align: top;">${renderSelectedOptionsHtmlList(localized.selectedOptions, nights, isTh)}</td></tr>` : ""}
                 <tr><td style="padding: 16px 12px 0 0; color: #6b7280; font-size: 14px; vertical-align: middle; border-top: 1px solid #e5e7eb;">${isTh ? "ยอดชำระรวม" : "Total"}</td><td style="padding: 16px 0 0; color: #111827; font-size: 18px; font-weight: 700; vertical-align: middle; border-top: 1px solid #e5e7eb; text-align: right;">฿${booking.total_price.toLocaleString()}</td></tr>
               </table>
             </div>
             <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
               <h2 style="color: #111827; font-size: 16px; font-weight: 700; margin: 0 0 8px;">${isTh ? "สถานที่เข้าพัก" : "Property"}</h2>
-              <p style="color: #111827; font-size: 14px; margin: 0 0 4px; font-weight: 600;">${homestay.name}</p>
-              <p style="color: #6b7280; font-size: 14px; margin: 0;">${homestay.location}</p>
+              <p style="color: #111827; font-size: 14px; margin: 0 0 4px; font-weight: 600;">${localized.homestayName}</p>
+              <p style="color: #6b7280; font-size: 14px; margin: 0;">${localized.homestayLocation}</p>
             </div>
             <div style="border-top: 1px solid #e5e7eb; padding-top: 24px;">
               <p style="font-size: 14px; color: #374151; margin: 0 0 16px;">${isTh ? "การชำระเงินของคุณได้รับการยืนยันเรียบร้อยแล้ว" : "Your payment has been confirmed."}</p>
               <p style="font-size: 14px; color: #374151; margin: 0 0 16px;">${isTh ? "หากท่านมีข้อสงสัยเพิ่มเติม หรือต้องการความช่วยเหลือเกี่ยวกับการเข้าพัก สามารถติดต่อเจ้าของที่พักหรือทีมงานของเราได้ทุกเมื่อ" : "If you have any questions or need assistance with your stay, feel free to contact the property host or our team at any time."}</p>
               <p style="font-size: 14px; color: #374151; margin: 0 0 16px;">${isTh ? "ขอขอบพระคุณอีกครั้งสำหรับความไว้วางใจ" : "Thank you again for your trust."}</p>
-              <p style="font-size: 14px; color: #374151; margin: 0 0 24px;">${isTh ? `${homestay.name} หวังเป็นอย่างยิ่งว่าจะได้เป็นส่วนหนึ่งของประสบการณ์การพักผ่อนท่ามกลางธรรมชาติของคุณ` : `${homestay.name} hopes to be part of your nature retreat experience.`}</p>
+              <p style="font-size: 14px; color: #374151; margin: 0 0 24px;">${isTh ? `${localized.homestayName} หวังเป็นอย่างยิ่งว่าจะได้เป็นส่วนหนึ่งของประสบการณ์การพักผ่อนท่ามกลางธรรมชาติของคุณ` : `${localized.homestayName} hopes to be part of your nature retreat experience.`}</p>
               <p style="font-size: 14px; color: #374151; margin: 0;">${isTh ? "ด้วยความเคารพ" : "Best regards,"}</p>
-              <p style="font-size: 14px; color: #111827; font-weight: 700; margin: 4px 0 0;">${homestay.name}</p>
+              <p style="font-size: 14px; color: #111827; font-weight: 700; margin: 4px 0 0;">${localized.homestayName}</p>
               <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Nature Places in Thailand</p>
             </div>
           </div>
@@ -286,16 +350,16 @@ export async function sendBookingStatusUpdateEmail(
             <p style="font-size: 16px; margin-top: 0;">${isTh ? `สวัสดีคุณ ${booking.guest_name}` : `Hi ${booking.guest_name}`},</p>
             <p style="color: #374151; font-size: 14px;">${isTh ? "ขออภัย การจองของคุณไม่สามารถยืนยันได้" : "Unfortunately, your booking could not be confirmed."}</p>
             ${reasonHtml}
-            <h2 style="margin-top: 16px;">${homestay.name}</h2>
+            <h2 style="margin-top: 16px;">${localized.homestayName}</h2>
             <table style="width: 100%; border-collapse: collapse;">
               <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "รหัสการจอง" : "Booking ID"}</td><td style="padding: 8px 0; font-weight: bold;">${booking.id}</td></tr>
-              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "ห้องพัก" : "Room"}</td><td style="padding: 8px 0;">${room?.name || "Standard"}</td></tr>
+              <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "ห้องพัก" : "Room"}</td><td style="padding: 8px 0;">${localized.roomName || "Standard"}</td></tr>
               <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "เช็คอิน" : "Check-in"}</td><td style="padding: 8px 0;">${checkInFmt}</td></tr>
               <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "เช็คเอาท์" : "Check-out"}</td><td style="padding: 8px 0;">${checkOutFmt}</td></tr>
               <tr><td style="padding: 8px 0; color: #6b7280;">${isTh ? "ยอดรวม" : "Total"}</td><td style="padding: 8px 0; font-weight: bold;">฿${booking.total_price.toLocaleString()}</td></tr>
             </table>
             <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 16px 0;" />
-            <p style="color: #6b7280; font-size: 14px;">${homestay.location}</p>
+            <p style="color: #6b7280; font-size: 14px;">${localized.homestayLocation}</p>
             <p style="color: #6b7280; font-size: 14px;">${isTh ? "หากมีข้อสงสัย กรุณาติดต่อเจ้าของที่พักโดยตรง" : "If you have any questions, please contact the host directly."}</p>
             <p style="color: #9ca3af; font-size: 12px; margin-top: 24px;">Peaksnature — Nature Places in Thailand</p>
           </div>
@@ -1131,10 +1195,24 @@ export async function sendDateChangeEmailToGuest(
       ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
       : DEFAULT_FROM;
 
+    const localized = await localizeGuestEmailContent(homestay, roomName ?? null, [], locale);
+
+    let oldRoomNameOut = roomChangeInfo?.oldRoomName ?? "";
+    let newRoomNameOut = roomChangeInfo?.newRoomName ?? "";
+    if (locale === "en" && roomChangeInfo) {
+      const extra = await localizeStrings(
+        `email:room-change:${homestay.id}`,
+        { oldRoom: roomChangeInfo.oldRoomName, newRoom: roomChangeInfo.newRoomName },
+        "en" as SupportedLocale,
+      );
+      oldRoomNameOut = extra.oldRoom ?? roomChangeInfo.oldRoomName;
+      newRoomNameOut = extra.newRoom ?? roomChangeInfo.newRoomName;
+    }
+
     const isApproved = status === "approved";
     const subject = isApproved
-      ? (isTh ? `อนุมัติเปลี่ยนวันเข้าพักแล้ว – ${homestay.name}` : `Date Change Approved – ${homestay.name}`)
-      : (isTh ? `ปฏิเสธการเปลี่ยนวันเข้าพัก – ${homestay.name}` : `Date Change Rejected – ${homestay.name}`);
+      ? (isTh ? `อนุมัติเปลี่ยนวันเข้าพักแล้ว – ${localized.homestayName}` : `Date Change Approved – ${localized.homestayName}`)
+      : (isTh ? `ปฏิเสธการเปลี่ยนวันเข้าพัก – ${localized.homestayName}` : `Date Change Rejected – ${localized.homestayName}`);
 
     let dcHtml: string;
 
@@ -1146,15 +1224,15 @@ export async function sendDateChangeEmailToGuest(
           </div>
           <div style="padding: 32px 24px;">
             <p style="font-size: 16px; color: #111827; margin: 0 0 16px;">${isTh ? `เรียน คุณ${booking.guest_name}` : `Dear ${booking.guest_name}`},</p>
-            <p style="font-size: 14px; color: #374151; margin: 0 0 24px;">${isTh ? `คำขอเปลี่ยนวันเข้าพักของคุณที่ ${homestay.name} ได้รับการอนุมัติแล้ว` : `Your date change request at ${homestay.name} has been approved.`}</p>
+            <p style="font-size: 14px; color: #374151; margin: 0 0 24px;">${isTh ? `คำขอเปลี่ยนวันเข้าพักของคุณที่ ${localized.homestayName} ได้รับการอนุมัติแล้ว` : `Your date change request at ${localized.homestayName} has been approved.`}</p>
             <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
               <h2 style="color: #111827; font-size: 16px; font-weight: 700; margin: 0 0 16px;">${isTh ? "รายละเอียด" : "Details"}</h2>
               <table style="width: 100%; border-collapse: collapse;">
                 <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "รหัสการจอง" : "Booking ID"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${booking.id}</td></tr>
                 <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "วันเดิม" : "Original Dates"}</td><td style="padding: 8px 0; color: #9ca3af; font-size: 14px; text-decoration: line-through;">${formatBookingDate(oldCheckIn, locale)} - ${formatBookingDate(oldCheckOut, locale)}</td></tr>
                 <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "วันใหม่" : "New Dates"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${formatBookingDate(newCheckIn, locale)} - ${formatBookingDate(newCheckOut, locale)}</td></tr>
-                ${roomChangeInfo ? `<tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ห้องเดิม" : "Original Room"}</td><td style="padding: 8px 0; color: #9ca3af; font-size: 14px; text-decoration: line-through;">${roomChangeInfo.oldRoomName}</td></tr>
-                <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ห้องใหม่" : "New Room"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${roomChangeInfo.newRoomName}</td></tr>` : roomName ? `<tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ห้องพัก" : "Room"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${roomName}</td></tr>` : ""}
+                ${roomChangeInfo ? `<tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ห้องเดิม" : "Original Room"}</td><td style="padding: 8px 0; color: #9ca3af; font-size: 14px; text-decoration: line-through;">${oldRoomNameOut}</td></tr>
+                <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ห้องใหม่" : "New Room"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${newRoomNameOut}</td></tr>` : localized.roomName ? `<tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ห้องพัก" : "Room"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${localized.roomName}</td></tr>` : ""}
                 <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">${isTh ? "ยอดรวมใหม่" : "New Total"}</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 700;">฿${newTotalPrice.toLocaleString()}</td></tr>
               </table>
             </div>
@@ -1175,7 +1253,7 @@ export async function sendDateChangeEmailToGuest(
               <p style="font-size: 14px; color: #374151; margin: 0 0 16px;">${isTh ? "วันเข้าพักของคุณได้รับการอัปเดตเรียบร้อยแล้ว" : "Your booking dates have been updated successfully."}</p>
               <p style="font-size: 14px; color: #374151; margin: 0 0 16px;">${isTh ? "หากท่านมีข้อสงสัยเพิ่มเติม สามารถติดต่อเจ้าของที่พักหรือทีมงานของเราได้ทุกเมื่อ" : "If you have any questions, feel free to contact the property host or our team at any time."}</p>
               <p style="font-size: 14px; color: #374151; margin: 0;">${isTh ? "ด้วยความเคารพ" : "Best regards,"}</p>
-              <p style="font-size: 14px; color: #111827; font-weight: 700; margin: 4px 0 0;">${homestay.name}</p>
+              <p style="font-size: 14px; color: #111827; font-weight: 700; margin: 4px 0 0;">${localized.homestayName}</p>
               <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Nature Places in Thailand</p>
             </div>
           </div>
@@ -1188,7 +1266,7 @@ export async function sendDateChangeEmailToGuest(
           </div>
           <div style="padding: 32px 24px;">
             <p style="font-size: 16px; color: #111827; margin: 0 0 16px;">${isTh ? `เรียน คุณ${booking.guest_name}` : `Dear ${booking.guest_name}`},</p>
-            <p style="font-size: 14px; color: #374151; margin: 0 0 24px;">${isTh ? `คำขอเปลี่ยนวันเข้าพักของคุณที่ ${homestay.name} ไม่ได้รับการอนุมัติ` : `Your date change request at ${homestay.name} has been rejected.`}</p>
+            <p style="font-size: 14px; color: #374151; margin: 0 0 24px;">${isTh ? `คำขอเปลี่ยนวันเข้าพักของคุณที่ ${localized.homestayName} ไม่ได้รับการอนุมัติ` : `Your date change request at ${localized.homestayName} has been rejected.`}</p>
             <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
               <h2 style="color: #111827; font-size: 16px; font-weight: 700; margin: 0 0 16px;">${isTh ? "รายละเอียด" : "Details"}</h2>
               <table style="width: 100%; border-collapse: collapse;">
@@ -1205,7 +1283,7 @@ export async function sendDateChangeEmailToGuest(
               <p style="font-size: 14px; color: #374151; margin: 0 0 16px;">${isTh ? "วันเข้าพักเดิมของคุณยังคงเดิม" : "Your original dates remain unchanged."}</p>
               <p style="font-size: 14px; color: #374151; margin: 0 0 16px;">${isTh ? "หากท่านมีข้อสงสัยเพิ่มเติม สามารถติดต่อเจ้าของที่พักหรือทีมงานของเราได้ทุกเมื่อ" : "If you have any questions, feel free to contact the property host or our team at any time."}</p>
               <p style="font-size: 14px; color: #374151; margin: 0;">${isTh ? "ด้วยความเคารพ" : "Best regards,"}</p>
-              <p style="font-size: 14px; color: #111827; font-weight: 700; margin: 4px 0 0;">${homestay.name}</p>
+              <p style="font-size: 14px; color: #111827; font-weight: 700; margin: 4px 0 0;">${localized.homestayName}</p>
               <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Nature Places in Thailand</p>
             </div>
           </div>
