@@ -27,11 +27,11 @@ export function HeroSection({
 }: HeroSectionProps) {
   const t = useTranslations("hero");
   const { scrollY } = useScroll();
-  const imageY = useTransform(scrollY, [0, 500], [0, 150]);
+  const imageY = useTransform(scrollY, [0, 500], [0, 80]);
   const contentOpacity = useTransform(scrollY, [0, 400], [1, 0]);
 
   return (
-    <section className="relative h-[100svh] md:h-[85vh] w-full overflow-hidden hero-mist">
+    <section className="relative h-[100svh] md:h-auto md:aspect-[16/9] md:max-h-[85vh] md:min-h-[520px] w-full overflow-hidden hero-mist">
       {/* Parallax image */}
       <motion.div style={{ y: imageY }} className="absolute inset-0">
         {heroImageUrl && (
@@ -42,7 +42,7 @@ export function HeroSection({
             sizes="100vw"
             priority
             quality={85}
-            className="object-cover"
+            className="object-cover object-center"
           />
         )}
       </motion.div>
