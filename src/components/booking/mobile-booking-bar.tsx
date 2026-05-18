@@ -60,12 +60,19 @@ export function MobileBookingBar({
     if (!isMobile) return;
 
     const roomsEl = document.getElementById("rooms-section");
+    const footerEl = document.querySelector("footer");
 
     let roomsInView = false;
+    let footerInView = false;
     let scrolledPastThreshold = false;
 
     const updateVisibility = () => {
-      setVisible(scrolledPastThreshold && !roomsInView && bookingStep === "dates");
+      setVisible(
+        scrolledPastThreshold &&
+          !roomsInView &&
+          !footerInView &&
+          bookingStep === "dates"
+      );
     };
 
     const onScroll = () => {
@@ -83,11 +90,21 @@ export function MobileBookingBar({
       { threshold: 0 }
     );
 
+    const footerObserver = new IntersectionObserver(
+      ([entry]) => {
+        footerInView = entry.isIntersecting;
+        updateVisibility();
+      },
+      { threshold: 0 }
+    );
+
     if (roomsEl) roomsObserver.observe(roomsEl);
+    if (footerEl) footerObserver.observe(footerEl);
 
     return () => {
       window.removeEventListener("scroll", onScroll);
       roomsObserver.disconnect();
+      footerObserver.disconnect();
     };
   }, [isMobile, bookingStep]);
 
