@@ -27,11 +27,13 @@ export function HeroSection({
 }: HeroSectionProps) {
   const t = useTranslations("hero");
   const { scrollY } = useScroll();
+  const imageY = useTransform(scrollY, [0, 500], [0, 150]);
   const contentOpacity = useTransform(scrollY, [0, 400], [1, 0]);
 
   return (
     <section className="relative h-[100svh] md:h-[85vh] w-full overflow-hidden hero-mist">
-      <div className="absolute inset-0">
+      {/* Parallax image */}
+      <motion.div style={{ y: imageY }} className="absolute inset-0">
         {heroImageUrl && (
           <Image
             src={heroImageUrl}
@@ -43,7 +45,7 @@ export function HeroSection({
             className="object-cover"
           />
         )}
-      </div>
+      </motion.div>
       <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-black/20 via-60% to-[#2F5D50]/20" />
 
       <motion.div
