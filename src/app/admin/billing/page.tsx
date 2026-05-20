@@ -125,9 +125,9 @@ export default function AdminBillingPage() {
       </div>
 
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3].map((i) => (
-            <div key={i} className="skeleton-warm h-20 w-full rounded-xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {[1, 2, 3, 4].map((i) => (
+            <div key={i} className="skeleton-warm h-40 w-full rounded-xl" />
           ))}
         </div>
       ) : invoices.length === 0 ? (

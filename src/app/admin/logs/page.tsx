@@ -252,9 +252,9 @@ export default function AdminLogsPage() {
       )}
 
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="skeleton-warm h-20 w-full rounded-xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="skeleton-warm h-36 w-full rounded-xl" />
           ))}
         </div>
       ) : logs.length === 0 ? (

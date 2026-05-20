@@ -220,9 +220,9 @@ export default function AdminBookingsPage() {
         {/* ── Bookings Tab ── */}
         <TabsContent value="bookings">
           {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="skeleton-warm h-28 w-full rounded-xl" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="skeleton-warm h-40 w-full rounded-xl" />
               ))}
             </div>
           ) : bookings.length === 0 ? (
@@ -311,9 +311,9 @@ export default function AdminBookingsPage() {
         {/* ── Holds Tab ── */}
         <TabsContent value="holds">
           {holdsLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="skeleton-warm h-20 w-full rounded-xl" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="skeleton-warm h-32 w-full rounded-xl" />
               ))}
             </div>
           ) : holds.length === 0 ? (
