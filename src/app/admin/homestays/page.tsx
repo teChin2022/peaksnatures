@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Home, MapPin, User } from "lucide-react";
+import { Home, MapPin, User, Mail, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
+import { fmtDate } from "@/lib/format-date";
 
 interface HomestayRow {
   id: string;
@@ -95,30 +96,17 @@ export default function AdminHomestaysPage() {
         />
       ) : (
         <>
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {res.data.map((homestay) => (
-              <Card key={homestay.id} className="dashboard-card border-earth-100">
-                <CardContent className="p-4">
+              <Card key={homestay.id} className="dashboard-card border-earth-100 h-full">
+                <CardContent className="p-5 space-y-3">
                   <div className="flex items-start justify-between gap-3">
                     <div className="min-w-0 flex-1">
-                      <div className="flex items-center gap-2 mb-1">
+                      <div className="flex flex-wrap items-center gap-2">
                         <h3 className="font-semibold text-earth-900 truncate">{homestay.name}</h3>
                         <StatusBadge status={homestay.is_active ? "active" : "inactive"} />
                       </div>
-                      <p className="text-xs text-earth-400 font-mono mb-1.5">/{homestay.slug}</p>
-                      <div className="space-y-1 text-sm text-earth-600">
-                        <div className="flex items-center gap-1.5">
-                          <User className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                          <span className="truncate">{homestay.host?.name || "—"}</span>
-                          {homestay.host?.email && (
-                            <span className="text-xs text-earth-400 truncate">({homestay.host.email})</span>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <MapPin className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                          <span className="truncate">{homestay.location}</span>
-                        </div>
-                      </div>
+                      <p className="mt-0.5 text-xs text-earth-400 font-mono">/{homestay.slug}</p>
                     </div>
                     <div className="shrink-0 flex items-center gap-2">
                       <span className="text-xs text-earth-500">{homestay.is_active ? "On" : "Off"}</span>
@@ -129,6 +117,28 @@ export default function AdminHomestaysPage() {
                         className="cursor-pointer data-[state=checked]:bg-brand"
                       />
                     </div>
+                  </div>
+
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-earth-700">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <User className="h-3.5 w-3.5 shrink-0 text-earth-400" />
+                      <span className="truncate">{homestay.host?.name || "—"}</span>
+                    </div>
+                    {homestay.host?.email && (
+                      <div className="flex items-center gap-1.5 min-w-0">
+                        <Mail className="h-3.5 w-3.5 shrink-0 text-earth-400" />
+                        <span className="truncate text-earth-500">{homestay.host.email}</span>
+                      </div>
+                    )}
+                    <div className="flex items-center gap-1.5 min-w-0 sm:col-span-2">
+                      <MapPin className="h-3.5 w-3.5 shrink-0 text-earth-400" />
+                      <span className="truncate">{homestay.location}</span>
+                    </div>
+                  </div>
+
+                  <div className="pt-2 border-t border-earth-100/70 text-xs text-earth-500 flex items-center gap-1.5">
+                    <Clock className="h-3 w-3" />
+                    <span className="tabular-nums">Created {fmtDate(new Date(homestay.created_at), "MMM d, yyyy · HH:mm", "en")}</span>
                   </div>
                 </CardContent>
               </Card>

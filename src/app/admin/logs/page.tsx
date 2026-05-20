@@ -1,22 +1,23 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { ScrollText, Loader2, Filter } from "lucide-react";
+import { ScrollText, Loader2, Filter, Clock, User as UserIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
 import { cn } from "@/lib/utils";
+import { fmtDate } from "@/lib/format-date";
 
 interface LogRow {
   id: string;
-  homestay_id: string | null;
   entity_type: string;
-  entity_id: string;
   event_type: string;
   actor_type: string;
-  actor_id: string | null;
+  entity_label: string;
+  entity_context: string | null;
+  actor_label: string;
   data: Record<string, unknown>;
   ip_address: string | null;
   created_at: string;
@@ -146,7 +147,7 @@ export default function AdminLogsPage() {
 
   const hasActiveFilters = eventType || entityType || actorType;
 
-  const formatDate = (iso: string) => new Date(iso).toLocaleString();
+  const formatDate = (iso: string) => fmtDate(new Date(iso), "MMM d, yyyy · HH:mm", "en");
 
   const renderDataSummary = (data: Record<string, unknown>) => {
     const entries = Object.entries(data).filter(([, v]) => v !== null && v !== undefined && v !== "");
@@ -264,44 +265,44 @@ export default function AdminLogsPage() {
         />
       ) : (
         <>
-          <div className="space-y-2">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {logs.map((log) => (
               <Card key={log.id} className="dashboard-card border-earth-100">
-                <CardContent className="p-3 sm:p-4">
-                  <div className="flex items-start justify-between gap-2">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-1.5 mb-1">
-                        <StatusBadge
-                          status={log.event_type}
-                          tone={getEventTone(log.event_type)}
-                          label={log.event_type}
-                          className="font-mono normal-case"
-                        />
-                        <StatusBadge
-                          status={log.actor_type}
-                          tone={ACTOR_TONES[log.actor_type] ?? "muted"}
-                          label={log.actor_type}
-                        />
-                      </div>
-                      <div className="text-sm text-earth-700">
-                        <span className="font-medium">{log.entity_type}</span>
-                        <span className="text-earth-400 mx-1">/</span>
-                        <span className="font-mono text-xs text-earth-500">{log.entity_id.slice(0, 8)}</span>
-                        {log.actor_id && (
-                          <>
-                            <span className="text-earth-400 mx-1">by</span>
-                            <span className="font-mono text-xs text-earth-500">{log.actor_id.slice(0, 8)}</span>
-                          </>
-                        )}
-                      </div>
-                      {renderDataSummary(log.data)}
-                    </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs text-earth-500 whitespace-nowrap tabular-nums">{formatDate(log.created_at)}</p>
-                      {log.ip_address && (
-                        <p className="text-[11px] text-earth-400 font-mono">{log.ip_address}</p>
-                      )}
-                    </div>
+                <CardContent className="p-4 space-y-2">
+                  <div className="flex flex-wrap items-center gap-1.5">
+                    <StatusBadge
+                      status={log.event_type}
+                      tone={getEventTone(log.event_type)}
+                      label={log.event_type}
+                      className="font-mono normal-case"
+                    />
+                    <StatusBadge
+                      status={log.actor_type}
+                      tone={ACTOR_TONES[log.actor_type] ?? "muted"}
+                      label={log.actor_type}
+                    />
+                  </div>
+
+                  <div className="text-sm text-earth-800 font-medium">
+                    {log.entity_label}
+                    {log.entity_context && (
+                      <span className="ml-1.5 text-earth-500 font-normal">· {log.entity_context}</span>
+                    )}
+                  </div>
+
+                  <div className="text-xs text-earth-600 flex items-center gap-1.5">
+                    <UserIcon className="h-3 w-3 text-earth-400" />
+                    <span>by {log.actor_label}</span>
+                    {log.ip_address && (
+                      <span className="text-earth-400">· {log.ip_address}</span>
+                    )}
+                  </div>
+
+                  {renderDataSummary(log.data)}
+
+                  <div className="pt-2 border-t border-earth-100/70 text-xs text-earth-500 flex items-center gap-1.5">
+                    <Clock className="h-3 w-3" />
+                    <span className="tabular-nums">{formatDate(log.created_at)}</span>
                   </div>
                 </CardContent>
               </Card>

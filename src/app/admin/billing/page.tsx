@@ -3,7 +3,7 @@
 import { useState, useEffect, useCallback } from "react";
 import { motion } from "motion/react";
 import { toast } from "sonner";
-import { CreditCard, Loader2, CheckCircle, AlertCircle, Clock } from "lucide-react";
+import { CreditCard, Loader2, CheckCircle, AlertCircle, Clock, CalendarRange, CalendarClock, Wallet, Mail } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -13,6 +13,8 @@ import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
 import { cn } from "@/lib/utils";
+import { fmtDate, fmtDateStr } from "@/lib/format-date";
+import { fmtTHB } from "@/lib/format-currency";
 
 interface InvoiceRow {
   id: string;
@@ -136,7 +138,7 @@ export default function AdminBillingPage() {
         />
       ) : (
         <>
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {invoices.map((inv, i) => {
               const Icon = STATUS_ICONS[inv.status] || Clock;
               const label = STATUS_LABELS[inv.status] || inv.status;
@@ -147,11 +149,11 @@ export default function AdminBillingPage() {
                   animate={{ opacity: 1, y: 0 }}
                   transition={{ delay: i * 0.03, duration: 0.25 }}
                 >
-                  <Card className="dashboard-card border-earth-100">
-                    <CardContent className="p-4">
+                  <Card className="dashboard-card border-earth-100 h-full">
+                    <CardContent className="p-5 space-y-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-semibold text-earth-900 truncate">
                               {inv.host?.name || "Unknown Host"}
                             </h3>
@@ -161,19 +163,46 @@ export default function AdminBillingPage() {
                               icon={<Icon className="h-3 w-3" />}
                             />
                           </div>
-                          <div className="text-sm text-earth-600 space-y-0.5">
-                            <p>
-                              <span className="font-medium text-earth-900 tabular-nums">฿{inv.amount.toLocaleString()}</span>
-                              {" — "}
-                              {new Date(inv.period_start).toLocaleDateString()} - {new Date(inv.period_end).toLocaleDateString()}
+                          {inv.host?.email && (
+                            <p className="mt-0.5 text-xs text-earth-500 flex items-center gap-1.5 truncate">
+                              <Mail className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{inv.host.email}</span>
                             </p>
-                            <p className="text-xs">
-                              Due: {new Date(inv.due_date).toLocaleDateString()}
-                              {inv.paid_at && ` | Paid: ${new Date(inv.paid_at).toLocaleDateString()}`}
-                            </p>
-                          </div>
+                          )}
                         </div>
-                        <div className="flex flex-wrap items-center gap-1.5 shrink-0 justify-end">
+                        <div className="text-right shrink-0">
+                          <p className="font-semibold text-earth-900 tabular-nums flex items-center gap-1.5 justify-end">
+                            <Wallet className="h-3.5 w-3.5 text-earth-400" />
+                            {fmtTHB(inv.amount)}
+                          </p>
+                        </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-earth-700">
+                        <div className="flex items-center gap-1.5">
+                          <CalendarRange className="h-3.5 w-3.5 shrink-0 text-earth-400" />
+                          <span className="tabular-nums">
+                            {fmtDateStr(inv.period_start, "MMM d", "en")} → {fmtDateStr(inv.period_end, "MMM d, yyyy", "en")}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <CalendarClock className="h-3.5 w-3.5 shrink-0 text-earth-400" />
+                          <span className="tabular-nums">Due {fmtDateStr(inv.due_date, "MMM d, yyyy", "en")}</span>
+                        </div>
+                        {inv.paid_at && (
+                          <div className="flex items-center gap-1.5 sm:col-span-2">
+                            <CheckCircle className="h-3.5 w-3.5 shrink-0 text-brand" />
+                            <span className="tabular-nums text-earth-600">Paid {fmtDate(new Date(inv.paid_at), "MMM d, yyyy · HH:mm", "en")}</span>
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="pt-2 border-t border-earth-100/70 flex items-center justify-between gap-2">
+                        <span className="text-xs text-earth-500 flex items-center gap-1.5">
+                          <Clock className="h-3 w-3" />
+                          <span className="tabular-nums">Created {fmtDate(new Date(inv.created_at), "MMM d, yyyy · HH:mm", "en")}</span>
+                        </span>
+                        <div className="flex flex-wrap items-center gap-1.5 justify-end">
                           {inv.status === "pending" && (
                             <>
                               <Button

@@ -160,32 +160,33 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
         >
           {t("identifierLabel")}
         </Label>
-        <div className="mt-2 flex flex-col gap-2 md:flex-row">
+        <div className="mt-2 flex w-full items-stretch overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm transition-colors focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20 hover:border-earth-400">
+          <Search className="ml-3 mr-1 h-4 w-4 shrink-0 self-center text-earth-400" aria-hidden="true" />
           <Input
             id="reviews-identifier"
+            type="search"
+            inputMode="search"
+            enterKeyHint="search"
+            autoComplete="off"
             placeholder={t("identifierPlaceholder")}
             value={identifier}
             onChange={(e) => setIdentifier(e.target.value)}
             onKeyDown={(e) => e.key === "Enter" && handleLookup()}
             aria-describedby="reviews-lookup-hint"
-            className="!h-12 flex-1 rounded-xl !border-earth-200 !bg-white text-base transition-colors hover:!border-earth-400"
+            className="!h-12 min-w-0 flex-1 !border-0 !bg-transparent !px-2 !shadow-none text-base focus-visible:!border-0 focus-visible:!ring-0"
           />
           <Button
             onClick={handleLookup}
             disabled={!identifier.trim() || loading || (!turnstileVerified && !turnstileToken && !turnstileError)}
-            className="h-12 cursor-pointer rounded-xl bg-brand px-6 text-white hover:bg-brand-hover md:min-w-[140px]"
+            aria-label={t("lookupButton")}
+            className="h-12 shrink-0 cursor-pointer rounded-none bg-brand px-4 text-white hover:bg-brand-hover md:min-w-[140px] md:px-5"
           >
             {loading ? (
-              <>
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden="true" />
-                {t("lookupLoading")}
-              </>
+              <Loader2 className="h-4 w-4 animate-spin md:mr-2" aria-hidden="true" />
             ) : (
-              <>
-                <Search className="mr-2 h-4 w-4" aria-hidden="true" />
-                {t("lookupButton")}
-              </>
+              <Search className="h-4 w-4 md:mr-2" aria-hidden="true" />
             )}
+            <span className="hidden md:inline">{loading ? t("lookupLoading") : t("lookupButton")}</span>
           </Button>
         </div>
         <p
