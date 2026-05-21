@@ -23,6 +23,8 @@ import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
 import { cn } from "@/lib/utils";
+import { fmtDate, fmtDateStr } from "@/lib/format-date";
+import { fmtTHB } from "@/lib/format-currency";
 
 interface HostRow {
   id: string;
@@ -316,9 +318,9 @@ export default function AdminHostsPage() {
       </div>
 
       {loading ? (
-        <div className="space-y-3">
-          {[1, 2, 3, 4, 5].map((i) => (
-            <div key={i} className="skeleton-warm h-28 w-full rounded-xl" />
+        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="skeleton-warm h-44 w-full rounded-xl" />
           ))}
         </div>
       ) : !res || res.data.length === 0 ? (
@@ -329,7 +331,7 @@ export default function AdminHostsPage() {
         />
       ) : (
         <>
-          <div className="space-y-3">
+          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
             {res.data.map((host, i) => (
               <motion.div
                 key={host.id}
@@ -337,8 +339,8 @@ export default function AdminHostsPage() {
                 animate={{ opacity: 1, y: 0 }}
                 transition={{ delay: i * 0.03, duration: 0.25 }}
               >
-                <Card className="dashboard-card border-earth-100">
-                  <CardContent className="p-4">
+                <Card className="dashboard-card border-earth-100 h-full">
+                  <CardContent className="p-5">
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
@@ -372,7 +374,7 @@ export default function AdminHostsPage() {
                                   : "text-earth-500"
                               )}
                             >
-                              exp {new Date(host.plan_free_expires_at).toLocaleDateString()}
+                              exp {fmtDateStr(host.plan_free_expires_at, "MMM d, yyyy", "en")}
                             </span>
                           )}
                           {host.commission_pct_override != null && (
@@ -382,7 +384,7 @@ export default function AdminHostsPage() {
                           )}
                           {host.fixed_rate_override != null && (
                             <span className="rounded px-1.5 py-0.5 text-[10px] text-earth-700 bg-earth-50 tabular-nums">
-                              ฿{host.fixed_rate_override.toLocaleString()}/mo override
+                              {fmtTHB(host.fixed_rate_override)}/mo override
                             </span>
                           )}
                           {host.plan_type === "commission" && (
@@ -393,7 +395,7 @@ export default function AdminHostsPage() {
                               )}
                             >
                               <Wallet className="h-3 w-3" />
-                              {host.wallet_balance < 0 ? "-" : ""}฿{Math.abs(host.wallet_balance).toLocaleString()}
+                              {host.wallet_balance < 0 ? "-" : ""}{fmtTHB(Math.abs(host.wallet_balance))}
                             </span>
                           )}
                         </div>
@@ -423,9 +425,9 @@ export default function AdminHostsPage() {
                               <span className="text-earth-400">No homestay</span>
                             )}
                           </div>
-                          <div className="flex items-center gap-1.5">
-                            <CalendarIcon className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                            <span>{new Date(host.created_at).toLocaleDateString()}</span>
+                          <div className="flex items-center gap-1.5 text-xs text-earth-500 pt-1">
+                            <CalendarIcon className="h-3 w-3 shrink-0 text-earth-400" />
+                            <span className="tabular-nums">Created {fmtDate(new Date(host.created_at), "MMM d, yyyy · HH:mm", "en")}</span>
                           </div>
                         </div>
                       </div>

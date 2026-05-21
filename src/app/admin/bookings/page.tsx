@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { CalendarDays, Home, BedDouble, Loader2, Trash2, Timer } from "lucide-react";
+import { CalendarDays, Home, BedDouble, Loader2, Trash2, Timer, Mail, Phone, Users, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,13 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
+import { fmtDateStr, fmtDate } from "@/lib/format-date";
+import { fmtTHB } from "@/lib/format-currency";
+
+function nightsBetween(checkIn: string, checkOut: string): number {
+  const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
+  return Math.max(0, Math.round(ms / 86_400_000));
+}
 
 interface BookingRow {
   id: string;
@@ -213,9 +220,9 @@ export default function AdminBookingsPage() {
         {/* ── Bookings Tab ── */}
         <TabsContent value="bookings">
           {loading ? (
-            <div className="space-y-3">
-              {[1, 2, 3, 4, 5].map((i) => (
-                <div key={i} className="skeleton-warm h-28 w-full rounded-xl" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {[1, 2, 3, 4, 5, 6].map((i) => (
+                <div key={i} className="skeleton-warm h-40 w-full rounded-xl" />
               ))}
             </div>
           ) : bookings.length === 0 ? (
@@ -226,44 +233,67 @@ export default function AdminBookingsPage() {
             />
           ) : (
             <>
-              <div className="space-y-3">
-                {bookings.map((booking) => (
-                  <Card key={booking.id} className="dashboard-card border-earth-100">
-                    <CardContent className="p-4">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1">
-                            <h3 className="font-semibold text-earth-900 truncate">{booking.guest_name}</h3>
-                            <StatusBadge status={booking.status} />
-                          </div>
-                          <p className="text-xs text-earth-400 mb-1.5">{booking.guest_email}</p>
-                          <div className="space-y-1 text-sm text-earth-600">
-                            <div className="flex items-center gap-1.5">
-                              <Home className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                              <span className="truncate">{booking.homestay_name || "—"}</span>
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {bookings.map((booking) => {
+                  const nights = nightsBetween(booking.check_in, booking.check_out);
+                  return (
+                    <Card key={booking.id} className="dashboard-card border-earth-100">
+                      <CardContent className="p-5 space-y-3">
+                        <div className="flex items-start justify-between gap-3">
+                          <div className="min-w-0 flex-1">
+                            <div className="flex flex-wrap items-center gap-2">
+                              <h3 className="font-semibold text-earth-900 truncate">{booking.guest_name}</h3>
+                              <StatusBadge status={booking.status} />
                             </div>
-                            {booking.room_name && (
-                              <div className="flex items-center gap-1.5">
-                                <BedDouble className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                                <span className="truncate">{booking.room_name}</span>
-                              </div>
+                            <p className="mt-0.5 text-xs text-earth-500 flex items-center gap-1.5 truncate">
+                              <Mail className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{booking.guest_email}</span>
+                            </p>
+                            {booking.guest_phone && (
+                              <p className="mt-0.5 text-xs text-earth-500 flex items-center gap-1.5">
+                                <Phone className="h-3 w-3 shrink-0" />
+                                {booking.guest_phone}
+                              </p>
                             )}
-                            <div className="flex items-center gap-1.5">
-                              <CalendarDays className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                              <span>{new Date(booking.check_in).toLocaleDateString()} → {new Date(booking.check_out).toLocaleDateString()}</span>
-                            </div>
+                          </div>
+                          <div className="text-right shrink-0">
+                            <p className="font-semibold text-earth-900 tabular-nums">{fmtTHB(booking.total_price)}</p>
+                            {booking.payment_type === "deposit" && (
+                              <p className="text-xs text-earth-500 tabular-nums">Paid: {fmtTHB(booking.amount_paid)}</p>
+                            )}
                           </div>
                         </div>
-                        <div className="text-right shrink-0">
-                          <p className="font-semibold text-earth-900 tabular-nums">฿{booking.total_price.toLocaleString()}</p>
-                          {booking.payment_type === "deposit" && (
-                            <p className="text-xs text-earth-500 tabular-nums">Paid: ฿{booking.amount_paid.toLocaleString()}</p>
-                          )}
+
+                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-earth-700">
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <Home className="h-3.5 w-3.5 shrink-0 text-earth-400" />
+                            <span className="truncate">{booking.homestay_name || "—"}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5 min-w-0">
+                            <BedDouble className="h-3.5 w-3.5 shrink-0 text-earth-400" />
+                            <span className="truncate">{booking.room_name || "—"}</span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <CalendarDays className="h-3.5 w-3.5 shrink-0 text-earth-400" />
+                            <span className="tabular-nums">
+                              {fmtDateStr(booking.check_in, "MMM d", "en")} → {fmtDateStr(booking.check_out, "MMM d, yyyy", "en")}
+                              <span className="text-earth-400"> · {nights} night{nights === 1 ? "" : "s"}</span>
+                            </span>
+                          </div>
+                          <div className="flex items-center gap-1.5">
+                            <Users className="h-3.5 w-3.5 shrink-0 text-earth-400" />
+                            <span>{booking.num_guests} guest{booking.num_guests === 1 ? "" : "s"}</span>
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+
+                        <div className="pt-2 border-t border-earth-100/70 text-xs text-earth-500 flex items-center gap-1.5">
+                          <Clock className="h-3 w-3" />
+                          <span className="tabular-nums">Created {fmtDate(new Date(booking.created_at), "MMM d, yyyy · HH:mm", "en")}</span>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
               </div>
 
               {hasMore && (
@@ -281,9 +311,9 @@ export default function AdminBookingsPage() {
         {/* ── Holds Tab ── */}
         <TabsContent value="holds">
           {holdsLoading ? (
-            <div className="space-y-3">
-              {[1, 2, 3].map((i) => (
-                <div key={i} className="skeleton-warm h-20 w-full rounded-xl" />
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              {[1, 2, 3, 4].map((i) => (
+                <div key={i} className="skeleton-warm h-32 w-full rounded-xl" />
               ))}
             </div>
           ) : holds.length === 0 ? (
@@ -293,37 +323,26 @@ export default function AdminBookingsPage() {
               description="Temporary holds expire automatically and clear themselves from this list."
             />
           ) : (
-            <div className="space-y-3">
+            <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
               {holds.map((hold) => {
                 const expired = new Date(hold.expires_at) < new Date();
                 return (
                   <Card key={hold.id} className="dashboard-card border-earth-100">
-                    <CardContent className="p-4">
+                    <CardContent className="p-5 space-y-3">
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
-                          <div className="flex items-center gap-2 mb-1">
+                          <div className="flex flex-wrap items-center gap-2">
                             <h3 className="font-semibold text-earth-900 truncate">
                               {hold.homestay_name || "—"}
                             </h3>
                             <StatusBadge status={expired ? "expired" : "active"} />
                           </div>
-                          <div className="space-y-1 text-sm text-earth-600">
-                            {hold.room_name && (
-                              <div className="flex items-center gap-1.5">
-                                <BedDouble className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                                <span className="truncate">{hold.room_name}</span>
-                              </div>
-                            )}
-                            <div className="flex items-center gap-1.5">
-                              <CalendarDays className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                              <span>{new Date(hold.check_in).toLocaleDateString()} → {new Date(hold.check_out).toLocaleDateString()}</span>
-                            </div>
-                            <div className="flex items-center gap-1.5">
-                              <Timer className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                              <span>Expires: {new Date(hold.expires_at).toLocaleString()}</span>
-                            </div>
-                          </div>
-                          <p className="text-xs text-earth-400 mt-1 font-mono">Session: {hold.session_id.slice(0, 12)}…</p>
+                          {hold.room_name && (
+                            <p className="mt-0.5 text-xs text-earth-500 flex items-center gap-1.5">
+                              <BedDouble className="h-3 w-3 shrink-0" />
+                              <span className="truncate">{hold.room_name}</span>
+                            </p>
+                          )}
                         </div>
                         <Button
                           size="sm"
@@ -342,6 +361,26 @@ export default function AdminBookingsPage() {
                           )}
                         </Button>
                       </div>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-earth-700">
+                        <div className="flex items-center gap-1.5">
+                          <CalendarDays className="h-3.5 w-3.5 shrink-0 text-earth-400" />
+                          <span className="tabular-nums">
+                            {fmtDateStr(hold.check_in, "MMM d", "en")} → {fmtDateStr(hold.check_out, "MMM d, yyyy", "en")}
+                          </span>
+                        </div>
+                        <div className="flex items-center gap-1.5">
+                          <Timer className="h-3.5 w-3.5 shrink-0 text-earth-400" />
+                          <span className="tabular-nums">
+                            Expires {fmtDate(new Date(hold.expires_at), "MMM d, HH:mm", "en")}
+                          </span>
+                        </div>
+                      </div>
+
+                      <div className="pt-2 border-t border-earth-100/70 text-xs text-earth-500 flex items-center gap-1.5">
+                        <Clock className="h-3 w-3" />
+                        <span className="tabular-nums">Created {fmtDate(new Date(hold.created_at), "MMM d, yyyy · HH:mm", "en")}</span>
+                      </div>
                     </CardContent>
                   </Card>
                 );
@@ -357,7 +396,7 @@ export default function AdminBookingsPage() {
           <DialogHeader>
             <DialogTitle className="font-serif">Delete Booking Hold</DialogTitle>
             <DialogDescription>
-              Delete the hold on <strong>{confirmDeleteHold?.room_name || "this room"}</strong> ({new Date(confirmDeleteHold?.check_in || "").toLocaleDateString()} → {new Date(confirmDeleteHold?.check_out || "").toLocaleDateString()})? This will release the dates immediately.
+              Delete the hold on <strong>{confirmDeleteHold?.room_name || "this room"}</strong> ({confirmDeleteHold ? `${fmtDateStr(confirmDeleteHold.check_in, "MMM d", "en")} → ${fmtDateStr(confirmDeleteHold.check_out, "MMM d, yyyy", "en")}` : ""})? This will release the dates immediately.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

@@ -23,7 +23,6 @@ import {
   TrendingDown,
   Banknote,
   ImageIcon,
-  Camera,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -654,28 +653,6 @@ export default function WalletPage() {
                               className="hidden"
                               onChange={(e) => setTopupFile(e.target.files?.[0] || null)}
                             />
-                            {isMobile && (
-                              <>
-                                <button type="button" onClick={() => {
-                                  const input = document.createElement("input");
-                                  input.type = "file";
-                                  input.accept = "image/*";
-                                  input.capture = "environment";
-                                  input.onchange = (ev) => {
-                                    const file = (ev.target as HTMLInputElement).files?.[0];
-                                    if (file) setTopupFile(file);
-                                  };
-                                  input.click();
-                                }}
-                                  className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-earth-300 p-4 text-left transition-colors hover:border-earth-400 hover:bg-earth-50">
-                                  <div className="rounded-xl bg-earth-100 p-2.5"><Camera className="h-5 w-5 text-earth-500" /></div>
-                                  <div>
-                                    <p className="text-sm font-medium text-earth-700">{t("takePhoto")}</p>
-                                    <p className="text-xs text-earth-400">{t("clickUpload")}</p>
-                                  </div>
-                                </button>
-                              </>
-                            )}
                             {!isMobile && (
                               <>
                                 <div className="relative flex items-center gap-3 py-1">
@@ -1069,26 +1046,6 @@ export default function WalletPage() {
                     className="hidden"
                     onChange={(e) => setPayFile(e.target.files?.[0] || null)}
                   />
-                  {isMobile && (
-                    <button type="button" onClick={() => {
-                      const input = document.createElement("input");
-                      input.type = "file";
-                      input.accept = "image/*";
-                      input.capture = "environment";
-                      input.onchange = (ev) => {
-                        const file = (ev.target as HTMLInputElement).files?.[0];
-                        if (file) setPayFile(file);
-                      };
-                      input.click();
-                    }}
-                      className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-earth-300 p-4 text-left transition-colors hover:border-earth-400 hover:bg-earth-50">
-                      <div className="rounded-xl bg-earth-100 p-2.5"><Camera className="h-5 w-5 text-earth-500" /></div>
-                      <div>
-                        <p className="text-sm font-medium text-earth-700">{t("takePhoto")}</p>
-                        <p className="text-xs text-earth-400">{t("clickUpload")}</p>
-                      </div>
-                    </button>
-                  )}
                   {!isMobile && (
                     <>
                       <div className="relative flex items-center gap-3 py-1">
