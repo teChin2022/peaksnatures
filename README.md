@@ -1,13 +1,13 @@
 # Peaksnature — Homestay Booking App
 
-Multi-tenant white-label booking platform for nature homestays in Thailand, featuring an AI chat assistant powered by Supabase MCP.
+Multi-tenant white-label booking platform for nature homestays in Thailand.
 
 ## Tech Stack
 
 - **Next.js 16** (App Router, Turbopack)
 - **Tailwind CSS v4** + shadcn/ui
 - **Supabase** (Postgres, Auth, Storage)
-- **Vercel AI SDK** + **Google Gemini** + Supabase MCP (AI booking assistant)
+- **Google Gemini** via Vercel AI SDK (Thai→English content translation, cached in Redis)
 - **EasySlip API** (auto-verify payment slips)
 - **Resend** (guest email notifications)
 - **LINE Messaging API** (host notifications)
@@ -40,9 +40,10 @@ Open [http://localhost:3000](http://localhost:3000)
 | `NEXT_PUBLIC_SUPABASE_URL` | Supabase project URL |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Supabase anon key |
 | `SUPABASE_SERVICE_ROLE_KEY` | Supabase service role key |
-| `OPEN_AI_API_KEY` | OpenAI API key (for AI chat) |
+| `GOOGLE_GENERATIVE_AI_API_KEY` | Gemini API key (homestay translation cache) |
 | `EASYSLIP_API_KEY` | EasySlip API key (slip verification) |
 | `RESEND_API_KEY` | Resend API key (email) |
+| `REDIS_URL` | Redis Cloud connection string (translation cache) |
 | *(per host in DB)* | `line_channel_access_token` + `line_user_id` stored per host |
 
 ## Pages
@@ -50,13 +51,13 @@ Open [http://localhost:3000](http://localhost:3000)
 | Route | Description |
 |-------|-------------|
 | `/` | Landing page with homestay grid |
-| `/[slug]` | One-page booking (hero, gallery, rooms, calendar, form, AI chat) |
+| `/[slug]` | One-page booking (hero, gallery, rooms, calendar, form) |
 | `/dashboard` | Host dashboard (bookings, management) |
 
 ## Key Features
 
-- **Two ways to book**: Manual form OR AI chat assistant
+- **Booking form**: Guest selects dates/rooms, uploads PromptPay slip
 - **Auto-verify payments**: EasySlip verifies PromptPay slips automatically
 - **Auto-confirm bookings**: No manual host confirmation needed for verified slips
 - **Notifications**: Email to guest (Resend) + LINE message to host
-- **MCP-powered AI**: Supabase MCP gives the chat assistant structured DB access
+- **Bilingual content**: Thai homestay content auto-translated to English on demand and cached in Redis

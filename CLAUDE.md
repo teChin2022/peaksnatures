@@ -22,7 +22,7 @@ Path alias: `@/*` → `./src/*`
 ### Key Directories
 
 - `src/app/` — Next.js App Router pages and API routes
-- `src/components/` — React components (UI in `ui/`, feature groups in `booking/`, `landing/`, `dashboard/`, `admin/`, `chat/`)
+- `src/components/` — React components (UI in `ui/`, feature groups in `booking/`, `landing/`, `dashboard/`, `admin/`)
 - `src/lib/` — Shared utilities: Supabase clients, notifications, rate limiting, price calculation, etc.
 - `src/types/database.ts` — Supabase DB types (canonical reference for table shapes and enums like `BookingStatus`)
 - `src/middleware.ts` — Auth middleware protecting `/dashboard` and `/admin` routes, with 5-min host status cache
@@ -34,23 +34,17 @@ Path alias: `@/*` → `./src/*`
 | Route | Description |
 |-------|-------------|
 | `/` | Landing page (60s ISR, server-rendered homestay grid) |
-| `/[slug]` | Single-page booking (hero, gallery, rooms, calendar, booking form, AI chat) |
+| `/[slug]` | Single-page booking (hero, gallery, rooms, calendar, booking form) |
 | `/dashboard/*` | Host dashboard (bookings, rooms, calendar, homestay, profile) |
 | `/admin/*` | Admin dashboard (hosts, homestays, bookings, logs, settings) |
 | `/api/*` | API routes (~42 total) |
 
 ### Booking Flow
 
-1. Guest visits `/[slug]` and books via **form** or **AI chat**
+1. Guest visits `/[slug]` and books via the booking form
 2. Booking created with status `pending`
 3. Guest uploads PromptPay slip → `/api/verify-slip` calls **EasySlip API**
 4. If verified: booking auto-confirmed → host notified via **LINE Messaging API**, guest via **Resend email**
-
-### AI Chat (`/api/chat`)
-
-- Uses **Vercel AI SDK** with **Google Gemini 2.5 Flash**
-- Tools (`check_availability`, room info, pricing) use a custom Supabase MCP server at `src/lib/mcp/supabase-mcp-server.ts`
-- Rate-limited: max 20 messages, 2000 chars per message
 
 ### Supabase Clients
 
@@ -68,7 +62,6 @@ Path alias: `@/*` → `./src/*`
 NEXT_PUBLIC_SUPABASE_URL
 NEXT_PUBLIC_SUPABASE_ANON_KEY
 SUPABASE_SERVICE_ROLE_KEY
-OPEN_AI_API_KEY
 EASYSLIP_API_KEY
 RESEND_API_KEY
 SMS_KUB_API_KEY
@@ -78,7 +71,7 @@ NEXT_PUBLIC_APP_URL      # Canonical/runtime URL. Used by SEO (metadata, sitemap
 GOOGLE_SITE_VERIFICATION # Optional. Google Search Console verification token.
 BING_SITE_VERIFICATION   # Optional. Bing Webmaster verification token.
 REDIS_URL                # Redis Cloud connection string for the Thai→English translation cache used on /[slug]. Format: redis://default:<password>@<host>:<port> (use rediss:// if TLS). Optional: if unset, EN locale silently falls back to TH content.
-GOOGLE_GENERATIVE_AI_API_KEY # Gemini API key consumed by @ai-sdk/google. Used by /api/chat and the homestay translation cache.
+GOOGLE_GENERATIVE_AI_API_KEY # Gemini API key consumed by @ai-sdk/google. Used by the homestay translation cache.
 ```
 
 Per-host LINE credentials (`line_channel_access_token`, `line_user_id`) are stored in the `hosts` DB table.
