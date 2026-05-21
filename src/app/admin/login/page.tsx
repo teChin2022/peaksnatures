@@ -4,6 +4,7 @@ import { useState, useCallback, useRef } from "react";
 import Image from "next/image";
 import { useRouter } from "next/navigation";
 import { Loader2, Eye, EyeOff, Shield } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,6 +22,7 @@ import { isValidEmail } from "@/lib/utils";
 
 export default function AdminLoginPage() {
   const router = useRouter();
+  const t = useTranslations("auth");
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -38,12 +40,12 @@ export default function AdminLoginPage() {
     setError(null);
 
     if (!isValidEmail(email)) {
-      setError("Please enter a valid email address");
+      setError(t("errorInvalidEmail"));
       return;
     }
 
     if (!turnstileToken && !turnstileError) {
-      setError("Please complete the CAPTCHA verification");
+      setError(t("errorCaptcha"));
       return;
     }
 
@@ -60,9 +62,9 @@ export default function AdminLoginPage() {
 
       if (!res.ok) {
         if (res.status === 403) {
-          setError("CAPTCHA verification failed");
+          setError(t("errorCaptcha"));
         } else {
-          setError(data.error || "Something went wrong");
+          setError(data.error || t("errorGeneric"));
         }
         turnstileRef.current?.reset();
         setTurnstileToken(null);
@@ -71,7 +73,7 @@ export default function AdminLoginPage() {
 
       setShowOtpModal(true);
     } catch {
-      setError("Something went wrong");
+      setError(t("errorGeneric"));
       turnstileRef.current?.reset();
       setTurnstileToken(null);
     } finally {
@@ -95,11 +97,11 @@ export default function AdminLoginPage() {
 
         if (!res.ok) {
           if (data.error === "code_expired") {
-            setOtpError("Verification code expired. Please request a new one.");
+            setOtpError(t("otpExpired"));
           } else if (data.error === "invalid_code") {
-            setOtpError("Invalid verification code.");
+            setOtpError(t("otpInvalid"));
           } else {
-            setOtpError(data.error || "Something went wrong");
+            setOtpError(data.error || t("errorGeneric"));
           }
           return;
         }
@@ -107,19 +109,19 @@ export default function AdminLoginPage() {
         // Verify this user is actually a platform admin
         const verifyRes = await fetch("/api/admin/auth/verify", { method: "POST" });
         if (!verifyRes.ok) {
-          setOtpError("You are not authorized as a platform admin.");
+          setOtpError(t("errorAdminUnauthorized"));
           return;
         }
 
         router.push("/admin");
         router.refresh();
       } catch {
-        setOtpError("Something went wrong");
+        setOtpError(t("errorGeneric"));
       } finally {
         setOtpLoading(false);
       }
     },
-    [email, password, router]
+    [email, password, router, t]
   );
 
   const handleResendOtp = useCallback(async () => {
@@ -132,12 +134,12 @@ export default function AdminLoginPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        setOtpError(data.error || "Something went wrong");
+        setOtpError(data.error || t("errorGeneric"));
       }
     } catch {
-      setOtpError("Something went wrong");
+      setOtpError(t("errorGeneric"));
     }
-  }, [email, password]);
+  }, [email, password, t]);
 
   return (
     <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
@@ -164,19 +166,19 @@ export default function AdminLoginPage() {
               height={32}
               className="h-8 w-8 rounded"
             />
-            <span className="text-2xl font-bold text-slate-800">Platform Admin</span>
+            <span className="text-2xl font-bold text-slate-800">{t("adminBrand")}</span>
           </div>
           <div className="flex items-center gap-1.5 text-sm text-slate-500">
             <Shield className="h-3.5 w-3.5" />
-            <span>Restricted access</span>
+            <span>{t("adminRestrictedAccess")}</span>
           </div>
         </div>
 
         <Card>
           <CardHeader>
-            <CardTitle>Admin Sign In</CardTitle>
+            <CardTitle>{t("adminSignInTitle")}</CardTitle>
             <CardDescription>
-              Enter your admin credentials to access the platform dashboard.
+              {t("adminSignInDesc")}
             </CardDescription>
           </CardHeader>
           <form onSubmit={handleLogin}>
@@ -187,11 +189,11 @@ export default function AdminLoginPage() {
                 </div>
               )}
               <div className="space-y-2">
-                <Label htmlFor="email">Email</Label>
+                <Label htmlFor="email">{t("email")}</Label>
                 <Input
                   id="email"
                   type="email"
-                  placeholder="admin@example.com"
+                  placeholder={t("adminEmailPlaceholder")}
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   required
@@ -199,7 +201,7 @@ export default function AdminLoginPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label htmlFor="password">Password</Label>
+                <Label htmlFor="password">{t("password")}</Label>
                 <div className="relative">
                   <Input
                     id="password"
@@ -242,7 +244,7 @@ export default function AdminLoginPage() {
                 disabled={loading || (!turnstileToken && !turnstileError)}
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Sign In
+                {t("signInButton")}
               </Button>
             </CardFooter>
           </form>

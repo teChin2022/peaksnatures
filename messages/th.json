@@ -369,6 +369,14 @@
     "otpResendIn": "ส่งอีกครั้งใน {seconds} วินาที",
     "otpExpired": "รหัสหมดอายุ กรุณาขอรหัสใหม่",
     "otpInvalid": "รหัสไม่ถูกต้อง กรุณาลองใหม่",
+    "errorAdminUnauthorized": "คุณไม่มีสิทธิ์เข้าถึงในฐานะผู้ดูแลแพลตฟอร์ม",
+    "errorPasswordSameAsCurrent": "รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านเดิม",
+    "errorResetSessionExpired": "ลิงก์รีเซ็ตรหัสผ่านหมดอายุแล้ว กรุณาขอลิงก์ใหม่",
+    "adminBrand": "ผู้ดูแลแพลตฟอร์ม",
+    "adminRestrictedAccess": "เข้าถึงเฉพาะผู้ได้รับอนุญาต",
+    "adminSignInTitle": "เข้าสู่ระบบผู้ดูแล",
+    "adminSignInDesc": "กรอกข้อมูลผู้ดูแลเพื่อเข้าสู่แดชบอร์ดแพลตฟอร์ม",
+    "adminEmailPlaceholder": "admin@example.com",
     "pdpaConsent": "ฉันยอมรับ <privacy>นโยบายความเป็นส่วนตัว</privacy> และ <terms>ข้อกำหนดการใช้งาน</terms>"
   },
   "dashboard": {
