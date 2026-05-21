@@ -22,7 +22,6 @@ import {
   ArrowRight,
   HelpCircle,
   ImageIcon,
-  Camera,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -203,7 +202,6 @@ export default function DashboardBillingPage() {
   const fileInputRef = useRef<HTMLInputElement>(null);
   const payFileInputRef = useRef<HTMLInputElement>(null);
   const mobileSlipInputRef = useRef<HTMLInputElement>(null);
-  const mobileCameraInputRef = useRef<HTMLInputElement>(null);
 
   const fetchBilling = useCallback(async () => {
     try {
@@ -804,31 +802,6 @@ export default function DashboardBillingPage() {
                             ref={mobileSlipInputRef}
                             type="file"
                             accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file && pendingInvoice) {
-                                setPayFile(file);
-                                setPayInvoiceId(pendingInvoice.id);
-                              }
-                            }}
-                          />
-                          <button
-                            type="button"
-                            onClick={() => mobileCameraInputRef.current?.click()}
-                            className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-earth-300 p-4 text-left transition-colors hover:border-earth-400 hover:bg-earth-50"
-                          >
-                            <div className="rounded-xl bg-earth-100 p-2.5"><Camera className="h-5 w-5 text-earth-500" /></div>
-                            <div>
-                              <p className="text-sm font-medium text-earth-700">{locale === "th" ? "ถ่ายรูปสลิป" : "Take photo of slip"}</p>
-                              <p className="text-xs text-earth-400">{locale === "th" ? "คลิกเพื่อเปิดกล้อง" : "Click to open camera"}</p>
-                            </div>
-                          </button>
-                          <input
-                            ref={mobileCameraInputRef}
-                            type="file"
-                            accept="image/*"
-                            capture="environment"
                             className="hidden"
                             onChange={(e) => {
                               const file = e.target.files?.[0];

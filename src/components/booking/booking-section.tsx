@@ -22,7 +22,7 @@ import { Badge } from "@/components/ui/badge";
 import {
   Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope,
   CalendarDays, Calendar as CalendarIcon, Users, CreditCard, Upload, CheckCircle2, Loader2,
-  Camera, ImageIcon, X, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle,
+  ImageIcon, X, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle,
   Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, Sparkles, FileText, Lock, MousePointerClick, ListPlus, Gift,
 } from "lucide-react";
 import { toast } from "sonner";
@@ -163,7 +163,6 @@ export function BookingSection({
   const [phoneSlipUrl, setPhoneSlipUrl] = useState<string | null>(null);
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
-  const cameraInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const qrContainerRef = useRef<HTMLDivElement>(null);
 
@@ -180,7 +179,6 @@ export function BookingSection({
     setPhoneSlipReceived(false);
     setPhoneSlipUrl(null);
     if (galleryInputRef.current) galleryInputRef.current.value = "";
-    if (cameraInputRef.current) cameraInputRef.current.value = "";
   };
   const [bookingId, setBookingId] = useState<string | null>(null);
 
@@ -920,7 +918,6 @@ export function BookingSection({
 
             {/* Hidden file inputs */}
             <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)} />
-            <input ref={cameraInputRef} type="file" accept="image/*" capture="environment" className="hidden" onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)} />
 
             <div className="min-h-[480px] max-h-[600px] lg:max-h-[700px] overflow-y-auto pr-1">
               <AnimatePresence mode="wait">
@@ -1574,16 +1571,6 @@ export function BookingSection({
                                   <p className="text-xs text-earth-400">{t("clickUpload")}</p>
                                 </div>
                               </button>
-                              {isMobile && (
-                                <button type="button" onClick={() => cameraInputRef.current?.click()}
-                                  className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-earth-300 p-4 text-left transition-colors hover:border-earth-400 hover:bg-earth-50">
-                                  <div className="rounded-xl bg-earth-100 p-2.5"><Camera className="h-5 w-5 text-earth-500" /></div>
-                                  <div>
-                                    <p className="text-sm font-medium text-earth-700">{t("takePhoto")}</p>
-                                    <p className="text-xs text-earth-400">{t("clickUpload")}</p>
-                                  </div>
-                                </button>
-                              )}
                               {!isMobile && (
                                 <>
                                   <div className="relative flex items-center gap-3 py-1">

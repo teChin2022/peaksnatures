@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef } from "react";
-import { CheckCircle2, Upload, Camera, ImageIcon, X, Loader2 } from "lucide-react";
+import { CheckCircle2, Upload, ImageIcon, X, Loader2 } from "lucide-react";
 
 export default function UploadSlipPage({
   params,
@@ -15,7 +15,6 @@ export default function UploadSlipPage({
   const [done, setDone] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const galleryRef = useRef<HTMLInputElement>(null);
-  const cameraRef = useRef<HTMLInputElement>(null);
 
   // Resolve params
   if (!sessionId) {
@@ -34,7 +33,6 @@ export default function UploadSlipPage({
     setFile(null);
     setPreview(null);
     if (galleryRef.current) galleryRef.current.value = "";
-    if (cameraRef.current) cameraRef.current.value = "";
   };
 
   const handleUpload = async () => {
@@ -107,15 +105,6 @@ export default function UploadSlipPage({
           className="hidden"
           onChange={(e) => handleFileSelect(e.target.files?.[0] || null)}
         />
-        <input
-          ref={cameraRef}
-          type="file"
-          accept="image/*"
-          capture="environment"
-          className="hidden"
-          onChange={(e) => handleFileSelect(e.target.files?.[0] || null)}
-        />
-
         <div className="mt-6 space-y-3">
           {preview ? (
             <div className="rounded-xl border bg-white p-4">
@@ -176,23 +165,6 @@ export default function UploadSlipPage({
                 </div>
               </button>
 
-              <button
-                type="button"
-                onClick={() => cameraRef.current?.click()}
-                className="flex w-full items-center gap-4 rounded-xl border-2 border-dashed border-gray-300 bg-white p-5 text-left transition-colors active:bg-gray-50"
-              >
-                <div className="rounded-lg bg-blue-50 p-3">
-                  <Camera className="h-6 w-6 text-blue-600" />
-                </div>
-                <div>
-                  <p className="text-sm font-medium text-gray-700">
-                    Take Photo / ถ่ายรูป
-                  </p>
-                  <p className="text-xs text-gray-400">
-                    Take a photo of your transfer slip
-                  </p>
-                </div>
-              </button>
             </>
           )}
         </div>
