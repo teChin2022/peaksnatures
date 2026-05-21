@@ -369,14 +369,8 @@
     "otpResendIn": "Resend in {seconds}s",
     "otpExpired": "Code expired. Please request a new one.",
     "otpInvalid": "Invalid code. Please try again.",
-    "errorAdminUnauthorized": "You are not authorized as a platform admin.",
     "errorPasswordSameAsCurrent": "New password must be different from the current one.",
     "errorResetSessionExpired": "Your reset link has expired. Please request a new one.",
-    "adminBrand": "Platform Admin",
-    "adminRestrictedAccess": "Restricted access",
-    "adminSignInTitle": "Admin Sign In",
-    "adminSignInDesc": "Enter your admin credentials to access the platform dashboard.",
-    "adminEmailPlaceholder": "admin@example.com",
     "pdpaConsent": "I agree to the <privacy>Privacy Policy</privacy> and <terms>Terms of Service</terms>"
   },
   "dashboard": {
