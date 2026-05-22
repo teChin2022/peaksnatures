@@ -83,3 +83,5 @@ Per-host LINE credentials (`line_channel_access_token`, `line_user_id`) are stor
 ### Security
 
 Security headers are set in `next.config.ts` (CSP, HSTS, X-Frame-Options). Auth is session-based via Supabase, enforced at the middleware level. Cloudflare Turnstile is used for CAPTCHA. Security PINs and passwords are hashed with `bcryptjs`.
+
+Rate limiting (`src/lib/rate-limit.ts`) is Redis-backed via `ioredis` when `REDIS_URL` is set, with an in-memory per-process fallback otherwise. Both Turnstile (`src/lib/turnstile.ts`) and the rate limiter are designed to **fail open** — Cloudflare or Redis being unreachable must never block legitimate bookings.

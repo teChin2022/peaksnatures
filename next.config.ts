@@ -45,18 +45,22 @@ const nextConfig: NextConfig = {
           { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
           { key: "X-DNS-Prefetch-Control", value: "on" },
           {
-            key: "Content-Security-Policy",
+            // Report-Only for initial rollout. After 7-14 days of clean reports
+            // in production, swap this header key to "Content-Security-Policy".
+            key: "Content-Security-Policy-Report-Only",
             value: [
               "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com",
+              "script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com",
               "style-src 'self' 'unsafe-inline'",
               "img-src 'self' data: blob: https://*.supabase.co",
               "font-src 'self'",
               "connect-src 'self' https://*.supabase.co https://challenges.cloudflare.com",
-              "frame-src https://challenges.cloudflare.com https://www.google.com",
+              "frame-src https://challenges.cloudflare.com https://www.google.com/maps/embed",
               "frame-ancestors 'none'",
+              "form-action 'self'",
               "object-src 'none'",
               "base-uri 'self'",
+              "report-uri /api/csp-report",
             ].join("; "),
           },
         ],

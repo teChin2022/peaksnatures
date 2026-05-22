@@ -45,6 +45,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 
 interface BookedRange {
   room_id: string | null;
@@ -165,6 +166,48 @@ export function BookingSection({
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const qrContainerRef = useRef<HTMLDivElement>(null);
+
+  // Invisible Turnstile — no visible UI. We fetch a fresh token via execute()
+  // before each /api/bookings/hold and /api/bookings call. Token comes back
+  // through onSuccess, which resolves the next pending promise. Fail-open:
+  // a timeout or onError sends "" to the backend, which treats it as skip.
+  const turnstileRef = useRef<TurnstileInstance>(null);
+  const turnstilePendingResolvers = useRef<Array<(token: string) => void>>([]);
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+
+  const handleTurnstileSuccess = useCallback((token: string) => {
+    const resolvers = turnstilePendingResolvers.current;
+    turnstilePendingResolvers.current = [];
+    resolvers.forEach((r) => r(token));
+  }, []);
+
+  const handleTurnstileError = useCallback(() => {
+    const resolvers = turnstilePendingResolvers.current;
+    turnstilePendingResolvers.current = [];
+    resolvers.forEach((r) => r(""));
+  }, []);
+
+  const executeTurnstile = useCallback((timeoutMs = 5000): Promise<string> => {
+    if (!turnstileSiteKey || !turnstileRef.current) return Promise.resolve("");
+    return new Promise<string>((resolve) => {
+      const timer = setTimeout(() => {
+        const idx = turnstilePendingResolvers.current.indexOf(wrapped);
+        if (idx >= 0) turnstilePendingResolvers.current.splice(idx, 1);
+        resolve("");
+      }, timeoutMs);
+      const wrapped = (token: string) => {
+        clearTimeout(timer);
+        resolve(token);
+      };
+      turnstilePendingResolvers.current.push(wrapped);
+      try {
+        turnstileRef.current?.reset();
+        turnstileRef.current?.execute();
+      } catch {
+        // ignore — timeout above will resolve with "" (fail-open)
+      }
+    });
+  }, [turnstileSiteKey]);
 
   const handleSlipSelect = (file: File | null) => {
     if (slipPreview) URL.revokeObjectURL(slipPreview);
@@ -554,6 +597,7 @@ export function BookingSection({
 
     setIsSubmitting(true);
     try {
+      const turnstileToken = await executeTurnstile();
       const res = await fetch("/api/bookings/hold", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -563,6 +607,7 @@ export function BookingSection({
           check_out: format(dateRange.to, "yyyy-MM-dd"),
           session_id: uploadSessionId,
           guest_phone: guestPhone.trim(),
+          turnstileToken,
         }),
       });
 
@@ -579,6 +624,18 @@ export function BookingSection({
         } else {
           setShowHeldModal(true);
         }
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (res.status === 429) {
+        toast.error(t("errorTooManyRequests"));
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (res.status === 403) {
+        toast.error(tc("errorCaptcha"));
         setIsSubmitting(false);
         return;
       }
@@ -691,6 +748,7 @@ export function BookingSection({
       const isSlipVerified = !!verifyData.verified;
 
       // 3. Create the booking — verified or pending (host review)
+      const bookingTurnstileToken = await executeTurnstile();
       const bookingRes = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -721,6 +779,7 @@ export function BookingSection({
             return { id, name: opt?.name || "", price };
           }),
           promo_code_id: appliedPromo?.id || undefined,
+          turnstileToken: bookingTurnstileToken,
         }),
       });
 
@@ -735,6 +794,16 @@ export function BookingSection({
             .catch(() => { });
           setDateRange(undefined);
           setStep("dates");
+          setIsSubmitting(false);
+          return;
+        }
+        if (bookingRes.status === 429) {
+          toast.error(t("errorTooManyRequests"));
+          setIsSubmitting(false);
+          return;
+        }
+        if (bookingRes.status === 403) {
+          toast.error(tc("errorCaptcha"));
           setIsSubmitting(false);
           return;
         }
@@ -806,6 +875,16 @@ export function BookingSection({
 
   return (
     <>
+      {turnstileSiteKey && (
+        <Turnstile
+          ref={turnstileRef}
+          siteKey={turnstileSiteKey}
+          onSuccess={handleTurnstileSuccess}
+          onError={handleTurnstileError}
+          onExpire={handleTurnstileError}
+          options={{ size: "invisible", execution: "execute" }}
+        />
+      )}
       <section id="booking-section" ref={sectionRef} className="py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           {bookingDisabled && (

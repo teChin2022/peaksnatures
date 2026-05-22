@@ -1,5 +1,7 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
+import { createRateLimiter } from "@/lib/rate-limit";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 function escapeHtml(s: string): string {
   return s
@@ -15,11 +17,34 @@ const contactSchema = z.object({
   email: z.string().email().max(200),
   subject: z.string().min(1).max(300),
   message: z.string().min(1).max(5000),
+  // Cloudflare Turnstile token. Optional — backend fails open on empty/skip.
+  turnstileToken: z.string().optional(),
 });
 
-export async function POST(request: Request) {
+const contactRateLimit = createRateLimiter({
+  limit: 3,
+  windowMs: 60_000,
+  name: "contact",
+});
+
+export async function POST(request: NextRequest) {
   try {
+    const rateLimited = await contactRateLimit.check(request);
+    if (rateLimited) return rateLimited;
+
     const body = await request.json();
+
+    // Turnstile verification — fail-open on "skip" (see src/lib/turnstile.ts).
+    const captchaResult = await verifyTurnstileToken(
+      typeof body?.turnstileToken === "string" ? body.turnstileToken : ""
+    );
+    if (captchaResult === "fail") {
+      return NextResponse.json(
+        { error: "CAPTCHA verification failed" },
+        { status: 403 }
+      );
+    }
+
     const parsed = contactSchema.safeParse(body);
 
     if (!parsed.success) {

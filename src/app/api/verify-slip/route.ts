@@ -23,7 +23,7 @@ const slipRateLimit = createRateLimiter({ limit: 10, windowMs: 60_000 });
  * Returns on SLIP_PENDING: { verified: false, slip_pending: true, message, ... }
  */
 export async function POST(req: NextRequest) {
-  const rateLimited = slipRateLimit.check(req);
+  const rateLimited = await slipRateLimit.check(req);
   if (rateLimited) return rateLimited;
 
   try {

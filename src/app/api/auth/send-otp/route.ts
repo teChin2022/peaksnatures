@@ -3,6 +3,7 @@ import { createClient } from "@supabase/supabase-js";
 import { Resend } from "resend";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { createRateLimiter } from "@/lib/rate-limit";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 import { logEvent, EventType } from "@/lib/history-log";
 
 // Lazy singleton — created once per cold start, not per request
@@ -12,42 +13,10 @@ function getResendClient(apiKey: string): Resend {
   return resendClient;
 }
 
-const otpRateLimit = createRateLimiter({ limit: 5, windowMs: 60_000 });
-
-// Returns: "pass" | "fail" | "skip" (skip = Cloudflare unreachable, graceful degradation)
-async function verifyTurnstileToken(token: string): Promise<"pass" | "fail" | "skip"> {
-  if (!token) {
-    console.warn("Turnstile: No token provided — widget may have failed to load. Allowing login.");
-    return "skip";
-  }
-
-  const secret = process.env.TURNSTILE_SECRET_KEY;
-  if (!secret) {
-    console.error("TURNSTILE_SECRET_KEY is not configured — skipping verification");
-    return "skip";
-  }
-
-  try {
-    const response = await fetch(
-      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ secret, response: token }),
-        signal: AbortSignal.timeout(5000),
-      }
-    );
-
-    const data = await response.json();
-    return data.success === true ? "pass" : "fail";
-  } catch (err) {
-    console.error("Turnstile: Cloudflare verification unreachable — allowing login.", err);
-    return "skip";
-  }
-}
+const otpRateLimit = createRateLimiter({ limit: 5, windowMs: 60_000, name: "send-otp" });
 
 export async function POST(req: NextRequest) {
-  const rateLimited = otpRateLimit.check(req);
+  const rateLimited = await otpRateLimit.check(req);
   if (rateLimited) return rateLimited;
 
   try {
