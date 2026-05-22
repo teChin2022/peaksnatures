@@ -38,6 +38,30 @@ function tooManyResponse(retryAfterSeconds: number): NextResponse {
   );
 }
 
+// Process-wide kill switch shared across all limiters created in this process.
+// Once a fatal Redis error (bad auth, host unreachable) is observed, we stop
+// attempting Redis commands so the shared client's error handler in redis.ts
+// doesn't get a NOAUTH / ECONNREFUSED on every request.
+let redisProcessDisabled = false;
+let redisProcessDisabledLogged = false;
+
+function isFatalRedisError(err: unknown): boolean {
+  const msg = err instanceof Error ? err.message : String(err ?? "");
+  return /NOAUTH|WRONGPASS|ENOTFOUND|ECONNREFUSED|EHOSTUNREACH|ETIMEDOUT|invalid password/i.test(
+    msg
+  );
+}
+
+function disableRedisForProcess(name: string, reason: string, err?: unknown) {
+  redisProcessDisabled = true;
+  if (redisProcessDisabledLogged) return;
+  redisProcessDisabledLogged = true;
+  console.warn(
+    `[rate-limit:${name}] Redis disabled for this process (${reason}). Falling back to in-memory limiter. Fix REDIS_URL or unset it to silence this.`,
+    err instanceof Error ? err.message : err ?? ""
+  );
+}
+
 /**
  * Rate limiter with optional Redis backend.
  *
@@ -121,7 +145,11 @@ export function createRateLimiter({
       const [incrErr, count] = results[0] ?? [];
       const [, ttl] = results[2] ?? [];
       if (incrErr) {
-        logFallback("INCR error", incrErr);
+        if (isFatalRedisError(incrErr)) {
+          disableRedisForProcess(name, "INCR fatal", incrErr);
+        } else {
+          logFallback("INCR error", incrErr);
+        }
         return "fallback";
       }
       const countNum = typeof count === "number" ? count : Number(count);
@@ -132,7 +160,11 @@ export function createRateLimiter({
       }
       return null;
     } catch (err) {
-      logFallback("command threw", err);
+      if (isFatalRedisError(err)) {
+        disableRedisForProcess(name, "command threw fatal", err);
+      } else {
+        logFallback("command threw", err);
+      }
       return "fallback";
     }
   }
@@ -140,7 +172,7 @@ export function createRateLimiter({
   async function check(req: NextRequest): Promise<NextResponse | null> {
     const bucket = await Promise.resolve((key ?? defaultKey)(req));
 
-    if (process.env.REDIS_URL) {
+    if (process.env.REDIS_URL && !redisProcessDisabled) {
       const redisResult = await checkRedis(bucket);
       if (redisResult !== "fallback") return redisResult;
     }
