@@ -2,6 +2,14 @@ import Redis from "ioredis";
 
 declare global {
   var __redis: Redis | undefined;
+  var __redisLastErrorLog: number | undefined;
+  var __redisFirstAuthLogged: boolean | undefined;
+}
+
+const ERROR_LOG_THROTTLE_MS = 60_000;
+
+function isAuthError(message: string): boolean {
+  return /NOAUTH|WRONGPASS|invalid password|invalid username/i.test(message);
 }
 
 export function getRedis(): Redis | null {
@@ -16,7 +24,24 @@ export function getRedis(): Redis | null {
       connectTimeout: 5000,
     });
     client.on("error", (err) => {
-      console.error("[redis] error:", err.message);
+      const msg = err?.message ?? "";
+      // ioredis emits an `error` event on every failed connection / reconnect
+      // attempt. In serverless (cold start, idle timeout) NOAUTH can flash by
+      // a couple of times before AUTH succeeds. Throttle to at most one log
+      // per minute so a transient hiccup doesn't fill the function logs, while
+      // a sustained misconfiguration is still surfaced.
+      const now = Date.now();
+      const last = globalThis.__redisLastErrorLog ?? 0;
+      if (now - last < ERROR_LOG_THROTTLE_MS) return;
+      globalThis.__redisLastErrorLog = now;
+      if (isAuthError(msg) && !globalThis.__redisFirstAuthLogged) {
+        globalThis.__redisFirstAuthLogged = true;
+        console.error(
+          `[redis] auth error: ${msg}. If REDIS_URL is correct this is usually transient during reconnect; otherwise fix credentials or unset REDIS_URL.`
+        );
+        return;
+      }
+      console.error("[redis] error:", msg);
     });
     globalThis.__redis = client;
   }

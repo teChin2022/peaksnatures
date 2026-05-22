@@ -167,28 +167,62 @@ export function BookingSection({
   const nameInputRef = useRef<HTMLInputElement>(null);
   const qrContainerRef = useRef<HTMLDivElement>(null);
 
-  // Invisible Turnstile — no visible UI. We fetch a fresh token via execute()
-  // before each /api/bookings/hold and /api/bookings call. Token comes back
-  // through onSuccess, which resolves the next pending promise. Fail-open:
-  // a timeout or onError sends "" to the backend, which treats it as skip.
+  // Invisible Turnstile in auto-fetch mode. The widget mounts on page load,
+  // silently fetches a token, and stores it via onSuccess. Each consume()
+  // grabs the cached token and calls reset() to start fetching the next one.
+  // Fail-open: missing site key, widget error, or no token within 5s sends ""
+  // to the backend, which treats it as skip (see src/lib/turnstile.ts).
   const turnstileRef = useRef<TurnstileInstance>(null);
+  const turnstileTokenRef = useRef<string | null>(null);
   const turnstilePendingResolvers = useRef<Array<(token: string) => void>>([]);
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   const handleTurnstileSuccess = useCallback((token: string) => {
     const resolvers = turnstilePendingResolvers.current;
-    turnstilePendingResolvers.current = [];
-    resolvers.forEach((r) => r(token));
+    if (resolvers.length > 0) {
+      // Pending consumer is waiting — deliver this token directly and trigger
+      // a refresh so a fresh one is ready for the next call.
+      turnstilePendingResolvers.current = [];
+      resolvers.forEach((r) => r(token));
+      try {
+        turnstileRef.current?.reset();
+      } catch {
+        // widget already torn down
+      }
+      return;
+    }
+    // No consumer yet — cache this token for the next consume.
+    turnstileTokenRef.current = token;
+  }, []);
+
+  const handleTurnstileExpire = useCallback(() => {
+    turnstileTokenRef.current = null;
   }, []);
 
   const handleTurnstileError = useCallback(() => {
+    turnstileTokenRef.current = null;
     const resolvers = turnstilePendingResolvers.current;
     turnstilePendingResolvers.current = [];
     resolvers.forEach((r) => r(""));
   }, []);
 
   const executeTurnstile = useCallback((timeoutMs = 5000): Promise<string> => {
-    if (!turnstileSiteKey || !turnstileRef.current) return Promise.resolve("");
+    if (!turnstileSiteKey) return Promise.resolve("");
+
+    // Fast path: we already have a fresh cached token.
+    const cached = turnstileTokenRef.current;
+    if (cached) {
+      turnstileTokenRef.current = null;
+      try {
+        turnstileRef.current?.reset();
+      } catch {
+        // ignore
+      }
+      return Promise.resolve(cached);
+    }
+
+    // Slow path: widget hasn't produced a token yet (cold mount, post-expire,
+    // post-reset). Wait briefly for the next onSuccess.
     return new Promise<string>((resolve) => {
       const timer = setTimeout(() => {
         const idx = turnstilePendingResolvers.current.indexOf(wrapped);
@@ -200,12 +234,6 @@ export function BookingSection({
         resolve(token);
       };
       turnstilePendingResolvers.current.push(wrapped);
-      try {
-        turnstileRef.current?.reset();
-        turnstileRef.current?.execute();
-      } catch {
-        // ignore — timeout above will resolve with "" (fail-open)
-      }
     });
   }, [turnstileSiteKey]);
 
@@ -881,8 +909,8 @@ export function BookingSection({
           siteKey={turnstileSiteKey}
           onSuccess={handleTurnstileSuccess}
           onError={handleTurnstileError}
-          onExpire={handleTurnstileError}
-          options={{ size: "invisible", execution: "execute" }}
+          onExpire={handleTurnstileExpire}
+          options={{ size: "invisible" }}
         />
       )}
       <section id="booking-section" ref={sectionRef} className="py-20 md:py-28">
