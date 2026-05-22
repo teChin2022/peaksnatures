@@ -177,7 +177,18 @@ export function BookingSection({
   const turnstilePendingResolvers = useRef<Array<(token: string) => void>>([]);
   const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
+  useEffect(() => {
+    if (!turnstileSiteKey) {
+      console.warn(
+        "[Turnstile] NEXT_PUBLIC_TURNSTILE_SITE_KEY is not set in the deployed bundle. Widget skipped; backend will fail-open."
+      );
+    } else {
+      console.info("[Turnstile] site key present, mounting widget");
+    }
+  }, [turnstileSiteKey]);
+
   const handleTurnstileSuccess = useCallback((token: string) => {
+    console.info("[Turnstile] onSuccess — token length:", token.length);
     const resolvers = turnstilePendingResolvers.current;
     if (resolvers.length > 0) {
       // Pending consumer is waiting — deliver this token directly and trigger
@@ -196,18 +207,31 @@ export function BookingSection({
   }, []);
 
   const handleTurnstileExpire = useCallback(() => {
+    console.warn("[Turnstile] onExpire — clearing cached token");
     turnstileTokenRef.current = null;
   }, []);
 
-  const handleTurnstileError = useCallback(() => {
+  const handleTurnstileError = useCallback((err?: unknown) => {
+    console.error("[Turnstile] onError:", err);
     turnstileTokenRef.current = null;
     const resolvers = turnstilePendingResolvers.current;
     turnstilePendingResolvers.current = [];
     resolvers.forEach((r) => r(""));
   }, []);
 
+  const handleTurnstileWidgetLoad = useCallback((widgetId: string) => {
+    console.info("[Turnstile] onWidgetLoad — widgetId:", widgetId);
+  }, []);
+
+  const handleTurnstileUnsupported = useCallback(() => {
+    console.warn("[Turnstile] onUnsupported — browser/network unsupported");
+  }, []);
+
   const executeTurnstile = useCallback((timeoutMs = 5000): Promise<string> => {
-    if (!turnstileSiteKey) return Promise.resolve("");
+    if (!turnstileSiteKey) {
+      console.warn("[Turnstile] executeTurnstile: no site key, returning empty");
+      return Promise.resolve("");
+    }
 
     // Fast path: we already have a fresh cached token.
     const cached = turnstileTokenRef.current;
@@ -218,8 +242,11 @@ export function BookingSection({
       } catch {
         // ignore
       }
+      console.info("[Turnstile] executeTurnstile: using cached token");
       return Promise.resolve(cached);
     }
+
+    console.info("[Turnstile] executeTurnstile: waiting for token (no cache)…");
 
     // Slow path: widget hasn't produced a token yet (cold mount, post-expire,
     // post-reset). Wait briefly for the next onSuccess.
@@ -227,6 +254,7 @@ export function BookingSection({
       const timer = setTimeout(() => {
         const idx = turnstilePendingResolvers.current.indexOf(wrapped);
         if (idx >= 0) turnstilePendingResolvers.current.splice(idx, 1);
+        console.warn("[Turnstile] executeTurnstile: 5s timeout — returning empty (fail-open)");
         resolve("");
       }, timeoutMs);
       const wrapped = (token: string) => {
@@ -910,6 +938,8 @@ export function BookingSection({
           onSuccess={handleTurnstileSuccess}
           onError={handleTurnstileError}
           onExpire={handleTurnstileExpire}
+          onWidgetLoad={handleTurnstileWidgetLoad}
+          onUnsupported={handleTurnstileUnsupported}
           options={{ size: "invisible" }}
         />
       )}
