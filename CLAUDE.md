@@ -66,7 +66,7 @@ EASYSLIP_API_KEY
 RESEND_API_KEY
 SMS_KUB_API_KEY
 SMS_KUB_SENDER
-CRON_SECRET              # Secures /api/cron/* endpoints. Generate with: openssl rand -base64 32
+CRON_SECRET              # Secures /api/cron/* endpoints. Generate with: openssl rand -base64 32. Must be ≥ 32 chars or the cron route's serverless function refuses to initialize. Rotate ~every 90 days; after rotation, sign in as admin and verify /api/health/cron returns ok within 25h.
 NEXT_PUBLIC_APP_URL      # Canonical/runtime URL. Used by SEO (metadata, sitemap, robots, JSON-LD), magic-link emails, and notifications. Set per-environment in Vercel: prod = https://peaksnature.com, preview = the preview hostname, local = http://localhost:3000. NEXT_PUBLIC_SITE_URL is still read as a fallback for back-compat but new envs should use NEXT_PUBLIC_APP_URL only.
 GOOGLE_SITE_VERIFICATION # Optional. Google Search Console verification token.
 BING_SITE_VERIFICATION   # Optional. Bing Webmaster verification token.

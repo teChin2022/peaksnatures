@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
+import { assertCronAuthorized } from "@/lib/auth/cron-auth";
 import {
   computeFixedRateInvoice,
   getBillingConfig,
@@ -12,6 +13,9 @@ import { GRACE_PERIOD_DAYS } from "@/lib/plan-expiry";
 import { sendSms } from "@/lib/notifications";
 import { fmtDateStr } from "@/lib/format-date";
 import type { Host, PlatformBillingConfig } from "@/types/database";
+
+export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 async function runWithConcurrency<T>(
   items: T[],
@@ -47,15 +51,8 @@ async function runWithConcurrency<T>(
  * Vercel Cron sends `Authorization: Bearer <CRON_SECRET>` automatically.
  */
 export async function GET(req: NextRequest) {
-  const authHeader = req.headers.get("authorization");
-  const cronSecret = process.env.CRON_SECRET;
-  if (!cronSecret) {
-    console.error("[Cron] CRON_SECRET not configured");
-    return NextResponse.json({ error: "Cron not configured" }, { status: 500 });
-  }
-  if (authHeader !== `Bearer ${cronSecret}`) {
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-  }
+  const unauthorized = assertCronAuthorized(req);
+  if (unauthorized) return unauthorized;
 
   const supabase = createServiceRoleClient();
   const results: Record<string, unknown> = {};
@@ -530,9 +527,28 @@ export async function GET(req: NextRequest) {
       results.invoice_notifications = invoiceNotifications;
     }
 
+    await logEvent({
+      entityType: "system",
+      entityId: "cron_billing",
+      eventType: "cron_billing_success",
+      actorType: "system",
+      actorId: null,
+      data: { is_first_of_month: isFirstOfMonth, result_keys: Object.keys(results) },
+    });
+
     return NextResponse.json({ success: true, is_first_of_month: isFirstOfMonth, results });
   } catch (error) {
     console.error("[Cron Billing] error:", error);
+    await logEvent({
+      entityType: "system",
+      entityId: "cron_billing",
+      eventType: "cron_billing_failure",
+      actorType: "system",
+      actorId: null,
+      data: {
+        error: (error instanceof Error ? error.message : String(error)).slice(0, 500),
+      },
+    });
     return NextResponse.json({ error: "Cron job failed" }, { status: 500 });
   }
 }
