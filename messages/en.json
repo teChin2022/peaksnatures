@@ -306,15 +306,6 @@
     "duplicateContinue": "Continue Anyway",
     "duplicateCancel": "Go Back"
   },
-  "chat": {
-    "title": "Booking Assistant",
-    "subtitle": "AI-powered · Ask me anything",
-    "welcome": "Hi! 👋 I'm your booking assistant for {name}. I can help you check availability, choose a room, and make a booking. Just tell me your preferred dates and I'll handle the rest!\n\nExample: \"I want to book Feb 24-26 for 2 people\"",
-    "placeholder": "Type your message...",
-    "openChat": "Open chat assistant",
-    "errorConnect": "Sorry, I'm having trouble connecting right now. Please use the booking form above or try again later.",
-    "errorProcess": "Sorry, I couldn't process that. Please try again."
-  },
   "auth": {
     "hostDashboard": "Host Dashboard",
     "signIn": "Sign In",
@@ -378,6 +369,8 @@
     "otpResendIn": "Resend in {seconds}s",
     "otpExpired": "Code expired. Please request a new one.",
     "otpInvalid": "Invalid code. Please try again.",
+    "errorPasswordSameAsCurrent": "New password must be different from the current one.",
+    "errorResetSessionExpired": "Your reset link has expired. Please request a new one.",
     "pdpaConsent": "I agree to the <privacy>Privacy Policy</privacy> and <terms>Terms of Service</terms>"
   },
   "dashboard": {

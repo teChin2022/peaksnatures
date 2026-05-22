@@ -64,7 +64,23 @@ export default function ResetPasswordPage() {
       const { error } = await supabase.auth.updateUser({ password });
 
       if (error) {
-        setError(error.message);
+        const code = (error as { code?: string }).code;
+        const msg = error.message?.toLowerCase() ?? "";
+        if (code === "same_password" || msg.includes("should be different")) {
+          setError(t("errorPasswordSameAsCurrent"));
+        } else if (code === "weak_password" || msg.includes("password should be")) {
+          setError(t("errorPasswordWeak"));
+        } else if (
+          code === "session_not_found" ||
+          code === "invalid_credentials" ||
+          msg.includes("session") ||
+          msg.includes("token") ||
+          msg.includes("expired")
+        ) {
+          setError(t("errorResetSessionExpired"));
+        } else {
+          setError(t("errorGeneric"));
+        }
         return;
       }
 
