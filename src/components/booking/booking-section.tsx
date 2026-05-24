@@ -45,7 +45,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 
 interface BookedRange {
   room_id: string | null;
@@ -166,104 +165,6 @@ export function BookingSection({
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const qrContainerRef = useRef<HTMLDivElement>(null);
-
-  // Invisible Turnstile in auto-fetch mode. The widget mounts on page load,
-  // silently fetches a token, and stores it via onSuccess. Each consume()
-  // grabs the cached token and calls reset() to start fetching the next one.
-  // Fail-open: missing site key, widget error, or no token within 5s sends ""
-  // to the backend, which treats it as skip (see src/lib/turnstile.ts).
-  const turnstileRef = useRef<TurnstileInstance>(null);
-  const turnstileTokenRef = useRef<string | null>(null);
-  const turnstilePendingResolvers = useRef<Array<(token: string) => void>>([]);
-  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
-
-  useEffect(() => {
-    if (!turnstileSiteKey) {
-      console.warn(
-        "[Turnstile] NEXT_PUBLIC_TURNSTILE_SITE_KEY is not set in the deployed bundle. Widget skipped; backend will fail-open."
-      );
-    } else {
-      console.info("[Turnstile] site key present, mounting widget");
-    }
-  }, [turnstileSiteKey]);
-
-  const handleTurnstileSuccess = useCallback((token: string) => {
-    console.info("[Turnstile] onSuccess — token length:", token.length);
-    const resolvers = turnstilePendingResolvers.current;
-    if (resolvers.length > 0) {
-      // Pending consumer is waiting — deliver this token directly and trigger
-      // a refresh so a fresh one is ready for the next call.
-      turnstilePendingResolvers.current = [];
-      resolvers.forEach((r) => r(token));
-      try {
-        turnstileRef.current?.reset();
-      } catch {
-        // widget already torn down
-      }
-      return;
-    }
-    // No consumer yet — cache this token for the next consume.
-    turnstileTokenRef.current = token;
-  }, []);
-
-  const handleTurnstileExpire = useCallback(() => {
-    console.warn("[Turnstile] onExpire — clearing cached token");
-    turnstileTokenRef.current = null;
-  }, []);
-
-  const handleTurnstileError = useCallback((err?: unknown) => {
-    console.error("[Turnstile] onError:", err);
-    turnstileTokenRef.current = null;
-    const resolvers = turnstilePendingResolvers.current;
-    turnstilePendingResolvers.current = [];
-    resolvers.forEach((r) => r(""));
-  }, []);
-
-  const handleTurnstileWidgetLoad = useCallback((widgetId: string) => {
-    console.info("[Turnstile] onWidgetLoad — widgetId:", widgetId);
-  }, []);
-
-  const handleTurnstileUnsupported = useCallback(() => {
-    console.warn("[Turnstile] onUnsupported — browser/network unsupported");
-  }, []);
-
-  const executeTurnstile = useCallback((timeoutMs = 5000): Promise<string> => {
-    if (!turnstileSiteKey) {
-      console.warn("[Turnstile] executeTurnstile: no site key, returning empty");
-      return Promise.resolve("");
-    }
-
-    // Fast path: we already have a fresh cached token.
-    const cached = turnstileTokenRef.current;
-    if (cached) {
-      turnstileTokenRef.current = null;
-      try {
-        turnstileRef.current?.reset();
-      } catch {
-        // ignore
-      }
-      console.info("[Turnstile] executeTurnstile: using cached token");
-      return Promise.resolve(cached);
-    }
-
-    console.info("[Turnstile] executeTurnstile: waiting for token (no cache)…");
-
-    // Slow path: widget hasn't produced a token yet (cold mount, post-expire,
-    // post-reset). Wait briefly for the next onSuccess.
-    return new Promise<string>((resolve) => {
-      const timer = setTimeout(() => {
-        const idx = turnstilePendingResolvers.current.indexOf(wrapped);
-        if (idx >= 0) turnstilePendingResolvers.current.splice(idx, 1);
-        console.warn("[Turnstile] executeTurnstile: 5s timeout — returning empty (fail-open)");
-        resolve("");
-      }, timeoutMs);
-      const wrapped = (token: string) => {
-        clearTimeout(timer);
-        resolve(token);
-      };
-      turnstilePendingResolvers.current.push(wrapped);
-    });
-  }, [turnstileSiteKey]);
 
   const handleSlipSelect = (file: File | null) => {
     if (slipPreview) URL.revokeObjectURL(slipPreview);
@@ -653,7 +554,6 @@ export function BookingSection({
 
     setIsSubmitting(true);
     try {
-      const turnstileToken = await executeTurnstile();
       const res = await fetch("/api/bookings/hold", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -663,7 +563,6 @@ export function BookingSection({
           check_out: format(dateRange.to, "yyyy-MM-dd"),
           session_id: uploadSessionId,
           guest_phone: guestPhone.trim(),
-          turnstileToken,
         }),
       });
 
@@ -686,12 +585,6 @@ export function BookingSection({
 
       if (res.status === 429) {
         toast.error(t("errorTooManyRequests"));
-        setIsSubmitting(false);
-        return;
-      }
-
-      if (res.status === 403) {
-        toast.error(tc("errorCaptcha"));
         setIsSubmitting(false);
         return;
       }
@@ -804,7 +697,6 @@ export function BookingSection({
       const isSlipVerified = !!verifyData.verified;
 
       // 3. Create the booking — verified or pending (host review)
-      const bookingTurnstileToken = await executeTurnstile();
       const bookingRes = await fetch("/api/bookings", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
@@ -835,7 +727,6 @@ export function BookingSection({
             return { id, name: opt?.name || "", price };
           }),
           promo_code_id: appliedPromo?.id || undefined,
-          turnstileToken: bookingTurnstileToken,
         }),
       });
 
@@ -850,16 +741,6 @@ export function BookingSection({
             .catch(() => { });
           setDateRange(undefined);
           setStep("dates");
-          setIsSubmitting(false);
-          return;
-        }
-        if (bookingRes.status === 429) {
-          toast.error(t("errorTooManyRequests"));
-          setIsSubmitting(false);
-          return;
-        }
-        if (bookingRes.status === 403) {
-          toast.error(tc("errorCaptcha"));
           setIsSubmitting(false);
           return;
         }
@@ -931,18 +812,6 @@ export function BookingSection({
 
   return (
     <>
-      {turnstileSiteKey && (
-        <Turnstile
-          ref={turnstileRef}
-          siteKey={turnstileSiteKey}
-          onSuccess={handleTurnstileSuccess}
-          onError={handleTurnstileError}
-          onExpire={handleTurnstileExpire}
-          onWidgetLoad={handleTurnstileWidgetLoad}
-          onUnsupported={handleTurnstileUnsupported}
-          options={{ size: "invisible" }}
-        />
-      )}
       <section id="booking-section" ref={sectionRef} className="py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           {bookingDisabled && (

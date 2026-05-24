@@ -10,8 +10,6 @@ import { getDepositForMonth } from "@/lib/get-deposit";
 import { logEvent, EventType } from "@/lib/history-log";
 import { deductCommission } from "@/lib/billing";
 import { computeCommissionAmount, computePromoDiscount, evaluatePromoCode } from "@/lib/promo-codes";
-import { createRateLimiter } from "@/lib/rate-limit";
-import { verifyTurnstileToken } from "@/lib/turnstile";
 
 const bookingSchema = z.object({
   homestay_id: z.string().uuid(),
@@ -44,30 +42,6 @@ const bookingSchema = z.object({
     pricing_type: z.enum(["per_night", "per_time"]).optional(),
   })).optional().default([]),
   promo_code_id: z.string().uuid().optional(),
-  // Cloudflare Turnstile token. Optional — backend fails open on empty/skip;
-  // see src/lib/turnstile.ts.
-  turnstileToken: z.string().optional(),
-});
-
-// 10 booking creations per minute per (IP, homestay) pair. Keyed by both so a
-// single attacker IP can't flood different homestays at the rate-limit ceiling.
-const bookingsRateLimit = createRateLimiter({
-  limit: 10,
-  windowMs: 60_000,
-  name: "bookings",
-  key: async (req) => {
-    const ip = req.headers.get("x-forwarded-for")?.split(",")[0]?.trim() || "unknown";
-    let homestayId = "unknown";
-    try {
-      const cloned = await req.clone().json();
-      if (cloned && typeof cloned === "object" && typeof cloned.homestay_id === "string") {
-        homestayId = cloned.homestay_id;
-      }
-    } catch {
-      // Invalid body — let the route's own schema validation produce the error.
-    }
-    return `${ip}:${homestayId}`;
-  },
 });
 
 async function sendNotifications(bookingId: string, supabase: ReturnType<typeof createServiceRoleClient>, locale: string = "th", isVerified: boolean = true) {
@@ -124,22 +98,7 @@ async function sendNotifications(bookingId: string, supabase: ReturnType<typeof 
 
 export async function POST(req: NextRequest) {
   try {
-    const rateLimited = await bookingsRateLimit.check(req);
-    if (rateLimited) return rateLimited;
-
     const body = await req.json();
-
-    // Turnstile verification — fail-open on "skip" (see src/lib/turnstile.ts).
-    const captchaResult = await verifyTurnstileToken(
-      typeof body?.turnstileToken === "string" ? body.turnstileToken : ""
-    );
-    if (captchaResult === "fail") {
-      return NextResponse.json(
-        { error: "CAPTCHA verification failed" },
-        { status: 403 }
-      );
-    }
-
     const parsed = bookingSchema.safeParse(body);
 
     if (!parsed.success) {

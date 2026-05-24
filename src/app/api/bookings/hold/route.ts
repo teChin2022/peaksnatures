@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { createRateLimiter } from "@/lib/rate-limit";
-import { verifyTurnstileToken } from "@/lib/turnstile";
 
 const holdRateLimit = createRateLimiter({ limit: 10, windowMs: 60_000, name: "bookings-hold" });
 
@@ -12,8 +11,6 @@ const holdSchema = z.object({
   check_out: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
   session_id: z.string().min(1, "Session ID is required"),
   guest_phone: z.string().trim().optional(),
-  // Cloudflare Turnstile token. Optional — backend fails open on empty/skip.
-  turnstileToken: z.string().optional(),
 });
 
 export async function POST(req: NextRequest) {
@@ -23,18 +20,6 @@ export async function POST(req: NextRequest) {
     if (rateLimited) return rateLimited;
 
     const body = await req.json();
-
-    // Turnstile verification — fail-open on "skip" (see src/lib/turnstile.ts).
-    const captchaResult = await verifyTurnstileToken(
-      typeof body?.turnstileToken === "string" ? body.turnstileToken : ""
-    );
-    if (captchaResult === "fail") {
-      return NextResponse.json(
-        { error: "CAPTCHA verification failed" },
-        { status: 403 }
-      );
-    }
-
     const parsed = holdSchema.safeParse(body);
 
     if (!parsed.success) {
