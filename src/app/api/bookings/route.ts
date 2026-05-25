@@ -45,7 +45,6 @@ const bookingSchema = z.object({
 });
 
 async function sendNotifications(bookingId: string, supabase: ReturnType<typeof createServiceRoleClient>, locale: string = "th", isVerified: boolean = true) {
-  console.log(`[Notification] Starting for booking ${bookingId}, locale=${locale}, verified=${isVerified}`);
   try {
     const { data: row, error: rowErr } = await supabase
       .from("bookings")
@@ -79,8 +78,7 @@ async function sendNotifications(bookingId: string, supabase: ReturnType<typeof 
     const emailType = isVerified ? "confirmed" : "pending";
     const hostNotifType = isVerified ? "confirmed" : "flagged";
 
-    const emailResult = await sendBookingConfirmationEmail(details, locale, emailType);
-    console.log("[Notification] Email result:", emailResult);
+    await sendBookingConfirmationEmail(details, locale, emailType);
 
     // Host notification: dispatch with retry + email fallback
     const statusLabel = hostNotifType === "confirmed" ? "ยืนยันแล้ว" : "รอตรวจสอบ";

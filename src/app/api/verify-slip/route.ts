@@ -185,13 +185,6 @@ export async function POST(req: NextRequest) {
     const receiverProxy = rawSlip.receiver?.account?.proxy?.account;
     const receiverBank = rawSlip.receiver?.account?.bank?.account;
 
-    console.log("[Verify V2] Receiver from EasySlip:", {
-      proxy: receiverProxy,
-      bank: receiverBank,
-      expected: expectedReceiver,
-      expectedBank: expectedReceiverBank,
-    });
-
     const expectedDigits = extractVisibleDigits(expectedReceiver);
     const expectedBankDigits = extractVisibleDigits(expectedReceiverBank);
 

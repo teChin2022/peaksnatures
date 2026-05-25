@@ -62,7 +62,6 @@ export async function POST(request: NextRequest) {
 
     const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
     if (!apiKey || apiKey === "your_resend_api_key") {
-      console.log("[Contact] Skipped — RESEND_API_KEY not configured. Would send:", { name, email, subject });
       return NextResponse.json({ success: true, demo: true });
     }
 

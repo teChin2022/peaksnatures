@@ -240,7 +240,6 @@ export async function deductCommission(bookingId: string): Promise<void> {
     ]);
 
     if ((commissionCount ?? 0) > (refundCount ?? 0)) {
-      console.log(`[Billing] Commission already deducted for booking ${bookingId}, skipping`);
       return;
     }
 
@@ -263,10 +262,6 @@ export async function deductCommission(bookingId: string): Promise<void> {
     }
 
     const newBalance = (result as { new_balance: number }[])?.[0]?.new_balance ?? 0;
-
-    console.log(
-      `[Billing] Commission deducted: ฿${commissionAmount} (${commissionPct}%) from host ${host.id}, new balance: ฿${newBalance}`,
-    );
 
     // Log the event
     await logEvent({
@@ -332,7 +327,6 @@ export async function refundCommission(bookingId: string): Promise<void> {
       .eq("type", "refund");
 
     if (commissionTxns.length <= (refundCount ?? 0)) {
-      console.log(`[Billing] Commission already refunded for booking ${bookingId}, skipping`);
       return;
     }
 
@@ -371,10 +365,6 @@ export async function refundCommission(bookingId: string): Promise<void> {
     }
 
     const newBalance = (result as { new_balance: number }[])?.[0]?.new_balance ?? 0;
-
-    console.log(
-      `[Billing] Commission refunded: ฿${refundAmount} to host ${hostId}, new balance: ฿${newBalance}`,
-    );
 
     // Log the event
     if (booking) {
@@ -438,7 +428,6 @@ async function notifyNegativeBalance(
       });
 
       if (response.ok) {
-        console.log(`[Billing] Negative balance LINE sent to host ${host.id}`);
         return;
       }
       console.error("[Billing] LINE notification failed, falling back to SMS");
@@ -449,7 +438,6 @@ async function notifyNegativeBalance(
       const { sendSms } = await import("@/lib/notifications");
       const result = await sendSms(host.phone, message);
       if (result.success) {
-        console.log(`[Billing] Negative balance SMS sent to host ${host.id}`);
         return;
       }
       console.error("[Billing] SMS notification failed, falling back to email");
@@ -474,7 +462,6 @@ async function notifyNegativeBalance(
           subject: `${urgencyPrefix}Peaksnature: Wallet balance is -฿${Math.abs(balance).toLocaleString()}`,
           text: message,
         });
-        console.log(`[Billing] Negative balance email sent to host ${host.id}`);
         return;
       }
     }

@@ -69,15 +69,6 @@ export async function POST(req: NextRequest) {
       },
     });
 
-    console.log("[Register] signUp result:", {
-      hasUser: !!signUpData?.user,
-      userId: signUpData?.user?.id,
-      hasSession: !!signUpData?.session,
-      identities: signUpData?.user?.identities?.length,
-      emailRedirectTo: `${origin}/api/auth/callback?next=/dashboard`,
-      error: signUpError?.message,
-    });
-
     if (signUpError) {
       // Handle duplicate email (confirmations disabled path)
       if (signUpError.message === "User already registered") {

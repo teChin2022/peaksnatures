@@ -259,7 +259,6 @@ export async function sendBookingStatusUpdateEmail(
 ) {
   const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
   if (!apiKey) {
-    console.log("[Email] Skipped — RESEND_API_KEY not configured. Would send status update to:", details.booking.guest_email);
     return { success: true, demo: true };
   }
 
@@ -411,7 +410,6 @@ export async function sendSms(phone: string, message: string): Promise<{ success
   const sender = process.env.SMS_KUB_SENDER || "Peaksnature";
 
   if (!apiKey) {
-    console.log("[SMS] Skipped — SMS_KUB_API_KEY not configured");
     return { success: false, error: "SMS API key not configured" };
   }
 
@@ -419,7 +417,6 @@ export async function sendSms(phone: string, message: string): Promise<{ success
   // Strip non-digits to normalize "+66...", spaces, dashes, parens.
   const normalizedPhone = phone.replace(/\D/g, "");
   if (!normalizedPhone) {
-    console.log("[SMS] Skipped — phone has no digits:", phone);
     return { success: false, error: "Invalid phone number" };
   }
 
@@ -447,7 +444,6 @@ export async function sendSms(phone: string, message: string): Promise<{ success
       return { success: false, error: { status: response.status, body } };
     }
 
-    console.log("[SMS] Sent to", normalizedPhone, body);
     return { success: true };
   } catch (error) {
     // fetch throws on network error, DNS failure, or AbortSignal timeout.
@@ -465,7 +461,6 @@ async function withRetry(
   for (let i = 0; i < retries; i++) {
     lastResult = await fn();
     if (lastResult.success) return lastResult;
-    console.log(`[Retry] Attempt ${i + 1}/${retries} failed`);
     if (i < retries - 1) {
       await new Promise((r) => setTimeout(r, 500 * 2 ** i));
     }
@@ -479,7 +474,6 @@ export async function sendHostSmsNotification(
 ): Promise<{ success: boolean; error?: unknown }> {
   const phone = details.host.phone;
   if (!phone) {
-    console.log("[SMS] Skipped — Host has no phone:", details.host.name);
     return { success: false, error: "Host phone not set" };
   }
 
@@ -508,7 +502,6 @@ export async function sendHostCancellationSmsNotification(
 ): Promise<{ success: boolean; error?: unknown }> {
   const phone = details.host.phone;
   if (!phone) {
-    console.log("[SMS] Skipped — Host has no phone:", details.host.name);
     return { success: false, error: "Host phone not set" };
   }
 
@@ -539,7 +532,6 @@ export async function sendDateChangeSmsNotification(
 ): Promise<{ success: boolean; error?: unknown }> {
   const phone = details.host.phone;
   if (!phone) {
-    console.log("[SMS] Skipped — Host has no phone:", details.host.name);
     return { success: false, error: "Host phone not set" };
   }
 
@@ -571,13 +563,11 @@ async function sendHostNotificationEmail(
 ): Promise<{ success: boolean; error?: unknown }> {
   const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
   if (!apiKey) {
-    console.log("[Email] Skipped — RESEND_API_KEY not configured");
     return { success: false, error: "RESEND_API_KEY not configured" };
   }
 
   const hostEmail = details.host.email;
   if (!hostEmail) {
-    console.log("[Email] Skipped — Host has no email:", details.host.name);
     return { success: false, error: "Host email not set" };
   }
 
@@ -597,7 +587,6 @@ async function sendHostNotificationEmail(
       text: bodyText,
     });
 
-    console.log("[Email] Fallback sent to host:", hostEmail);
     return { success: true };
   } catch (error) {
     console.error("[Email] Fallback failed:", error);
@@ -615,12 +604,10 @@ export async function dispatchHostNotification(
   const preference = details.host.notification_preference || "sms";
 
   const primaryFn = preference === "line" ? sendLineFn : sendSmsFn;
-  const channelName = preference === "line" ? "LINE" : "SMS";
 
   const result = await withRetry(primaryFn, 3);
 
   if (!result.success) {
-    console.log(`[Notification] ${channelName} failed after 3 retries, falling back to email`);
     const emailResult = await sendHostNotificationEmail(details, emailSubject, buildEmailBody());
     if (!emailResult.success) {
       console.error("[Notification] Email fallback also failed");
@@ -827,7 +814,6 @@ export async function sendHostCancellationLineNotification(
   const lineUserId = details.host.line_user_id;
 
   if (!channelToken || !lineUserId) {
-    console.log("[Skip] Host LINE not configured for cancellation:", details.host.name);
     return { success: false, error: "Host LINE credentials not configured" };
   }
 
@@ -868,10 +854,6 @@ export async function sendHostLineNotification(
   const lineUserId = details.host.line_user_id;
 
   if (!channelToken || !lineUserId) {
-    console.log("[Skip] Host LINE not configured:", details.host.name, {
-      hasToken: !!channelToken,
-      hasUserId: !!lineUserId,
-    });
     return { success: false, error: "Host LINE credentials not configured" };
   }
 
@@ -933,7 +915,6 @@ export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
       .select("email, line_user_id, line_channel_access_token");
 
     if (!admins || admins.length === 0) {
-      console.log("[Admin Notify] No platform admins found — skipping notification");
       return;
     }
 
@@ -1003,7 +984,6 @@ export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
           }),
           signal: AbortSignal.timeout(5000),
         });
-        console.log(`[Admin Notify] LINE sent to admin: ${admin.email}`);
       } catch (err) {
         console.error(`[Admin Notify] LINE failed for ${admin.email}:`, err);
       }
@@ -1011,7 +991,6 @@ export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
 
     const sendEmail = async (admin: Admin) => {
       if (!resendInstance) {
-        console.log(`[Admin Notify] Email skipped — RESEND_API_KEY not configured. Would send to: ${admin.email}`);
         return;
       }
       try {
@@ -1021,7 +1000,6 @@ export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
           subject: `New host registration – ${info.hostName}`,
           html: emailHtml,
         });
-        console.log(`[Admin Notify] Email sent to admin: ${admin.email}`);
       } catch (err) {
         console.error(`[Admin Notify] Email failed for ${admin.email}:`, err);
       }
@@ -1044,7 +1022,6 @@ export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
 export async function sendHostApprovalEmail(hostEmail: string, hostName: string) {
   const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
   if (!apiKey) {
-    console.log("[Email] Skipped — RESEND_API_KEY not configured. Would send approval to:", hostEmail);
     return { success: true, demo: true };
   }
 
@@ -1083,7 +1060,6 @@ export async function sendHostApprovalEmail(hostEmail: string, hostName: string)
         </div>
       `,
     });
-    console.log(`[Email] Approval sent to: ${hostEmail}`);
     return { success: true };
   } catch (error) {
     console.error("[Email] Approval email error:", error);
@@ -1117,7 +1093,6 @@ export async function sendDateChangeLineNotification(
   const lineUserId = details.host.line_user_id;
 
   if (!channelToken || !lineUserId) {
-    console.log("[Skip] Host LINE not configured for date change:", details.host.name);
     return { success: false, error: "Host LINE credentials not configured" };
   }
 
@@ -1311,7 +1286,6 @@ export async function sendDateChangeEmailToGuest(
 export async function sendHostRejectionEmail(hostEmail: string, hostName: string) {
   const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
   if (!apiKey) {
-    console.log("[Email] Skipped — RESEND_API_KEY not configured. Would send rejection to:", hostEmail);
     return { success: true, demo: true };
   }
 
