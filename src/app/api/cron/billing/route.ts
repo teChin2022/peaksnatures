@@ -10,12 +10,24 @@ import {
   processBillingRetryQueue,
 } from "@/lib/billing";
 import { GRACE_PERIOD_DAYS } from "@/lib/plan-expiry";
-import { sendSms } from "@/lib/notifications";
+import { sendSms, notifyHostAlert } from "@/lib/notifications";
 import { fmtDateStr } from "@/lib/format-date";
 import type { Host, PlatformBillingConfig } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+
+/** Host fields needed to route a multi-channel alert (LINE → SMS → email). */
+type HostAlertRow = {
+  id: string;
+  name: string;
+  phone: string | null;
+  email: string | null;
+  notification_preference: string | null;
+  line_channel_access_token: string | null;
+  line_user_id: string | null;
+  fixed_rate_term_ends_at?: string | null;
+};
 
 async function runWithConcurrency<T>(
   items: T[],
@@ -190,7 +202,7 @@ export async function GET(req: NextRequest) {
     results.grace_notifications = graceNotifications;
 
     // ============================================================
-    // DAILY: 7 days before fixed_rate term ends — pre-expiry SMS
+    // DAILY: 7 days before fixed_rate term ends — pre-expiry alert (LINE/SMS/email)
     // ============================================================
     const in7Days = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 7))
       .toISOString().split("T")[0];
@@ -198,7 +210,7 @@ export async function GET(req: NextRequest) {
       .toISOString().split("T")[0];
     const { data: termExpiringIn7Days } = await supabase
       .from("hosts")
-      .select("id, name, phone, fixed_rate_term_ends_at")
+      .select("id, name, phone, email, notification_preference, line_channel_access_token, line_user_id, fixed_rate_term_ends_at")
       .eq("plan_type", "fixed_rate")
       .is("plan_pending_type", null)
       .gte("fixed_rate_term_ends_at", in7Days)
@@ -206,31 +218,31 @@ export async function GET(req: NextRequest) {
 
     let termExpiryPreNotifications = 0;
     await runWithConcurrency(
-      (termExpiringIn7Days || []) as { id: string; name: string; phone: string | null; fixed_rate_term_ends_at: string | null }[],
+      (termExpiringIn7Days || []) as HostAlertRow[],
       10,
       async (host) => {
-        if (!host.phone || !host.fixed_rate_term_ends_at) return;
+        if (!host.fixed_rate_term_ends_at) return;
         try {
-          const endDate = fmtDateStr(host.fixed_rate_term_ends_at, "d MMM yyyy", "th");
-          const billingUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://peaksnature.com"}/dashboard/billing`;
-          const result = await sendSms(
-            host.phone,
-            `แพลน Fixed Rate ของคุณจะหมดอายุใน 7 วัน (${endDate}) ต่ออายุหรือเลือกระยะเวลาใหม่เพื่อรับส่วนลด: ${billingUrl}`,
+          const endDate = fmtDateStr(host.fixed_rate_term_ends_at, "d MMM", "th");
+          const result = await notifyHostAlert(
+            host,
+            `แพลน Fixed Rate จะหมดอายุใน 7 วัน (${endDate}) เข้าระบบต่ออายุรับส่วนลด`,
+            "แพลน Fixed Rate ใกล้หมดอายุ",
           );
           if (result.success) termExpiryPreNotifications++;
         } catch (err) {
-          console.error("[Cron] Term pre-expiry SMS error for host:", host.id, err);
+          console.error("[Cron] Term pre-expiry alert error for host:", host.id, err);
         }
       },
     );
     results.term_expiry_pre_notifications = termExpiryPreNotifications;
 
     // ============================================================
-    // DAILY: On fixed_rate term expiry day — SMS to host
+    // DAILY: On fixed_rate term expiry day — alert to host (LINE/SMS/email)
     // ============================================================
     const { data: termExpiringToday } = await supabase
       .from("hosts")
-      .select("id, name, phone, fixed_rate_term_ends_at")
+      .select("id, name, phone, email, notification_preference, line_channel_access_token, line_user_id, fixed_rate_term_ends_at")
       .eq("plan_type", "fixed_rate")
       .is("plan_pending_type", null)
       .gte("fixed_rate_term_ends_at", today)
@@ -238,32 +250,78 @@ export async function GET(req: NextRequest) {
 
     let termExpiryNotifications = 0;
     await runWithConcurrency(
-      (termExpiringToday || []) as { id: string; name: string; phone: string | null; fixed_rate_term_ends_at: string | null }[],
+      (termExpiringToday || []) as HostAlertRow[],
       10,
       async (host) => {
-        if (!host.phone) return;
         try {
-          const billingUrl = `${process.env.NEXT_PUBLIC_APP_URL || "https://peaksnature.com"}/dashboard/billing`;
-          const result = await sendSms(
-            host.phone,
-            `แพลน Fixed Rate ของคุณหมดอายุแล้ว ระบบจะออกใบแจ้งหนี้รายเดือน 1 เดือนโดยอัตโนมัติ เลือกระยะเวลานานขึ้นเพื่อรับส่วนลด: ${billingUrl}`,
+          const result = await notifyHostAlert(
+            host,
+            `แพลน Fixed Rate หมดอายุแล้ว ระบบจะออกใบแจ้งหนี้รายเดือนอัตโนมัติ`,
+            "แพลน Fixed Rate หมดอายุแล้ว",
           );
           if (result.success) termExpiryNotifications++;
         } catch (err) {
-          console.error("[Cron] Term expiry SMS error for host:", host.id, err);
+          console.error("[Cron] Term expiry alert error for host:", host.id, err);
         }
       },
     );
     results.term_expiry_notifications = termExpiryNotifications;
 
     // ============================================================
-    // DAILY: Mark overdue invoices
+    // DAILY: Fixed-rate invoice grace reminder — 5 days past due date
+    // (2 days before the invoice flips to overdue and blocks new bookings).
     // ============================================================
+    const graceWarnDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (GRACE_PERIOD_DAYS - 2)))
+      .toISOString().split("T")[0];
+    const graceWarnDayNext = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (GRACE_PERIOD_DAYS - 3)))
+      .toISOString().split("T")[0];
+    const { data: graceInvoices } = await supabase
+      .from("invoices")
+      .select("id, host_id")
+      .eq("status", "pending")
+      .gte("due_date", graceWarnDay)
+      .lt("due_date", graceWarnDayNext);
+
+    let frGraceNotifications = 0;
+    const graceHostIds = [...new Set(((graceInvoices || []) as { id: string; host_id: string }[]).map((i) => i.host_id))];
+    if (graceHostIds.length > 0) {
+      const { data: graceHosts } = await supabase
+        .from("hosts")
+        .select("id, name, phone, email, notification_preference, line_channel_access_token, line_user_id")
+        .eq("plan_type", "fixed_rate")
+        .in("id", graceHostIds);
+
+      await runWithConcurrency(
+        (graceHosts || []) as HostAlertRow[],
+        10,
+        async (host) => {
+          try {
+            const result = await notifyHostAlert(
+              host,
+              `ใบแจ้งหนี้เกินกำหนด การจองจะถูกระงับใน 2 วัน กรุณาชำระเงิน`,
+              "ใบแจ้งหนี้เกินกำหนด",
+            );
+            if (result.success) frGraceNotifications++;
+          } catch (err) {
+            console.error("[Cron] Fixed-rate grace reminder error for host:", host.id, err);
+          }
+        },
+      );
+    }
+    results.fr_grace_notifications = frGraceNotifications;
+
+    // ============================================================
+    // DAILY: Mark overdue invoices
+    // A fixed-rate invoice only blocks the host once the GRACE_PERIOD_DAYS grace
+    // window after its due date has elapsed (matches free/commission grace).
+    // ============================================================
+    const overdueCutoff = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - GRACE_PERIOD_DAYS))
+      .toISOString().split("T")[0];
     const { data: overdueInvoices } = await supabase
       .from("invoices")
       .select("id, host_id")
       .eq("status", "pending")
-      .lt("due_date", today);
+      .lte("due_date", overdueCutoff);
 
     let overdueCount = 0;
     for (const inv of (overdueInvoices || []) as { id: string; host_id: string }[]) {
@@ -445,6 +503,20 @@ export async function GET(req: NextRequest) {
 
           if ((existing as unknown[] | null)?.length) return;
 
+          // Reaching here means the prior term has ended (mid-term hosts returned
+          // above). Roll the host onto this month's 1-month period regardless of
+          // the billable amount, so the daily term-expiry warnings and the
+          // mid-term skip see correct dates even for comped (฿0) hosts.
+          await supabase
+            .from("hosts")
+            .update({
+              fixed_rate_term_months: 1,
+              fixed_rate_term_started_at: periodStart,
+              fixed_rate_term_ends_at: periodEnd,
+              updated_by: "system",
+            } as never)
+            .eq("id", host.id);
+
           const amount = getEffectiveFixedRate(
             host as unknown as Pick<Host, "fixed_rate_override">,
             config as PlatformBillingConfig,
@@ -468,18 +540,6 @@ export async function GET(req: NextRequest) {
             } as never);
 
           if (error) return;
-
-          // Roll the host's term to this new 1-month period so future cron
-          // runs correctly treat them as mid-term until month-end.
-          await supabase
-            .from("hosts")
-            .update({
-              fixed_rate_term_months: 1,
-              fixed_rate_term_started_at: periodStart,
-              fixed_rate_term_ends_at: periodEnd,
-              updated_by: "system",
-            } as never)
-            .eq("id", host.id);
 
           invoiceCount++;
           await logEvent({

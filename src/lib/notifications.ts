@@ -400,7 +400,7 @@ function formatSmsDateSpaced(dateStr: string): string {
   return format(date, "d MMM ", { locale: thLocale }) + beYear;
 }
 
-function truncateForSms(message: string, maxLen: number = 70): string {
+export function truncateForSms(message: string, maxLen: number = 70): string {
   if (message.length <= maxLen) return message;
   return message.slice(0, maxLen);
 }
@@ -613,6 +613,88 @@ export async function dispatchHostNotification(
       console.error("[Notification] Email fallback also failed");
     }
   }
+}
+
+/**
+ * Send a one-off operational alert (plan/billing reminder) to a host over their
+ * preferred channel, falling back LINE → SMS → email until one succeeds.
+ *
+ * The SMS body is always passed through truncateForSms so an oversized message
+ * can never be silently dropped by the gateway (the cause of the fixed-rate
+ * term-expiry warnings never arriving). LINE and email carry the full text
+ * (`fullText`, defaulting to `smsText`) since neither has a 70-char limit.
+ */
+export async function notifyHostAlert(
+  host: {
+    phone: string | null;
+    email: string | null;
+    notification_preference: string | null;
+    line_channel_access_token: string | null;
+    line_user_id: string | null;
+  },
+  smsText: string,
+  emailSubject: string,
+  fullText?: string,
+): Promise<{ success: boolean; channel: "line" | "sms" | "email" | null }> {
+  const preference = host.notification_preference || "sms";
+  const longText = fullText || smsText;
+
+  // LINE first when preferred and configured.
+  if (preference === "line" && host.line_channel_access_token && host.line_user_id) {
+    try {
+      const response = await fetch("https://api.line.me/v2/bot/message/push", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: `Bearer ${host.line_channel_access_token}`,
+        },
+        body: JSON.stringify({
+          to: host.line_user_id,
+          messages: [{ type: "text", text: longText }],
+        }),
+        signal: AbortSignal.timeout(5000),
+      });
+      if (response.ok) return { success: true, channel: "line" };
+      console.error("[notifyHostAlert] LINE push failed, falling back to SMS");
+    } catch (err) {
+      console.error("[notifyHostAlert] LINE push threw, falling back to SMS:", err);
+    }
+  }
+
+  // SMS — always truncated to stay within a single segment.
+  if (host.phone) {
+    const result = await sendSms(host.phone, truncateForSms(smsText));
+    if (result.success) return { success: true, channel: "sms" };
+    console.error("[notifyHostAlert] SMS failed, falling back to email");
+  }
+
+  // Email fallback via Resend.
+  if (host.email) {
+    const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
+    if (!apiKey) {
+      console.warn("[notifyHostAlert] Email fallback skipped — RESEND_API_KEY not configured");
+    } else {
+      try {
+        const { Resend } = await import("resend");
+        const resend = new Resend(apiKey);
+        const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
+        const fromEmail = cleaned
+          ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
+          : "Peaksnature <onboarding@resend.dev>";
+        await resend.emails.send({
+          from: fromEmail,
+          to: [host.email],
+          subject: emailSubject,
+          text: longText,
+        });
+        return { success: true, channel: "email" };
+      } catch (err) {
+        console.error("[notifyHostAlert] Email fallback failed:", err);
+      }
+    }
+  }
+
+  return { success: false, channel: null };
 }
 
 // ============================================================
