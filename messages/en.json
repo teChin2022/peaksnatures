@@ -301,13 +301,7 @@
     "trustSecureDesc": "We handle your information with care",
     "trustStep": "Quick & Easy Booking",
     "trustStepDesc": "Pick your dates, choose a room, and send your request",
-    "confirmedClose": "Close",
-    "duplicateTitle": "Booking Already Exists",
-    "duplicateDescEmail": "An active booking was found using this email address.",
-    "duplicateDescPhone": "An active booking was found using this phone number.",
-    "duplicateDescBoth": "An active booking was found using this email and phone number.",
-    "duplicateContinue": "Continue Anyway",
-    "duplicateCancel": "Go Back"
+    "confirmedClose": "Close"
   },
   "auth": {
     "hostDashboard": "Host Dashboard",

@@ -301,13 +301,7 @@
     "trustDataDesc":"ข้อมูลของคุณถูกใช้เพื่อการจองเท่านั้น",
     "trustStep":"จองง่ายในไม่กี่ขั้นตอน",
     "trustStepDesc":"เลือกวัน เลือกห้อง และส่งคำขอได้ทันที",
-    "confirmedClose": "ปิด",
-    "duplicateTitle": "พบการจองที่มีอยู่แล้ว",
-    "duplicateDescEmail": "พบการจองที่ยังใช้งานอยู่โดยใช้อีเมลนี้",
-    "duplicateDescPhone": "พบการจองที่ยังใช้งานอยู่โดยใช้เบอร์โทรศัพท์นี้",
-    "duplicateDescBoth": "พบการจองที่ยังใช้งานอยู่โดยใช้อีเมลและเบอร์โทรศัพท์นี้",
-    "duplicateContinue": "ดำเนินการต่อ",
-    "duplicateCancel": "ย้อนกลับ"
+    "confirmedClose": "ปิด"
   },
   "auth": {
     "hostDashboard": "แดชบอร์ดเจ้าของที่พัก",
