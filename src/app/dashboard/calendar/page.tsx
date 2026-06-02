@@ -30,6 +30,7 @@ import {
   Loader2,
   Info,
   Zap,
+  Wallet,
   User,
   Mail,
   Phone,
@@ -633,14 +634,23 @@ export default function CalendarPage() {
       )}
 
       {/* Monthly revenue */}
-      <Card className="mb-3 border-brand/20 bg-brand/5">
-        <CardContent className="p-4">
-          <p className="text-xs text-gray-500">
-            {t("monthlyRevenue")} · {fmtDate(currentMonth, "MMMM yyyy", locale)}
-          </p>
-          <p className="text-3xl font-bold text-brand">
-            ฿{monthlyRevenue.toLocaleString()}
-          </p>
+      <Card className="mb-3 overflow-hidden border-brand/15 bg-gradient-to-br from-brand/10 to-brand/5">
+        <CardContent className="flex items-center gap-4 p-4 sm:p-5">
+          <div
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand"
+            aria-hidden="true"
+          >
+            <Wallet className="h-6 w-6" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-gray-500">
+              {t("monthlyRevenue")} · {fmtDate(currentMonth, "MMMM yyyy", locale)}
+            </p>
+            <p className="mt-0.5 text-3xl font-bold tracking-tight text-brand tabular-nums">
+              <span className="mr-0.5 text-xl font-semibold text-brand/60">฿</span>
+              {monthlyRevenue.toLocaleString()}
+            </p>
+          </div>
         </CardContent>
       </Card>
 
