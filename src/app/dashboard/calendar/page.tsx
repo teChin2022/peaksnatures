@@ -363,6 +363,18 @@ export default function CalendarPage() {
     return { booked, blocked, available, total, pct };
   }, [currentMonth, blockedDateMap, bookingDateMap]);
 
+  // Total revenue for the displayed month (confirmed + completed, by check-in date)
+  const monthlyRevenue = useMemo(() => {
+    const monthKey = format(currentMonth, "yyyy-MM");
+    return bookings
+      .filter(
+        (b) =>
+          (b.status === "confirmed" || b.status === "completed") &&
+          b.check_in.startsWith(monthKey)
+      )
+      .reduce((sum, b) => sum + b.total_price, 0);
+  }, [bookings, currentMonth]);
+
   // Long press detection for selecting blocked dates
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPress = useRef(false);
@@ -619,6 +631,18 @@ export default function CalendarPage() {
           onSuccess={() => fetchData()}
         />
       )}
+
+      {/* Monthly revenue */}
+      <Card className="mb-3 border-brand/20 bg-brand/5">
+        <CardContent className="p-4">
+          <p className="text-xs text-gray-500">
+            {t("monthlyRevenue")} · {fmtDate(currentMonth, "MMMM yyyy", locale)}
+          </p>
+          <p className="text-3xl font-bold text-brand">
+            ฿{monthlyRevenue.toLocaleString()}
+          </p>
+        </CardContent>
+      </Card>
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
