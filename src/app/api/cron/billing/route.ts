@@ -551,7 +551,8 @@ export async function GET(req: NextRequest) {
             data: { amount, period_start: periodStart, period_end: periodEnd, term_months: 1, discount_pct: 0 },
           });
 
-          const message = `ใบแจ้งหนี้ประจำเดือน ฿${amount.toLocaleString()} ครบกำหนดชำระภายในวันที่ 5 กรุณาเข้าระบบเพื่อชำระเงิน`;
+          const monthLabel = fmtDateStr(periodStart, "MMMM yyyy", "th"); // e.g. "พฤษภาคม 2569"
+          const message = `ใบแจ้งหนี้ประจำเดือน${monthLabel} ฿${amount.toLocaleString()} ครบกำหนดชำระภายในวันที่ 5 กรุณาเข้าระบบเพื่อชำระเงิน`;
           try {
             const preference = host.notification_preference || "sms";
             let sent = false;
