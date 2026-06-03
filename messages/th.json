@@ -1672,6 +1672,7 @@
     "bankLabel": "ธนาคาร",
     "accountNoLabel": "เลขบัญชี",
     "accountNameLabel": "ชื่อบัญชี",
+    "saveQrImage": "บันทึกรูป QR",
     "paymentSlip": "สลิปการชำระเงิน",
     "slipPreview": "ตัวอย่างสลิป",
     "changeSlip": "เปลี่ยน",
