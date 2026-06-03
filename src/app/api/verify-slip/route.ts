@@ -23,7 +23,7 @@ const slipRateLimit = createRateLimiter({ limit: 10, windowMs: 60_000 });
  * Returns on SLIP_PENDING: { verified: false, slip_pending: true, message, ... }
  */
 export async function POST(req: NextRequest) {
-  const rateLimited = slipRateLimit.check(req);
+  const rateLimited = await slipRateLimit.check(req);
   if (rateLimited) return rateLimited;
 
   try {
@@ -184,13 +184,6 @@ export async function POST(req: NextRequest) {
     // Receiver matching (still our own — V2 matchAccount requires dashboard config)
     const receiverProxy = rawSlip.receiver?.account?.proxy?.account;
     const receiverBank = rawSlip.receiver?.account?.bank?.account;
-
-    console.log("[Verify V2] Receiver from EasySlip:", {
-      proxy: receiverProxy,
-      bank: receiverBank,
-      expected: expectedReceiver,
-      expectedBank: expectedReceiverBank,
-    });
 
     const expectedDigits = extractVisibleDigits(expectedReceiver);
     const expectedBankDigits = extractVisibleDigits(expectedReceiverBank);

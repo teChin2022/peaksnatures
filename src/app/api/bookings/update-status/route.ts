@@ -157,13 +157,12 @@ export async function POST(req: NextRequest) {
           room: (roomResult.data as unknown as Room) || undefined,
         };
 
-        const emailResult = await sendBookingStatusUpdateEmail(
+        await sendBookingStatusUpdateEmail(
           details,
           status,
           locale || "th",
           reason
         );
-        console.log("[UpdateStatus] Email result:", emailResult);
       } catch (error) {
         console.error("[UpdateStatus] Notification error (non-blocking):", error);
       }

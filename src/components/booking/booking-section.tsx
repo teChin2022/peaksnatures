@@ -147,8 +147,6 @@ export function BookingSection({
   const [holdId, setHoldId] = useState<string | null>(null);
   const [holdExpiresAt, setHoldExpiresAt] = useState<number | null>(null);
   const [showHeldModal, setShowHeldModal] = useState(false);
-  const [showDuplicateModal, setShowDuplicateModal] = useState(false);
-  const [duplicateMatchType, setDuplicateMatchType] = useState<"email" | "phone" | "both" | null>(null);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showIncompleteDatesModal, setShowIncompleteDatesModal] = useState(false);
@@ -517,7 +515,7 @@ export function BookingSection({
     setTimeout(() => nameInputRef.current?.focus(), 100);
   };
 
-  const handleProceedToPayment = async (skipDuplicateCheck = false) => {
+  const handleProceedToPayment = async () => {
     if (!guestName || !guestEmail || !guestPhone) {
       toast.error(t("errorFillFields"));
       return;
@@ -531,26 +529,6 @@ export function BookingSection({
       return;
     }
     if (!dateRange?.from || !dateRange?.to || !selectedRoomId) return;
-
-    if (!skipDuplicateCheck) {
-      try {
-        const dupRes = await fetch("/api/bookings/check-duplicate", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ homestay_id: homestay.id, guest_email: guestEmail, guest_phone: guestPhone }),
-        });
-        if (dupRes.ok) {
-          const dupData = await dupRes.json();
-          if (dupData.isDuplicate) {
-            setDuplicateMatchType(dupData.matchType);
-            setShowDuplicateModal(true);
-            return;
-          }
-        }
-      } catch {
-        // non-blocking — proceed if check fails
-      }
-    }
 
     setIsSubmitting(true);
     try {
@@ -579,6 +557,12 @@ export function BookingSection({
         } else {
           setShowHeldModal(true);
         }
+        setIsSubmitting(false);
+        return;
+      }
+
+      if (res.status === 429) {
+        toast.error(t("errorTooManyRequests"));
         setIsSubmitting(false);
         return;
       }
@@ -1706,25 +1690,6 @@ export function BookingSection({
               </button>
             </div>
           </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Duplicate Booking Modal */}
-      <Dialog open={showDuplicateModal} onOpenChange={setShowDuplicateModal}>
-        <DialogContent showCloseButton={false} className="z-70" overlayClassName="z-70">
-          <DialogHeader>
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
-              <AlertTriangle className="h-6 w-6 text-amber-600" />
-            </div>
-            <DialogTitle className="text-center">{t("duplicateTitle")}</DialogTitle>
-            <DialogDescription className="text-center">
-              {duplicateMatchType === "both" ? t("duplicateDescBoth") : duplicateMatchType === "phone" ? t("duplicateDescPhone") : t("duplicateDescEmail")}
-            </DialogDescription>
-          </DialogHeader>
-          <DialogFooter className="flex-col gap-2 sm:flex-col">
-            <Button className="w-full bg-brand text-white hover:bg-brand-hover" onClick={() => { setShowDuplicateModal(false); handleProceedToPayment(true); }}>{t("duplicateContinue")}</Button>
-            <Button variant="outline" className="w-full" onClick={() => setShowDuplicateModal(false)}>{t("duplicateCancel")}</Button>
-          </DialogFooter>
         </DialogContent>
       </Dialog>
 

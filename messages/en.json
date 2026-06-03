@@ -42,7 +42,9 @@
     "done": "Done",
     "bookNow": "Book Now",
     "unavailable": "Unavailable",
-    "mostPopular": "Most Popular"
+    "mostPopular": "Most Popular",
+    "errorCaptcha": "Please complete the verification check",
+    "errorTooManyRequests": "Too many requests. Please try again in a moment."
   },
   "home": {
     "badge": "Nature Places in Thailand",
@@ -257,6 +259,7 @@
     "errorSlipPending": "Bangkok Bank slips need a few minutes to process. Please wait 2-3 minutes and try again.",
     "errorDatesUnavailable": "These dates are no longer available. Please select different dates.",
     "errorGeneric": "Something went wrong. Please try again.",
+    "errorTooManyRequests": "Too many requests. Please try again in a moment.",
     "successSubmitted": "Booking submitted! Your payment slip is being verified.",
     "holdExpired": "Your reservation hold has expired. Please select your dates again.",
     "holdTimer": "Complete payment within",
@@ -298,13 +301,7 @@
     "trustSecureDesc": "We handle your information with care",
     "trustStep": "Quick & Easy Booking",
     "trustStepDesc": "Pick your dates, choose a room, and send your request",
-    "confirmedClose": "Close",
-    "duplicateTitle": "Booking Already Exists",
-    "duplicateDescEmail": "An active booking was found using this email address.",
-    "duplicateDescPhone": "An active booking was found using this phone number.",
-    "duplicateDescBoth": "An active booking was found using this email and phone number.",
-    "duplicateContinue": "Continue Anyway",
-    "duplicateCancel": "Go Back"
+    "confirmedClose": "Close"
   },
   "auth": {
     "hostDashboard": "Host Dashboard",
@@ -948,6 +945,7 @@
     "booked": "Booked",
     "blocked": "Blocked",
     "pending": "Pending",
+    "monthlyRevenue": "Revenue",
     "guests": "guests",
     "today": "Today",
     "datesSelected": "date(s) selected",

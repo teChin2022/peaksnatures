@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createServerClient } from "@supabase/ssr";
 import type { Database } from "@/types/database";
+import { verifyTurnstileToken } from "@/lib/turnstile";
 
 const registerSchema = z.object({
   name: z.string().min(1, "Name is required"),
@@ -15,40 +16,6 @@ const registerSchema = z.object({
     ),
   turnstileToken: z.string(),
 });
-
-// Returns: "pass" | "fail" | "skip" (skip = Cloudflare unreachable, graceful degradation)
-async function verifyTurnstileToken(token: string): Promise<"pass" | "fail" | "skip"> {
-  // If no token provided (widget failed to load), skip gracefully
-  if (!token) {
-    console.warn("Turnstile: No token provided — widget may have failed to load. Allowing registration.");
-    return "skip";
-  }
-
-  const secret = process.env.TURNSTILE_SECRET_KEY;
-  if (!secret) {
-    console.error("TURNSTILE_SECRET_KEY is not configured — skipping verification");
-    return "skip";
-  }
-
-  try {
-    const response = await fetch(
-      "https://challenges.cloudflare.com/turnstile/v0/siteverify",
-      {
-        method: "POST",
-        headers: { "Content-Type": "application/x-www-form-urlencoded" },
-        body: new URLSearchParams({ secret, response: token }),
-        signal: AbortSignal.timeout(5000),
-      }
-    );
-
-    const data = await response.json();
-    return data.success === true ? "pass" : "fail";
-  } catch (err) {
-    // Cloudflare is unreachable — allow registration through
-    console.error("Turnstile: Cloudflare verification unreachable — allowing registration.", err);
-    return "skip";
-  }
-}
 
 export async function POST(req: NextRequest) {
   try {
@@ -100,15 +67,6 @@ export async function POST(req: NextRequest) {
         data: { name },
         emailRedirectTo: `${origin}/api/auth/callback?next=/dashboard`,
       },
-    });
-
-    console.log("[Register] signUp result:", {
-      hasUser: !!signUpData?.user,
-      userId: signUpData?.user?.id,
-      hasSession: !!signUpData?.session,
-      identities: signUpData?.user?.identities?.length,
-      emailRedirectTo: `${origin}/api/auth/callback?next=/dashboard`,
-      error: signUpError?.message,
     });
 
     if (signUpError) {

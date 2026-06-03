@@ -99,9 +99,6 @@ export async function callEasySlipV2(
       data.error.code === "SLIP_PENDING" &&
       attempt < SLIP_PENDING_MAX_RETRIES
     ) {
-      console.log(
-        `[Verify] SLIP_PENDING — retry ${attempt + 1}/${SLIP_PENDING_MAX_RETRIES} in ${SLIP_PENDING_DELAY_MS / 1000}s`
-      );
       await sleep(SLIP_PENDING_DELAY_MS);
       continue;
     }

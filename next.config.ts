@@ -45,19 +45,33 @@ const nextConfig: NextConfig = {
           { key: "Permissions-Policy", value: "camera=(self), microphone=(), geolocation=()" },
           { key: "X-DNS-Prefetch-Control", value: "on" },
           {
-            key: "Content-Security-Policy",
-            value: [
-              "default-src 'self'",
-              "script-src 'self' 'unsafe-inline' 'unsafe-eval' https://challenges.cloudflare.com",
-              "style-src 'self' 'unsafe-inline'",
-              "img-src 'self' data: blob: https://*.supabase.co",
-              "font-src 'self'",
-              "connect-src 'self' https://*.supabase.co https://challenges.cloudflare.com",
-              "frame-src https://challenges.cloudflare.com https://www.google.com",
-              "frame-ancestors 'none'",
-              "object-src 'none'",
-              "base-uri 'self'",
-            ].join("; "),
+            // Report-Only for initial rollout. After 7-14 days of clean reports
+            // in production, swap this header key to "Content-Security-Policy".
+            key: "Content-Security-Policy-Report-Only",
+            value: (() => {
+              // Vercel injects vercel.live (preview toolbar / comments) only on
+              // preview deployments. Allow it just there — production stays
+              // locked down.
+              const isPreview = process.env.VERCEL_ENV === "preview";
+              const vercelLive = isPreview ? " https://vercel.live" : "";
+              const vercelLiveWs = isPreview
+                ? " wss://ws-us3.pusher.com wss://ws-mt1.pusher.com"
+                : "";
+              return [
+                "default-src 'self'",
+                `script-src 'self' 'unsafe-inline' https://challenges.cloudflare.com${vercelLive}`,
+                "style-src 'self' 'unsafe-inline'",
+                `img-src 'self' data: blob: https://*.supabase.co${vercelLive}`,
+                "font-src 'self'",
+                `connect-src 'self' https://*.supabase.co https://challenges.cloudflare.com${vercelLive}${vercelLiveWs}`,
+                `frame-src https://challenges.cloudflare.com https://www.google.com/maps/embed${vercelLive}`,
+                "frame-ancestors 'none'",
+                "form-action 'self'",
+                "object-src 'none'",
+                "base-uri 'self'",
+                "report-uri /api/csp-report",
+              ].join("; ");
+            })(),
           },
         ],
       },

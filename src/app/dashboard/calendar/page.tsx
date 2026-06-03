@@ -30,6 +30,7 @@ import {
   Loader2,
   Info,
   Zap,
+  Wallet,
   User,
   Mail,
   Phone,
@@ -363,6 +364,18 @@ export default function CalendarPage() {
     return { booked, blocked, available, total, pct };
   }, [currentMonth, blockedDateMap, bookingDateMap]);
 
+  // Total revenue for the displayed month (confirmed + completed, by check-in date)
+  const monthlyRevenue = useMemo(() => {
+    const monthKey = format(currentMonth, "yyyy-MM");
+    return bookings
+      .filter(
+        (b) =>
+          (b.status === "confirmed" || b.status === "completed") &&
+          b.check_in.startsWith(monthKey)
+      )
+      .reduce((sum, b) => sum + b.total_price, 0);
+  }, [bookings, currentMonth]);
+
   // Long press detection for selecting blocked dates
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPress = useRef(false);
@@ -619,6 +632,27 @@ export default function CalendarPage() {
           onSuccess={() => fetchData()}
         />
       )}
+
+      {/* Monthly revenue */}
+      <Card className="mb-3 overflow-hidden border-brand/15 bg-gradient-to-br from-brand/10 to-brand/5">
+        <CardContent className="flex items-center gap-4 p-4 sm:p-5">
+          <div
+            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand"
+            aria-hidden="true"
+          >
+            <Wallet className="h-6 w-6" />
+          </div>
+          <div className="min-w-0">
+            <p className="text-xs font-medium text-gray-500">
+              {t("monthlyRevenue")} · {fmtDate(currentMonth, "MMMM yyyy", locale)}
+            </p>
+            <p className="mt-0.5 text-3xl font-bold tracking-tight text-brand tabular-nums">
+              <span className="mr-0.5 text-xl font-semibold text-brand/60">฿</span>
+              {monthlyRevenue.toLocaleString()}
+            </p>
+          </div>
+        </CardContent>
+      </Card>
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">

@@ -1,9 +1,10 @@
 "use client";
 
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
 import { Send } from "lucide-react";
 import { toast } from "sonner";
+import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -12,7 +13,12 @@ import { isValidEmail } from "@/lib/utils";
 
 export function ContactForm({ onSuccess }: { onSuccess?: () => void } = {}) {
   const t = useTranslations("home");
+  const tc = useTranslations("common");
   const [sending, setSending] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = useState(false);
+  const turnstileRef = useRef<TurnstileInstance>(null);
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
 
   async function handleSubmit(e: React.FormEvent<HTMLFormElement>) {
     e.preventDefault();
@@ -36,8 +42,21 @@ export function ContactForm({ onSuccess }: { onSuccess?: () => void } = {}) {
           email: formData.get("email"),
           subject: formData.get("subject"),
           message: formData.get("message"),
+          turnstileToken: turnstileToken || "",
         }),
       });
+
+      if (res.status === 429) {
+        toast.error(tc("errorTooManyRequests"));
+        return;
+      }
+
+      if (res.status === 403) {
+        toast.error(tc("errorCaptcha"));
+        turnstileRef.current?.reset();
+        setTurnstileToken(null);
+        return;
+      }
 
       if (!res.ok) {
         const data = await res.json();
@@ -46,6 +65,8 @@ export function ContactForm({ onSuccess }: { onSuccess?: () => void } = {}) {
 
       toast.success(t("contactFormSuccess"));
       form.reset();
+      turnstileRef.current?.reset();
+      setTurnstileToken(null);
       onSuccess?.();
     } catch {
       toast.error(t("contactFormError"));
@@ -53,6 +74,9 @@ export function ContactForm({ onSuccess }: { onSuccess?: () => void } = {}) {
       setSending(false);
     }
   }
+
+  const submitDisabled =
+    sending || (!!turnstileSiteKey && !turnstileToken && !turnstileError);
 
   return (
     <form onSubmit={handleSubmit} className="mt-6 space-y-4">
@@ -96,9 +120,27 @@ export function ContactForm({ onSuccess }: { onSuccess?: () => void } = {}) {
           placeholder={t("contactFormMessage")}
         />
       </div>
+      {turnstileSiteKey && (
+        <div className="flex justify-start">
+          <Turnstile
+            ref={turnstileRef}
+            siteKey={turnstileSiteKey}
+            onSuccess={(token) => {
+              setTurnstileToken(token);
+              setTurnstileError(false);
+            }}
+            onExpire={() => setTurnstileToken(null)}
+            onError={() => {
+              setTurnstileToken(null);
+              setTurnstileError(true);
+            }}
+            options={{ theme: "light", size: "normal" }}
+          />
+        </div>
+      )}
       <Button
         type="submit"
-        disabled={sending}
+        disabled={submitDisabled}
         className="bg-brand hover:bg-brand-hover"
       >
         {sending ? (

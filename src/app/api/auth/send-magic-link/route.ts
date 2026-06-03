@@ -45,7 +45,6 @@ export async function POST(req: NextRequest) {
       .trim();
 
     if (!apiKey || apiKey === "your_resend_api_key") {
-      console.log(`[Magic Link] Resend not configured. Link: ${magicLink}`);
       return NextResponse.json({ success: true });
     }
 

@@ -16,7 +16,7 @@ const schema = z.object({
 });
 
 export async function POST(req: NextRequest) {
-  const limited = limiter.check(req);
+  const limited = await limiter.check(req);
   if (limited) return limited;
 
   let body: unknown;

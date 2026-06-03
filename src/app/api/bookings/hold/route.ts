@@ -3,7 +3,7 @@ import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { createRateLimiter } from "@/lib/rate-limit";
 
-const holdRateLimit = createRateLimiter({ limit: 10, windowMs: 60_000 });
+const holdRateLimit = createRateLimiter({ limit: 10, windowMs: 60_000, name: "bookings-hold" });
 
 const holdSchema = z.object({
   room_id: z.string().uuid(),
@@ -16,7 +16,7 @@ const holdSchema = z.object({
 export async function POST(req: NextRequest) {
   try {
     // Rate limit by IP to prevent hold DoS
-    const rateLimited = holdRateLimit.check(req);
+    const rateLimited = await holdRateLimit.check(req);
     if (rateLimited) return rateLimited;
 
     const body = await req.json();

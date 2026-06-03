@@ -66,7 +66,7 @@ EASYSLIP_API_KEY
 RESEND_API_KEY
 SMS_KUB_API_KEY
 SMS_KUB_SENDER
-CRON_SECRET              # Secures /api/cron/* endpoints. Generate with: openssl rand -base64 32
+CRON_SECRET              # Secures /api/cron/* endpoints. Generate with: openssl rand -base64 32. Must be ≥ 32 chars or the cron route's serverless function refuses to initialize. Rotate ~every 90 days; after rotation, sign in as admin and verify /api/health/cron returns ok within 25h.
 NEXT_PUBLIC_APP_URL      # Canonical/runtime URL. Used by SEO (metadata, sitemap, robots, JSON-LD), magic-link emails, and notifications. Set per-environment in Vercel: prod = https://peaksnature.com, preview = the preview hostname, local = http://localhost:3000. NEXT_PUBLIC_SITE_URL is still read as a fallback for back-compat but new envs should use NEXT_PUBLIC_APP_URL only.
 GOOGLE_SITE_VERIFICATION # Optional. Google Search Console verification token.
 BING_SITE_VERIFICATION   # Optional. Bing Webmaster verification token.
@@ -83,3 +83,5 @@ Per-host LINE credentials (`line_channel_access_token`, `line_user_id`) are stor
 ### Security
 
 Security headers are set in `next.config.ts` (CSP, HSTS, X-Frame-Options). Auth is session-based via Supabase, enforced at the middleware level. Cloudflare Turnstile is used for CAPTCHA. Security PINs and passwords are hashed with `bcryptjs`.
+
+Rate limiting (`src/lib/rate-limit.ts`) is Redis-backed via `ioredis` when `REDIS_URL` is set, with an in-memory per-process fallback otherwise. Both Turnstile (`src/lib/turnstile.ts`) and the rate limiter are designed to **fail open** — Cloudflare or Redis being unreachable must never block legitimate bookings.
