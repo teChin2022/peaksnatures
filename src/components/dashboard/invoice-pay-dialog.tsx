@@ -1,11 +1,11 @@
 "use client";
 
-import { useState, useEffect, useMemo, useRef } from "react";
+import { useState, useEffect, useMemo, useRef, useCallback } from "react";
 import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import generatePayload from "promptpay-qr";
 import { QRCodeSVG } from "qrcode.react";
-import { Loader2, Upload, ImageIcon } from "lucide-react";
+import { Loader2, Upload, ImageIcon, Download } from "lucide-react";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -60,6 +60,7 @@ export function InvoicePayDialog({
   const [preview, setPreview] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const qrContainerRef = useRef<HTMLDivElement>(null);
 
   // Keep the preview object-URL in sync with the selected file.
   useEffect(() => {
@@ -135,6 +136,29 @@ export function InvoicePayDialog({
     }
   };
 
+  // Render the PromptPay QR to a 2x PNG and trigger a download.
+  const handleSaveQr = useCallback(() => {
+    const svgEl = qrContainerRef.current?.querySelector("svg");
+    if (!svgEl) return;
+    const svgData = new XMLSerializer().serializeToString(svgEl);
+    const canvas = document.createElement("canvas");
+    const ctx = canvas.getContext("2d");
+    if (!ctx) return;
+    const img = new Image();
+    img.onload = () => {
+      canvas.width = img.width * 2;
+      canvas.height = img.height * 2;
+      ctx.fillStyle = "#ffffff";
+      ctx.fillRect(0, 0, canvas.width, canvas.height);
+      ctx.drawImage(img, 0, 0, canvas.width, canvas.height);
+      const link = document.createElement("a");
+      link.download = `promptpay-${amount}.png`;
+      link.href = canvas.toDataURL("image/png");
+      link.click();
+    };
+    img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
+  }, [amount]);
+
   const showBank =
     platformPayment?.payment_display === "bank" &&
     !!platformPayment.bank_name &&
@@ -175,13 +199,21 @@ export function InvoicePayDialog({
             </div>
           ) : showQr ? (
             <div className="flex flex-col items-center">
-              <div className="bg-white p-3 rounded-2xl shadow-sm border border-earth-100">
+              <div ref={qrContainerRef} className="bg-white p-3 rounded-2xl shadow-sm border border-earth-100">
                 <QRCodeSVG
                   value={generatePayload(platformPayment!.promptpay_id!, { amount })}
                   size={160}
                   level="M"
                 />
               </div>
+              <button
+                type="button"
+                onClick={handleSaveQr}
+                className="mt-3 flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-medium text-earth-700 border border-earth-200 hover:bg-earth-50"
+              >
+                <Download className="h-3.5 w-3.5" />
+                {t("saveQrImage")}
+              </button>
             </div>
           ) : null}
 

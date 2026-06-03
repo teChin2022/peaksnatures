@@ -1672,6 +1672,7 @@
     "bankLabel": "Bank",
     "accountNoLabel": "Account No.",
     "accountNameLabel": "Account Name",
+    "saveQrImage": "Save QR Image",
     "paymentSlip": "Payment Slip",
     "slipPreview": "Slip Preview",
     "changeSlip": "Change",
