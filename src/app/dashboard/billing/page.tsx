@@ -7,7 +7,7 @@ import { toast } from "sonner";
 import { fmtDateStr } from "@/lib/format-date";
 import generatePayload from "promptpay-qr";
 import { QRCodeSVG } from "qrcode.react";
-import { useIsMobile } from "@/lib/use-is-mobile";
+import { InvoicePayDialog } from "@/components/dashboard/invoice-pay-dialog";
 import {
   Wallet,
   Clock,
@@ -21,7 +21,6 @@ import {
   Check,
   ArrowRight,
   HelpCircle,
-  ImageIcon,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -187,8 +186,6 @@ export default function DashboardBillingPage() {
   const [topupFile, setTopupFile] = useState<File | null>(null);
   const [topupLoading, setTopupLoading] = useState(false);
   const [payInvoiceId, setPayInvoiceId] = useState<string | null>(null);
-  const [payFile, setPayFile] = useState<File | null>(null);
-  const [payLoading, setPayLoading] = useState(false);
   const [confirmDialog, setConfirmDialog] = useState<{
     type: "switch" | "cancelSwitch";
     planType?: string;
@@ -198,10 +195,7 @@ export default function DashboardBillingPage() {
   const [selectedTermMonths, setSelectedTermMonths] = useState<number | null>(null);
   const [hoveredPlan, setHoveredPlan] = useState<string | null>(null);
 
-  const isMobile = useIsMobile();
   const fileInputRef = useRef<HTMLInputElement>(null);
-  const payFileInputRef = useRef<HTMLInputElement>(null);
-  const mobileSlipInputRef = useRef<HTMLInputElement>(null);
 
   const fetchBilling = useCallback(async () => {
     try {
@@ -291,30 +285,6 @@ export default function DashboardBillingPage() {
       toast.error("Something went wrong");
     } finally {
       setTopupLoading(false);
-    }
-  };
-
-  // ── Invoice Pay ──
-  const handlePayInvoice = async (invoiceId: string) => {
-    if (!payFile) return;
-    setPayLoading(true);
-    try {
-      const form = new FormData();
-      form.append("file", payFile);
-      const res = await fetch(`/api/host/invoices/${invoiceId}/pay`, { method: "POST", body: form });
-      const d = await res.json();
-      if (d.success) {
-        toast.success("Payment verified! Invoice marked as paid.");
-        setPayFile(null);
-        setPayInvoiceId(null);
-        fetchBilling();
-      } else {
-        toast.error(d.error || d.message || "Verification failed");
-      }
-    } catch {
-      toast.error("Something went wrong");
-    } finally {
-      setPayLoading(false);
     }
   };
 
@@ -784,49 +754,14 @@ export default function DashboardBillingPage() {
                         </p>
                       </div>
 
-                      {/* Mobile: upload slip directly */}
-                      {isMobile && (
-                        <div className="space-y-3">
-                          <button
-                            type="button"
-                            onClick={() => mobileSlipInputRef.current?.click()}
-                            className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-earth-300 p-4 text-left transition-colors hover:border-earth-400 hover:bg-earth-50"
-                          >
-                            <div className="rounded-xl bg-earth-100 p-2.5"><ImageIcon className="h-5 w-5 text-earth-500" /></div>
-                            <div>
-                              <p className="text-sm font-medium text-earth-700">{locale === "th" ? "เลือกสลิปจากแกลเลอรี่" : "Choose slip from gallery"}</p>
-                              <p className="text-xs text-earth-400">{locale === "th" ? "คลิกเพื่ออัพโหลด" : "Click to upload"}</p>
-                            </div>
-                          </button>
-                          <input
-                            ref={mobileSlipInputRef}
-                            type="file"
-                            accept="image/*"
-                            className="hidden"
-                            onChange={(e) => {
-                              const file = e.target.files?.[0];
-                              if (file && pendingInvoice) {
-                                setPayFile(file);
-                                setPayInvoiceId(pendingInvoice.id);
-                              }
-                            }}
-                          />
-                        </div>
-                      )}
-
-                      {/* Desktop: Pay Now button */}
-                      {!isMobile && (
-                        <Button
-                          className="w-full bg-brand hover:bg-brand-hover text-white rounded-full py-3 text-sm font-semibold"
-                          onClick={() => {
-                            setPayInvoiceId(pendingInvoice.id);
-                            setPayFile(null);
-                          }}
-                        >
-                          <Upload className="h-4 w-4 mr-2" />
-                          {t("payNow")}
-                        </Button>
-                      )}
+                      {/* Pay → opens the shared invoice pay dialog */}
+                      <Button
+                        className="w-full bg-brand hover:bg-brand-hover text-white rounded-full py-3 text-sm font-semibold"
+                        onClick={() => setPayInvoiceId(pendingInvoice.id)}
+                      >
+                        <Upload className="h-4 w-4 mr-2" />
+                        {t("payNow")}
+                      </Button>
                     </div>
                   ) : (
                     <div className="text-center">
@@ -1198,88 +1133,15 @@ export default function DashboardBillingPage() {
         </SheetContent>
       </Sheet>
 
-      {/* ── Invoice Pay Dialog ── */}
-      <Dialog open={!!payInvoiceId} onOpenChange={(open) => { if (!open) { setPayInvoiceId(null); setPayFile(null); } }}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t("payInvoice")}</DialogTitle>
-            <DialogDescription>{t("payInvoiceDesc")}</DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            {data.platform_payment && (
-              <div className="rounded-xl bg-brand-50 border border-brand-100 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-brand mb-3">
-                  {t("transferTo")}
-                </p>
-                {data.platform_payment.payment_display === "qr" && data.platform_payment.promptpay_id && (
-                  <p className="text-sm text-gray-700">
-                    PromptPay: <span className="font-mono font-medium">{data.platform_payment.promptpay_id}</span>
-                  </p>
-                )}
-                {data.platform_payment.payment_display === "bank" && (
-                  <div className="space-y-1 text-sm text-gray-700">
-                    {data.platform_payment.bank_name && <p>{data.platform_payment.bank_name}</p>}
-                    {data.platform_payment.bank_account_number && (
-                      <p className="font-mono font-medium">{data.platform_payment.bank_account_number}</p>
-                    )}
-                    {data.platform_payment.bank_account_name && <p>{data.platform_payment.bank_account_name}</p>}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <div className="space-y-2">
-              <Label className="text-sm text-gray-700">{t("paymentSlip")}</Label>
-              <div
-                onClick={() => payFileInputRef.current?.click()}
-                onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                onDrop={(e) => {
-                  e.preventDefault();
-                  e.stopPropagation();
-                  const file = e.dataTransfer.files?.[0];
-                  if (file) setPayFile(file);
-                }}
-                className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
-                  payFile
-                    ? "border-brand/30 bg-brand-50/50"
-                    : "border-gray-200 hover:border-brand/20 hover:bg-brand-50/20"
-                }`}
-              >
-                <Upload className="h-6 w-6 text-gray-300 mx-auto mb-2" />
-                <p className="text-sm text-gray-500">
-                  {payFile ? payFile.name : t("dragOrClick")}
-                </p>
-                <input
-                  ref={payFileInputRef}
-                  type="file"
-                  accept="image/*"
-                  className="hidden"
-                  onChange={(e) => setPayFile(e.target.files?.[0] || null)}
-                />
-              </div>
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setPayInvoiceId(null); setPayFile(null); }}>
-              {t("cancel")}
-            </Button>
-            <Button
-              onClick={() => payInvoiceId && handlePayInvoice(payInvoiceId)}
-              disabled={payLoading || !payFile}
-              className="bg-brand hover:bg-brand-hover"
-            >
-              {payLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Upload className="h-4 w-4 mr-2" />
-              )}
-              {t("verifyAndPay")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Invoice pay dialog (shared with the Wallet page) */}
+      <InvoicePayDialog
+        open={!!payInvoiceId}
+        onOpenChange={(o) => { if (!o) setPayInvoiceId(null); }}
+        invoiceId={payInvoiceId}
+        amount={data.invoices.find((inv) => inv.id === payInvoiceId)?.amount ?? 0}
+        platformPayment={data.platform_payment}
+        onPaid={fetchBilling}
+      />
     </div>
   );
 }

@@ -30,14 +30,7 @@ import { Badge } from "@/components/ui/badge";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
-import {
-  Dialog,
-  DialogContent,
-  DialogHeader,
-  DialogTitle,
-  DialogDescription,
-  DialogFooter,
-} from "@/components/ui/dialog";
+import { InvoicePayDialog } from "@/components/dashboard/invoice-pay-dialog";
 
 /* ─── Types ─── */
 
@@ -152,25 +145,13 @@ export default function WalletPage() {
 
   // ── Invoice pay ──
   const [payInvoiceId, setPayInvoiceId] = useState<string | null>(null);
-  const [payFile, setPayFileRaw] = useState<File | null>(null);
-  const [payPreview, setPayPreview] = useState<string | null>(null);
-  const [payLoading, setPayLoading] = useState(false);
-  const payFileInputRef = useRef<HTMLInputElement>(null);
-
-  const setPayFile = useCallback((file: File | null) => {
-    if (payPreview) URL.revokeObjectURL(payPreview);
-    setPayFileRaw(file);
-    setPayPreview(file ? URL.createObjectURL(file) : null);
-  }, [payPreview]);
 
   // ── Mobile detection ──
   const [isMobile, setIsMobile] = useState(false);
 
   // ── Session IDs for phone upload ──
   const [topupSessionId] = useState(() => crypto.randomUUID());
-  const [paySessionId] = useState(() => crypto.randomUUID());
   const topupPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
-  const payPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   /* ─── Mobile detection ─── */
 
@@ -184,11 +165,6 @@ export default function WalletPage() {
     if (typeof window === "undefined") return "";
     return `${window.location.origin}/upload-slip/${topupSessionId}`;
   }, [topupSessionId]);
-
-  const payUploadLink = useMemo(() => {
-    if (typeof window === "undefined") return "";
-    return `${window.location.origin}/upload-slip/${paySessionId}`;
-  }, [paySessionId]);
 
   /* ─── Poll for phone uploads (top-up) ─── */
 
@@ -216,33 +192,6 @@ export default function WalletPage() {
       }
     };
   }, [isMobile, topupAmount, topupFile, topupSessionId, t]);
-
-  /* ─── Poll for phone uploads (invoice pay) ─── */
-
-  useEffect(() => {
-    if (isMobile || !payInvoiceId || payFile) return;
-
-    payPollingRef.current = setInterval(async () => {
-      try {
-        const res = await fetch(`/api/slip-upload/${paySessionId}`);
-        const data = await res.json();
-        if (data.uploaded && data.url) {
-          const slipRes = await fetch(data.url);
-          const blob = await slipRes.blob();
-          setPayFile(new File([blob], data.filename || "slip.jpg", { type: blob.type }));
-          if (payPollingRef.current) clearInterval(payPollingRef.current);
-          toast.success(t("phoneSlipReceived"));
-        }
-      } catch { /* ignore */ }
-    }, 3000);
-
-    return () => {
-      if (payPollingRef.current) {
-        clearInterval(payPollingRef.current);
-        payPollingRef.current = null;
-      }
-    };
-  }, [isMobile, payInvoiceId, payFile, paySessionId, t]);
 
   /* ─── Fetchers ─── */
 
@@ -344,31 +293,6 @@ export default function WalletPage() {
       toast.error("Something went wrong");
     } finally {
       setTopupLoading(false);
-    }
-  };
-
-  /* ─── Invoice pay ─── */
-
-  const handlePayInvoice = async (invoiceId: string) => {
-    if (!payFile) return;
-    setPayLoading(true);
-    try {
-      const form = new FormData();
-      form.append("file", payFile);
-      const res = await fetch(`/api/host/invoices/${invoiceId}/pay`, { method: "POST", body: form });
-      const d = await res.json();
-      if (d.success) {
-        toast.success("Payment verified! Invoice marked as paid.");
-        setPayFile(null);
-        setPayInvoiceId(null);
-        fetchInvoices();
-      } else {
-        toast.error(d.error || d.message || "Verification failed");
-      }
-    } catch {
-      toast.error("Something went wrong");
-    } finally {
-      setPayLoading(false);
     }
   };
 
@@ -956,10 +880,7 @@ export default function WalletPage() {
                             <Button
                               size="sm"
                               className="bg-brand hover:bg-brand-hover text-white rounded-full px-5 text-xs shadow-sm"
-                              onClick={() => {
-                                setPayInvoiceId(inv.id);
-                                setPayFile(null);
-                              }}
+                              onClick={() => setPayInvoiceId(inv.id)}
                             >
                               {t("payNow")}
                             </Button>
@@ -975,119 +896,15 @@ export default function WalletPage() {
         </motion.div>
       )}
 
-      {/* ══════════════════════════════════════════════
-          INVOICE PAY DIALOG
-      ══════════════════════════════════════════════ */}
-      <Dialog open={!!payInvoiceId} onOpenChange={(open) => { if (!open) { setPayInvoiceId(null); setPayFile(null); } }}>
-        <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{t("payInvoice")}</DialogTitle>
-            <DialogDescription>{t("payInvoiceDesc")}</DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 py-2">
-            {/* PromptPay QR Code */}
-            {billing.platform_payment?.promptpay_id && payInvoiceId && (() => {
-              const inv = invoices.find((i) => i.id === payInvoiceId);
-              if (!inv) return null;
-              return (
-                <div className="flex flex-col items-center">
-                  <div className="bg-white p-3 rounded-2xl shadow-sm border border-earth-100">
-                    <QRCodeSVG
-                      value={generatePayload(billing.platform_payment!.promptpay_id!, { amount: inv.amount })}
-                      size={160}
-                      level="M"
-                    />
-                  </div>
-                  <p className="text-sm font-mono font-semibold text-gray-700 mt-2">
-                    ฿{inv.amount.toLocaleString()}
-                  </p>
-                </div>
-              );
-            })()}
-
-            {/* Upload slip */}
-            <div className="space-y-2">
-              <Label className="text-sm text-gray-700">{t("paymentSlip")}</Label>
-
-              {payFile ? (
-                <div className="rounded-2xl border bg-earth-50 p-3">
-                  <p className="mb-2 text-center text-xs font-medium text-earth-500">{t("slipPreview")}</p>
-                  {payPreview && (
-                    <img src={payPreview} alt={t("slipPreview")} className="mx-auto max-h-52 rounded-xl object-contain" />
-                  )}
-                  <div className="mt-3 flex justify-center">
-                    <Button type="button" variant="outline" size="sm" onClick={() => payFileInputRef.current?.click()} className="rounded-full">
-                      <ImageIcon className="mr-1.5 h-3.5 w-3.5" />{t("changeSlip")}
-                    </Button>
-                  </div>
-                  <input
-                    ref={payFileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => setPayFile(e.target.files?.[0] || null)}
-                  />
-                </div>
-              ) : (
-                <div className="space-y-3">
-                  <button type="button" onClick={() => payFileInputRef.current?.click()}
-                    className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-earth-300 p-4 text-left transition-colors hover:border-earth-400 hover:bg-earth-50">
-                    <div className="rounded-xl bg-earth-100 p-2.5"><ImageIcon className="h-5 w-5 text-earth-500" /></div>
-                    <div>
-                      <p className="text-sm font-medium text-earth-700">{t("chooseFromGallery")}</p>
-                      <p className="text-xs text-earth-400">{t("clickUpload")}</p>
-                    </div>
-                  </button>
-                  <input
-                    ref={payFileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => setPayFile(e.target.files?.[0] || null)}
-                  />
-                  {!isMobile && (
-                    <>
-                      <div className="relative flex items-center gap-3 py-1">
-                        <div className="flex-1 border-t border-earth-200" />
-                        <span className="text-xs font-medium text-earth-400">{t("orUploadFromPhone")}</span>
-                        <div className="flex-1 border-t border-earth-200" />
-                      </div>
-                      <div className="rounded-2xl border bg-earth-50 p-4 text-center">
-                        <p className="mb-3 text-xs text-earth-500">{t("scanToUploadSlip")}</p>
-                        <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-xl border bg-white p-2">
-                          <QRCodeSVG value={payUploadLink} size={100} level="M" />
-                        </div>
-                        <div className="mt-3 flex items-center justify-center gap-2 text-xs text-earth-400">
-                          <Loader2 className="h-3 w-3 animate-spin" />{t("waitingForPhoneUpload")}
-                        </div>
-                      </div>
-                    </>
-                  )}
-                </div>
-              )}
-            </div>
-          </div>
-
-          <DialogFooter>
-            <Button variant="outline" onClick={() => { setPayInvoiceId(null); setPayFile(null); }}>
-              {t("cancel")}
-            </Button>
-            <Button
-              onClick={() => payInvoiceId && handlePayInvoice(payInvoiceId)}
-              disabled={payLoading || !payFile}
-              className="bg-brand hover:bg-brand-hover"
-            >
-              {payLoading ? (
-                <Loader2 className="h-4 w-4 animate-spin mr-2" />
-              ) : (
-                <Upload className="h-4 w-4 mr-2" />
-              )}
-              {t("verifyAndPay")}
-            </Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
+      {/* Invoice pay dialog (shared with the Billing page) */}
+      <InvoicePayDialog
+        open={!!payInvoiceId}
+        onOpenChange={(o) => { if (!o) setPayInvoiceId(null); }}
+        invoiceId={payInvoiceId}
+        amount={invoices.find((i) => i.id === payInvoiceId)?.amount ?? 0}
+        platformPayment={billing.platform_payment}
+        onPaid={fetchInvoices}
+      />
     </div>
   );
 }

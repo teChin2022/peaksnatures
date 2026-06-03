@@ -1665,6 +1665,28 @@
     "txTopup": "เติมเงินเข้ากระเป๋า",
     "txAdjustment": "ปรับยอดโดยผู้ดูแล"
   },
+  "invoicePay": {
+    "payInvoice": "ชำระใบแจ้งหนี้",
+    "payInvoiceDesc": "อัพโหลดสลิปเพื่อตรวจสอบการชำระเงิน",
+    "transferTo": "โอนเงินไปที่:",
+    "bankLabel": "ธนาคาร",
+    "accountNoLabel": "เลขบัญชี",
+    "accountNameLabel": "ชื่อบัญชี",
+    "paymentSlip": "สลิปการชำระเงิน",
+    "slipPreview": "ตัวอย่างสลิป",
+    "changeSlip": "เปลี่ยน",
+    "chooseFromGallery": "เลือกจากแกลเลอรี",
+    "clickUpload": "แตะเพื่ออัปโหลดสลิปการชำระเงิน",
+    "orUploadFromPhone": "หรืออัปโหลดจากโทรศัพท์",
+    "scanToUploadSlip": "สแกน QR ด้วยมือถือเพื่ออัพโหลดสลิป",
+    "waitingForPhoneUpload": "กำลังรอสลิปจากโทรศัพท์ของคุณ...",
+    "phoneSlipReceived": "ได้รับสลิปจากมือถือแล้ว!",
+    "cancel": "ยกเลิก",
+    "verifyAndPay": "ตรวจสอบและชำระเงิน",
+    "verifiedToast": "ตรวจสอบการชำระเงินสำเร็จ! ใบแจ้งหนี้ถูกทำเครื่องหมายว่าชำระแล้ว",
+    "verifyFailed": "ตรวจสอบไม่สำเร็จ",
+    "somethingWrong": "เกิดข้อผิดพลาด"
+  },
   "bookingMenu": {
     "aria": "ตัวเลือกการจอง",
     "checkInOut": "เช็คอิน / เช็คเอาท์",

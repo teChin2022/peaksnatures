@@ -1665,6 +1665,28 @@
     "txTopup": "Wallet top-up",
     "txAdjustment": "Manual adjustment"
   },
+  "invoicePay": {
+    "payInvoice": "Pay Invoice",
+    "payInvoiceDesc": "Upload your payment slip to verify this payment.",
+    "transferTo": "Transfer to:",
+    "bankLabel": "Bank",
+    "accountNoLabel": "Account No.",
+    "accountNameLabel": "Account Name",
+    "paymentSlip": "Payment Slip",
+    "slipPreview": "Slip Preview",
+    "changeSlip": "Change",
+    "chooseFromGallery": "Choose from Gallery",
+    "clickUpload": "Tap to upload payment slip",
+    "orUploadFromPhone": "Or upload from your phone",
+    "scanToUploadSlip": "Scan with your phone to upload slip",
+    "waitingForPhoneUpload": "Waiting for slip from your phone...",
+    "phoneSlipReceived": "Slip received from phone!",
+    "cancel": "Cancel",
+    "verifyAndPay": "Verify & Pay",
+    "verifiedToast": "Payment verified! Invoice marked as paid.",
+    "verifyFailed": "Verification failed",
+    "somethingWrong": "Something went wrong"
+  },
   "bookingMenu": {
     "aria": "Booking actions",
     "checkInOut": "Check-in / Check-out",
