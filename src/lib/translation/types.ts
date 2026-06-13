@@ -35,6 +35,11 @@ export const translatedSeasonalPriceSchema = z.object({
   name: z.string(),
 });
 
+export const translatedRoomGuestPricingSchema = z.object({
+  id: z.string(),
+  detail: z.string().nullable(),
+});
+
 export const translatedHostSchema = z.object({
   bank_name: z.string().nullable(),
 });
@@ -45,6 +50,7 @@ export const translationPayloadSchema = z.object({
   roomOptions: z.array(translatedRoomOptionSchema),
   reviews: z.array(translatedReviewSchema),
   seasonalPrices: z.array(translatedSeasonalPriceSchema),
+  roomGuestPricing: z.array(translatedRoomGuestPricingSchema),
   host: translatedHostSchema,
 });
 
@@ -53,6 +59,7 @@ export type TranslatedRoom = z.infer<typeof translatedRoomSchema>;
 export type TranslatedRoomOption = z.infer<typeof translatedRoomOptionSchema>;
 export type TranslatedReview = z.infer<typeof translatedReviewSchema>;
 export type TranslatedSeasonalPrice = z.infer<typeof translatedSeasonalPriceSchema>;
+export type TranslatedRoomGuestPricing = z.infer<typeof translatedRoomGuestPricingSchema>;
 export type TranslatedHost = z.infer<typeof translatedHostSchema>;
 export type TranslationPayload = z.infer<typeof translationPayloadSchema>;
 

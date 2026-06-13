@@ -2,7 +2,7 @@ import { createHash } from "crypto";
 import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 import { getRedis, getReadyRedis, getCacheEnvPrefix } from "@/lib/redis";
-import type { Homestay, Room, RoomOption, Review, RoomSeasonalPrice, Host } from "@/types/database";
+import type { Homestay, Room, RoomOption, Review, RoomSeasonalPrice, RoomGuestPricing, Host } from "@/types/database";
 import {
   translationPayloadSchema,
   type SupportedLocale,
@@ -17,6 +17,7 @@ interface LocalizeInput {
   roomOptions: RoomOption[];
   reviews: Review[];
   seasonalPrices: RoomSeasonalPrice[];
+  guestPricing: RoomGuestPricing[];
   host: Host;
 }
 
@@ -75,6 +76,10 @@ function extractSourcePayload(input: LocalizeInput): TranslationPayload {
       id: p.id,
       name: p.name,
     })),
+    roomGuestPricing: input.guestPricing.map((t) => ({
+      id: t.id,
+      detail: t.detail,
+    })),
     host: {
       bank_name: input.host.bank_name,
     },
@@ -130,8 +135,9 @@ async function translateWithGemini(
 Rules:
 - Translate every string. Do not leave Thai text in the output.
 - Preserve all HTML tags, attributes, and structure exactly in description, check_in_info, and policies. Only translate the visible text inside tags.
-- Preserve array lengths and item order for amenities, prohibitions, faq, rooms, roomOptions, reviews, seasonalPrices.
-- Preserve every "id" field exactly as given for rooms, roomOptions, reviews, and seasonalPrices.
+- Preserve array lengths and item order for amenities, prohibitions, faq, rooms, roomOptions, reviews, seasonalPrices, roomGuestPricing.
+- Preserve every "id" field exactly as given for rooms, roomOptions, reviews, seasonalPrices, and roomGuestPricing.
+- For roomGuestPricing.detail, translate the short note (e.g. an age range or extra-guest remark). If a detail is null, return null unchanged.
 - For host.bank_name, render the standard English bank name (e.g. "ธนาคารกสิกรไทย" → "Kasikorn Bank", "ธนาคารไทยพาณิชย์" → "SCB", "ธนาคารกรุงเทพ" → "Bangkok Bank"). If null in source, return null unchanged.
 - For seasonalPrices.name, keep them short (e.g. "Songkran", "Christmas", "High season", "Weekend rate").
 - For amenity and prohibition labels, output short conventional booking-platform vocabulary (e.g., "WiFi", "Parking", "Kitchen", "No smoking", "No pets"). Strip any parenthesized English already present in the source.
@@ -166,6 +172,7 @@ function mergeTranslation<T extends LocalizeInput>(
   const optionById = new Map(translated.roomOptions.map((o) => [o.id, o]));
   const reviewById = new Map(translated.reviews.map((r) => [r.id, r]));
   const priceById = new Map(translated.seasonalPrices.map((p) => [p.id, p]));
+  const tierById = new Map(translated.roomGuestPricing.map((t) => [t.id, t]));
 
   return {
     ...input,
@@ -200,6 +207,11 @@ function mergeTranslation<T extends LocalizeInput>(
       const t = priceById.get(p.id);
       if (!t) return p;
       return { ...p, name: t.name };
+    }),
+    guestPricing: input.guestPricing.map((g) => {
+      const t = tierById.get(g.id);
+      if (!t) return g;
+      return { ...g, detail: t.detail };
     }),
     host: {
       ...input.host,

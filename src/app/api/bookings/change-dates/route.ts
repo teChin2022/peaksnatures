@@ -5,6 +5,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendDateChangeLineNotification, sendDateChangeSmsNotification, dispatchHostNotification, buildDateChangeMessage } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room, RoomSeasonalPrice } from "@/types/database";
 import { calculateTotalPrice } from "@/lib/calculate-price";
+import { computeCompositionSurcharge } from "@/lib/guest-pricing";
 import { getDepositForMonth } from "@/lib/get-deposit";
 import { logEvent, EventType } from "@/lib/history-log";
 
@@ -177,6 +178,7 @@ export async function POST(req: NextRequest) {
       // Calculate price using room info + seasonal prices from parallel batch
       const seasons = (seasonRows as unknown as RoomSeasonalPrice[]) || [];
       const { total } = calculateTotalPrice(roomInfo.price_per_night, newCheckIn, newCheckOut, seasons);
+      const newNights = Math.round((newCheckOut.getTime() - newCheckIn.getTime()) / (1000 * 60 * 60 * 24));
       // Recalculate options for new nights. per_night options scale with the
       // new night count; per_time options stay flat regardless of date change.
       const optionIds = Array.isArray(booking.selected_options)
@@ -188,14 +190,16 @@ export async function POST(req: NextRequest) {
           .from("room_options")
           .select("id, price, pricing_type")
           .in("id", optionIds);
-        const newNights = Math.round((newCheckOut.getTime() - newCheckIn.getTime()) / (1000 * 60 * 60 * 24));
         optionsSum = (freshOptions as { id: string; price: number; pricing_type: 'per_night' | 'per_time' }[] || [])
           .reduce((s, o) => s + (o.pricing_type === "per_time" ? o.price : o.price * newNights), 0);
       }
+      // The guest-composition surcharge is per night, so re-scale it to the new
+      // night count (the chosen composition itself doesn't change on a date change).
+      const compositionSum = computeCompositionSurcharge(booking.guest_pricing_surcharge || 0, newNights);
       // Preserve the original promo discount (locked-in at the original booking
       // time). Cap it at the new subtotal so it can never make the total negative,
       // which guarantees the guest still owes ≥ 0.
-      const newSubtotal = total + optionsSum;
+      const newSubtotal = total + optionsSum + compositionSum;
       newDiscountAmount = Math.min(booking.discount_amount || 0, newSubtotal);
       newTotalPrice = Math.max(0, newSubtotal - newDiscountAmount);
     }

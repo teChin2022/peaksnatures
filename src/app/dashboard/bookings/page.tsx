@@ -79,6 +79,7 @@ interface BookingRow {
   created_at: string;
   selected_options: { name: string; price: number }[] | null;
   booking_source: string | null;
+  guest_pricing_label: string | null;
 }
 
 interface DateChangeRequestRow {
@@ -1114,7 +1115,7 @@ export default function BookingsPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">{t("guests")}</span>
-                    <span>{detailTarget.num_guests}</span>
+                    <span>{detailTarget.guest_pricing_label || detailTarget.num_guests}</span>
                   </div>
                   {detailTarget.selected_options && detailTarget.selected_options.length > 0 && (
                     <div>

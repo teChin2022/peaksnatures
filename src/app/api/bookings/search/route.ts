@@ -20,7 +20,7 @@ interface BookingResult {
   selected_options: { name: string; price: number }[] | null;
 }
 
-const BOOKING_SELECT = "id, guest_name, guest_email, guest_phone, check_in, check_out, num_guests, total_price, amount_paid, payment_type, status, room_id, checked_in_at, checked_out_at, created_at, selected_options";
+const BOOKING_SELECT = "id, guest_name, guest_email, guest_phone, check_in, check_out, num_guests, total_price, amount_paid, payment_type, status, room_id, checked_in_at, checked_out_at, created_at, selected_options, guest_pricing_label";
 
 export async function GET(request: NextRequest) {
   const { searchParams } = new URL(request.url);
