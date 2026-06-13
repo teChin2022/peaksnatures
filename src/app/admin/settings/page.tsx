@@ -35,13 +35,61 @@ interface TierDraft {
 function BillingFormSkeleton() {
   return (
     <div className="space-y-4">
-      {[1, 2, 3, 4, 5].map((i) => (
-        <div key={i} className="space-y-2">
-          <Skeleton className="h-4 w-24" />
-          <Skeleton className="h-10 w-full rounded-md" />
+      {/* Commission % + Fixed Rate */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+        {[0, 1].map((i) => (
+          <div key={i} className="space-y-2">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-9 w-full rounded-md" />
+          </div>
+        ))}
+      </div>
+
+      {/* Fixed Rate Subscription Terms */}
+      <div className="border-t border-earth-100 pt-4 space-y-3">
+        <Skeleton className="h-4 w-44" />
+        <Skeleton className="h-3 w-3/4" />
+        <div className="flex items-end gap-2">
+          <Skeleton className="h-9 flex-1 rounded-md" />
+          <Skeleton className="h-9 flex-1 rounded-md" />
+          <Skeleton className="h-9 w-9 rounded-md" />
         </div>
-      ))}
-      <Skeleton className="h-10 w-full rounded-md" />
+        <Skeleton className="h-8 w-24 rounded-md" />
+      </div>
+
+      {/* Platform Payment Details */}
+      <div className="border-t border-earth-100 pt-4 space-y-3">
+        <Skeleton className="h-4 w-40" />
+        <Skeleton className="h-3 w-2/3" />
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-9 w-full rounded-md" />
+        </div>
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-20" />
+          <Skeleton className="h-9 w-full rounded-md" />
+        </div>
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-28" />
+            <Skeleton className="h-9 w-full rounded-md" />
+          </div>
+          <div className="space-y-2">
+            <Skeleton className="h-4 w-24" />
+            <Skeleton className="h-9 w-full rounded-md" />
+          </div>
+        </div>
+        <div className="space-y-2">
+          <Skeleton className="h-4 w-28" />
+          <div className="flex gap-3">
+            <Skeleton className="h-8 w-28 rounded-md" />
+            <Skeleton className="h-8 w-28 rounded-md" />
+          </div>
+        </div>
+      </div>
+
+      {/* Save button */}
+      <Skeleton className="h-9 w-full rounded-md" />
     </div>
   );
 }
