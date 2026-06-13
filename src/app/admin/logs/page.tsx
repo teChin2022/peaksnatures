@@ -1,9 +1,10 @@
 "use client";
 
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, Fragment } from "react";
 import { ScrollText, Loader2, Filter, Clock, User as UserIcon } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
@@ -102,6 +103,7 @@ export default function AdminLogsPage() {
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
   const [showFilters, setShowFilters] = useState(false);
+  const [selectedLog, setSelectedLog] = useState<LogRow | null>(null);
 
   const [eventType, setEventType] = useState("");
   const [entityType, setEntityType] = useState("");
@@ -165,6 +167,23 @@ export default function AdminLogsPage() {
           <span className="text-[11px] text-earth-400">+{entries.length - 4} more</span>
         )}
       </div>
+    );
+  };
+
+  const renderDataDetail = (data: Record<string, unknown>) => {
+    const entries = Object.entries(data).filter(([, v]) => v !== null && v !== undefined && v !== "");
+    if (entries.length === 0) return <p className="text-sm text-earth-400">No metadata.</p>;
+    return (
+      <dl className="grid grid-cols-[minmax(7rem,auto)_1fr] gap-x-3 gap-y-1.5 text-sm">
+        {entries.map(([k, v]) => (
+          <Fragment key={k}>
+            <dt className="font-mono text-xs text-earth-500 pt-0.5 break-words">{k}</dt>
+            <dd className="text-earth-800 break-words whitespace-pre-wrap">
+              {typeof v === "object" ? JSON.stringify(v, null, 2) : String(v)}
+            </dd>
+          </Fragment>
+        ))}
+      </dl>
     );
   };
 
@@ -267,7 +286,19 @@ export default function AdminLogsPage() {
         <>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
             {logs.map((log) => (
-              <Card key={log.id} className="dashboard-card border-earth-100">
+              <Card
+                key={log.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => setSelectedLog(log)}
+                onKeyDown={(e) => {
+                  if (e.key === "Enter" || e.key === " ") {
+                    e.preventDefault();
+                    setSelectedLog(log);
+                  }
+                }}
+                className="dashboard-card border-earth-100 cursor-pointer transition hover:border-brand/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+              >
                 <CardContent className="p-4 space-y-2">
                   <div className="flex flex-wrap items-center gap-1.5">
                     <StatusBadge
@@ -319,6 +350,58 @@ export default function AdminLogsPage() {
           )}
         </>
       )}
+
+      <Dialog open={!!selectedLog} onOpenChange={(open) => { if (!open) setSelectedLog(null); }}>
+        <DialogContent className="max-w-lg">
+          {selectedLog && (
+            <>
+              <DialogHeader>
+                <div className="flex flex-wrap items-center gap-1.5">
+                  <StatusBadge
+                    status={selectedLog.event_type}
+                    tone={getEventTone(selectedLog.event_type)}
+                    label={selectedLog.event_type}
+                    className="font-mono normal-case"
+                  />
+                  <StatusBadge
+                    status={selectedLog.actor_type}
+                    tone={ACTOR_TONES[selectedLog.actor_type] ?? "muted"}
+                    label={selectedLog.actor_type}
+                  />
+                </div>
+                <DialogTitle className="text-base text-earth-900">{selectedLog.entity_label}</DialogTitle>
+                {selectedLog.entity_context && (
+                  <DialogDescription className="text-earth-500">{selectedLog.entity_context}</DialogDescription>
+                )}
+              </DialogHeader>
+
+              <div className="space-y-1.5 text-sm border-y border-earth-100 py-3">
+                <div className="flex gap-2">
+                  <span className="w-16 shrink-0 text-earth-500">Actor</span>
+                  <span className="text-earth-800">by {selectedLog.actor_label}</span>
+                </div>
+                {selectedLog.ip_address && (
+                  <div className="flex gap-2">
+                    <span className="w-16 shrink-0 text-earth-500">IP</span>
+                    <span className="text-earth-800 tabular-nums">{selectedLog.ip_address}</span>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <span className="w-16 shrink-0 text-earth-500">Time</span>
+                  <span className="text-earth-800 tabular-nums">{formatDate(selectedLog.created_at)}</span>
+                </div>
+              </div>
+
+              <div>
+                <h3 className="text-xs font-medium uppercase tracking-wide text-earth-400 mb-2">Metadata</h3>
+                <div className="max-h-[50vh] overflow-y-auto pr-1">
+                  {renderDataDetail(selectedLog.data)}
+                </div>
+              </div>
+            </>
+          )}
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
