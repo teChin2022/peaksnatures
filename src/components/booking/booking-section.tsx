@@ -156,6 +156,7 @@ export function BookingSection({
   const [showCalendar, setShowCalendar] = useState(false);
   const [showIncompleteDatesModal, setShowIncompleteDatesModal] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
+  const [showGuests, setShowGuests] = useState(false);
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([]);
   const [pdpaConsent, setPdpaConsent] = useState(false);
   const [promoInput, setPromoInput] = useState(initialPromo?.code ?? "");
@@ -809,6 +810,7 @@ export function BookingSection({
     setPdpaConsent(false);
     setShowCalendar(false);
     setShowOptions(false);
+    setShowGuests(false);
     setShowConfirmModal(false);
     setShowConfirmedModal(false);
     setSelectedOptionIds([]);
@@ -937,7 +939,7 @@ export function BookingSection({
                 {step === "dates" && (
                   <motion.div key="step-dates" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                     <AnimatePresence mode="wait">
-                      {!showCalendar && !showOptions ? (
+                      {!showCalendar && !showOptions && !showGuests ? (
                         <motion.div key="dates-form" initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.25 }} className="space-y-5">
                           {/* Room detail or prompt */}
                           {selectedRoom ? (
@@ -988,28 +990,20 @@ export function BookingSection({
                           <div className="space-y-2">
                             <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("numGuests")}</label>
                             {hasTiers ? (
-                              <Select
-                                value={selectedTierId}
-                                onValueChange={(val) => {
-                                  setSelectedTierId(val);
-                                  const tier = tiersForRoom.find((g) => g.id === val);
-                                  if (tier) setNumGuests(String(tier.adults + tier.children));
-                                }}
+                              <button
+                                onClick={() => setShowGuests(true)}
+                                className="w-full flex items-center justify-between p-3.5 rounded-xl border border-earth-200 transition-all text-sm font-medium bg-white hover:border-earth-400 text-earth-900 cursor-pointer"
                               >
-                                <SelectTrigger className="!w-full p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400 data-[placeholder]:text-earth-400">
-                                  <div className="flex min-w-0 items-center gap-2.5">
-                                    <Users size={16} className="shrink-0 text-earth-400" />
-                                    <SelectValue placeholder={t("selectGuestsForPrice")} />
-                                  </div>
-                                </SelectTrigger>
-                                <SelectContent>
-                                  {tiersForRoom.map((tier) => (
-                                    <SelectItem key={tier.id} value={tier.id}>
-                                      {`${composeTierLabel(tier, locale)}${tier.surcharge > 0 ? ` +฿${tier.surcharge.toLocaleString()}` : ""}`}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
+                                <div className="flex min-w-0 items-center gap-2.5">
+                                  <Users size={16} className="shrink-0 text-earth-400" />
+                                  <span className={`truncate ${selectedTier ? "" : "text-earth-400"}`}>
+                                    {selectedTier ? composeTierLabel(selectedTier, locale) : t("selectGuestsForPrice")}
+                                  </span>
+                                </div>
+                                {selectedTier && selectedTier.surcharge > 0 && (
+                                  <span className="text-xs font-semibold text-brand whitespace-nowrap">+฿{selectedTier.surcharge.toLocaleString()}</span>
+                                )}
+                              </button>
                             ) : (
                               <div className="flex items-center justify-between p-3 rounded-xl border border-earth-200">
                                 <span className="text-sm font-medium text-earth-700">{numGuests} {tc("guests")}</span>
@@ -1129,6 +1123,39 @@ export function BookingSection({
                             {t("continueDetails")} <ArrowRight size={18} />
                           </button>
                           <p className="text-center text-[11px] text-earth-400">{t("subtitle")}</p>
+                        </motion.div>
+                      ) : showGuests ? (
+                        <motion.div key="dates-guests" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.25 }} className="space-y-4">
+                          <div className="flex items-center gap-3">
+                            <button onClick={() => setShowGuests(false)} className="p-2 rounded-full hover:bg-earth-100 text-earth-400"><ArrowLeft size={18} /></button>
+                            <h3 className="text-xl font-bold text-earth-900">{t("numGuests")}</h3>
+                          </div>
+                          <p className="text-sm text-earth-500">{t("selectGuestsForPrice")}</p>
+
+                          <div className="space-y-2">
+                            {tiersForRoom.map((tier) => {
+                              const isSelected = tier.id === selectedTierId;
+                              return (
+                                <button
+                                  key={tier.id}
+                                  onClick={() => {
+                                    setSelectedTierId(tier.id);
+                                    setNumGuests(String(tier.adults + tier.children));
+                                    setShowGuests(false);
+                                  }}
+                                  className={`w-full flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all text-left ${isSelected ? "border-brand bg-brand/5" : "border-earth-200 hover:border-earth-300"}`}
+                                >
+                                  <Users size={16} className="shrink-0 text-earth-400" />
+                                  <div className="flex-1 min-w-0">
+                                    <p className="text-sm font-medium text-earth-900">{composeTierLabel(tier, locale)}</p>
+                                  </div>
+                                  <span className="text-sm font-semibold text-brand whitespace-nowrap">
+                                    {tier.surcharge > 0 ? `+฿${tier.surcharge.toLocaleString()}` : t("defaultPrice")}
+                                  </span>
+                                </button>
+                              );
+                            })}
+                          </div>
                         </motion.div>
                       ) : showOptions ? (
                         <motion.div key="dates-options" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.25 }} className="space-y-4">

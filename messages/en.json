@@ -173,6 +173,7 @@
     "childrenAge": "Age 2-12",
     "selectGuestsForPrice": "Select guests to see price …",
     "extraGuests": "Extra guests",
+    "defaultPrice": "Default price",
     "errorSelectGuests": "Please select the number of guests",
     "continueDetails": "Continue to Guest Details",
     "guestInfo": "Guest Information",
