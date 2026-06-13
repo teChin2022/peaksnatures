@@ -2,10 +2,12 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
-import { Settings, Eye, EyeOff, Loader2, CreditCard, Plus, Trash2 } from "lucide-react";
+import { Settings, Eye, EyeOff, Loader2, CreditCard, Plus, Trash2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
@@ -31,33 +33,15 @@ interface TierDraft {
 }
 
 function BillingFormSkeleton() {
-  const bar = "skeleton-warm rounded";
   return (
-    <div className="space-y-5">
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {[0, 1].map((i) => (
-          <div key={i} className="space-y-2">
-            <div className={`${bar} h-3.5 w-28`} />
-            <div className={`${bar} h-9 w-full`} />
-          </div>
-        ))}
-      </div>
-      <div className="border-t border-earth-100 pt-4 space-y-3">
-        <div className={`${bar} h-4 w-48`} />
-        <div className={`${bar} h-3 w-3/4`} />
-        <div className={`${bar} h-9 w-full`} />
-        <div className={`${bar} h-8 w-28`} />
-      </div>
-      <div className="border-t border-earth-100 pt-4 space-y-3">
-        <div className={`${bar} h-4 w-44`} />
-        <div className={`${bar} h-9 w-full`} />
-        <div className={`${bar} h-9 w-full`} />
-        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-          <div className={`${bar} h-9 w-full`} />
-          <div className={`${bar} h-9 w-full`} />
+    <div className="space-y-4">
+      {[1, 2, 3, 4, 5].map((i) => (
+        <div key={i} className="space-y-2">
+          <Skeleton className="h-4 w-24" />
+          <Skeleton className="h-10 w-full rounded-md" />
         </div>
-      </div>
-      <div className={`${bar} h-10 w-full`} />
+      ))}
+      <Skeleton className="h-10 w-full rounded-md" />
     </div>
   );
 }
@@ -241,24 +225,24 @@ export default function AdminSettingsPage() {
   };
 
   return (
-    <div>
+    <div className="mx-auto max-w-2xl">
       <PageHeader
         eyebrow="Manage your admin account"
         title="Settings"
         icon={Settings}
       />
 
-      <div className="divide-y divide-earth-100">
-        <section className="pb-10">
-          <header className="mb-5">
-            <div className="flex items-center gap-2">
-              <CreditCard className="h-4 w-4 text-brand" />
-              <h2 className="text-base font-serif text-earth-900">Billing Configuration</h2>
-            </div>
-            <p className="text-sm text-earth-500">
-              Platform commission, fixed rate, and payment details for hosts
-            </p>
-          </header>
+      <Card className="border-earth-100">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base font-serif text-earth-900">
+            <CreditCard className="h-4 w-4 text-brand" />
+            Billing Configuration
+          </CardTitle>
+          <CardDescription className="text-earth-500">
+            Platform commission, fixed rate, and payment details for hosts
+          </CardDescription>
+        </CardHeader>
+        <CardContent>
           {billingLoading ? (
             <BillingFormSkeleton />
           ) : (
@@ -427,13 +411,18 @@ export default function AdminSettingsPage() {
               </Button>
             </form>
           )}
-        </section>
+        </CardContent>
+      </Card>
 
-        <section className="pt-10">
-          <header className="mb-5">
-            <h2 className="text-base font-serif text-earth-900">Change Password</h2>
-            <p className="text-sm text-earth-500">Update your admin login password</p>
-          </header>
+      <Card className="mt-6 border-earth-100">
+        <CardHeader>
+          <CardTitle className="flex items-center gap-2 text-base font-serif text-earth-900">
+            <Lock className="h-4 w-4 text-brand" />
+            Change Password
+          </CardTitle>
+          <CardDescription className="text-earth-500">Update your admin login password</CardDescription>
+        </CardHeader>
+        <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="current">Current Password</Label>
@@ -516,8 +505,8 @@ export default function AdminSettingsPage() {
               Change Password
             </Button>
           </form>
-        </section>
-      </div>
+        </CardContent>
+      </Card>
 
       <Dialog open={confirmRemoveTier !== null} onOpenChange={(open) => { if (!open) setConfirmRemoveTier(null); }}>
         <DialogContent className="sm:max-w-sm">
