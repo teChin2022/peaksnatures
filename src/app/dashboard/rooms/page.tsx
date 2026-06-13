@@ -77,6 +77,7 @@ interface TierFormData {
   children: string;
   detail: string;
   surcharge: string;
+  useDefaultPrice: boolean;
 }
 
 export default function RoomsPage() {
@@ -118,7 +119,7 @@ export default function RoomsPage() {
 
   // Guest pricing (composition tiers) state
   const [guestTiers, setGuestTiers] = useState<Record<string, RoomGuestPricing[]>>({});
-  const [tierForm, setTierForm] = useState<TierFormData>({ adults: "2", children: "0", detail: "", surcharge: "" });
+  const [tierForm, setTierForm] = useState<TierFormData>({ adults: "2", children: "0", detail: "", surcharge: "", useDefaultPrice: false });
   const [editingTier, setEditingTier] = useState<RoomGuestPricing | null>(null);
   const [savingTier, setSavingTier] = useState(false);
   const [pendingTiers, setPendingTiers] = useState<Omit<RoomGuestPricing, "id" | "room_id" | "created_at" | "created_by" | "updated_at" | "updated_by">[]>([]);
@@ -644,13 +645,13 @@ export default function RoomsPage() {
 
   // --- Guest pricing (composition tiers) handlers ---
   const resetTierForm = () => {
-    setTierForm({ adults: "2", children: "0", detail: "", surcharge: "" });
+    setTierForm({ adults: "2", children: "0", detail: "", surcharge: "", useDefaultPrice: false });
     setEditingTier(null);
   };
 
   const startEditTier = (tier: RoomGuestPricing) => {
     setEditingTier(tier);
-    setTierForm({ id: tier.id, adults: tier.adults.toString(), children: tier.children.toString(), detail: tier.detail || "", surcharge: tier.surcharge.toString() });
+    setTierForm({ id: tier.id, adults: tier.adults.toString(), children: tier.children.toString(), detail: tier.detail || "", surcharge: tier.surcharge.toString(), useDefaultPrice: tier.surcharge === 0 });
   };
 
   const handleSaveTier = async () => {
@@ -658,8 +659,12 @@ export default function RoomsPage() {
     if (isNaN(adults) || adults < 1) { toast.error(t("errorTierAdults")); return; }
     const children = isNaN(parseInt(tierForm.children)) ? 0 : parseInt(tierForm.children);
     if (children < 0) { toast.error(t("errorTierChildren")); return; }
-    const surcharge = parseInt(tierForm.surcharge);
-    if (isNaN(surcharge) || surcharge < 0) { toast.error(t("errorTierSurcharge")); return; }
+    // "Use default price" means this composition charges the room's base price (no surcharge).
+    let surcharge = 0;
+    if (!tierForm.useDefaultPrice) {
+      surcharge = parseInt(tierForm.surcharge);
+      if (isNaN(surcharge) || surcharge < 0) { toast.error(t("errorTierSurcharge")); return; }
+    }
     const detail = tierForm.detail.trim() || null;
 
     // For new rooms — store pending tiers locally
@@ -1095,7 +1100,11 @@ export default function RoomsPage() {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-gray-900">{composeTierLabel(tier, locale)}</p>
                           <p className="text-xs text-gray-500">
-                            <span className="font-medium text-brand">{tier.surcharge > 0 ? `+฿${tier.surcharge.toLocaleString()}` : "฿0"}</span>{tc("perNight")}
+                            {tier.surcharge > 0 ? (
+                              <><span className="font-medium text-brand">+฿{tier.surcharge.toLocaleString()}</span>{tc("perNight")}</>
+                            ) : (
+                              <span className="font-medium text-brand">{t("defaultPrice")}</span>
+                            )}
                           </p>
                         </div>
                         <div className="flex items-center gap-1">
@@ -1133,7 +1142,11 @@ export default function RoomsPage() {
                         <div className="min-w-0 flex-1">
                           <p className="text-sm font-medium text-gray-900">{composeTierLabel(tier, locale)}</p>
                           <p className="text-xs text-gray-500">
-                            <span className="font-medium text-brand">{tier.surcharge > 0 ? `+฿${tier.surcharge.toLocaleString()}` : "฿0"}</span>{tc("perNight")}
+                            {tier.surcharge > 0 ? (
+                              <><span className="font-medium text-brand">+฿{tier.surcharge.toLocaleString()}</span>{tc("perNight")}</>
+                            ) : (
+                              <span className="font-medium text-brand">{t("defaultPrice")}</span>
+                            )}
                           </p>
                         </div>
                         <Button
@@ -1188,19 +1201,29 @@ export default function RoomsPage() {
                     onChange={(e) => setTierForm((f) => ({ ...f, detail: e.target.value }))}
                   />
                 </div>
-                <div>
-                  <Label className="text-xs">{t("tierSurcharge")}</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">฿</span>
-                    <Input
-                      type="number"
-                      min="0"
-                      className="pl-7 text-sm"
-                      value={tierForm.surcharge}
-                      onChange={(e) => setTierForm((f) => ({ ...f, surcharge: e.target.value }))}
-                    />
-                  </div>
+                <div className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2">
+                  <Label className="text-xs font-medium text-gray-700">{t("useDefaultPrice")}</Label>
+                  <Switch
+                    checked={tierForm.useDefaultPrice}
+                    onCheckedChange={(checked) => setTierForm((f) => ({ ...f, useDefaultPrice: checked }))}
+                    className="data-[state=checked]:bg-brand"
+                  />
                 </div>
+                {!tierForm.useDefaultPrice && (
+                  <div>
+                    <Label className="text-xs">{t("tierSurcharge")}</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">฿</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        className="pl-7 text-sm"
+                        value={tierForm.surcharge}
+                        onChange={(e) => setTierForm((f) => ({ ...f, surcharge: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                )}
                 <div className="flex gap-2">
                   <Button
                     size="sm"

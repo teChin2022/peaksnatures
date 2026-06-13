@@ -951,6 +951,8 @@
     "tierDetail": "รายละเอียด (ไม่บังคับ)",
     "tierDetailPlaceholder": "เช่น อายุ 0-5 ปี, รวมเตียงเสริม 1 ที่",
     "tierSurcharge": "ค่าเพิ่ม / คืน",
+    "useDefaultPrice": "ใช้ราคาปกติ",
+    "defaultPrice": "ราคาปกติ",
     "tierCreated": "เพิ่มรายการแล้ว",
     "tierUpdated": "อัปเดตรายการแล้ว",
     "tierDeleted": "ลบรายการแล้ว",

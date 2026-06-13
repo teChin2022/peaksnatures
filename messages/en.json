@@ -951,6 +951,8 @@
     "tierDetail": "Detail (optional)",
     "tierDetailPlaceholder": "e.g. age 0-5, includes 1 extra bed",
     "tierSurcharge": "Surcharge / night",
+    "useDefaultPrice": "Use default price",
+    "defaultPrice": "Default price",
     "tierCreated": "Tier added",
     "tierUpdated": "Tier updated",
     "tierDeleted": "Tier deleted",

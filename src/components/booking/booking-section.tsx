@@ -996,8 +996,11 @@ export function BookingSection({
                                   if (tier) setNumGuests(String(tier.adults + tier.children));
                                 }}
                               >
-                                <SelectTrigger className="w-full h-auto rounded-xl border-earth-200 p-3 text-sm font-medium text-earth-700">
-                                  <SelectValue placeholder={t("selectGuestsForPrice")} />
+                                <SelectTrigger className="!w-full p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400 data-[placeholder]:text-earth-400">
+                                  <div className="flex min-w-0 items-center gap-2.5">
+                                    <Users size={16} className="shrink-0 text-earth-400" />
+                                    <SelectValue placeholder={t("selectGuestsForPrice")} />
+                                  </div>
                                 </SelectTrigger>
                                 <SelectContent>
                                   {tiersForRoom.map((tier) => (
