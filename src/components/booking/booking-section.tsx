@@ -1005,7 +1005,7 @@ export function BookingSection({
                                 <SelectContent>
                                   {tiersForRoom.map((tier) => (
                                     <SelectItem key={tier.id} value={tier.id}>
-                                      {composeTierLabel(tier, locale)}
+                                      {`${composeTierLabel(tier, locale)}${tier.surcharge > 0 ? ` +฿${tier.surcharge.toLocaleString()}` : ""}`}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>

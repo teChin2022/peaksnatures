@@ -941,145 +941,6 @@ export default function RoomsPage() {
               </div>
             </div>
 
-            {/* Room Options Section */}
-            <div className="space-y-3 rounded-lg border p-4">
-              <div className="flex items-center gap-2">
-                <ListPlus className="h-4 w-4 text-brand" />
-                <h3 className="text-sm font-semibold text-gray-900">{t("roomOptions")}</h3>
-              </div>
-              <p className="text-xs text-gray-500">{t("roomOptionsDesc")}</p>
-
-              {/* Options list — DB options for existing rooms, pending for new */}
-              {editingRoom ? (
-                (roomOptions[editingRoom.id] || []).length > 0 ? (
-                  <div className="space-y-2">
-                    {(roomOptions[editingRoom.id] || []).map((option) => (
-                      <div
-                        key={option.id}
-                        className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900">{option.name}</p>
-                          <p className="text-xs text-gray-500">
-                            <span className="font-medium text-brand">+฿{option.price.toLocaleString()}{option.pricing_type === "per_time" ? tc("perStay") : tc("perNight")}</span>
-                          </p>
-                        </div>
-                        <div className="flex items-center gap-1">
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7"
-                            onClick={() => startEditOption(option)}
-                          >
-                            <Pencil className="h-3 w-3" />
-                          </Button>
-                          <Button
-                            variant="ghost"
-                            size="icon"
-                            className="h-7 w-7 text-red-500 hover:text-red-700"
-                            onClick={() => handleDeleteOption(option.id)}
-                          >
-                            <Trash2 className="h-3 w-3" />
-                          </Button>
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs italic text-gray-400">{t("noOptions")}</p>
-                )
-              ) : (
-                pendingOptions.length > 0 ? (
-                  <div className="space-y-2">
-                    {pendingOptions.map((option, idx) => (
-                      <div
-                        key={idx}
-                        className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
-                      >
-                        <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900">{option.name}</p>
-                          <p className="text-xs text-gray-500">
-                            <span className="font-medium text-brand">+฿{option.price.toLocaleString()}{option.pricing_type === "per_time" ? tc("perStay") : tc("perNight")}</span>
-                          </p>
-                        </div>
-                        <Button
-                          variant="ghost"
-                          size="icon"
-                          className="h-7 w-7 text-red-500 hover:text-red-700"
-                          onClick={() => setPendingOptions((prev) => prev.filter((_, i) => i !== idx))}
-                        >
-                          <Trash2 className="h-3 w-3" />
-                        </Button>
-                      </div>
-                    ))}
-                  </div>
-                ) : (
-                  <p className="text-xs italic text-gray-400">{t("noOptions")}</p>
-                )
-              )}
-
-              {/* Option add/edit form */}
-              <div className="space-y-2 rounded-md border bg-white p-3">
-                <p className="text-xs font-medium text-gray-700">
-                  {editingOption ? t("editOption") : t("addOption")}
-                </p>
-                <Input
-                  placeholder={t("optionNamePlaceholder")}
-                  value={optionForm.name}
-                  onChange={(e) => setOptionForm((f) => ({ ...f, name: e.target.value }))}
-                  className="text-sm"
-                />
-                <div>
-                  <Label className="text-xs">{t("optionPrice")}</Label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">฿</span>
-                    <Input
-                      type="number"
-                      className="pl-7 text-sm"
-                      value={optionForm.price}
-                      onChange={(e) => setOptionForm((f) => ({ ...f, price: e.target.value }))}
-                    />
-                  </div>
-                </div>
-                <div>
-                  <Label className="text-xs">{t("pricingType")}</Label>
-                  <div className="mt-1 inline-flex rounded-md border bg-gray-50 p-0.5">
-                    <button
-                      type="button"
-                      onClick={() => setOptionForm((f) => ({ ...f, pricing_type: "per_night" }))}
-                      className={`rounded px-3 py-1 text-xs font-medium transition-colors ${optionForm.pricing_type === "per_night" ? "bg-white text-brand shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
-                    >
-                      {t("pricingTypePerNight")}
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => setOptionForm((f) => ({ ...f, pricing_type: "per_time" }))}
-                      className={`rounded px-3 py-1 text-xs font-medium transition-colors ${optionForm.pricing_type === "per_time" ? "bg-white text-brand shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
-                    >
-                      {t("pricingTypePerStay")}
-                    </button>
-                  </div>
-                </div>
-                <div className="flex gap-2">
-                  <Button
-                    size="sm"
-                    onClick={handleSaveOption}
-                    disabled={savingOption}
-                    className="hover:brightness-90 bg-brand"
-                  >
-                    {savingOption ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Plus className="mr-1 h-3 w-3" />}
-                    {editingOption ? t("saveOption") : t("addOption")}
-                  </Button>
-                  {editingOption && (
-                    <Button size="sm" variant="outline" onClick={resetOptionForm}>
-                      <X className="mr-1 h-3 w-3" />
-                      {tc("cancel")}
-                    </Button>
-                  )}
-                </div>
-              </div>
-            </div>
-
             {/* Guest Pricing (composition tiers) Section */}
             <div className="space-y-3 rounded-lg border p-4">
               <div className="flex items-center gap-2">
@@ -1236,6 +1097,145 @@ export default function RoomsPage() {
                   </Button>
                   {editingTier && (
                     <Button size="sm" variant="outline" onClick={resetTierForm}>
+                      <X className="mr-1 h-3 w-3" />
+                      {tc("cancel")}
+                    </Button>
+                  )}
+                </div>
+              </div>
+            </div>
+
+            {/* Room Options Section */}
+            <div className="space-y-3 rounded-lg border p-4">
+              <div className="flex items-center gap-2">
+                <ListPlus className="h-4 w-4 text-brand" />
+                <h3 className="text-sm font-semibold text-gray-900">{t("roomOptions")}</h3>
+              </div>
+              <p className="text-xs text-gray-500">{t("roomOptionsDesc")}</p>
+
+              {/* Options list — DB options for existing rooms, pending for new */}
+              {editingRoom ? (
+                (roomOptions[editingRoom.id] || []).length > 0 ? (
+                  <div className="space-y-2">
+                    {(roomOptions[editingRoom.id] || []).map((option) => (
+                      <div
+                        key={option.id}
+                        className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-900">{option.name}</p>
+                          <p className="text-xs text-gray-500">
+                            <span className="font-medium text-brand">+฿{option.price.toLocaleString()}{option.pricing_type === "per_time" ? tc("perStay") : tc("perNight")}</span>
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => startEditOption(option)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-red-500 hover:text-red-700"
+                            onClick={() => handleDeleteOption(option.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs italic text-gray-400">{t("noOptions")}</p>
+                )
+              ) : (
+                pendingOptions.length > 0 ? (
+                  <div className="space-y-2">
+                    {pendingOptions.map((option, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-900">{option.name}</p>
+                          <p className="text-xs text-gray-500">
+                            <span className="font-medium text-brand">+฿{option.price.toLocaleString()}{option.pricing_type === "per_time" ? tc("perStay") : tc("perNight")}</span>
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-red-500 hover:text-red-700"
+                          onClick={() => setPendingOptions((prev) => prev.filter((_, i) => i !== idx))}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs italic text-gray-400">{t("noOptions")}</p>
+                )
+              )}
+
+              {/* Option add/edit form */}
+              <div className="space-y-2 rounded-md border bg-white p-3">
+                <p className="text-xs font-medium text-gray-700">
+                  {editingOption ? t("editOption") : t("addOption")}
+                </p>
+                <Input
+                  placeholder={t("optionNamePlaceholder")}
+                  value={optionForm.name}
+                  onChange={(e) => setOptionForm((f) => ({ ...f, name: e.target.value }))}
+                  className="text-sm"
+                />
+                <div>
+                  <Label className="text-xs">{t("optionPrice")}</Label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">฿</span>
+                    <Input
+                      type="number"
+                      className="pl-7 text-sm"
+                      value={optionForm.price}
+                      onChange={(e) => setOptionForm((f) => ({ ...f, price: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">{t("pricingType")}</Label>
+                  <div className="mt-1 inline-flex rounded-md border bg-gray-50 p-0.5">
+                    <button
+                      type="button"
+                      onClick={() => setOptionForm((f) => ({ ...f, pricing_type: "per_night" }))}
+                      className={`rounded px-3 py-1 text-xs font-medium transition-colors ${optionForm.pricing_type === "per_night" ? "bg-white text-brand shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
+                    >
+                      {t("pricingTypePerNight")}
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => setOptionForm((f) => ({ ...f, pricing_type: "per_time" }))}
+                      className={`rounded px-3 py-1 text-xs font-medium transition-colors ${optionForm.pricing_type === "per_time" ? "bg-white text-brand shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
+                    >
+                      {t("pricingTypePerStay")}
+                    </button>
+                  </div>
+                </div>
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveOption}
+                    disabled={savingOption}
+                    className="hover:brightness-90 bg-brand"
+                  >
+                    {savingOption ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Plus className="mr-1 h-3 w-3" />}
+                    {editingOption ? t("saveOption") : t("addOption")}
+                  </Button>
+                  {editingOption && (
+                    <Button size="sm" variant="outline" onClick={resetOptionForm}>
                       <X className="mr-1 h-3 w-3" />
                       {tc("cancel")}
                     </Button>
