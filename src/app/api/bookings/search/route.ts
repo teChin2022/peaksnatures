@@ -106,11 +106,28 @@ export async function GET(request: NextRequest) {
     ((reviewsRes.data as unknown as { booking_id: string }[]) || []).map((r) => r.booking_id)
   );
 
-  const pendingDateChanges: Record<string, { id: string; new_check_in: string; new_check_out: string; new_total_price: number; price_difference: number; status: string }> = {};
-  if (dcrsRes.data) {
-    for (const row of dcrsRes.data as unknown as { id: string; booking_id: string; new_check_in: string; new_check_out: string; new_total_price: number; price_difference: number; status: string; new_room_id: string | null }[]) {
-      pendingDateChanges[row.booking_id] = row;
+  // A newly-requested room may not be among the currently-booked rooms, so resolve its name separately.
+  const dcrRows = (dcrsRes.data as unknown as { id: string; booking_id: string; new_check_in: string; new_check_out: string; new_total_price: number; price_difference: number; status: string; new_room_id: string | null }[]) || [];
+  const extraRoomIds = [...new Set(dcrRows.map((r) => r.new_room_id).filter((id): id is string => !!id && !roomMap[id]))];
+  if (extraRoomIds.length > 0) {
+    const { data: extraRooms } = await supabase.from("rooms").select("id, name").in("id", extraRoomIds);
+    for (const r of (extraRooms as { id: string; name: string }[]) || []) {
+      roomMap[r.id] = r.name;
     }
+  }
+
+  const pendingDateChanges: Record<string, { id: string; new_check_in: string; new_check_out: string; new_total_price: number; price_difference: number; status: string; new_room_id: string | null; new_room_name: string | null }> = {};
+  for (const row of dcrRows) {
+    pendingDateChanges[row.booking_id] = {
+      id: row.id,
+      new_check_in: row.new_check_in,
+      new_check_out: row.new_check_out,
+      new_total_price: row.new_total_price,
+      price_difference: row.price_difference,
+      status: row.status,
+      new_room_id: row.new_room_id,
+      new_room_name: row.new_room_id ? roomMap[row.new_room_id] || null : null,
+    };
   }
 
   const results = sliced.map((b) => ({
