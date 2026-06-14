@@ -79,6 +79,7 @@ interface BookingRow {
   created_at: string;
   selected_options: { name: string; price: number }[] | null;
   booking_source: string | null;
+  guest_pricing_label: string | null;
 }
 
 interface DateChangeRequestRow {
@@ -95,6 +96,10 @@ interface DateChangeRequestRow {
   requested_by: string;
   easyslip_verified: boolean;
   payment_slip_url: string | null;
+  old_room_id: string | null;
+  new_room_id: string | null;
+  old_room_name: string | null;
+  new_room_name: string | null;
 }
 
 interface DisplayBooking extends BookingRow {
@@ -283,7 +288,7 @@ export default function BookingsPage() {
     const [rows, dcrResult] = await Promise.all([
       resolveSlipUrls(rawRows, supabase),
       bookingIds.length > 0
-        ? supabase.from("date_change_requests").select("id, booking_id, old_check_in, old_check_out, new_check_in, new_check_out, old_total_price, new_total_price, price_difference, status, requested_by, easyslip_verified, payment_slip_url").in("booking_id", bookingIds).eq("status", "pending")
+        ? supabase.from("date_change_requests").select("id, booking_id, old_check_in, old_check_out, new_check_in, new_check_out, old_total_price, new_total_price, price_difference, status, requested_by, easyslip_verified, payment_slip_url, old_room_id, new_room_id").in("booking_id", bookingIds).eq("status", "pending")
         : Promise.resolve({ data: null }),
     ]);
 
@@ -293,7 +298,11 @@ export default function BookingsPage() {
     if (dcrResult.data) {
       const map: Record<string, DateChangeRequestRow> = {};
       for (const row of dcrResult.data as unknown as DateChangeRequestRow[]) {
-        map[row.booking_id] = row;
+        map[row.booking_id] = {
+          ...row,
+          old_room_name: row.old_room_id ? roomMapRef.current[row.old_room_id] || null : null,
+          new_room_name: row.new_room_id ? roomMapRef.current[row.new_room_id] || null : null,
+        };
       }
       setDateChangeRequests(map);
     }
@@ -360,7 +369,7 @@ export default function BookingsPage() {
 
     const bookingIds = rows.map((b) => b.id);
     const dcrResult = bookingIds.length > 0
-      ? await supabase.from("date_change_requests").select("id, booking_id, old_check_in, old_check_out, new_check_in, new_check_out, old_total_price, new_total_price, price_difference, status, requested_by, easyslip_verified, payment_slip_url").in("booking_id", bookingIds).eq("status", "pending")
+      ? await supabase.from("date_change_requests").select("id, booking_id, old_check_in, old_check_out, new_check_in, new_check_out, old_total_price, new_total_price, price_difference, status, requested_by, easyslip_verified, payment_slip_url, old_room_id, new_room_id").in("booking_id", bookingIds).eq("status", "pending")
       : { data: null };
 
     setFilteredBookings(toDisplay(rows));
@@ -371,7 +380,11 @@ export default function BookingsPage() {
       setDateChangeRequests((prev) => {
         const next = { ...prev };
         for (const row of dcrResult.data as unknown as DateChangeRequestRow[]) {
-          next[row.booking_id] = row;
+          next[row.booking_id] = {
+            ...row,
+            old_room_name: row.old_room_id ? roomMapRef.current[row.old_room_id] || null : null,
+            new_room_name: row.new_room_id ? roomMapRef.current[row.new_room_id] || null : null,
+          };
         }
         return next;
       });
@@ -871,6 +884,9 @@ export default function BookingsPage() {
                                 <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-blue-600 mb-2">
                                   <span>{t("dateChangeFrom")}: {fmtDateStr(dateChangeRequests[booking.id].old_check_in, "d MMM yyyy", locale)}</span>
                                   <span>{t("dateChangeTo")}: {fmtDateStr(dateChangeRequests[booking.id].new_check_in, "d MMM yyyy", locale)} → {fmtDateStr(dateChangeRequests[booking.id].new_check_out, "d MMM yyyy", locale)}</span>
+                                  {dateChangeRequests[booking.id].old_room_id && dateChangeRequests[booking.id].new_room_id && dateChangeRequests[booking.id].old_room_id !== dateChangeRequests[booking.id].new_room_id && (
+                                    <span>{t("dateChangeRoom")}: {dateChangeRequests[booking.id].old_room_name ?? "—"} → {dateChangeRequests[booking.id].new_room_name ?? "—"}</span>
+                                  )}
                                   {dateChangeRequests[booking.id].price_difference !== 0 && (
                                     <span className={dateChangeRequests[booking.id].price_difference > 0 ? "text-red-600 font-medium" : "text-green-600 font-medium"}>
                                       {t("dateChangePriceDiff")}: {dateChangeRequests[booking.id].price_difference > 0 ? "+" : ""}฿{dateChangeRequests[booking.id].price_difference.toLocaleString()}
@@ -1114,7 +1130,7 @@ export default function BookingsPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">{t("guests")}</span>
-                    <span>{detailTarget.num_guests}</span>
+                    <span>{detailTarget.guest_pricing_label || detailTarget.num_guests}</span>
                   </div>
                   {detailTarget.selected_options && detailTarget.selected_options.length > 0 && (
                     <div>

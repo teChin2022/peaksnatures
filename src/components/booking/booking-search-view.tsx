@@ -56,6 +56,8 @@ interface SearchResult {
     new_total_price: number;
     price_difference: number;
     status: string;
+    new_room_id: string | null;
+    new_room_name: string | null;
   } | null;
 }
 
@@ -506,6 +508,8 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                   new_total_price: data.new_total_price,
                   price_difference: data.price_difference,
                   status: "pending",
+                  new_room_id: dcSelectedRoomId,
+                  new_room_name: dcSelectedRoomId ? (dcRooms.find((r) => r.id === dcSelectedRoomId)?.name ?? null) : null,
                 },
               }
             : b
@@ -846,6 +850,14 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                                   checkOut: fmtDateStr(booking.pending_date_change.new_check_out, "d MMM yyyy", locale),
                                 })}
                               </p>
+                              {booking.pending_date_change.new_room_id && booking.pending_date_change.new_room_id !== booking.room_id && (
+                                <p className="text-xs text-blue-600">
+                                  {t("dateChangePendingRoom", {
+                                    oldRoom: booking.room_name,
+                                    newRoom: booking.pending_date_change.new_room_name || "—",
+                                  })}
+                                </p>
+                              )}
                             </div>
                           )}
 

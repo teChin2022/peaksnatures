@@ -6,6 +6,7 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendBookingConfirmationEmail, sendHostLineNotification, sendHostSmsNotification, dispatchHostNotification, buildNewBookingMessage, sendRecommenderPromoUsedNotification } from "@/lib/notifications";
 import type { Booking, Homestay, Host, PromoCode, Room, RoomSeasonalPrice } from "@/types/database";
 import { calculateTotalPrice } from "@/lib/calculate-price";
+import { composeTierLabel, computeCompositionSurcharge } from "@/lib/guest-pricing";
 import { getDepositForMonth } from "@/lib/get-deposit";
 import { logEvent, EventType } from "@/lib/history-log";
 import { deductCommission } from "@/lib/billing";
@@ -22,6 +23,7 @@ const bookingSchema = z.object({
   check_out: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
   num_guests: z.number().int().min(1),
   total_price: z.number().int().min(0),
+  guest_pricing_id: z.string().uuid().optional(),
   // Slip verification data (required — slip must be verified before booking)
   slip_hash: z.string().min(1, "Slip hash is required"),
   slip_trans_ref: z.string().nullable().optional(),
@@ -109,6 +111,10 @@ export async function POST(req: NextRequest) {
     const data = parsed.data;
     const supabase = createServiceRoleClient();
 
+    // Guest-composition pricing snapshot — set during price verification, persisted post-insert.
+    let guestPricingLabel: string | null = null;
+    let guestPricingSurcharge = 0;
+
     // Check if host is soft-blocked (free expired, overdue invoice, or overdrawn wallet)
     const { data: homestayHost } = await supabase
       .from("homestays")
@@ -132,13 +138,16 @@ export async function POST(req: NextRequest) {
 
     // Server-side price verification: never trust client-supplied total_price
     if (data.room_id) {
-      // Parallel: room price + seasonal prices + option prices (if any)
+      // Parallel: room price + seasonal prices + option prices + guest pricing tier (if any)
       const optionIds = data.selected_options.map((o) => o.id);
-      const [{ data: roomRow, error: roomError }, { data: seasonRows }, { data: dbOptions }] = await Promise.all([
+      const [{ data: roomRow, error: roomError }, { data: seasonRows }, { data: dbOptions }, { data: tierRow }] = await Promise.all([
         supabase.from("rooms").select("price_per_night").eq("id", data.room_id).single(),
         supabase.from("room_seasonal_prices").select("*").eq("room_id", data.room_id),
         optionIds.length > 0
           ? supabase.from("room_options").select("id, price, pricing_type").eq("room_id", data.room_id).in("id", optionIds)
+          : Promise.resolve({ data: null }),
+        data.guest_pricing_id
+          ? supabase.from("room_guest_pricing").select("id, adults, children, detail, surcharge").eq("room_id", data.room_id).eq("id", data.guest_pricing_id).maybeSingle()
           : Promise.resolve({ data: null }),
       ]);
 
@@ -185,7 +194,21 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      const subtotal = serverBasePrice + serverOptionsTotal;
+      // Guest-composition surcharge (per night), validated against the DB tier.
+      // The chosen tier is authoritative: it sets the surcharge AND the headcount.
+      let serverCompositionSurcharge = 0;
+      if (data.guest_pricing_id) {
+        const tier = tierRow as unknown as { id: string; adults: number; children: number; detail: string | null; surcharge: number } | null;
+        if (!tier) {
+          return NextResponse.json({ error: "Invalid guest pricing selection" }, { status: 400 });
+        }
+        serverCompositionSurcharge = computeCompositionSurcharge(tier.surcharge, nights);
+        guestPricingSurcharge = tier.surcharge;
+        guestPricingLabel = composeTierLabel(tier, data.locale ?? "th");
+        data.num_guests = tier.adults + tier.children;
+      }
+
+      const subtotal = serverBasePrice + serverOptionsTotal + serverCompositionSurcharge;
 
       // Resolve promo code (if supplied) and apply discount before price-mismatch check.
       // Promo state is stashed on `req` via locals — use a closure on the outer scope.
@@ -331,6 +354,16 @@ export async function POST(req: NextRequest) {
           { error: "Failed to create booking" },
           { status: 500 }
         );
+      }
+
+      // Persist the guest-composition snapshot. This is metadata, not part of the
+      // atomic overlap check, so a follow-up UPDATE keeps the RPC signature untouched.
+      if (data.guest_pricing_id) {
+        const { error: gpErr } = await supabase
+          .from("bookings")
+          .update({ guest_pricing_label: guestPricingLabel, guest_pricing_surcharge: guestPricingSurcharge } as never)
+          .eq("id", bookingId as string);
+        if (gpErr) console.error("[GuestPricing] Failed to persist snapshot:", gpErr);
       }
 
       // Fetch the created booking for the response

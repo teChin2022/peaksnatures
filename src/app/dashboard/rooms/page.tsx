@@ -21,7 +21,7 @@ import {
   CalendarDays,
   ListPlus,
 } from "lucide-react";
-import type { RoomSeasonalPrice, RoomOption } from "@/types/database";
+import type { RoomSeasonalPrice, RoomOption, RoomGuestPricing } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -42,6 +42,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { logClientEvent } from "@/lib/history-log-client";
+import { composeTierLabel } from "@/lib/guest-pricing";
 
 interface RoomData {
   id: string;
@@ -68,6 +69,15 @@ interface OptionFormData {
   name: string;
   price: string;
   pricing_type: 'per_night' | 'per_time';
+}
+
+interface TierFormData {
+  id?: string;
+  adults: string;
+  children: string;
+  detail: string;
+  surcharge: string;
+  useDefaultPrice: boolean;
 }
 
 export default function RoomsPage() {
@@ -106,6 +116,13 @@ export default function RoomsPage() {
   const [editingOption, setEditingOption] = useState<RoomOption | null>(null);
   const [savingOption, setSavingOption] = useState(false);
   const [pendingOptions, setPendingOptions] = useState<Omit<RoomOption, "id" | "room_id" | "created_at" | "created_by" | "updated_at" | "updated_by">[]>([]);
+
+  // Guest pricing (composition tiers) state
+  const [guestTiers, setGuestTiers] = useState<Record<string, RoomGuestPricing[]>>({});
+  const [tierForm, setTierForm] = useState<TierFormData>({ adults: "2", children: "0", detail: "", surcharge: "", useDefaultPrice: false });
+  const [editingTier, setEditingTier] = useState<RoomGuestPricing | null>(null);
+  const [savingTier, setSavingTier] = useState(false);
+  const [pendingTiers, setPendingTiers] = useState<Omit<RoomGuestPricing, "id" | "room_id" | "created_at" | "created_by" | "updated_at" | "updated_by">[]>([]);
 
   // Format date with Thai BE year when locale is Thai
   const fmtDate = (dateStr: string) => {
@@ -166,19 +183,20 @@ export default function RoomsPage() {
 
     setHomestayId(homestay.id);
 
-    // Fetch rooms with seasonal prices + options in one joined query
+    // Fetch rooms with seasonal prices + options + guest pricing in one joined query
     const { data: roomRows } = await supabase
       .from("rooms")
-      .select("*, room_seasonal_prices(*), room_options(*)")
+      .select("*, room_seasonal_prices(*), room_options(*), room_guest_pricing(*)")
       .eq("homestay_id", homestay.id)
       .order("created_at", { ascending: true });
 
     if (roomRows) {
-      const roomsWithJoins = roomRows as unknown as (RoomData & { room_seasonal_prices: RoomSeasonalPrice[]; room_options: RoomOption[] })[];
-      setRooms(roomsWithJoins.map(({ room_seasonal_prices: _, room_options: _o, ...room }) => room as unknown as RoomData));
+      const roomsWithJoins = roomRows as unknown as (RoomData & { room_seasonal_prices: RoomSeasonalPrice[]; room_options: RoomOption[]; room_guest_pricing: RoomGuestPricing[] })[];
+      setRooms(roomsWithJoins.map(({ room_seasonal_prices: _, room_options: _o, room_guest_pricing: _g, ...room }) => room as unknown as RoomData));
 
       const grouped: Record<string, RoomSeasonalPrice[]> = {};
       const optGrouped: Record<string, RoomOption[]> = {};
+      const tierGrouped: Record<string, RoomGuestPricing[]> = {};
       for (const r of roomsWithJoins) {
         if (r.room_seasonal_prices?.length) {
           grouped[r.id] = r.room_seasonal_prices;
@@ -186,9 +204,13 @@ export default function RoomsPage() {
         if (r.room_options?.length) {
           optGrouped[r.id] = r.room_options.sort((a, b) => a.sort_order - b.sort_order);
         }
+        if (r.room_guest_pricing?.length) {
+          tierGrouped[r.id] = r.room_guest_pricing.sort((a, b) => a.sort_order - b.sort_order);
+        }
       }
       setSeasonalPrices(grouped);
       setRoomOptions(optGrouped);
+      setGuestTiers(tierGrouped);
     }
     setLoading(false);
   };
@@ -203,8 +225,10 @@ export default function RoomsPage() {
     setEditingRoom(null);
     setPendingSeasons([]);
     setPendingOptions([]);
+    setPendingTiers([]);
     resetSeasonForm();
     resetOptionForm();
+    resetTierForm();
   };
 
   const openCreateDialog = () => {
@@ -361,6 +385,25 @@ export default function RoomsPage() {
             .insert(optionPayloads as never);
           if (optionError) {
             console.error("Insert options error:", optionError);
+          }
+        }
+
+        // Save pending guest pricing tiers for the new room
+        if (pendingTiers.length > 0) {
+          const tierPayloads = pendingTiers.map((tier, idx) => ({
+            room_id: (newRoom as { id: string }).id,
+            adults: tier.adults,
+            children: tier.children,
+            detail: tier.detail,
+            surcharge: tier.surcharge,
+            sort_order: idx,
+            created_by: hostName || userId,
+          }));
+          const { error: tierError } = await supabase
+            .from("room_guest_pricing")
+            .insert(tierPayloads as never);
+          if (tierError) {
+            console.error("Insert guest pricing error:", tierError);
           }
         }
 
@@ -600,6 +643,92 @@ export default function RoomsPage() {
     });
   };
 
+  // --- Guest pricing (composition tiers) handlers ---
+  const resetTierForm = () => {
+    setTierForm({ adults: "2", children: "0", detail: "", surcharge: "", useDefaultPrice: false });
+    setEditingTier(null);
+  };
+
+  const startEditTier = (tier: RoomGuestPricing) => {
+    setEditingTier(tier);
+    setTierForm({ id: tier.id, adults: tier.adults.toString(), children: tier.children.toString(), detail: tier.detail || "", surcharge: tier.surcharge.toString(), useDefaultPrice: tier.surcharge === 0 });
+  };
+
+  const handleSaveTier = async () => {
+    const adults = parseInt(tierForm.adults);
+    if (isNaN(adults) || adults < 1) { toast.error(t("errorTierAdults")); return; }
+    const children = isNaN(parseInt(tierForm.children)) ? 0 : parseInt(tierForm.children);
+    if (children < 0) { toast.error(t("errorTierChildren")); return; }
+    // "Use default price" means this composition charges the room's base price (no surcharge).
+    let surcharge = 0;
+    if (!tierForm.useDefaultPrice) {
+      surcharge = parseInt(tierForm.surcharge);
+      if (isNaN(surcharge) || surcharge < 0) { toast.error(t("errorTierSurcharge")); return; }
+    }
+    const detail = tierForm.detail.trim() || null;
+
+    // For new rooms — store pending tiers locally
+    if (!editingRoom) {
+      setPendingTiers((prev) => [
+        ...prev,
+        { adults, children, detail, surcharge, sort_order: prev.length, is_active: true },
+      ]);
+      toast.success(t("tierCreated"));
+      resetTierForm();
+      return;
+    }
+
+    // For existing rooms — save to DB
+    setSavingTier(true);
+    try {
+      const supabase = createClient();
+      const payload = {
+        room_id: editingRoom.id,
+        adults,
+        children,
+        detail,
+        surcharge,
+        sort_order: editingTier ? editingTier.sort_order : (guestTiers[editingRoom.id] || []).length,
+      };
+
+      if (editingTier) {
+        const { error } = await supabase
+          .from("room_guest_pricing")
+          .update({ ...payload, updated_by: hostName || userId } as never)
+          .eq("id", editingTier.id);
+        if (error) { toast.error(t("errorTierSave")); console.error(error); return; }
+        toast.success(t("tierUpdated"));
+      } else {
+        const { error } = await supabase
+          .from("room_guest_pricing")
+          .insert({ ...payload, created_by: hostName || userId } as never);
+        if (error) { toast.error(t("errorTierSave")); console.error(error); return; }
+        toast.success(t("tierCreated"));
+      }
+
+      resetTierForm();
+      await fetchData();
+    } catch {
+      toast.error(t("errorTierSave"));
+    } finally {
+      setSavingTier(false);
+    }
+  };
+
+  const handleDeleteTier = (tierId: string) => {
+    showConfirm(t("confirmDeleteTier"), async () => {
+      try {
+        const supabase = createClient();
+        const { error } = await supabase.from("room_guest_pricing").delete().eq("id", tierId);
+        if (error) { toast.error(t("errorTierDelete")); console.error(error); return; }
+        toast.success(t("tierDeleted"));
+        await fetchData();
+      } catch {
+        toast.error(t("errorTierDelete"));
+      }
+    });
+  };
+
   if (loading) {
     return (
       <div className="mx-auto max-w-3xl">
@@ -809,6 +938,170 @@ export default function RoomsPage() {
                   value={roomQuantity}
                   onChange={(e) => setRoomQuantity(e.target.value)}
                 />
+              </div>
+            </div>
+
+            {/* Guest Pricing (composition tiers) Section */}
+            <div className="space-y-3 rounded-lg border p-4">
+              <div className="flex items-center gap-2">
+                <Users className="h-4 w-4 text-brand" />
+                <h3 className="text-sm font-semibold text-gray-900">{t("guestPricing")}</h3>
+              </div>
+              <p className="text-xs text-gray-500">{t("guestPricingDesc")}</p>
+
+              {/* Tiers list — DB tiers for existing rooms, pending for new */}
+              {editingRoom ? (
+                (guestTiers[editingRoom.id] || []).length > 0 ? (
+                  <div className="space-y-2">
+                    {(guestTiers[editingRoom.id] || []).map((tier) => (
+                      <div
+                        key={tier.id}
+                        className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-900">{composeTierLabel(tier, locale)}</p>
+                          <p className="text-xs text-gray-500">
+                            {tier.surcharge > 0 ? (
+                              <><span className="font-medium text-brand">+฿{tier.surcharge.toLocaleString()}</span>{tc("perNight")}</>
+                            ) : (
+                              <span className="font-medium text-brand">{t("defaultPrice")}</span>
+                            )}
+                          </p>
+                        </div>
+                        <div className="flex items-center gap-1">
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7"
+                            onClick={() => startEditTier(tier)}
+                          >
+                            <Pencil className="h-3 w-3" />
+                          </Button>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-red-500 hover:text-red-700"
+                            onClick={() => handleDeleteTier(tier.id)}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs italic text-gray-400">{t("noTiers")}</p>
+                )
+              ) : (
+                pendingTiers.length > 0 ? (
+                  <div className="space-y-2">
+                    {pendingTiers.map((tier, idx) => (
+                      <div
+                        key={idx}
+                        className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                      >
+                        <div className="min-w-0 flex-1">
+                          <p className="text-sm font-medium text-gray-900">{composeTierLabel(tier, locale)}</p>
+                          <p className="text-xs text-gray-500">
+                            {tier.surcharge > 0 ? (
+                              <><span className="font-medium text-brand">+฿{tier.surcharge.toLocaleString()}</span>{tc("perNight")}</>
+                            ) : (
+                              <span className="font-medium text-brand">{t("defaultPrice")}</span>
+                            )}
+                          </p>
+                        </div>
+                        <Button
+                          variant="ghost"
+                          size="icon"
+                          className="h-7 w-7 text-red-500 hover:text-red-700"
+                          onClick={() => setPendingTiers((prev) => prev.filter((_, i) => i !== idx))}
+                        >
+                          <Trash2 className="h-3 w-3" />
+                        </Button>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <p className="text-xs italic text-gray-400">{t("noTiers")}</p>
+                )
+              )}
+
+              {/* Tier add/edit form */}
+              <div className="space-y-2 rounded-md border bg-white p-3">
+                <p className="text-xs font-medium text-gray-700">
+                  {editingTier ? t("editTier") : t("addTier")}
+                </p>
+                <div className="grid grid-cols-2 gap-2">
+                  <div>
+                    <Label className="text-xs">{t("tierAdults")}</Label>
+                    <Input
+                      type="number"
+                      min="1"
+                      className="text-sm"
+                      value={tierForm.adults}
+                      onChange={(e) => setTierForm((f) => ({ ...f, adults: e.target.value }))}
+                    />
+                  </div>
+                  <div>
+                    <Label className="text-xs">{t("tierChildren")}</Label>
+                    <Input
+                      type="number"
+                      min="0"
+                      className="text-sm"
+                      value={tierForm.children}
+                      onChange={(e) => setTierForm((f) => ({ ...f, children: e.target.value }))}
+                    />
+                  </div>
+                </div>
+                <div>
+                  <Label className="text-xs">{t("tierDetail")}</Label>
+                  <Input
+                    placeholder={t("tierDetailPlaceholder")}
+                    className="text-sm"
+                    value={tierForm.detail}
+                    onChange={(e) => setTierForm((f) => ({ ...f, detail: e.target.value }))}
+                  />
+                </div>
+                <div className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2">
+                  <Label className="text-xs font-medium text-gray-700">{t("useDefaultPrice")}</Label>
+                  <Switch
+                    checked={tierForm.useDefaultPrice}
+                    onCheckedChange={(checked) => setTierForm((f) => ({ ...f, useDefaultPrice: checked }))}
+                    className="data-[state=checked]:bg-brand"
+                  />
+                </div>
+                {!tierForm.useDefaultPrice && (
+                  <div>
+                    <Label className="text-xs">{t("tierSurcharge")}</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">฿</span>
+                      <Input
+                        type="number"
+                        min="0"
+                        className="pl-7 text-sm"
+                        value={tierForm.surcharge}
+                        onChange={(e) => setTierForm((f) => ({ ...f, surcharge: e.target.value }))}
+                      />
+                    </div>
+                  </div>
+                )}
+                <div className="flex gap-2">
+                  <Button
+                    size="sm"
+                    onClick={handleSaveTier}
+                    disabled={savingTier}
+                    className="hover:brightness-90 bg-brand"
+                  >
+                    {savingTier ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Plus className="mr-1 h-3 w-3" />}
+                    {editingTier ? t("saveTier") : t("addTier")}
+                  </Button>
+                  {editingTier && (
+                    <Button size="sm" variant="outline" onClick={resetTierForm}>
+                      <X className="mr-1 h-3 w-3" />
+                      {tc("cancel")}
+                    </Button>
+                  )}
+                </div>
               </div>
             </div>
 
