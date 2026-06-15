@@ -376,6 +376,26 @@ export default function CalendarPage() {
       .reduce((sum, b) => sum + b.total_price, 0);
   }, [bookings, currentMonth]);
 
+  // Bookings per room for the displayed month (confirmed + completed, by check-in date)
+  const roomBookings = useMemo(() => {
+    const monthKey = format(currentMonth, "yyyy-MM");
+    const counts: Record<string, number> = {};
+    bookings.forEach((b) => {
+      if (
+        (b.status === "confirmed" || b.status === "completed") &&
+        b.check_in.startsWith(monthKey) &&
+        b.room_id
+      ) {
+        counts[b.room_id] = (counts[b.room_id] || 0) + 1;
+      }
+    });
+    return rooms
+      .map((r) => ({ id: r.id, name: r.name, count: counts[r.id] || 0 }))
+      .sort((a, b) => b.count - a.count);
+  }, [bookings, currentMonth, rooms]);
+
+  const maxRoomCount = Math.max(1, ...roomBookings.map((r) => r.count));
+
   // Long press detection for selecting blocked dates
   const longPressTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const isLongPress = useRef(false);
@@ -633,26 +653,56 @@ export default function CalendarPage() {
         />
       )}
 
-      {/* Monthly revenue */}
-      <Card className="mb-3 overflow-hidden border-brand/15 bg-gradient-to-br from-brand/10 to-brand/5">
-        <CardContent className="flex items-center gap-4 p-4 sm:p-5">
-          <div
-            className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand"
-            aria-hidden="true"
-          >
-            <Wallet className="h-6 w-6" />
-          </div>
-          <div className="min-w-0">
+      {/* Monthly revenue + bookings per room */}
+      <div className="mb-3 grid gap-3 sm:grid-cols-2">
+        <Card className="overflow-hidden border-brand/15 bg-gradient-to-br from-brand/10 to-brand/5">
+          <CardContent className="flex items-center gap-4 p-4 sm:p-5">
+            <div
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand"
+              aria-hidden="true"
+            >
+              <Wallet className="h-6 w-6" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-gray-500">
+                {t("monthlyRevenue")} · {fmtDate(currentMonth, "MMMM yyyy", locale)}
+              </p>
+              <p className="mt-0.5 text-3xl font-bold tracking-tight text-brand tabular-nums">
+                <span className="mr-0.5 text-xl font-semibold text-brand/60">฿</span>
+                {monthlyRevenue.toLocaleString()}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 sm:p-5">
             <p className="text-xs font-medium text-gray-500">
-              {t("monthlyRevenue")} · {fmtDate(currentMonth, "MMMM yyyy", locale)}
+              {tDash("bookingsByRoom")} · {fmtDate(currentMonth, "MMMM yyyy", locale)}
             </p>
-            <p className="mt-0.5 text-3xl font-bold tracking-tight text-brand tabular-nums">
-              <span className="mr-0.5 text-xl font-semibold text-brand/60">฿</span>
-              {monthlyRevenue.toLocaleString()}
-            </p>
-          </div>
-        </CardContent>
-      </Card>
+            {roomBookings.length > 0 ? (
+              <ul className="mt-3 space-y-2">
+                {roomBookings.map((r) => (
+                  <li key={r.id} className="flex items-center gap-3">
+                    <span className="w-24 shrink-0 truncate text-sm text-gray-700">{r.name}</span>
+                    <div className="h-2 flex-1 rounded-full bg-gray-100" aria-hidden="true">
+                      <div
+                        className="h-full rounded-full bg-brand transition-all"
+                        style={{ width: `${(r.count / maxRoomCount) * 100}%` }}
+                      />
+                    </div>
+                    <span className="w-6 shrink-0 text-right text-sm font-semibold tabular-nums text-gray-900">
+                      {r.count}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="py-6 text-center text-sm text-gray-300">{tDash("noChartData")}</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
 
       {/* Stats */}
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
