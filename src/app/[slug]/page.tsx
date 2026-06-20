@@ -8,6 +8,7 @@ import { resolveSlugRedirect } from "@/lib/slug-redirect";
 import { isHostBlocked } from "@/lib/plan-expiry";
 import { evaluatePromoCode } from "@/lib/promo-codes";
 import { localizeHomestay } from "@/lib/translation/translate-homestay";
+import { sanitizeRichText } from "@/lib/sanitize";
 import type { SupportedLocale } from "@/lib/translation/types";
 import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice, RoomOption, RoomGuestPricing, PromoCode } from "@/types/database";
 import { HeroSection } from "@/components/booking/hero-section";
@@ -201,8 +202,17 @@ const getHomestayData = cache(async function getHomestayData(
     : { homestay, rooms, roomOptions: roomOptionsList, reviews, seasonalPrices, guestPricing: guestPricingList, host };
 
   return {
-    homestay: { ...localized.homestay, host: localized.host! } as Homestay & { host: Host },
-    rooms: localized.rooms,
+    homestay: {
+      ...localized.homestay,
+      description: sanitizeRichText(localized.homestay.description),
+      check_in_info: sanitizeRichText(localized.homestay.check_in_info),
+      policies: sanitizeRichText(localized.homestay.policies),
+      host: localized.host!,
+    } as Homestay & { host: Host },
+    rooms: localized.rooms.map((room) => ({
+      ...room,
+      description: sanitizeRichText(room.description),
+    })),
     blockedDates,
     bookedRanges,
     seasonalPrices: localized.seasonalPrices,
