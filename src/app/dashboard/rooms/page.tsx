@@ -306,8 +306,35 @@ export default function RoomsPage() {
   };
 
   const removeImage = (index: number) => {
-    showConfirm(tc("confirmRemoveImage"), () => {
-      setRoomImages((prev) => prev.filter((_, i) => i !== index));
+    showConfirm(tc("confirmRemoveImage"), async () => {
+      const prevImages = roomImages;
+      const next = prevImages.filter((_, i) => i !== index);
+      setRoomImages(next);
+
+      // When editing an existing room, persist immediately so the change is not
+      // lost if the dialog is closed before "Save Room" — consistent with how
+      // seasons/options/tiers delete in this dialog. For a new room (no row yet)
+      // it stays staged and is saved on create.
+      if (!editingRoom) return;
+      try {
+        const supabase = createClient();
+        const { error } = await supabase
+          .from("rooms")
+          .update({ images: next, updated_by: hostName || userId } as never)
+          .eq("id", editingRoom.id);
+        if (error) {
+          toast.error(t("errorSave"));
+          console.error("Remove room image error:", error);
+          setRoomImages(prevImages); // revert on failure
+          return;
+        }
+        setRooms((prev) =>
+          prev.map((r) => (r.id === editingRoom.id ? { ...r, images: next } : r))
+        );
+      } catch {
+        toast.error(t("errorSave"));
+        setRoomImages(prevImages); // revert on failure
+      }
     });
   };
 
@@ -882,7 +909,19 @@ export default function RoomsPage() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent
+          className="max-h-[90vh] overflow-y-auto sm:max-w-lg"
+          // Keep this dialog open when interacting with the nested confirm
+          // dialog (delete image/season/option/tier). On touch devices the
+          // confirm dialog's closing tap would otherwise be treated as an
+          // outside-interaction and dismiss this edit dialog. Close it via the
+          // X button or Save/Cancel instead.
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+          // Don't auto-focus the first field (room name) on open — avoids
+          // popping the mobile keyboard immediately.
+          onOpenAutoFocus={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>
               {editingRoom ? t("editRoom") : t("addRoom")}
@@ -1246,59 +1285,6 @@ export default function RoomsPage() {
               </div>
             </div>
 
-            {/* Image upload */}
-            <div className="space-y-2">
-              <Label>{t("roomImages")}</Label>
-              <div
-                className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 p-6 transition-colors"
-                onClick={() => fileInputRef.current?.click()}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2F5D5066'; e.currentTarget.style.backgroundColor = '#2F5D500d'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
-              >
-                {uploading ? (
-                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-                ) : (
-                  <>
-                    <Upload className="h-6 w-6 text-gray-400" />
-                    <p className="mt-2 text-sm text-gray-500">{t("clickUpload")}</p>
-                  </>
-                )}
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={handleImageUpload}
-              />
-
-              {roomImages.length > 0 && (
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  {roomImages.map((img, i) => (
-                    <div
-                      key={i}
-                      className="group relative overflow-hidden rounded-lg border"
-                    >
-                      <Image
-                        src={img}
-                        alt={`Room image ${i + 1}`}
-                        width={200}
-                        height={80}
-                        className="h-20 w-full object-cover"
-                      />
-                      <button
-                        onClick={() => removeImage(i)}
-                        className="absolute right-1 top-1 rounded-full bg-black/60 p-1.5 text-white opacity-100 transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Seasonal Pricing Section */}
               <div className="space-y-3 rounded-lg border p-4">
                 <div className="flex items-center gap-2">
@@ -1486,6 +1472,59 @@ export default function RoomsPage() {
                   </div>
                 </div>
               </div>
+
+            {/* Image upload */}
+            <div className="space-y-2">
+              <Label>{t("roomImages")}</Label>
+              <div
+                className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 p-6 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2F5D5066'; e.currentTarget.style.backgroundColor = '#2F5D500d'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
+              >
+                {uploading ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                ) : (
+                  <>
+                    <Upload className="h-6 w-6 text-gray-400" />
+                    <p className="mt-2 text-sm text-gray-500">{t("clickUpload")}</p>
+                  </>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handleImageUpload}
+              />
+
+              {roomImages.length > 0 && (
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {roomImages.map((img, i) => (
+                    <div
+                      key={i}
+                      className="group relative overflow-hidden rounded-lg border"
+                    >
+                      <Image
+                        src={img}
+                        alt={`Room image ${i + 1}`}
+                        width={200}
+                        height={80}
+                        className="h-20 w-full object-cover"
+                      />
+                      <button
+                        onClick={() => removeImage(i)}
+                        className="absolute right-1 top-1 rounded-full bg-black/60 p-1.5 text-white opacity-100 transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <Button
               onClick={handleSaveRoom}
