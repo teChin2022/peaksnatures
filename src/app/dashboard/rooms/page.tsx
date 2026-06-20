@@ -918,6 +918,9 @@ export default function RoomsPage() {
           // X button or Save/Cancel instead.
           onPointerDownOutside={(e) => e.preventDefault()}
           onInteractOutside={(e) => e.preventDefault()}
+          // Don't auto-focus the first field (room name) on open — avoids
+          // popping the mobile keyboard immediately.
+          onOpenAutoFocus={(e) => e.preventDefault()}
         >
           <DialogHeader>
             <DialogTitle>
@@ -1282,59 +1285,6 @@ export default function RoomsPage() {
               </div>
             </div>
 
-            {/* Image upload */}
-            <div className="space-y-2">
-              <Label>{t("roomImages")}</Label>
-              <div
-                className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 p-6 transition-colors"
-                onClick={() => fileInputRef.current?.click()}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2F5D5066'; e.currentTarget.style.backgroundColor = '#2F5D500d'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
-              >
-                {uploading ? (
-                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
-                ) : (
-                  <>
-                    <Upload className="h-6 w-6 text-gray-400" />
-                    <p className="mt-2 text-sm text-gray-500">{t("clickUpload")}</p>
-                  </>
-                )}
-              </div>
-              <input
-                ref={fileInputRef}
-                type="file"
-                accept="image/*"
-                multiple
-                className="hidden"
-                onChange={handleImageUpload}
-              />
-
-              {roomImages.length > 0 && (
-                <div className="mt-2 grid grid-cols-3 gap-2">
-                  {roomImages.map((img, i) => (
-                    <div
-                      key={i}
-                      className="group relative overflow-hidden rounded-lg border"
-                    >
-                      <Image
-                        src={img}
-                        alt={`Room image ${i + 1}`}
-                        width={200}
-                        height={80}
-                        className="h-20 w-full object-cover"
-                      />
-                      <button
-                        onClick={() => removeImage(i)}
-                        className="absolute right-1 top-1 rounded-full bg-black/60 p-1.5 text-white opacity-100 transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100"
-                      >
-                        <X className="h-3 w-3" />
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-
             {/* Seasonal Pricing Section */}
               <div className="space-y-3 rounded-lg border p-4">
                 <div className="flex items-center gap-2">
@@ -1522,6 +1472,59 @@ export default function RoomsPage() {
                   </div>
                 </div>
               </div>
+
+            {/* Image upload */}
+            <div className="space-y-2">
+              <Label>{t("roomImages")}</Label>
+              <div
+                className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 p-6 transition-colors"
+                onClick={() => fileInputRef.current?.click()}
+                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2F5D5066'; e.currentTarget.style.backgroundColor = '#2F5D500d'; }}
+                onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
+              >
+                {uploading ? (
+                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                ) : (
+                  <>
+                    <Upload className="h-6 w-6 text-gray-400" />
+                    <p className="mt-2 text-sm text-gray-500">{t("clickUpload")}</p>
+                  </>
+                )}
+              </div>
+              <input
+                ref={fileInputRef}
+                type="file"
+                accept="image/*"
+                multiple
+                className="hidden"
+                onChange={handleImageUpload}
+              />
+
+              {roomImages.length > 0 && (
+                <div className="mt-2 grid grid-cols-3 gap-2">
+                  {roomImages.map((img, i) => (
+                    <div
+                      key={i}
+                      className="group relative overflow-hidden rounded-lg border"
+                    >
+                      <Image
+                        src={img}
+                        alt={`Room image ${i + 1}`}
+                        width={200}
+                        height={80}
+                        className="h-20 w-full object-cover"
+                      />
+                      <button
+                        onClick={() => removeImage(i)}
+                        className="absolute right-1 top-1 rounded-full bg-black/60 p-1.5 text-white opacity-100 transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
 
             <Button
               onClick={handleSaveRoom}
