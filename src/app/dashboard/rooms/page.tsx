@@ -909,7 +909,16 @@ export default function RoomsPage() {
 
       {/* Create/Edit Dialog */}
       <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
-        <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-lg">
+        <DialogContent
+          className="max-h-[90vh] overflow-y-auto sm:max-w-lg"
+          // Keep this dialog open when interacting with the nested confirm
+          // dialog (delete image/season/option/tier). On touch devices the
+          // confirm dialog's closing tap would otherwise be treated as an
+          // outside-interaction and dismiss this edit dialog. Close it via the
+          // X button or Save/Cancel instead.
+          onPointerDownOutside={(e) => e.preventDefault()}
+          onInteractOutside={(e) => e.preventDefault()}
+        >
           <DialogHeader>
             <DialogTitle>
               {editingRoom ? t("editRoom") : t("addRoom")}
