@@ -306,8 +306,35 @@ export default function RoomsPage() {
   };
 
   const removeImage = (index: number) => {
-    showConfirm(tc("confirmRemoveImage"), () => {
-      setRoomImages((prev) => prev.filter((_, i) => i !== index));
+    showConfirm(tc("confirmRemoveImage"), async () => {
+      const prevImages = roomImages;
+      const next = prevImages.filter((_, i) => i !== index);
+      setRoomImages(next);
+
+      // When editing an existing room, persist immediately so the change is not
+      // lost if the dialog is closed before "Save Room" — consistent with how
+      // seasons/options/tiers delete in this dialog. For a new room (no row yet)
+      // it stays staged and is saved on create.
+      if (!editingRoom) return;
+      try {
+        const supabase = createClient();
+        const { error } = await supabase
+          .from("rooms")
+          .update({ images: next, updated_by: hostName || userId } as never)
+          .eq("id", editingRoom.id);
+        if (error) {
+          toast.error(t("errorSave"));
+          console.error("Remove room image error:", error);
+          setRoomImages(prevImages); // revert on failure
+          return;
+        }
+        setRooms((prev) =>
+          prev.map((r) => (r.id === editingRoom.id ? { ...r, images: next } : r))
+        );
+      } catch {
+        toast.error(t("errorSave"));
+        setRoomImages(prevImages); // revert on failure
+      }
     });
   };
 
