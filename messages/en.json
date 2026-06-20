@@ -44,7 +44,8 @@
     "unavailable": "Unavailable",
     "mostPopular": "Most Popular",
     "errorCaptcha": "Please complete the verification check",
-    "errorTooManyRequests": "Too many requests. Please try again in a moment."
+    "errorTooManyRequests": "Too many requests. Please try again in a moment.",
+    "confirmRemoveImage": "Remove this image?"
   },
   "home": {
     "badge": "Nature Places in Thailand",

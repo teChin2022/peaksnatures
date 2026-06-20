@@ -383,6 +383,7 @@ export default function HomestayPage() {
   };
 
   const removeGalleryImage = (index: number) => {
+    if (!window.confirm(tc("confirmRemoveImage"))) return;
     setGallery((prev) => prev.filter((_, i) => i !== index));
   };
 

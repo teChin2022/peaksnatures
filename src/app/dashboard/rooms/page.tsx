@@ -306,6 +306,7 @@ export default function RoomsPage() {
   };
 
   const removeImage = (index: number) => {
+    if (!window.confirm(tc("confirmRemoveImage"))) return;
     setRoomImages((prev) => prev.filter((_, i) => i !== index));
   };
 
