@@ -44,7 +44,8 @@
     "unavailable": "Unavailable",
     "mostPopular": "Most Popular",
     "errorCaptcha": "Please complete the verification check",
-    "errorTooManyRequests": "Too many requests. Please try again in a moment."
+    "errorTooManyRequests": "Too many requests. Please try again in a moment.",
+    "confirmRemoveImage": "Remove this image?"
   },
   "home": {
     "badge": "Nature Places in Thailand",
@@ -810,6 +811,7 @@
     "commonProhibitions": "Quick add",
     "slugChangeWarning": "Changing the URL slug will break all previously shared links, QR codes, and bookmarks. Old links will automatically redirect to the new URL.",
     "slugChangeConfirm": "Change Slug",
+    "confirmDeleteTitle": "Confirm Delete",
     "slugChangeTitle": "Change URL Slug?",
     "socialMedia": "Social Media",
     "socialMediaHint": "Add your social media links to display in your booking page footer.",

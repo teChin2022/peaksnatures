@@ -44,7 +44,8 @@
     "unavailable": "ไม่พร้อมให้บริการ",
     "mostPopular": "ห้องยอดนิยม",
     "errorCaptcha": "กรุณายืนยันว่าคุณไม่ใช่บอท",
-    "errorTooManyRequests": "คำขอมากเกินไป กรุณาลองใหม่อีกครั้งในอีกสักครู่"
+    "errorTooManyRequests": "คำขอมากเกินไป กรุณาลองใหม่อีกครั้งในอีกสักครู่",
+    "confirmRemoveImage": "ต้องการลบรูปภาพนี้หรือไม่?"
   },
   "home": {
     "badge": "ที่พักธรรมชาติในประเทศไทย",
@@ -810,6 +811,7 @@
     "commonProhibitions": "เพิ่มด่วน",
     "slugChangeWarning": "การเปลี่ยน URL slug จะทำให้ลิงก์ QR Code และบุ๊กมาร์กที่แชร์ไว้ก่อนหน้าใช้ไม่ได้ ลิงก์เก่าจะเปลี่ยนเส้นทางไปยัง URL ใหม่โดยอัตโนมัติ",
     "slugChangeConfirm": "เปลี่ยน Slug",
+    "confirmDeleteTitle": "ยืนยันการลบ",
     "slugChangeTitle": "เปลี่ยน URL Slug?",
     "socialMedia": "โซเชียลมีเดีย",
     "socialMediaHint": "เพิ่มลิงก์โซเชียลมีเดียเพื่อแสดงในส่วนท้ายของหน้าจอง",

@@ -28,6 +28,7 @@ import {
   HelpCircle,
   ArrowUp,
   ArrowDown,
+  Trash2,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -94,6 +95,17 @@ export default function HomestayPage() {
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
   const [isNew, setIsNew] = useState(false);
+
+  // Confirm delete dialog state
+  const [confirmOpen, setConfirmOpen] = useState(false);
+  const [confirmMessage, setConfirmMessage] = useState("");
+  const confirmCallbackRef = useRef<(() => void) | null>(null);
+
+  const showConfirm = (message: string, onConfirm: () => void) => {
+    setConfirmMessage(message);
+    confirmCallbackRef.current = onConfirm;
+    setConfirmOpen(true);
+  };
 
   // Form state
   const [name, setName] = useState("");
@@ -383,7 +395,9 @@ export default function HomestayPage() {
   };
 
   const removeGalleryImage = (index: number) => {
-    setGallery((prev) => prev.filter((_, i) => i !== index));
+    showConfirm(tc("confirmRemoveImage"), () => {
+      setGallery((prev) => prev.filter((_, i) => i !== index));
+    });
   };
 
   const slugHasChanged = !isNew && homestay && slug.trim() !== homestay.slug;
@@ -1330,7 +1344,7 @@ export default function HomestayPage() {
                       />
                       <button
                         onClick={() => removeGalleryImage(i)}
-                        className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                        className="absolute right-1 top-1 rounded-full bg-black/60 p-1.5 text-white opacity-100 transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100"
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -1380,6 +1394,36 @@ export default function HomestayPage() {
               className="text-white hover:brightness-90 bg-brand"
             >
               {t("slugChangeConfirm")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm Delete Dialog */}
+      <Dialog open={confirmOpen} onOpenChange={setConfirmOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Trash2 className="h-4 w-4 text-red-500" />
+              {t("confirmDeleteTitle")}
+            </DialogTitle>
+            <DialogDescription className="text-sm text-gray-600">
+              {confirmMessage}
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+              {tc("cancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setConfirmOpen(false);
+                confirmCallbackRef.current?.();
+              }}
+            >
+              <Trash2 className="mr-2 h-4 w-4" />
+              {tc("delete")}
             </Button>
           </DialogFooter>
         </DialogContent>

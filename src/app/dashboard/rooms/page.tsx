@@ -306,7 +306,9 @@ export default function RoomsPage() {
   };
 
   const removeImage = (index: number) => {
-    setRoomImages((prev) => prev.filter((_, i) => i !== index));
+    showConfirm(tc("confirmRemoveImage"), () => {
+      setRoomImages((prev) => prev.filter((_, i) => i !== index));
+    });
   };
 
   const handleSaveRoom = async () => {
@@ -1287,7 +1289,7 @@ export default function RoomsPage() {
                       />
                       <button
                         onClick={() => removeImage(i)}
-                        className="absolute right-1 top-1 rounded-full bg-black/60 p-1 text-white opacity-0 transition-opacity group-hover:opacity-100"
+                        className="absolute right-1 top-1 rounded-full bg-black/60 p-1.5 text-white opacity-100 transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100"
                       >
                         <X className="h-3 w-3" />
                       </button>
