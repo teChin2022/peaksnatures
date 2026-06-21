@@ -23,7 +23,7 @@ import {
   Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope,
   CalendarDays, Calendar as CalendarIcon, Users, CreditCard, Upload, CheckCircle2, Loader2,
   ImageIcon, X, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle,
-  Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, Sparkles, FileText, Lock, MousePointerClick, ListPlus, Gift,
+  Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, Sparkles, FileText, Lock, MousePointerClick, ListPlus, Gift, HelpCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
@@ -46,6 +46,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { BookingTutorialDialog } from "@/components/booking/booking-tutorial-dialog";
 
 interface BookedRange {
   room_id: string | null;
@@ -57,6 +58,19 @@ const EMPTY_BOOKED_RANGES: BookedRange[] = [];
 const EMPTY_SEASONAL_PRICES: RoomSeasonalPrice[] = [];
 const EMPTY_ROOM_OPTIONS: RoomOption[] = [];
 const EMPTY_GUEST_PRICING: RoomGuestPricing[] = [];
+
+const TUTORIAL_COOKIE = "pn_booking_tutorial_seen";
+
+function getCookie(name: string): string | null {
+  if (typeof document === "undefined") return null;
+  const match = document.cookie.match(new RegExp(`(^| )${name}=([^;]+)`));
+  return match ? decodeURIComponent(match[2]) : null;
+}
+
+function setCookie(name: string, value: string, days: number) {
+  const expires = new Date(Date.now() + days * 864e5).toUTCString();
+  document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires};path=/;SameSite=Lax`;
+}
 
 function HoldCountdown({ expiresAt, onExpire }: { expiresAt: number | null; onExpire: () => void }) {
   const [timeLeft, setTimeLeft] = useState(0);
@@ -126,6 +140,7 @@ export function BookingSection({
 }: BookingSectionProps) {
   const t = useTranslations("booking");
   const tc = useTranslations("common");
+  const tt = useTranslations("bookingTutorial");
   const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState<BookingStep>("dates");
   const [showConfirmedModal, setShowConfirmedModal] = useState(false);
@@ -153,6 +168,7 @@ export function BookingSection({
   const [holdExpiresAt, setHoldExpiresAt] = useState<number | null>(null);
   const [showHeldModal, setShowHeldModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
   const [showIncompleteDatesModal, setShowIncompleteDatesModal] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
@@ -237,6 +253,11 @@ export function BookingSection({
         handleRoomChange(roomId);
         setStep("dates");
         sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+        // First-time guests: surface the "How to book" tutorial once they reach the form
+        if (!getCookie(TUTORIAL_COOKIE)) {
+          setCookie(TUTORIAL_COOKIE, "1", 365);
+          setTimeout(() => setShowTutorial(true), 600);
+        }
       }
     };
     document.addEventListener("book-room", handler);
@@ -915,6 +936,18 @@ export function BookingSection({
                 </div>
               </div>
             )}
+
+            {/* How to book — reopen tutorial */}
+            <div className="mb-2 flex justify-end">
+              <button
+                type="button"
+                onClick={() => setShowTutorial(true)}
+                className="inline-flex items-center gap-1 text-xs font-medium text-earth-400 transition-colors hover:text-brand"
+              >
+                <HelpCircle className="h-3.5 w-3.5" />
+                {tt("reopen")}
+              </button>
+            </div>
 
             {/* Step indicator (compact) */}
             <div className="flex items-center gap-1 mb-6">
@@ -1697,6 +1730,8 @@ export function BookingSection({
           </div>{/* end grid */}
         </div>{/* end max-w container */}
       </section>
+
+      <BookingTutorialDialog open={showTutorial} onOpenChange={setShowTutorial} />
 
       {/* ═══ Confirmed Booking Modal ═══ */}
       <Dialog open={showConfirmedModal} onOpenChange={(o) => { if (!o) { resetBooking(); } }}>
