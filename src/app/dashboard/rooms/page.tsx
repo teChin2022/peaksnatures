@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
 import { compressImage } from "@/lib/compress-image";
 import { format, parse } from "date-fns";
@@ -43,6 +43,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { toast } from "sonner";
 import { logClientEvent } from "@/lib/history-log-client";
 import { composeTierLabel } from "@/lib/guest-pricing";
+import { getPriceRange } from "@/lib/calculate-price";
 
 interface RoomData {
   id: string;
@@ -758,6 +759,17 @@ export default function RoomsPage() {
     });
   };
 
+  // "Use default price" tiers charge the room's normal nightly rate. With no date context here,
+  // show a seasonal range when seasons exist, else the base price (getPriceRange handles both).
+  const defaultTierPriceLabel = useMemo(() => {
+    const base = parseInt(roomPrice) || 0;
+    const seasons = editingRoom ? (seasonalPrices[editingRoom.id] || []) : pendingSeasons;
+    const { min, max } = getPriceRange(base, seasons);
+    return min !== max
+      ? `฿${min.toLocaleString()}–฿${max.toLocaleString()}`
+      : `฿${base.toLocaleString()}`;
+  }, [roomPrice, editingRoom, seasonalPrices, pendingSeasons]);
+
   if (loading) {
     return (
       <div className="mx-auto max-w-3xl">
@@ -1005,7 +1017,7 @@ export default function RoomsPage() {
                             {tier.surcharge > 0 ? (
                               <><span className="font-medium text-brand">+฿{tier.surcharge.toLocaleString()}</span>{tc("perNight")}</>
                             ) : (
-                              <span className="font-medium text-brand">{t("defaultPrice")}</span>
+                              <><span className="font-medium text-brand">{defaultTierPriceLabel}</span>{tc("perNight")}<span className="text-gray-400"> · {t("defaultPrice")}</span></>
                             )}
                           </p>
                         </div>
@@ -1047,7 +1059,7 @@ export default function RoomsPage() {
                             {tier.surcharge > 0 ? (
                               <><span className="font-medium text-brand">+฿{tier.surcharge.toLocaleString()}</span>{tc("perNight")}</>
                             ) : (
-                              <span className="font-medium text-brand">{t("defaultPrice")}</span>
+                              <><span className="font-medium text-brand">{defaultTierPriceLabel}</span>{tc("perNight")}<span className="text-gray-400"> · {t("defaultPrice")}</span></>
                             )}
                           </p>
                         </div>
