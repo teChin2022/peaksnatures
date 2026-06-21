@@ -1000,8 +1000,8 @@ export function BookingSection({
                                     {selectedTier ? composeTierLabel(selectedTier, locale) : t("selectGuestsForPrice")}
                                   </span>
                                 </div>
-                                {selectedTier && selectedTier.surcharge > 0 && (
-                                  <span className="text-xs font-semibold text-brand whitespace-nowrap">+฿{selectedTier.surcharge.toLocaleString()}</span>
+                                {selectedTier && (
+                                  <span className="text-xs font-semibold text-brand whitespace-nowrap">฿{((selectedRoom?.price_per_night ?? 0) + selectedTier.surcharge).toLocaleString()}</span>
                                 )}
                               </button>
                             ) : (
@@ -1150,7 +1150,7 @@ export function BookingSection({
                                     <p className="text-sm font-medium text-earth-900">{composeTierLabel(tier, locale)}</p>
                                   </div>
                                   <span className="text-sm font-semibold text-brand whitespace-nowrap">
-                                    {tier.surcharge > 0 ? `+฿${tier.surcharge.toLocaleString()}` : t("defaultPrice")}
+                                    ฿{((selectedRoom?.price_per_night ?? 0) + tier.surcharge).toLocaleString()}
                                   </span>
                                 </button>
                               );
