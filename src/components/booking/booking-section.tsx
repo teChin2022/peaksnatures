@@ -378,6 +378,14 @@ export function BookingSection({
     return calculateTotalPrice(selectedRoom.price_per_night, dateRange.from, dateRange.to, roomSeasons);
   }, [selectedRoom, nights, dateRange, seasonsByRoom]);
 
+  // Nightly price a "use default price" tier (surcharge 0) is charged: the seasonal rate for the
+  // check-in night (priceResult prices each night by its season, falling back to base), or the
+  // base price when no dates are picked yet.
+  const defaultTierNightlyPrice = useMemo(() => {
+    if (!selectedRoom) return 0;
+    return priceResult?.breakdown[0]?.price ?? selectedRoom.price_per_night;
+  }, [selectedRoom, priceResult]);
+
   // Composition surcharge is charged per night (× nights), like a per_night option.
   const compositionSurcharge = selectedTier ? computeCompositionSurcharge(selectedTier.surcharge, nights) : 0;
 
@@ -1000,8 +1008,12 @@ export function BookingSection({
                                     {selectedTier ? composeTierLabel(selectedTier, locale) : t("selectGuestsForPrice")}
                                   </span>
                                 </div>
-                                {selectedTier && selectedTier.surcharge > 0 && (
-                                  <span className="text-xs font-semibold text-brand whitespace-nowrap">+฿{selectedTier.surcharge.toLocaleString()}</span>
+                                {selectedTier && (
+                                  <span className="text-xs font-semibold text-brand whitespace-nowrap">
+                                    {selectedTier.surcharge > 0
+                                      ? `+฿${selectedTier.surcharge.toLocaleString()}`
+                                      : `฿${defaultTierNightlyPrice.toLocaleString()}`}
+                                  </span>
                                 )}
                               </button>
                             ) : (
@@ -1150,7 +1162,7 @@ export function BookingSection({
                                     <p className="text-sm font-medium text-earth-900">{composeTierLabel(tier, locale)}</p>
                                   </div>
                                   <span className="text-sm font-semibold text-brand whitespace-nowrap">
-                                    {tier.surcharge > 0 ? `+฿${tier.surcharge.toLocaleString()}` : `฿${(selectedRoom?.price_per_night ?? 0).toLocaleString()}`}
+                                    {tier.surcharge > 0 ? `+฿${tier.surcharge.toLocaleString()}` : `฿${defaultTierNightlyPrice.toLocaleString()}`}
                                   </span>
                                 </button>
                               );
