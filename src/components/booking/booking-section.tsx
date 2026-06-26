@@ -6,7 +6,7 @@ import { th as thLocale } from "date-fns/locale";
 import { fmtDate } from "@/lib/format-date";
 import type { DateRange } from "react-day-picker";
 import { Calendar } from "@/components/ui/calendar";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, useInView, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -186,6 +186,15 @@ export function BookingSection({
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const qrContainerRef = useRef<HTMLDivElement>(null);
+
+  // "How to book?" help pill: pulse once when the form first scrolls into view,
+  // unless the tutorial was already seen or the user prefers reduced motion.
+  // useInView({ once }) flips false→true a single time; the keyframe array then
+  // plays one shot (framer doesn't loop keyframes), so no state/timeout is needed.
+  const helpPillRef = useRef<HTMLButtonElement>(null);
+  const pillInView = useInView(helpPillRef, { once: true, amount: 0.6 });
+  const reduceMotion = useReducedMotion();
+  const pulseHelp = pillInView && !reduceMotion && !getCookie(TUTORIAL_COOKIE);
 
   const handleSlipSelect = (file: File | null) => {
     if (slipPreview) URL.revokeObjectURL(slipPreview);
@@ -1005,38 +1014,42 @@ export function BookingSection({
               </div>
             )}
 
-            {/* How to book — reopen tutorial */}
-            <div className="mb-2 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowTutorial(true)}
-                className="inline-flex items-center gap-1 text-xs font-medium text-earth-400 transition-colors hover:text-brand"
-              >
-                <HelpCircle className="h-3.5 w-3.5" />
-                {tt("reopen")}
-              </button>
-            </div>
-
-            {/* Step indicator (compact) */}
-            <div className="flex items-center gap-1 mb-6">
-              {steps.map((s, i) => {
-                const isActive = step === s;
-                const isCompleted = currentStepIndex > i;
-                return (
-                  <div key={s} className={`flex items-center ${i < steps.length - 1 ? 'flex-1' : ''}`}>
-                    <div
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-colors ${
-                        isActive || isCompleted ? 'bg-brand text-white' : 'bg-earth-100 text-earth-400'
-                      }`}
-                    >
-                      {isCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
+            {/* Step indicator + How-to-book help (one row) */}
+            <div className="mb-6 flex items-center gap-3">
+              {/* Step indicator (compact) */}
+              <div className="flex flex-1 items-center gap-1">
+                {steps.map((s, i) => {
+                  const isActive = step === s;
+                  const isCompleted = currentStepIndex > i;
+                  return (
+                    <div key={s} className={`flex items-center ${i < steps.length - 1 ? 'flex-1' : ''}`}>
+                      <div
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-colors ${
+                          isActive || isCompleted ? 'bg-brand text-white' : 'bg-earth-100 text-earth-400'
+                        }`}
+                      >
+                        {isCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
+                      </div>
+                      {i < steps.length - 1 && (
+                        <div className={`mx-1 h-px flex-1 ${currentStepIndex > i ? 'bg-earth-900' : 'bg-earth-200'}`} />
+                      )}
                     </div>
-                    {i < steps.length - 1 && (
-                      <div className={`mx-1 h-px flex-1 ${currentStepIndex > i ? 'bg-earth-900' : 'bg-earth-200'}`} />
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+
+              {/* How to book — reopen tutorial (pulses once on first arrival) */}
+              <motion.button
+                ref={helpPillRef}
+                type="button"
+                onClick={() => { setShowTutorial(true); setCookie(TUTORIAL_COOKIE, "1", 365); }}
+                animate={pulseHelp ? { scale: [1, 1.08, 1, 1.08, 1] } : { scale: 1 }}
+                transition={{ duration: 1.2, ease: "easeInOut" }}
+                className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-brand-100 bg-brand-50 px-3 py-2 text-xs font-semibold text-brand transition-colors hover:bg-brand-100"
+              >
+                {tt("reopen")}
+                <HelpCircle className="h-3.5 w-3.5" />
+              </motion.button>
             </div>
 
             {/* Hidden file inputs */}
