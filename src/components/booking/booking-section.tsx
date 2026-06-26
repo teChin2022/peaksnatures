@@ -810,29 +810,26 @@ export function BookingSection({
   const steps: BookingStep[] = ["dates", "details", "payment"];
   const currentStepIndex = steps.indexOf(step);
 
-  // --- Guard against losing in-progress booking data on browser back / unload ---
-  // The whole funnel lives in client state on a single URL, so a browser Back,
-  // mobile swipe-back, refresh, or tab close would silently discard everything the
-  // guest has entered. We arm one sentinel history entry while there is unsaved
-  // progress: Back then steps the funnel backward (3->2->1) without leaving the
-  // page, and only a Back that would exit the site (from step 1) shows a warning.
+  // --- Guard against losing in-progress booking data on browser Back ---
+  // The whole funnel lives in client state on a single URL. While there is unsaved
+  // progress we arm a sentinel history entry; pressing Back (or mobile swipe-back)
+  // fires popstate instead of leaving the page, and we show a confirmation dialog —
+  // the guest stays ("Continue") or leaves ("Leave & clear"). Refresh / tab-close /
+  // window-close are intentionally NOT guarded (the browser only allows its generic
+  // native prompt there, which we chose to drop).
   const [showLeaveWarning, setShowLeaveWarning] = useState(false);
   const leavingRef = useRef(false);
   const stepRef = useRef(step);
   const releaseHoldRef = useRef(releaseHold);
-  useEffect(() => {
-    stepRef.current = step;
-    console.log("🔙[guard] STEP →", step, "| history.length =", window.history.length, "| state =", window.history.state);
-  }, [step]);
+  useEffect(() => { stepRef.current = step; }, [step]);
   useEffect(() => { releaseHoldRef.current = releaseHold; }, [releaseHold]);
 
-  // Push a guard history entry so the next Back fires popstate WITHOUT leaving
-  // the page. Pass null state and NO url: Next.js's patched pushState then just
-  // augments the entry with its internal markers (__NA + router tree) and adds
-  // it. Passing a url would make Next dispatch an ACTION_RESTORE navigation
-  // (via applyUrlFromHistoryPushReplace); doing that while re-arming inside the
-  // popstate handler collides with Next's own back-traversal and reloads the
-  // page — which unloads it and shows the native "Leave site?" prompt.
+  // Push a guard history entry so the next Back fires popstate WITHOUT leaving the
+  // page. Pass null state and NO url: Next.js's patched pushState then just augments
+  // the entry with its internal markers (__NA + router tree) and adds it. Passing a
+  // url would make Next dispatch an ACTION_RESTORE navigation, which is unnecessary
+  // here. Only ever call this OUTSIDE the popstate handler (arming on mount and from
+  // the "Continue" button) — re-pushing during popstate makes Next reload the page.
   const armBackGuard = useCallback(() => {
     window.history.pushState(null, "");
   }, []);
@@ -849,38 +846,19 @@ export function BookingSection({
   // Browser Back / mobile swipe-back (same-document history navigation).
   useEffect(() => {
     if (!hasProgress) return;
-    console.log("🔙[guard] EFFECT setup — arming. hasProgress =", hasProgress, "step =", stepRef.current);
     armBackGuard();
     const onPopState = () => {
-      console.log("🔙[guard] POPSTATE fired. step =", stepRef.current, "| length", window.history.length, "| state", window.history.state);
       if (leavingRef.current) return;
-      // Step 2/3: walk back one step, then re-arm. The url-less pushState in
-      // armBackGuard is what prevents Next's reload; deferring with setTimeout is
-      // extra insurance so we never touch history while Next is still handling
-      // this same popstate event.
-      if (stepRef.current === "payment") { releaseHoldRef.current(); setStep("details"); setTimeout(armBackGuard, 0); return; }
-      if (stepRef.current === "details") { setStep("dates"); setTimeout(armBackGuard, 0); return; }
-      // On step 1 the next Back would exit the site — confirm before leaving.
-      // We deliberately do NOT re-arm here, so a second Back leaves to the
-      // previous site, matching "if you go back again your data will clear".
+      // Show the warning on ANY Back, at every step. We must NOT re-push a history
+      // entry here: re-arming inside the popstate handler destabilises Next.js'
+      // App Router and reloads the page (→ native "Leave site?" prompt). That is
+      // exactly why step 1 worked (it never re-armed) but steps 2/3 didn't.
+      // Re-arming happens only from the dialog's "Continue" button (a click).
       setShowLeaveWarning(true);
     };
     window.addEventListener("popstate", onPopState);
     return () => window.removeEventListener("popstate", onPopState);
   }, [hasProgress, armBackGuard]);
-
-  // Refresh / tab close / hard navigation (popstate cannot catch these).
-  useEffect(() => {
-    if (!hasProgress) return;
-    const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      console.log("🔙[guard] BEFOREUNLOAD fired (page is unloading). leaving =", leavingRef.current);
-      if (leavingRef.current) return; // guest explicitly chose to leave
-      e.preventDefault();
-      e.returnValue = "";
-    };
-    window.addEventListener("beforeunload", onBeforeUnload);
-    return () => window.removeEventListener("beforeunload", onBeforeUnload);
-  }, [hasProgress]);
 
   const handleStayInBooking = () => {
     setShowLeaveWarning(false);
@@ -895,6 +873,7 @@ export function BookingSection({
   const handleLeaveAndClear = () => {
     leavingRef.current = true;
     setShowLeaveWarning(false);
+    if (stepRef.current === "payment") releaseHoldRef.current(); // free the room hold on exit
     window.history.back();
   };
 
