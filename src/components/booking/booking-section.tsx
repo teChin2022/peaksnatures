@@ -875,6 +875,11 @@ export function BookingSection({
   const handleStayInBooking = () => {
     setShowLeaveWarning(false);
     armBackGuard(); // re-arm for the next Back
+    // Bring the booking form back into view. Deferred so it runs after the
+    // dialog's exit animation releases Radix's body scroll lock (~200ms).
+    setTimeout(() => {
+      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 250);
   };
 
   const handleLeaveAndClear = () => {
