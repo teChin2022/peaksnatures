@@ -47,6 +47,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { BookingTutorialDialog } from "@/components/booking/booking-tutorial-dialog";
+import { LeaveBookingDialog } from "@/components/booking/leave-booking-dialog";
 
 interface BookedRange {
   room_id: string | null;
@@ -808,6 +809,79 @@ export function BookingSection({
 
   const steps: BookingStep[] = ["dates", "details", "payment"];
   const currentStepIndex = steps.indexOf(step);
+
+  // --- Guard against losing in-progress booking data on browser back / unload ---
+  // The whole funnel lives in client state on a single URL, so a browser Back,
+  // mobile swipe-back, refresh, or tab close would silently discard everything the
+  // guest has entered. We arm one sentinel history entry while there is unsaved
+  // progress: Back then steps the funnel backward (3->2->1) without leaving the
+  // page, and only a Back that would exit the site (from step 1) shows a warning.
+  const [showLeaveWarning, setShowLeaveWarning] = useState(false);
+  const leavingRef = useRef(false);
+  const armedRef = useRef(false);
+  const stepRef = useRef(step);
+  const releaseHoldRef = useRef(releaseHold);
+  useEffect(() => { stepRef.current = step; }, [step]);
+  useEffect(() => { releaseHoldRef.current = releaseHold; }, [releaseHold]);
+
+  // Push exactly one sentinel history entry so the next Back fires popstate
+  // without leaving the page. Idempotent via armedRef, which keeps it correct
+  // under React StrictMode's double-invoked effects (no duplicate entries).
+  const armBackGuard = useCallback(() => {
+    if (armedRef.current) return;
+    window.history.pushState({ __bookingGuard: true }, "");
+    armedRef.current = true;
+  }, []);
+
+  const hasProgress =
+    !showConfirmedModal &&
+    (step !== "dates" ||
+      Boolean(dateRange?.from) ||
+      selectedRoomId !== "" ||
+      guestName.trim() !== "" ||
+      guestEmail.trim() !== "" ||
+      guestPhone.trim() !== "");
+
+  // Browser Back / mobile swipe-back (same-document history navigation).
+  useEffect(() => {
+    if (!hasProgress) return;
+    armBackGuard();
+    const onPopState = () => {
+      armedRef.current = false; // the sentinel on top was just consumed
+      if (leavingRef.current) return;
+      if (stepRef.current === "payment") { releaseHoldRef.current(); setStep("details"); armBackGuard(); return; }
+      if (stepRef.current === "details") { setStep("dates"); armBackGuard(); return; }
+      // On step 1 the next Back would exit the site — confirm before leaving.
+      // We deliberately do NOT re-arm here, so a second Back leaves to the
+      // previous site, matching "if you go back again your data will clear".
+      setShowLeaveWarning(true);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [hasProgress, armBackGuard]);
+
+  // Refresh / tab close / hard navigation (popstate cannot catch these).
+  useEffect(() => {
+    if (!hasProgress) return;
+    const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      if (leavingRef.current) return; // guest explicitly chose to leave
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", onBeforeUnload);
+    return () => window.removeEventListener("beforeunload", onBeforeUnload);
+  }, [hasProgress]);
+
+  const handleStayInBooking = () => {
+    setShowLeaveWarning(false);
+    armBackGuard(); // re-arm for the next Back
+  };
+
+  const handleLeaveAndClear = () => {
+    leavingRef.current = true;
+    setShowLeaveWarning(false);
+    window.history.back();
+  };
 
   const roomSeasons = selectedRoom ? (seasonsByRoom[selectedRoom.id] || []) : [];
   const { min: priceMin, max: priceMax } = selectedRoom
@@ -1863,6 +1937,25 @@ export function BookingSection({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Leave-booking warning — browser Back / swipe-back that would exit the site */}
+      <LeaveBookingDialog
+        open={showLeaveWarning}
+        onContinue={handleStayInBooking}
+        onLeave={handleLeaveAndClear}
+        roomName={selectedRoom?.name ?? null}
+        dateLabel={
+          dateRange?.from
+            ? `${fmtDate(dateRange.from, "MMM d", locale)}${
+                dateRange.to && dateRange.to.getTime() !== dateRange.from.getTime()
+                  ? ` – ${fmtDate(dateRange.to, "MMM d", locale)}`
+                  : ""
+              }`
+            : null
+        }
+        nightsLabel={nights > 0 ? `${nights} ${nights > 1 ? tc("nights") : tc("night")}` : null}
+        guestsLabel={selectedRoom || dateRange?.from ? `${numGuests} ${tc("guests")}` : null}
+      />
     </>
   );
 }
