@@ -818,30 +818,23 @@ export function BookingSection({
   // page, and only a Back that would exit the site (from step 1) shows a warning.
   const [showLeaveWarning, setShowLeaveWarning] = useState(false);
   const leavingRef = useRef(false);
-  const armedRef = useRef(false);
   const stepRef = useRef(step);
   const releaseHoldRef = useRef(releaseHold);
-  useEffect(() => { stepRef.current = step; }, [step]);
+  useEffect(() => {
+    stepRef.current = step;
+    console.log("🔙[guard] STEP →", step, "| history.length =", window.history.length, "| state =", window.history.state);
+  }, [step]);
   useEffect(() => { releaseHoldRef.current = releaseHold; }, [releaseHold]);
 
-  // Push exactly one sentinel history entry so the next Back fires popstate
-  // without leaving the page. Idempotent via armedRef, which keeps it correct
-  // under React StrictMode's double-invoked effects (no duplicate entries).
-  //
-  // We MUST spread the current `window.history.state` so the new entry keeps
-  // Next.js App Router's internal markers (`__NA`, router tree, key). Without
-  // them, Next's own popstate handler treats Back as an unknown route and does
-  // a full page reload — which unloads the page and fires `beforeunload` (the
-  // native "Leave site?" prompt) instead of our clean popstate + custom dialog.
-  // Passing the current URL keeps us on the same route.
+  // Push a guard history entry so the next Back fires popstate WITHOUT leaving
+  // the page. Pass null state and NO url: Next.js's patched pushState then just
+  // augments the entry with its internal markers (__NA + router tree) and adds
+  // it. Passing a url would make Next dispatch an ACTION_RESTORE navigation
+  // (via applyUrlFromHistoryPushReplace); doing that while re-arming inside the
+  // popstate handler collides with Next's own back-traversal and reloads the
+  // page — which unloads it and shows the native "Leave site?" prompt.
   const armBackGuard = useCallback(() => {
-    if (armedRef.current) return;
-    window.history.pushState(
-      { ...window.history.state, __bookingGuard: true },
-      "",
-      window.location.href,
-    );
-    armedRef.current = true;
+    window.history.pushState(null, "");
   }, []);
 
   const hasProgress =
@@ -856,12 +849,17 @@ export function BookingSection({
   // Browser Back / mobile swipe-back (same-document history navigation).
   useEffect(() => {
     if (!hasProgress) return;
+    console.log("🔙[guard] EFFECT setup — arming. hasProgress =", hasProgress, "step =", stepRef.current);
     armBackGuard();
     const onPopState = () => {
-      armedRef.current = false; // the sentinel on top was just consumed
+      console.log("🔙[guard] POPSTATE fired. step =", stepRef.current, "| length", window.history.length, "| state", window.history.state);
       if (leavingRef.current) return;
-      if (stepRef.current === "payment") { releaseHoldRef.current(); setStep("details"); armBackGuard(); return; }
-      if (stepRef.current === "details") { setStep("dates"); armBackGuard(); return; }
+      // Step 2/3: walk back one step, then re-arm. The url-less pushState in
+      // armBackGuard is what prevents Next's reload; deferring with setTimeout is
+      // extra insurance so we never touch history while Next is still handling
+      // this same popstate event.
+      if (stepRef.current === "payment") { releaseHoldRef.current(); setStep("details"); setTimeout(armBackGuard, 0); return; }
+      if (stepRef.current === "details") { setStep("dates"); setTimeout(armBackGuard, 0); return; }
       // On step 1 the next Back would exit the site — confirm before leaving.
       // We deliberately do NOT re-arm here, so a second Back leaves to the
       // previous site, matching "if you go back again your data will clear".
@@ -875,6 +873,7 @@ export function BookingSection({
   useEffect(() => {
     if (!hasProgress) return;
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
+      console.log("🔙[guard] BEFOREUNLOAD fired (page is unloading). leaving =", leavingRef.current);
       if (leavingRef.current) return; // guest explicitly chose to leave
       e.preventDefault();
       e.returnValue = "";
