@@ -6,7 +6,7 @@ import { th as thLocale } from "date-fns/locale";
 import { fmtDate } from "@/lib/format-date";
 import type { DateRange } from "react-day-picker";
 import { Calendar } from "@/components/ui/calendar";
-import { motion, AnimatePresence } from "motion/react";
+import { motion, AnimatePresence, useInView, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Textarea } from "@/components/ui/textarea";
@@ -47,6 +47,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { BookingTutorialDialog } from "@/components/booking/booking-tutorial-dialog";
+import { LeaveBookingDialog } from "@/components/booking/leave-booking-dialog";
 
 interface BookedRange {
   room_id: string | null;
@@ -185,6 +186,15 @@ export function BookingSection({
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
   const qrContainerRef = useRef<HTMLDivElement>(null);
+
+  // "How to book?" help pill: pulse once when the form first scrolls into view,
+  // unless the tutorial was already seen or the user prefers reduced motion.
+  // useInView({ once }) flips false→true a single time; the keyframe array then
+  // plays one shot (framer doesn't loop keyframes), so no state/timeout is needed.
+  const helpPillRef = useRef<HTMLButtonElement>(null);
+  const pillInView = useInView(helpPillRef, { once: true, amount: 0.6 });
+  const reduceMotion = useReducedMotion();
+  const pulseHelp = pillInView && !reduceMotion && !getCookie(TUTORIAL_COOKIE);
 
   const handleSlipSelect = (file: File | null) => {
     if (slipPreview) URL.revokeObjectURL(slipPreview);
@@ -809,6 +819,73 @@ export function BookingSection({
   const steps: BookingStep[] = ["dates", "details", "payment"];
   const currentStepIndex = steps.indexOf(step);
 
+  // --- Guard against losing in-progress booking data on browser Back ---
+  // The whole funnel lives in client state on a single URL. While there is unsaved
+  // progress we arm a sentinel history entry; pressing Back (or mobile swipe-back)
+  // fires popstate instead of leaving the page, and we show a confirmation dialog —
+  // the guest stays ("Continue") or leaves ("Leave & clear"). Refresh / tab-close /
+  // window-close are intentionally NOT guarded (the browser only allows its generic
+  // native prompt there, which we chose to drop).
+  const [showLeaveWarning, setShowLeaveWarning] = useState(false);
+  const leavingRef = useRef(false);
+  const stepRef = useRef(step);
+  const releaseHoldRef = useRef(releaseHold);
+  useEffect(() => { stepRef.current = step; }, [step]);
+  useEffect(() => { releaseHoldRef.current = releaseHold; }, [releaseHold]);
+
+  // Push a guard history entry so the next Back fires popstate WITHOUT leaving the
+  // page. Pass null state and NO url: Next.js's patched pushState then just augments
+  // the entry with its internal markers (__NA + router tree) and adds it. Passing a
+  // url would make Next dispatch an ACTION_RESTORE navigation, which is unnecessary
+  // here. Only ever call this OUTSIDE the popstate handler (arming on mount and from
+  // the "Continue" button) — re-pushing during popstate makes Next reload the page.
+  const armBackGuard = useCallback(() => {
+    window.history.pushState(null, "");
+  }, []);
+
+  const hasProgress =
+    !showConfirmedModal &&
+    (step !== "dates" ||
+      Boolean(dateRange?.from) ||
+      selectedRoomId !== "" ||
+      guestName.trim() !== "" ||
+      guestEmail.trim() !== "" ||
+      guestPhone.trim() !== "");
+
+  // Browser Back / mobile swipe-back (same-document history navigation).
+  useEffect(() => {
+    if (!hasProgress) return;
+    armBackGuard();
+    const onPopState = () => {
+      if (leavingRef.current) return;
+      // Show the warning on ANY Back, at every step. We must NOT re-push a history
+      // entry here: re-arming inside the popstate handler destabilises Next.js'
+      // App Router and reloads the page (→ native "Leave site?" prompt). That is
+      // exactly why step 1 worked (it never re-armed) but steps 2/3 didn't.
+      // Re-arming happens only from the dialog's "Continue" button (a click).
+      setShowLeaveWarning(true);
+    };
+    window.addEventListener("popstate", onPopState);
+    return () => window.removeEventListener("popstate", onPopState);
+  }, [hasProgress, armBackGuard]);
+
+  const handleStayInBooking = () => {
+    setShowLeaveWarning(false);
+    armBackGuard(); // re-arm for the next Back
+    // Bring the booking form back into view. Deferred so it runs after the
+    // dialog's exit animation releases Radix's body scroll lock (~200ms).
+    setTimeout(() => {
+      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+    }, 250);
+  };
+
+  const handleLeaveAndClear = () => {
+    leavingRef.current = true;
+    setShowLeaveWarning(false);
+    if (stepRef.current === "payment") releaseHoldRef.current(); // free the room hold on exit
+    window.history.back();
+  };
+
   const roomSeasons = selectedRoom ? (seasonsByRoom[selectedRoom.id] || []) : [];
   const { min: priceMin, max: priceMax } = selectedRoom
     ? getPriceRange(selectedRoom.price_per_night, roomSeasons)
@@ -937,38 +1014,42 @@ export function BookingSection({
               </div>
             )}
 
-            {/* How to book — reopen tutorial */}
-            <div className="mb-2 flex justify-end">
-              <button
-                type="button"
-                onClick={() => setShowTutorial(true)}
-                className="inline-flex items-center gap-1 text-xs font-medium text-earth-400 transition-colors hover:text-brand"
-              >
-                <HelpCircle className="h-3.5 w-3.5" />
-                {tt("reopen")}
-              </button>
-            </div>
-
-            {/* Step indicator (compact) */}
-            <div className="flex items-center gap-1 mb-6">
-              {steps.map((s, i) => {
-                const isActive = step === s;
-                const isCompleted = currentStepIndex > i;
-                return (
-                  <div key={s} className={`flex items-center ${i < steps.length - 1 ? 'flex-1' : ''}`}>
-                    <div
-                      className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-colors ${
-                        isActive || isCompleted ? 'bg-brand text-white' : 'bg-earth-100 text-earth-400'
-                      }`}
-                    >
-                      {isCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
+            {/* Step indicator + How-to-book help (one row) */}
+            <div className="mb-6 flex items-center gap-3">
+              {/* Step indicator (compact) */}
+              <div className="flex flex-1 items-center gap-1">
+                {steps.map((s, i) => {
+                  const isActive = step === s;
+                  const isCompleted = currentStepIndex > i;
+                  return (
+                    <div key={s} className={`flex items-center ${i < steps.length - 1 ? 'flex-1' : ''}`}>
+                      <div
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-colors ${
+                          isActive || isCompleted ? 'bg-brand text-white' : 'bg-earth-100 text-earth-400'
+                        }`}
+                      >
+                        {isCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
+                      </div>
+                      {i < steps.length - 1 && (
+                        <div className={`mx-1 h-px flex-1 ${currentStepIndex > i ? 'bg-earth-900' : 'bg-earth-200'}`} />
+                      )}
                     </div>
-                    {i < steps.length - 1 && (
-                      <div className={`mx-1 h-px flex-1 ${currentStepIndex > i ? 'bg-earth-900' : 'bg-earth-200'}`} />
-                    )}
-                  </div>
-                );
-              })}
+                  );
+                })}
+              </div>
+
+              {/* How to book — reopen tutorial (pulses once on first arrival) */}
+              <motion.button
+                ref={helpPillRef}
+                type="button"
+                onClick={() => { setShowTutorial(true); setCookie(TUTORIAL_COOKIE, "1", 365); }}
+                animate={pulseHelp ? { scale: [1, 1.08, 1, 1.08, 1] } : { scale: 1 }}
+                transition={{ duration: 1.2, ease: "easeInOut" }}
+                className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-brand-100 bg-brand-50 px-3 py-2 text-xs font-semibold text-brand transition-colors hover:bg-brand-100"
+              >
+                {tt("reopen")}
+                <HelpCircle className="h-3.5 w-3.5" />
+              </motion.button>
             </div>
 
             {/* Hidden file inputs */}
@@ -1863,6 +1944,25 @@ export function BookingSection({
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      {/* Leave-booking warning — browser Back / swipe-back that would exit the site */}
+      <LeaveBookingDialog
+        open={showLeaveWarning}
+        onContinue={handleStayInBooking}
+        onLeave={handleLeaveAndClear}
+        roomName={selectedRoom?.name ?? null}
+        dateLabel={
+          dateRange?.from
+            ? `${fmtDate(dateRange.from, "MMM d", locale)}${
+                dateRange.to && dateRange.to.getTime() !== dateRange.from.getTime()
+                  ? ` – ${fmtDate(dateRange.to, "MMM d", locale)}`
+                  : ""
+              }`
+            : null
+        }
+        nightsLabel={nights > 0 ? `${nights} ${nights > 1 ? tc("nights") : tc("night")}` : null}
+        guestsLabel={selectedRoom || dateRange?.from ? `${numGuests} ${tc("guests")}` : null}
+      />
     </>
   );
 }
