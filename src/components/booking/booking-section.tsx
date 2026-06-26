@@ -827,9 +827,20 @@ export function BookingSection({
   // Push exactly one sentinel history entry so the next Back fires popstate
   // without leaving the page. Idempotent via armedRef, which keeps it correct
   // under React StrictMode's double-invoked effects (no duplicate entries).
+  //
+  // We MUST spread the current `window.history.state` so the new entry keeps
+  // Next.js App Router's internal markers (`__NA`, router tree, key). Without
+  // them, Next's own popstate handler treats Back as an unknown route and does
+  // a full page reload — which unloads the page and fires `beforeunload` (the
+  // native "Leave site?" prompt) instead of our clean popstate + custom dialog.
+  // Passing the current URL keeps us on the same route.
   const armBackGuard = useCallback(() => {
     if (armedRef.current) return;
-    window.history.pushState({ __bookingGuard: true }, "");
+    window.history.pushState(
+      { ...window.history.state, __bookingGuard: true },
+      "",
+      window.location.href,
+    );
     armedRef.current = true;
   }, []);
 
