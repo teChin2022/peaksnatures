@@ -1253,182 +1253,195 @@ export function BookingSection({
                             </span>
                           </button>
 
-                          {/* ── After dates: configure a draft room, or pick one from the available list ── */}
+                          {/* ── After dates: the room list stays visible; tapping a room opens its
+                               config below so you can add several rooms one after another. ── */}
                           {dateRange?.from && dateRange?.to && isDateRangeValid ? (
-                            selectedRoom ? (
-                              <div className="space-y-5 rounded-2xl border border-brand-100 bg-brand-50/40 p-3">
-                                <div className="rounded-xl bg-white p-3 border border-earth-100">
-                                  <div className="flex items-center justify-between">
-                                    <p className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("room")}</p>
-                                    <button onClick={cancelDraft} className="p-1 rounded-full hover:bg-earth-100 text-earth-400"><X size={14} /></button>
-                                  </div>
-                                  <div className="flex items-baseline justify-between mt-1">
-                                    <p className="text-base font-bold text-earth-900">{selectedRoom.name}</p>
-                                    <p className="text-sm font-semibold">{priceLabel}/{tc("night")}</p>
-                                  </div>
+                            <div className="space-y-3">
+                              <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("availableRooms")}</label>
+                              {availableRooms.length === 0 ? (
+                                <div className="rounded-xl border border-dashed border-earth-300 bg-earth-50 p-4 text-center">
+                                  <p className="text-sm font-medium text-earth-500">{t("noRoomsAvailable")}</p>
                                 </div>
-
-                                {/* Guests — host-defined compositions when the room has tiers, else a stepper */}
-                                <div className="space-y-2">
-                                  <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("numGuests")}</label>
-                                  {hasTiers ? (
+                              ) : (
+                                availableRooms.map((room) => {
+                                  const inCart = cartLines.filter((l) => l.roomId === room.id).length;
+                                  const remaining = remainingForRoom(room);
+                                  const isActive = selectedRoomId === room.id;
+                                  const seasons = seasonsByRoom[room.id] || [];
+                                  const range = getPriceRange(room.price_per_night, seasons);
+                                  const label = range.min !== range.max
+                                    ? `฿${range.min.toLocaleString()}–฿${range.max.toLocaleString()}`
+                                    : `฿${room.price_per_night.toLocaleString()}`;
+                                  return (
                                     <button
-                                      onClick={() => setShowGuests(true)}
-                                      className="w-full flex items-center justify-between p-3.5 rounded-xl border border-earth-200 transition-all text-sm font-medium bg-white hover:border-earth-400 text-earth-900 cursor-pointer"
+                                      key={room.id}
+                                      disabled={remaining <= 0 && !isActive}
+                                      onClick={() => handleRoomChange(room.id)}
+                                      className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition-all text-sm ${isActive ? "border-brand bg-brand-50" : remaining <= 0 ? "opacity-50 cursor-not-allowed border-earth-200" : "border-earth-200 hover:border-earth-400 cursor-pointer"}`}
                                     >
-                                      <div className="flex min-w-0 items-center gap-2.5">
-                                        <Users size={16} className="shrink-0 text-earth-400" />
-                                        <span className={`truncate ${selectedTier ? "" : "text-earth-400"}`}>
-                                          {selectedTier ? composeTierLabel(selectedTier, locale) : t("selectGuestsForPrice")}
+                                      <div className="flex flex-col items-start min-w-0">
+                                        <span className="font-medium text-earth-900 truncate flex items-center gap-1.5">
+                                          {room.name}
+                                          {inCart > 0 && (
+                                            <span className="inline-flex items-center gap-0.5 rounded-full bg-brand/10 px-1.5 py-0.5 text-[10px] font-bold text-brand">
+                                              <CheckCircle2 size={10} /> {inCart}
+                                            </span>
+                                          )}
                                         </span>
+                                        <span className="text-xs text-earth-400">{label}/{tc("night")}</span>
                                       </div>
-                                      {selectedTier && (
-                                        <span className="text-xs font-semibold text-brand whitespace-nowrap">
-                                          {selectedTier.surcharge > 0
-                                            ? `+฿${selectedTier.surcharge.toLocaleString()}`
-                                            : `฿${defaultTierNightlyPrice.toLocaleString()}`}
-                                        </span>
+                                      {remaining <= 0 ? (
+                                        <span className="text-xs text-earth-400">{t("roomSoldOut")}</span>
+                                      ) : isActive ? (
+                                        <CheckCircle2 size={16} className="text-brand" />
+                                      ) : (
+                                        <span className="flex items-center gap-1 text-xs font-semibold text-brand"><Plus size={14} /> {t("addRoom")}</span>
                                       )}
                                     </button>
-                                  ) : (
-                                    <div className="flex items-center justify-between p-3 rounded-xl border border-earth-200 bg-white">
-                                      <span className="text-sm font-medium text-earth-700">{numGuests} {tc("guests")}</span>
-                                      <div className="flex items-center gap-3">
-                                        <button
-                                          onClick={() => setNumGuests(String(Math.max(1, parseInt(numGuests) - 1)))}
-                                          className="p-1 rounded-full border border-earth-200 hover:bg-earth-100 text-earth-400"
-                                        >
-                                          <Minus size={14} />
-                                        </button>
-                                        <button
-                                          onClick={() => setNumGuests(String(Math.min(selectedRoom?.max_guests || homestay.max_guests, parseInt(numGuests) + 1)))}
-                                          className="p-1 rounded-full border border-earth-200 hover:bg-earth-100 text-earth-400"
-                                        >
-                                          <Plus size={14} />
-                                        </button>
+                                  );
+                                })
+                              )}
+
+                              {/* Configure the tapped room, then "Add to booking" — list stays above */}
+                              {selectedRoom && (
+                                <div className="space-y-5 rounded-2xl border border-brand-100 bg-brand-50/40 p-3">
+                                  <div className="rounded-xl bg-white p-3 border border-earth-100">
+                                    <div className="flex items-center justify-between">
+                                      <p className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("room")}</p>
+                                      <button onClick={cancelDraft} className="p-1 rounded-full hover:bg-earth-100 text-earth-400"><X size={14} /></button>
+                                    </div>
+                                    <div className="flex items-baseline justify-between mt-1">
+                                      <p className="text-base font-bold text-earth-900">{selectedRoom.name}</p>
+                                      <p className="text-sm font-semibold">{priceLabel}/{tc("night")}</p>
+                                    </div>
+                                  </div>
+
+                                  {/* Guests — host-defined compositions when the room has tiers, else a stepper */}
+                                  <div className="space-y-2">
+                                    <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("numGuests")}</label>
+                                    {hasTiers ? (
+                                      <button
+                                        onClick={() => setShowGuests(true)}
+                                        className="w-full flex items-center justify-between p-3.5 rounded-xl border border-earth-200 transition-all text-sm font-medium bg-white hover:border-earth-400 text-earth-900 cursor-pointer"
+                                      >
+                                        <div className="flex min-w-0 items-center gap-2.5">
+                                          <Users size={16} className="shrink-0 text-earth-400" />
+                                          <span className={`truncate ${selectedTier ? "" : "text-earth-400"}`}>
+                                            {selectedTier ? composeTierLabel(selectedTier, locale) : t("selectGuestsForPrice")}
+                                          </span>
+                                        </div>
+                                        {selectedTier && (
+                                          <span className="text-xs font-semibold text-brand whitespace-nowrap">
+                                            {selectedTier.surcharge > 0
+                                              ? `+฿${selectedTier.surcharge.toLocaleString()}`
+                                              : `฿${defaultTierNightlyPrice.toLocaleString()}`}
+                                          </span>
+                                        )}
+                                      </button>
+                                    ) : (
+                                      <div className="flex items-center justify-between p-3 rounded-xl border border-earth-200 bg-white">
+                                        <span className="text-sm font-medium text-earth-700">{numGuests} {tc("guests")}</span>
+                                        <div className="flex items-center gap-3">
+                                          <button
+                                            onClick={() => setNumGuests(String(Math.max(1, parseInt(numGuests) - 1)))}
+                                            className="p-1 rounded-full border border-earth-200 hover:bg-earth-100 text-earth-400"
+                                          >
+                                            <Minus size={14} />
+                                          </button>
+                                          <button
+                                            onClick={() => setNumGuests(String(Math.min(selectedRoom?.max_guests || homestay.max_guests, parseInt(numGuests) + 1)))}
+                                            className="p-1 rounded-full border border-earth-200 hover:bg-earth-100 text-earth-400"
+                                          >
+                                            <Plus size={14} />
+                                          </button>
+                                        </div>
+                                      </div>
+                                    )}
+                                  </div>
+
+                                  {/* Room Options toggle */}
+                                  {optionsForRoom.length > 0 && (
+                                    <div className="space-y-2">
+                                      <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("options")}</label>
+                                      <button
+                                        onClick={() => setShowOptions(true)}
+                                        className="w-full flex items-center justify-between p-3.5 rounded-xl border border-earth-200 transition-all text-sm font-medium bg-white hover:border-earth-400 text-earth-900 cursor-pointer"
+                                      >
+                                        <div className="flex items-center gap-2.5">
+                                          <ListPlus size={16} className="text-earth-400" />
+                                          <span>
+                                            {selectedOptionIds.length > 0
+                                              ? t("optionsSelected", { count: selectedOptionIds.length })
+                                              : t("selectOptions")}
+                                          </span>
+                                        </div>
+                                        {optionsTotal > 0 && (
+                                          <span className="text-xs font-semibold text-brand">+฿{optionsTotal.toLocaleString()}</span>
+                                        )}
+                                      </button>
+                                    </div>
+                                  )}
+
+                                  {/* Draft room price */}
+                                  {draftSubtotal > 0 && priceResult && (!hasTiers || selectedTier) && (
+                                    <div className="pt-3 border-t border-earth-100 space-y-2">
+                                      {(() => {
+                                        const hasSeasons = priceResult.breakdown.some((b) => b.seasonName);
+                                        if (!hasSeasons) {
+                                          return (
+                                            <div className="flex justify-between text-sm text-earth-600">
+                                              <span>฿{selectedRoom?.price_per_night.toLocaleString()} × {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
+                                              <span>฿{priceResult.total.toLocaleString()}</span>
+                                            </div>
+                                          );
+                                        }
+                                        const groups: { label: string; price: number; count: number }[] = [];
+                                        for (const b of priceResult.breakdown) {
+                                          const label = b.seasonName || t("baseRate");
+                                          const last = groups[groups.length - 1];
+                                          if (last && last.label === label && last.price === b.price) last.count++;
+                                          else groups.push({ label, price: b.price, count: 1 });
+                                        }
+                                        return (
+                                          <>
+                                            {groups.map((g, i) => (
+                                              <div key={i} className="flex justify-between text-sm text-earth-600">
+                                                <span>{g.label}: ฿{g.price.toLocaleString()} × {g.count}</span>
+                                                <span>฿{(g.price * g.count).toLocaleString()}</span>
+                                              </div>
+                                            ))}
+                                          </>
+                                        );
+                                      })()}
+                                      {compositionSurcharge > 0 && (
+                                        <div className="flex justify-between text-sm text-earth-600">
+                                          <span>{t("extraGuests")}</span>
+                                          <span>+฿{compositionSurcharge.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      {optionsTotal > 0 && (
+                                        <div className="flex justify-between text-sm text-earth-600">
+                                          <span>{t("options")} ({selectedOptionIds.length})</span>
+                                          <span>+฿{optionsTotal.toLocaleString()}</span>
+                                        </div>
+                                      )}
+                                      <div className="flex justify-between text-sm font-bold text-earth-900 pt-2 border-t border-earth-100">
+                                        <span>{t("room")}</span>
+                                        <span>฿{draftSubtotal.toLocaleString()}</span>
                                       </div>
                                     </div>
                                   )}
+
+                                  <button
+                                    onClick={handleAddToCart}
+                                    disabled={hasTiers && !selectedTier}
+                                    className="w-full bg-brand text-white px-10 py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                  >
+                                    <Plus size={18} /> {t("addToCart")}
+                                  </button>
                                 </div>
-
-                                {/* Room Options toggle */}
-                                {optionsForRoom.length > 0 && (
-                                  <div className="space-y-2">
-                                    <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("options")}</label>
-                                    <button
-                                      onClick={() => setShowOptions(true)}
-                                      className="w-full flex items-center justify-between p-3.5 rounded-xl border border-earth-200 transition-all text-sm font-medium bg-white hover:border-earth-400 text-earth-900 cursor-pointer"
-                                    >
-                                      <div className="flex items-center gap-2.5">
-                                        <ListPlus size={16} className="text-earth-400" />
-                                        <span>
-                                          {selectedOptionIds.length > 0
-                                            ? t("optionsSelected", { count: selectedOptionIds.length })
-                                            : t("selectOptions")}
-                                        </span>
-                                      </div>
-                                      {optionsTotal > 0 && (
-                                        <span className="text-xs font-semibold text-brand">+฿{optionsTotal.toLocaleString()}</span>
-                                      )}
-                                    </button>
-                                  </div>
-                                )}
-
-                                {/* Draft room price */}
-                                {draftSubtotal > 0 && priceResult && (!hasTiers || selectedTier) && (
-                                  <div className="pt-3 border-t border-earth-100 space-y-2">
-                                    {(() => {
-                                      const hasSeasons = priceResult.breakdown.some((b) => b.seasonName);
-                                      if (!hasSeasons) {
-                                        return (
-                                          <div className="flex justify-between text-sm text-earth-600">
-                                            <span>฿{selectedRoom?.price_per_night.toLocaleString()} × {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
-                                            <span>฿{priceResult.total.toLocaleString()}</span>
-                                          </div>
-                                        );
-                                      }
-                                      const groups: { label: string; price: number; count: number }[] = [];
-                                      for (const b of priceResult.breakdown) {
-                                        const label = b.seasonName || t("baseRate");
-                                        const last = groups[groups.length - 1];
-                                        if (last && last.label === label && last.price === b.price) last.count++;
-                                        else groups.push({ label, price: b.price, count: 1 });
-                                      }
-                                      return (
-                                        <>
-                                          {groups.map((g, i) => (
-                                            <div key={i} className="flex justify-between text-sm text-earth-600">
-                                              <span>{g.label}: ฿{g.price.toLocaleString()} × {g.count}</span>
-                                              <span>฿{(g.price * g.count).toLocaleString()}</span>
-                                            </div>
-                                          ))}
-                                        </>
-                                      );
-                                    })()}
-                                    {compositionSurcharge > 0 && (
-                                      <div className="flex justify-between text-sm text-earth-600">
-                                        <span>{t("extraGuests")}</span>
-                                        <span>+฿{compositionSurcharge.toLocaleString()}</span>
-                                      </div>
-                                    )}
-                                    {optionsTotal > 0 && (
-                                      <div className="flex justify-between text-sm text-earth-600">
-                                        <span>{t("options")} ({selectedOptionIds.length})</span>
-                                        <span>+฿{optionsTotal.toLocaleString()}</span>
-                                      </div>
-                                    )}
-                                    <div className="flex justify-between text-sm font-bold text-earth-900 pt-2 border-t border-earth-100">
-                                      <span>{t("room")}</span>
-                                      <span>฿{draftSubtotal.toLocaleString()}</span>
-                                    </div>
-                                  </div>
-                                )}
-
-                                <button
-                                  onClick={handleAddToCart}
-                                  disabled={hasTiers && !selectedTier}
-                                  className="w-full bg-brand text-white px-10 py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
-                                >
-                                  <Plus size={18} /> {t("addToCart")}
-                                </button>
-                              </div>
-                            ) : (
-                              <div className="space-y-2">
-                                <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("availableRooms")}</label>
-                                {availableRooms.length === 0 ? (
-                                  <div className="rounded-xl border border-dashed border-earth-300 bg-earth-50 p-4 text-center">
-                                    <p className="text-sm font-medium text-earth-500">{t("noRoomsAvailable")}</p>
-                                  </div>
-                                ) : (
-                                  availableRooms.map((room) => {
-                                    const remaining = remainingForRoom(room);
-                                    const seasons = seasonsByRoom[room.id] || [];
-                                    const range = getPriceRange(room.price_per_night, seasons);
-                                    const label = range.min !== range.max
-                                      ? `฿${range.min.toLocaleString()}–฿${range.max.toLocaleString()}`
-                                      : `฿${room.price_per_night.toLocaleString()}`;
-                                    return (
-                                      <button
-                                        key={room.id}
-                                        disabled={remaining <= 0}
-                                        onClick={() => handleRoomChange(room.id)}
-                                        className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition-all text-sm ${remaining <= 0 ? "opacity-50 cursor-not-allowed border-earth-200" : "border-earth-200 hover:border-earth-400 cursor-pointer"}`}
-                                      >
-                                        <div className="flex flex-col items-start min-w-0">
-                                          <span className="font-medium text-earth-900 truncate">{room.name}</span>
-                                          <span className="text-xs text-earth-400">{label}/{tc("night")}</span>
-                                        </div>
-                                        {remaining <= 0 ? (
-                                          <span className="text-xs text-earth-400">{t("roomSoldOut")}</span>
-                                        ) : (
-                                          <span className="flex items-center gap-1 text-xs font-semibold text-brand"><Plus size={14} /> {t("addRoom")}</span>
-                                        )}
-                                      </button>
-                                    );
-                                  })
-                                )}
-                              </div>
-                            )
+                              )}
+                            </div>
                           ) : (
                             <div className="rounded-xl border border-dashed border-earth-300 bg-earth-50 p-4 text-center">
                               <CalendarDays className="mx-auto h-8 w-8 text-earth-300 mb-2" />
