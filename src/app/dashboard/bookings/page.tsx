@@ -58,6 +58,7 @@ interface BookingRow {
   id: string;
   homestay_id: string;
   room_id: string | null;
+  group_id: string | null;
   guest_name: string;
   guest_email: string;
   guest_phone: string;
@@ -801,6 +802,11 @@ export default function BookingsPage() {
                                 <StatusIcon className="mr-1 h-3 w-3" />
                                 {t(config.labelKey)}
                               </Badge>
+                              {booking.group_id && (
+                                <Badge variant="secondary" className="bg-indigo-50 text-indigo-700">
+                                  {t("groupBadge")}
+                                </Badge>
+                              )}
                               {booking.status === "cancelled" && booking.cancelled_by && (
                                 <Badge variant="secondary" className="bg-red-50 text-red-600 text-[11px]">
                                   {booking.cancelled_by === booking.guest_name ? t("cancelledByGuest") : t("cancelledByHost")}

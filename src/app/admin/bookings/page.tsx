@@ -46,6 +46,7 @@ interface BookingRow {
   homestay_name: string | null;
   homestay_slug: string | null;
   room_name: string | null;
+  group_id: string | null;
 }
 
 interface PaginatedResponse {
@@ -272,6 +273,9 @@ export default function AdminBookingsPage() {
                           <div className="flex items-center gap-1.5 min-w-0">
                             <BedDouble className="h-3.5 w-3.5 shrink-0 text-earth-400" />
                             <span className="truncate">{booking.room_name || "—"}</span>
+                            {booking.group_id && (
+                              <span className="shrink-0 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700">Group</span>
+                            )}
                           </div>
                           <div className="flex items-center gap-1.5">
                             <CalendarDays className="h-3.5 w-3.5 shrink-0 text-earth-400" />

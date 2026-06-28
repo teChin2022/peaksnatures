@@ -1,6 +1,6 @@
 import { format, parseISO } from "date-fns";
 import { th as thLocale, enUS as enLocale } from "date-fns/locale";
-import type { Booking, Homestay, Host, PromoCode, Room } from "@/types/database";
+import type { Booking, BookingGroup, Homestay, Host, PromoCode, Room } from "@/types/database";
 import { getProvinceLabel } from "@/lib/provinces";
 import { localizeStrings } from "@/lib/translation/localize-strings";
 import type { SupportedLocale } from "@/lib/translation/types";
@@ -1433,4 +1433,349 @@ export async function sendRecommenderPromoUsedNotification(args: {
     : `Code ${promo.code} used by ${guestShort}. Commission ฿${commissionAmount.toLocaleString()}. Host will pay out shortly.`;
 
   return sendSms(promo.recommender_phone, truncateForSms(message, 140));
+}
+
+// ============================================================
+// MULTI-ROOM GROUP NOTIFICATIONS
+// One combined host message + one combined guest email for a cart of
+// N rooms (a booking_groups parent + N member bookings rows).
+// ============================================================
+
+export interface GroupBookingDetails {
+  group: BookingGroup;
+  homestay: Homestay;
+  host: Host;
+  items: { booking: Booking; room?: Room }[];
+}
+
+function groupNights(b: Booking): number {
+  return Math.round((new Date(b.check_out).getTime() - new Date(b.check_in).getTime()) / 86400000);
+}
+
+/** LINE message for a multi-room cart — clone of buildNewBookingMessage, looping rooms. */
+export function buildGroupBookingMessage(
+  details: GroupBookingDetails,
+  type: "confirmed" | "flagged" = "confirmed",
+): string {
+  const { group, homestay, items } = details;
+
+  const header = type === "confirmed"
+    ? `🎉 การจองใหม่ (${items.length} ห้อง) — ยืนยันแล้ว!`
+    : `⚠️ การจองใหม่ (${items.length} ห้อง) — รอตรวจสอบ`;
+
+  const paymentStatus = type === "confirmed"
+    ? `✅ ชำระเงินแล้ว (ยืนยันอัตโนมัติ)`
+    : `❌ ยืนยันสลิปไม่สำเร็จ — กรุณาตรวจสอบใน Dashboard`;
+
+  const roomLines = items
+    .map((it, idx) => {
+      const b = it.booking;
+      const nights = groupNights(b);
+      const guestsLabel = b.guest_pricing_label ? ` (${b.guest_pricing_label})` : "";
+      const opts = Array.isArray(b.selected_options) && (b.selected_options as { name: string; price: number }[]).length > 0
+        ? `\n      🔧 ${(b.selected_options as { name: string; price: number }[]).map((o) => `${o.name} (+฿${o.price.toLocaleString()})`).join(", ")}`
+        : "";
+      return `   ${idx + 1}) ${it.room?.name || "Standard"} · ${formatBookingDate(b.check_in, "th")} → ${formatBookingDate(b.check_out, "th")} · ${nights} คืน · ${b.num_guests} ท่าน${guestsLabel} · ฿${b.total_price.toLocaleString()}${opts}`;
+    })
+    .join("\n");
+
+  const depositLines = group.payment_type === "deposit"
+    ? [
+        `   💳 ยอดที่ชำระ: ฿${(group.amount_paid || 0).toLocaleString()} (มัดจำ)`,
+        `   ⏳ ยอดค้าง: ฿${(group.total_price - (group.amount_paid || 0)).toLocaleString()} (ชำระเมื่อเข้าพัก)`,
+      ]
+    : [];
+
+  return [
+    header,
+    `━━━━━━━━━━━━━━━━`,
+    ``,
+    `🏠 โฮมสเตย์: ${homestay.name}`,
+    `🔖 Booking Group: ${group.id.slice(0, 8)}...`,
+    ``,
+    `👤 ข้อมูลผู้จอง`,
+    `   ชื่อ: ${group.guest_name}`,
+    `   อีเมล: ${group.guest_email}`,
+    `   โทร: ${group.guest_phone}`,
+    ...(group.guest_province ? [`   จังหวัด: ${getProvinceLabel(group.guest_province, "th")}`] : []),
+    ``,
+    `📋 ห้องที่จอง (${items.length})`,
+    roomLines,
+    ``,
+    `💰 การชำระเงิน`,
+    `   ยอดรวมทั้งหมด: ฿${group.total_price.toLocaleString()}`,
+    `   (ชำระเป็นสลิปเดียว)`,
+    ...depositLines,
+    `   ${paymentStatus}`,
+    ``,
+    `━━━━━━━━━━━━━━━━`,
+    `📍 ${homestay.location}`,
+  ].join("\n");
+}
+
+/** Host SMS for a cart — short: room count, combined total. Clone of sendHostSmsNotification. */
+export async function sendGroupHostSmsNotification(
+  details: GroupBookingDetails,
+  type: "confirmed" | "flagged" = "confirmed",
+): Promise<{ success: boolean; error?: unknown }> {
+  const phone = details.host.phone;
+  if (!phone) {
+    return { success: false, error: "Host phone not set" };
+  }
+
+  const { group, items } = details;
+  const first = items[0]?.booking;
+  const nights = first ? groupNights(first) : 0;
+  const guest = group.guest_name.slice(0, 15);
+  const status = type === "confirmed" ? "ยืนยันแล้ว" : "รอตรวจสอบ";
+  const isDeposit = group.payment_type === "deposit";
+  const priceLabel = isDeposit
+    ? `มัดจำ ฿${(group.amount_paid || 0).toLocaleString()}`
+    : `รวม ฿${group.total_price.toLocaleString()}`;
+
+  const message = truncateForSms(
+    `จองใหม่ ${guest} ${items.length} ห้อง ${first ? formatSmsDate(first.check_in) : ""} ${nights}คืน ${priceLabel} ${status}`,
+  );
+
+  return sendSms(phone, message);
+}
+
+/** Host LINE push for a cart. Clone of sendHostLineNotification using the group builder. */
+export async function sendGroupHostLineNotification(
+  details: GroupBookingDetails,
+  type: "confirmed" | "flagged" = "confirmed",
+): Promise<{ success: boolean; error?: unknown }> {
+  const channelToken = details.host.line_channel_access_token;
+  const lineUserId = details.host.line_user_id;
+
+  if (!channelToken || !lineUserId) {
+    return { success: false, error: "Host LINE credentials not configured" };
+  }
+
+  try {
+    const messageText = buildGroupBookingMessage(details, type);
+    const response = await fetch("https://api.line.me/v2/bot/message/push", {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${channelToken}`,
+      },
+      body: JSON.stringify({
+        to: lineUserId,
+        messages: [{ type: "text", text: messageText }],
+      }),
+      signal: AbortSignal.timeout(5000),
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({}));
+      console.error("LINE API error (group):", errorData);
+      return { success: false, error: errorData };
+    }
+    return { success: true };
+  } catch (error) {
+    console.error("LINE send error (group):", error);
+    return { success: false, error };
+  }
+}
+
+/**
+ * Dispatch a combined host notification for a cart (SMS/LINE preferred, email fallback).
+ * Mirrors dispatchHostNotification but typed for GroupBookingDetails — the email
+ * fallback only needs details.host, so we pass a host-only shim.
+ */
+export async function dispatchGroupHostNotification(
+  details: GroupBookingDetails,
+  sendSmsFn: () => Promise<{ success: boolean; error?: unknown }>,
+  sendLineFn: () => Promise<{ success: boolean; error?: unknown }>,
+  emailSubject: string,
+  buildEmailBody: () => string,
+): Promise<void> {
+  const preference = details.host.notification_preference || "sms";
+  const primaryFn = preference === "line" ? sendLineFn : sendSmsFn;
+  const result = await withRetry(primaryFn, 3);
+  if (!result.success) {
+    const emailResult = await sendHostNotificationEmail(
+      { host: details.host } as BookingDetails,
+      emailSubject,
+      buildEmailBody(),
+    );
+    if (!emailResult.success) {
+      console.error("[Notification] Group email fallback also failed");
+    }
+  }
+}
+
+interface LocalizedGroupRoom {
+  name: string | null;
+  options: SelectedOptionForEmail[];
+}
+
+async function localizeGroupEmailContent(
+  homestay: Homestay,
+  items: GroupBookingDetails["items"],
+  locale: string,
+): Promise<{ homestayName: string; homestayLocation: string; rooms: LocalizedGroupRoom[] }> {
+  const rawRooms: LocalizedGroupRoom[] = items.map((it) => ({
+    name: it.room?.name ?? null,
+    options: Array.isArray(it.booking.selected_options)
+      ? (it.booking.selected_options as SelectedOptionForEmail[])
+      : [],
+  }));
+
+  if (locale !== "en") {
+    return { homestayName: homestay.name, homestayLocation: homestay.location, rooms: rawRooms };
+  }
+
+  const strings: Record<string, string | null> = {
+    homestayName: homestay.name,
+    homestayLocation: homestay.location,
+  };
+  rawRooms.forEach((r, i) => {
+    strings[`room_${i}`] = r.name;
+    r.options.forEach((o, j) => {
+      strings[`room_${i}_opt_${j}`] = o.name;
+    });
+  });
+
+  const translated = await localizeStrings(`email:homestay:${homestay.id}`, strings, "en" as SupportedLocale);
+
+  return {
+    homestayName: translated.homestayName ?? homestay.name,
+    homestayLocation: translated.homestayLocation ?? homestay.location,
+    rooms: rawRooms.map((r, i) => ({
+      name: translated[`room_${i}`] ?? r.name,
+      options: r.options.map((o, j) => ({ ...o, name: translated[`room_${i}_opt_${j}`] ?? o.name })),
+    })),
+  };
+}
+
+/** Guest confirmation email for a cart — per-room block + one combined total. */
+export async function sendGroupBookingConfirmationEmail(
+  details: GroupBookingDetails,
+  locale: string = "th",
+  type: "confirmed" | "pending" = "confirmed",
+) {
+  const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
+  if (!apiKey) {
+    return { success: true, demo: true };
+  }
+
+  try {
+    const { Resend } = await import("resend");
+    const resend = new Resend(apiKey);
+
+    const { group, homestay, items } = details;
+    const DEFAULT_FROM = "Peaksnature <onboarding@resend.dev>";
+    const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
+    const fromEmail = cleaned
+      ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
+      : DEFAULT_FROM;
+    const isTh = locale === "th";
+    const isConfirmed = type === "confirmed";
+
+    const localized = await localizeGroupEmailContent(homestay, items, locale);
+
+    const subject = isConfirmed
+      ? (isTh ? `การจองของคุณได้รับการยืนยันแล้ว (${items.length} ห้อง) – ${localized.homestayName}` : `Your Booking Has Been Confirmed (${items.length} rooms) – ${localized.homestayName}`)
+      : (isTh ? `ได้รับการจองแล้ว — รอการตรวจสอบ — ${localized.homestayName}` : `Booking Received — Pending Review — ${localized.homestayName}`);
+
+    const labelStyle = `padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top; line-height: 1.4;`;
+    const valueStyle = `padding: 10px 0; color: #111827; font-size: 14px; vertical-align: top; line-height: 1.5;`;
+    const accent = isConfirmed ? "#111827" : "#d97706";
+
+    const roomRows = items
+      .map((it, i) => {
+        const b = it.booking;
+        const nights = bookingNights(b.check_in, b.check_out);
+        const r = localized.rooms[i];
+        const ci = formatBookingDate(b.check_in, locale);
+        const co = formatBookingDate(b.check_out, locale);
+        const optionsHtml = r.options.length > 0
+          ? `<div style="margin-top: 6px;">${renderSelectedOptionsHtmlList(r.options, nights, isTh)}</div>`
+          : "";
+        const guestsLabel = `${b.num_guests} ${isTh ? "ท่าน" : "guests"}${b.guest_pricing_label ? ` (${b.guest_pricing_label})` : ""}`;
+        return `
+          <tr>
+            <td style="${valueStyle}">
+              <div style="font-weight: 600; color: #111827;">${r.name || "Standard"}</div>
+              <div style="color: #6b7280; font-size: 12px; margin-top: 2px;">${ci} → ${co} · ${nights} ${isTh ? "คืน" : "nights"} · ${guestsLabel}</div>
+              ${optionsHtml}
+            </td>
+            <td style="${valueStyle} text-align: right; font-weight: 600;">฿${b.total_price.toLocaleString()}</td>
+          </tr>`;
+      })
+      .join("");
+
+    const discountRow = group.discount_amount > 0
+      ? `<tr><td style="${labelStyle}">${isTh ? "ยอดก่อนหักส่วนลด" : "Subtotal"}</td><td style="${valueStyle} text-align: right;">฿${(group.total_price + group.discount_amount).toLocaleString()}</td></tr>
+         <tr><td style="${labelStyle} color: #047857;">${isTh ? "ส่วนลด" : "Discount"}</td><td style="${valueStyle} text-align: right; color: #047857; font-weight: 600;">−฿${group.discount_amount.toLocaleString()}</td></tr>`
+      : "";
+
+    const depositRows = group.payment_type === "deposit"
+      ? `<tr><td style="${labelStyle}">${isTh ? "ยอดที่ชำระ" : "Amount Paid"}</td><td style="${valueStyle} text-align: right; font-weight: 600;">฿${(group.amount_paid || 0).toLocaleString()}</td></tr>
+         <tr><td style="${labelStyle}">${isTh ? "ยอดค้างชำระ" : "Balance Due"}</td><td style="${valueStyle} text-align: right; font-weight: 600;">฿${(group.total_price - (group.amount_paid || 0)).toLocaleString()} <span style="color: #6b7280; font-size: 12px;">(${isTh ? "ชำระเมื่อเข้าพัก" : "pay on arrival"})</span></td></tr>`
+      : "";
+
+    const headerText = isConfirmed
+      ? (isTh ? `การจองของคุณได้รับการยืนยันแล้ว` : `Your Booking Has Been Confirmed`)
+      : (isTh ? `ได้รับการจองแล้ว — รอการตรวจสอบ` : `Booking Received — Pending Review`);
+    const headerBg = isConfirmed ? "#f9fafb" : "#f59e0b";
+    const headerColor = isConfirmed ? "#111827" : "#ffffff";
+
+    const closingText = isConfirmed
+      ? (isTh ? "การชำระเงินของคุณได้รับการยืนยันเรียบร้อยแล้ว" : "Your payment has been confirmed.")
+      : (isTh ? "สลิปการชำระเงินไม่สามารถตรวจสอบอัตโนมัติได้ เจ้าของที่พักจะตรวจสอบและยืนยันให้ในเร็วๆ นี้" : "Your payment slip could not be auto-verified. The host will review and confirm your booking shortly.");
+
+    const html = `
+      <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+        <div style="background: ${headerBg}; padding: 32px 24px; border-bottom: 1px solid #e5e7eb;">
+          <h1 style="color: ${headerColor}; margin: 0; font-size: 22px; font-weight: 700;">${headerText}</h1>
+        </div>
+        <div style="padding: 32px 24px;">
+          <p style="font-size: 16px; color: #111827; margin: 0 0 16px;">${isTh ? `เรียน คุณ${group.guest_name}` : `Dear ${group.guest_name}`},</p>
+          <p style="font-size: 14px; color: #374151; margin: 0 0 24px; line-height: 1.6;">${isTh ? `รายละเอียดการจอง ${items.length} ห้องของคุณที่ ${localized.homestayName} มีดังนี้` : `Here are the details of your ${items.length}-room booking at ${localized.homestayName}:`}</p>
+          <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px 24px; margin-bottom: 24px;">
+            <h2 style="color: #111827; font-size: 16px; font-weight: 700; margin: 0 0 8px;">${isTh ? "รายละเอียดการจอง" : "Booking Details"}</h2>
+            <table style="width: 100%; border-collapse: collapse;">
+              <tr><td style="${labelStyle}">${isTh ? "รหัสกลุ่มการจอง" : "Booking Group ID"}</td><td style="${valueStyle} font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 12px; word-break: break-all; text-align: right;">${group.id}</td></tr>
+              <tr><td style="${labelStyle}">${isTh ? "ผู้เข้าพัก" : "Guest"}</td><td style="${valueStyle} text-align: right;">${group.guest_name}</td></tr>
+            </table>
+            <h3 style="color: #111827; font-size: 14px; font-weight: 700; margin: 16px 0 4px;">${isTh ? `ห้องพัก (${items.length})` : `Rooms (${items.length})`}</h3>
+            <table style="width: 100%; border-collapse: collapse;">
+              ${roomRows}
+              ${discountRow}
+              <tr><td style="padding: 16px 12px 0 0; color: #6b7280; font-size: 14px; border-top: 1px solid #e5e7eb;">${isTh ? "ยอดชำระรวมทั้งหมด" : "Total"}</td><td style="padding: 16px 0 0; color: ${accent}; font-size: 18px; font-weight: 700; border-top: 1px solid #e5e7eb; text-align: right;">฿${group.total_price.toLocaleString()}</td></tr>
+              ${depositRows}
+            </table>
+          </div>
+          <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin-bottom: 24px;">
+            <h2 style="color: #111827; font-size: 16px; font-weight: 700; margin: 0 0 8px;">${isTh ? "สถานที่เข้าพัก" : "Property"}</h2>
+            <p style="color: #111827; font-size: 14px; margin: 0 0 4px; font-weight: 600;">${localized.homestayName}</p>
+            <p style="color: #6b7280; font-size: 14px; margin: 0;">${localized.homestayLocation}</p>
+          </div>
+          <div style="border-top: 1px solid #e5e7eb; padding-top: 24px;">
+            <p style="font-size: 14px; color: #374151; margin: 0 0 16px;">${closingText}</p>
+            <p style="font-size: 14px; color: #111827; font-weight: 700; margin: 4px 0 0;">${localized.homestayName}</p>
+            <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Peaksnature — Nature Places in Thailand</p>
+          </div>
+        </div>
+      </div>`;
+
+    const { data, error } = await resend.emails.send({
+      from: fromEmail,
+      to: group.guest_email,
+      subject,
+      html,
+    });
+
+    if (error) {
+      console.error("[Email] Resend API error (group):", JSON.stringify(error));
+      return { success: false, error };
+    }
+    return { success: true, data };
+  } catch (error) {
+    console.error("[Email] Group exception:", error);
+    return { success: false, error };
+  }
 }

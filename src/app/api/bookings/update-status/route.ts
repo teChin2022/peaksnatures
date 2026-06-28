@@ -103,16 +103,39 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Multi-room cart: one payment covers every room, so a confirm/cancel must
+    // cascade to all sibling rooms in the group + the booking_groups parent.
+    const groupId = (booking as Booking & { group_id: string | null }).group_id;
+    let memberIds: string[] = [booking_id];
+    if (groupId) {
+      const { data: siblings } = await supabase
+        .from("bookings")
+        .select("id")
+        .eq("group_id", groupId)
+        .neq("id", booking_id);
+      const siblingIds = ((siblings as { id: string }[]) || []).map((s) => s.id);
+      if (siblingIds.length > 0) {
+        await supabase.from("bookings").update(updateData as never).in("id", siblingIds);
+        memberIds = [booking_id, ...siblingIds];
+      }
+      await supabase
+        .from("booking_groups")
+        .update({ status, updated_by: hostName } as never)
+        .eq("id", groupId);
+    }
+
     // Auto-reject any pending date change requests when booking is cancelled
     if (status === "cancelled") {
       await supabase
         .from("date_change_requests")
         .update({ status: "rejected", reject_reason: "Booking cancelled by host", updated_by: hostName } as never)
-        .eq("booking_id", booking_id)
+        .in("booking_id", memberIds)
         .eq("status", "pending");
 
-      // Cancel any pending recommender commission for this booking
-      await cancelRedemptionForBooking(supabase, booking_id, hostName);
+      // Cancel any pending recommender commission for this booking / group
+      for (const id of memberIds) {
+        await cancelRedemptionForBooking(supabase, id, hostName);
+      }
     }
 
     // Log event + send guest email notification in background.
@@ -130,11 +153,12 @@ export async function POST(req: NextRequest) {
         req,
       });
 
-      // Commission handling — must run before notifications
+      // Commission handling — must run before notifications. Applies per member
+      // room so a multi-room group settles/refunds the whole cart's commission.
       if (status === "confirmed") {
-        await deductCommission(booking_id);
+        for (const id of memberIds) await deductCommission(id);
       } else if (status === "cancelled" && booking.status === "confirmed") {
-        await refundCommission(booking_id);
+        for (const id of memberIds) await refundCommission(id);
       }
 
       try {

@@ -127,6 +127,15 @@ interface BookingSectionProps {
 
 type BookingStep = "dates" | "details" | "payment";
 
+/** A room added to the cart. Dates are shared (one range for the whole cart). */
+interface CartLine {
+  lineId: string;
+  roomId: string;
+  numGuests: number;
+  tierId: string | null;
+  optionIds: string[];
+}
+
 export function BookingSection({
   homestay,
   rooms,
@@ -147,9 +156,11 @@ export function BookingSection({
   const [showConfirmedModal, setShowConfirmedModal] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
   const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  // The "draft" room currently being configured to add. The cart accumulates lines.
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
   const [numGuests, setNumGuests] = useState("2");
   const [selectedTierId, setSelectedTierId] = useState<string>("");
+  const [cartLines, setCartLines] = useState<CartLine[]>([]);
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
@@ -279,6 +290,11 @@ export function BookingSection({
   useEffect(() => {
     document.dispatchEvent(new CustomEvent("booking-step", { detail: { step } }));
   }, [step]);
+
+  // Broadcast cart size so MobileBookingBar can show a count badge.
+  useEffect(() => {
+    document.dispatchEvent(new CustomEvent("cart-count", { detail: { count: cartLines.length } }));
+  }, [cartLines.length]);
 
   // Live booked ranges fetched client-side to stay up-to-date
   const [liveBookedRanges, setLiveBookedRanges] = useState<BookedRange[]>(bookedRanges);
@@ -420,7 +436,31 @@ export function BookingSection({
   // Composition surcharge is charged per night (× nights), like a per_night option.
   const compositionSurcharge = selectedTier ? computeCompositionSurcharge(selectedTier.surcharge, nights) : 0;
 
-  const subtotalPrice = (priceResult?.total ?? 0) + optionsTotal + compositionSurcharge;
+  // Price of the DRAFT room currently being configured (shown in the add-room editor).
+  const draftSubtotal = (priceResult?.total ?? 0) + optionsTotal + compositionSurcharge;
+
+  // Gross price (pre-discount) of any cart line, over the shared date range.
+  const computeLineGross = useCallback((line: CartLine): number => {
+    if (!dateRange?.from || !dateRange?.to || nights <= 0) return 0;
+    const room = rooms.find((r) => r.id === line.roomId);
+    if (!room) return 0;
+    const seasons = seasonsByRoom[room.id] || [];
+    const base = calculateTotalPrice(room.price_per_night, dateRange.from, dateRange.to, seasons).total;
+    const opts = line.optionIds.reduce((s, id) => {
+      const o = roomOptions.find((ro) => ro.id === id);
+      if (!o) return s;
+      return s + (o.pricing_type === "per_time" ? o.price : o.price * nights);
+    }, 0);
+    const tier = line.tierId ? guestPricing.find((g) => g.id === line.tierId) : null;
+    const comp = tier ? computeCompositionSurcharge(tier.surcharge, nights) : 0;
+    return base + opts + comp;
+  }, [dateRange, nights, rooms, seasonsByRoom, roomOptions, guestPricing]);
+
+  // Cart subtotal (sum of all added lines) drives promo, totals, deposit, payment.
+  const subtotalPrice = useMemo(
+    () => cartLines.reduce((sum, line) => sum + computeLineGross(line), 0),
+    [cartLines, computeLineGross],
+  );
 
   const promoDiscount = useMemo(() => {
     if (!appliedPromo || subtotalPrice <= 0) return 0;
@@ -434,9 +474,10 @@ export function BookingSection({
 
   const totalPrice = Math.max(0, subtotalPrice - promoDiscount);
 
+  // Deposit scales with the number of rooms (shared dates → one check-in month).
   const resolvedDeposit = useMemo(() => {
-    return getDepositForMonth(host, dateRange?.from);
-  }, [host, dateRange?.from]);
+    return getDepositForMonth(host, dateRange?.from) * cartLines.length;
+  }, [host, dateRange?.from, cartLines.length]);
 
   const depositAvailable = resolvedDeposit > 0 && resolvedDeposit < totalPrice;
 
@@ -483,19 +524,97 @@ export function BookingSection({
     });
   }, [dateRange, blockedDateSet, bookedDatesForRoom]);
 
+  // Select the DRAFT room to configure. Dates are shared across the cart, so
+  // (unlike the old single-room flow) we keep the chosen date range.
   const handleRoomChange = (roomId: string) => {
     setSelectedRoomId(roomId);
-    // Clear date range when switching rooms so stale selections
-    // that overlap with the new room's booked dates are reset
-    setDateRange(undefined);
     setSelectedOptionIds([]);
-    // Reset the guest-composition selection (tiers are per room)
     setSelectedTierId("");
+    setNumGuests("2");
+  };
+
+  const cancelDraft = () => {
+    setSelectedRoomId("");
+    setSelectedTierId("");
+    setSelectedOptionIds([]);
     setNumGuests("2");
   };
 
   const handleDateSelect = (range: DateRange | undefined) => {
     setDateRange(range);
+  };
+
+  // Nights in the shared range, as yyyy-MM-dd keys (occupied nights = from .. to-1).
+  const rangeNightKeys = useMemo(() => {
+    if (!dateRange?.from || !dateRange?.to) return [] as string[];
+    const last = subDays(dateRange.to, 1);
+    if (last < dateRange.from) return [] as string[];
+    return eachDayOfInterval({ start: dateRange.from, end: last }).map((d) => format(d, "yyyy-MM-dd"));
+  }, [dateRange]);
+
+  // A room is offerable for the chosen range if no night is blocked or fully booked.
+  const isRoomAvailableForRange = useCallback(
+    (room: Room): boolean => {
+      if (rangeNightKeys.length === 0) return false;
+      const blockedForRoom = new Set(
+        blockedDates.filter((d) => d.room_id === null || d.room_id === room.id).map((d) => d.date),
+      );
+      if (rangeNightKeys.some((k) => blockedForRoom.has(k))) return false;
+      const fully = getFullyBookedForRoom(room.id, room.quantity || 1, liveBookedRanges);
+      if (rangeNightKeys.some((k) => fully.has(k))) return false;
+      return true;
+    },
+    [rangeNightKeys, blockedDates, liveBookedRanges],
+  );
+
+  const availableRooms = useMemo(
+    () => rooms.filter(isRoomAvailableForRange),
+    [rooms, isRoomAvailableForRange],
+  );
+
+  // Remaining units of a room not yet placed in the cart.
+  const remainingForRoom = useCallback(
+    (room: Room) => Math.max(0, (room.quantity || 1) - cartLines.filter((l) => l.roomId === room.id).length),
+    [cartLines],
+  );
+
+  const handleAddToCart = () => {
+    if (!dateRange?.from || !dateRange?.to) {
+      toast.error(t("errorSelectDates"));
+      return;
+    }
+    if (!isDateRangeValid) {
+      toast.error(t("errorBlockedDates"));
+      return;
+    }
+    if (!selectedRoomId) {
+      toast.error(t("errorSelectRoom"));
+      return;
+    }
+    if (hasTiers && !selectedTier) {
+      toast.error(t("errorSelectGuests"));
+      return;
+    }
+    const room = rooms.find((r) => r.id === selectedRoomId);
+    if (room && remainingForRoom(room) <= 0) {
+      toast.error(t("errorRoomSoldOut"));
+      return;
+    }
+    setCartLines((prev) => [
+      ...prev,
+      {
+        lineId: crypto.randomUUID(),
+        roomId: selectedRoomId,
+        numGuests: selectedTier ? selectedTier.adults + selectedTier.children : parseInt(numGuests),
+        tierId: selectedTier?.id ?? null,
+        optionIds: [...selectedOptionIds],
+      },
+    ]);
+    cancelDraft();
+  };
+
+  const handleRemoveLine = (lineId: string) => {
+    setCartLines((prev) => prev.filter((l) => l.lineId !== lineId));
   };
 
   const handleApplyPromo = useCallback(async (opts?: { silent?: boolean }) => {
@@ -560,20 +679,8 @@ export function BookingSection({
   }, []);
 
   const handleProceedToDetails = () => {
-    if (!dateRange?.from || !dateRange?.to) {
-      toast.error(t("errorSelectDates"));
-      return;
-    }
-    if (!isDateRangeValid) {
-      toast.error(t("errorBlockedDates"));
-      return;
-    }
-    if (!selectedRoomId) {
-      toast.error(t("errorSelectRoom"));
-      return;
-    }
-    if (hasTiers && !selectedTier) {
-      toast.error(t("errorSelectGuests"));
+    if (cartLines.length === 0) {
+      toast.error(t("errorCartEmpty"));
       return;
     }
     setStep("details");
@@ -593,55 +700,72 @@ export function BookingSection({
       toast.error(t("errorInvalidPhone"));
       return;
     }
-    if (!dateRange?.from || !dateRange?.to || !selectedRoomId) return;
+    if (!dateRange?.from || !dateRange?.to || cartLines.length === 0) return;
 
     setIsSubmitting(true);
     try {
-      const res = await fetch("/api/bookings/hold", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          room_id: selectedRoomId,
-          check_in: format(dateRange.from, "yyyy-MM-dd"),
-          check_out: format(dateRange.to, "yyyy-MM-dd"),
-          session_id: uploadSessionId,
-          guest_phone: guestPhone.trim(),
-        }),
-      });
+      const checkIn = format(dateRange.from, "yyyy-MM-dd");
+      const checkOut = format(dateRange.to, "yyyy-MM-dd");
+      let firstHoldId: string | null = null;
+      let firstExpiry: number | null = null;
 
-      if (res.status === 409) {
-        const errorData = await res.json();
-        if (errorData.error === "DATES_UNAVAILABLE") {
-          toast.error(t("errorDatesUnavailable"));
-          fetch(`/api/bookings/availability?homestay_id=${homestay.id}`)
-            .then((r) => r.json())
-            .then((d) => { if (d.bookedRanges) setLiveBookedRanges(d.bookedRanges); })
-            .catch(() => { });
-          setDateRange(undefined);
-          setStep("dates");
-        } else {
-          setShowHeldModal(true);
+      // Hold every room in the cart under the shared session id.
+      for (const line of cartLines) {
+        const res = await fetch("/api/bookings/hold", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            room_id: line.roomId,
+            check_in: checkIn,
+            check_out: checkOut,
+            session_id: uploadSessionId,
+            guest_phone: guestPhone.trim(),
+          }),
+        });
+
+        if (res.status === 409) {
+          const errorData = await res.json();
+          // Release whatever we already held this session, then bounce to the room list.
+          fetch("/api/bookings/hold", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: uploadSessionId }),
+          }).catch(() => {});
+          if (errorData.error === "DATES_UNAVAILABLE") {
+            toast.error(t("errorDatesUnavailable"));
+            fetch(`/api/bookings/availability?homestay_id=${homestay.id}`)
+              .then((r) => r.json())
+              .then((d) => { if (d.bookedRanges) setLiveBookedRanges(d.bookedRanges); })
+              .catch(() => {});
+            setStep("dates");
+          } else {
+            setShowHeldModal(true);
+          }
+          setIsSubmitting(false);
+          return;
         }
-        setIsSubmitting(false);
-        return;
+
+        if (res.status === 429) {
+          toast.error(t("errorTooManyRequests"));
+          setIsSubmitting(false);
+          return;
+        }
+
+        if (!res.ok) {
+          toast.error(t("errorGeneric"));
+          setIsSubmitting(false);
+          return;
+        }
+
+        const data = await res.json();
+        if (firstExpiry === null) {
+          firstHoldId = data.hold_id;
+          firstExpiry = new Date(data.expires_at).getTime();
+        }
       }
 
-      if (res.status === 429) {
-        toast.error(t("errorTooManyRequests"));
-        setIsSubmitting(false);
-        return;
-      }
-
-      if (!res.ok) {
-        toast.error(t("errorGeneric"));
-        setIsSubmitting(false);
-        return;
-      }
-
-      const data = await res.json();
-      setHoldId(data.hold_id);
-      const expiresMs = new Date(data.expires_at).getTime();
-      setHoldExpiresAt(expiresMs);
+      setHoldId(firstHoldId);
+      setHoldExpiresAt(firstExpiry);
       setStep("payment");
     } catch {
       toast.error(t("errorGeneric"));
@@ -738,61 +862,104 @@ export function BookingSection({
       }
 
       const isSlipVerified = !!verifyData.verified;
+      const checkIn = format(dateRange.from, "yyyy-MM-dd");
+      const checkOut = format(dateRange.to, "yyyy-MM-dd");
+      const optionsForLine = (optionIds: string[]) =>
+        optionIds.map((id) => {
+          const opt = roomOptions.find((o) => o.id === id);
+          const price = opt?.pricing_type === "per_time" ? (opt?.price || 0) : (opt?.price || 0) * nights;
+          return { id, name: opt?.name || "", price };
+        });
 
-      // 3. Create the booking — verified or pending (host review)
-      const bookingRes = await fetch("/api/bookings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          homestay_id: homestay.id,
-          room_id: selectedRoomId || undefined,
-          guest_name: guestName,
-          guest_email: guestEmail,
-          guest_phone: guestPhone,
-          guest_province: guestProvince || undefined,
-          notes: guestNote || undefined,
-          check_in: format(dateRange.from, "yyyy-MM-dd"),
-          check_out: format(dateRange.to, "yyyy-MM-dd"),
-          num_guests: selectedTier ? selectedTier.adults + selectedTier.children : parseInt(numGuests),
-          guest_pricing_id: selectedTier?.id,
-          total_price: totalPrice,
-          payment_type: paymentOption,
-          amount_paid: paymentAmount,
-          slip_hash: verifyData.slip_hash,
-          slip_trans_ref: verifyData.slip_trans_ref || null,
-          payment_slip_url: verifyData.payment_slip_url || null,
-          easyslip_response: verifyData.easyslip_response || null,
-          easyslip_verified: isSlipVerified,
-          session_id: uploadSessionId,
-          locale,
-          selected_options: selectedOptionIds.map((id) => {
-            const opt = roomOptions.find((o) => o.id === id);
-            const price = opt?.pricing_type === "per_time" ? (opt?.price || 0) : (opt?.price || 0) * nights;
-            return { id, name: opt?.name || "", price };
+      const handleCreateConflict = () => {
+        toast.error(t("errorDatesUnavailable"));
+        fetch(`/api/bookings/availability?homestay_id=${homestay.id}`)
+          .then((res) => res.json())
+          .then((data) => { if (data.bookedRanges) setLiveBookedRanges(data.bookedRanges); })
+          .catch(() => {});
+        setStep("dates");
+        setIsSubmitting(false);
+      };
+
+      // 3. Create the booking(s) — 1 room → single endpoint, ≥2 rooms → group endpoint.
+      let createdId: string | null = null;
+      if (cartLines.length === 1) {
+        const line = cartLines[0];
+        const bookingRes = await fetch("/api/bookings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            homestay_id: homestay.id,
+            room_id: line.roomId,
+            guest_name: guestName,
+            guest_email: guestEmail,
+            guest_phone: guestPhone,
+            guest_province: guestProvince || undefined,
+            notes: guestNote || undefined,
+            check_in: checkIn,
+            check_out: checkOut,
+            num_guests: line.numGuests,
+            guest_pricing_id: line.tierId || undefined,
+            total_price: totalPrice,
+            payment_type: paymentOption,
+            amount_paid: paymentAmount,
+            slip_hash: verifyData.slip_hash,
+            slip_trans_ref: verifyData.slip_trans_ref || null,
+            payment_slip_url: verifyData.payment_slip_url || null,
+            easyslip_response: verifyData.easyslip_response || null,
+            easyslip_verified: isSlipVerified,
+            session_id: uploadSessionId,
+            locale,
+            selected_options: optionsForLine(line.optionIds),
+            promo_code_id: appliedPromo?.id || undefined,
           }),
-          promo_code_id: appliedPromo?.id || undefined,
-        }),
-      });
-
-      if (!bookingRes.ok) {
-        if (bookingRes.status === 409) {
-          toast.error(t("errorDatesUnavailable"));
-          fetch(`/api/bookings/availability?homestay_id=${homestay.id}`)
-            .then((res) => res.json())
-            .then((data) => {
-              if (data.bookedRanges) setLiveBookedRanges(data.bookedRanges);
-            })
-            .catch(() => { });
-          setDateRange(undefined);
-          setStep("dates");
-          setIsSubmitting(false);
-          return;
+        });
+        if (!bookingRes.ok) {
+          if (bookingRes.status === 409) { handleCreateConflict(); return; }
+          throw new Error("Failed to create booking");
         }
-        throw new Error("Failed to create booking");
+        const { booking } = await bookingRes.json();
+        createdId = booking.id;
+      } else {
+        const groupRes = await fetch("/api/bookings/group", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            homestay_id: homestay.id,
+            guest_name: guestName,
+            guest_email: guestEmail,
+            guest_phone: guestPhone,
+            guest_province: guestProvince || undefined,
+            notes: guestNote || undefined,
+            locale,
+            payment_type: paymentOption,
+            promo_code_id: appliedPromo?.id || undefined,
+            session_id: uploadSessionId,
+            slip_hash: verifyData.slip_hash,
+            slip_trans_ref: verifyData.slip_trans_ref || null,
+            payment_slip_url: verifyData.payment_slip_url || null,
+            easyslip_response: verifyData.easyslip_response || null,
+            easyslip_verified: isSlipVerified,
+            items: cartLines.map((line) => ({
+              room_id: line.roomId,
+              check_in: checkIn,
+              check_out: checkOut,
+              num_guests: line.numGuests,
+              guest_pricing_id: line.tierId || undefined,
+              selected_options: optionsForLine(line.optionIds),
+              total_price: computeLineGross(line),
+            })),
+          }),
+        });
+        if (!groupRes.ok) {
+          if (groupRes.status === 409) { handleCreateConflict(); return; }
+          throw new Error("Failed to create booking");
+        }
+        const data = await groupRes.json();
+        createdId = data.group?.id || data.bookings?.[0]?.id || null;
       }
 
-      const { booking } = await bookingRes.json();
-      setBookingId(booking.id);
+      setBookingId(createdId);
       setSlipVerified(isSlipVerified);
       // Hold is cleaned up server-side by create_booking_atomic; clear local state
       releaseHold();
@@ -905,6 +1072,7 @@ export function BookingSection({
     setSelectedRoomId("");
     setSelectedTierId("");
     setNumGuests("2");
+    setCartLines([]);
     setGuestName("");
     setGuestEmail("");
     setGuestPhone("");
@@ -1063,34 +1231,11 @@ export function BookingSection({
                     <AnimatePresence mode="wait">
                       {!showCalendar && !showOptions && !showGuests ? (
                         <motion.div key="dates-form" initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.25 }} className="space-y-5">
-                          {/* Room detail or prompt */}
-                          {selectedRoom ? (
-                            <div className="rounded-xl bg-earth-50 p-3">
-                              <p className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("room")}</p>
-                              <div className="flex items-baseline justify-between mt-1">
-                                <p className="text-base font-bold text-earth-900">{selectedRoom.name}</p>
-                                <p className="text-sm font-semibold">{priceLabel}/{tc("night")}</p>
-                              </div>
-                              {/* {selectedRoom.description && (
-                                <div className="mt-2 text-xs text-earth-500">
-                                  <HTMLContent content={selectedRoom.description} className="inline" />
-                                </div>
-                              )} */}
-                            </div>
-                          ) : (
-                            <div className="rounded-xl border border-dashed border-earth-300 bg-earth-50 p-4 text-center">
-                              <CalendarDays className="mx-auto h-8 w-8 text-earth-300 mb-2" />
-                              <p className="text-sm font-medium text-earth-500">{t("selectRoomFirst")}</p>
-                            </div>
-                          )}
-
+                          {/* ── Dates first ── */}
                           <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("selectDates")}</label>
-
-                          {/* Date picker toggle */}
                           <button
-                            onClick={() => selectedRoomId && setShowCalendar(true)}
-                            disabled={!selectedRoomId}
-                            className={`w-full flex items-center justify-between p-3.5 rounded-xl border border-earth-200 transition-all text-sm font-medium bg-white ${selectedRoomId ? "hover:border-earth-400 text-earth-900 cursor-pointer" : "opacity-50 cursor-not-allowed text-earth-400"}`}
+                            onClick={() => setShowCalendar(true)}
+                            className="w-full flex items-center justify-between p-3.5 rounded-xl border border-earth-200 transition-all text-sm font-medium bg-white hover:border-earth-400 text-earth-900 cursor-pointer"
                           >
                             <div className="flex items-center gap-2.5">
                               <CalendarIcon size={16} className="text-earth-400" />
@@ -1108,126 +1253,222 @@ export function BookingSection({
                             </span>
                           </button>
 
-                          {/* Guests — dropdown of host-defined compositions when the room has tiers, else a stepper */}
-                          <div className="space-y-2">
-                            <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("numGuests")}</label>
-                            {hasTiers ? (
-                              <button
-                                onClick={() => setShowGuests(true)}
-                                className="w-full flex items-center justify-between p-3.5 rounded-xl border border-earth-200 transition-all text-sm font-medium bg-white hover:border-earth-400 text-earth-900 cursor-pointer"
-                              >
-                                <div className="flex min-w-0 items-center gap-2.5">
-                                  <Users size={16} className="shrink-0 text-earth-400" />
-                                  <span className={`truncate ${selectedTier ? "" : "text-earth-400"}`}>
-                                    {selectedTier ? composeTierLabel(selectedTier, locale) : t("selectGuestsForPrice")}
-                                  </span>
+                          {/* ── After dates: configure a draft room, or pick one from the available list ── */}
+                          {dateRange?.from && dateRange?.to && isDateRangeValid ? (
+                            selectedRoom ? (
+                              <div className="space-y-5 rounded-2xl border border-brand-100 bg-brand-50/40 p-3">
+                                <div className="rounded-xl bg-white p-3 border border-earth-100">
+                                  <div className="flex items-center justify-between">
+                                    <p className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("room")}</p>
+                                    <button onClick={cancelDraft} className="p-1 rounded-full hover:bg-earth-100 text-earth-400"><X size={14} /></button>
+                                  </div>
+                                  <div className="flex items-baseline justify-between mt-1">
+                                    <p className="text-base font-bold text-earth-900">{selectedRoom.name}</p>
+                                    <p className="text-sm font-semibold">{priceLabel}/{tc("night")}</p>
+                                  </div>
                                 </div>
-                                {selectedTier && (
-                                  <span className="text-xs font-semibold text-brand whitespace-nowrap">
-                                    {selectedTier.surcharge > 0
-                                      ? `+฿${selectedTier.surcharge.toLocaleString()}`
-                                      : `฿${defaultTierNightlyPrice.toLocaleString()}`}
-                                  </span>
-                                )}
-                              </button>
-                            ) : (
-                              <div className="flex items-center justify-between p-3 rounded-xl border border-earth-200">
-                                <span className="text-sm font-medium text-earth-700">{numGuests} {tc("guests")}</span>
-                                <div className="flex items-center gap-3">
-                                  <button
-                                    onClick={() => setNumGuests(String(Math.max(1, parseInt(numGuests) - 1)))}
-                                    className="p-1 rounded-full border border-earth-200 hover:bg-earth-100 text-earth-400"
-                                  >
-                                    <Minus size={14} />
-                                  </button>
-                                  <button
-                                    onClick={() => setNumGuests(String(Math.min(selectedRoom?.max_guests || homestay.max_guests, parseInt(numGuests) + 1)))}
-                                    className="p-1 rounded-full border border-earth-200 hover:bg-earth-100 text-earth-400"
-                                  >
-                                    <Plus size={14} />
-                                  </button>
-                                </div>
-                              </div>
-                            )}
-                          </div>
 
-                          {/* Room Options toggle */}
-                          {optionsForRoom.length > 0 && (
-                            <div className="space-y-2">
-                              <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("options")}</label>
-                              <button
-                                onClick={() => setShowOptions(true)}
-                                className="w-full flex items-center justify-between p-3.5 rounded-xl border border-earth-200 transition-all text-sm font-medium bg-white hover:border-earth-400 text-earth-900 cursor-pointer"
-                              >
-                                <div className="flex items-center gap-2.5">
-                                  <ListPlus size={16} className="text-earth-400" />
-                                  <span>
-                                    {selectedOptionIds.length > 0
-                                      ? t("optionsSelected", { count: selectedOptionIds.length })
-                                      : t("selectOptions")}
-                                  </span>
+                                {/* Guests — host-defined compositions when the room has tiers, else a stepper */}
+                                <div className="space-y-2">
+                                  <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("numGuests")}</label>
+                                  {hasTiers ? (
+                                    <button
+                                      onClick={() => setShowGuests(true)}
+                                      className="w-full flex items-center justify-between p-3.5 rounded-xl border border-earth-200 transition-all text-sm font-medium bg-white hover:border-earth-400 text-earth-900 cursor-pointer"
+                                    >
+                                      <div className="flex min-w-0 items-center gap-2.5">
+                                        <Users size={16} className="shrink-0 text-earth-400" />
+                                        <span className={`truncate ${selectedTier ? "" : "text-earth-400"}`}>
+                                          {selectedTier ? composeTierLabel(selectedTier, locale) : t("selectGuestsForPrice")}
+                                        </span>
+                                      </div>
+                                      {selectedTier && (
+                                        <span className="text-xs font-semibold text-brand whitespace-nowrap">
+                                          {selectedTier.surcharge > 0
+                                            ? `+฿${selectedTier.surcharge.toLocaleString()}`
+                                            : `฿${defaultTierNightlyPrice.toLocaleString()}`}
+                                        </span>
+                                      )}
+                                    </button>
+                                  ) : (
+                                    <div className="flex items-center justify-between p-3 rounded-xl border border-earth-200 bg-white">
+                                      <span className="text-sm font-medium text-earth-700">{numGuests} {tc("guests")}</span>
+                                      <div className="flex items-center gap-3">
+                                        <button
+                                          onClick={() => setNumGuests(String(Math.max(1, parseInt(numGuests) - 1)))}
+                                          className="p-1 rounded-full border border-earth-200 hover:bg-earth-100 text-earth-400"
+                                        >
+                                          <Minus size={14} />
+                                        </button>
+                                        <button
+                                          onClick={() => setNumGuests(String(Math.min(selectedRoom?.max_guests || homestay.max_guests, parseInt(numGuests) + 1)))}
+                                          className="p-1 rounded-full border border-earth-200 hover:bg-earth-100 text-earth-400"
+                                        >
+                                          <Plus size={14} />
+                                        </button>
+                                      </div>
+                                    </div>
+                                  )}
                                 </div>
-                                {optionsTotal > 0 && (
-                                  <span className="text-xs font-semibold text-brand">+฿{optionsTotal.toLocaleString()}</span>
+
+                                {/* Room Options toggle */}
+                                {optionsForRoom.length > 0 && (
+                                  <div className="space-y-2">
+                                    <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("options")}</label>
+                                    <button
+                                      onClick={() => setShowOptions(true)}
+                                      className="w-full flex items-center justify-between p-3.5 rounded-xl border border-earth-200 transition-all text-sm font-medium bg-white hover:border-earth-400 text-earth-900 cursor-pointer"
+                                    >
+                                      <div className="flex items-center gap-2.5">
+                                        <ListPlus size={16} className="text-earth-400" />
+                                        <span>
+                                          {selectedOptionIds.length > 0
+                                            ? t("optionsSelected", { count: selectedOptionIds.length })
+                                            : t("selectOptions")}
+                                        </span>
+                                      </div>
+                                      {optionsTotal > 0 && (
+                                        <span className="text-xs font-semibold text-brand">+฿{optionsTotal.toLocaleString()}</span>
+                                      )}
+                                    </button>
+                                  </div>
                                 )}
-                              </button>
+
+                                {/* Draft room price */}
+                                {draftSubtotal > 0 && priceResult && (!hasTiers || selectedTier) && (
+                                  <div className="pt-3 border-t border-earth-100 space-y-2">
+                                    {(() => {
+                                      const hasSeasons = priceResult.breakdown.some((b) => b.seasonName);
+                                      if (!hasSeasons) {
+                                        return (
+                                          <div className="flex justify-between text-sm text-earth-600">
+                                            <span>฿{selectedRoom?.price_per_night.toLocaleString()} × {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
+                                            <span>฿{priceResult.total.toLocaleString()}</span>
+                                          </div>
+                                        );
+                                      }
+                                      const groups: { label: string; price: number; count: number }[] = [];
+                                      for (const b of priceResult.breakdown) {
+                                        const label = b.seasonName || t("baseRate");
+                                        const last = groups[groups.length - 1];
+                                        if (last && last.label === label && last.price === b.price) last.count++;
+                                        else groups.push({ label, price: b.price, count: 1 });
+                                      }
+                                      return (
+                                        <>
+                                          {groups.map((g, i) => (
+                                            <div key={i} className="flex justify-between text-sm text-earth-600">
+                                              <span>{g.label}: ฿{g.price.toLocaleString()} × {g.count}</span>
+                                              <span>฿{(g.price * g.count).toLocaleString()}</span>
+                                            </div>
+                                          ))}
+                                        </>
+                                      );
+                                    })()}
+                                    {compositionSurcharge > 0 && (
+                                      <div className="flex justify-between text-sm text-earth-600">
+                                        <span>{t("extraGuests")}</span>
+                                        <span>+฿{compositionSurcharge.toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    {optionsTotal > 0 && (
+                                      <div className="flex justify-between text-sm text-earth-600">
+                                        <span>{t("options")} ({selectedOptionIds.length})</span>
+                                        <span>+฿{optionsTotal.toLocaleString()}</span>
+                                      </div>
+                                    )}
+                                    <div className="flex justify-between text-sm font-bold text-earth-900 pt-2 border-t border-earth-100">
+                                      <span>{t("room")}</span>
+                                      <span>฿{draftSubtotal.toLocaleString()}</span>
+                                    </div>
+                                  </div>
+                                )}
+
+                                <button
+                                  onClick={handleAddToCart}
+                                  disabled={hasTiers && !selectedTier}
+                                  className="w-full bg-brand text-white px-10 py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                                >
+                                  <Plus size={18} /> {t("addToCart")}
+                                </button>
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("availableRooms")}</label>
+                                {availableRooms.length === 0 ? (
+                                  <div className="rounded-xl border border-dashed border-earth-300 bg-earth-50 p-4 text-center">
+                                    <p className="text-sm font-medium text-earth-500">{t("noRoomsAvailable")}</p>
+                                  </div>
+                                ) : (
+                                  availableRooms.map((room) => {
+                                    const remaining = remainingForRoom(room);
+                                    const seasons = seasonsByRoom[room.id] || [];
+                                    const range = getPriceRange(room.price_per_night, seasons);
+                                    const label = range.min !== range.max
+                                      ? `฿${range.min.toLocaleString()}–฿${range.max.toLocaleString()}`
+                                      : `฿${room.price_per_night.toLocaleString()}`;
+                                    return (
+                                      <button
+                                        key={room.id}
+                                        disabled={remaining <= 0}
+                                        onClick={() => handleRoomChange(room.id)}
+                                        className={`w-full flex items-center justify-between p-3.5 rounded-xl border transition-all text-sm ${remaining <= 0 ? "opacity-50 cursor-not-allowed border-earth-200" : "border-earth-200 hover:border-earth-400 cursor-pointer"}`}
+                                      >
+                                        <div className="flex flex-col items-start min-w-0">
+                                          <span className="font-medium text-earth-900 truncate">{room.name}</span>
+                                          <span className="text-xs text-earth-400">{label}/{tc("night")}</span>
+                                        </div>
+                                        {remaining <= 0 ? (
+                                          <span className="text-xs text-earth-400">{t("roomSoldOut")}</span>
+                                        ) : (
+                                          <span className="flex items-center gap-1 text-xs font-semibold text-brand"><Plus size={14} /> {t("addRoom")}</span>
+                                        )}
+                                      </button>
+                                    );
+                                  })
+                                )}
+                              </div>
+                            )
+                          ) : (
+                            <div className="rounded-xl border border-dashed border-earth-300 bg-earth-50 p-4 text-center">
+                              <CalendarDays className="mx-auto h-8 w-8 text-earth-300 mb-2" />
+                              <p className="text-sm font-medium text-earth-500">{t("selectDatesFirst")}</p>
                             </div>
                           )}
 
-                          {/* Price breakdown */}
-                          {totalPrice > 0 && priceResult && (!hasTiers || selectedTier) && (
-                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="pt-4 border-t border-earth-100 space-y-2">
-                              {(() => {
-                                const hasSeasons = priceResult.breakdown.some((b) => b.seasonName);
-                                if (!hasSeasons) {
-                                  return (
-                                    <div className="flex justify-between text-sm text-earth-600">
-                                      <span>฿{selectedRoom?.price_per_night.toLocaleString()} × {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
-                                      <span>฿{priceResult.total.toLocaleString()}</span>
-                                    </div>
-                                  );
-                                }
-                                const groups: { label: string; price: number; count: number }[] = [];
-                                for (const b of priceResult.breakdown) {
-                                  const label = b.seasonName || t("baseRate");
-                                  const last = groups[groups.length - 1];
-                                  if (last && last.label === label && last.price === b.price) last.count++;
-                                  else groups.push({ label, price: b.price, count: 1 });
-                                }
+                          {/* ── Cart ── */}
+                          {cartLines.length > 0 && (
+                            <div className="space-y-2 pt-3 border-t border-earth-100">
+                              <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("yourCart")} ({cartLines.length})</label>
+                              {cartLines.map((line) => {
+                                const room = rooms.find((r) => r.id === line.roomId);
+                                const gross = computeLineGross(line);
                                 return (
-                                  <>
-                                    {groups.map((g, i) => (
-                                      <div key={i} className="flex justify-between text-sm text-earth-600">
-                                        <span>{g.label}: ฿{g.price.toLocaleString()} × {g.count}</span>
-                                        <span>฿{(g.price * g.count).toLocaleString()}</span>
-                                      </div>
-                                    ))}
-                                  </>
+                                  <div key={line.lineId} className="flex items-center justify-between rounded-xl bg-earth-50 px-3 py-2">
+                                    <div className="min-w-0">
+                                      <p className="text-sm font-medium text-earth-900 truncate">{room?.name}</p>
+                                      <p className="text-xs text-earth-400">
+                                        {line.numGuests} {tc("guests")}{line.optionIds.length > 0 ? ` · ${t("optionsSelected", { count: line.optionIds.length })}` : ""}
+                                      </p>
+                                    </div>
+                                    <div className="flex items-center gap-2 shrink-0">
+                                      <span className="text-sm font-semibold text-earth-900">฿{gross.toLocaleString()}</span>
+                                      <button onClick={() => handleRemoveLine(line.lineId)} className="p-1 rounded-full hover:bg-earth-200 text-earth-400"><X size={14} /></button>
+                                    </div>
+                                  </div>
                                 );
-                              })()}
-                              {compositionSurcharge > 0 && (
-                                <div className="flex justify-between text-sm text-earth-600">
-                                  <span>{t("extraGuests")}</span>
-                                  <span>+฿{compositionSurcharge.toLocaleString()}</span>
-                                </div>
-                              )}
-                              {optionsTotal > 0 && (
-                                <div className="flex justify-between text-sm text-earth-600">
-                                  <span>{t("options")} ({selectedOptionIds.length})</span>
-                                  <span>+฿{optionsTotal.toLocaleString()}</span>
-                                </div>
-                              )}
+                              })}
                               {appliedPromo && promoDiscount > 0 && (
-                                <div className="flex justify-between text-sm text-emerald-700">
+                                <div className="flex justify-between text-sm text-emerald-700 px-1">
                                   <span>{t("promoLabel")} ({appliedPromo.code})</span>
                                   <span>−฿{promoDiscount.toLocaleString()}</span>
                                 </div>
                               )}
-                              <div className="flex justify-between text-base font-bold text-earth-900 pt-2 border-t border-earth-100">
+                              <div className="flex justify-between text-base font-bold text-earth-900 px-1 pt-1">
                                 <span>{tc("total")}</span>
                                 <span>฿{totalPrice.toLocaleString()}</span>
                               </div>
-                            </motion.div>
+                            </div>
                           )}
 
                           {/* PDPA */}
@@ -1243,7 +1484,7 @@ export function BookingSection({
 
                           <button
                             onClick={handleProceedToDetails}
-                            disabled={!dateRange?.from || !dateRange?.to || !selectedRoomId || !pdpaConsent || (hasTiers && !selectedTier)}
+                            disabled={cartLines.length === 0 || !pdpaConsent}
                             className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {t("continueDetails")} <ArrowRight size={18} />
@@ -1531,10 +1772,6 @@ export function BookingSection({
                           <p className="text-sm text-earth-500">{t("confirmDesc")}</p>
                           <div className="space-y-3 rounded-xl bg-earth-50 p-4 text-sm">
                             <div className="flex justify-between">
-                              <span className="text-earth-500">{t("room")}</span>
-                              <span className="font-medium text-earth-900">{selectedRoom?.name}</span>
-                            </div>
-                            <div className="flex justify-between">
                               <span className="text-earth-500">{t("dates")}</span>
                               <span className="font-medium text-earth-900">
                                 {dateRange?.from && fmtDate(dateRange.from, "MMM d", locale)} — {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy", locale)}
@@ -1546,30 +1783,27 @@ export function BookingSection({
                                 <span className="text-earth-400">{homestay.check_out_time && t("checkOutTime", { time: homestay.check_out_time })}</span>
                               </div>
                             )}
-                            <div className="flex justify-between">
-                              <span className="text-earth-500">{tc("guests")}</span>
-                              <span className="font-medium text-earth-900">{selectedTier ? composeTierLabel(selectedTier, locale) : numGuests}</span>
+                            {/* Rooms in cart (shared dates) */}
+                            <div className="space-y-2">
+                              <span className="text-earth-500">{t("yourCart")} ({cartLines.length})</span>
+                              {cartLines.map((line) => {
+                                const room = rooms.find((r) => r.id === line.roomId);
+                                const tier = line.tierId ? guestPricing.find((g) => g.id === line.tierId) : null;
+                                const gross = computeLineGross(line);
+                                return (
+                                  <div key={line.lineId} className="rounded-lg bg-white border border-earth-100 p-2.5">
+                                    <div className="flex justify-between">
+                                      <span className="font-medium text-earth-900">{room?.name}</span>
+                                      <span className="font-medium text-earth-900">฿{gross.toLocaleString()}</span>
+                                    </div>
+                                    <div className="text-xs text-earth-400">
+                                      {tier ? composeTierLabel(tier, locale) : `${line.numGuests} ${tc("guests")}`}
+                                      {line.optionIds.length > 0 ? ` · ${t("optionsSelected", { count: line.optionIds.length })}` : ""}
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
-                            {selectedOptionIds.length > 0 && (
-                              <div>
-                                <span className="text-earth-500">{t("options")}</span>
-                                <div className="mt-1 space-y-1">
-                                  {selectedOptionIds.map((id) => {
-                                    const opt = roomOptions.find((o) => o.id === id);
-                                    if (!opt) return null;
-                                    const isPerTime = opt.pricing_type === "per_time";
-                                    const lineTotal = isPerTime ? opt.price : opt.price * nights;
-                                    const unitLabel = isPerTime ? tc("perStay") : `/${tc("night")}`;
-                                    return (
-                                      <div key={id} className="flex justify-between text-xs">
-                                        <span className="text-earth-600">{opt.name} (฿{opt.price.toLocaleString()}{unitLabel})</span>
-                                        <span className="font-medium text-brand">+฿{lineTotal.toLocaleString()}</span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
                             <Separator />
                             <div className="flex justify-between">
                               <span className="text-earth-500">{t("fullName")}</span>
@@ -1840,9 +2074,17 @@ export function BookingSection({
                 <span className="text-earth-400">{t("homestay")}</span>
                 <span className="font-bold text-earth-900">{homestay.name}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-earth-400">{t("room")}</span>
-                <span className="font-bold text-earth-900">{selectedRoom?.name}</span>
+              <div className="space-y-1.5">
+                <span className="text-earth-400">{t("yourCart")} ({cartLines.length})</span>
+                {cartLines.map((line) => {
+                  const room = rooms.find((r) => r.id === line.roomId);
+                  return (
+                    <div key={line.lineId} className="flex justify-between">
+                      <span className="font-medium text-earth-900">{room?.name}</span>
+                      <span className="font-medium text-earth-900">฿{computeLineGross(line).toLocaleString()}</span>
+                    </div>
+                  );
+                })}
               </div>
               <div className="flex justify-between">
                 <span className="text-earth-400">{t("dates")}</span>
@@ -1854,32 +2096,6 @@ export function BookingSection({
                 <span className="text-earth-400">{t("guestInfo")}</span>
                 <span className="font-bold text-earth-900">{guestName}</span>
               </div>
-              {selectedOptionIds.length > 0 && (
-                <div>
-                  <div className="text-earth-400 mb-1.5">{t("options")}</div>
-                  <div className="space-y-1.5 pl-2">
-                    {selectedOptionIds.map((id) => {
-                      const opt = roomOptions.find((o) => o.id === id);
-                      if (!opt) return null;
-                      const isPerTime = opt.pricing_type === "per_time";
-                      const lineTotal = isPerTime ? opt.price : opt.price * nights;
-                      const unitLabel = isPerTime ? tc("perStay") : `/${tc("night")}`;
-                      const detail = isPerTime
-                        ? `฿${opt.price.toLocaleString()}${unitLabel}`
-                        : `฿${opt.price.toLocaleString()}${unitLabel} × ${nights}`;
-                      return (
-                        <div key={id} className="flex justify-between gap-2 text-xs">
-                          <div className="min-w-0">
-                            <div className="text-earth-900 truncate">{opt.name}</div>
-                            <div className="text-earth-400">{detail}</div>
-                          </div>
-                          <span className="font-medium text-earth-900 whitespace-nowrap">+฿{lineTotal.toLocaleString()}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
               <Separator />
               <div className="flex justify-between">
                 <span className="text-earth-400">{tc("total")}</span>

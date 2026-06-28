@@ -43,6 +43,7 @@ interface SearchResult {
   payment_type: string;
   status: string;
   room_id: string | null;
+  group_id: string | null;
   room_name: string;
   checked_in_at: string | null;
   checked_out_at: string | null;
@@ -739,6 +740,11 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                           {fmtDateStr(booking.check_in, "d MMM yyyy", locale)} → {fmtDateStr(booking.check_out, "d MMM yyyy", locale)}
                         </span>
                         <span>{booking.room_name}</span>
+                        {booking.group_id && (
+                          <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700">
+                            {t("groupBookingBadge")}
+                          </span>
+                        )}
                         <span className="font-medium text-earth-900">
                           ฿{booking.total_price.toLocaleString()}
                         </span>

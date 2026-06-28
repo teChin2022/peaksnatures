@@ -30,6 +30,7 @@ export function MobileBookingBar({
   const isMobile = useIsMobile();
   const [visible, setVisible] = useState(false);
   const [bookingStep, setBookingStep] = useState<BookingStep>("dates");
+  const [cartCount, setCartCount] = useState(0);
 
   const cheapestPrice = useMemo(() => {
     if (!rooms.length) return 0;
@@ -54,6 +55,16 @@ export function MobileBookingBar({
     };
     document.addEventListener("booking-step", handler);
     return () => document.removeEventListener("booking-step", handler);
+  }, []);
+
+  // Cart size, broadcast by BookingSection as rooms are added/removed.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const { count } = (e as CustomEvent<{ count: number }>).detail;
+      setCartCount(count);
+    };
+    document.addEventListener("cart-count", handler);
+    return () => document.removeEventListener("cart-count", handler);
   }, []);
 
   useEffect(() => {
@@ -115,6 +126,16 @@ export function MobileBookingBar({
     );
   };
 
+  // With rooms in the cart, the CTA jumps to the panel to review/continue;
+  // otherwise it kicks off a fresh booking for the focused room.
+  const handleCta = () => {
+    if (cartCount > 0) {
+      document.getElementById("booking-section")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    } else {
+      handleBookNow();
+    }
+  };
+
   if (!isMobile || !rooms.length) return null;
 
   return (
@@ -141,12 +162,17 @@ export function MobileBookingBar({
               </span>
             </div>
             <Button
-              onClick={handleBookNow}
+              onClick={handleCta}
               disabled={bookingDisabled}
-              className="shrink-0 bg-brand text-white px-6 py-3 h-auto font-bold text-sm tracking-wider uppercase rounded-full hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
+              className="relative shrink-0 bg-brand text-white px-6 py-3 h-auto font-bold text-sm tracking-wider uppercase rounded-full hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
             >
               <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
               {bookingDisabled ? t("unavailable") : t("bookNow")}
+              {cartCount > 0 && (
+                <span className="absolute -right-1.5 -top-1.5 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-[11px] font-bold text-brand shadow">
+                  {cartCount}
+                </span>
+              )}
             </Button>
           </div>
         </motion.div>
