@@ -48,6 +48,7 @@ import {
 } from "@/components/ui/dialog";
 import { BookingTutorialDialog } from "@/components/booking/booking-tutorial-dialog";
 import { LeaveBookingDialog } from "@/components/booking/leave-booking-dialog";
+import { useBookingCart, type CartLine } from "@/components/booking/booking-cart-context";
 
 interface BookedRange {
   room_id: string | null;
@@ -127,15 +128,6 @@ interface BookingSectionProps {
 
 type BookingStep = "dates" | "details" | "payment";
 
-/** A room added to the cart. Dates are shared (one range for the whole cart). */
-interface CartLine {
-  lineId: string;
-  roomId: string;
-  numGuests: number;
-  tierId: string | null;
-  optionIds: string[];
-}
-
 export function BookingSection({
   homestay,
   rooms,
@@ -155,12 +147,14 @@ export function BookingSection({
   const [step, setStep] = useState<BookingStep>("dates");
   const [showConfirmedModal, setShowConfirmedModal] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  // Cart + shared dates live in the BookingCartProvider, so the sticky date bar,
+  // room-card "Add to cart", the cart modal, and this panel all share one cart.
+  const cart = useBookingCart();
+  const { dateRange, lines: cartLines, setDates: setDateRange, addLine, removeLine, clear: clearCart } = cart;
   // The "draft" room currently being configured to add. The cart accumulates lines.
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
   const [numGuests, setNumGuests] = useState("2");
   const [selectedTierId, setSelectedTierId] = useState<string>("");
-  const [cartLines, setCartLines] = useState<CartLine[]>([]);
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
@@ -600,21 +594,18 @@ export function BookingSection({
       toast.error(t("errorRoomSoldOut"));
       return;
     }
-    setCartLines((prev) => [
-      ...prev,
-      {
-        lineId: crypto.randomUUID(),
-        roomId: selectedRoomId,
-        numGuests: selectedTier ? selectedTier.adults + selectedTier.children : parseInt(numGuests),
-        tierId: selectedTier?.id ?? null,
-        optionIds: [...selectedOptionIds],
-      },
-    ]);
+    addLine({
+      lineId: crypto.randomUUID(),
+      roomId: selectedRoomId,
+      numGuests: selectedTier ? selectedTier.adults + selectedTier.children : parseInt(numGuests),
+      tierId: selectedTier?.id ?? null,
+      optionIds: [...selectedOptionIds],
+    });
     cancelDraft();
   };
 
   const handleRemoveLine = (lineId: string) => {
-    setCartLines((prev) => prev.filter((l) => l.lineId !== lineId));
+    removeLine(lineId);
   };
 
   const handleApplyPromo = useCallback(async (opts?: { silent?: boolean }) => {
@@ -1072,7 +1063,7 @@ export function BookingSection({
     setSelectedRoomId("");
     setSelectedTierId("");
     setNumGuests("2");
-    setCartLines([]);
+    clearCart();
     setGuestName("");
     setGuestEmail("");
     setGuestPhone("");

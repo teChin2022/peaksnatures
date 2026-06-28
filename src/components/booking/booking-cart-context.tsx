@@ -2,12 +2,16 @@
 
 import { createContext, useContext, useReducer, useMemo, useCallback, type ReactNode } from "react";
 import type { DateRange } from "react-day-picker";
+import { format, subDays, eachDayOfInterval } from "date-fns";
+import type { Room, RoomSeasonalPrice, RoomOption, RoomGuestPricing, BlockedDate } from "@/types/database";
+import { calculateTotalPrice } from "@/lib/calculate-price";
+import { computeCompositionSurcharge } from "@/lib/guest-pricing";
+import { getFullyBookedForRoom } from "@/lib/booking-dates";
 
 /**
  * One room added to the cart. Dates are shared across the whole cart (stored on
  * the context, not per line), so a line only carries the room + its per-room
- * guest/tier/option choices. `lineId` lets the same room appear more than once
- * (up to its remaining quantity).
+ * guest/tier/option choices. `lineId` lets the same room appear more than once.
  */
 export interface CartLine {
   lineId: string;
@@ -15,6 +19,22 @@ export interface CartLine {
   numGuests: number;
   tierId: string | null;
   optionIds: string[];
+}
+
+export interface BookedRange {
+  room_id: string | null;
+  check_in: string;
+  check_out: string;
+}
+
+/** Server-fetched catalog the cart needs to price + check availability anywhere. */
+export interface BookingCatalog {
+  rooms: Room[];
+  seasonalPrices: RoomSeasonalPrice[];
+  roomOptions: RoomOption[];
+  guestPricing: RoomGuestPricing[];
+  blockedDates: BlockedDate[];
+  bookedRanges: BookedRange[];
 }
 
 interface CartState {
@@ -43,7 +63,7 @@ function reducer(state: CartState, action: CartAction): CartState {
         lines: state.lines.map((l) => (l.lineId === action.lineId ? { ...l, ...action.patch } : l)),
       };
     case "CLEAR":
-      return { dateRange: undefined, lines: [] };
+      return { dateRange: state.dateRange, lines: [] };
     default:
       return state;
   }
@@ -52,19 +72,37 @@ function reducer(state: CartState, action: CartAction): CartState {
 export interface BookingCartValue {
   dateRange?: DateRange;
   lines: CartLine[];
+  nights: number;
+  liveBookedRanges: BookedRange[];
+  setLiveBookedRanges: (ranges: BookedRange[]) => void;
   setDates: (dateRange?: DateRange) => void;
   addLine: (line: CartLine) => void;
   removeLine: (lineId: string) => void;
   updateLine: (lineId: string, patch: Partial<Omit<CartLine, "lineId">>) => void;
   clear: () => void;
-  /** How many lines currently hold a given room (to cap "Add" by remaining quantity). */
   countForRoom: (roomId: string) => number;
+  remainingForRoom: (room: Room) => number;
+  isRoomAvailableForRange: (room: Room) => boolean;
+  computeLineGross: (line: CartLine) => number;
+  subtotal: number;
+  catalog: BookingCatalog;
 }
 
 const BookingCartContext = createContext<BookingCartValue | null>(null);
 
-export function BookingCartProvider({ children }: { children: ReactNode }) {
+export function BookingCartProvider({
+  catalog,
+  children,
+}: {
+  catalog: BookingCatalog;
+  children: ReactNode;
+}) {
   const [state, dispatch] = useReducer(reducer, { dateRange: undefined, lines: [] });
+  // Live availability (refreshed client-side); seeds from server-provided ranges.
+  const [liveBookedRanges, setLiveBookedRangesState] = useReducer(
+    (_: BookedRange[], next: BookedRange[]) => next,
+    catalog.bookedRanges,
+  );
 
   const setDates = useCallback((dateRange?: DateRange) => dispatch({ type: "SET_DATES", dateRange }), []);
   const addLine = useCallback((line: CartLine) => dispatch({ type: "ADD_LINE", line }), []);
@@ -74,32 +112,105 @@ export function BookingCartProvider({ children }: { children: ReactNode }) {
     [],
   );
   const clear = useCallback(() => dispatch({ type: "CLEAR" }), []);
+  const setLiveBookedRanges = useCallback((ranges: BookedRange[]) => setLiveBookedRangesState(ranges), []);
+
+  const { dateRange, lines } = state;
+
+  const nights = useMemo(() => {
+    if (!dateRange?.from || !dateRange?.to) return 0;
+    const last = subDays(dateRange.to, 1);
+    if (last < dateRange.from) return 0;
+    return eachDayOfInterval({ start: dateRange.from, end: last }).length;
+  }, [dateRange]);
+
+  const rangeNightKeys = useMemo(() => {
+    if (!dateRange?.from || !dateRange?.to) return [] as string[];
+    const last = subDays(dateRange.to, 1);
+    if (last < dateRange.from) return [] as string[];
+    return eachDayOfInterval({ start: dateRange.from, end: last }).map((d) => format(d, "yyyy-MM-dd"));
+  }, [dateRange]);
+
+  const seasonsByRoom = useMemo(() => {
+    const map: Record<string, RoomSeasonalPrice[]> = {};
+    for (const s of catalog.seasonalPrices) {
+      (map[s.room_id] ||= []).push(s);
+    }
+    return map;
+  }, [catalog.seasonalPrices]);
+
   const countForRoom = useCallback(
-    (roomId: string) => state.lines.filter((l) => l.roomId === roomId).length,
-    [state.lines],
+    (roomId: string) => lines.filter((l) => l.roomId === roomId).length,
+    [lines],
+  );
+
+  const remainingForRoom = useCallback(
+    (room: Room) => Math.max(0, (room.quantity || 1) - lines.filter((l) => l.roomId === room.id).length),
+    [lines],
+  );
+
+  const isRoomAvailableForRange = useCallback(
+    (room: Room): boolean => {
+      if (rangeNightKeys.length === 0) return false;
+      const blockedForRoom = new Set(
+        catalog.blockedDates.filter((d) => d.room_id === null || d.room_id === room.id).map((d) => d.date),
+      );
+      if (rangeNightKeys.some((k) => blockedForRoom.has(k))) return false;
+      const fully = getFullyBookedForRoom(room.id, room.quantity || 1, liveBookedRanges);
+      if (rangeNightKeys.some((k) => fully.has(k))) return false;
+      return true;
+    },
+    [rangeNightKeys, catalog.blockedDates, liveBookedRanges],
+  );
+
+  const computeLineGross = useCallback(
+    (line: CartLine): number => {
+      if (!dateRange?.from || !dateRange?.to || nights <= 0) return 0;
+      const room = catalog.rooms.find((r) => r.id === line.roomId);
+      if (!room) return 0;
+      const seasons = seasonsByRoom[room.id] || [];
+      const base = calculateTotalPrice(room.price_per_night, dateRange.from, dateRange.to, seasons).total;
+      const opts = line.optionIds.reduce((s, id) => {
+        const o = catalog.roomOptions.find((ro) => ro.id === id);
+        if (!o) return s;
+        return s + (o.pricing_type === "per_time" ? o.price : o.price * nights);
+      }, 0);
+      const tier = line.tierId ? catalog.guestPricing.find((g) => g.id === line.tierId) : null;
+      const comp = tier ? computeCompositionSurcharge(tier.surcharge, nights) : 0;
+      return base + opts + comp;
+    },
+    [dateRange, nights, catalog.rooms, catalog.roomOptions, catalog.guestPricing, seasonsByRoom],
+  );
+
+  const subtotal = useMemo(
+    () => lines.reduce((sum, line) => sum + computeLineGross(line), 0),
+    [lines, computeLineGross],
   );
 
   const value = useMemo<BookingCartValue>(
     () => ({
-      dateRange: state.dateRange,
-      lines: state.lines,
+      dateRange,
+      lines,
+      nights,
+      liveBookedRanges,
+      setLiveBookedRanges,
       setDates,
       addLine,
       removeLine,
       updateLine,
       clear,
       countForRoom,
+      remainingForRoom,
+      isRoomAvailableForRange,
+      computeLineGross,
+      subtotal,
+      catalog,
     }),
-    [state.dateRange, state.lines, setDates, addLine, removeLine, updateLine, clear, countForRoom],
+    [dateRange, lines, nights, liveBookedRanges, setLiveBookedRanges, setDates, addLine, removeLine, updateLine, clear, countForRoom, remainingForRoom, isRoomAvailableForRange, computeLineGross, subtotal, catalog],
   );
 
   return <BookingCartContext.Provider value={value}>{children}</BookingCartContext.Provider>;
 }
 
-/**
- * Read the booking cart. Returns null when used outside a provider so callers
- * (e.g. a homestay page that hasn't opted into the cart) can no-op safely.
- */
 export function useBookingCartOptional(): BookingCartValue | null {
   return useContext(BookingCartContext);
 }
