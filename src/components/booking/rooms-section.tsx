@@ -10,7 +10,7 @@ import type { Room, RoomSeasonalPrice, BlockedDate } from "@/types/database";
 
 type BookingStep = "dates" | "details" | "payment";
 import { Badge } from "@/components/ui/badge";
-import { Users, CalendarDays, CalendarSearch, ChevronLeft, ChevronRight, X, Sparkles, Wrench, ShoppingCart } from "lucide-react";
+import { Users, CalendarSearch, ChevronLeft, ChevronRight, X, Sparkles, Wrench, ShoppingCart } from "lucide-react";
 import { fmtDateStr } from "@/lib/format-date";
 
 import { useTranslations, useLocale } from "next-intl";
@@ -480,34 +480,21 @@ function SingleRoomHero({
               {cartEnabled && (
                 <Button
                   disabled={bookingLocked}
-                  className="rounded-full bg-white text-brand px-6 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-earth-50 border-0 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="rounded-full bg-brand text-white px-6 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={(e) => { e.stopPropagation(); onAddToCart(); }}
                 >
                   <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
                   {t("addToCart")}
                 </Button>
               )}
-              <div className="flex overflow-hidden rounded-full shadow-lg">
-                <Button
-                  disabled={bookingLocked}
-                  className="rounded-none rounded-l-full bg-brand text-white px-6 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={(e) => {
-                    e.stopPropagation();
-                    document.dispatchEvent(new CustomEvent("book-room", { detail: { roomId: room.id } }));
-                  }}
-                >
-                  <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
-                  {t("bookRoom")}
-                </Button>
-                <button
-                  type="button"
-                  className="flex items-center justify-center gap-1.5 px-5 rounded-r-full bg-brand hover:bg-brand-hover border-l border-white/30 transition-colors text-sm font-bold tracking-widest uppercase text-white"
-                  onClick={(e) => { e.stopPropagation(); onCalendar(); }}
-                >
-                  {t("viewCalendar")}
-                  <CalendarSearch className="h-3.5 w-3.5" />
-                </button>
-              </div>
+              <button
+                type="button"
+                className="flex items-center justify-center gap-1.5 rounded-full bg-white/90 px-5 py-3 border border-white/50 shadow-lg transition-colors text-sm font-bold tracking-widest uppercase text-earth-800 hover:bg-white"
+                onClick={(e) => { e.stopPropagation(); onCalendar(); }}
+              >
+                {t("viewCalendar")}
+                <CalendarSearch className="h-3.5 w-3.5" />
+              </button>
             </div>
           </div>
         </div>
@@ -518,23 +505,13 @@ function SingleRoomHero({
         {cartEnabled && (
           <Button
             disabled={bookingLocked}
-            className="w-full rounded-full bg-white text-brand border border-brand px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase shadow-sm hover:bg-earth-50 disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full rounded-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase shadow-lg hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={() => onAddToCart()}
           >
             <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
             {t("addToCart")}
           </Button>
         )}
-        <Button
-          disabled={bookingLocked}
-          className="w-full rounded-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase shadow-lg hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
-          onClick={() => {
-            document.dispatchEvent(new CustomEvent("book-room", { detail: { roomId: room.id } }));
-          }}
-        >
-          <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
-          {t("bookRoom")}
-        </Button>
         <button
           type="button"
           className="flex w-full items-center justify-center gap-1.5 rounded-full border border-earth-300 bg-white px-5 py-3.5 text-sm font-bold tracking-widest uppercase text-earth-800 shadow-sm transition-colors hover:bg-earth-50"

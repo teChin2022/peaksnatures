@@ -72,6 +72,7 @@ export function BookingDateBar({ homestayId }: { homestayId: string }) {
   };
 
   const cartCount = lines.length;
+  const hasCheckout = !!(dateRange?.from && dateRange?.to && dateRange.to.getTime() !== dateRange.from.getTime());
 
   return (
     <>
@@ -79,23 +80,29 @@ export function BookingDateBar({ homestayId }: { homestayId: string }) {
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 sm:px-6 py-3">
           <button
             onClick={() => setCalendarOpen(true)}
-            className="flex flex-1 items-center justify-between gap-2 rounded-full border border-earth-200 bg-white px-4 py-2.5 text-sm font-medium text-earth-900 transition-all hover:border-earth-400"
+            aria-label={t("selectDates")}
+            className="group flex flex-1 cursor-pointer items-center gap-3 rounded-2xl border border-earth-200 bg-white px-3 py-2 text-left transition-all hover:border-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
           >
-            <span className="flex items-center gap-2 truncate">
-              <CalendarIcon size={16} className="shrink-0 text-brand" />
-              <span className="truncate">
-                {dateRange?.from ? (
-                  <>
-                    {fmtDate(dateRange.from, "MMM d", locale)}
-                    {dateRange.to && dateRange.to.getTime() !== dateRange.from.getTime() && ` — ${fmtDate(dateRange.to, "MMM d", locale)}`}
-                  </>
-                ) : (
-                  <span className="text-earth-500">{t("selectDates")}</span>
-                )}
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand transition-colors group-hover:bg-brand group-hover:text-white">
+              <CalendarIcon size={18} />
+            </span>
+            <span className="flex min-w-0 flex-1 items-center gap-3">
+              <span className="flex min-w-0 flex-col">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-earth-400">{t("checkInLabel")}</span>
+                <span className={`truncate text-sm font-semibold ${dateRange?.from ? "text-earth-900" : "text-earth-400"}`}>
+                  {dateRange?.from ? fmtDate(dateRange.from, "d MMM", locale) : t("addDate")}
+                </span>
+              </span>
+              <ArrowRight size={14} className="shrink-0 text-earth-300" />
+              <span className="flex min-w-0 flex-col">
+                <span className="text-[10px] font-semibold uppercase tracking-wider text-earth-400">{t("checkOutLabel")}</span>
+                <span className={`truncate text-sm font-semibold ${hasCheckout ? "text-earth-900" : "text-earth-400"}`}>
+                  {hasCheckout ? fmtDate(dateRange!.to!, "d MMM", locale) : t("addDate")}
+                </span>
               </span>
             </span>
             {nights > 0 && (
-              <span className="shrink-0 text-xs text-earth-400">{nights} {nights > 1 ? tc("nights") : tc("night")}</span>
+              <span className="shrink-0 rounded-full bg-earth-100 px-2.5 py-1 text-xs font-semibold text-earth-700">{nights} {nights > 1 ? tc("nights") : tc("night")}</span>
             )}
           </button>
 
@@ -216,7 +223,7 @@ export function BookingDateBar({ homestayId }: { homestayId: string }) {
                 <span>฿{subtotal.toLocaleString()}</span>
               </div>
               <Button className="w-full rounded-full bg-brand text-white hover:bg-brand-hover" onClick={handleBook}>
-                {tc("bookNow")} <ArrowRight size={16} className="ml-1" />
+                {t("proceedBooking")} <ArrowRight size={16} className="ml-1" />
               </Button>
             </>
           )}
