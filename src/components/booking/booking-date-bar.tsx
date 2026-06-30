@@ -4,7 +4,7 @@ import { useState, useEffect, useMemo } from "react";
 import { format, startOfToday, addMonths } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
 import type { DateRange } from "react-day-picker";
-import { CalendarDays, Calendar as CalendarIcon, ShoppingCart, Trash2, ArrowRight } from "lucide-react";
+import { CalendarDays, Calendar as CalendarIcon, ShoppingCart, ArrowRight } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
@@ -12,6 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { fmtDate } from "@/lib/format-date";
 import { getFullyBookedForRoom } from "@/lib/booking-dates";
 import { useBookingCart } from "@/components/booking/booking-cart-context";
+import { CartLineList } from "@/components/booking/cart-line-list";
 
 /**
  * Sticky, page-level date selector + cart button shown on the homestay page.
@@ -21,14 +22,13 @@ import { useBookingCart } from "@/components/booking/booking-cart-context";
  */
 export function BookingDateBar({ homestayId }: { homestayId: string }) {
   const cart = useBookingCart();
-  const { dateRange, setDates, nights, lines, subtotal, catalog, computeLineGross, removeLine, setLiveBookedRanges, liveBookedRanges } = cart;
+  const { dateRange, setDates, nights, lines, subtotal, catalog, setLiveBookedRanges, liveBookedRanges } = cart;
   const t = useTranslations("booking");
   const tc = useTranslations("common");
   const locale = useLocale();
 
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
-  const [confirmRemove, setConfirmRemove] = useState<string | null>(null);
 
   useEffect(() => {
     fetch(`/api/bookings/availability?homestay_id=${homestayId}`)
@@ -38,6 +38,15 @@ export function BookingDateBar({ homestayId }: { homestayId: string }) {
       })
       .catch(() => {});
   }, [homestayId, setLiveBookedRanges]);
+
+  // Editing a line reopens the room config dialog (handled by RoomsSection);
+  // close this cart modal so the two dialog layers don't overlap.
+  useEffect(() => {
+    if (!cartOpen) return;
+    const close = () => setCartOpen(false);
+    document.addEventListener("edit-line", close);
+    return () => document.removeEventListener("edit-line", close);
+  }, [cartOpen]);
 
   // Homestay-wide blocked dates + dates fully booked across EVERY room (a date
   // stays selectable as long as at least one room is free).
@@ -179,41 +188,7 @@ export function BookingDateBar({ homestayId }: { homestayId: string }) {
               {t("emptyCart")}
             </div>
           ) : (
-            <div className="max-h-72 space-y-2 overflow-y-auto pr-1">
-              {lines.map((line) => {
-                const room = catalog.rooms.find((r) => r.id === line.roomId);
-                const tier = line.tierId ? catalog.guestPricing.find((g) => g.id === line.tierId) : null;
-                const gross = computeLineGross(line);
-                const isConfirming = confirmRemove === line.lineId;
-                return (
-                  <div key={line.lineId} className="rounded-xl border border-earth-100 bg-white p-3">
-                    {isConfirming ? (
-                      <div className="flex items-center justify-between gap-2">
-                        <span className="text-sm text-earth-700">{t("removeRoomConfirm")}</span>
-                        <div className="flex shrink-0 gap-2">
-                          <button onClick={() => setConfirmRemove(null)} className="rounded-full border border-earth-200 px-3 py-1 text-xs font-medium text-earth-600 hover:bg-earth-50">{tc("cancel")}</button>
-                          <button onClick={() => { removeLine(line.lineId); setConfirmRemove(null); }} className="rounded-full bg-red-500 px-3 py-1 text-xs font-bold text-white hover:bg-red-600">{t("removeRoom")}</button>
-                        </div>
-                      </div>
-                    ) : (
-                      <div className="flex items-center justify-between gap-2">
-                        <div className="min-w-0">
-                          <p className="truncate text-sm font-medium text-earth-900">{room?.name}</p>
-                          <p className="text-xs text-earth-400">
-                            {tier ? tier.detail || `${line.numGuests}` : `${line.numGuests} ${tc("guests")}`}
-                            {line.optionIds.length > 0 ? ` · ${t("optionsSelected", { count: line.optionIds.length })}` : ""}
-                          </p>
-                        </div>
-                        <div className="flex shrink-0 items-center gap-2">
-                          <span className="text-sm font-semibold text-earth-900">฿{gross.toLocaleString()}</span>
-                          <button onClick={() => setConfirmRemove(line.lineId)} className="rounded-full p-1.5 text-earth-400 hover:bg-earth-100 hover:text-red-500"><Trash2 size={15} /></button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                );
-              })}
-            </div>
+            <CartLineList className="max-h-72 overflow-y-auto pr-1" />
           )}
 
           {lines.length > 0 && (

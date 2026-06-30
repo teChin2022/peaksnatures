@@ -48,7 +48,8 @@ import {
 } from "@/components/ui/dialog";
 import { BookingTutorialDialog } from "@/components/booking/booking-tutorial-dialog";
 import { LeaveBookingDialog } from "@/components/booking/leave-booking-dialog";
-import { useBookingCart, type CartLine } from "@/components/booking/booking-cart-context";
+import { useBookingCart } from "@/components/booking/booking-cart-context";
+import { CartLineList } from "@/components/booking/cart-line-list";
 
 interface BookedRange {
   room_id: string | null;
@@ -150,7 +151,7 @@ export function BookingSection({
   // Cart + shared dates live in the BookingCartProvider, so the sticky date bar,
   // room-card "Add to cart", the cart modal, and this panel all share one cart.
   const cart = useBookingCart();
-  const { dateRange, lines: cartLines, setDates: setDateRange, removeLine, clear: clearCart } = cart;
+  const { dateRange, lines: cartLines, setDates: setDateRange, clear: clearCart, computeLineGross, subtotal } = cart;
   // The "draft" room currently being configured to add. The cart accumulates lines.
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
   const [numGuests, setNumGuests] = useState("2");
@@ -160,6 +161,7 @@ export function BookingSection({
   const [guestPhone, setGuestPhone] = useState("");
   const [guestProvince, setGuestProvince] = useState("");
   const [guestNote, setGuestNote] = useState("");
+  const [errors, setErrors] = useState<{ name?: string; email?: string; phone?: string; province?: string }>({});
   const locale = useLocale();
   const isMobile = useIsMobile();
   const provinceLabel = (v: string) => getProvinceLabel(v, locale);
@@ -190,6 +192,9 @@ export function BookingSection({
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const emailInputRef = useRef<HTMLInputElement>(null);
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const provinceFieldRef = useRef<HTMLDivElement>(null);
   const qrContainerRef = useRef<HTMLDivElement>(null);
 
   // "How to book?" help pill: pulse once when the form first scrolls into view,
@@ -430,28 +435,11 @@ export function BookingSection({
   // Composition surcharge is charged per night (× nights), like a per_night option.
   const compositionSurcharge = selectedTier ? computeCompositionSurcharge(selectedTier.surcharge, nights) : 0;
 
-  // Gross price (pre-discount) of any cart line, over the shared date range.
-  const computeLineGross = useCallback((line: CartLine): number => {
-    if (!dateRange?.from || !dateRange?.to || nights <= 0) return 0;
-    const room = rooms.find((r) => r.id === line.roomId);
-    if (!room) return 0;
-    const seasons = seasonsByRoom[room.id] || [];
-    const base = calculateTotalPrice(room.price_per_night, dateRange.from, dateRange.to, seasons).total;
-    const opts = line.optionIds.reduce((s, id) => {
-      const o = roomOptions.find((ro) => ro.id === id);
-      if (!o) return s;
-      return s + (o.pricing_type === "per_time" ? o.price : o.price * nights);
-    }, 0);
-    const tier = line.tierId ? guestPricing.find((g) => g.id === line.tierId) : null;
-    const comp = tier ? computeCompositionSurcharge(tier.surcharge, nights) : 0;
-    return base + opts + comp;
-  }, [dateRange, nights, rooms, seasonsByRoom, roomOptions, guestPricing]);
+  // Per-line gross + cart subtotal come from the shared cart context
+  // (single source of truth — see booking-cart-context).
 
   // Cart subtotal (sum of all added lines) drives promo, totals, deposit, payment.
-  const subtotalPrice = useMemo(
-    () => cartLines.reduce((sum, line) => sum + computeLineGross(line), 0),
-    [cartLines, computeLineGross],
-  );
+  const subtotalPrice = subtotal;
 
   const promoDiscount = useMemo(() => {
     if (!appliedPromo || subtotalPrice <= 0) return 0;
@@ -528,9 +516,6 @@ export function BookingSection({
     setDateRange(range);
   };
 
-  const handleRemoveLine = (lineId: string) => {
-    removeLine(lineId);
-  };
 
   const handleApplyPromo = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true;
@@ -602,19 +587,35 @@ export function BookingSection({
     setTimeout(() => nameInputRef.current?.focus(), 100);
   };
 
+  const validateGuestForm = useCallback((): { name?: string; email?: string; phone?: string; province?: string } => {
+    const e: { name?: string; email?: string; phone?: string; province?: string } = {};
+    if (!guestName.trim()) e.name = t("fieldRequired");
+    if (!guestEmail.trim()) e.email = t("fieldRequired");
+    else if (!isValidEmail(guestEmail)) e.email = t("errorInvalidEmail");
+    if (!guestPhone.trim()) e.phone = t("fieldRequired");
+    else if (!isValidPhone(guestPhone)) e.phone = t("errorInvalidPhone");
+    if (!guestProvince) e.province = t("fieldRequired");
+    return e;
+  }, [guestName, guestEmail, guestPhone, guestProvince, t]);
+
+  const focusFirstError = useCallback((e: { name?: string; email?: string; phone?: string; province?: string }) => {
+    if (e.name) nameInputRef.current?.focus();
+    else if (e.email) emailInputRef.current?.focus();
+    else if (e.phone) phoneInputRef.current?.focus();
+    else if (e.province) provinceFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
+
   const handleProceedToPayment = async () => {
-    if (!guestName || !guestEmail || !guestPhone) {
-      toast.error(t("errorFillFields"));
+    const formErrors = validateGuestForm();
+    if (Object.keys(formErrors).length > 0) {
+      // Can fire from the confirm summary (fields not visible there) — bounce
+      // back to the details form so the inline errors are seen.
+      setErrors(formErrors);
+      setShowConfirmModal(false);
+      focusFirstError(formErrors);
       return;
     }
-    if (!isValidEmail(guestEmail)) {
-      toast.error(t("errorInvalidEmail"));
-      return;
-    }
-    if (!isValidPhone(guestPhone)) {
-      toast.error(t("errorInvalidPhone"));
-      return;
-    }
+    setErrors({});
     if (!dateRange?.from || !dateRange?.to || cartLines.length === 0) return;
 
     setIsSubmitting(true);
@@ -690,15 +691,16 @@ export function BookingSection({
   };
 
   const releaseHold = useCallback(() => {
-    if (holdId) {
-      fetch("/api/bookings/hold", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hold_id: holdId, session_id: uploadSessionId }),
-      }).catch(() => { });
-      setHoldId(null);
-      setHoldExpiresAt(null);
-    }
+    if (!holdId) return;
+    // Release every hold in this session — a multi-room cart may have held
+    // several rooms under the one session id, not just the first.
+    fetch("/api/bookings/hold", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: uploadSessionId }),
+    }).catch(() => { });
+    setHoldId(null);
+    setHoldExpiresAt(null);
   }, [holdId, uploadSessionId]);
 
   // Hold expiry callback — passed to <HoldCountdown onExpire />
@@ -1020,7 +1022,7 @@ export function BookingSection({
           )}
           <div className={`grid gap-10 lg:grid-cols-2 lg:gap-12 xl:gap-16 items-start ${bookingDisabled ? "pointer-events-none opacity-50 select-none" : ""}`}>
             {/* ── Left Column: Heading & Trust Badges ── */}
-            <div className="flex flex-col justify-center">
+            <div className="order-2 flex flex-col justify-center lg:order-1">
               <h2 className="font-serif text-4xl font-normal text-earth-900 leading-tight lg:text-5xl tracking-tight">
                 {t("sectionHeading")}{" "}
                 <span className="italic text-brand">{t("sectionHeadingAccent")}</span>
@@ -1072,7 +1074,7 @@ export function BookingSection({
               whileInView={{ opacity: 1, scale: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, ease: [0.25, 0.1, 0, 1] }}
-              className="bg-white rounded-3xl shadow-xl border border-earth-100 p-5 lg:p-8 relative flex flex-col lg:sticky lg:top-8"
+              className="order-1 bg-white rounded-3xl shadow-xl border border-earth-100 p-5 lg:order-2 lg:p-8 relative flex flex-col lg:sticky lg:top-32"
             >
             {initialPromo && promoInput.trim().toUpperCase() === initialPromo.code.toUpperCase() && (
               <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-brand-100 bg-brand-50 p-3.5">
@@ -1138,7 +1140,7 @@ export function BookingSection({
             {/* Hidden file inputs */}
             <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)} />
 
-            <div className="min-h-[480px] max-h-[600px] lg:max-h-[700px] overflow-y-auto pr-1">
+            <div className="min-h-[480px] lg:max-h-[700px] lg:overflow-y-auto lg:pr-1">
               <AnimatePresence mode="wait">
                 {/* ═══ Step 1: Dates ═══ */}
                 {step === "dates" && (
@@ -1191,24 +1193,7 @@ export function BookingSection({
                           {cartLines.length > 0 && (
                             <div className="space-y-2 pt-3 border-t border-earth-100">
                               <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("yourCart")} ({cartLines.length})</label>
-                              {cartLines.map((line) => {
-                                const room = rooms.find((r) => r.id === line.roomId);
-                                const gross = computeLineGross(line);
-                                return (
-                                  <div key={line.lineId} className="flex items-center justify-between rounded-xl bg-earth-50 px-3 py-2">
-                                    <div className="min-w-0">
-                                      <p className="text-sm font-medium text-earth-900 truncate">{room?.name}</p>
-                                      <p className="text-xs text-earth-400">
-                                        {line.numGuests} {tc("guests")}{line.optionIds.length > 0 ? ` · ${t("optionsSelected", { count: line.optionIds.length })}` : ""}
-                                      </p>
-                                    </div>
-                                    <div className="flex items-center gap-2 shrink-0">
-                                      <span className="text-sm font-semibold text-earth-900">฿{gross.toLocaleString()}</span>
-                                      <button onClick={() => handleRemoveLine(line.lineId)} className="p-1 rounded-full hover:bg-earth-200 text-earth-400"><X size={14} /></button>
-                                    </div>
-                                  </div>
-                                );
-                              })}
+                              <CartLineList />
                               {appliedPromo && promoDiscount > 0 && (
                                 <div className="flex justify-between text-sm text-emerald-700 px-1">
                                   <span>{t("promoLabel")} ({appliedPromo.code})</span>
@@ -1419,30 +1404,33 @@ export function BookingSection({
                               <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("fullName")} <span className="text-red-500">*</span></label>
                               <div className="relative">
                                 <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-400" size={16} />
-                                <Input ref={nameInputRef} value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder={t("fullNamePlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400" />
+                                <Input ref={nameInputRef} value={guestName} aria-invalid={!!errors.name} onChange={(e) => { setGuestName(e.target.value); if (errors.name) setErrors((p) => ({ ...p, name: undefined })); }} placeholder={t("fullNamePlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 ${errors.name ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"}`} />
                               </div>
+                              {errors.name && <p role="alert" className="text-xs font-medium text-red-600">{errors.name}</p>}
                             </div>
 
                             <div className="space-y-1.5">
                               <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("email")} <span className="text-red-500">*</span></label>
                               <div className="relative">
                                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-400" size={16} />
-                                <Input type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder={t("emailPlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400" />
+                                <Input ref={emailInputRef} type="email" value={guestEmail} aria-invalid={!!errors.email} onChange={(e) => { setGuestEmail(e.target.value); if (errors.email) setErrors((p) => ({ ...p, email: undefined })); }} placeholder={t("emailPlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 ${errors.email ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"}`} />
                               </div>
+                              {errors.email && <p role="alert" className="text-xs font-medium text-red-600">{errors.email}</p>}
                             </div>
 
                             <div className="space-y-1.5">
                               <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("phone")} <span className="text-red-500">*</span></label>
                               <div className="relative">
                                 <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-400" size={16} />
-                                <Input type="tel" inputMode="numeric" maxLength={10} value={guestPhone} onChange={(e) => setGuestPhone(sanitizePhoneInput(e.target.value))} placeholder={t("phonePlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400" />
+                                <Input ref={phoneInputRef} type="tel" inputMode="numeric" maxLength={10} value={guestPhone} aria-invalid={!!errors.phone} onChange={(e) => { setGuestPhone(sanitizePhoneInput(e.target.value)); if (errors.phone) setErrors((p) => ({ ...p, phone: undefined })); }} placeholder={t("phonePlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 ${errors.phone ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"}`} />
                               </div>
+                              {errors.phone && <p role="alert" className="text-xs font-medium text-red-600">{errors.phone}</p>}
                             </div>
 
-                            <div className="space-y-1.5">
+                            <div className="space-y-1.5" ref={provinceFieldRef}>
                               <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("province")} <span className="text-red-500">*</span></label>
-                              <Select value={guestProvince} onValueChange={setGuestProvince}>
-                                <SelectTrigger className="!w-full p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400">
+                              <Select value={guestProvince} onValueChange={(v) => { setGuestProvince(v); if (errors.province) setErrors((p) => ({ ...p, province: undefined })); }}>
+                                <SelectTrigger aria-invalid={!!errors.province} className={`!w-full p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 ${errors.province ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"}`}>
                                   <SelectValue placeholder={t("provincePlaceholder")} />
                                 </SelectTrigger>
                                 <SelectContent className="max-h-60 z-70">
@@ -1453,6 +1441,7 @@ export function BookingSection({
                                   ))}
                                 </SelectContent>
                               </Select>
+                              {errors.province && <p role="alert" className="text-xs font-medium text-red-600">{errors.province}</p>}
                             </div>
 
                             <div className="space-y-1.5">
@@ -1504,9 +1493,9 @@ export function BookingSection({
 
                           <button
                             onClick={() => {
-                              if (!guestName || !guestEmail || !guestPhone || !guestProvince) { toast.error(t("errorFillFields")); return; }
-                              if (!isValidEmail(guestEmail)) { toast.error(t("errorInvalidEmail")); return; }
-                              if (!isValidPhone(guestPhone)) { toast.error(t("errorInvalidPhone")); return; }
+                              const formErrors = validateGuestForm();
+                              setErrors(formErrors);
+                              if (Object.keys(formErrors).length > 0) { focusFirstError(formErrors); return; }
                               setShowConfirmModal(true);
                             }}
                             className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
@@ -1740,7 +1729,7 @@ export function BookingSection({
                               <p className="mb-2 text-center text-xs font-medium text-earth-500">{t("slipPreview")}</p>
                               <div className="relative mx-auto w-fit">
                                 <img src={slipPreview} alt={t("slipPreview")} className="mx-auto max-h-52 rounded-xl object-contain" />
-                                <button type="button" onClick={handleRemoveSlip} className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white shadow-md hover:bg-red-600"><X className="h-3 w-3" /></button>
+                                <button type="button" aria-label={t("removeSlip")} onClick={handleRemoveSlip} className="absolute right-1.5 top-1.5 flex h-9 w-9 items-center justify-center rounded-full bg-red-500 text-white shadow-md hover:bg-red-600"><X className="h-4 w-4" /></button>
                               </div>
                               <div className="mt-3 flex justify-center">
                                 <Button type="button" variant="outline" size="sm" onClick={() => galleryInputRef.current?.click()} className="rounded-full">
@@ -1917,7 +1906,13 @@ export function BookingSection({
         open={showLeaveWarning}
         onContinue={handleStayInBooking}
         onLeave={handleLeaveAndClear}
-        roomName={selectedRoom?.name ?? null}
+        roomName={
+          cartLines.length === 1
+            ? rooms.find((r) => r.id === cartLines[0].roomId)?.name ?? null
+            : cartLines.length > 1
+              ? t("roomsCount", { count: cartLines.length })
+              : selectedRoom?.name ?? null
+        }
         dateLabel={
           dateRange?.from
             ? `${fmtDate(dateRange.from, "MMM d", locale)}${
@@ -1928,7 +1923,13 @@ export function BookingSection({
             : null
         }
         nightsLabel={nights > 0 ? `${nights} ${nights > 1 ? tc("nights") : tc("night")}` : null}
-        guestsLabel={selectedRoom || dateRange?.from ? `${numGuests} ${tc("guests")}` : null}
+        guestsLabel={
+          cartLines.length > 0
+            ? `${cartLines.reduce((sum, l) => sum + l.numGuests, 0)} ${tc("guests")}`
+            : dateRange?.from
+              ? `${numGuests} ${tc("guests")}`
+              : null
+        }
       />
     </>
   );

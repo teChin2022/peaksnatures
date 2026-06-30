@@ -17,7 +17,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
-import { useBookingCartOptional } from "@/components/booking/booking-cart-context";
+import { useBookingCartOptional, type CartLine } from "@/components/booking/booking-cart-context";
 import { RoomConfigDialog } from "@/components/booking/room-config-dialog";
 import { getPriceRange } from "@/lib/calculate-price";
 import { getFullyBookedForRoom } from "@/lib/booking-dates";
@@ -230,6 +230,7 @@ function SingleRoomHero({
   cartEnabled,
   bookingLocked,
   isPopular,
+  unavailableForDates,
 }: {
   room: Room;
   seasonalPrices: RoomSeasonalPrice[];
@@ -240,6 +241,7 @@ function SingleRoomHero({
   cartEnabled: boolean;
   bookingLocked: boolean;
   isPopular?: boolean;
+  unavailableForDates?: boolean;
 }) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
@@ -409,12 +411,19 @@ function SingleRoomHero({
         {/* Dot indicators — mobile only, top of image */}
         {multi && (
           <div className="absolute inset-x-0 top-0 z-10 p-3 bg-gradient-to-b from-black/30 to-transparent md:hidden">
-            <div className="flex justify-center gap-1.5">
+            <div className="flex justify-center gap-1">
               {images.map((_, i) => (
-                <span
+                <button
                   key={i}
-                  className={`h-1.5 rounded-full transition-all ${i === index ? "bg-white w-3" : "bg-white/50 w-1.5"}`}
-                />
+                  type="button"
+                  aria-label={t("goToPhoto", { number: i + 1 })}
+                  onClick={(e) => { e.stopPropagation(); setIndex(i); }}
+                  className="px-1 py-2 -my-1"
+                >
+                  <span
+                    className={`block h-1.5 rounded-full transition-all ${i === index ? "bg-white w-3" : "bg-white/50 w-1.5"}`}
+                  />
+                </button>
               ))}
             </div>
           </div>
@@ -479,12 +488,18 @@ function SingleRoomHero({
             <div className="hidden shrink-0 flex-col items-stretch gap-2 sm:flex">
               {cartEnabled && (
                 <Button
-                  disabled={bookingLocked}
+                  disabled={bookingLocked || unavailableForDates}
                   className="rounded-full bg-brand text-white px-6 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={(e) => { e.stopPropagation(); onAddToCart(); }}
                 >
-                  <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
-                  {t("addToCart")}
+                  {unavailableForDates ? (
+                    t("unavailableForDates")
+                  ) : (
+                    <>
+                      <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
+                      {t("addToCart")}
+                    </>
+                  )}
                 </Button>
               )}
               <button
@@ -504,12 +519,18 @@ function SingleRoomHero({
       <div className="mt-3 mb-15 flex w-full flex-col gap-2 sm:hidden">
         {cartEnabled && (
           <Button
-            disabled={bookingLocked}
+            disabled={bookingLocked || unavailableForDates}
             className="w-full rounded-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase shadow-lg hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={() => onAddToCart()}
           >
-            <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
-            {t("addToCart")}
+            {unavailableForDates ? (
+              t("unavailableForDates")
+            ) : (
+              <>
+                <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
+                {t("addToCart")}
+              </>
+            )}
           </Button>
         )}
         <button
@@ -536,7 +557,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRo
   const isMobile = useIsMobile();
   const locale = useLocale();
   const cart = useBookingCartOptional();
-  const [configRoom, setConfigRoom] = useState<Room | null>(null);
+  const [config, setConfig] = useState<{ room: Room; editingLine?: CartLine } | null>(null);
 
   const handleAddToCart = (room: Room) => {
     if (!cart) return;
@@ -549,8 +570,25 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRo
       toast.error(t("roomUnavailableToast"));
       return;
     }
-    setConfigRoom(room);
+    setConfig({ room });
   };
+
+  // Reopen the config dialog in edit mode when a cart line requests it
+  // (CartLineList dispatches `edit-line` with the lineId). Only while still
+  // choosing rooms — once payment is underway the cart is locked.
+  useEffect(() => {
+    if (!cart) return;
+    const handler = (e: Event) => {
+      if (bookingStep !== "dates") return;
+      const { lineId } = (e as CustomEvent<{ lineId: string }>).detail;
+      const line = cart.lines.find((l) => l.lineId === lineId);
+      if (!line) return;
+      const room = rooms.find((r) => r.id === line.roomId);
+      if (room) setConfig({ room, editingLine: line });
+    };
+    document.addEventListener("edit-line", handler);
+    return () => document.removeEventListener("edit-line", handler);
+  }, [cart, rooms, bookingStep]);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -580,20 +618,25 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRo
   return (
     <>
       <div className="mt-6 space-y-6">
-        {rooms.map((room) => (
-          <SingleRoomHero
-            key={room.id}
-            room={room}
-            seasonalPrices={seasonsByRoom[room.id] || []}
-            onLightbox={() => setLightbox({ images: room.images, name: room.name })}
-            onCalendar={() => setCalendarRoomId(room.id)}
-            onDesc={() => setDescRoomId(room.id)}
-            onAddToCart={() => handleAddToCart(room)}
-            cartEnabled={!!cart}
-            bookingLocked={bookingLocked}
-            isPopular={popularRoomIds.has(room.id)}
-          />
-        ))}
+        {rooms.map((room) => {
+          const datesChosen = !!cart?.dateRange?.from && !!cart?.dateRange?.to;
+          const unavailableForDates = !!cart && datesChosen && !cart.isRoomAvailableForRange(room);
+          return (
+            <SingleRoomHero
+              key={room.id}
+              room={room}
+              seasonalPrices={seasonsByRoom[room.id] || []}
+              onLightbox={() => setLightbox({ images: room.images, name: room.name })}
+              onCalendar={() => setCalendarRoomId(room.id)}
+              onDesc={() => setDescRoomId(room.id)}
+              onAddToCart={() => handleAddToCart(room)}
+              cartEnabled={!!cart}
+              bookingLocked={bookingLocked}
+              isPopular={popularRoomIds.has(room.id)}
+              unavailableForDates={unavailableForDates}
+            />
+          );
+        })}
       </div>
 
       {lightbox && (
@@ -606,7 +649,13 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRo
       )}
 
       {cart && (
-        <RoomConfigDialog key={configRoom?.id ?? "none"} room={configRoom} open={!!configRoom} onClose={() => setConfigRoom(null)} />
+        <RoomConfigDialog
+          key={config?.editingLine?.lineId ?? config?.room.id ?? "none"}
+          room={config?.room ?? null}
+          editingLine={config?.editingLine ?? null}
+          open={!!config}
+          onClose={() => setConfig(null)}
+        />
       )}
 
       {/* Room Description Modal */}
