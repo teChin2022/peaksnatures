@@ -1,6 +1,6 @@
 "use client";
 
-import { createContext, useContext, useReducer, useMemo, useCallback, type ReactNode } from "react";
+import { createContext, useContext, useReducer, useMemo, useCallback, useEffect, type ReactNode } from "react";
 import type { DateRange } from "react-day-picker";
 import { format, subDays, eachDayOfInterval } from "date-fns";
 import type { Room, RoomSeasonalPrice, RoomOption, RoomGuestPricing, BlockedDate } from "@/types/database";
@@ -92,9 +92,11 @@ const BookingCartContext = createContext<BookingCartValue | null>(null);
 
 export function BookingCartProvider({
   catalog,
+  homestayId,
   children,
 }: {
   catalog: BookingCatalog;
+  homestayId: string;
   children: ReactNode;
 }) {
   const [state, dispatch] = useReducer(reducer, { dateRange: undefined, lines: [] });
@@ -113,6 +115,21 @@ export function BookingCartProvider({
   );
   const clear = useCallback(() => dispatch({ type: "CLEAR" }), []);
   const setLiveBookedRanges = useCallback((ranges: BookedRange[]) => setLiveBookedRangesState(ranges), []);
+
+  // Refresh live availability client-side so every booking surface (date bars,
+  // rooms, checkout) sees the latest bookings, not just the server snapshot.
+  useEffect(() => {
+    let cancelled = false;
+    fetch(`/api/bookings/availability?homestay_id=${homestayId}`)
+      .then((res) => res.json())
+      .then((data) => {
+        if (!cancelled && data.bookedRanges) setLiveBookedRanges(data.bookedRanges);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [homestayId, setLiveBookedRanges]);
 
   const { dateRange, lines } = state;
 

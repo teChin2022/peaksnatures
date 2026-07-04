@@ -405,9 +405,9 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
       {faqLd && <JsonLd data={faqLd} id="ld-faq" />}
       <BookingHeader homestayName={homestay.name} logoUrl={homestay.logo_url} slug={homestay.slug} />
 
-      <BookingCartProvider catalog={cartCatalog}>
-      <BookingDateBar homestayId={homestay.id} />
-      <main className="pb-16 md:pb-0">
+      <BookingCartProvider catalog={cartCatalog} homestayId={homestay.id}>
+      <BookingDateBar />
+      <main className="pb-28 md:pb-0">
         <Breadcrumbs items={breadcrumbItems} visuallyHidden />
         <HeroSection
           name={homestay.name}

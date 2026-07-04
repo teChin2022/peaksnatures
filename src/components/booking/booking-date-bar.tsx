@@ -1,43 +1,31 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { format, startOfToday, addMonths } from "date-fns";
-import { th as thLocale } from "date-fns/locale";
-import type { DateRange } from "react-day-picker";
+import { useState, useEffect } from "react";
 import { CalendarDays, Calendar as CalendarIcon, ShoppingCart, ArrowRight } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
-import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fmtDate } from "@/lib/format-date";
-import { getFullyBookedForRoom } from "@/lib/booking-dates";
 import { useBookingCart } from "@/components/booking/booking-cart-context";
+import { BookingCalendarDialog } from "@/components/booking/booking-calendar-dialog";
 import { CartLineList } from "@/components/booking/cart-line-list";
 
 /**
  * Sticky, page-level date selector + cart button shown on the homestay page.
- * Picks the shared dates (one range for the whole cart), then nudges the guest
- * to the rooms. The cart button opens a review modal where rooms can be removed
- * (with confirmation) before heading to checkout.
+ * Desktop only — on mobile the MobileBookingBar carries the date + cart, so the
+ * top space can go to a full-bleed hero. Picks the shared dates (one range for
+ * the whole cart), then nudges the guest to the rooms. The cart button opens a
+ * review modal where rooms can be removed before heading to checkout.
  */
-export function BookingDateBar({ homestayId }: { homestayId: string }) {
+export function BookingDateBar() {
   const cart = useBookingCart();
-  const { dateRange, setDates, nights, lines, subtotal, catalog, setLiveBookedRanges, liveBookedRanges } = cart;
+  const { dateRange, nights, lines, subtotal } = cart;
   const t = useTranslations("booking");
   const tc = useTranslations("common");
   const locale = useLocale();
 
   const [calendarOpen, setCalendarOpen] = useState(false);
   const [cartOpen, setCartOpen] = useState(false);
-
-  useEffect(() => {
-    fetch(`/api/bookings/availability?homestay_id=${homestayId}`)
-      .then((res) => res.json())
-      .then((data) => {
-        if (data.bookedRanges) setLiveBookedRanges(data.bookedRanges);
-      })
-      .catch(() => {});
-  }, [homestayId, setLiveBookedRanges]);
 
   // Editing a line reopens the room config dialog (handled by RoomsSection);
   // close this cart modal so the two dialog layers don't overlap.
@@ -48,31 +36,9 @@ export function BookingDateBar({ homestayId }: { homestayId: string }) {
     return () => document.removeEventListener("edit-line", close);
   }, [cartOpen]);
 
-  // Homestay-wide blocked dates + dates fully booked across EVERY room (a date
-  // stays selectable as long as at least one room is free).
-  const { blockedHomestay, fullyEverywhere } = useMemo(() => {
-    const blocked = new Set(catalog.blockedDates.filter((d) => d.room_id === null).map((d) => d.date));
-    if (catalog.rooms.length === 0) return { blockedHomestay: blocked, fullyEverywhere: new Set<string>() };
-    const perRoom = catalog.rooms.map((r) => getFullyBookedForRoom(r.id, r.quantity || 1, liveBookedRanges));
-    const all = new Set<string>();
-    perRoom.forEach((s) => s.forEach((d) => all.add(d)));
-    const everywhere = new Set<string>();
-    all.forEach((d) => {
-      if (perRoom.every((s) => s.has(d))) everywhere.add(d);
-    });
-    return { blockedHomestay: blocked, fullyEverywhere: everywhere };
-  }, [catalog.blockedDates, catalog.rooms, liveBookedRanges]);
-
-  const handleSelect = (range: DateRange | undefined) => {
-    setDates(range);
-  };
-
   const handleCalendarDone = () => {
-    setCalendarOpen(false);
-    if (dateRange?.from && dateRange?.to && dateRange.to.getTime() !== dateRange.from.getTime()) {
-      // Nudge the guest to the rooms once dates are chosen.
-      setTimeout(() => document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
-    }
+    // Nudge the guest to the rooms once dates are chosen.
+    setTimeout(() => document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
   };
 
   const handleBook = () => {
@@ -85,7 +51,7 @@ export function BookingDateBar({ homestayId }: { homestayId: string }) {
 
   return (
     <>
-      <div className="sticky top-0 z-30 border-b border-earth-100 bg-white/95 backdrop-blur-md pt-16">
+      <div className="hidden md:block sticky top-0 z-30 border-b border-earth-100 bg-white/95 backdrop-blur-md pt-16">
         <div className="mx-auto flex max-w-7xl items-center gap-3 px-4 sm:px-6 py-3">
           <button
             onClick={() => setCalendarOpen(true)}
@@ -131,42 +97,7 @@ export function BookingDateBar({ homestayId }: { homestayId: string }) {
       </div>
 
       {/* Date picker dialog */}
-      <Dialog open={calendarOpen} onOpenChange={setCalendarOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{t("selectDates")}</DialogTitle>
-          </DialogHeader>
-          <div className="rounded-2xl border border-earth-100 p-3">
-            <Calendar
-              key={dateRange?.from?.toISOString() || "no-date"}
-              mode="range"
-              selected={dateRange}
-              onSelect={handleSelect}
-              locale={locale === "th" ? thLocale : undefined}
-              captionLayout="dropdown"
-              defaultMonth={dateRange?.from || startOfToday()}
-              startMonth={startOfToday()}
-              endMonth={addMonths(startOfToday(), 12)}
-              formatters={locale === "th" ? {
-                formatMonthDropdown: (date) => date.toLocaleDateString("th-TH", { month: "long" }),
-                formatYearDropdown: (date) => String(date.getFullYear() + 543),
-              } : undefined}
-              disabled={[
-                { before: startOfToday() },
-                (date: Date) => {
-                  const key = format(date, "yyyy-MM-dd");
-                  return blockedHomestay.has(key) || fullyEverywhere.has(key);
-                },
-              ]}
-              numberOfMonths={1}
-              className="w-full"
-            />
-          </div>
-          <Button className="w-full bg-brand text-white hover:bg-brand-hover rounded-full" onClick={handleCalendarDone}>
-            {tc("done")}
-          </Button>
-        </DialogContent>
-      </Dialog>
+      <BookingCalendarDialog open={calendarOpen} onOpenChange={setCalendarOpen} onDone={handleCalendarDone} />
 
       {/* Cart review dialog */}
       <Dialog open={cartOpen} onOpenChange={setCartOpen}>

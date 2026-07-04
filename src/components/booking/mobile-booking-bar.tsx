@@ -17,6 +17,7 @@ import { useIsMobile } from "@/lib/use-is-mobile";
 import { getPriceRange } from "@/lib/calculate-price";
 import { fmtDate } from "@/lib/format-date";
 import { useBookingCartOptional } from "@/components/booking/booking-cart-context";
+import { BookingCalendarDialog } from "@/components/booking/booking-calendar-dialog";
 import { CartLineList } from "@/components/booking/cart-line-list";
 import type { Room, RoomSeasonalPrice } from "@/types/database";
 
@@ -45,6 +46,7 @@ export function MobileBookingBar({
   const [visible, setVisible] = useState(false);
   const [bookingStep, setBookingStep] = useState<BookingStep>("dates");
   const [sheetOpen, setSheetOpen] = useState(false);
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   // Cart state — read straight from the shared context so the bar always
   // reflects the real cart (count + running total), not a static nightly price.
@@ -53,6 +55,7 @@ export function MobileBookingBar({
   const nights = cart?.nights ?? 0;
   const dateRange = cart?.dateRange;
   const hasCart = cartCount > 0;
+  const hasDates = !!(dateRange?.from && dateRange?.to && dateRange.to.getTime() !== dateRange.from.getTime());
 
   const cheapestPrice = useMemo(() => {
     if (!rooms.length) return 0;
@@ -88,42 +91,17 @@ export function MobileBookingBar({
     return () => document.removeEventListener("edit-line", close);
   }, [sheetOpen]);
 
+  // The bar is the primary date picker on mobile, so it stays visible from page
+  // load. Only hide it during the checkout steps and once the footer scrolls in.
   useEffect(() => {
     if (!isMobile) return;
 
-    const roomsEl = document.getElementById("rooms-section");
     const footerEl = document.querySelector("footer");
-
-    let roomsInView = false;
     let footerInView = false;
-    let scrolledPastThreshold = false;
-    // With rooms in the cart, keep the summary bar up while browsing rooms
-    // (that's exactly when the running total matters); only hide at the footer.
-    const keepWithRooms = cartCount > 0;
 
     const updateVisibility = () => {
-      setVisible(
-        scrolledPastThreshold &&
-          !footerInView &&
-          (keepWithRooms || !roomsInView) &&
-          bookingStep === "dates"
-      );
+      setVisible(!footerInView && bookingStep === "dates");
     };
-
-    const onScroll = () => {
-      scrolledPastThreshold = window.scrollY > window.innerHeight * 0.4;
-      updateVisibility();
-    };
-    window.addEventListener("scroll", onScroll, { passive: true });
-    onScroll();
-
-    const roomsObserver = new IntersectionObserver(
-      ([entry]) => {
-        roomsInView = entry.isIntersecting;
-        updateVisibility();
-      },
-      { threshold: 0 }
-    );
 
     const footerObserver = new IntersectionObserver(
       ([entry]) => {
@@ -133,20 +111,32 @@ export function MobileBookingBar({
       { threshold: 0 }
     );
 
-    if (roomsEl) roomsObserver.observe(roomsEl);
     if (footerEl) footerObserver.observe(footerEl);
+    updateVisibility();
 
-    return () => {
-      window.removeEventListener("scroll", onScroll);
-      roomsObserver.disconnect();
-      footerObserver.disconnect();
-    };
-  }, [isMobile, bookingStep, cartCount]);
+    return () => footerObserver.disconnect();
+  }, [isMobile, bookingStep]);
 
   const handleBookNow = () => {
     if (!focusedRoom) return;
     document.dispatchEvent(
       new CustomEvent("book-room", { detail: { roomId: focusedRoom.id } })
+    );
+  };
+
+  // "Book now" with no dates yet opens the calendar first (no dead scroll).
+  const handleAction = () => {
+    if (!hasDates) {
+      setCalendarOpen(true);
+      return;
+    }
+    handleBookNow();
+  };
+
+  const scrollToRooms = () => {
+    setTimeout(
+      () => document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" }),
+      150
     );
   };
 
@@ -168,11 +158,44 @@ export function MobileBookingBar({
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             className="fixed bottom-0 inset-x-0 z-40 border-t border-earth-200 bg-white/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)] md:hidden"
           >
+            {/* Row 1 — date selector (opens the shared calendar) */}
+            <button
+              type="button"
+              onClick={() => setCalendarOpen(true)}
+              aria-label={tb("selectDates")}
+              className="flex w-full items-center gap-3 border-b border-earth-100 px-4 py-2.5 text-left"
+            >
+              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand">
+                <CalendarDays size={18} />
+              </span>
+              <span className="flex min-w-0 flex-1 flex-col">
+                {hasDates ? (
+                  <>
+                    <span className="truncate text-sm font-semibold text-earth-900">
+                      {fmtDate(dateRange!.from!, "d MMM", locale)} — {fmtDate(dateRange!.to!, "d MMM", locale)}
+                    </span>
+                    <span className="text-xs text-earth-500">
+                      {nights} {nights > 1 ? t("nights") : t("night")}
+                    </span>
+                  </>
+                ) : (
+                  <>
+                    <span className="text-[10px] font-semibold uppercase tracking-wider text-earth-400">
+                      {tb("checkInLabel")} — {tb("checkOutLabel")}
+                    </span>
+                    <span className="text-sm font-semibold text-earth-400">{tb("addDate")}</span>
+                  </>
+                )}
+              </span>
+              <span className="shrink-0 text-xs font-semibold text-brand">{t("edit")}</span>
+            </button>
+
+            {/* Row 2 — price / running total + primary action */}
             {hasCart ? (
               <button
                 type="button"
                 onClick={() => setSheetOpen(true)}
-                className="flex w-full items-center justify-between gap-3 px-4 py-3 text-left"
+                className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left"
               >
                 <div className="min-w-0">
                   <span className="block text-lg font-bold leading-tight text-earth-900">
@@ -188,21 +211,21 @@ export function MobileBookingBar({
                 </span>
               </button>
             ) : (
-              <div className="flex items-center justify-between px-4 py-3">
+              <div className="flex items-center justify-between gap-3 px-4 py-2.5">
                 <div className="flex flex-col min-w-0">
                   {hasConfirmedBookings && (
                     <span className="text-[10px] font-bold text-brand uppercase tracking-wider leading-none mb-0.5">
                       {t("mostPopular")}
                     </span>
                   )}
-                  <span className="text-xs text-earth-500 truncate">{focusedRoom?.name}</span>
                   <span className="text-lg font-bold text-earth-900">
+                    <span className="text-sm font-normal text-earth-500">{t("from")} </span>
                     ฿{cheapestPrice.toLocaleString()}
                     <span className="text-sm font-normal text-earth-500">{t("perNight")}</span>
                   </span>
                 </div>
                 <Button
-                  onClick={handleBookNow}
+                  onClick={handleAction}
                   disabled={bookingDisabled}
                   className="relative shrink-0 bg-brand text-white px-6 py-3 h-auto font-bold text-sm tracking-wider uppercase rounded-full hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
                 >
@@ -214,6 +237,9 @@ export function MobileBookingBar({
           </motion.div>
         )}
       </AnimatePresence>
+
+      {/* Shared date picker (mobile) */}
+      <BookingCalendarDialog open={calendarOpen} onOpenChange={setCalendarOpen} onDone={scrollToRooms} />
 
       {/* Cart review sheet (mobile) */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
