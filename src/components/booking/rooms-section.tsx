@@ -19,7 +19,6 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useBookingCartOptional, type CartLine } from "@/components/booking/booking-cart-context";
 import { RoomConfigDialog } from "@/components/booking/room-config-dialog";
-import { BookingCalendarDialog } from "@/components/booking/booking-calendar-dialog";
 import { getPriceRange } from "@/lib/calculate-price";
 import { getFullyBookedForRoom } from "@/lib/booking-dates";
 import { HTMLContent } from "@/components/ui/html-content";
@@ -232,6 +231,7 @@ function SingleRoomHero({
   bookingLocked,
   isPopular,
   unavailableForDates,
+  datesChosen,
 }: {
   room: Room;
   seasonalPrices: RoomSeasonalPrice[];
@@ -243,6 +243,7 @@ function SingleRoomHero({
   bookingLocked: boolean;
   isPopular?: boolean;
   unavailableForDates?: boolean;
+  datesChosen?: boolean;
 }) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
@@ -489,7 +490,7 @@ function SingleRoomHero({
             <div className="hidden shrink-0 flex-col items-stretch gap-2 sm:flex">
               {cartEnabled && (
                 <Button
-                  disabled={bookingLocked || unavailableForDates}
+                  disabled={bookingLocked || unavailableForDates || !datesChosen}
                   className="rounded-full bg-brand text-white px-6 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
                   onClick={(e) => { e.stopPropagation(); onAddToCart(); }}
                 >
@@ -520,7 +521,7 @@ function SingleRoomHero({
       <div className="mt-3 mb-15 flex w-full flex-col gap-2 sm:hidden">
         {cartEnabled && (
           <Button
-            disabled={bookingLocked || unavailableForDates}
+            disabled={bookingLocked || unavailableForDates || !datesChosen}
             className="w-full rounded-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase shadow-lg hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
             onClick={() => onAddToCart()}
           >
@@ -559,29 +560,15 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRo
   const locale = useLocale();
   const cart = useBookingCartOptional();
   const [config, setConfig] = useState<{ room: Room; editingLine?: CartLine } | null>(null);
-  const [datePickerOpen, setDatePickerOpen] = useState(false);
-  const pendingRoomRef = useRef<Room | null>(null);
 
   const handleAddToCart = (room: Room) => {
     if (!cart) return;
-    if (!cart.dateRange?.from || !cart.dateRange?.to) {
-      // No dates yet — open the shared date picker, then continue with this room.
-      pendingRoomRef.current = room;
-      setDatePickerOpen(true);
-      return;
-    }
+    if (!cart.dateRange?.from || !cart.dateRange?.to) return; // room button is disabled until dates are chosen
     if (!cart.isRoomAvailableForRange(room) || cart.remainingForRoom(room) <= 0) {
       toast.error(t("roomUnavailableToast"));
       return;
     }
     setConfig({ room });
-  };
-
-  // Once the guest confirms dates in the picker, continue with the room they tapped.
-  const handleDatesPicked = () => {
-    const room = pendingRoomRef.current;
-    pendingRoomRef.current = null;
-    if (room) handleAddToCart(room);
   };
 
   // Reopen the config dialog in edit mode when a cart line requests it
@@ -647,6 +634,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRo
             bookingLocked={bookingLocked}
             isPopular={popularRoomIds.has(room.id)}
             unavailableForDates={false}
+            datesChosen={datesChosen}
           />
         ))}
         {datesChosen && visibleRooms.length === 0 && (
@@ -672,14 +660,6 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRo
           editingLine={config?.editingLine ?? null}
           open={!!config}
           onClose={() => setConfig(null)}
-        />
-      )}
-
-      {cart && (
-        <BookingCalendarDialog
-          open={datePickerOpen}
-          onOpenChange={setDatePickerOpen}
-          onDone={handleDatesPicked}
         />
       )}
 
