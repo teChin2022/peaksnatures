@@ -32,6 +32,7 @@ export function HeroSection({
 }: HeroSectionProps) {
   const t = useTranslations("hero");
   const tc = useTranslations("common");
+  const tb = useTranslations("booking");
   const locale = useLocale();
   const cart = useBookingCartOptional();
   const [calendarOpen, setCalendarOpen] = useState(false);
@@ -56,6 +57,15 @@ export function HeroSection({
       () => document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" }),
       150,
     );
+  };
+
+  // "Search" — with no dates, open the picker; with dates, jump to the (date-filtered) rooms.
+  const handleSearch = () => {
+    if (!hasDates) {
+      setCalendarOpen(true);
+      return;
+    }
+    document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   return (
@@ -171,22 +181,33 @@ export function HeroSection({
                 transition={{ duration: 0.6, delay: 0.5 }}
                 className="mt-6 hidden md:block"
               >
-                <button
-                  type="button"
-                  onClick={() => setCalendarOpen(true)}
-                  aria-label={t("checkAvailability")}
-                  className="group inline-flex items-center gap-2.5 rounded-full bg-brand px-6 py-3 text-sm font-bold text-white shadow-lg shadow-black/20 transition-all hover:bg-brand-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
-                >
-                  <CalendarDays size={18} className="shrink-0" />
-                  {hasDates ? (
-                    <span>
-                      {fmtDate(dateRange!.from!, "d MMM", locale)} – {fmtDate(dateRange!.to!, "d MMM", locale)}
-                      <span className="font-normal text-white/80"> · {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
+                <div className="flex w-full max-w-xl items-stretch gap-2 rounded-2xl bg-white p-2 shadow-2xl shadow-black/25 ring-1 ring-black/5">
+                  {/* Date field — opens the shared calendar */}
+                  <button
+                    type="button"
+                    onClick={() => setCalendarOpen(true)}
+                    aria-label={tb("selectDates")}
+                    className="group flex flex-1 cursor-pointer items-center gap-3 rounded-xl px-4 py-2 text-left transition-colors hover:bg-earth-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                  >
+                    <CalendarDays size={22} className="shrink-0 text-brand" />
+                    <span className="flex min-w-0 flex-col">
+                      <span className="text-[11px] font-semibold uppercase tracking-wider text-earth-400">{tb("selectDates")}</span>
+                      <span className={`truncate text-sm font-bold ${hasDates ? "text-earth-900" : "text-earth-500"}`}>
+                        {hasDates
+                          ? `${fmtDate(dateRange!.from!, "d MMM", locale)} — ${fmtDate(dateRange!.to!, "d MMM", locale)} · ${nights} ${nights > 1 ? tc("nights") : tc("night")}`
+                          : `${tb("checkInLabel")} — ${tb("checkOutLabel")}`}
+                      </span>
                     </span>
-                  ) : (
-                    t("checkAvailability")
-                  )}
-                </button>
+                  </button>
+                  {/* Search — jumps to the rooms (or opens the calendar if no dates) */}
+                  <button
+                    type="button"
+                    onClick={handleSearch}
+                    className="shrink-0 cursor-pointer rounded-xl bg-brand px-8 text-sm font-bold uppercase tracking-widest text-white transition-colors hover:bg-brand-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+                  >
+                    {t("search")}
+                  </button>
+                </div>
               </motion.div>
             )}
           </div>

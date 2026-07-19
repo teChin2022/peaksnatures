@@ -16,7 +16,6 @@ import { GallerySection } from "@/components/booking/gallery-section";
 import { AboutSection } from "@/components/booking/about-section";
 import { RoomsSection } from "@/components/booking/rooms-section";
 import { BookingCartProvider } from "@/components/booking/booking-cart-context";
-import { BookingDateBar } from "@/components/booking/booking-date-bar";
 import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingFooter } from "@/components/booking/booking-footer";
 import { HostLocationSection } from "@/components/booking/host-location-section";
@@ -406,7 +405,6 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
       <BookingHeader homestayName={homestay.name} logoUrl={homestay.logo_url} slug={homestay.slug} />
 
       <BookingCartProvider catalog={cartCatalog} homestayId={homestay.id}>
-      <BookingDateBar />
       <main className="pb-28 md:pb-0">
         <Breadcrumbs items={breadcrumbItems} visuallyHidden />
         <HeroSection

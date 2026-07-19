@@ -15,7 +15,8 @@
     "verifiedHost": "Verified Host",
     "instantConfirm": "Instant confirmation",
     "freeCancellation": "Free cancellation within policy",
-    "checkAvailability": "Check availability"
+    "checkAvailability": "Check availability",
+    "search": "Search"
   },
   "hostCard": {
     "verifiedHost": "Verified Host",
