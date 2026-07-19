@@ -1021,8 +1021,8 @@ export function BookingSection({
             </div>
           )}
           <div className={`grid gap-10 lg:grid-cols-2 lg:gap-12 xl:gap-16 items-start ${bookingDisabled ? "pointer-events-none opacity-50 select-none" : ""}`}>
-            {/* ── Left Column: Heading & Trust Badges ── */}
-            <div className="order-2 flex flex-col justify-center lg:order-1">
+            {/* ── Left Column: Heading & Trust Badges (shown first on mobile, left on desktop) ── */}
+            <div className="order-1 flex flex-col justify-center lg:order-1">
               <h2 className="font-serif text-4xl font-normal text-earth-900 leading-tight lg:text-5xl tracking-tight">
                 {t("sectionHeading")}{" "}
                 <span className="italic text-brand">{t("sectionHeadingAccent")}</span>
@@ -1074,7 +1074,7 @@ export function BookingSection({
               whileInView={{ opacity: 1, scale: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, ease: [0.25, 0.1, 0, 1] }}
-              className="order-1 bg-white rounded-3xl shadow-xl border border-earth-100 p-5 lg:order-2 lg:p-8 relative flex flex-col lg:sticky lg:top-32"
+              className="order-2 bg-white rounded-3xl shadow-xl border border-earth-100 p-5 lg:order-2 lg:p-8 relative flex flex-col lg:sticky lg:top-32"
             >
             {initialPromo && promoInput.trim().toUpperCase() === initialPromo.code.toUpperCase() && (
               <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-brand-100 bg-brand-50 p-3.5">

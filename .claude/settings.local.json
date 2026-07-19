@@ -38,7 +38,8 @@
       "Bash(pkill -f \"cp-btn\\\\|cp-cdp\")",
       "Bash(curl -s \"http://localhost:3100/_next/static/chunks/src_components_booking_rooms-section_tsx_7d0743d5._.js\")",
       "Bash(pkill -f \"cp-dp\\\\|cp-btn\\\\|cp-cdp\")",
-      "Bash(pkill -f \"cp-filter\\\\|cp-dp\\\\|cp-btn\\\\|cp-cdp\")"
+      "Bash(pkill -f \"cp-filter\\\\|cp-dp\\\\|cp-btn\\\\|cp-cdp\")",
+      "Bash(pkill -f \"cp-order\\\\|cp-dp\\\\|cp-filter\\\\|cp-btn\\\\|cp-cdp\")"
     ]
   },
   "prefersReducedMotion": false

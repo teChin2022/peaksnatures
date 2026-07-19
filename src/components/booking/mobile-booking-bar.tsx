@@ -137,8 +137,8 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
                 onClick={() => setCalendarOpen(true)}
                 className={`flex min-h-11 min-w-0 flex-1 cursor-pointer touch-manipulation items-center gap-3 rounded-2xl px-2 py-1 text-left transition-colors hover:bg-earth-50 ${FOCUS_RING}`}
               >
-                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand">
-                  <CalendarDays size={18} />
+                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand">
+                  <CalendarDays size={20} />
                 </span>
                 <span className="flex min-w-0 flex-col">
                   {hasDates ? (
@@ -167,11 +167,11 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
                 onClick={() => setSheetOpen(true)}
                 disabled={bookingDisabled}
                 aria-label={cartLabel}
-                className={`relative flex h-12 w-12 shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-full bg-brand text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
+                className={`relative flex h-11 w-11 shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-full bg-brand-50 text-brand transition-colors hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
               >
                 <ShoppingCart size={20} />
                 {cartCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-earth-900 px-1 text-[11px] font-bold text-white ring-2 ring-white">
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F83858] px-1 text-[11px] font-bold text-white ring-2 ring-white">
                     {cartCount}
                   </span>
                 )}
