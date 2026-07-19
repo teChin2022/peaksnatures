@@ -128,7 +128,7 @@ export function BookingDateBar() {
                 <span>{tc("total")}</span>
                 <span>฿{subtotal.toLocaleString()}</span>
               </div>
-              <Button className="w-full rounded-full bg-brand text-white hover:bg-brand-hover" onClick={handleBook}>
+              <Button className="w-full rounded-full bg-brand px-6 py-3.5 h-auto text-sm font-bold uppercase tracking-widest text-white hover:bg-brand-hover" onClick={handleBook}>
                 {t("proceedBooking")} <ArrowRight size={16} className="ml-1" />
               </Button>
             </>

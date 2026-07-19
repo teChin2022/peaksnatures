@@ -198,7 +198,7 @@ export function RoomConfigDialog({
           <Button
             disabled={!canAdd}
             onClick={handleSubmit}
-            className="w-full rounded-full bg-brand text-white hover:bg-brand-hover disabled:opacity-50"
+            className="w-full rounded-full bg-brand px-6 py-3.5 h-auto text-sm font-bold uppercase tracking-widest text-white hover:bg-brand-hover disabled:opacity-50"
           >
             {isEditing ? (
               tc("save")

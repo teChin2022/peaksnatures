@@ -19,6 +19,7 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useBookingCartOptional, type CartLine } from "@/components/booking/booking-cart-context";
 import { RoomConfigDialog } from "@/components/booking/room-config-dialog";
+import { BookingCalendarDialog } from "@/components/booking/booking-calendar-dialog";
 import { getPriceRange } from "@/lib/calculate-price";
 import { getFullyBookedForRoom } from "@/lib/booking-dates";
 import { HTMLContent } from "@/components/ui/html-content";
@@ -558,12 +559,15 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRo
   const locale = useLocale();
   const cart = useBookingCartOptional();
   const [config, setConfig] = useState<{ room: Room; editingLine?: CartLine } | null>(null);
+  const [datePickerOpen, setDatePickerOpen] = useState(false);
+  const pendingRoomRef = useRef<Room | null>(null);
 
   const handleAddToCart = (room: Room) => {
     if (!cart) return;
     if (!cart.dateRange?.from || !cart.dateRange?.to) {
-      toast.error(t("selectDatesFirstToast"));
-      window.scrollTo({ top: 0, behavior: "smooth" });
+      // No dates yet — open the shared date picker, then continue with this room.
+      pendingRoomRef.current = room;
+      setDatePickerOpen(true);
       return;
     }
     if (!cart.isRoomAvailableForRange(room) || cart.remainingForRoom(room) <= 0) {
@@ -571,6 +575,13 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRo
       return;
     }
     setConfig({ room });
+  };
+
+  // Once the guest confirms dates in the picker, continue with the room they tapped.
+  const handleDatesPicked = () => {
+    const room = pendingRoomRef.current;
+    pendingRoomRef.current = null;
+    if (room) handleAddToCart(room);
   };
 
   // Reopen the config dialog in edit mode when a cart line requests it
@@ -655,6 +666,14 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRo
           editingLine={config?.editingLine ?? null}
           open={!!config}
           onClose={() => setConfig(null)}
+        />
+      )}
+
+      {cart && (
+        <BookingCalendarDialog
+          open={datePickerOpen}
+          onOpenChange={setDatePickerOpen}
+          onDone={handleDatesPicked}
         />
       )}
 

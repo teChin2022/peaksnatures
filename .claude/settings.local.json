@@ -34,7 +34,10 @@
       "Bash(awk -F: '{ln=$1} {print}')",
       "Bash(python3 *)",
       "Bash(pkill -f \"cp-dom4\\\\|cp-cal\\\\|cp-dom\")",
-      "Bash(pkill -f \"cp-cdp\\\\|cp-cdp2\\\\|cp-cdp3\")"
+      "Bash(pkill -f \"cp-cdp\\\\|cp-cdp2\\\\|cp-cdp3\")",
+      "Bash(pkill -f \"cp-btn\\\\|cp-cdp\")",
+      "Bash(curl -s \"http://localhost:3100/_next/static/chunks/src_components_booking_rooms-section_tsx_7d0743d5._.js\")",
+      "Bash(pkill -f \"cp-dp\\\\|cp-btn\\\\|cp-cdp\")"
     ]
   },
   "prefersReducedMotion": false

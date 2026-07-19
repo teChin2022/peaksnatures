@@ -218,7 +218,7 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
                 <span>{t("total")}</span>
                 <span>฿{subtotal.toLocaleString()}</span>
               </div>
-              <Button className="w-full rounded-full bg-brand text-white hover:bg-brand-hover" onClick={handleContinue}>
+              <Button className="w-full rounded-full bg-brand px-6 py-3.5 h-auto text-sm font-bold uppercase tracking-widest text-white hover:bg-brand-hover" onClick={handleContinue}>
                 {tb("proceedBooking")} <ArrowRight className="ml-1 h-4 w-4" />
               </Button>
             </SheetFooter>
