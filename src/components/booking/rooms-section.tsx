@@ -497,7 +497,7 @@ function SingleRoomHero({
                   ) : (
                     <>
                       <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
-                      {t("addToCart")}
+                      {t("selectThisRoom")}
                     </>
                   )}
                 </Button>
@@ -507,8 +507,8 @@ function SingleRoomHero({
                 className="flex items-center justify-center gap-1.5 rounded-full bg-white/90 px-5 py-3 border border-white/50 shadow-lg transition-colors text-sm font-bold tracking-widest uppercase text-earth-800 hover:bg-white"
                 onClick={(e) => { e.stopPropagation(); onCalendar(); }}
               >
-                {t("viewCalendar")}
                 <CalendarSearch className="h-3.5 w-3.5" />
+                {t("viewCalendar")}
               </button>
             </div>
           </div>
@@ -528,7 +528,7 @@ function SingleRoomHero({
             ) : (
               <>
                 <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
-                {t("addToCart")}
+                {t("selectThisRoom")}
               </>
             )}
           </Button>
@@ -538,8 +538,8 @@ function SingleRoomHero({
           className="flex w-full items-center justify-center gap-1.5 rounded-full border border-earth-300 bg-white px-5 py-3.5 text-sm font-bold tracking-widest uppercase text-earth-800 shadow-sm transition-colors hover:bg-earth-50"
           onClick={() => onCalendar()}
         >
-          {t("viewCalendar")}
           <CalendarSearch className="h-3.5 w-3.5" />
+          {t("viewCalendar")}
         </button>
       </div>
 

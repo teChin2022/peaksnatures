@@ -29,7 +29,11 @@
       "Bash(xargs kill)",
       "Bash(pkill -f \"cp-dom3\")",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:3100/ing-khoa-camping\")",
-      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -b \"locale=en\" \"http://localhost:3100/ing-khoa-camping\")"
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -b \"locale=en\" \"http://localhost:3100/ing-khoa-camping\")",
+      "Bash(awk -F'\"' '$0 ~ /:/ {print}')",
+      "Bash(awk -F: '{ln=$1} {print}')",
+      "Bash(python3 *)",
+      "Bash(pkill -f \"cp-dom4\\\\|cp-cal\\\\|cp-dom\")"
     ]
   },
   "prefersReducedMotion": false

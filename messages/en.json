@@ -156,6 +156,7 @@
     "fromPrice": "From",
     "bookRoom": "Book",
     "addToCart": "Add to cart",
+    "selectThisRoom": "Select this room",
     "selectDatesFirstToast": "Please select your dates first",
     "roomUnavailableToast": "This room isn't available for the selected dates",
     "viewCalendar": "Availability & Rates",

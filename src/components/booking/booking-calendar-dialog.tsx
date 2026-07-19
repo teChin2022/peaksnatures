@@ -64,7 +64,7 @@ export function BookingCalendarDialog({
         <DialogHeader>
           <DialogTitle>{t("selectDates")}</DialogTitle>
         </DialogHeader>
-        <div className="rounded-2xl border border-earth-100 p-3">
+        <div className="p-2">
           <Calendar
             key={dateRange?.from?.toISOString() || "no-date"}
             mode="range"

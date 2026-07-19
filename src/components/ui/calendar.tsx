@@ -81,10 +81,10 @@ function Calendar({
         footer: "",
         // === DayFlag modifiers ===
         today:
-          "[&_.day-btn]:font-bold [&_.day-btn]:bg-earth-300 [&_.day-btn]:text-white [&_.day-btn]:rounded-full [&_.day-btn]:hover:bg-earth-400",
+          "[&_.day-btn]:font-bold [&_.day-btn]:bg-brand-50 [&_.day-btn]:text-brand [&_.day-btn]:rounded-full [&_.day-btn]:hover:bg-brand-100",
         outside: "[&_.day-btn]:text-earth-300 [&_.day-btn]:hover:text-earth-400",
         disabled:
-          "[&_.day-btn]:text-earth-300 [&_.day-btn]:opacity-50 [&_.day-btn]:cursor-not-allowed [&_.day-btn]:hover:bg-transparent",
+          "[&_.day-btn]:text-earth-400 [&_.day-btn]:cursor-not-allowed [&_.day-btn]:hover:bg-transparent",
         hidden: "invisible",
         focused: "",
         // === SelectionState modifiers ===
