@@ -14,7 +14,8 @@
   "hero": {
     "verifiedHost": "โฮสต์ยืนยันตัวตนแล้ว",
     "instantConfirm": "จองแล้วได้รับการยืนยันทันที",
-    "freeCancellation": "ยกเลิกฟรีภายในเวลาที่กำหนด"
+    "freeCancellation": "ยกเลิกฟรีภายในเวลาที่กำหนด",
+    "checkAvailability": "เช็กห้องว่าง"
   },
   "hostCard": {
     "verifiedHost": "โฮสต์ยืนยันตัวตนแล้ว",

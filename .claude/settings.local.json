@@ -24,7 +24,12 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:api.github.com)",
-      "Bash(python3 .claude/skills/ui-ux-pro-max/scripts/search.py \"mobile card header layout long text\" --domain ux -n 6)"
+      "Bash(python3 .claude/skills/ui-ux-pro-max/scripts/search.py \"mobile card header layout long text\" --domain ux -n 6)",
+      "Bash(lsof -ti:3100)",
+      "Bash(xargs kill)",
+      "Bash(pkill -f \"cp-dom3\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:3100/ing-khoa-camping\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -b \"locale=en\" \"http://localhost:3100/ing-khoa-camping\")"
     ]
   },
   "prefersReducedMotion": false

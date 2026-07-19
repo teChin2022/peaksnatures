@@ -416,6 +416,7 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
           isVerified={homestay.host.is_verified}
           averageRating={averageRating}
           reviewCount={reviewCount}
+          bookingDisabled={bookingDisabled}
           // location={homestay.location}
         />
 
@@ -486,9 +487,6 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
 
       <MobileBookingBar
         rooms={rooms}
-        seasonalPrices={seasonalPrices}
-        mostBookedRoomId={mostBookedRoomId}
-        hasConfirmedBookings={hasConfirmedBookings}
         bookingDisabled={bookingDisabled}
       />
       </BookingCartProvider>

@@ -1,7 +1,7 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
-import { motion, AnimatePresence } from "motion/react";
+import { useState, useEffect } from "react";
+import { motion, AnimatePresence, useReducedMotion } from "motion/react";
 import { CalendarDays, ShoppingCart, ArrowRight } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
@@ -14,34 +14,29 @@ import {
   SheetDescription,
 } from "@/components/ui/sheet";
 import { useIsMobile } from "@/lib/use-is-mobile";
-import { getPriceRange } from "@/lib/calculate-price";
 import { fmtDate } from "@/lib/format-date";
 import { useBookingCartOptional } from "@/components/booking/booking-cart-context";
 import { BookingCalendarDialog } from "@/components/booking/booking-calendar-dialog";
 import { CartLineList } from "@/components/booking/cart-line-list";
-import type { Room, RoomSeasonalPrice } from "@/types/database";
+import type { Room } from "@/types/database";
 
 interface MobileBookingBarProps {
   rooms: Room[];
-  seasonalPrices: RoomSeasonalPrice[];
-  mostBookedRoomId: string | null;
-  hasConfirmedBookings: boolean;
   bookingDisabled?: boolean;
 }
 
 type BookingStep = "dates" | "details" | "payment";
 
-export function MobileBookingBar({
-  rooms,
-  seasonalPrices,
-  mostBookedRoomId,
-  hasConfirmedBookings,
-  bookingDisabled = false,
-}: MobileBookingBarProps) {
+// Shared focus-visible treatment for the bar's two tap targets (keyboard a11y).
+const FOCUS_RING =
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:ring-offset-2";
+
+export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBookingBarProps) {
   const t = useTranslations("common");
   const tb = useTranslations("booking");
   const locale = useLocale();
   const isMobile = useIsMobile();
+  const reduceMotion = useReducedMotion();
   const cart = useBookingCartOptional();
   const [visible, setVisible] = useState(false);
   const [bookingStep, setBookingStep] = useState<BookingStep>("dates");
@@ -56,22 +51,6 @@ export function MobileBookingBar({
   const dateRange = cart?.dateRange;
   const hasCart = cartCount > 0;
   const hasDates = !!(dateRange?.from && dateRange?.to && dateRange.to.getTime() !== dateRange.from.getTime());
-
-  const cheapestPrice = useMemo(() => {
-    if (!rooms.length) return 0;
-    let min = Infinity;
-    for (const room of rooms) {
-      const seasons = seasonalPrices.filter((s) => s.room_id === room.id);
-      const range = getPriceRange(room.price_per_night, seasons);
-      if (range.min < min) min = range.min;
-    }
-    return min;
-  }, [rooms, seasonalPrices]);
-
-  const focusedRoom = useMemo(
-    () => rooms.find((r) => r.id === mostBookedRoomId) ?? rooms[0],
-    [mostBookedRoomId, rooms]
-  );
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -117,22 +96,7 @@ export function MobileBookingBar({
     return () => footerObserver.disconnect();
   }, [isMobile, bookingStep]);
 
-  const handleBookNow = () => {
-    if (!focusedRoom) return;
-    document.dispatchEvent(
-      new CustomEvent("book-room", { detail: { roomId: focusedRoom.id } })
-    );
-  };
-
-  // "Book now" with no dates yet opens the calendar first (no dead scroll).
-  const handleAction = () => {
-    if (!hasDates) {
-      setCalendarOpen(true);
-      return;
-    }
-    handleBookNow();
-  };
-
+  // Picking dates nudges the guest down to the rooms so they can add one.
   const scrollToRooms = () => {
     setTimeout(
       () => document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" }),
@@ -145,95 +109,74 @@ export function MobileBookingBar({
     document.getElementById("booking-section")?.scrollIntoView({ behavior: "smooth", block: "center" });
   };
 
+  const handleBrowseRooms = () => {
+    setSheetOpen(false);
+    scrollToRooms();
+  };
+
   if (!isMobile || !rooms.length) return null;
+
+  const cartLabel = cartCount > 0 ? `${tb("yourCart")} · ${tb("roomsCount", { count: cartCount })}` : tb("yourCart");
 
   return (
     <>
       <AnimatePresence>
         {visible && (
           <motion.div
-            initial={{ y: "100%" }}
-            animate={{ y: 0 }}
-            exit={{ y: "100%" }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            initial={reduceMotion ? { opacity: 0 } : { y: "100%" }}
+            animate={reduceMotion ? { opacity: 1 } : { y: 0 }}
+            exit={reduceMotion ? { opacity: 0 } : { y: "100%" }}
+            transition={reduceMotion ? { duration: 0.15 } : { type: "spring", damping: 25, stiffness: 300 }}
             className="fixed bottom-0 inset-x-0 z-40 border-t border-earth-200 bg-white/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)] md:hidden"
           >
-            {/* Row 1 — date selector (opens the shared calendar) */}
-            <button
-              type="button"
-              onClick={() => setCalendarOpen(true)}
-              aria-label={tb("selectDates")}
-              className="flex w-full items-center gap-3 border-b border-earth-100 px-4 py-2.5 text-left"
-            >
-              <span className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand">
-                <CalendarDays size={18} />
-              </span>
-              <span className="flex min-w-0 flex-1 flex-col">
-                {hasDates ? (
-                  <>
-                    <span className="truncate text-sm font-semibold text-earth-900">
-                      {fmtDate(dateRange!.from!, "d MMM", locale)} — {fmtDate(dateRange!.to!, "d MMM", locale)}
-                    </span>
-                    <span className="text-xs text-earth-500">
-                      {nights} {nights > 1 ? t("nights") : t("night")}
-                    </span>
-                  </>
-                ) : (
-                  <>
-                    <span className="text-[10px] font-semibold uppercase tracking-wider text-earth-400">
-                      {tb("checkInLabel")} — {tb("checkOutLabel")}
-                    </span>
-                    <span className="text-sm font-semibold text-earth-400">{tb("addDate")}</span>
-                  </>
-                )}
-              </span>
-              <span className="shrink-0 text-xs font-semibold text-brand">{t("edit")}</span>
-            </button>
+            <div className="flex items-center gap-2 px-3 py-2.5">
+              {/* Date — opens the shared calendar, then scrolls to the rooms.
+                  No aria-label: the visible date text is the accessible name. */}
+              <button
+                type="button"
+                onClick={() => setCalendarOpen(true)}
+                className={`flex min-h-11 min-w-0 flex-1 cursor-pointer touch-manipulation items-center gap-3 rounded-2xl px-2 py-1 text-left transition-colors hover:bg-earth-50 ${FOCUS_RING}`}
+              >
+                <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand">
+                  <CalendarDays size={18} />
+                </span>
+                <span className="flex min-w-0 flex-col">
+                  {hasDates ? (
+                    <>
+                      <span className="truncate text-sm font-bold text-earth-900">
+                        {fmtDate(dateRange!.from!, "d MMM", locale)} – {fmtDate(dateRange!.to!, "d MMM", locale)}
+                      </span>
+                      <span className="text-xs text-earth-600">
+                        {nights} {nights > 1 ? t("nights") : t("night")}
+                      </span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="text-[10px] font-semibold uppercase tracking-wider text-earth-600">
+                        {tb("checkInLabel")} — {tb("checkOutLabel")}
+                      </span>
+                      <span className="text-sm font-bold text-earth-900">{tb("selectDates")}</span>
+                    </>
+                  )}
+                </span>
+              </button>
 
-            {/* Row 2 — price / running total + primary action */}
-            {hasCart ? (
+              {/* Cart — e-commerce icon + count badge; opens the details sheet */}
               <button
                 type="button"
                 onClick={() => setSheetOpen(true)}
-                className="flex w-full items-center justify-between gap-3 px-4 py-2.5 text-left"
+                disabled={bookingDisabled}
+                aria-label={cartLabel}
+                className={`relative flex h-12 w-12 shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-full bg-brand text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
               >
-                <div className="min-w-0">
-                  <span className="block text-lg font-bold leading-tight text-earth-900">
-                    ฿{subtotal.toLocaleString()}
+                <ShoppingCart size={20} />
+                {cartCount > 0 && (
+                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-earth-900 px-1 text-[11px] font-bold text-white ring-2 ring-white">
+                    {cartCount}
                   </span>
-                  <span className="block truncate text-xs text-earth-500">
-                    {tb("roomsCount", { count: cartCount })} · {nights} {nights > 1 ? t("nights") : t("night")}
-                  </span>
-                </div>
-                <span className="flex shrink-0 items-center gap-1.5 rounded-full bg-brand px-5 py-3 text-sm font-bold uppercase tracking-wider text-white">
-                  <ShoppingCart className="h-4 w-4" />
-                  {tb("yourCart")}
-                </span>
+                )}
               </button>
-            ) : (
-              <div className="flex items-center justify-between gap-3 px-4 py-2.5">
-                <div className="flex flex-col min-w-0">
-                  {hasConfirmedBookings && (
-                    <span className="text-[10px] font-bold text-brand uppercase tracking-wider leading-none mb-0.5">
-                      {t("mostPopular")}
-                    </span>
-                  )}
-                  <span className="text-lg font-bold text-earth-900">
-                    <span className="text-sm font-normal text-earth-500">{t("from")} </span>
-                    ฿{cheapestPrice.toLocaleString()}
-                    <span className="text-sm font-normal text-earth-500">{t("perNight")}</span>
-                  </span>
-                </div>
-                <Button
-                  onClick={handleAction}
-                  disabled={bookingDisabled}
-                  className="relative shrink-0 bg-brand text-white px-6 py-3 h-auto font-bold text-sm tracking-wider uppercase rounded-full hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
-                  {bookingDisabled ? t("unavailable") : t("bookNow")}
-                </Button>
-              </div>
-            )}
+            </div>
           </motion.div>
         )}
       </AnimatePresence>
@@ -241,7 +184,7 @@ export function MobileBookingBar({
       {/* Shared date picker (mobile) */}
       <BookingCalendarDialog open={calendarOpen} onOpenChange={setCalendarOpen} onDone={scrollToRooms} />
 
-      {/* Cart review sheet (mobile) */}
+      {/* Cart review sheet (mobile) — all room details */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent side="bottom" className="max-h-[85vh] gap-0 rounded-t-2xl p-0 md:hidden">
           <SheetHeader className="border-b border-earth-100 pr-12">
@@ -257,8 +200,14 @@ export function MobileBookingBar({
             {hasCart ? (
               <CartLineList />
             ) : (
-              <div className="rounded-xl border border-dashed border-earth-300 bg-earth-50 p-6 text-center text-sm text-earth-500">
-                {tb("emptyCart")}
+              <div className="rounded-xl border border-dashed border-earth-300 bg-earth-50 p-6 text-center">
+                <p className="text-sm text-earth-600">{tb("emptyCart")}</p>
+                <Button
+                  className="mt-4 rounded-full bg-brand text-white hover:bg-brand-hover"
+                  onClick={handleBrowseRooms}
+                >
+                  {tb("viewRooms")}
+                </Button>
               </div>
             )}
           </div>

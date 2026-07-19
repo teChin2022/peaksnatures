@@ -14,7 +14,8 @@
   "hero": {
     "verifiedHost": "Verified Host",
     "instantConfirm": "Instant confirmation",
-    "freeCancellation": "Free cancellation within policy"
+    "freeCancellation": "Free cancellation within policy",
+    "checkAvailability": "Check availability"
   },
   "hostCard": {
     "verifiedHost": "Verified Host",
