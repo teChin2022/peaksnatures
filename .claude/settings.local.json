@@ -33,7 +33,8 @@
       "Bash(awk -F'\"' '$0 ~ /:/ {print}')",
       "Bash(awk -F: '{ln=$1} {print}')",
       "Bash(python3 *)",
-      "Bash(pkill -f \"cp-dom4\\\\|cp-cal\\\\|cp-dom\")"
+      "Bash(pkill -f \"cp-dom4\\\\|cp-cal\\\\|cp-dom\")",
+      "Bash(pkill -f \"cp-cdp\\\\|cp-cdp2\\\\|cp-cdp3\")"
     ]
   },
   "prefersReducedMotion": false

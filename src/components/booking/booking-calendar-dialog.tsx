@@ -60,11 +60,11 @@ export function BookingCalendarDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-md">
+      <DialogContent className="grid-cols-1 p-4 sm:max-w-md sm:p-6">
         <DialogHeader>
           <DialogTitle>{t("selectDates")}</DialogTitle>
         </DialogHeader>
-        <div className="p-2">
+        <div className="py-1">
           <Calendar
             key={dateRange?.from?.toISOString() || "no-date"}
             mode="range"
@@ -90,7 +90,7 @@ export function BookingCalendarDialog({
             className="w-full"
           />
         </div>
-        <Button className="w-full bg-brand text-white hover:bg-brand-hover rounded-full" onClick={handleDone}>
+        <Button className="w-full rounded-full bg-brand px-6 py-3.5 h-auto text-sm font-bold uppercase tracking-widest text-white hover:bg-brand-hover" onClick={handleDone}>
           {tc("done")}
         </Button>
       </DialogContent>
