@@ -614,6 +614,11 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRo
 
   const calendarRoom = calendarRoomId ? rooms.find((r) => r.id === calendarRoomId) : null;
 
+  // Once dates are chosen, only show rooms that are actually available for them
+  // (hide rooms fully booked or blocked for the selected range).
+  const datesChosen = !!cart?.dateRange?.from && !!cart?.dateRange?.to;
+  const visibleRooms = datesChosen && cart ? rooms.filter((room) => cart.isRoomAvailableForRange(room)) : rooms;
+
   const disabledDates = useMemo(() => {
     if (!calendarRoomId) return [];
     const fullyBooked = getFullyBookedDates(calendarRoomId, rooms, bookedRanges);
@@ -629,25 +634,26 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRo
   return (
     <>
       <div className="mt-6 space-y-6">
-        {rooms.map((room) => {
-          const datesChosen = !!cart?.dateRange?.from && !!cart?.dateRange?.to;
-          const unavailableForDates = !!cart && datesChosen && !cart.isRoomAvailableForRange(room);
-          return (
-            <SingleRoomHero
-              key={room.id}
-              room={room}
-              seasonalPrices={seasonsByRoom[room.id] || []}
-              onLightbox={() => setLightbox({ images: room.images, name: room.name })}
-              onCalendar={() => setCalendarRoomId(room.id)}
-              onDesc={() => setDescRoomId(room.id)}
-              onAddToCart={() => handleAddToCart(room)}
-              cartEnabled={!!cart}
-              bookingLocked={bookingLocked}
-              isPopular={popularRoomIds.has(room.id)}
-              unavailableForDates={unavailableForDates}
-            />
-          );
-        })}
+        {visibleRooms.map((room) => (
+          <SingleRoomHero
+            key={room.id}
+            room={room}
+            seasonalPrices={seasonsByRoom[room.id] || []}
+            onLightbox={() => setLightbox({ images: room.images, name: room.name })}
+            onCalendar={() => setCalendarRoomId(room.id)}
+            onDesc={() => setDescRoomId(room.id)}
+            onAddToCart={() => handleAddToCart(room)}
+            cartEnabled={!!cart}
+            bookingLocked={bookingLocked}
+            isPopular={popularRoomIds.has(room.id)}
+            unavailableForDates={false}
+          />
+        ))}
+        {datesChosen && visibleRooms.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-earth-300 bg-earth-50 p-8 text-center text-sm text-earth-600">
+            {t("noAvailableRooms")}
+          </div>
+        )}
       </div>
 
       {lightbox && (

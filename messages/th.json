@@ -161,6 +161,7 @@
     "roomUnavailableToast": "ห้องนี้ไม่ว่างสำหรับวันที่เลือก",
     "viewCalendar": "วันว่าง & ราคา",
     "unavailableForDates": "ไม่ว่างสำหรับวันที่เลือก",
+    "noAvailableRooms": "ไม่มีห้องว่างสำหรับวันที่ที่เลือก กรุณาเลือกวันที่อื่น",
     "goToPhoto": "ไปที่รูปที่ {number}",
     "availabilityTitle": "ตารางจองและราคา",
     "legendBooked": "จองแล้ว",

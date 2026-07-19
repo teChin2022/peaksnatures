@@ -161,6 +161,7 @@
     "roomUnavailableToast": "This room isn't available for the selected dates",
     "viewCalendar": "Availability & Rates",
     "unavailableForDates": "Unavailable for these dates",
+    "noAvailableRooms": "No rooms available for the selected dates. Please try different dates.",
     "goToPhoto": "Go to photo {number}",
     "availabilityTitle": "Availability & Rates",
     "legendBooked": "Booked",
