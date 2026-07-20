@@ -21,9 +21,9 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import {
   Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope,
-  CalendarDays, Calendar as CalendarIcon, Users, CreditCard, Upload, CheckCircle2, Loader2,
+  Calendar as CalendarIcon, Users, CreditCard, Upload, CheckCircle2, Loader2,
   ImageIcon, X, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle,
-  Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, Sparkles, FileText, Lock, MousePointerClick, ListPlus, Gift, HelpCircle,
+  Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, Sparkles, FileText, Lock, MousePointerClick, ListPlus, Gift, HelpCircle, BedDouble,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
@@ -46,6 +46,7 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { BookingCalendarDialog } from "@/components/booking/booking-calendar-dialog";
 import { BookingTutorialDialog } from "@/components/booking/booking-tutorial-dialog";
 import { LeaveBookingDialog } from "@/components/booking/leave-booking-dialog";
 import { useBookingCart } from "@/components/booking/booking-cart-context";
@@ -152,6 +153,8 @@ export function BookingSection({
   // room-card "Add to cart", the cart modal, and this panel all share one cart.
   const cart = useBookingCart();
   const { dateRange, lines: cartLines, setDates: setDateRange, clear: clearCart, computeLineGross, subtotal } = cart;
+  // Step 1's empty state opens the real picker instead of pointing at the sticky bar.
+  const [calendarOpen, setCalendarOpen] = useState(false);
   // The "draft" room currently being configured to add. The cart accumulates lines.
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
   const [numGuests, setNumGuests] = useState("2");
@@ -341,6 +344,17 @@ export function BookingSection({
     });
     return fullyBookedEverywhere;
   }, [selectedRoomId, liveBookedRanges, rooms]);
+
+  // How many rooms RoomsSection will actually show for the chosen range — drives
+  // the "no rooms selected" panel's hint so it can't promise rooms that aren't there.
+  const availableRoomCount = useMemo(() => {
+    if (!dateRange?.from || !dateRange?.to) return 0;
+    return rooms.filter((r) => cart.isRoomAvailableForRange(r)).length;
+  }, [dateRange?.from, dateRange?.to, rooms, cart]);
+
+  // With no usable range — or a range nothing is free for — the only sensible next
+  // step is the date picker, so the empty state points there instead of the rooms.
+  const emptyCartNeedsDates = !dateRange?.from || !dateRange?.to || availableRoomCount === 0;
 
   // When selecting check-out, compute which booked date (if any) is allowed
   // as a valid check-out and where to cap the selectable range.
@@ -1148,14 +1162,15 @@ export function BookingSection({
                     <AnimatePresence mode="wait">
                       {!showCalendar && !showOptions && !showGuests ? (
                         <motion.div key="dates-form" initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.25 }} className="space-y-5">
-                          {/* ── Dates (chosen in the sticky bar at the top; read-only here) ── */}
+                          {/* ── Dates — mirrors the sticky bar, and opens the same picker ── */}
                           <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("selectDates")}</label>
-                          <div
-                            aria-disabled="true"
-                            className="w-full flex items-center justify-between p-3.5 rounded-xl border border-earth-200 bg-earth-50 text-sm font-medium text-earth-500 cursor-not-allowed select-none"
+                          <button
+                            type="button"
+                            onClick={() => setCalendarOpen(true)}
+                            className="w-full flex items-center justify-between p-3.5 rounded-xl border border-earth-200 bg-white text-sm font-medium text-earth-700 cursor-pointer transition-colors hover:border-earth-300 hover:bg-earth-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                           >
                             <div className="flex items-center gap-2.5">
-                              <CalendarIcon size={16} className="text-earth-300" />
+                              <CalendarIcon size={16} className="text-earth-400" />
                               <span>
                                 {dateRange?.from ? (
                                   <>
@@ -1168,44 +1183,59 @@ export function BookingSection({
                             {nights > 0 && (
                               <span className="text-earth-400 text-xs">{nights} {nights > 1 ? tc("nights") : tc("night")}</span>
                             )}
-                          </div>
+                          </button>
 
-                          {/* Rooms are added from the cards above; this panel reviews the cart. */}
-                          {(!dateRange?.from || !dateRange?.to) ? (
-                            <div className="rounded-xl border border-dashed border-earth-300 bg-earth-50 p-4 text-center">
-                              <CalendarDays className="mx-auto h-8 w-8 text-earth-300 mb-2" />
-                              <p className="text-sm font-medium text-earth-500">{t("selectDatesInBar")}</p>
-                            </div>
-                          ) : cartLines.length === 0 ? (
-                            <div className="rounded-xl border border-dashed border-earth-300 bg-earth-50 p-5 text-center">
-                              <p className="text-sm font-medium text-earth-500">{t("addRoomsPrompt")}</p>
-                              <button
-                                type="button"
-                                onClick={() => document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" })}
-                                className="mt-3 inline-flex items-center gap-1.5 rounded-full bg-brand px-5 py-2.5 text-sm font-bold text-white hover:bg-brand-hover transition-colors cursor-pointer"
-                              >
-                                {t("viewRooms")} <ArrowRight size={16} />
-                              </button>
-                            </div>
-                          ) : null}
+                          {/* ── Selected rooms — one panel, three states, fixed position ──
+                              Rooms are added from the cards above; this reviews the cart. */}
+                          <div className="space-y-2 pt-3 border-t border-earth-100">
+                            <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">
+                              {t("yourCart")}{cartLines.length > 0 ? ` (${cartLines.length})` : ""}
+                            </label>
 
-                          {/* ── Cart ── */}
-                          {cartLines.length > 0 && (
-                            <div className="space-y-2 pt-3 border-t border-earth-100">
-                              <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("yourCart")} ({cartLines.length})</label>
-                              <CartLineList />
-                              {appliedPromo && promoDiscount > 0 && (
-                                <div className="flex justify-between text-sm text-emerald-700 px-1">
-                                  <span>{t("promoLabel")} ({appliedPromo.code})</span>
-                                  <span>−฿{promoDiscount.toLocaleString()}</span>
+                            <div aria-live="polite">
+                              {cartLines.length === 0 ? (
+                                <div className="rounded-2xl border border-earth-100 bg-earth-50 px-5 py-7 text-center">
+                                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white text-earth-400">
+                                    <BedDouble className="h-6 w-6" />
+                                  </div>
+                                  <p className="text-sm font-semibold text-earth-900">{t("noRoomSelected")}</p>
+                                  <p className="mt-1 text-xs text-earth-500">
+                                    {!dateRange?.from || !dateRange?.to
+                                      ? t("noRoomSelectedNoDates")
+                                      : availableRoomCount === 0
+                                        ? t("noRoomSelectedSoldOut")
+                                        : t("noRoomSelectedHint", { count: availableRoomCount })}
+                                  </p>
+                                  <button
+                                    type="button"
+                                    onClick={() =>
+                                      emptyCartNeedsDates
+                                        ? setCalendarOpen(true)
+                                        : document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                                    }
+                                    className="mt-4 inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-full bg-brand px-6 text-sm font-bold text-white transition-colors hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                                  >
+                                    {emptyCartNeedsDates ? t("selectDates") : t("viewRooms")}
+                                    <ArrowRight size={16} />
+                                  </button>
+                                </div>
+                              ) : (
+                                <div className="space-y-2">
+                                  <CartLineList />
+                                  {appliedPromo && promoDiscount > 0 && (
+                                    <div className="flex justify-between text-sm text-emerald-700 px-1">
+                                      <span>{t("promoLabel")} ({appliedPromo.code})</span>
+                                      <span>−฿{promoDiscount.toLocaleString()}</span>
+                                    </div>
+                                  )}
+                                  <div className="flex justify-between text-base font-bold text-earth-900 px-1 pt-1">
+                                    <span>{tc("total")}</span>
+                                    <span>฿{totalPrice.toLocaleString()}</span>
+                                  </div>
                                 </div>
                               )}
-                              <div className="flex justify-between text-base font-bold text-earth-900 px-1 pt-1">
-                                <span>{tc("total")}</span>
-                                <span>฿{totalPrice.toLocaleString()}</span>
-                              </div>
                             </div>
-                          )}
+                          </div>
 
                           {/* PDPA */}
                           <label className="flex items-start gap-2 cursor-pointer">
@@ -1787,6 +1817,13 @@ export function BookingSection({
       </section>
 
       <BookingTutorialDialog open={showTutorial} onOpenChange={setShowTutorial} />
+
+      {/* Step 1's date field + empty state open the same picker as the sticky bar. */}
+      <BookingCalendarDialog
+        open={calendarOpen}
+        onOpenChange={setCalendarOpen}
+        onDone={() => document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+      />
 
       {/* ═══ Confirmed Booking Modal ═══ */}
       <Dialog open={showConfirmedModal} onOpenChange={(o) => { if (!o) { resetBooking(); } }}>
