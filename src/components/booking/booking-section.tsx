@@ -181,7 +181,7 @@ export function BookingSection({
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showCalendar, setShowCalendar] = useState(false);
-  const [showIncompleteDatesModal, setShowIncompleteDatesModal] = useState(false);
+  const [showIncompleteDates, setShowIncompleteDates] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [showGuests, setShowGuests] = useState(false);
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([]);
@@ -352,9 +352,6 @@ export function BookingSection({
     return rooms.filter((r) => cart.isRoomAvailableForRange(r)).length;
   }, [dateRange?.from, dateRange?.to, rooms, cart]);
 
-  // With no usable range — or a range nothing is free for — the only sensible next
-  // step is the date picker, so the empty state points there instead of the rooms.
-  const emptyCartNeedsDates = !dateRange?.from || !dateRange?.to || availableRoomCount === 0;
 
   // When selecting check-out, compute which booked date (if any) is allowed
   // as a valid check-out and where to cap the selectable range.
@@ -423,6 +420,11 @@ export function BookingSection({
     if (!dateRange?.from || !dateRange?.to) return 0;
     return differenceInDays(dateRange.to, dateRange.from);
   }, [dateRange]);
+
+  // With no usable range — or a range nothing is free for — the only sensible next
+  // step is the date picker, so the empty state points there instead of the rooms.
+  // nights < 1 covers both "nothing picked" and "check-in only" (from === to).
+  const emptyCartNeedsDates = nights < 1 || availableRoomCount === 0;
 
   const optionsTotal = useMemo(() => {
     return selectedOptionIds.reduce((sum, id) => {
@@ -1200,11 +1202,13 @@ export function BookingSection({
                                   </div>
                                   <p className="text-sm font-semibold text-earth-900">{t("noRoomSelected")}</p>
                                   <p className="mt-1 text-xs text-earth-500">
-                                    {!dateRange?.from || !dateRange?.to
+                                    {!dateRange?.from
                                       ? t("noRoomSelectedNoDates")
-                                      : availableRoomCount === 0
-                                        ? t("noRoomSelectedSoldOut")
-                                        : t("noRoomSelectedHint", { count: availableRoomCount })}
+                                      : nights < 1
+                                        ? t("noRoomSelectedNeedCheckOut")
+                                        : availableRoomCount === 0
+                                          ? t("noRoomSelectedSoldOut")
+                                          : t("noRoomSelectedHint", { count: availableRoomCount })}
                                   </p>
                                   <button
                                     type="button"
@@ -1396,14 +1400,25 @@ export function BookingSection({
                             )}
                           </div>
 
+                          {/* Same incomplete-range guard as BookingCalendarDialog: nights < 1
+                              means only check-in is picked, which prices nothing. */}
+                          {showIncompleteDates && nights < 1 && (
+                            <div
+                              role="alert"
+                              className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5"
+                            >
+                              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                              <div>
+                                <p className="text-xs font-bold text-amber-900">{t("incompleteDatesTitle")}</p>
+                                <p className="mt-0.5 text-xs text-amber-800">{t("incompleteDatesDesc")}</p>
+                              </div>
+                            </div>
+                          )}
+
                           <button
                             onClick={() => {
-                              const incomplete =
-                                !dateRange?.from ||
-                                !dateRange?.to ||
-                                dateRange.to.getTime() === dateRange.from.getTime();
-                              if (incomplete) {
-                                setShowIncompleteDatesModal(true);
+                              if (nights < 1) {
+                                setShowIncompleteDates(true);
                                 return;
                               }
                               setShowCalendar(false);
@@ -1918,22 +1933,6 @@ export function BookingSection({
           </DialogHeader>
           <DialogFooter>
             <Button className="w-full bg-brand text-white hover:bg-brand-hover" onClick={handleHeldModalClose}>{t("chooseDifferentDates")}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* Incomplete Dates Modal */}
-      <Dialog open={showIncompleteDatesModal} onOpenChange={setShowIncompleteDatesModal}>
-        <DialogContent showCloseButton={false} className="z-70" overlayClassName="z-70">
-          <DialogHeader>
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
-              <AlertTriangle className="h-6 w-6 text-amber-600" />
-            </div>
-            <DialogTitle className="text-center">{t("incompleteDatesTitle")}</DialogTitle>
-            <DialogDescription className="text-center">{t("incompleteDatesDesc")}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button className="w-full bg-brand text-white hover:bg-brand-hover" onClick={() => setShowIncompleteDatesModal(false)}>{t("incompleteDatesAction")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
