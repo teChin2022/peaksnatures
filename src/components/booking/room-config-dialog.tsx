@@ -7,6 +7,7 @@ import { Minus, Plus, Users, ListPlus } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import type { Room } from "@/types/database";
 import { composeTierLabel } from "@/lib/guest-pricing";
+import { calculateTotalPrice } from "@/lib/calculate-price";
 import { useBookingCart, type CartLine } from "@/components/booking/booking-cart-context";
 
 /**
@@ -27,7 +28,7 @@ export function RoomConfigDialog({
   editingLine?: CartLine | null;
 }) {
   const cart = useBookingCart();
-  const { catalog, nights, computeLineGross, addLine, updateLine, remainingForRoom } = cart;
+  const { catalog, dateRange, nights, computeLineGross, addLine, updateLine, remainingForRoom } = cart;
   const t = useTranslations("booking");
   const tc = useTranslations("common");
   const locale = useLocale();
@@ -50,6 +51,19 @@ export function RoomConfigDialog({
   );
   const hasTiers = tiers.length > 0;
   const selectedTier = tiers.find((g) => g.id === tierId) || null;
+
+  // Nightly rate a "use default price" tier (surcharge 0) is charged: the seasonal rate
+  // for the check-in night, or the room's base rate before dates are picked. Mirrors
+  // booking-section's defaultTierNightlyPrice so both surfaces quote the same number.
+  const baseNightlyPrice = useMemo(() => {
+    if (!room) return 0;
+    if (!dateRange?.from || !dateRange?.to || nights < 1) return room.price_per_night;
+    const seasons = catalog.seasonalPrices.filter((s) => s.room_id === room.id);
+    return (
+      calculateTotalPrice(room.price_per_night, dateRange.from, dateRange.to, seasons).breakdown[0]?.price
+      ?? room.price_per_night
+    );
+  }, [room, dateRange, nights, catalog.seasonalPrices]);
 
   // When adding, cap quantity to how many more of this room may still be added.
   // When editing, quantity is irrelevant (we modify the existing line in place).
@@ -103,7 +117,17 @@ export function RoomConfigDialog({
                     >
                       <Users size={16} className="shrink-0 text-earth-400" />
                       <span className="flex-1 min-w-0 text-sm font-medium text-earth-900">{composeTierLabel(tier, locale)}</span>
-                      {tier.surcharge > 0 && <span className="text-xs font-semibold text-brand">+฿{tier.surcharge.toLocaleString()}</span>}
+                      {/* Base tier states the rate itself (no "+"); the rest are per-night
+                          deltas on top of it, so they keep the "+" and the brand colour. */}
+                      {tier.surcharge > 0 ? (
+                        <span className="shrink-0 text-xs font-semibold text-brand whitespace-nowrap">
+                          +฿{tier.surcharge.toLocaleString()}/{tc("night")}
+                        </span>
+                      ) : (
+                        <span className="shrink-0 text-xs font-semibold text-earth-900 whitespace-nowrap">
+                          ฿{baseNightlyPrice.toLocaleString()}/{tc("night")}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
