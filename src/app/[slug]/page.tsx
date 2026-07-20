@@ -12,6 +12,7 @@ import { sanitizeRichText } from "@/lib/sanitize";
 import type { SupportedLocale } from "@/lib/translation/types";
 import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice, RoomOption, RoomGuestPricing, PromoCode } from "@/types/database";
 import { HeroSection } from "@/components/booking/hero-section";
+import { DesktopDateSearch } from "@/components/booking/desktop-date-search";
 import { GallerySection } from "@/components/booking/gallery-section";
 import { AboutSection } from "@/components/booking/about-section";
 import { RoomsSection } from "@/components/booking/rooms-section";
@@ -414,9 +415,10 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
           isVerified={homestay.host.is_verified}
           averageRating={averageRating}
           reviewCount={reviewCount}
-          bookingDisabled={bookingDisabled}
           // location={homestay.location}
         />
+
+        <DesktopDateSearch bookingDisabled={bookingDisabled} />
 
         <GallerySection images={homestay.gallery} name={homestay.name} />
 

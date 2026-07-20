@@ -40,7 +40,8 @@
       "Bash(pkill -f \"cp-dp\\\\|cp-btn\\\\|cp-cdp\")",
       "Bash(pkill -f \"cp-filter\\\\|cp-dp\\\\|cp-btn\\\\|cp-cdp\")",
       "Bash(pkill -f \"cp-order\\\\|cp-dp\\\\|cp-filter\\\\|cp-btn\\\\|cp-cdp\")",
-      "Bash(pkill -f \"cp-dis\\\\|cp-bar\\\\|cp-bi\\\\|cp-order\")"
+      "Bash(pkill -f \"cp-dis\\\\|cp-bar\\\\|cp-bi\\\\|cp-order\")",
+      "Bash(awk '/export function GallerySection/{f=1} f&&/<\\(section|div\\)/{print NR\": \"$0; c++} c>=2{exit}' src/components/booking/gallery-section.tsx)"
     ]
   },
   "prefersReducedMotion": false
