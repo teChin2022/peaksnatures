@@ -120,6 +120,19 @@
     "title": "Atmosphere",
     "showAll": "Show all photos"
   },
+  "availability": {
+    "title": "Room availability",
+    "subtitle": "Tap any date to see which rooms are booked and which are free",
+    "legendAvailable": "All rooms free",
+    "legendPartial": "Some rooms free",
+    "legendFull": "All rooms booked",
+    "summary": "{free} of {total} rooms available",
+    "roomAvailable": "Available",
+    "roomFreeCount": "{count} available",
+    "roomLeftCount": "{count} left",
+    "roomBooked": "Booked",
+    "roomClosed": "Unavailable"
+  },
   "about": {
     "title": "About this place",
     "amenities": "Amenities",

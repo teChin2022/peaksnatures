@@ -120,6 +120,19 @@
     "title": "บรรยากาศ",
     "showAll": "แสดงรูปทั้งหมด"
   },
+  "availability": {
+    "title": "ปฏิทินห้องว่าง",
+    "subtitle": "แตะวันที่เพื่อดูว่าห้องไหนว่างและห้องไหนถูกจองแล้ว",
+    "legendAvailable": "ว่างทุกห้อง",
+    "legendPartial": "ว่างบางห้อง",
+    "legendFull": "เต็มทุกห้อง",
+    "summary": "ว่าง {free} จาก {total} ห้อง",
+    "roomAvailable": "ว่าง",
+    "roomFreeCount": "ว่าง {count} ห้อง",
+    "roomLeftCount": "เหลือ {count} ห้อง",
+    "roomBooked": "ถูกจองแล้ว",
+    "roomClosed": "ปิดรับจอง"
+  },
   "about": {
     "title": "รายละเอียดที่พัก",
     "amenities": "สิ่งอำนวยความสะดวก",

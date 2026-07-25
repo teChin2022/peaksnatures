@@ -14,6 +14,7 @@ import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice, Room
 import { HeroSection } from "@/components/booking/hero-section";
 import { DesktopDateSearch } from "@/components/booking/desktop-date-search";
 import { GallerySection } from "@/components/booking/gallery-section";
+import { AvailabilityCalendarSection } from "@/components/booking/availability-calendar-section";
 import { AboutSection } from "@/components/booking/about-section";
 import { RoomsSection } from "@/components/booking/rooms-section";
 import { BookingCartProvider } from "@/components/booking/booking-cart-context";
@@ -419,6 +420,8 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
         />
 
         <DesktopDateSearch bookingDisabled={bookingDisabled} />
+
+        <AvailabilityCalendarSection />
 
         <GallerySection images={homestay.gallery} name={homestay.name} />
 
