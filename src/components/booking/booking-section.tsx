@@ -169,6 +169,9 @@ export function BookingSection({
   const isMobile = useIsMobile();
   const provinceLabel = (v: string) => getProvinceLabel(v, locale);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Progress of the sequential room-hold requests (step 2 → 3), so the overlay
+  // can show "reserving room 2 of 3" instead of a silent multi-second wait.
+  const [holdProgress, setHoldProgress] = useState<{ done: number; total: number } | null>(null);
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
   const [paymentPhase, setPaymentPhase] = useState<"qr" | "upload">("qr");
@@ -635,6 +638,7 @@ export function BookingSection({
     if (!dateRange?.from || !dateRange?.to || cartLines.length === 0) return;
 
     setIsSubmitting(true);
+    setHoldProgress({ done: 0, total: cartLines.length });
     try {
       const checkIn = format(dateRange.from, "yyyy-MM-dd");
       const checkOut = format(dateRange.to, "yyyy-MM-dd");
@@ -694,6 +698,7 @@ export function BookingSection({
           firstHoldId = data.hold_id;
           firstExpiry = new Date(data.expires_at).getTime();
         }
+        setHoldProgress((p) => (p ? { ...p, done: p.done + 1 } : p));
       }
 
       setHoldId(firstHoldId);
@@ -703,6 +708,7 @@ export function BookingSection({
       toast.error(t("errorGeneric"));
     } finally {
       setIsSubmitting(false);
+      setHoldProgress(null);
     }
   };
 
@@ -1027,6 +1033,39 @@ export function BookingSection({
 
   return (
     <>
+      {/* Securing-rooms overlay — the step 2 → 3 transition holds each room via a
+          sequential API call, which is several seconds for a multi-room cart.
+          Without this the panel just sat silent. Scoped to the hold phase only
+          (step "details"); step 3's slip verification has its own button spinner. */}
+      {isSubmitting && step === "details" && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-earth-900/40 px-4 backdrop-blur-sm"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <div className="w-full max-w-sm rounded-3xl bg-white p-8 text-center shadow-2xl">
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-brand-50">
+              <Loader2 className="h-7 w-7 animate-spin text-brand" />
+            </div>
+            <h3 className="font-serif text-xl text-earth-900">{t("securingRoomsTitle")}</h3>
+            <p className="mt-2 text-sm leading-relaxed text-earth-500">{t("securingRoomsDesc")}</p>
+            {holdProgress && holdProgress.total > 1 && (
+              <div className="mt-5">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-earth-100">
+                  <div
+                    className="h-full rounded-full bg-brand transition-all duration-300"
+                    style={{ width: `${Math.round((holdProgress.done / holdProgress.total) * 100)}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-xs font-medium text-earth-400">
+                  {t("securingRoomsProgress", { done: holdProgress.done, total: holdProgress.total })}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <section id="booking-section" ref={sectionRef} className="py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           {bookingDisabled && (
