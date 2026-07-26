@@ -1,9 +1,57 @@
-import { format, eachDayOfInterval, parseISO, subDays } from "date-fns";
+import { format, eachDayOfInterval, parseISO, subDays, isAfter } from "date-fns";
 
 interface BookedRange {
   room_id: string | null;
   check_in: string;
   check_out: string;
+}
+
+/**
+ * Date strings (yyyy-MM-dd) for the nights a `[from, to)` stay occupies — the
+ * check-in night through the night before check-out. Empty when `to <= from`,
+ * so a half-picked range (react-day-picker sets from===to on the first tap)
+ * occupies nothing.
+ */
+export function getStayNightKeys(from: Date, to: Date): string[] {
+  const lastNight = subDays(to, 1);
+  if (lastNight < from) return [];
+  return eachDayOfInterval({ start: from, end: lastNight }).map((d) => format(d, "yyyy-MM-dd"));
+}
+
+/**
+ * The first night a `[from, to)` stay would occupy that cannot be slept in, or
+ * null when every night is free. Doubles as the guard for a picked range and as
+ * the date named in the "a stay can't run across it" message.
+ */
+export function firstUnavailableNight(
+  unavailableNights: Set<string>,
+  from: Date,
+  to: Date,
+): string | null {
+  return getStayNightKeys(from, to).find((key) => unavailableNights.has(key)) ?? null;
+}
+
+/**
+ * Builds the `disabled` matcher for a react-day-picker stay picker.
+ *
+ * A free night is always selectable — it can open or close a stay. An
+ * unavailable night is selectable only as the CHECK-OUT of the stay in
+ * progress: guests leave in the morning, before the next guest arrives, so the
+ * night itself is never used. That needs a pending check-in, a date after it,
+ * and every night in between free.
+ *
+ * Pass `pendingCheckIn: null` once the range is complete — nothing is offered
+ * as a check-out then, because the guest is starting a fresh stay.
+ */
+export function makeStayDisabledMatcher(
+  unavailableNights: Set<string>,
+  pendingCheckIn: Date | null,
+): (date: Date) => boolean {
+  return (date: Date) => {
+    if (!unavailableNights.has(format(date, "yyyy-MM-dd"))) return false;
+    if (!pendingCheckIn || !isAfter(date, pendingCheckIn)) return true;
+    return firstUnavailableNight(unavailableNights, pendingCheckIn, date) !== null;
+  };
 }
 
 /**

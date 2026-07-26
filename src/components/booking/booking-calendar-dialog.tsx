@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { format, startOfToday, addMonths } from "date-fns";
+import { startOfToday, addMonths, parseISO } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
 import type { DateRange } from "react-day-picker";
 import { useTranslations, useLocale } from "next-intl";
@@ -10,15 +10,23 @@ import { Calendar } from "@/components/ui/calendar";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fmtDate } from "@/lib/format-date";
-import { getFullyBookedForRoom } from "@/lib/booking-dates";
+import {
+  getFullyBookedForRoom,
+  firstUnavailableNight,
+  makeStayDisabledMatcher,
+} from "@/lib/booking-dates";
 import { useBookingCart } from "@/components/booking/booking-cart-context";
 
 /**
  * Shared date-range picker dialog for the homestay page. Reads/writes the one
- * shared cart date range and disables past dates, homestay-wide blocked dates,
- * and dates fully booked across EVERY room. Used by both the desktop date bar
- * and the mobile booking bar. `onDone` fires when the guest confirms a valid
- * range (e.g. to nudge them toward the rooms).
+ * shared cart date range. Used by both the desktop date bar and the mobile
+ * booking bar. `onDone` fires when the guest confirms a valid range (e.g. to
+ * nudge them toward the rooms).
+ *
+ * Availability is measured in NIGHTS, not days: a stay is half-open
+ * `[check-in, check-out)`. So a night that is blocked or booked in every room
+ * still works as a CHECK-OUT — the guest leaves in the morning, before the next
+ * one arrives. Only starting or sleeping through such a night is refused.
  *
  * A range is only usable at `nights >= 1`. react-day-picker sets from===to on the
  * first tap, so a half-picked range looks "set" but prices nothing — the header
@@ -39,6 +47,9 @@ export function BookingCalendarDialog({
   const tc = useTranslations("common");
   const locale = useLocale();
   const [warned, setWarned] = useState(false);
+  // Set when a tap would have produced a stay running across an unusable night,
+  // so the alert below can name the night that blocked it.
+  const [crossedNight, setCrossedNight] = useState<string | null>(null);
 
   // Homestay-wide blocked dates + dates fully booked across EVERY room (a date
   // stays selectable as long as at least one room is free).
@@ -55,12 +66,40 @@ export function BookingCalendarDialog({
     return { blockedHomestay: blocked, fullyEverywhere: everywhere };
   }, [catalog.blockedDates, catalog.rooms, liveBookedRanges]);
 
+  // Nights nobody can sleep in: closed by the host, or taken in every room.
+  // A blocked night is no more "stayable" than a booked one, so both are equally
+  // fine to check out on.
+  const unavailableNights = useMemo(
+    () => new Set([...blockedHomestay, ...fullyEverywhere]),
+    [blockedHomestay, fullyEverywhere],
+  );
+
   const isComplete = nights >= 1;
   // Derived, not stored: the warning disappears the moment the range becomes valid.
   const showWarning = warned && !isComplete;
   const awaiting: "in" | "out" | null = !dateRange?.from ? "in" : !isComplete ? "out" : null;
 
-  const handleSelect = (range: DateRange | undefined) => {
+  // Only while the check-out is still missing does an unavailable night become
+  // tappable — and only as the check-out of THIS stay.
+  const pendingCheckIn = dateRange?.from && !isComplete ? dateRange.from : null;
+  const isDayDisabled = useMemo(
+    () => makeStayDisabledMatcher(unavailableNights, pendingCheckIn),
+    [unavailableNights, pendingCheckIn],
+  );
+
+  const handleSelect = (range: DateRange | undefined, triggerDate: Date) => {
+    const blocker =
+      range?.from && range?.to ? firstUnavailableNight(unavailableNights, range.from, range.to) : null;
+    if (blocker) {
+      // The tapped day sits beyond a night nobody can sleep in. Rather than
+      // ignoring the tap — which would strand the guest, since react-day-picker
+      // turns a tap on any earlier day into a range ENDING on the pending
+      // check-in — restart the stay on the day they just tapped, and say why.
+      setCrossedNight(blocker);
+      setDates({ from: triggerDate, to: undefined });
+      return;
+    }
+    setCrossedNight(null);
     setDates(range);
   };
 
@@ -74,9 +113,15 @@ export function BookingCalendarDialog({
   };
 
   const handleOpenChange = (next: boolean) => {
-    if (!next) setWarned(false);
+    if (!next) {
+      setWarned(false);
+      setCrossedNight(null);
+    }
     onOpenChange(next);
   };
+
+  // Thai puts the day before the month ("29 ก.ค."), English the other way round.
+  const alertDatePattern = locale === "th" ? "d MMM" : "MMM d";
 
   const cell = (active: boolean) =>
     `flex-1 rounded-xl border px-3 py-2.5 text-left transition-colors ${
@@ -125,19 +170,29 @@ export function BookingCalendarDialog({
               formatMonthDropdown: (date) => date.toLocaleDateString("th-TH", { month: "long" }),
               formatYearDropdown: (date) => String(date.getFullYear() + 543),
             } : undefined}
-            disabled={[
-              { before: startOfToday() },
-              (date: Date) => {
-                const key = format(date, "yyyy-MM-dd");
-                return blockedHomestay.has(key) || fullyEverywhere.has(key);
-              },
-            ]}
+            disabled={[{ before: startOfToday() }, isDayDisabled]}
             numberOfMonths={1}
             className="w-full"
           />
         </div>
 
-        {isComplete ? (
+        {crossedNight ? (
+          <div
+            role="alert"
+            className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-left"
+          >
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+            <div>
+              <p className="text-xs font-bold text-amber-900">{t("crossBookedTitle")}</p>
+              <p className="mt-0.5 text-xs text-amber-800">
+                {t("crossBookedDesc", {
+                  date: fmtDate(parseISO(crossedNight), alertDatePattern, locale),
+                  newDate: dateRange?.from ? fmtDate(dateRange.from, alertDatePattern, locale) : "",
+                })}
+              </p>
+            </div>
+          </div>
+        ) : isComplete ? (
           <p className="text-center text-xs text-earth-500">
             {nights} {nights > 1 ? tc("nights") : tc("night")}
           </p>

@@ -78,7 +78,9 @@ function makeAvailabilityDay(
           isPast && "cursor-not-allowed text-earth-300",
           status && `cursor-pointer ${STATUS_CLASS[status]}`,
           modifiers.outside && status && "opacity-55",
-          modifiers.today && "font-bold outline outline-2 outline-offset-1 outline-brand",
+          // Today is marked by its number alone — bold and brand-green. twMerge
+          // drops the status text colour so the green wins on any background.
+          modifiers.today && "font-bold text-brand",
           className,
         )}
       >

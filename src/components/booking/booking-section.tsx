@@ -1,11 +1,8 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { format, differenceInDays, eachDayOfInterval, parseISO, subDays, startOfToday, addMonths } from "date-fns";
-import { th as thLocale } from "date-fns/locale";
+import { format, differenceInDays, eachDayOfInterval, subDays } from "date-fns";
 import { fmtDate } from "@/lib/format-date";
-import type { DateRange } from "react-day-picker";
-import { Calendar } from "@/components/ui/calendar";
 import { motion, AnimatePresence, useInView, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -145,7 +142,6 @@ export function BookingSection({
   const t = useTranslations("booking");
   const tc = useTranslations("common");
   const tt = useTranslations("bookingTutorial");
-  const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState<BookingStep>("dates");
   const [showConfirmedModal, setShowConfirmedModal] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
@@ -183,8 +179,6 @@ export function BookingSection({
   const [showHeldModal, setShowHeldModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [showIncompleteDates, setShowIncompleteDates] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [showGuests, setShowGuests] = useState(false);
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([]);
@@ -305,7 +299,6 @@ export function BookingSection({
   const [liveBookedRanges, setLiveBookedRanges] = useState<BookedRange[]>(bookedRanges);
 
   useEffect(() => {
-    setMounted(true);
     // Fetch fresh availability on mount
     fetch(`/api/bookings/availability?homestay_id=${homestay.id}`)
       .then((res) => res.json())
@@ -355,43 +348,6 @@ export function BookingSection({
     return rooms.filter((r) => cart.isRoomAvailableForRange(r)).length;
   }, [dateRange?.from, dateRange?.to, rooms, cart]);
 
-
-  // When selecting check-out, compute which booked date (if any) is allowed
-  // as a valid check-out and where to cap the selectable range.
-  const allowedCheckoutKey = useMemo<string | null>(() => {
-    if (!dateRange?.from) return null;
-    // react-day-picker v9 sets from===to on first click; treat as "selecting checkout"
-    if (dateRange?.to && dateRange.to.getTime() !== dateRange.from.getTime()) return null;
-    const fromTime = dateRange.from.getTime();
-
-    const firstBooked = Array.from(bookedDatesForRoom)
-      .map((d) => ({ key: d, time: parseISO(d).getTime() }))
-      .filter((d) => d.time > fromTime)
-      .sort((a, b) => a.time - b.time)[0];
-
-    const firstBlockedTime = blockedDates
-      .map((d) => parseISO(d.date).getTime())
-      .filter((t) => t > fromTime)
-      .sort((a, b) => a - b)[0];
-
-    if (!firstBooked) return null;
-    // If a blocked date comes before or on the same day, don't allow checkout on booked
-    if (firstBlockedTime !== undefined && firstBlockedTime <= firstBooked.time) return null;
-    return firstBooked.key;
-  }, [dateRange?.from, dateRange?.to, bookedDatesForRoom, blockedDates]);
-
-  const checkoutBarrierTime = useMemo<number | null>(() => {
-    if (!dateRange?.from) return null;
-    if (dateRange?.to && dateRange.to.getTime() !== dateRange.from.getTime()) return null;
-    const fromTime = dateRange.from.getTime();
-    const allTimes = [
-      ...Array.from(bookedDatesForRoom).map((d) => parseISO(d).getTime()),
-      ...blockedDates.map((d) => parseISO(d.date).getTime()),
-    ]
-      .filter((t) => t > fromTime)
-      .sort((a, b) => a - b);
-    return allTimes[0] ?? null;
-  }, [dateRange?.from, dateRange?.to, bookedDatesForRoom, blockedDates]);
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
 
@@ -529,10 +485,6 @@ export function BookingSection({
     setSelectedOptionIds([]);
     setSelectedTierId("");
     setNumGuests("2");
-  };
-
-  const handleDateSelect = (range: DateRange | undefined) => {
-    setDateRange(range);
   };
 
 
@@ -1021,7 +973,6 @@ export function BookingSection({
     setUploadSessionId(crypto.randomUUID());
     setBookingId(null);
     setPdpaConsent(false);
-    setShowCalendar(false);
     setShowOptions(false);
     setShowGuests(false);
     setShowConfirmModal(false);
@@ -1201,7 +1152,7 @@ export function BookingSection({
                 {step === "dates" && (
                   <motion.div key="step-dates" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                     <AnimatePresence mode="wait">
-                      {!showCalendar && !showOptions && !showGuests ? (
+                      {!showOptions && !showGuests ? (
                         <motion.div key="dates-form" initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.25 }} className="space-y-5">
                           {/* ── Dates — mirrors the sticky bar, and opens the same picker ── */}
                           <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("selectDates")}</label>
@@ -1382,92 +1333,7 @@ export function BookingSection({
                             {tc("done")}
                           </button>
                         </motion.div>
-                      ) : (
-                        <motion.div key="dates-calendar" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.25 }} className="space-y-4">
-                          <div className="flex items-center gap-3">
-                            <button onClick={() => setShowCalendar(false)} className="p-2 rounded-full hover:bg-earth-100 text-earth-400"><ArrowLeft size={18} /></button>
-                            <h3 className="text-xl font-bold text-earth-900">{t("selectDates")}</h3>
-                          </div>
-
-                          {/* Selected dates summary */}
-                          {dateRange?.from && (
-                            <div className="rounded-xl bg-earth-50 px-3 py-2 text-sm text-earth-700 flex items-center gap-2">
-                              <CalendarIcon size={14} className="text-earth-400" />
-                              <span>
-                                {fmtDate(dateRange.from, "MMM d, yyyy", locale)}
-                                {dateRange.to && dateRange.to.getTime() !== dateRange.from.getTime() && ` — ${fmtDate(dateRange.to, "MMM d, yyyy", locale)}`}
-                              </span>
-                              {nights > 0 && <span className="ml-auto text-xs text-earth-400">{nights} {nights > 1 ? tc("nights") : tc("night")}</span>}
-                            </div>
-                          )}
-
-                          <div className="bg-white rounded-2xl p-3 border border-earth-100">
-                            {mounted ? (
-                              <Calendar
-                                key={dateRange?.from?.toISOString() || "no-date"}
-                                mode="range"
-                                selected={dateRange}
-                                onSelect={handleDateSelect}
-                                locale={locale === "th" ? thLocale : undefined}
-                                captionLayout="dropdown"
-                                defaultMonth={dateRange?.from || startOfToday()}
-                                startMonth={startOfToday()}
-                                endMonth={addMonths(startOfToday(), 12)}
-                                formatters={locale === "th" ? {
-                                  formatMonthDropdown: (date) =>
-                                    date.toLocaleDateString("th-TH", { month: "long" }),
-                                  formatYearDropdown: (date) =>
-                                    String(date.getFullYear() + 543),
-                                } : undefined}
-                                disabled={[
-                                  { before: startOfToday() },
-                                  (date: Date) => {
-                                    const key = format(date, "yyyy-MM-dd");
-                                    if (blockedDateSet.has(key)) return true;
-                                    if (bookedDatesForRoom.has(key)) return key !== allowedCheckoutKey;
-                                    if (checkoutBarrierTime !== null && date.getTime() > checkoutBarrierTime) return true;
-                                    return false;
-                                  },
-                                ]}
-                                numberOfMonths={1}
-                                className="w-full"
-                              />
-                            ) : (
-                              <div className="flex h-[280px] items-center justify-center">
-                                <Loader2 className="h-5 w-5 animate-spin text-earth-400" />
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Same incomplete-range guard as BookingCalendarDialog: nights < 1
-                              means only check-in is picked, which prices nothing. */}
-                          {showIncompleteDates && nights < 1 && (
-                            <div
-                              role="alert"
-                              className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5"
-                            >
-                              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
-                              <div>
-                                <p className="text-xs font-bold text-amber-900">{t("incompleteDatesTitle")}</p>
-                                <p className="mt-0.5 text-xs text-amber-800">{t("incompleteDatesDesc")}</p>
-                              </div>
-                            </div>
-                          )}
-
-                          <button
-                            onClick={() => {
-                              if (nights < 1) {
-                                setShowIncompleteDates(true);
-                                return;
-                              }
-                              setShowCalendar(false);
-                            }}
-                            className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-                          >
-                            {tc("done")}
-                          </button>
-                        </motion.div>
-                      )}
+                      ) : null}
                     </AnimatePresence>
                   </motion.div>
                 )}
