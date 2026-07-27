@@ -16,7 +16,7 @@ export function ForHosts() {
       icon: <CalendarCheck className="text-brand" size={22} />,
       title: "จัดการจองได้ง่ายในที่เดียว",
       description:
-        "รวมห้องพัก ราคา วันเข้าพัก และสถานะการจองไว้ในที่เดียว ช่วยให้ตอบกลับง่ายขึ้น",
+        "รวมบ้านพัก ราคา วันเข้าพัก และสถานะการจองไว้ในที่เดียว ช่วยให้ตอบกลับง่ายขึ้น",
     },
     {
       icon: <ShieldCheck className="text-brand" size={22} />,

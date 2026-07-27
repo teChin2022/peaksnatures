@@ -119,7 +119,7 @@ async function sendGroupNotifications(
       details,
       () => sendGroupHostSmsNotification(details, hostNotifType),
       () => sendGroupHostLineNotification(details, hostNotifType),
-      `การจองใหม่ (${items.length} ห้อง) — ${statusLabel}`,
+      `การจองใหม่ (${items.length} หลัง) — ${statusLabel}`,
       () => buildGroupBookingMessage(details, hostNotifType),
     );
   } catch (error) {
