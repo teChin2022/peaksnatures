@@ -404,11 +404,13 @@ export interface Database {
           booking_source: string;
           guest_pricing_label: string | null;
           guest_pricing_surcharge: number;
+          group_id: string | null;
         };
         Insert: {
           id?: string;
           homestay_id: string;
           room_id?: string | null;
+          group_id?: string | null;
           guest_name: string;
           guest_email: string;
           guest_phone: string;
@@ -444,6 +446,7 @@ export interface Database {
           id?: string;
           homestay_id?: string;
           room_id?: string | null;
+          group_id?: string | null;
           guest_name?: string;
           guest_email?: string;
           guest_phone?: string;
@@ -470,6 +473,80 @@ export interface Database {
           booking_source?: string;
           guest_pricing_label?: string | null;
           guest_pricing_surcharge?: number;
+          created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
+        };
+      };
+      booking_groups: {
+        Row: {
+          id: string;
+          homestay_id: string;
+          guest_name: string;
+          guest_email: string;
+          guest_phone: string;
+          guest_province: string | null;
+          notes: string | null;
+          total_price: number;
+          discount_amount: number;
+          payment_type: string;
+          amount_paid: number;
+          status: BookingStatus;
+          easyslip_verified: boolean;
+          payment_slip_url: string | null;
+          payment_slip_hash: string | null;
+          slip_trans_ref: string | null;
+          easyslip_response: Json | null;
+          booking_source: string;
+          created_at: string;
+          created_by: string;
+          updated_at: string;
+          updated_by: string;
+        };
+        Insert: {
+          id?: string;
+          homestay_id: string;
+          guest_name: string;
+          guest_email: string;
+          guest_phone: string;
+          guest_province?: string | null;
+          notes?: string | null;
+          total_price?: number;
+          discount_amount?: number;
+          payment_type?: string;
+          amount_paid?: number;
+          status?: BookingStatus;
+          easyslip_verified?: boolean;
+          payment_slip_url?: string | null;
+          payment_slip_hash?: string | null;
+          slip_trans_ref?: string | null;
+          easyslip_response?: Json | null;
+          booking_source?: string;
+          created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
+        };
+        Update: {
+          id?: string;
+          homestay_id?: string;
+          guest_name?: string;
+          guest_email?: string;
+          guest_phone?: string;
+          guest_province?: string | null;
+          notes?: string | null;
+          total_price?: number;
+          discount_amount?: number;
+          payment_type?: string;
+          amount_paid?: number;
+          status?: BookingStatus;
+          easyslip_verified?: boolean;
+          payment_slip_url?: string | null;
+          payment_slip_hash?: string | null;
+          slip_trans_ref?: string | null;
+          easyslip_response?: Json | null;
+          booking_source?: string;
           created_at?: string;
           created_by?: string;
           updated_at?: string;
@@ -1058,7 +1135,8 @@ export interface Database {
         Row: {
           id: string;
           promo_code_id: string;
-          booking_id: string;
+          booking_id: string | null;
+          group_id: string | null;
           discount_amount: number;
           commission_amount: number;
           payout_status: "pending" | "paid" | "cancelled";
@@ -1074,7 +1152,8 @@ export interface Database {
         Insert: {
           id?: string;
           promo_code_id: string;
-          booking_id: string;
+          booking_id?: string | null;
+          group_id?: string | null;
           discount_amount: number;
           commission_amount?: number;
           payout_status?: "pending" | "paid" | "cancelled";
@@ -1090,7 +1169,8 @@ export interface Database {
         Update: {
           id?: string;
           promo_code_id?: string;
-          booking_id?: string;
+          booking_id?: string | null;
+          group_id?: string | null;
           discount_amount?: number;
           commission_amount?: number;
           payout_status?: "pending" | "paid" | "cancelled";
@@ -1195,6 +1275,7 @@ export type Host = Database["public"]["Tables"]["hosts"]["Row"];
 export type Homestay = Database["public"]["Tables"]["homestays"]["Row"];
 export type Room = Database["public"]["Tables"]["rooms"]["Row"];
 export type Booking = Database["public"]["Tables"]["bookings"]["Row"];
+export type BookingGroup = Database["public"]["Tables"]["booking_groups"]["Row"];
 export type BlockedDate = Database["public"]["Tables"]["blocked_dates"]["Row"];
 export type BookingHold = Database["public"]["Tables"]["booking_holds"]["Row"];
 export type Review = Database["public"]["Tables"]["reviews"]["Row"];

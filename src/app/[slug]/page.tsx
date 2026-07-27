@@ -12,9 +12,12 @@ import { sanitizeRichText } from "@/lib/sanitize";
 import type { SupportedLocale } from "@/lib/translation/types";
 import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice, RoomOption, RoomGuestPricing, PromoCode } from "@/types/database";
 import { HeroSection } from "@/components/booking/hero-section";
+import { DesktopDateSearch } from "@/components/booking/desktop-date-search";
 import { GallerySection } from "@/components/booking/gallery-section";
+import { AvailabilityCalendarSection } from "@/components/booking/availability-calendar-section";
 import { AboutSection } from "@/components/booking/about-section";
 import { RoomsSection } from "@/components/booking/rooms-section";
+import { BookingCartProvider } from "@/components/booking/booking-cart-context";
 import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingFooter } from "@/components/booking/booking-footer";
 import { HostLocationSection } from "@/components/booking/host-location-section";
@@ -299,6 +302,17 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
   const activeRooms = rooms.filter((r) => r.is_active);
   const inactiveRooms = rooms.filter((r) => !r.is_active);
 
+  // Shared cart catalog — powers the sticky date bar, room-card "Add to cart",
+  // the cart modal, and the booking panel from one source of truth.
+  const cartCatalog = {
+    rooms: activeRooms,
+    seasonalPrices,
+    roomOptions,
+    guestPricing,
+    blockedDates,
+    bookedRanges,
+  };
+
   const popularRoomId = hasConfirmedBookings && mostBookedRoomId && activeRooms.some((r) => r.id === mostBookedRoomId) ? mostBookedRoomId : null;
   const popularRoomIds = popularRoomId ? new Set<string>([popularRoomId]) : EMPTY_POPULAR_ROOM_IDS;
   const sortedActiveRooms = popularRoomId
@@ -390,9 +404,10 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
     <div className="min-h-screen bg-white">
       <JsonLd data={lodgingLd} id="ld-lodging" />
       {faqLd && <JsonLd data={faqLd} id="ld-faq" />}
+      <BookingCartProvider catalog={cartCatalog} homestayId={homestay.id}>
       <BookingHeader homestayName={homestay.name} logoUrl={homestay.logo_url} slug={homestay.slug} />
 
-      <main className="pb-16 md:pb-0">
+      <main className="pb-28 md:pb-0">
         <Breadcrumbs items={breadcrumbItems} visuallyHidden />
         <HeroSection
           name={homestay.name}
@@ -403,6 +418,10 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
           reviewCount={reviewCount}
           // location={homestay.location}
         />
+
+        <DesktopDateSearch bookingDisabled={bookingDisabled} />
+
+        <AvailabilityCalendarSection />
 
         <GallerySection images={homestay.gallery} name={homestay.name} />
 
@@ -469,6 +488,12 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
         <FinalCtaSection />
       </main>
 
+      <MobileBookingBar
+        rooms={rooms}
+        bookingDisabled={bookingDisabled}
+      />
+      </BookingCartProvider>
+
       <BookingFooter
         homestayName={homestay.name}
         logoUrl={homestay.logo_url}
@@ -480,14 +505,6 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
           instagram_url: homestay.instagram_url,
           line_id: homestay.line_id,
         }}
-      />
-
-      <MobileBookingBar
-        rooms={rooms}
-        seasonalPrices={seasonalPrices}
-        mostBookedRoomId={mostBookedRoomId}
-        hasConfirmedBookings={hasConfirmedBookings}
-        bookingDisabled={bookingDisabled}
       />
     </div>
   );

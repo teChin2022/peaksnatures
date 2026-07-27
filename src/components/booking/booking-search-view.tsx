@@ -6,8 +6,12 @@ import { motion, AnimatePresence } from "motion/react";
 import { createClient } from "@/lib/supabase/client";
 import { Calendar } from "@/components/ui/calendar";
 import type { DateRange } from "react-day-picker";
-import { format, startOfToday, addMonths, parseISO, subDays, eachDayOfInterval } from "date-fns";
-import { getFullyBookedForRoom } from "@/lib/booking-dates";
+import { format, startOfToday, addMonths, subDays, eachDayOfInterval } from "date-fns";
+import {
+  getFullyBookedForRoom,
+  firstUnavailableNight,
+  makeStayDisabledMatcher,
+} from "@/lib/booking-dates";
 import { th as thLocale } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -43,6 +47,7 @@ interface SearchResult {
   payment_type: string;
   status: string;
   room_id: string | null;
+  group_id: string | null;
   room_name: string;
   checked_in_at: string | null;
   checked_out_at: string | null;
@@ -119,8 +124,9 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
   const [dcPhoneSlipReceived, setDcPhoneSlipReceived] = useState(false);
   const dcPollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const [dcDisabledDates, setDcDisabledDates] = useState<Set<string>>(new Set());
-  const [dcBookedDates, setDcBookedDates] = useState<Set<string>>(new Set());
-  const [dcBlockedDates, setDcBlockedDates] = useState<Set<string>>(new Set());
+  // Set when a tap would have produced a stay running across an unusable night,
+  // so the alert below can name the night that blocked it.
+  const [dcCrossedNight, setDcCrossedNight] = useState<string | null>(null);
   const [dcLoadingAvailability, setDcLoadingAvailability] = useState(false);
   const [dcRooms, setDcRooms] = useState<{ id: string; name: string }[]>([]);
   const [dcSelectedRoomId, setDcSelectedRoomId] = useState<string | null>(null);
@@ -144,47 +150,19 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
     return days.every((d) => !dcDisabledDates.has(format(d, "yyyy-MM-dd")));
   }, [dateRange, dcDisabledDates]);
 
-  const dcAllowedCheckoutKey = useMemo<string | null>(() => {
-    if (!dateRange?.from) return null;
-    if (dateRange?.to && dateRange.to.getTime() !== dateRange.from.getTime()) return null;
-    const fromTime = dateRange.from.getTime();
-
-    let firstBooked: { key: string; time: number } | undefined;
-    for (const d of dcBookedDates) {
-      const time = parseISO(d).getTime();
-      if (time > fromTime && (!firstBooked || time < firstBooked.time)) {
-        firstBooked = { key: d, time };
-      }
-    }
-
-    let firstBlockedTime: number | undefined;
-    for (const d of dcBlockedDates) {
-      const time = parseISO(d).getTime();
-      if (time > fromTime && (firstBlockedTime === undefined || time < firstBlockedTime)) {
-        firstBlockedTime = time;
-      }
-    }
-
-    if (!firstBooked) return null;
-    if (firstBlockedTime !== undefined && firstBlockedTime <= firstBooked.time) return null;
-    return firstBooked.key;
-  }, [dateRange?.from, dateRange?.to, dcBookedDates, dcBlockedDates]);
-
-  const dcCheckoutBarrierTime = useMemo<number | null>(() => {
-    if (!dateRange?.from) return null;
-    if (dateRange?.to && dateRange.to.getTime() !== dateRange.from.getTime()) return null;
-    const fromTime = dateRange.from.getTime();
-    let earliest: number | null = null;
-    for (const d of dcBookedDates) {
-      const t = parseISO(d).getTime();
-      if (t > fromTime && (earliest === null || t < earliest)) earliest = t;
-    }
-    for (const d of dcBlockedDates) {
-      const t = parseISO(d).getTime();
-      if (t > fromTime && (earliest === null || t < earliest)) earliest = t;
-    }
-    return earliest;
-  }, [dateRange?.from, dateRange?.to, dcBookedDates, dcBlockedDates]);
+  // Availability is measured in NIGHTS: a stay is half-open [check-in, check-out),
+  // so a night that is booked or blocked for this room still works as a CHECK-OUT.
+  // Only while the check-out is missing does such a night become tappable — and
+  // only as the check-out of THIS stay. react-day-picker sets from===to on the
+  // first tap, which is the "check-out still missing" state.
+  const dcPendingCheckIn =
+    dateRange?.from && (!dateRange.to || dateRange.to.getTime() === dateRange.from.getTime())
+      ? dateRange.from
+      : null;
+  const isDcDayDisabled = useMemo(
+    () => makeStayDisabledMatcher(dcDisabledDates, dcPendingCheckIn),
+    [dcDisabledDates, dcPendingCheckIn],
+  );
 
   const dcEffectiveAdditional = useMemo(() => {
     if (!dateChangePriceInfo) return 0;
@@ -397,8 +375,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
     setDcPhoneSlipReceived(false);
     setDcPaymentOption("deposit");
     setDcDisabledDates(new Set());
-    setDcBookedDates(new Set());
-    setDcBlockedDates(new Set());
+    setDcCrossedNight(null);
     setDcRooms([]);
     setDcSelectedRoomId(null);
     if (dcPollingRef.current) {
@@ -555,8 +532,8 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
         }
       });
 
-      setDcBookedDates(booked);
-      setDcBlockedDates(blocked);
+      // Booked and blocked both mean "nobody can sleep here that night", and
+      // both are equally fine to check out on, so one set covers the picker.
       setDcDisabledDates(new Set([...booked, ...blocked]));
     } catch {
       // Fail silently
@@ -593,6 +570,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
     setNoRefundConfirmed(false);
     setDcPhoneSlipReceived(false);
     setDcPaymentOption("deposit");
+    setDcCrossedNight(null);
   };
 
   useEffect(() => {
@@ -739,6 +717,11 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                           {fmtDateStr(booking.check_in, "d MMM yyyy", locale)} → {fmtDateStr(booking.check_out, "d MMM yyyy", locale)}
                         </span>
                         <span>{booking.room_name}</span>
+                        {booking.group_id && (
+                          <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700">
+                            {t("groupBookingBadge")}
+                          </span>
+                        )}
                         <span className="font-medium text-earth-900">
                           ฿{booking.total_price.toLocaleString()}
                         </span>
@@ -1128,6 +1111,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                               setDateChangeSlipPreview(null);
                               setNoRefundConfirmed(false);
                               setDcPhoneSlipReceived(false);
+                              setDcCrossedNight(null);
                               fetchDisabledDates(booking, newRoomId);
                             }}
                           >
@@ -1149,8 +1133,17 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                         <Calendar
                           mode="range"
                           selected={dateRange}
-                          onSelect={(range) => {
-                            setDateRange(range);
+                          onSelect={(range, triggerDate) => {
+                            const blocker =
+                              range?.from && range?.to
+                                ? firstUnavailableNight(dcDisabledDates, range.from, range.to)
+                                : null;
+                            // Beyond a night nobody can sleep in. Ignoring the tap
+                            // would strand the guest — react-day-picker turns a tap
+                            // on any earlier day into a range ENDING on the pending
+                            // check-in — so restart on the tapped day and say why.
+                            setDcCrossedNight(blocker);
+                            setDateRange(blocker ? { from: triggerDate, to: undefined } : range);
                             setDateChangePriceInfo(null);
                             setDateChangeSlipFile(null);
                             setDateChangeSlipPreview(null);
@@ -1167,20 +1160,29 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                             formatYearDropdown: (date) =>
                               String(date.getFullYear() + 543),
                           } : undefined}
-                          disabled={[
-                            { before: new Date() },
-                            (date: Date) => {
-                              const key = format(date, "yyyy-MM-dd");
-                              if (dcBlockedDates.has(key)) return true;
-                              if (dcBookedDates.has(key)) return key !== dcAllowedCheckoutKey;
-                              if (dcCheckoutBarrierTime !== null && date.getTime() > dcCheckoutBarrierTime) return true;
-                              return false;
-                            },
-                          ]}
+                          disabled={[{ before: new Date() }, isDcDayDisabled]}
                           numberOfMonths={1}
                           className="rounded-md border bg-white"
                         />
                       </div>
+
+                      {dcCrossedNight && (
+                        <div
+                          role="alert"
+                          className="flex items-start gap-2 rounded-xl border border-amber-200 bg-amber-50 px-3 py-2.5 text-left"
+                        >
+                          <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-amber-600" />
+                          <div>
+                            <p className="text-xs font-bold text-amber-900">{t("crossBookedTitle")}</p>
+                            <p className="mt-0.5 text-xs text-amber-800">
+                              {t("crossBookedDesc", {
+                                date: fmtDateStr(dcCrossedNight, "d MMM", locale),
+                                newDate: dateRange?.from ? fmtDate(dateRange.from, "d MMM", locale) : "",
+                              })}
+                            </p>
+                          </div>
+                        </div>
+                      )}
 
                       {dateRange?.from && dateRange?.to && (
                         <div className="space-y-2">

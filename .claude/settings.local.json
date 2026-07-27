@@ -24,7 +24,26 @@
       "WebFetch(domain:github.com)",
       "WebFetch(domain:raw.githubusercontent.com)",
       "WebFetch(domain:api.github.com)",
-      "Bash(python3 .claude/skills/ui-ux-pro-max/scripts/search.py \"mobile card header layout long text\" --domain ux -n 6)"
+      "Bash(python3 .claude/skills/ui-ux-pro-max/scripts/search.py \"mobile card header layout long text\" --domain ux -n 6)",
+      "Bash(lsof -ti:3100)",
+      "Bash(xargs kill)",
+      "Bash(pkill -f \"cp-dom3\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" \"http://localhost:3100/ing-khoa-camping\")",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" -b \"locale=en\" \"http://localhost:3100/ing-khoa-camping\")",
+      "Bash(awk -F'\"' '$0 ~ /:/ {print}')",
+      "Bash(awk -F: '{ln=$1} {print}')",
+      "Bash(python3 *)",
+      "Bash(pkill -f \"cp-dom4\\\\|cp-cal\\\\|cp-dom\")",
+      "Bash(pkill -f \"cp-cdp\\\\|cp-cdp2\\\\|cp-cdp3\")",
+      "Bash(pkill -f \"cp-btn\\\\|cp-cdp\")",
+      "Bash(curl -s \"http://localhost:3100/_next/static/chunks/src_components_booking_rooms-section_tsx_7d0743d5._.js\")",
+      "Bash(pkill -f \"cp-dp\\\\|cp-btn\\\\|cp-cdp\")",
+      "Bash(pkill -f \"cp-filter\\\\|cp-dp\\\\|cp-btn\\\\|cp-cdp\")",
+      "Bash(pkill -f \"cp-order\\\\|cp-dp\\\\|cp-filter\\\\|cp-btn\\\\|cp-cdp\")",
+      "Bash(pkill -f \"cp-dis\\\\|cp-bar\\\\|cp-bi\\\\|cp-order\")",
+      "Bash(awk '/export function GallerySection/{f=1} f&&/<\\(section|div\\)/{print NR\": \"$0; c++} c>=2{exit}' src/components/booking/gallery-section.tsx)",
+      "Bash(curl -s http://localhost:9240/json/version)",
+      "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3100/ing-khoa-camping)"
     ]
   },
   "prefersReducedMotion": false

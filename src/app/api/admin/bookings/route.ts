@@ -59,7 +59,7 @@ export async function GET(req: NextRequest) {
     // Fetch limit+1 to determine hasMore without needing count on subsequent pages
     let bookingsQuery = sc
       .from("bookings")
-      .select("id, homestay_id, room_id, guest_name, guest_email, guest_phone, check_in, check_out, num_guests, total_price, status, payment_type, amount_paid, created_at")
+      .select("id, homestay_id, room_id, group_id, guest_name, guest_email, guest_phone, check_in, check_out, num_guests, total_price, status, payment_type, amount_paid, created_at")
       .order("created_at", { ascending: false })
       .range(offset, offset + limit);
     if (homestayIdsForHost) bookingsQuery = bookingsQuery.in("homestay_id", homestayIdsForHost);
@@ -71,7 +71,7 @@ export async function GET(req: NextRequest) {
     }
 
     const allBookings = bookings as {
-      id: string; homestay_id: string; room_id: string | null;
+      id: string; homestay_id: string; room_id: string | null; group_id: string | null;
       guest_name: string; guest_email: string; guest_phone: string;
       check_in: string; check_out: string; num_guests: number;
       total_price: number; status: string; payment_type: string;

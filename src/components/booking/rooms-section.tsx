@@ -10,12 +10,15 @@ import type { Room, RoomSeasonalPrice, BlockedDate } from "@/types/database";
 
 type BookingStep = "dates" | "details" | "payment";
 import { Badge } from "@/components/ui/badge";
-import { Users, CalendarDays, CalendarSearch, ChevronLeft, ChevronRight, X, Sparkles, Wrench } from "lucide-react";
+import { Users, CalendarSearch, ChevronLeft, ChevronRight, X, Sparkles, Wrench, ShoppingCart } from "lucide-react";
 import { fmtDateStr } from "@/lib/format-date";
 
 import { useTranslations, useLocale } from "next-intl";
 import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
+import { toast } from "sonner";
+import { useBookingCartOptional, type CartLine } from "@/components/booking/booking-cart-context";
+import { RoomConfigDialog } from "@/components/booking/room-config-dialog";
 import { getPriceRange } from "@/lib/calculate-price";
 import { getFullyBookedForRoom } from "@/lib/booking-dates";
 import { HTMLContent } from "@/components/ui/html-content";
@@ -121,7 +124,6 @@ interface RoomsSectionProps {
 
 export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, bookedRanges = EMPTY_BOOKED_RANGES, blockedDates = EMPTY_BLOCKED_DATES, popularRoomIds = EMPTY_POPULAR_IDS }: RoomsSectionProps) {
   const t = useTranslations("rooms");
-  const tc = useTranslations("common");
 
   const seasonsByRoom = useMemo(() => {
     const map: Record<string, RoomSeasonalPrice[]> = {};
@@ -224,16 +226,24 @@ function SingleRoomHero({
   onLightbox,
   onCalendar,
   onDesc,
+  onAddToCart,
+  cartEnabled,
   bookingLocked,
   isPopular,
+  unavailableForDates,
+  datesChosen,
 }: {
   room: Room;
   seasonalPrices: RoomSeasonalPrice[];
   onLightbox: () => void;
   onCalendar: () => void;
   onDesc: () => void;
+  onAddToCart: () => void;
+  cartEnabled: boolean;
   bookingLocked: boolean;
   isPopular?: boolean;
+  unavailableForDates?: boolean;
+  datesChosen?: boolean;
 }) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
@@ -403,12 +413,19 @@ function SingleRoomHero({
         {/* Dot indicators — mobile only, top of image */}
         {multi && (
           <div className="absolute inset-x-0 top-0 z-10 p-3 bg-gradient-to-b from-black/30 to-transparent md:hidden">
-            <div className="flex justify-center gap-1.5">
+            <div className="flex justify-center gap-1">
               {images.map((_, i) => (
-                <span
+                <button
                   key={i}
-                  className={`h-1.5 rounded-full transition-all ${i === index ? "bg-white w-3" : "bg-white/50 w-1.5"}`}
-                />
+                  type="button"
+                  aria-label={t("goToPhoto", { number: i + 1 })}
+                  onClick={(e) => { e.stopPropagation(); setIndex(i); }}
+                  className="px-1 py-2 -my-1"
+                >
+                  <span
+                    className={`block h-1.5 rounded-full transition-all ${i === index ? "bg-white w-3" : "bg-white/50 w-1.5"}`}
+                  />
+                </button>
               ))}
             </div>
           </div>
@@ -470,25 +487,30 @@ function SingleRoomHero({
             </div>
 
             {/* Right: CTA buttons — desktop only (inside overlay) */}
-            <div className="hidden shrink-0 rounded-full overflow-hidden shadow-lg sm:flex">
-              <Button
-                disabled={bookingLocked}
-                className="rounded-none rounded-l-full bg-brand text-white px-6 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  document.dispatchEvent(new CustomEvent("book-room", { detail: { roomId: room.id } }));
-                }}
-              >
-                <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
-                {t("bookRoom")}
-              </Button>
+            <div className="hidden shrink-0 flex-col items-stretch gap-2 sm:flex">
+              {cartEnabled && (
+                <Button
+                  disabled={bookingLocked || unavailableForDates || !datesChosen}
+                  className="rounded-full bg-brand text-white px-6 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                  onClick={(e) => { e.stopPropagation(); onAddToCart(); }}
+                >
+                  {unavailableForDates ? (
+                    t("unavailableForDates")
+                  ) : (
+                    <>
+                      <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
+                      {t("selectThisRoom")}
+                    </>
+                  )}
+                </Button>
+              )}
               <button
                 type="button"
-                className="flex items-center justify-center gap-1.5 px-5 rounded-r-full bg-brand hover:bg-brand-hover border-l border-white/30 transition-colors text-sm font-bold tracking-widest uppercase text-white"
+                className="flex items-center justify-center gap-1.5 rounded-full bg-white/90 px-5 py-3 border border-white/50 shadow-lg transition-colors text-sm font-bold tracking-widest uppercase text-earth-800 hover:bg-white"
                 onClick={(e) => { e.stopPropagation(); onCalendar(); }}
               >
-                {t("viewCalendar")}
                 <CalendarSearch className="h-3.5 w-3.5" />
+                {t("viewCalendar")}
               </button>
             </div>
           </div>
@@ -497,23 +519,29 @@ function SingleRoomHero({
 
       {/* Mobile CTA — outside image */}
       <div className="mt-3 mb-15 flex w-full flex-col gap-2 sm:hidden">
-        <Button
-          disabled={bookingLocked}
-          className="w-full rounded-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase shadow-lg hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
-          onClick={() => {
-            document.dispatchEvent(new CustomEvent("book-room", { detail: { roomId: room.id } }));
-          }}
-        >
-          <CalendarDays className="mr-1.5 h-3.5 w-3.5" />
-          {t("bookRoom")}
-        </Button>
+        {cartEnabled && (
+          <Button
+            disabled={bookingLocked || unavailableForDates || !datesChosen}
+            className="w-full rounded-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase shadow-lg hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
+            onClick={() => onAddToCart()}
+          >
+            {unavailableForDates ? (
+              t("unavailableForDates")
+            ) : (
+              <>
+                <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
+                {t("selectThisRoom")}
+              </>
+            )}
+          </Button>
+        )}
         <button
           type="button"
           className="flex w-full items-center justify-center gap-1.5 rounded-full border border-earth-300 bg-white px-5 py-3.5 text-sm font-bold tracking-widest uppercase text-earth-800 shadow-sm transition-colors hover:bg-earth-50"
           onClick={() => onCalendar()}
         >
-          {t("viewCalendar")}
           <CalendarSearch className="h-3.5 w-3.5" />
+          {t("viewCalendar")}
         </button>
       </div>
 
@@ -530,6 +558,35 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRo
   const [bookingStep, setBookingStep] = useState<BookingStep>("dates");
   const isMobile = useIsMobile();
   const locale = useLocale();
+  const cart = useBookingCartOptional();
+  const [config, setConfig] = useState<{ room: Room; editingLine?: CartLine } | null>(null);
+
+  const handleAddToCart = (room: Room) => {
+    if (!cart) return;
+    if (!cart.dateRange?.from || !cart.dateRange?.to) return; // room button is disabled until dates are chosen
+    if (!cart.isRoomAvailableForRange(room) || cart.remainingForRoom(room) <= 0) {
+      toast.error(t("roomUnavailableToast"));
+      return;
+    }
+    setConfig({ room });
+  };
+
+  // Reopen the config dialog in edit mode when a cart line requests it
+  // (CartLineList dispatches `edit-line` with the lineId). Only while still
+  // choosing rooms — once payment is underway the cart is locked.
+  useEffect(() => {
+    if (!cart) return;
+    const handler = (e: Event) => {
+      if (bookingStep !== "dates") return;
+      const { lineId } = (e as CustomEvent<{ lineId: string }>).detail;
+      const line = cart.lines.find((l) => l.lineId === lineId);
+      if (!line) return;
+      const room = rooms.find((r) => r.id === line.roomId);
+      if (room) setConfig({ room, editingLine: line });
+    };
+    document.addEventListener("edit-line", handler);
+    return () => document.removeEventListener("edit-line", handler);
+  }, [cart, rooms, bookingStep]);
 
   useEffect(() => {
     const handler = (e: Event) => {
@@ -543,6 +600,11 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRo
   const bookingLocked = bookingStep !== "dates";
 
   const calendarRoom = calendarRoomId ? rooms.find((r) => r.id === calendarRoomId) : null;
+
+  // Once dates are chosen, only show rooms that are actually available for them
+  // (hide rooms fully booked or blocked for the selected range).
+  const datesChosen = !!cart?.dateRange?.from && !!cart?.dateRange?.to;
+  const visibleRooms = datesChosen && cart ? rooms.filter((room) => cart.isRoomAvailableForRange(room)) : rooms;
 
   const disabledDates = useMemo(() => {
     if (!calendarRoomId) return [];
@@ -559,7 +621,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRo
   return (
     <>
       <div className="mt-6 space-y-6">
-        {rooms.map((room) => (
+        {visibleRooms.map((room) => (
           <SingleRoomHero
             key={room.id}
             room={room}
@@ -567,10 +629,19 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRo
             onLightbox={() => setLightbox({ images: room.images, name: room.name })}
             onCalendar={() => setCalendarRoomId(room.id)}
             onDesc={() => setDescRoomId(room.id)}
+            onAddToCart={() => handleAddToCart(room)}
+            cartEnabled={!!cart}
             bookingLocked={bookingLocked}
             isPopular={popularRoomIds.has(room.id)}
+            unavailableForDates={false}
+            datesChosen={datesChosen}
           />
         ))}
+        {datesChosen && visibleRooms.length === 0 && (
+          <div className="rounded-2xl border border-dashed border-earth-300 bg-earth-50 p-8 text-center text-sm text-earth-600">
+            {t("noAvailableRooms")}
+          </div>
+        )}
       </div>
 
       {lightbox && (
@@ -579,6 +650,16 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRo
           name={lightbox.name}
           startIndex={0}
           onClose={() => setLightbox(null)}
+        />
+      )}
+
+      {cart && (
+        <RoomConfigDialog
+          key={config?.editingLine?.lineId ?? config?.room.id ?? "none"}
+          room={config?.room ?? null}
+          editingLine={config?.editingLine ?? null}
+          open={!!config}
+          onClose={() => setConfig(null)}
         />
       )}
 

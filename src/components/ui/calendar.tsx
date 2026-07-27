@@ -56,9 +56,9 @@ function Calendar({
         ),
         nav: "flex items-center w-full absolute top-0 inset-x-0 justify-between px-1",
         button_previous:
-          "inline-flex items-center justify-center size-8 rounded-full border border-earth-200 text-earth-500 hover:bg-earth-50 hover:text-earth-900 hover:border-earth-300 transition-all aria-disabled:opacity-30 aria-disabled:pointer-events-none select-none",
+          "inline-flex items-center justify-center size-9 rounded-full border border-earth-200 text-earth-500 hover:bg-earth-50 hover:text-earth-900 hover:border-earth-300 transition-all aria-disabled:opacity-30 aria-disabled:pointer-events-none select-none",
         button_next:
-          "inline-flex items-center justify-center size-8 rounded-full border border-earth-200 text-earth-500 hover:bg-earth-50 hover:text-earth-900 hover:border-earth-300 transition-all aria-disabled:opacity-30 aria-disabled:pointer-events-none select-none",
+          "inline-flex items-center justify-center size-9 rounded-full border border-earth-200 text-earth-500 hover:bg-earth-50 hover:text-earth-900 hover:border-earth-300 transition-all aria-disabled:opacity-30 aria-disabled:pointer-events-none select-none",
         dropdowns:
           "w-full flex items-center text-sm font-semibold tracking-wide justify-center h-8 gap-1.5 text-earth-800",
         dropdown_root:
@@ -75,16 +75,16 @@ function Calendar({
         week_number_header: "select-none w-9",
         week_number:
           "text-[0.75rem] select-none text-earth-300 flex items-center justify-center w-9",
-        day: "relative flex-1 p-0 flex items-center justify-center group/day select-none",
+        day: "relative flex-1 min-w-0 p-0 flex items-center justify-center group/day select-none",
         day_button: "",
         chevron: "",
         footer: "",
         // === DayFlag modifiers ===
         today:
-          "[&_.day-btn]:font-bold [&_.day-btn]:bg-earth-300 [&_.day-btn]:text-white [&_.day-btn]:rounded-full [&_.day-btn]:hover:bg-earth-400",
+          "[&_.day-btn]:font-bold [&_.day-btn]:bg-brand-50 [&_.day-btn]:text-brand [&_.day-btn]:rounded-full [&_.day-btn]:hover:bg-brand-100",
         outside: "[&_.day-btn]:text-earth-300 [&_.day-btn]:hover:text-earth-400",
         disabled:
-          "[&_.day-btn]:text-earth-300 [&_.day-btn]:opacity-50 [&_.day-btn]:cursor-not-allowed [&_.day-btn]:hover:bg-transparent",
+          "[&_.day-btn]:text-earth-400 [&_.day-btn]:cursor-not-allowed [&_.day-btn]:hover:bg-transparent",
         hidden: "invisible",
         focused: "",
         // === SelectionState modifiers ===
@@ -161,7 +161,7 @@ function CalendarDayButton({
       data-range-middle={modifiers.range_middle}
       className={cn(
         "day-btn",
-        "relative flex size-10 items-center justify-center rounded-full text-sm font-medium transition-all duration-150",
+        "relative flex size-11 items-center justify-center rounded-full text-sm font-medium transition-all duration-150",
         "text-earth-700 hover:bg-earth-100 hover:text-earth-900",
         "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:ring-offset-1",
         "data-[selected-single=true]:bg-brand data-[selected-single=true]:text-white data-[selected-single=true]:shadow-sm data-[selected-single=true]:hover:bg-brand-hover",

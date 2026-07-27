@@ -91,7 +91,7 @@ export async function POST(req: NextRequest) {
 }
 
 const deleteSchema = z.object({
-  hold_id: z.string().uuid(),
+  hold_id: z.string().uuid().optional(),
   session_id: z.string().min(1),
 });
 
@@ -110,11 +110,11 @@ export async function DELETE(req: NextRequest) {
     const { hold_id, session_id } = parsed.data;
     const supabase = createServiceRoleClient();
 
-    await supabase
-      .from("booking_holds")
-      .delete()
-      .eq("id", hold_id)
-      .eq("session_id", session_id);
+    // Release a single hold when hold_id is given, otherwise every hold in the
+    // session — a multi-room cart holds several rooms under one session id.
+    let query = supabase.from("booking_holds").delete().eq("session_id", session_id);
+    if (hold_id) query = query.eq("id", hold_id);
+    await query;
 
     return NextResponse.json({ released: true });
   } catch (error) {

@@ -67,7 +67,7 @@ export function BookingTutorialDialog({ open, onOpenChange }: BookingTutorialDia
         <DialogFooter>
           <Button
             onClick={() => onOpenChange(false)}
-            className="w-full rounded-full bg-brand font-bold tracking-wide text-white hover:bg-brand-hover"
+            className="w-full rounded-full bg-brand px-6 py-3.5 h-auto text-sm font-bold uppercase tracking-widest text-white hover:bg-brand-hover"
           >
             {t("cta")}
           </Button>

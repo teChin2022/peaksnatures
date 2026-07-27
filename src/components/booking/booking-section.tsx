@@ -1,11 +1,8 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { format, differenceInDays, eachDayOfInterval, parseISO, subDays, startOfToday, addMonths } from "date-fns";
-import { th as thLocale } from "date-fns/locale";
+import { format, differenceInDays, eachDayOfInterval, subDays } from "date-fns";
 import { fmtDate } from "@/lib/format-date";
-import type { DateRange } from "react-day-picker";
-import { Calendar } from "@/components/ui/calendar";
 import { motion, AnimatePresence, useInView, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -21,9 +18,9 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import {
   Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope,
-  CalendarDays, Calendar as CalendarIcon, Users, CreditCard, Upload, CheckCircle2, Loader2,
+  Calendar as CalendarIcon, Users, CreditCard, Upload, CheckCircle2, Loader2,
   ImageIcon, X, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle,
-  Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, Sparkles, FileText, Lock, MousePointerClick, ListPlus, Gift, HelpCircle,
+  Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, Sparkles, FileText, Lock, MousePointerClick, ListPlus, Gift, HelpCircle, BedDouble,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
@@ -46,8 +43,11 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
+import { BookingCalendarDialog } from "@/components/booking/booking-calendar-dialog";
 import { BookingTutorialDialog } from "@/components/booking/booking-tutorial-dialog";
 import { LeaveBookingDialog } from "@/components/booking/leave-booking-dialog";
+import { useBookingCart } from "@/components/booking/booking-cart-context";
+import { CartLineList } from "@/components/booking/cart-line-list";
 
 interface BookedRange {
   room_id: string | null;
@@ -142,11 +142,16 @@ export function BookingSection({
   const t = useTranslations("booking");
   const tc = useTranslations("common");
   const tt = useTranslations("bookingTutorial");
-  const [mounted, setMounted] = useState(false);
   const [step, setStep] = useState<BookingStep>("dates");
   const [showConfirmedModal, setShowConfirmedModal] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
-  const [dateRange, setDateRange] = useState<DateRange | undefined>();
+  // Cart + shared dates live in the BookingCartProvider, so the sticky date bar,
+  // room-card "Add to cart", the cart modal, and this panel all share one cart.
+  const cart = useBookingCart();
+  const { dateRange, lines: cartLines, setDates: setDateRange, clear: clearCart, computeLineGross, subtotal } = cart;
+  // Step 1's empty state opens the real picker instead of pointing at the sticky bar.
+  const [calendarOpen, setCalendarOpen] = useState(false);
+  // The "draft" room currently being configured to add. The cart accumulates lines.
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
   const [numGuests, setNumGuests] = useState("2");
   const [selectedTierId, setSelectedTierId] = useState<string>("");
@@ -155,10 +160,14 @@ export function BookingSection({
   const [guestPhone, setGuestPhone] = useState("");
   const [guestProvince, setGuestProvince] = useState("");
   const [guestNote, setGuestNote] = useState("");
+  const [errors, setErrors] = useState<{ name?: string; email?: string; phone?: string; province?: string }>({});
   const locale = useLocale();
   const isMobile = useIsMobile();
   const provinceLabel = (v: string) => getProvinceLabel(v, locale);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  // Progress of the sequential room-hold requests (step 2 → 3), so the overlay
+  // can show "reserving room 2 of 3" instead of a silent multi-second wait.
+  const [holdProgress, setHoldProgress] = useState<{ done: number; total: number } | null>(null);
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
   const [paymentPhase, setPaymentPhase] = useState<"qr" | "upload">("qr");
@@ -170,8 +179,6 @@ export function BookingSection({
   const [showHeldModal, setShowHeldModal] = useState(false);
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
-  const [showCalendar, setShowCalendar] = useState(false);
-  const [showIncompleteDatesModal, setShowIncompleteDatesModal] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
   const [showGuests, setShowGuests] = useState(false);
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([]);
@@ -185,6 +192,9 @@ export function BookingSection({
   const pollingRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
+  const emailInputRef = useRef<HTMLInputElement>(null);
+  const phoneInputRef = useRef<HTMLInputElement>(null);
+  const provinceFieldRef = useRef<HTMLDivElement>(null);
   const qrContainerRef = useRef<HTMLDivElement>(null);
 
   // "How to book?" help pill: pulse once when the form first scrolls into view,
@@ -280,11 +290,15 @@ export function BookingSection({
     document.dispatchEvent(new CustomEvent("booking-step", { detail: { step } }));
   }, [step]);
 
+  // Broadcast cart size so MobileBookingBar can show a count badge.
+  useEffect(() => {
+    document.dispatchEvent(new CustomEvent("cart-count", { detail: { count: cartLines.length } }));
+  }, [cartLines.length]);
+
   // Live booked ranges fetched client-side to stay up-to-date
   const [liveBookedRanges, setLiveBookedRanges] = useState<BookedRange[]>(bookedRanges);
 
   useEffect(() => {
-    setMounted(true);
     // Fetch fresh availability on mount
     fetch(`/api/bookings/availability?homestay_id=${homestay.id}`)
       .then((res) => res.json())
@@ -327,42 +341,13 @@ export function BookingSection({
     return fullyBookedEverywhere;
   }, [selectedRoomId, liveBookedRanges, rooms]);
 
-  // When selecting check-out, compute which booked date (if any) is allowed
-  // as a valid check-out and where to cap the selectable range.
-  const allowedCheckoutKey = useMemo<string | null>(() => {
-    if (!dateRange?.from) return null;
-    // react-day-picker v9 sets from===to on first click; treat as "selecting checkout"
-    if (dateRange?.to && dateRange.to.getTime() !== dateRange.from.getTime()) return null;
-    const fromTime = dateRange.from.getTime();
+  // How many rooms RoomsSection will actually show for the chosen range — drives
+  // the "no rooms selected" panel's hint so it can't promise rooms that aren't there.
+  const availableRoomCount = useMemo(() => {
+    if (!dateRange?.from || !dateRange?.to) return 0;
+    return rooms.filter((r) => cart.isRoomAvailableForRange(r)).length;
+  }, [dateRange?.from, dateRange?.to, rooms, cart]);
 
-    const firstBooked = Array.from(bookedDatesForRoom)
-      .map((d) => ({ key: d, time: parseISO(d).getTime() }))
-      .filter((d) => d.time > fromTime)
-      .sort((a, b) => a.time - b.time)[0];
-
-    const firstBlockedTime = blockedDates
-      .map((d) => parseISO(d.date).getTime())
-      .filter((t) => t > fromTime)
-      .sort((a, b) => a - b)[0];
-
-    if (!firstBooked) return null;
-    // If a blocked date comes before or on the same day, don't allow checkout on booked
-    if (firstBlockedTime !== undefined && firstBlockedTime <= firstBooked.time) return null;
-    return firstBooked.key;
-  }, [dateRange?.from, dateRange?.to, bookedDatesForRoom, blockedDates]);
-
-  const checkoutBarrierTime = useMemo<number | null>(() => {
-    if (!dateRange?.from) return null;
-    if (dateRange?.to && dateRange.to.getTime() !== dateRange.from.getTime()) return null;
-    const fromTime = dateRange.from.getTime();
-    const allTimes = [
-      ...Array.from(bookedDatesForRoom).map((d) => parseISO(d).getTime()),
-      ...blockedDates.map((d) => parseISO(d.date).getTime()),
-    ]
-      .filter((t) => t > fromTime)
-      .sort((a, b) => a - b);
-    return allTimes[0] ?? null;
-  }, [dateRange?.from, dateRange?.to, bookedDatesForRoom, blockedDates]);
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
 
@@ -395,6 +380,11 @@ export function BookingSection({
     return differenceInDays(dateRange.to, dateRange.from);
   }, [dateRange]);
 
+  // With no usable range — or a range nothing is free for — the only sensible next
+  // step is the date picker, so the empty state points there instead of the rooms.
+  // nights < 1 covers both "nothing picked" and "check-in only" (from === to).
+  const emptyCartNeedsDates = nights < 1 || availableRoomCount === 0;
+
   const optionsTotal = useMemo(() => {
     return selectedOptionIds.reduce((sum, id) => {
       const opt = roomOptions.find((o) => o.id === id);
@@ -420,7 +410,11 @@ export function BookingSection({
   // Composition surcharge is charged per night (× nights), like a per_night option.
   const compositionSurcharge = selectedTier ? computeCompositionSurcharge(selectedTier.surcharge, nights) : 0;
 
-  const subtotalPrice = (priceResult?.total ?? 0) + optionsTotal + compositionSurcharge;
+  // Per-line gross + cart subtotal come from the shared cart context
+  // (single source of truth — see booking-cart-context).
+
+  // Cart subtotal (sum of all added lines) drives promo, totals, deposit, payment.
+  const subtotalPrice = subtotal;
 
   const promoDiscount = useMemo(() => {
     if (!appliedPromo || subtotalPrice <= 0) return 0;
@@ -434,9 +428,10 @@ export function BookingSection({
 
   const totalPrice = Math.max(0, subtotalPrice - promoDiscount);
 
+  // Deposit scales with the number of rooms (shared dates → one check-in month).
   const resolvedDeposit = useMemo(() => {
-    return getDepositForMonth(host, dateRange?.from);
-  }, [host, dateRange?.from]);
+    return getDepositForMonth(host, dateRange?.from) * cartLines.length;
+  }, [host, dateRange?.from, cartLines.length]);
 
   const depositAvailable = resolvedDeposit > 0 && resolvedDeposit < totalPrice;
 
@@ -483,20 +478,15 @@ export function BookingSection({
     });
   }, [dateRange, blockedDateSet, bookedDatesForRoom]);
 
+  // Select the DRAFT room to configure. Dates are shared across the cart, so
+  // (unlike the old single-room flow) we keep the chosen date range.
   const handleRoomChange = (roomId: string) => {
     setSelectedRoomId(roomId);
-    // Clear date range when switching rooms so stale selections
-    // that overlap with the new room's booked dates are reset
-    setDateRange(undefined);
     setSelectedOptionIds([]);
-    // Reset the guest-composition selection (tiers are per room)
     setSelectedTierId("");
     setNumGuests("2");
   };
 
-  const handleDateSelect = (range: DateRange | undefined) => {
-    setDateRange(range);
-  };
 
   const handleApplyPromo = useCallback(async (opts?: { silent?: boolean }) => {
     const silent = opts?.silent === true;
@@ -560,106 +550,131 @@ export function BookingSection({
   }, []);
 
   const handleProceedToDetails = () => {
-    if (!dateRange?.from || !dateRange?.to) {
-      toast.error(t("errorSelectDates"));
-      return;
-    }
-    if (!isDateRangeValid) {
-      toast.error(t("errorBlockedDates"));
-      return;
-    }
-    if (!selectedRoomId) {
-      toast.error(t("errorSelectRoom"));
-      return;
-    }
-    if (hasTiers && !selectedTier) {
-      toast.error(t("errorSelectGuests"));
+    if (cartLines.length === 0) {
+      toast.error(t("errorCartEmpty"));
       return;
     }
     setStep("details");
     setTimeout(() => nameInputRef.current?.focus(), 100);
   };
 
+  const validateGuestForm = useCallback((): { name?: string; email?: string; phone?: string; province?: string } => {
+    const e: { name?: string; email?: string; phone?: string; province?: string } = {};
+    if (!guestName.trim()) e.name = t("fieldRequired");
+    if (!guestEmail.trim()) e.email = t("fieldRequired");
+    else if (!isValidEmail(guestEmail)) e.email = t("errorInvalidEmail");
+    if (!guestPhone.trim()) e.phone = t("fieldRequired");
+    else if (!isValidPhone(guestPhone)) e.phone = t("errorInvalidPhone");
+    if (!guestProvince) e.province = t("fieldRequired");
+    return e;
+  }, [guestName, guestEmail, guestPhone, guestProvince, t]);
+
+  const focusFirstError = useCallback((e: { name?: string; email?: string; phone?: string; province?: string }) => {
+    if (e.name) nameInputRef.current?.focus();
+    else if (e.email) emailInputRef.current?.focus();
+    else if (e.phone) phoneInputRef.current?.focus();
+    else if (e.province) provinceFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+  }, []);
+
   const handleProceedToPayment = async () => {
-    if (!guestName || !guestEmail || !guestPhone) {
-      toast.error(t("errorFillFields"));
+    const formErrors = validateGuestForm();
+    if (Object.keys(formErrors).length > 0) {
+      // Can fire from the confirm summary (fields not visible there) — bounce
+      // back to the details form so the inline errors are seen.
+      setErrors(formErrors);
+      setShowConfirmModal(false);
+      focusFirstError(formErrors);
       return;
     }
-    if (!isValidEmail(guestEmail)) {
-      toast.error(t("errorInvalidEmail"));
-      return;
-    }
-    if (!isValidPhone(guestPhone)) {
-      toast.error(t("errorInvalidPhone"));
-      return;
-    }
-    if (!dateRange?.from || !dateRange?.to || !selectedRoomId) return;
+    setErrors({});
+    if (!dateRange?.from || !dateRange?.to || cartLines.length === 0) return;
 
     setIsSubmitting(true);
+    setHoldProgress({ done: 0, total: cartLines.length });
     try {
-      const res = await fetch("/api/bookings/hold", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          room_id: selectedRoomId,
-          check_in: format(dateRange.from, "yyyy-MM-dd"),
-          check_out: format(dateRange.to, "yyyy-MM-dd"),
-          session_id: uploadSessionId,
-          guest_phone: guestPhone.trim(),
-        }),
-      });
+      const checkIn = format(dateRange.from, "yyyy-MM-dd");
+      const checkOut = format(dateRange.to, "yyyy-MM-dd");
+      let firstHoldId: string | null = null;
+      let firstExpiry: number | null = null;
 
-      if (res.status === 409) {
-        const errorData = await res.json();
-        if (errorData.error === "DATES_UNAVAILABLE") {
-          toast.error(t("errorDatesUnavailable"));
-          fetch(`/api/bookings/availability?homestay_id=${homestay.id}`)
-            .then((r) => r.json())
-            .then((d) => { if (d.bookedRanges) setLiveBookedRanges(d.bookedRanges); })
-            .catch(() => { });
-          setDateRange(undefined);
-          setStep("dates");
-        } else {
-          setShowHeldModal(true);
+      // Hold every room in the cart under the shared session id.
+      for (const line of cartLines) {
+        const res = await fetch("/api/bookings/hold", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            room_id: line.roomId,
+            check_in: checkIn,
+            check_out: checkOut,
+            session_id: uploadSessionId,
+            guest_phone: guestPhone.trim(),
+          }),
+        });
+
+        if (res.status === 409) {
+          const errorData = await res.json();
+          // Release whatever we already held this session, then bounce to the room list.
+          fetch("/api/bookings/hold", {
+            method: "DELETE",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ session_id: uploadSessionId }),
+          }).catch(() => {});
+          if (errorData.error === "DATES_UNAVAILABLE") {
+            toast.error(t("errorDatesUnavailable"));
+            fetch(`/api/bookings/availability?homestay_id=${homestay.id}`)
+              .then((r) => r.json())
+              .then((d) => { if (d.bookedRanges) setLiveBookedRanges(d.bookedRanges); })
+              .catch(() => {});
+            setStep("dates");
+          } else {
+            setShowHeldModal(true);
+          }
+          setIsSubmitting(false);
+          return;
         }
-        setIsSubmitting(false);
-        return;
+
+        if (res.status === 429) {
+          toast.error(t("errorTooManyRequests"));
+          setIsSubmitting(false);
+          return;
+        }
+
+        if (!res.ok) {
+          toast.error(t("errorGeneric"));
+          setIsSubmitting(false);
+          return;
+        }
+
+        const data = await res.json();
+        if (firstExpiry === null) {
+          firstHoldId = data.hold_id;
+          firstExpiry = new Date(data.expires_at).getTime();
+        }
+        setHoldProgress((p) => (p ? { ...p, done: p.done + 1 } : p));
       }
 
-      if (res.status === 429) {
-        toast.error(t("errorTooManyRequests"));
-        setIsSubmitting(false);
-        return;
-      }
-
-      if (!res.ok) {
-        toast.error(t("errorGeneric"));
-        setIsSubmitting(false);
-        return;
-      }
-
-      const data = await res.json();
-      setHoldId(data.hold_id);
-      const expiresMs = new Date(data.expires_at).getTime();
-      setHoldExpiresAt(expiresMs);
+      setHoldId(firstHoldId);
+      setHoldExpiresAt(firstExpiry);
       setStep("payment");
     } catch {
       toast.error(t("errorGeneric"));
     } finally {
       setIsSubmitting(false);
+      setHoldProgress(null);
     }
   };
 
   const releaseHold = useCallback(() => {
-    if (holdId) {
-      fetch("/api/bookings/hold", {
-        method: "DELETE",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ hold_id: holdId, session_id: uploadSessionId }),
-      }).catch(() => { });
-      setHoldId(null);
-      setHoldExpiresAt(null);
-    }
+    if (!holdId) return;
+    // Release every hold in this session — a multi-room cart may have held
+    // several rooms under the one session id, not just the first.
+    fetch("/api/bookings/hold", {
+      method: "DELETE",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ session_id: uploadSessionId }),
+    }).catch(() => { });
+    setHoldId(null);
+    setHoldExpiresAt(null);
   }, [holdId, uploadSessionId]);
 
   // Hold expiry callback — passed to <HoldCountdown onExpire />
@@ -738,61 +753,104 @@ export function BookingSection({
       }
 
       const isSlipVerified = !!verifyData.verified;
+      const checkIn = format(dateRange.from, "yyyy-MM-dd");
+      const checkOut = format(dateRange.to, "yyyy-MM-dd");
+      const optionsForLine = (optionIds: string[]) =>
+        optionIds.map((id) => {
+          const opt = roomOptions.find((o) => o.id === id);
+          const price = opt?.pricing_type === "per_time" ? (opt?.price || 0) : (opt?.price || 0) * nights;
+          return { id, name: opt?.name || "", price };
+        });
 
-      // 3. Create the booking — verified or pending (host review)
-      const bookingRes = await fetch("/api/bookings", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          homestay_id: homestay.id,
-          room_id: selectedRoomId || undefined,
-          guest_name: guestName,
-          guest_email: guestEmail,
-          guest_phone: guestPhone,
-          guest_province: guestProvince || undefined,
-          notes: guestNote || undefined,
-          check_in: format(dateRange.from, "yyyy-MM-dd"),
-          check_out: format(dateRange.to, "yyyy-MM-dd"),
-          num_guests: selectedTier ? selectedTier.adults + selectedTier.children : parseInt(numGuests),
-          guest_pricing_id: selectedTier?.id,
-          total_price: totalPrice,
-          payment_type: paymentOption,
-          amount_paid: paymentAmount,
-          slip_hash: verifyData.slip_hash,
-          slip_trans_ref: verifyData.slip_trans_ref || null,
-          payment_slip_url: verifyData.payment_slip_url || null,
-          easyslip_response: verifyData.easyslip_response || null,
-          easyslip_verified: isSlipVerified,
-          session_id: uploadSessionId,
-          locale,
-          selected_options: selectedOptionIds.map((id) => {
-            const opt = roomOptions.find((o) => o.id === id);
-            const price = opt?.pricing_type === "per_time" ? (opt?.price || 0) : (opt?.price || 0) * nights;
-            return { id, name: opt?.name || "", price };
+      const handleCreateConflict = () => {
+        toast.error(t("errorDatesUnavailable"));
+        fetch(`/api/bookings/availability?homestay_id=${homestay.id}`)
+          .then((res) => res.json())
+          .then((data) => { if (data.bookedRanges) setLiveBookedRanges(data.bookedRanges); })
+          .catch(() => {});
+        setStep("dates");
+        setIsSubmitting(false);
+      };
+
+      // 3. Create the booking(s) — 1 room → single endpoint, ≥2 rooms → group endpoint.
+      let createdId: string | null = null;
+      if (cartLines.length === 1) {
+        const line = cartLines[0];
+        const bookingRes = await fetch("/api/bookings", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            homestay_id: homestay.id,
+            room_id: line.roomId,
+            guest_name: guestName,
+            guest_email: guestEmail,
+            guest_phone: guestPhone,
+            guest_province: guestProvince || undefined,
+            notes: guestNote || undefined,
+            check_in: checkIn,
+            check_out: checkOut,
+            num_guests: line.numGuests,
+            guest_pricing_id: line.tierId || undefined,
+            total_price: totalPrice,
+            payment_type: paymentOption,
+            amount_paid: paymentAmount,
+            slip_hash: verifyData.slip_hash,
+            slip_trans_ref: verifyData.slip_trans_ref || null,
+            payment_slip_url: verifyData.payment_slip_url || null,
+            easyslip_response: verifyData.easyslip_response || null,
+            easyslip_verified: isSlipVerified,
+            session_id: uploadSessionId,
+            locale,
+            selected_options: optionsForLine(line.optionIds),
+            promo_code_id: appliedPromo?.id || undefined,
           }),
-          promo_code_id: appliedPromo?.id || undefined,
-        }),
-      });
-
-      if (!bookingRes.ok) {
-        if (bookingRes.status === 409) {
-          toast.error(t("errorDatesUnavailable"));
-          fetch(`/api/bookings/availability?homestay_id=${homestay.id}`)
-            .then((res) => res.json())
-            .then((data) => {
-              if (data.bookedRanges) setLiveBookedRanges(data.bookedRanges);
-            })
-            .catch(() => { });
-          setDateRange(undefined);
-          setStep("dates");
-          setIsSubmitting(false);
-          return;
+        });
+        if (!bookingRes.ok) {
+          if (bookingRes.status === 409) { handleCreateConflict(); return; }
+          throw new Error("Failed to create booking");
         }
-        throw new Error("Failed to create booking");
+        const { booking } = await bookingRes.json();
+        createdId = booking.id;
+      } else {
+        const groupRes = await fetch("/api/bookings/group", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            homestay_id: homestay.id,
+            guest_name: guestName,
+            guest_email: guestEmail,
+            guest_phone: guestPhone,
+            guest_province: guestProvince || undefined,
+            notes: guestNote || undefined,
+            locale,
+            payment_type: paymentOption,
+            promo_code_id: appliedPromo?.id || undefined,
+            session_id: uploadSessionId,
+            slip_hash: verifyData.slip_hash,
+            slip_trans_ref: verifyData.slip_trans_ref || null,
+            payment_slip_url: verifyData.payment_slip_url || null,
+            easyslip_response: verifyData.easyslip_response || null,
+            easyslip_verified: isSlipVerified,
+            items: cartLines.map((line) => ({
+              room_id: line.roomId,
+              check_in: checkIn,
+              check_out: checkOut,
+              num_guests: line.numGuests,
+              guest_pricing_id: line.tierId || undefined,
+              selected_options: optionsForLine(line.optionIds),
+              total_price: computeLineGross(line),
+            })),
+          }),
+        });
+        if (!groupRes.ok) {
+          if (groupRes.status === 409) { handleCreateConflict(); return; }
+          throw new Error("Failed to create booking");
+        }
+        const data = await groupRes.json();
+        createdId = data.group?.id || data.bookings?.[0]?.id || null;
       }
 
-      const { booking } = await bookingRes.json();
-      setBookingId(booking.id);
+      setBookingId(createdId);
       setSlipVerified(isSlipVerified);
       // Hold is cleaned up server-side by create_booking_atomic; clear local state
       releaseHold();
@@ -905,6 +963,7 @@ export function BookingSection({
     setSelectedRoomId("");
     setSelectedTierId("");
     setNumGuests("2");
+    clearCart();
     setGuestName("");
     setGuestEmail("");
     setGuestPhone("");
@@ -914,7 +973,6 @@ export function BookingSection({
     setUploadSessionId(crypto.randomUUID());
     setBookingId(null);
     setPdpaConsent(false);
-    setShowCalendar(false);
     setShowOptions(false);
     setShowGuests(false);
     setShowConfirmModal(false);
@@ -926,6 +984,39 @@ export function BookingSection({
 
   return (
     <>
+      {/* Securing-rooms overlay — the step 2 → 3 transition holds each room via a
+          sequential API call, which is several seconds for a multi-room cart.
+          Without this the panel just sat silent. Scoped to the hold phase only
+          (step "details"); step 3's slip verification has its own button spinner. */}
+      {isSubmitting && step === "details" && (
+        <div
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-earth-900/40 px-4 backdrop-blur-sm"
+          role="status"
+          aria-live="polite"
+          aria-busy="true"
+        >
+          <div className="w-full max-w-sm rounded-3xl bg-white p-8 text-center shadow-2xl">
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-brand-50">
+              <Loader2 className="h-7 w-7 animate-spin text-brand" />
+            </div>
+            <h3 className="font-serif text-xl text-earth-900">{t("securingRoomsTitle")}</h3>
+            <p className="mt-2 text-sm leading-relaxed text-earth-500">{t("securingRoomsDesc")}</p>
+            {holdProgress && holdProgress.total > 1 && (
+              <div className="mt-5">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-earth-100">
+                  <div
+                    className="h-full rounded-full bg-brand transition-all duration-300"
+                    style={{ width: `${Math.round((holdProgress.done / holdProgress.total) * 100)}%` }}
+                  />
+                </div>
+                <p className="mt-2 text-xs font-medium text-earth-400">
+                  {t("securingRoomsProgress", { done: holdProgress.done, total: holdProgress.total })}
+                </p>
+              </div>
+            )}
+          </div>
+        </div>
+      )}
       <section id="booking-section" ref={sectionRef} className="py-20 md:py-28">
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           {bookingDisabled && (
@@ -936,8 +1027,8 @@ export function BookingSection({
             </div>
           )}
           <div className={`grid gap-10 lg:grid-cols-2 lg:gap-12 xl:gap-16 items-start ${bookingDisabled ? "pointer-events-none opacity-50 select-none" : ""}`}>
-            {/* ── Left Column: Heading & Trust Badges ── */}
-            <div className="flex flex-col justify-center">
+            {/* ── Left Column: Heading & Trust Badges (shown first on mobile, left on desktop) ── */}
+            <div className="order-1 flex flex-col justify-center lg:order-1">
               <h2 className="font-serif text-4xl font-normal text-earth-900 leading-tight lg:text-5xl tracking-tight">
                 {t("sectionHeading")}{" "}
                 <span className="italic text-brand">{t("sectionHeadingAccent")}</span>
@@ -989,7 +1080,7 @@ export function BookingSection({
               whileInView={{ opacity: 1, scale: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, ease: [0.25, 0.1, 0, 1] }}
-              className="bg-white rounded-3xl shadow-xl border border-earth-100 p-5 lg:p-8 relative flex flex-col lg:sticky lg:top-8"
+              className="order-2 bg-white rounded-3xl shadow-xl border border-earth-100 p-5 lg:order-2 lg:p-8 relative flex flex-col lg:sticky lg:top-32"
             >
             {initialPromo && promoInput.trim().toUpperCase() === initialPromo.code.toUpperCase() && (
               <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-brand-100 bg-brand-50 p-3.5">
@@ -1055,42 +1146,20 @@ export function BookingSection({
             {/* Hidden file inputs */}
             <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)} />
 
-            <div className="min-h-[480px] max-h-[600px] lg:max-h-[700px] overflow-y-auto pr-1">
+            <div className="min-h-[480px] lg:max-h-[700px] lg:overflow-y-auto lg:pr-1">
               <AnimatePresence mode="wait">
                 {/* ═══ Step 1: Dates ═══ */}
                 {step === "dates" && (
                   <motion.div key="step-dates" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                     <AnimatePresence mode="wait">
-                      {!showCalendar && !showOptions && !showGuests ? (
+                      {!showOptions && !showGuests ? (
                         <motion.div key="dates-form" initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.25 }} className="space-y-5">
-                          {/* Room detail or prompt */}
-                          {selectedRoom ? (
-                            <div className="rounded-xl bg-earth-50 p-3">
-                              <p className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("room")}</p>
-                              <div className="flex items-baseline justify-between mt-1">
-                                <p className="text-base font-bold text-earth-900">{selectedRoom.name}</p>
-                                <p className="text-sm font-semibold">{priceLabel}/{tc("night")}</p>
-                              </div>
-                              {/* {selectedRoom.description && (
-                                <div className="mt-2 text-xs text-earth-500">
-                                  <HTMLContent content={selectedRoom.description} className="inline" />
-                                </div>
-                              )} */}
-                            </div>
-                          ) : (
-                            <div className="rounded-xl border border-dashed border-earth-300 bg-earth-50 p-4 text-center">
-                              <CalendarDays className="mx-auto h-8 w-8 text-earth-300 mb-2" />
-                              <p className="text-sm font-medium text-earth-500">{t("selectRoomFirst")}</p>
-                            </div>
-                          )}
-
+                          {/* ── Dates — mirrors the sticky bar, and opens the same picker ── */}
                           <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("selectDates")}</label>
-
-                          {/* Date picker toggle */}
                           <button
-                            onClick={() => selectedRoomId && setShowCalendar(true)}
-                            disabled={!selectedRoomId}
-                            className={`w-full flex items-center justify-between p-3.5 rounded-xl border border-earth-200 transition-all text-sm font-medium bg-white ${selectedRoomId ? "hover:border-earth-400 text-earth-900 cursor-pointer" : "opacity-50 cursor-not-allowed text-earth-400"}`}
+                            type="button"
+                            onClick={() => setCalendarOpen(true)}
+                            className="w-full flex items-center justify-between p-3.5 rounded-xl border border-earth-200 bg-white text-sm font-medium text-earth-700 cursor-pointer transition-colors hover:border-earth-300 hover:bg-earth-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                           >
                             <div className="flex items-center gap-2.5">
                               <CalendarIcon size={16} className="text-earth-400" />
@@ -1103,132 +1172,64 @@ export function BookingSection({
                                 ) : t("selectDates")}
                               </span>
                             </div>
-                            <span className="text-earth-400 text-xs">
-                              {nights > 0 ? `${nights} ${nights > 1 ? tc("nights") : tc("night")}` : ""}
-                            </span>
+                            {nights > 0 && (
+                              <span className="text-earth-400 text-xs">{nights} {nights > 1 ? tc("nights") : tc("night")}</span>
+                            )}
                           </button>
 
-                          {/* Guests — dropdown of host-defined compositions when the room has tiers, else a stepper */}
-                          <div className="space-y-2">
-                            <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("numGuests")}</label>
-                            {hasTiers ? (
-                              <button
-                                onClick={() => setShowGuests(true)}
-                                className="w-full flex items-center justify-between p-3.5 rounded-xl border border-earth-200 transition-all text-sm font-medium bg-white hover:border-earth-400 text-earth-900 cursor-pointer"
-                              >
-                                <div className="flex min-w-0 items-center gap-2.5">
-                                  <Users size={16} className="shrink-0 text-earth-400" />
-                                  <span className={`truncate ${selectedTier ? "" : "text-earth-400"}`}>
-                                    {selectedTier ? composeTierLabel(selectedTier, locale) : t("selectGuestsForPrice")}
-                                  </span>
-                                </div>
-                                {selectedTier && (
-                                  <span className="text-xs font-semibold text-brand whitespace-nowrap">
-                                    {selectedTier.surcharge > 0
-                                      ? `+฿${selectedTier.surcharge.toLocaleString()}`
-                                      : `฿${defaultTierNightlyPrice.toLocaleString()}`}
-                                  </span>
-                                )}
-                              </button>
-                            ) : (
-                              <div className="flex items-center justify-between p-3 rounded-xl border border-earth-200">
-                                <span className="text-sm font-medium text-earth-700">{numGuests} {tc("guests")}</span>
-                                <div className="flex items-center gap-3">
+                          {/* ── Selected rooms — one panel, three states, fixed position ──
+                              Rooms are added from the cards above; this reviews the cart. */}
+                          <div className="space-y-2 pt-3 border-t border-earth-100">
+                            <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">
+                              {t("yourCart")}{cartLines.length > 0 ? ` (${cartLines.length})` : ""}
+                            </label>
+
+                            <div aria-live="polite">
+                              {cartLines.length === 0 ? (
+                                <div className="rounded-2xl border border-earth-100 bg-earth-50 px-5 py-7 text-center">
+                                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white text-earth-400">
+                                    <BedDouble className="h-6 w-6" />
+                                  </div>
+                                  <p className="text-sm font-semibold text-earth-900">{t("noRoomSelected")}</p>
+                                  <p className="mt-1 text-xs text-earth-500">
+                                    {!dateRange?.from
+                                      ? t("noRoomSelectedNoDates")
+                                      : nights < 1
+                                        ? t("noRoomSelectedNeedCheckOut")
+                                        : availableRoomCount === 0
+                                          ? t("noRoomSelectedSoldOut")
+                                          : t("noRoomSelectedHint", { count: availableRoomCount })}
+                                  </p>
                                   <button
-                                    onClick={() => setNumGuests(String(Math.max(1, parseInt(numGuests) - 1)))}
-                                    className="p-1 rounded-full border border-earth-200 hover:bg-earth-100 text-earth-400"
+                                    type="button"
+                                    onClick={() =>
+                                      emptyCartNeedsDates
+                                        ? setCalendarOpen(true)
+                                        : document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                                    }
+                                    className="mt-4 inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-full bg-brand px-6 text-sm font-bold text-white transition-colors hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                                   >
-                                    <Minus size={14} />
-                                  </button>
-                                  <button
-                                    onClick={() => setNumGuests(String(Math.min(selectedRoom?.max_guests || homestay.max_guests, parseInt(numGuests) + 1)))}
-                                    className="p-1 rounded-full border border-earth-200 hover:bg-earth-100 text-earth-400"
-                                  >
-                                    <Plus size={14} />
+                                    {emptyCartNeedsDates ? t("selectDates") : t("viewRooms")}
+                                    <ArrowRight size={16} />
                                   </button>
                                 </div>
-                              </div>
-                            )}
-                          </div>
-
-                          {/* Room Options toggle */}
-                          {optionsForRoom.length > 0 && (
-                            <div className="space-y-2">
-                              <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("options")}</label>
-                              <button
-                                onClick={() => setShowOptions(true)}
-                                className="w-full flex items-center justify-between p-3.5 rounded-xl border border-earth-200 transition-all text-sm font-medium bg-white hover:border-earth-400 text-earth-900 cursor-pointer"
-                              >
-                                <div className="flex items-center gap-2.5">
-                                  <ListPlus size={16} className="text-earth-400" />
-                                  <span>
-                                    {selectedOptionIds.length > 0
-                                      ? t("optionsSelected", { count: selectedOptionIds.length })
-                                      : t("selectOptions")}
-                                  </span>
-                                </div>
-                                {optionsTotal > 0 && (
-                                  <span className="text-xs font-semibold text-brand">+฿{optionsTotal.toLocaleString()}</span>
-                                )}
-                              </button>
-                            </div>
-                          )}
-
-                          {/* Price breakdown */}
-                          {totalPrice > 0 && priceResult && (!hasTiers || selectedTier) && (
-                            <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: "auto" }} className="pt-4 border-t border-earth-100 space-y-2">
-                              {(() => {
-                                const hasSeasons = priceResult.breakdown.some((b) => b.seasonName);
-                                if (!hasSeasons) {
-                                  return (
-                                    <div className="flex justify-between text-sm text-earth-600">
-                                      <span>฿{selectedRoom?.price_per_night.toLocaleString()} × {nights} {nights > 1 ? tc("nights") : tc("night")}</span>
-                                      <span>฿{priceResult.total.toLocaleString()}</span>
+                              ) : (
+                                <div className="space-y-2">
+                                  <CartLineList />
+                                  {appliedPromo && promoDiscount > 0 && (
+                                    <div className="flex justify-between text-sm text-emerald-700 px-1">
+                                      <span>{t("promoLabel")} ({appliedPromo.code})</span>
+                                      <span>−฿{promoDiscount.toLocaleString()}</span>
                                     </div>
-                                  );
-                                }
-                                const groups: { label: string; price: number; count: number }[] = [];
-                                for (const b of priceResult.breakdown) {
-                                  const label = b.seasonName || t("baseRate");
-                                  const last = groups[groups.length - 1];
-                                  if (last && last.label === label && last.price === b.price) last.count++;
-                                  else groups.push({ label, price: b.price, count: 1 });
-                                }
-                                return (
-                                  <>
-                                    {groups.map((g, i) => (
-                                      <div key={i} className="flex justify-between text-sm text-earth-600">
-                                        <span>{g.label}: ฿{g.price.toLocaleString()} × {g.count}</span>
-                                        <span>฿{(g.price * g.count).toLocaleString()}</span>
-                                      </div>
-                                    ))}
-                                  </>
-                                );
-                              })()}
-                              {compositionSurcharge > 0 && (
-                                <div className="flex justify-between text-sm text-earth-600">
-                                  <span>{t("extraGuests")}</span>
-                                  <span>+฿{compositionSurcharge.toLocaleString()}</span>
+                                  )}
+                                  <div className="flex justify-between text-base font-bold text-earth-900 px-1 pt-1">
+                                    <span>{tc("total")}</span>
+                                    <span>฿{totalPrice.toLocaleString()}</span>
+                                  </div>
                                 </div>
                               )}
-                              {optionsTotal > 0 && (
-                                <div className="flex justify-between text-sm text-earth-600">
-                                  <span>{t("options")} ({selectedOptionIds.length})</span>
-                                  <span>+฿{optionsTotal.toLocaleString()}</span>
-                                </div>
-                              )}
-                              {appliedPromo && promoDiscount > 0 && (
-                                <div className="flex justify-between text-sm text-emerald-700">
-                                  <span>{t("promoLabel")} ({appliedPromo.code})</span>
-                                  <span>−฿{promoDiscount.toLocaleString()}</span>
-                                </div>
-                              )}
-                              <div className="flex justify-between text-base font-bold text-earth-900 pt-2 border-t border-earth-100">
-                                <span>{tc("total")}</span>
-                                <span>฿{totalPrice.toLocaleString()}</span>
-                              </div>
-                            </motion.div>
-                          )}
+                            </div>
+                          </div>
 
                           {/* PDPA */}
                           <label className="flex items-start gap-2 cursor-pointer">
@@ -1243,7 +1244,7 @@ export function BookingSection({
 
                           <button
                             onClick={handleProceedToDetails}
-                            disabled={!dateRange?.from || !dateRange?.to || !selectedRoomId || !pdpaConsent || (hasTiers && !selectedTier)}
+                            disabled={cartLines.length === 0 || !pdpaConsent}
                             className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {t("continueDetails")} <ArrowRight size={18} />
@@ -1332,81 +1333,7 @@ export function BookingSection({
                             {tc("done")}
                           </button>
                         </motion.div>
-                      ) : (
-                        <motion.div key="dates-calendar" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.25 }} className="space-y-4">
-                          <div className="flex items-center gap-3">
-                            <button onClick={() => setShowCalendar(false)} className="p-2 rounded-full hover:bg-earth-100 text-earth-400"><ArrowLeft size={18} /></button>
-                            <h3 className="text-xl font-bold text-earth-900">{t("selectDates")}</h3>
-                          </div>
-
-                          {/* Selected dates summary */}
-                          {dateRange?.from && (
-                            <div className="rounded-xl bg-earth-50 px-3 py-2 text-sm text-earth-700 flex items-center gap-2">
-                              <CalendarIcon size={14} className="text-earth-400" />
-                              <span>
-                                {fmtDate(dateRange.from, "MMM d, yyyy", locale)}
-                                {dateRange.to && dateRange.to.getTime() !== dateRange.from.getTime() && ` — ${fmtDate(dateRange.to, "MMM d, yyyy", locale)}`}
-                              </span>
-                              {nights > 0 && <span className="ml-auto text-xs text-earth-400">{nights} {nights > 1 ? tc("nights") : tc("night")}</span>}
-                            </div>
-                          )}
-
-                          <div className="bg-white rounded-2xl p-3 border border-earth-100">
-                            {mounted ? (
-                              <Calendar
-                                key={dateRange?.from?.toISOString() || "no-date"}
-                                mode="range"
-                                selected={dateRange}
-                                onSelect={handleDateSelect}
-                                locale={locale === "th" ? thLocale : undefined}
-                                captionLayout="dropdown"
-                                defaultMonth={dateRange?.from || startOfToday()}
-                                startMonth={startOfToday()}
-                                endMonth={addMonths(startOfToday(), 12)}
-                                formatters={locale === "th" ? {
-                                  formatMonthDropdown: (date) =>
-                                    date.toLocaleDateString("th-TH", { month: "long" }),
-                                  formatYearDropdown: (date) =>
-                                    String(date.getFullYear() + 543),
-                                } : undefined}
-                                disabled={[
-                                  { before: startOfToday() },
-                                  (date: Date) => {
-                                    const key = format(date, "yyyy-MM-dd");
-                                    if (blockedDateSet.has(key)) return true;
-                                    if (bookedDatesForRoom.has(key)) return key !== allowedCheckoutKey;
-                                    if (checkoutBarrierTime !== null && date.getTime() > checkoutBarrierTime) return true;
-                                    return false;
-                                  },
-                                ]}
-                                numberOfMonths={1}
-                                className="w-full"
-                              />
-                            ) : (
-                              <div className="flex h-[280px] items-center justify-center">
-                                <Loader2 className="h-5 w-5 animate-spin text-earth-400" />
-                              </div>
-                            )}
-                          </div>
-
-                          <button
-                            onClick={() => {
-                              const incomplete =
-                                !dateRange?.from ||
-                                !dateRange?.to ||
-                                dateRange.to.getTime() === dateRange.from.getTime();
-                              if (incomplete) {
-                                setShowIncompleteDatesModal(true);
-                                return;
-                              }
-                              setShowCalendar(false);
-                            }}
-                            className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
-                          >
-                            {tc("done")}
-                          </button>
-                        </motion.div>
-                      )}
+                      ) : null}
                     </AnimatePresence>
                   </motion.div>
                 )}
@@ -1427,30 +1354,33 @@ export function BookingSection({
                               <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("fullName")} <span className="text-red-500">*</span></label>
                               <div className="relative">
                                 <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-400" size={16} />
-                                <Input ref={nameInputRef} value={guestName} onChange={(e) => setGuestName(e.target.value)} placeholder={t("fullNamePlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400" />
+                                <Input ref={nameInputRef} value={guestName} aria-invalid={!!errors.name} onChange={(e) => { setGuestName(e.target.value); if (errors.name) setErrors((p) => ({ ...p, name: undefined })); }} placeholder={t("fullNamePlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 ${errors.name ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"}`} />
                               </div>
+                              {errors.name && <p role="alert" className="text-xs font-medium text-red-600">{errors.name}</p>}
                             </div>
 
                             <div className="space-y-1.5">
                               <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("email")} <span className="text-red-500">*</span></label>
                               <div className="relative">
                                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-400" size={16} />
-                                <Input type="email" value={guestEmail} onChange={(e) => setGuestEmail(e.target.value)} placeholder={t("emailPlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400" />
+                                <Input ref={emailInputRef} type="email" value={guestEmail} aria-invalid={!!errors.email} onChange={(e) => { setGuestEmail(e.target.value); if (errors.email) setErrors((p) => ({ ...p, email: undefined })); }} placeholder={t("emailPlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 ${errors.email ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"}`} />
                               </div>
+                              {errors.email && <p role="alert" className="text-xs font-medium text-red-600">{errors.email}</p>}
                             </div>
 
                             <div className="space-y-1.5">
                               <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("phone")} <span className="text-red-500">*</span></label>
                               <div className="relative">
                                 <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-400" size={16} />
-                                <Input type="tel" inputMode="numeric" maxLength={10} value={guestPhone} onChange={(e) => setGuestPhone(sanitizePhoneInput(e.target.value))} placeholder={t("phonePlaceholder")} className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400" />
+                                <Input ref={phoneInputRef} type="tel" inputMode="numeric" maxLength={10} value={guestPhone} aria-invalid={!!errors.phone} onChange={(e) => { setGuestPhone(sanitizePhoneInput(e.target.value)); if (errors.phone) setErrors((p) => ({ ...p, phone: undefined })); }} placeholder={t("phonePlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 ${errors.phone ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"}`} />
                               </div>
+                              {errors.phone && <p role="alert" className="text-xs font-medium text-red-600">{errors.phone}</p>}
                             </div>
 
-                            <div className="space-y-1.5">
+                            <div className="space-y-1.5" ref={provinceFieldRef}>
                               <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("province")} <span className="text-red-500">*</span></label>
-                              <Select value={guestProvince} onValueChange={setGuestProvince}>
-                                <SelectTrigger className="!w-full p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400">
+                              <Select value={guestProvince} onValueChange={(v) => { setGuestProvince(v); if (errors.province) setErrors((p) => ({ ...p, province: undefined })); }}>
+                                <SelectTrigger aria-invalid={!!errors.province} className={`!w-full p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 ${errors.province ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"}`}>
                                   <SelectValue placeholder={t("provincePlaceholder")} />
                                 </SelectTrigger>
                                 <SelectContent className="max-h-60 z-70">
@@ -1461,6 +1391,7 @@ export function BookingSection({
                                   ))}
                                 </SelectContent>
                               </Select>
+                              {errors.province && <p role="alert" className="text-xs font-medium text-red-600">{errors.province}</p>}
                             </div>
 
                             <div className="space-y-1.5">
@@ -1512,9 +1443,9 @@ export function BookingSection({
 
                           <button
                             onClick={() => {
-                              if (!guestName || !guestEmail || !guestPhone || !guestProvince) { toast.error(t("errorFillFields")); return; }
-                              if (!isValidEmail(guestEmail)) { toast.error(t("errorInvalidEmail")); return; }
-                              if (!isValidPhone(guestPhone)) { toast.error(t("errorInvalidPhone")); return; }
+                              const formErrors = validateGuestForm();
+                              setErrors(formErrors);
+                              if (Object.keys(formErrors).length > 0) { focusFirstError(formErrors); return; }
                               setShowConfirmModal(true);
                             }}
                             className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
@@ -1531,10 +1462,6 @@ export function BookingSection({
                           <p className="text-sm text-earth-500">{t("confirmDesc")}</p>
                           <div className="space-y-3 rounded-xl bg-earth-50 p-4 text-sm">
                             <div className="flex justify-between">
-                              <span className="text-earth-500">{t("room")}</span>
-                              <span className="font-medium text-earth-900">{selectedRoom?.name}</span>
-                            </div>
-                            <div className="flex justify-between">
                               <span className="text-earth-500">{t("dates")}</span>
                               <span className="font-medium text-earth-900">
                                 {dateRange?.from && fmtDate(dateRange.from, "MMM d", locale)} — {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy", locale)}
@@ -1546,30 +1473,27 @@ export function BookingSection({
                                 <span className="text-earth-400">{homestay.check_out_time && t("checkOutTime", { time: homestay.check_out_time })}</span>
                               </div>
                             )}
-                            <div className="flex justify-between">
-                              <span className="text-earth-500">{tc("guests")}</span>
-                              <span className="font-medium text-earth-900">{selectedTier ? composeTierLabel(selectedTier, locale) : numGuests}</span>
+                            {/* Rooms in cart (shared dates) */}
+                            <div className="space-y-2">
+                              <span className="text-earth-500">{t("yourCart")} ({cartLines.length})</span>
+                              {cartLines.map((line) => {
+                                const room = rooms.find((r) => r.id === line.roomId);
+                                const tier = line.tierId ? guestPricing.find((g) => g.id === line.tierId) : null;
+                                const gross = computeLineGross(line);
+                                return (
+                                  <div key={line.lineId} className="rounded-lg bg-white border border-earth-100 p-2.5">
+                                    <div className="flex justify-between">
+                                      <span className="font-medium text-earth-900">{room?.name}</span>
+                                      <span className="font-medium text-earth-900">฿{gross.toLocaleString()}</span>
+                                    </div>
+                                    <div className="text-xs text-earth-400">
+                                      {tier ? composeTierLabel(tier, locale) : `${line.numGuests} ${tc("guests")}`}
+                                      {line.optionIds.length > 0 ? ` · ${t("optionsSelected", { count: line.optionIds.length })}` : ""}
+                                    </div>
+                                  </div>
+                                );
+                              })}
                             </div>
-                            {selectedOptionIds.length > 0 && (
-                              <div>
-                                <span className="text-earth-500">{t("options")}</span>
-                                <div className="mt-1 space-y-1">
-                                  {selectedOptionIds.map((id) => {
-                                    const opt = roomOptions.find((o) => o.id === id);
-                                    if (!opt) return null;
-                                    const isPerTime = opt.pricing_type === "per_time";
-                                    const lineTotal = isPerTime ? opt.price : opt.price * nights;
-                                    const unitLabel = isPerTime ? tc("perStay") : `/${tc("night")}`;
-                                    return (
-                                      <div key={id} className="flex justify-between text-xs">
-                                        <span className="text-earth-600">{opt.name} (฿{opt.price.toLocaleString()}{unitLabel})</span>
-                                        <span className="font-medium text-brand">+฿{lineTotal.toLocaleString()}</span>
-                                      </div>
-                                    );
-                                  })}
-                                </div>
-                              </div>
-                            )}
                             <Separator />
                             <div className="flex justify-between">
                               <span className="text-earth-500">{t("fullName")}</span>
@@ -1755,7 +1679,7 @@ export function BookingSection({
                               <p className="mb-2 text-center text-xs font-medium text-earth-500">{t("slipPreview")}</p>
                               <div className="relative mx-auto w-fit">
                                 <img src={slipPreview} alt={t("slipPreview")} className="mx-auto max-h-52 rounded-xl object-contain" />
-                                <button type="button" onClick={handleRemoveSlip} className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white shadow-md hover:bg-red-600"><X className="h-3 w-3" /></button>
+                                <button type="button" aria-label={t("removeSlip")} onClick={handleRemoveSlip} className="absolute right-1.5 top-1.5 flex h-9 w-9 items-center justify-center rounded-full bg-red-500 text-white shadow-md hover:bg-red-600"><X className="h-4 w-4" /></button>
                               </div>
                               <div className="mt-3 flex justify-center">
                                 <Button type="button" variant="outline" size="sm" onClick={() => galleryInputRef.current?.click()} className="rounded-full">
@@ -1814,6 +1738,13 @@ export function BookingSection({
 
       <BookingTutorialDialog open={showTutorial} onOpenChange={setShowTutorial} />
 
+      {/* Step 1's date field + empty state open the same picker as the sticky bar. */}
+      <BookingCalendarDialog
+        open={calendarOpen}
+        onOpenChange={setCalendarOpen}
+        onDone={() => document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" })}
+      />
+
       {/* ═══ Confirmed Booking Modal ═══ */}
       <Dialog open={showConfirmedModal} onOpenChange={(o) => { if (!o) { resetBooking(); } }}>
         <DialogContent className="sm:max-w-md">
@@ -1840,9 +1771,17 @@ export function BookingSection({
                 <span className="text-earth-400">{t("homestay")}</span>
                 <span className="font-bold text-earth-900">{homestay.name}</span>
               </div>
-              <div className="flex justify-between">
-                <span className="text-earth-400">{t("room")}</span>
-                <span className="font-bold text-earth-900">{selectedRoom?.name}</span>
+              <div className="space-y-1.5">
+                <span className="text-earth-400">{t("yourCart")} ({cartLines.length})</span>
+                {cartLines.map((line) => {
+                  const room = rooms.find((r) => r.id === line.roomId);
+                  return (
+                    <div key={line.lineId} className="flex justify-between">
+                      <span className="font-medium text-earth-900">{room?.name}</span>
+                      <span className="font-medium text-earth-900">฿{computeLineGross(line).toLocaleString()}</span>
+                    </div>
+                  );
+                })}
               </div>
               <div className="flex justify-between">
                 <span className="text-earth-400">{t("dates")}</span>
@@ -1854,32 +1793,6 @@ export function BookingSection({
                 <span className="text-earth-400">{t("guestInfo")}</span>
                 <span className="font-bold text-earth-900">{guestName}</span>
               </div>
-              {selectedOptionIds.length > 0 && (
-                <div>
-                  <div className="text-earth-400 mb-1.5">{t("options")}</div>
-                  <div className="space-y-1.5 pl-2">
-                    {selectedOptionIds.map((id) => {
-                      const opt = roomOptions.find((o) => o.id === id);
-                      if (!opt) return null;
-                      const isPerTime = opt.pricing_type === "per_time";
-                      const lineTotal = isPerTime ? opt.price : opt.price * nights;
-                      const unitLabel = isPerTime ? tc("perStay") : `/${tc("night")}`;
-                      const detail = isPerTime
-                        ? `฿${opt.price.toLocaleString()}${unitLabel}`
-                        : `฿${opt.price.toLocaleString()}${unitLabel} × ${nights}`;
-                      return (
-                        <div key={id} className="flex justify-between gap-2 text-xs">
-                          <div className="min-w-0">
-                            <div className="text-earth-900 truncate">{opt.name}</div>
-                            <div className="text-earth-400">{detail}</div>
-                          </div>
-                          <span className="font-medium text-earth-900 whitespace-nowrap">+฿{lineTotal.toLocaleString()}</span>
-                        </div>
-                      );
-                    })}
-                  </div>
-                </div>
-              )}
               <Separator />
               <div className="flex justify-between">
                 <span className="text-earth-400">{tc("total")}</span>
@@ -1929,28 +1842,18 @@ export function BookingSection({
         </DialogContent>
       </Dialog>
 
-      {/* Incomplete Dates Modal */}
-      <Dialog open={showIncompleteDatesModal} onOpenChange={setShowIncompleteDatesModal}>
-        <DialogContent showCloseButton={false} className="z-70" overlayClassName="z-70">
-          <DialogHeader>
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
-              <AlertTriangle className="h-6 w-6 text-amber-600" />
-            </div>
-            <DialogTitle className="text-center">{t("incompleteDatesTitle")}</DialogTitle>
-            <DialogDescription className="text-center">{t("incompleteDatesDesc")}</DialogDescription>
-          </DialogHeader>
-          <DialogFooter>
-            <Button className="w-full bg-brand text-white hover:bg-brand-hover" onClick={() => setShowIncompleteDatesModal(false)}>{t("incompleteDatesAction")}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
       {/* Leave-booking warning — browser Back / swipe-back that would exit the site */}
       <LeaveBookingDialog
         open={showLeaveWarning}
         onContinue={handleStayInBooking}
         onLeave={handleLeaveAndClear}
-        roomName={selectedRoom?.name ?? null}
+        roomName={
+          cartLines.length === 1
+            ? rooms.find((r) => r.id === cartLines[0].roomId)?.name ?? null
+            : cartLines.length > 1
+              ? t("roomsCount", { count: cartLines.length })
+              : selectedRoom?.name ?? null
+        }
         dateLabel={
           dateRange?.from
             ? `${fmtDate(dateRange.from, "MMM d", locale)}${
@@ -1961,7 +1864,13 @@ export function BookingSection({
             : null
         }
         nightsLabel={nights > 0 ? `${nights} ${nights > 1 ? tc("nights") : tc("night")}` : null}
-        guestsLabel={selectedRoom || dateRange?.from ? `${numGuests} ${tc("guests")}` : null}
+        guestsLabel={
+          cartLines.length > 0
+            ? `${cartLines.reduce((sum, l) => sum + l.numGuests, 0)} ${tc("guests")}`
+            : dateRange?.from
+              ? `${numGuests} ${tc("guests")}`
+              : null
+        }
       />
     </>
   );
