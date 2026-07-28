@@ -255,6 +255,36 @@
   opacity: 0.25;
 }
 
+/* Cart badge pulse — shared by the mobile sticky bar and the desktop header cart.
+   Runs while the cart holds houses so the guest keeps noticing it. Gentle on
+   purpose; it never stops while non-empty.
+
+   The keyframe redraws the badge's 2px ring itself: animating `box-shadow`
+   outranks Tailwind's `ring-*` utility (which is also a box-shadow), so the ring
+   would otherwise vanish for the whole animation. --cart-badge-ring is the
+   surface behind the badge — pale earth on the mobile pill, white in the header.
+   The static `ring-*` class stays on both badges to cover reduced motion. */
+@keyframes cart-badge-pulse {
+  0%, 100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 2px var(--cart-badge-ring, #fff), 0 0 0 2px rgba(248, 56, 88, 0.45);
+  }
+  50% {
+    transform: scale(1.12);
+    box-shadow: 0 0 0 2px var(--cart-badge-ring, #fff), 0 0 0 7px rgba(248, 56, 88, 0);
+  }
+}
+
+.cart-badge-pulse {
+  animation: cart-badge-pulse 2s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cart-badge-pulse {
+    animation: none;
+  }
+}
+
 /* ── Dashboard: Organic Luxury utilities ── */
 
 /* Grain texture overlay (SVG noise) */
