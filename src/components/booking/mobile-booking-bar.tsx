@@ -28,8 +28,14 @@ interface MobileBookingBarProps {
 type BookingStep = "dates" | "details" | "payment";
 
 // Shared focus-visible treatment for the bar's two tap targets (keyboard a11y).
+// Inset — the segmented pill clips overflow, so an offset ring would be cut off.
 const FOCUS_RING =
-  "focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/50 focus-visible:ring-offset-2";
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand";
+
+// Shared height + press feedback for both halves of the pill; each zone adds its
+// own layout (the date side is a text stack, the cart side is a centred icon).
+const ZONE =
+  "flex min-h-14 cursor-pointer touch-manipulation items-center transition-colors hover:bg-earth-100 active:bg-earth-100";
 
 export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBookingBarProps) {
   const t = useTranslations("common");
@@ -116,6 +122,7 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
 
   if (!isMobile || !rooms.length) return null;
 
+  // The cart button is icon-only, so it needs an explicit accessible name.
   const cartLabel = cartCount > 0 ? `${tb("yourCart")} · ${tb("roomsCount", { count: cartCount })}` : tb("yourCart");
 
   return (
@@ -129,53 +136,56 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
             transition={reduceMotion ? { duration: 0.15 } : { type: "spring", damping: 25, stiffness: 300 }}
             className="fixed bottom-0 inset-x-0 z-40 border-t border-earth-200 bg-white/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)] md:hidden"
           >
-            <div className="flex items-center gap-2 px-3 py-2.5">
-              {/* Date — opens the shared calendar, then scrolls to the rooms.
-                  No aria-label: the visible date text is the accessible name. */}
-              <button
-                type="button"
-                onClick={() => setCalendarOpen(true)}
-                className={`flex min-h-11 min-w-0 flex-1 cursor-pointer touch-manipulation items-center gap-3 rounded-2xl px-2 py-1 text-left transition-colors hover:bg-earth-50 ${FOCUS_RING}`}
-              >
-                <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-brand-50 text-brand">
-                  <CalendarDays size={20} />
-                </span>
-                <span className="flex min-w-0 flex-col">
-                  {hasDates ? (
-                    <>
-                      <span className="truncate text-sm font-bold text-earth-900">
-                        {fmtDate(dateRange!.from!, "d MMM", locale)} – {fmtDate(dateRange!.to!, "d MMM", locale)}
-                      </span>
-                      <span className="text-xs text-earth-600">
-                        {nights} {nights > 1 ? t("nights") : t("night")}
-                      </span>
-                    </>
-                  ) : (
-                    <>
-                      <span className="text-[10px] font-semibold uppercase tracking-wider text-earth-600">
-                        {tb("checkInLabel")} — {tb("checkOutLabel")}
-                      </span>
-                      <span className="text-sm font-bold text-earth-900">{tb("selectDates")}</span>
-                    </>
-                  )}
-                </span>
-              </button>
-
-              {/* Cart — e-commerce icon + count badge; opens the details sheet */}
-              <button
-                type="button"
-                onClick={() => setSheetOpen(true)}
-                disabled={bookingDisabled}
-                aria-label={cartLabel}
-                className={`relative flex h-11 w-11 shrink-0 cursor-pointer touch-manipulation items-center justify-center rounded-full bg-brand-50 text-brand transition-colors hover:bg-brand-100 disabled:cursor-not-allowed disabled:opacity-40 ${FOCUS_RING}`}
-              >
-                <ShoppingCart size={20} />
-                {cartCount > 0 && (
-                  <span className="absolute -right-1 -top-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F83858] px-1 text-[11px] font-bold text-white ring-2 ring-white">
-                    {cartCount}
+            {/* Segmented pill: a wide date field on the left, the icon-only cart
+                on the right. The date stack keeps a fixed two-line shape so the
+                bar never reflows once dates are picked. */}
+            <div className="px-3 py-2.5">
+              <div className="flex items-stretch overflow-hidden rounded-2xl bg-earth-50 ring-1 ring-earth-200">
+                {/* Dates — opens the shared calendar, then scrolls to the rooms.
+                    No aria-label: the visible date text is the accessible name. */}
+                <button
+                  type="button"
+                  onClick={() => setCalendarOpen(true)}
+                  className={`min-w-0 flex-1 gap-2.5 px-3 py-2 text-left ${ZONE} ${FOCUS_RING}`}
+                >
+                  <CalendarDays size={20} className="shrink-0 text-brand" />
+                  <span className="flex min-w-0 flex-col leading-tight">
+                    <span className="truncate text-[10px] font-semibold uppercase tracking-wider text-earth-500">
+                      {hasDates
+                        ? `${nights} ${nights > 1 ? t("nights") : t("night")}`
+                        : `${tb("checkInLabel")} — ${tb("checkOutLabel")}`}
+                    </span>
+                    <span className={`truncate text-sm font-bold ${hasDates ? "text-earth-900" : "text-earth-500"}`}>
+                      {hasDates
+                        ? `${fmtDate(dateRange!.from!, "d MMM", locale)} – ${fmtDate(dateRange!.to!, "d MMM", locale)}`
+                        : tb("selectDates")}
+                    </span>
                   </span>
-                )}
-              </button>
+                </button>
+
+                <span aria-hidden className="my-2 w-px shrink-0 bg-earth-200" />
+
+                {/* Cart — e-commerce icon + count badge; opens the details sheet */}
+                <button
+                  type="button"
+                  onClick={() => setSheetOpen(true)}
+                  disabled={bookingDisabled}
+                  aria-label={cartLabel}
+                  className={`w-17 shrink-0 justify-center ${ZONE} ${FOCUS_RING} disabled:cursor-not-allowed disabled:opacity-40`}
+                >
+                  <span className="relative text-brand">
+                    <ShoppingCart size={26} />
+                    {cartCount > 0 && (
+                      // Ring matches the pill, not the bar, so the badge sits clean
+                      // on earth-50. `cart-badge-pulse` keyframes live in globals.css
+                      // and self-disable under prefers-reduced-motion.
+                      <span className="cart-badge-pulse [--cart-badge-ring:var(--color-earth-50)] absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F83858] px-1 text-[11px] font-bold leading-none text-white ring-2 ring-earth-50">
+                        {cartCount}
+                      </span>
+                    )}
+                  </span>
+                </button>
+              </div>
             </div>
           </motion.div>
         )}

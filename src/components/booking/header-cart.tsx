@@ -59,7 +59,9 @@ export function HeaderCart({ scrolled }: { scrolled: boolean }) {
       >
         <ShoppingCart size={20} />
         {cartCount > 0 && (
-          <span className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#F83858] px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">
+          // `cart-badge-pulse` keyframes live in globals.css (shared with the
+          // mobile bar) and self-disable under prefers-reduced-motion.
+          <span className="cart-badge-pulse absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-[#F83858] px-1 text-[10px] font-bold leading-none text-white ring-2 ring-white">
             {cartCount}
           </span>
         )}
