@@ -1,9 +1,8 @@
 "use client";
 
-import { useState, useCallback } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { MapPin, ShieldCheck, Star, ChevronLeft, ChevronRight } from "lucide-react";
+import { MapPin, Star } from "lucide-react";
 
 interface HomestayCardProps {
   slug: string;
@@ -29,36 +28,17 @@ export function HomestayCard({
   tagline,
   reviewCount,
   averageRating,
-  isHostVerified,
 }: HomestayCardProps) {
-  const images = [heroImageUrl, ...gallery.slice(0, 2)].filter(Boolean) as string[];
-  const [currentImage, setCurrentImage] = useState(0);
-
-  const prevImage = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setCurrentImage((prev) => (prev === 0 ? images.length - 1 : prev - 1));
-    },
-    [images.length]
-  );
-
-  const nextImage = useCallback(
-    (e: React.MouseEvent) => {
-      e.preventDefault();
-      e.stopPropagation();
-      setCurrentImage((prev) => (prev === images.length - 1 ? 0 : prev + 1));
-    },
-    [images.length]
-  );
+  // Fall back to the first gallery image when no hero image is set
+  const mainImage = heroImageUrl || gallery[0] || null;
 
   return (
     <Link href={`/${slug}`}>
       <div className="group cursor-pointer transition-transform duration-300 hover:-translate-y-2">
         <div className="relative aspect-[4/5] rounded-2xl overflow-hidden mb-3 shadow-sm">
-          {images[currentImage] ? (
+          {mainImage ? (
             <Image
-              src={images[currentImage]}
+              src={mainImage}
               alt={name}
               fill
               sizes="(max-width: 640px) 85vw, (max-width: 1024px) 50vw, 33vw"
@@ -67,46 +47,6 @@ export function HomestayCard({
           ) : (
             <div className="w-full h-full bg-earth-100 flex items-center justify-center">
               <span className="text-earth-400 text-sm">No image</span>
-            </div>
-          )}
-
-          {isHostVerified && (
-            <div className="absolute top-3 right-3 z-10 flex items-center justify-center w-8 h-8 rounded-full bg-white/80 backdrop-blur-sm shadow-md">
-              <ShieldCheck size={18} className="text-emerald-600" />
-            </div>
-          )}
-
-          {/* Carousel arrows — visible on hover when multiple images */}
-          {images.length > 1 && (
-            <>
-              <button
-                onClick={prevImage}
-                className="absolute left-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
-              >
-                <ChevronLeft size={16} className="text-earth-800" />
-              </button>
-              <button
-                onClick={nextImage}
-                className="absolute right-2 top-1/2 -translate-y-1/2 z-10 w-8 h-8 rounded-full bg-white/90 backdrop-blur-sm shadow-md flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity hover:bg-white"
-              >
-                <ChevronRight size={16} className="text-earth-800" />
-              </button>
-            </>
-          )}
-
-          {/* Image dots */}
-          {images.length > 1 && (
-            <div className="absolute inset-x-0 bottom-0 p-4 bg-gradient-to-t from-black/40 to-transparent">
-              <div className="flex justify-center gap-1.5">
-                {images.map((_, idx) => (
-                  <div
-                    key={idx}
-                    className={`h-1.5 rounded-full transition-all ${
-                      idx === currentImage ? "bg-white w-3" : "bg-white/50 w-1.5"
-                    }`}
-                  />
-                ))}
-              </div>
             </div>
           )}
         </div>
