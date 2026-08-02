@@ -1,8 +1,11 @@
 "use client";
 
-import { ArrowRight } from "lucide-react";
+import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { motion } from "motion/react";
 import { HomestayCard } from "./homestay-card";
+
+const PAGE_SIZE = 50;
 
 interface HomestayData {
   slug: string;
@@ -19,6 +22,15 @@ interface HomestayData {
 }
 
 export function UniqueHomestays({ homestays, locationFilter }: { homestays: HomestayData[]; locationFilter?: string }) {
+  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
+  const [prevFilter, setPrevFilter] = useState(locationFilter);
+
+  // Reset paging when the hero search term changes
+  if (prevFilter !== locationFilter) {
+    setPrevFilter(locationFilter);
+    setVisibleCount(PAGE_SIZE);
+  }
+
   const filtered = locationFilter
     ? homestays.filter((h) => {
         const q = locationFilter.toLowerCase();
@@ -26,7 +38,8 @@ export function UniqueHomestays({ homestays, locationFilter }: { homestays: Home
       })
     : homestays;
 
-  const displayed = filtered.slice(0, 6);
+  const displayed = filtered.slice(0, visibleCount);
+  const remaining = filtered.length - displayed.length;
 
   return (
     <section id="unique-homestays" className="py-24 md:py-32 bg-section-alt">
@@ -48,11 +61,6 @@ export function UniqueHomestays({ homestays, locationFilter }: { homestays: Home
               </motion.h2>
             </div>
           </div>
-          {filtered.length > 12 && (
-            <button className="group flex items-center gap-2 text-earth-800 font-bold text-sm tracking-widest hover:gap-4 transition-all">
-              VIEW ALL PROPERTIES <ArrowRight size={16} />
-            </button>
-          )}
         </div>
 
         {displayed.length > 0 ? (
@@ -65,7 +73,7 @@ export function UniqueHomestays({ homestays, locationFilter }: { homestays: Home
                   initial={{ opacity: 0, y: 30 }}
                   whileInView={{ opacity: 1, y: 0 }}
                   viewport={{ once: true, margin: "-50px" }}
-                  transition={{ delay: idx * 0.08, duration: 0.5, ease: [0.25, 0.1, 0, 1] }}
+                  transition={{ delay: (idx % 3) * 0.08, duration: 0.5, ease: [0.25, 0.1, 0, 1] }}
                   className="snap-start shrink-0 w-[82vw]"
                 >
                   <HomestayCard
@@ -111,6 +119,22 @@ export function UniqueHomestays({ homestays, locationFilter }: { homestays: Home
                 </motion.div>
               ))}
             </div>
+
+            {remaining > 0 && (
+              <div className="mt-12 flex justify-center">
+                <button
+                  type="button"
+                  onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
+                  className="group inline-flex items-center gap-2 rounded-full border border-earth-300 bg-white px-10 py-4 text-sm font-bold uppercase tracking-[0.15em] text-earth-900 shadow-sm transition-all hover:border-earth-400 hover:bg-earth-50"
+                >
+                  โหลดเพิ่มเติม
+                  <span className="font-normal normal-case tracking-normal text-earth-500">
+                    (อีก {remaining} แห่ง)
+                  </span>
+                  <ChevronDown size={16} className="transition-transform group-hover:translate-y-0.5" />
+                </button>
+              </div>
+            )}
           </>
         ) : (
           <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-earth-200 py-16 text-center">

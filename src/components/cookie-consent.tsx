@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useSyncExternalStore } from "react";
 import { Cookie, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "next-intl";
@@ -15,24 +15,33 @@ function setCookie(name: string, value: string, days: number) {
   document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires};path=/;SameSite=Lax`;
 }
 
+// The consent cookie is browser-only state. Subscribing is a no-op because it
+// never changes outside this component's own handlers, and the server snapshot
+// reports "already consented" so SSR and the hydrating render both emit nothing.
+const subscribeToConsent = () => () => {};
+const getConsentSnapshot = () => getCookie("cookie_consent") !== null;
+const getConsentServerSnapshot = () => true;
+
 export function CookieConsent() {
   const t = useTranslations("cookie");
-  const [visible, setVisible] = useState(() => {
-    if (typeof document === "undefined") return false;
-    return !getCookie("cookie_consent");
-  });
+  const consented = useSyncExternalStore(
+    subscribeToConsent,
+    getConsentSnapshot,
+    getConsentServerSnapshot,
+  );
+  const [dismissed, setDismissed] = useState(false);
 
   const handleAccept = () => {
     setCookie("cookie_consent", "accepted", 365);
-    setVisible(false);
+    setDismissed(true);
   };
 
   const handleDecline = () => {
     setCookie("cookie_consent", "declined", 365);
-    setVisible(false);
+    setDismissed(true);
   };
 
-  if (!visible) return null;
+  if (consented || dismissed) return null;
 
   return (
     <div className="fixed bottom-0 left-0 right-0 z-[9999] animate-in slide-in-from-bottom-4 duration-500">
