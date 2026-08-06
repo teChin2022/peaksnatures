@@ -1037,7 +1037,21 @@
     "errorTierChildren": "Please enter a valid number of children",
     "errorTierSurcharge": "Please enter a valid surcharge (0 or more)",
     "errorTierSave": "Failed to save guest pricing. Please try again.",
-    "errorTierDelete": "Failed to delete guest pricing. Please try again."
+    "errorTierDelete": "Failed to delete guest pricing. Please try again.",
+    "copyToOthers": "Copy to other houses",
+    "copyTitleTiers": "Copy guest pricing",
+    "copyTitleOptions": "Copy house services",
+    "copyTitleSeasons": "Copy seasonal pricing",
+    "copyDesc": "Copy {count} entries from \"{room}\" to the selected houses",
+    "copySelectAll": "Select all ({count})",
+    "copyReplaceWarning": "Existing entries in the selected houses will be replaced",
+    "copyTargetCount": "{count} entries",
+    "copyTargetEmpty": "None yet",
+    "copyAction": "Copy",
+    "copySuccess": "Copied to {count} houses",
+    "copyErrorNoTarget": "Select at least one house",
+    "copyError": "Copy failed. Please try again.",
+    "copyPartial": "Copied, but some old entries could not be removed"
   },
   "dashboardCalendar": {
     "title": "Availability Calendar",
