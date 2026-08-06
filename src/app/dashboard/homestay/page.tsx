@@ -387,11 +387,15 @@ export default function HomestayPage() {
   };
 
   const removeHeroImage = () => {
-    setHeroImageUrl("");
+    showConfirm(tc("confirmRemoveImage"), () => {
+      setHeroImageUrl("");
+    });
   };
 
   const removeLogoImage = () => {
-    setLogoUrl("");
+    showConfirm(tc("confirmRemoveImage"), () => {
+      setLogoUrl("");
+    });
   };
 
   const removeGalleryImage = (index: number) => {
@@ -1195,32 +1199,31 @@ export default function HomestayPage() {
               <Label>{t("logo")}</Label>
               {logoUrl ? (
                 <div className="group relative inline-block overflow-hidden rounded-lg border">
-                  <Image
-                    src={logoUrl}
-                    alt="Logo preview"
-                    width={80}
-                    height={80}
-                    className="h-20 w-20 object-cover"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center gap-1 bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      className="h-7 px-2 text-xs"
-                      onClick={() => logoInputRef.current?.click()}
-                    >
-                      <Upload className="mr-1 h-3 w-3" />
-                      {t("replace")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      className="h-7 px-2 text-xs"
-                      onClick={removeLogoImage}
-                    >
-                      <X className="h-3 w-3" />
-                    </Button>
+                  <button
+                    type="button"
+                    className="block"
+                    onClick={() => logoInputRef.current?.click()}
+                  >
+                    <Image
+                      src={logoUrl}
+                      alt="Logo preview"
+                      width={80}
+                      height={80}
+                      className="h-20 w-20 object-cover"
+                    />
+                    <span className="sr-only">{t("replace")}</span>
+                  </button>
+                  <div className="pointer-events-none absolute inset-0 hidden items-center justify-center bg-black/40 opacity-0 transition-opacity group-hover:opacity-100 pointer-fine:flex">
+                    <Upload className="h-5 w-5 text-white" />
                   </div>
+                  <button
+                    type="button"
+                    onClick={removeLogoImage}
+                    className="absolute right-1 top-1 rounded-full bg-black/60 p-1.5 text-white opacity-100 transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100"
+                  >
+                    <X className="h-3 w-3" />
+                    <span className="sr-only">{t("remove")}</span>
+                  </button>
                 </div>
               ) : (
                 <div
@@ -1251,31 +1254,32 @@ export default function HomestayPage() {
               <Label>{t("heroImage")}</Label>
               {heroImageUrl ? (
                 <div className="group relative overflow-hidden rounded-lg border">
-                  <Image
-                    src={heroImageUrl}
-                    alt="Hero preview"
-                    width={800}
-                    height={192}
-                    className="h-48 w-full object-cover"
-                  />
-                  <div className="absolute inset-0 flex items-center justify-center gap-2 bg-black/40 opacity-0 transition-opacity group-hover:opacity-100">
-                    <Button
-                      size="sm"
-                      variant="secondary"
-                      onClick={() => heroInputRef.current?.click()}
-                    >
-                      <Upload className="mr-1.5 h-3.5 w-3.5" />
-                      {t("replace")}
-                    </Button>
-                    <Button
-                      size="sm"
-                      variant="destructive"
-                      onClick={removeHeroImage}
-                    >
-                      <X className="mr-1.5 h-3.5 w-3.5" />
-                      {t("remove")}
-                    </Button>
+                  <button
+                    type="button"
+                    className="block w-full"
+                    onClick={() => heroInputRef.current?.click()}
+                  >
+                    <Image
+                      src={heroImageUrl}
+                      alt="Hero preview"
+                      width={800}
+                      height={192}
+                      className="h-48 w-full object-cover"
+                    />
+                    <span className="sr-only">{t("replace")}</span>
+                  </button>
+                  <div className="pointer-events-none absolute inset-0 hidden items-center justify-center gap-1.5 bg-black/40 opacity-0 transition-opacity group-hover:opacity-100 pointer-fine:flex">
+                    <Upload className="h-4 w-4 text-white" />
+                    <span className="text-sm font-medium text-white">{t("replace")}</span>
                   </div>
+                  <button
+                    type="button"
+                    onClick={removeHeroImage}
+                    className="absolute right-1 top-1 rounded-full bg-black/60 p-1.5 text-white opacity-100 transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100"
+                  >
+                    <X className="h-3 w-3" />
+                    <span className="sr-only">{t("remove")}</span>
+                  </button>
                 </div>
               ) : (
                 <div
