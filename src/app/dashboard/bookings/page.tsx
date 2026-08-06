@@ -1136,7 +1136,9 @@ export default function BookingsPage() {
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">{t("guests")}</span>
-                    <span>{detailTarget.guest_pricing_label || detailTarget.num_guests}</span>
+                    {/* Headcount always leads: in stepper mode the label names only the
+                        EXTRA guests, so showing it alone would hide the real party size. */}
+                    <span>{detailTarget.num_guests}{detailTarget.guest_pricing_label ? ` (${detailTarget.guest_pricing_label})` : ""}</span>
                   </div>
                   {detailTarget.selected_options && detailTarget.selected_options.length > 0 && (
                     <div>

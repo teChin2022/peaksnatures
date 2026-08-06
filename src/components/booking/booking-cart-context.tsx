@@ -17,7 +17,8 @@ export interface CartLine {
   lineId: string;
   roomId: string;
   numGuests: number;
-  tierId: string | null;
+  /** Ticked guest-composition tiers. At most one in base-tier mode; may stack otherwise. */
+  tierIds: string[];
   optionIds: string[];
 }
 
@@ -191,8 +192,11 @@ export function BookingCartProvider({
         if (!o) return s;
         return s + (o.pricing_type === "per_time" ? o.price : o.price * nights);
       }, 0);
-      const tier = line.tierId ? catalog.guestPricing.find((g) => g.id === line.tierId) : null;
-      const comp = tier ? computeCompositionSurcharge(tier.surcharge, nights) : 0;
+      const perNight = line.tierIds.reduce((s, id) => {
+        const g = catalog.guestPricing.find((t) => t.id === id);
+        return g ? s + g.surcharge : s;
+      }, 0);
+      const comp = computeCompositionSurcharge(perNight, nights);
       return base + opts + comp;
     },
     [dateRange, nights, catalog.rooms, catalog.roomOptions, catalog.guestPricing, seasonsByRoom],

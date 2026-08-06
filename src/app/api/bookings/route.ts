@@ -6,7 +6,12 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendBookingConfirmationEmail, sendHostLineNotification, sendHostSmsNotification, dispatchHostNotification, buildNewBookingMessage, sendRecommenderPromoUsedNotification } from "@/lib/notifications";
 import type { Booking, Homestay, Host, PromoCode, Room, RoomSeasonalPrice } from "@/types/database";
 import { calculateTotalPrice } from "@/lib/calculate-price";
-import { composeTierLabel, computeCompositionSurcharge } from "@/lib/guest-pricing";
+import {
+  computeCompositionSurcharge,
+  hasDefaultPriceTier,
+  resolveGuestPricing,
+  type TierPricingInput,
+} from "@/lib/guest-pricing";
 import { getDepositForMonth } from "@/lib/get-deposit";
 import { logEvent, EventType } from "@/lib/history-log";
 import { deductCommission } from "@/lib/billing";
@@ -23,7 +28,7 @@ const bookingSchema = z.object({
   check_out: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
   num_guests: z.number().int().min(1),
   total_price: z.number().int().min(0),
-  guest_pricing_id: z.string().uuid().optional(),
+  guest_pricing_ids: z.array(z.string().uuid()).max(20).optional(),
   // Slip verification data (required — slip must be verified before booking)
   slip_hash: z.string().min(1, "Slip hash is required"),
   slip_trans_ref: z.string().nullable().optional(),
@@ -138,17 +143,18 @@ export async function POST(req: NextRequest) {
 
     // Server-side price verification: never trust client-supplied total_price
     if (data.room_id) {
-      // Parallel: room price + seasonal prices + option prices + guest pricing tier (if any)
+      // Parallel: room price + seasonal prices + option prices + the room's guest pricing tiers.
+      // All the room's tiers are read (not just the chosen ones) so the server, not the
+      // client, decides whether the tier replaces the headcount or adds to the stepper.
       const optionIds = data.selected_options.map((o) => o.id);
-      const [{ data: roomRow, error: roomError }, { data: seasonRows }, { data: dbOptions }, { data: tierRow }] = await Promise.all([
+      const tierIds = data.guest_pricing_ids ?? [];
+      const [{ data: roomRow, error: roomError }, { data: seasonRows }, { data: dbOptions }, { data: tierRows }] = await Promise.all([
         supabase.from("rooms").select("price_per_night").eq("id", data.room_id).single(),
         supabase.from("room_seasonal_prices").select("*").eq("room_id", data.room_id),
         optionIds.length > 0
           ? supabase.from("room_options").select("id, price, pricing_type").eq("room_id", data.room_id).in("id", optionIds)
           : Promise.resolve({ data: null }),
-        data.guest_pricing_id
-          ? supabase.from("room_guest_pricing").select("id, adults, children, detail, surcharge").eq("room_id", data.room_id).eq("id", data.guest_pricing_id).maybeSingle()
-          : Promise.resolve({ data: null }),
+        supabase.from("room_guest_pricing").select("id, adults, children, detail, surcharge, sort_order").eq("room_id", data.room_id).eq("is_active", true),
       ]);
 
       if (roomError || !roomRow) {
@@ -194,19 +200,21 @@ export async function POST(req: NextRequest) {
         }
       }
 
-      // Guest-composition surcharge (per night), validated against the DB tier.
-      // The chosen tier is authoritative: it sets the surcharge AND the headcount.
-      let serverCompositionSurcharge = 0;
-      if (data.guest_pricing_id) {
-        const tier = tierRow as unknown as { id: string; adults: number; children: number; detail: string | null; surcharge: number } | null;
-        if (!tier) {
-          return NextResponse.json({ error: "Invalid guest pricing selection" }, { status: 400 });
-        }
-        serverCompositionSurcharge = computeCompositionSurcharge(tier.surcharge, nights);
-        guestPricingSurcharge = tier.surcharge;
-        guestPricingLabel = composeTierLabel(tier, data.locale ?? "th");
-        data.num_guests = tier.adults + tier.children;
+      // Guest-composition surcharge (per night), validated against the room's DB tiers.
+      const roomTiers = (tierRows as unknown as TierPricingInput[]) || [];
+      if (tierIds.some((id) => !roomTiers.some((t) => t.id === id))) {
+        return NextResponse.json({ error: "Invalid guest pricing selection" }, { status: 400 });
       }
+      // A base-tier list is a set of alternatives, so stacking two of them is incoherent.
+      if (tierIds.length > 1 && hasDefaultPriceTier(roomTiers)) {
+        return NextResponse.json({ error: "Invalid guest pricing selection" }, { status: 400 });
+      }
+
+      const guests = resolveGuestPricing(roomTiers, tierIds, data.num_guests, data.locale ?? "th");
+      const serverCompositionSurcharge = computeCompositionSurcharge(guests.surchargePerNight, nights);
+      guestPricingSurcharge = guests.surchargePerNight;
+      guestPricingLabel = guests.label;
+      data.num_guests = guests.numGuests;
 
       const subtotal = serverBasePrice + serverOptionsTotal + serverCompositionSurcharge;
 
@@ -358,7 +366,7 @@ export async function POST(req: NextRequest) {
 
       // Persist the guest-composition snapshot. This is metadata, not part of the
       // atomic overlap check, so a follow-up UPDATE keeps the RPC signature untouched.
-      if (data.guest_pricing_id) {
+      if (guestPricingLabel !== null) {
         const { error: gpErr } = await supabase
           .from("bookings")
           .update({ guest_pricing_label: guestPricingLabel, guest_pricing_surcharge: guestPricingSurcharge } as never)

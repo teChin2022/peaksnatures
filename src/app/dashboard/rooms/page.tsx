@@ -20,6 +20,8 @@ import {
   ImageIcon,
   CalendarDays,
   ListPlus,
+  Copy,
+  AlertTriangle,
 } from "lucide-react";
 import type { RoomSeasonalPrice, RoomOption, RoomGuestPricing } from "@/types/database";
 import { Button } from "@/components/ui/button";
@@ -81,6 +83,21 @@ interface TierFormData {
   useDefaultPrice: boolean;
 }
 
+// The three per-room pricing/service sections a host can copy onto other rooms.
+type CopySection = "tiers" | "options" | "seasons";
+
+const COPY_TABLE: Record<CopySection, string> = {
+  tiers: "room_guest_pricing",
+  options: "room_options",
+  seasons: "room_seasonal_prices",
+};
+
+const COPY_TITLE_KEY: Record<CopySection, string> = {
+  tiers: "copyTitleTiers",
+  options: "copyTitleOptions",
+  seasons: "copyTitleSeasons",
+};
+
 export default function RoomsPage() {
   const t = useTranslations("dashboardRooms");
   const tc = useTranslations("common");
@@ -124,6 +141,11 @@ export default function RoomsPage() {
   const [editingTier, setEditingTier] = useState<RoomGuestPricing | null>(null);
   const [savingTier, setSavingTier] = useState(false);
   const [pendingTiers, setPendingTiers] = useState<Omit<RoomGuestPricing, "id" | "room_id" | "created_at" | "created_by" | "updated_at" | "updated_by">[]>([]);
+
+  // Copy-to-other-rooms state (null section = dialog closed)
+  const [copySection, setCopySection] = useState<CopySection | null>(null);
+  const [copyTargets, setCopyTargets] = useState<Set<string>>(new Set());
+  const [copying, setCopying] = useState(false);
 
   // Format date with Thai BE year when locale is Thai
   const fmtDate = (dateStr: string) => {
@@ -407,6 +429,7 @@ export default function RoomsPage() {
             room_id: (newRoom as { id: string }).id,
             name: o.name,
             price: o.price,
+            pricing_type: o.pricing_type,
             sort_order: idx,
             created_by: hostName || userId,
           }));
@@ -759,6 +782,139 @@ export default function RoomsPage() {
     });
   };
 
+  // --- Copy a section to other rooms ---
+  const sectionRows = (section: CopySection, roomId: string) => {
+    if (section === "tiers") return guestTiers[roomId] || [];
+    if (section === "options") return roomOptions[roomId] || [];
+    return seasonalPrices[roomId] || [];
+  };
+
+  // Build the insert payload for one target room: drop id/room_id/audit columns,
+  // re-index sort_order, and stamp the new owner.
+  const copyPayload = (section: CopySection, targetRoomId: string): Record<string, unknown>[] => {
+    if (!editingRoom) return [];
+    const created_by = hostName || userId;
+    if (section === "tiers") {
+      return (guestTiers[editingRoom.id] || []).map((tier, idx) => ({
+        room_id: targetRoomId,
+        adults: tier.adults,
+        children: tier.children,
+        detail: tier.detail,
+        surcharge: tier.surcharge,
+        sort_order: idx,
+        is_active: tier.is_active,
+        created_by,
+      }));
+    }
+    if (section === "options") {
+      return (roomOptions[editingRoom.id] || []).map((option, idx) => ({
+        room_id: targetRoomId,
+        name: option.name,
+        price: option.price,
+        pricing_type: option.pricing_type,
+        sort_order: idx,
+        is_active: option.is_active,
+        created_by,
+      }));
+    }
+    return (seasonalPrices[editingRoom.id] || []).map((season) => ({
+      room_id: targetRoomId,
+      name: season.name,
+      start_date: season.start_date,
+      end_date: season.end_date,
+      price_per_night: season.price_per_night,
+      created_by,
+    }));
+  };
+
+  // Only offer the copy button on a saved room (a new one has no id yet, its rows are
+  // still pending), when another room exists, and when there is something to copy —
+  // copying an empty section would silently wipe the targets.
+  const canCopy = (section: CopySection) =>
+    !!editingRoom && rooms.length > 1 && sectionRows(section, editingRoom.id).length > 0;
+
+  const openCopyDialog = (section: CopySection) => {
+    if (!editingRoom) return;
+    setCopyTargets(new Set(rooms.filter((r) => r.id !== editingRoom.id).map((r) => r.id)));
+    setCopySection(section);
+  };
+
+  const toggleCopyTarget = (roomId: string) => {
+    setCopyTargets((prev) => {
+      const next = new Set(prev);
+      if (next.has(roomId)) next.delete(roomId);
+      else next.add(roomId);
+      return next;
+    });
+  };
+
+  const handleCopySection = async () => {
+    if (!copySection || !editingRoom) return;
+    const targetIds = [...copyTargets];
+    if (targetIds.length === 0) {
+      toast.error(t("copyErrorNoTarget"));
+      return;
+    }
+
+    setCopying(true);
+    try {
+      const supabase = createClient();
+      const table = COPY_TABLE[copySection];
+
+      // 1. Capture the rows about to be replaced (fresh read, not local state).
+      const { data: stale, error: staleError } = await supabase
+        .from(table)
+        .select("id")
+        .in("room_id", targetIds);
+      if (staleError) {
+        toast.error(t("copyError"));
+        console.error("Copy section (read existing) error:", staleError);
+        return;
+      }
+      const staleIds = (stale as { id: string }[] | null)?.map((r) => r.id) || [];
+
+      // 2. Insert the copies BEFORE deleting anything. The browser client has no
+      // transaction, so a failed insert after a delete would destroy the targets'
+      // data. This ordering degrades to visible duplicates instead, which the host
+      // can fix by hand.
+      const payloads = targetIds.flatMap((roomId) => copyPayload(copySection, roomId));
+      const { error: insertError } = await supabase.from(table).insert(payloads as never);
+      if (insertError) {
+        toast.error(t("copyError"));
+        console.error("Copy section (insert) error:", insertError);
+        return;
+      }
+
+      // 3. Only now drop the old rows, by explicit id.
+      let partial = false;
+      if (staleIds.length > 0) {
+        const { error: deleteError } = await supabase.from(table).delete().in("id", staleIds);
+        if (deleteError) {
+          partial = true;
+          console.error("Copy section (delete stale) error:", deleteError);
+        }
+      }
+
+      logClientEvent({
+        homestay_id: homestayId,
+        entity_type: "room",
+        entity_id: editingRoom.id,
+        event_type: copySection === "options" ? "ROOM_UPDATED" : "PRICE_UPDATED",
+        data: { copied_section: copySection, target_room_ids: targetIds },
+      });
+
+      if (partial) toast.warning(t("copyPartial"));
+      else toast.success(t("copySuccess", { count: targetIds.length }));
+
+      setCopySection(null);
+      await fetchData();
+    } catch {
+      toast.error(t("copyError"));
+    } finally {
+      setCopying(false);
+    }
+  };
+
   // "Use default price" tiers charge the room's normal nightly rate. With no date context here,
   // show a seasonal range when seasons exist, else the base price (getPriceRange handles both).
   const defaultTierPriceLabel = useMemo(() => {
@@ -769,6 +925,16 @@ export default function RoomsPage() {
       ? `฿${min.toLocaleString()}–฿${max.toLocaleString()}`
       : `฿${base.toLocaleString()}`;
   }, [roomPrice, editingRoom, seasonalPrices, pendingSeasons]);
+
+  // Derived values for the copy dialog
+  const otherRooms = editingRoom ? rooms.filter((r) => r.id !== editingRoom.id) : [];
+  const copySourceCount =
+    copySection && editingRoom ? sectionRows(copySection, editingRoom.id).length : 0;
+  const copyWillOverwrite = copySection
+    ? otherRooms.some((r) => copyTargets.has(r.id) && sectionRows(copySection, r.id).length > 0)
+    : false;
+  const allTargetsSelected =
+    otherRooms.length > 0 && otherRooms.every((r) => copyTargets.has(r.id));
 
   if (loading) {
     return (
@@ -996,9 +1162,20 @@ export default function RoomsPage() {
 
             {/* Guest Pricing (composition tiers) Section */}
             <div className="space-y-3 rounded-lg border p-4">
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-brand" />
-                <h3 className="text-sm font-semibold text-gray-900">{t("guestPricing")}</h3>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <Users className="h-4 w-4 text-brand" />
+                  <h3 className="text-sm font-semibold text-gray-900">{t("guestPricing")}</h3>
+                </div>
+                {canCopy("tiers") && (
+                  <button
+                    type="button"
+                    onClick={() => openCopyDialog("tiers")}
+                    className="shrink-0 text-xs font-medium text-brand transition-opacity hover:opacity-80"
+                  >
+                    {t("copyToOthers")}
+                  </button>
+                )}
               </div>
               <p className="text-xs text-gray-500">{t("guestPricingDesc")}</p>
 
@@ -1160,9 +1337,20 @@ export default function RoomsPage() {
 
             {/* Room Options Section */}
             <div className="space-y-3 rounded-lg border p-4">
-              <div className="flex items-center gap-2">
-                <ListPlus className="h-4 w-4 text-brand" />
-                <h3 className="text-sm font-semibold text-gray-900">{t("roomOptions")}</h3>
+              <div className="flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2">
+                  <ListPlus className="h-4 w-4 text-brand" />
+                  <h3 className="text-sm font-semibold text-gray-900">{t("roomOptions")}</h3>
+                </div>
+                {canCopy("options") && (
+                  <button
+                    type="button"
+                    onClick={() => openCopyDialog("options")}
+                    className="shrink-0 text-xs font-medium text-brand transition-opacity hover:opacity-80"
+                  >
+                    {t("copyToOthers")}
+                  </button>
+                )}
               </div>
               <p className="text-xs text-gray-500">{t("roomOptionsDesc")}</p>
 
@@ -1299,9 +1487,20 @@ export default function RoomsPage() {
 
             {/* Seasonal Pricing Section */}
               <div className="space-y-3 rounded-lg border p-4">
-                <div className="flex items-center gap-2">
-                  <CalendarDays className="h-4 w-4 text-brand" />
-                  <h3 className="text-sm font-semibold text-gray-900">{t("seasonalPricing")}</h3>
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <CalendarDays className="h-4 w-4 text-brand" />
+                    <h3 className="text-sm font-semibold text-gray-900">{t("seasonalPricing")}</h3>
+                  </div>
+                  {canCopy("seasons") && (
+                    <button
+                      type="button"
+                      onClick={() => openCopyDialog("seasons")}
+                      className="shrink-0 text-xs font-medium text-brand transition-opacity hover:opacity-80"
+                    >
+                      {t("copyToOthers")}
+                    </button>
+                  )}
                 </div>
                 <p className="text-xs text-gray-500">{t("seasonalPricingDesc")}</p>
 
@@ -1584,6 +1783,103 @@ export default function RoomsPage() {
               {tc("delete")}
             </Button>
           </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Copy a section to other rooms */}
+      <Dialog
+        open={copySection !== null}
+        onOpenChange={(open) => {
+          if (!open) setCopySection(null);
+        }}
+      >
+        <DialogContent className="max-h-[85vh] overflow-y-auto sm:max-w-sm">
+          {copySection && editingRoom && (
+            <>
+              <DialogHeader>
+                <DialogTitle className="flex items-center gap-2">
+                  <Copy className="h-4 w-4 text-brand" />
+                  {t(COPY_TITLE_KEY[copySection])}
+                </DialogTitle>
+                <DialogDescription className="text-sm text-gray-600">
+                  {t("copyDesc", { count: copySourceCount, room: editingRoom.name })}
+                </DialogDescription>
+              </DialogHeader>
+
+              <div className="space-y-2">
+                <label className="flex cursor-pointer items-center gap-3 rounded-md px-1 py-1.5">
+                  <input
+                    type="checkbox"
+                    checked={allTargetsSelected}
+                    onChange={() =>
+                      setCopyTargets(
+                        allTargetsSelected ? new Set() : new Set(otherRooms.map((r) => r.id))
+                      )
+                    }
+                    className="h-4 w-4 rounded border-gray-300 text-brand focus:ring-brand"
+                  />
+                  <span className="text-sm font-medium text-gray-900">
+                    {t("copySelectAll", { count: otherRooms.length })}
+                  </span>
+                </label>
+
+                <div className="space-y-1.5 border-t pt-2">
+                  {otherRooms.map((room) => {
+                    const existing = sectionRows(copySection, room.id).length;
+                    const checked = copyTargets.has(room.id);
+                    return (
+                      <label
+                        key={room.id}
+                        className={`flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2 transition-colors ${
+                          checked ? "border-brand bg-brand/5" : "border-gray-200 bg-gray-50"
+                        }`}
+                      >
+                        <input
+                          type="checkbox"
+                          checked={checked}
+                          onChange={() => toggleCopyTarget(room.id)}
+                          className="h-4 w-4 rounded border-gray-300 text-brand focus:ring-brand"
+                        />
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900">
+                          {room.name}
+                        </span>
+                        <span className="shrink-0 text-xs text-gray-500">
+                          {existing > 0
+                            ? t("copyTargetCount", { count: existing })
+                            : t("copyTargetEmpty")}
+                        </span>
+                      </label>
+                    );
+                  })}
+                </div>
+
+                {copyWillOverwrite && (
+                  <p className="flex items-start gap-1.5 rounded-md bg-amber-50 px-3 py-2 text-xs text-amber-700">
+                    <AlertTriangle className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+                    {t("copyReplaceWarning")}
+                  </p>
+                )}
+              </div>
+
+              <DialogFooter className="flex gap-2 sm:justify-end">
+                <Button variant="outline" onClick={() => setCopySection(null)} disabled={copying}>
+                  {tc("cancel")}
+                </Button>
+                <Button
+                  onClick={handleCopySection}
+                  disabled={copying || copyTargets.size === 0}
+                  className="hover:brightness-90 bg-brand"
+                >
+                  {copying ? (
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                  ) : (
+                    <Copy className="mr-2 h-4 w-4" />
+                  )}
+                  {t("copyAction")}
+                </Button>
+              </DialogFooter>
+            </>
+          )}
         </DialogContent>
       </Dialog>
     </div>
