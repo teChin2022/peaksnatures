@@ -1,6 +1,11 @@
 import type { createServiceRoleClient } from "@/lib/supabase/server";
 import { calculateTotalPrice } from "@/lib/calculate-price";
-import { composeTierLabel, computeCompositionSurcharge } from "@/lib/guest-pricing";
+import {
+  computeCompositionSurcharge,
+  hasDefaultPriceTier,
+  resolveGuestPricing,
+  type TierPricingInput,
+} from "@/lib/guest-pricing";
 import type { RoomSeasonalPrice } from "@/types/database";
 
 type ServiceClient = ReturnType<typeof createServiceRoleClient>;
@@ -19,7 +24,7 @@ export interface LineItemInput {
   check_in: string; // YYYY-MM-DD
   check_out: string; // YYYY-MM-DD
   num_guests: number;
-  guest_pricing_id?: string;
+  guest_pricing_ids?: string[];
   selected_options?: SelectedOptionInput[];
 }
 
@@ -50,8 +55,10 @@ export type LineItemResult =
  * so the multi-room group route can call it once per line and sum the results.
  *
  * Never trusts client prices: re-reads room base price, seasonal prices, option
- * prices (per_night × nights / per_time flat), and the guest-composition tier
- * (which is authoritative for both the surcharge AND the headcount).
+ * prices (per_night × nights / per_time flat), and the room's guest-composition
+ * tiers. Reading ALL the room's tiers (not just the chosen ones) is what lets the
+ * server decide the mode itself — see `resolveGuestPricing` — so a client cannot
+ * assert "stepper mode" on a room whose tiers say otherwise.
  */
 export async function verifyRoomLineItem(
   supabase: ServiceClient,
@@ -62,21 +69,20 @@ export async function verifyRoomLineItem(
   const selectedOptions = item.selected_options ?? [];
   const optionIds = selectedOptions.map((o) => o.id);
 
-  const [{ data: roomRow, error: roomError }, { data: seasonRows }, { data: dbOptions }, { data: tierRow }] =
+  const tierIds = item.guest_pricing_ids ?? [];
+
+  const [{ data: roomRow, error: roomError }, { data: seasonRows }, { data: dbOptions }, { data: tierRows }] =
     await Promise.all([
       supabase.from("rooms").select("price_per_night, homestay_id").eq("id", item.room_id).single(),
       supabase.from("room_seasonal_prices").select("*").eq("room_id", item.room_id),
       optionIds.length > 0
         ? supabase.from("room_options").select("id, price, pricing_type").eq("room_id", item.room_id).in("id", optionIds)
         : Promise.resolve({ data: null }),
-      item.guest_pricing_id
-        ? supabase
-            .from("room_guest_pricing")
-            .select("id, adults, children, detail, surcharge")
-            .eq("room_id", item.room_id)
-            .eq("id", item.guest_pricing_id)
-            .maybeSingle()
-        : Promise.resolve({ data: null }),
+      supabase
+        .from("room_guest_pricing")
+        .select("id, adults, children, detail, surcharge, sort_order")
+        .eq("room_id", item.room_id)
+        .eq("is_active", true),
     ]);
 
   if (roomError || !roomRow) {
@@ -123,27 +129,22 @@ export async function verifyRoomLineItem(
     }
   }
 
-  // Guest-composition surcharge (per night). The chosen tier sets surcharge AND headcount.
-  let compositionSurcharge = 0;
-  let guestPricingLabel: string | null = null;
-  let guestPricingSurcharge = 0;
-  let numGuests = item.num_guests;
-  if (item.guest_pricing_id) {
-    const tier = tierRow as unknown as {
-      id: string;
-      adults: number;
-      children: number;
-      detail: string | null;
-      surcharge: number;
-    } | null;
-    if (!tier) {
-      return { ok: false, error: "Invalid guest pricing selection", status: 400 };
-    }
-    compositionSurcharge = computeCompositionSurcharge(tier.surcharge, nights);
-    guestPricingSurcharge = tier.surcharge;
-    guestPricingLabel = composeTierLabel(tier, locale);
-    numGuests = tier.adults + tier.children;
+  // Guest-composition surcharge, charged per night. The room's own tiers decide whether
+  // the chosen tier replaces the headcount or merely adds extra guests to the stepper.
+  const roomTiers = (tierRows as unknown as TierPricingInput[]) || [];
+  if (tierIds.some((id) => !roomTiers.some((t) => t.id === id))) {
+    return { ok: false, error: "Invalid guest pricing selection", status: 400 };
   }
+  // A base-tier list is a set of alternatives, so stacking two of them is incoherent.
+  if (tierIds.length > 1 && hasDefaultPriceTier(roomTiers)) {
+    return { ok: false, error: "Invalid guest pricing selection", status: 400 };
+  }
+
+  const guests = resolveGuestPricing(roomTiers, tierIds, item.num_guests, locale);
+  const compositionSurcharge = computeCompositionSurcharge(guests.surchargePerNight, nights);
+  const guestPricingSurcharge = guests.surchargePerNight;
+  const guestPricingLabel = guests.label;
+  const numGuests = guests.numGuests;
 
   const gross = basePrice + optionsTotal + compositionSurcharge;
 

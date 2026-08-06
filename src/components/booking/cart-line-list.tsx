@@ -4,7 +4,7 @@ import { useState } from "react";
 import { X, Pencil } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { useBookingCart } from "@/components/booking/booking-cart-context";
-import { composeTierLabel } from "@/lib/guest-pricing";
+import { composeLineGuestLabel } from "@/lib/guest-pricing";
 
 /**
  * Shared cart line list — used by the date-bar cart dialog, the booking panel's
@@ -35,7 +35,13 @@ export function CartLineList({
     <div className={`space-y-2 ${className}`}>
       {lines.map((line) => {
         const room = catalog.rooms.find((r) => r.id === line.roomId);
-        const tier = line.tierId ? catalog.guestPricing.find((g) => g.id === line.tierId) : null;
+        const guestLabel = composeLineGuestLabel(
+          catalog.guestPricing.filter((g) => g.room_id === line.roomId),
+          line.tierIds,
+          line.numGuests,
+          tc("guests"),
+          locale,
+        );
         const gross = computeLineGross(line);
         const isConfirming = confirmRemove === line.lineId;
         return (
@@ -65,7 +71,7 @@ export function CartLineList({
                 <div className="min-w-0">
                   <p className="truncate text-sm font-medium text-earth-900">{room?.name}</p>
                   <p className="text-xs text-earth-400">
-                    {tier ? composeTierLabel(tier, locale) : `${line.numGuests} ${tc("guests")}`}
+                    {guestLabel}
                     {line.optionIds.length > 0 ? ` · ${t("optionsSelected", { count: line.optionIds.length })}` : ""}
                   </p>
                 </div>

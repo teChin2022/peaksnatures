@@ -43,7 +43,7 @@ const groupSchema = z.object({
         check_in: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
         check_out: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
         num_guests: z.number().int().min(1),
-        guest_pricing_id: z.string().uuid().optional(),
+        guest_pricing_ids: z.array(z.string().uuid()).max(20).optional(),
         selected_options: z
           .array(
             z.object({

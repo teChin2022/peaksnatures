@@ -18,15 +18,15 @@ import { Separator } from "@/components/ui/separator";
 import { Badge } from "@/components/ui/badge";
 import {
   Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope,
-  Calendar as CalendarIcon, Users, CreditCard, Upload, CheckCircle2, Loader2,
+  Calendar as CalendarIcon, CreditCard, Upload, CheckCircle2, Loader2,
   ImageIcon, X, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle,
   Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, Sparkles, FileText, Lock, MousePointerClick, ListPlus, Gift, HelpCircle, BedDouble,
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
 import type { Homestay, Room, BlockedDate, Host, RoomSeasonalPrice, RoomOption, RoomGuestPricing } from "@/types/database";
-import { calculateTotalPrice, getPriceRange } from "@/lib/calculate-price";
-import { composeTierLabel, computeCompositionSurcharge } from "@/lib/guest-pricing";
+import { getPriceRange } from "@/lib/calculate-price";
+import { composeLineGuestLabel } from "@/lib/guest-pricing";
 import { isValidEmail, isValidPhone, sanitizePhoneInput } from "@/lib/utils";
 import { getFullyBookedForRoom } from "@/lib/booking-dates";
 import { getDepositForMonth } from "@/lib/get-deposit";
@@ -154,7 +154,6 @@ export function BookingSection({
   // The "draft" room currently being configured to add. The cart accumulates lines.
   const [selectedRoomId, setSelectedRoomId] = useState<string>("");
   const [numGuests, setNumGuests] = useState("2");
-  const [selectedTierId, setSelectedTierId] = useState<string>("");
   const [guestName, setGuestName] = useState("");
   const [guestEmail, setGuestEmail] = useState("");
   const [guestPhone, setGuestPhone] = useState("");
@@ -180,7 +179,6 @@ export function BookingSection({
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
-  const [showGuests, setShowGuests] = useState(false);
   const [selectedOptionIds, setSelectedOptionIds] = useState<string[]>([]);
   const [pdpaConsent, setPdpaConsent] = useState(false);
   const [promoInput, setPromoInput] = useState(initialPromo?.code ?? "");
@@ -356,16 +354,6 @@ export function BookingSection({
     return roomOptions.filter((o) => o.room_id === selectedRoomId);
   }, [selectedRoomId, roomOptions]);
 
-  // Guest-composition pricing tiers for the selected room (sorted by host order).
-  const tiersForRoom = useMemo(() => {
-    if (!selectedRoomId) return [];
-    return guestPricing
-      .filter((g) => g.room_id === selectedRoomId)
-      .sort((a, b) => a.sort_order - b.sort_order);
-  }, [selectedRoomId, guestPricing]);
-  const hasTiers = tiersForRoom.length > 0;
-  const selectedTier = tiersForRoom.find((g) => g.id === selectedTierId) || null;
-
   const seasonsByRoom = useMemo(() => {
     const map: Record<string, RoomSeasonalPrice[]> = {};
     for (const s of seasonalPrices) {
@@ -392,23 +380,6 @@ export function BookingSection({
       return sum + (opt.pricing_type === "per_time" ? opt.price : opt.price * (nights || 1));
     }, 0);
   }, [selectedOptionIds, roomOptions, nights]);
-
-  const priceResult = useMemo(() => {
-    if (!selectedRoom || nights <= 0 || !dateRange?.from || !dateRange?.to) return null;
-    const roomSeasons = seasonsByRoom[selectedRoom.id] || [];
-    return calculateTotalPrice(selectedRoom.price_per_night, dateRange.from, dateRange.to, roomSeasons);
-  }, [selectedRoom, nights, dateRange, seasonsByRoom]);
-
-  // Nightly price a "use default price" tier (surcharge 0) is charged: the seasonal rate for the
-  // check-in night (priceResult prices each night by its season, falling back to base), or the
-  // base price when no dates are picked yet.
-  const defaultTierNightlyPrice = useMemo(() => {
-    if (!selectedRoom) return 0;
-    return priceResult?.breakdown[0]?.price ?? selectedRoom.price_per_night;
-  }, [selectedRoom, priceResult]);
-
-  // Composition surcharge is charged per night (× nights), like a per_night option.
-  const compositionSurcharge = selectedTier ? computeCompositionSurcharge(selectedTier.surcharge, nights) : 0;
 
   // Per-line gross + cart subtotal come from the shared cart context
   // (single source of truth — see booking-cart-context).
@@ -483,7 +454,6 @@ export function BookingSection({
   const handleRoomChange = (roomId: string) => {
     setSelectedRoomId(roomId);
     setSelectedOptionIds([]);
-    setSelectedTierId("");
     setNumGuests("2");
   };
 
@@ -790,7 +760,7 @@ export function BookingSection({
             check_in: checkIn,
             check_out: checkOut,
             num_guests: line.numGuests,
-            guest_pricing_id: line.tierId || undefined,
+            guest_pricing_ids: line.tierIds.length > 0 ? line.tierIds : undefined,
             total_price: totalPrice,
             payment_type: paymentOption,
             amount_paid: paymentAmount,
@@ -836,7 +806,7 @@ export function BookingSection({
               check_in: checkIn,
               check_out: checkOut,
               num_guests: line.numGuests,
-              guest_pricing_id: line.tierId || undefined,
+              guest_pricing_ids: line.tierIds.length > 0 ? line.tierIds : undefined,
               selected_options: optionsForLine(line.optionIds),
               total_price: computeLineGross(line),
             })),
@@ -961,7 +931,6 @@ export function BookingSection({
     setSlipVerified(false);
     setDateRange(undefined);
     setSelectedRoomId("");
-    setSelectedTierId("");
     setNumGuests("2");
     clearCart();
     setGuestName("");
@@ -974,7 +943,6 @@ export function BookingSection({
     setBookingId(null);
     setPdpaConsent(false);
     setShowOptions(false);
-    setShowGuests(false);
     setShowConfirmModal(false);
     setShowConfirmedModal(false);
     setSelectedOptionIds([]);
@@ -1152,7 +1120,7 @@ export function BookingSection({
                 {step === "dates" && (
                   <motion.div key="step-dates" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                     <AnimatePresence mode="wait">
-                      {!showOptions && !showGuests ? (
+                      {!showOptions ? (
                         <motion.div key="dates-form" initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.25 }} className="space-y-5">
                           {/* ── Dates — mirrors the sticky bar, and opens the same picker ── */}
                           <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("selectDates")}</label>
@@ -1250,39 +1218,6 @@ export function BookingSection({
                             {t("continueDetails")} <ArrowRight size={18} />
                           </button>
                           <p className="text-center text-[11px] text-earth-400">{t("subtitle")}</p>
-                        </motion.div>
-                      ) : showGuests ? (
-                        <motion.div key="dates-guests" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.25 }} className="space-y-4">
-                          <div className="flex items-center gap-3">
-                            <button onClick={() => setShowGuests(false)} className="p-2 rounded-full hover:bg-earth-100 text-earth-400"><ArrowLeft size={18} /></button>
-                            <h3 className="text-xl font-bold text-earth-900">{t("numGuests")}</h3>
-                          </div>
-                          <p className="text-sm text-earth-500">{t("selectGuestsForPrice")}</p>
-
-                          <div className="space-y-2">
-                            {tiersForRoom.map((tier) => {
-                              const isSelected = tier.id === selectedTierId;
-                              return (
-                                <button
-                                  key={tier.id}
-                                  onClick={() => {
-                                    setSelectedTierId(tier.id);
-                                    setNumGuests(String(tier.adults + tier.children));
-                                    setShowGuests(false);
-                                  }}
-                                  className={`w-full flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all text-left ${isSelected ? "border-brand bg-brand/5" : "border-earth-200 hover:border-earth-300"}`}
-                                >
-                                  <Users size={16} className="shrink-0 text-earth-400" />
-                                  <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-earth-900">{composeTierLabel(tier, locale)}</p>
-                                  </div>
-                                  <span className="text-sm font-semibold text-brand whitespace-nowrap">
-                                    {tier.surcharge > 0 ? `+฿${tier.surcharge.toLocaleString()}` : `฿${defaultTierNightlyPrice.toLocaleString()}`}
-                                  </span>
-                                </button>
-                              );
-                            })}
-                          </div>
                         </motion.div>
                       ) : showOptions ? (
                         <motion.div key="dates-options" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.25 }} className="space-y-4">
@@ -1478,7 +1413,13 @@ export function BookingSection({
                               <span className="text-earth-500">{t("yourCart")} ({cartLines.length})</span>
                               {cartLines.map((line) => {
                                 const room = rooms.find((r) => r.id === line.roomId);
-                                const tier = line.tierId ? guestPricing.find((g) => g.id === line.tierId) : null;
+                                const guestLabel = composeLineGuestLabel(
+                                  guestPricing.filter((g) => g.room_id === line.roomId),
+                                  line.tierIds,
+                                  line.numGuests,
+                                  tc("guests"),
+                                  locale,
+                                );
                                 const gross = computeLineGross(line);
                                 return (
                                   <div key={line.lineId} className="rounded-lg bg-white border border-earth-100 p-2.5">
@@ -1487,7 +1428,7 @@ export function BookingSection({
                                       <span className="font-medium text-earth-900">฿{gross.toLocaleString()}</span>
                                     </div>
                                     <div className="text-xs text-earth-400">
-                                      {tier ? composeTierLabel(tier, locale) : `${line.numGuests} ${tc("guests")}`}
+                                      {guestLabel}
                                       {line.optionIds.length > 0 ? ` · ${t("optionsSelected", { count: line.optionIds.length })}` : ""}
                                     </div>
                                   </div>
@@ -1520,12 +1461,6 @@ export function BookingSection({
                               </div>
                             )}
                             <Separator />
-                            {compositionSurcharge > 0 && (
-                              <div className="flex justify-between text-sm text-earth-600">
-                                <span>{t("extraGuests")}</span>
-                                <span>+฿{compositionSurcharge.toLocaleString()}</span>
-                              </div>
-                            )}
                             {appliedPromo && promoDiscount > 0 && (
                               <div className="flex justify-between text-sm text-emerald-700">
                                 <span>{t("promoLabel")} ({appliedPromo.code})</span>
