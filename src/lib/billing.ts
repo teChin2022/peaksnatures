@@ -195,8 +195,17 @@ export async function getHostBlockState(hostId: string): Promise<HostBlockState 
  *
  * Idempotent: skips if commission already deducted (and not refunded).
  * Supports date-change cycles (deduct → refund → deduct).
+ *
+ * `commissionBaseOverride` is for callers that computed the base themselves
+ * (quick bookings, charged on the room rate rather than total_price). They also
+ * persist it to bookings.commission_base for the retry queue — passing it here
+ * as well means a failed persist can't silently downgrade the charge to
+ * total_price, which for a quick booking is often 0.
  */
-export async function deductCommission(bookingId: string): Promise<void> {
+export async function deductCommission(
+  bookingId: string,
+  commissionBaseOverride?: number,
+): Promise<void> {
   const supabase = createServiceRoleClient();
 
   try {
@@ -280,7 +289,9 @@ export async function deductCommission(bookingId: string): Promise<void> {
     // host-entered total_price (an OTA/walk-in figure that may be 0), so they
     // are charged on the room's own configured rate instead.
     const commissionBase =
-      booking.commission_base ?? booking.total_price + (booking.discount_amount || 0);
+      commissionBaseOverride ??
+      booking.commission_base ??
+      booking.total_price + (booking.discount_amount || 0);
     // Wallet stores integer baht. Floor sub-baht commissions up to 1 so
     // small bookings still deduct something instead of silently rounding to 0.
     const rawCommission = commissionBase * commissionPct / 100;

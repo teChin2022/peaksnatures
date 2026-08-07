@@ -190,16 +190,28 @@ export async function POST(req: NextRequest) {
       data.check_in,
       data.check_out,
     );
-    if (commissionBase && commissionBase > 0) {
-      await supabase
+    const hasBase = Boolean(commissionBase && commissionBase > 0);
+    if (hasBase) {
+      const { error: baseError } = await supabase
         .from("bookings")
         .update({ commission_base: commissionBase } as never)
         .eq("id", bookingId as string);
+      if (baseError) {
+        // Not fatal — the base is passed to deductCommission directly below, so
+        // this booking is still charged correctly. Only a later retry would
+        // lose it, hence the loud log.
+        console.error("[QuickBooking] Failed to persist commission_base:", baseError);
+      }
+    } else {
+      console.warn("[QuickBooking] No room rate resolved; commission falls back to total_price", {
+        booking_id: bookingId,
+        room_id: data.room_id,
+      });
     }
 
     // Commission deduction is financial — run synchronously before responding,
     // matching POST /api/bookings. No-ops for free and fixed-rate hosts.
-    await deductCommission(bookingId as string);
+    await deductCommission(bookingId as string, hasBase ? commissionBase! : undefined);
 
     // Fetch created booking
     const { data: booking } = await supabase
