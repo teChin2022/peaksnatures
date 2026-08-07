@@ -8,6 +8,7 @@ import {
   getEffectiveFixedRate,
   isValidTermMonths,
   processBillingRetryQueue,
+  LOW_WALLET_THRESHOLD,
 } from "@/lib/billing";
 import { GRACE_PERIOD_DAYS } from "@/lib/plan-expiry";
 import { sendSms, notifyHostAlert } from "@/lib/notifications";
@@ -54,8 +55,11 @@ async function runWithConcurrency<T>(
  * GET /api/cron/billing
  * Daily cron job (triggered by Vercel Cron via GET).
  * - Every day: send SMS 3 days before free plan expiry, send SMS on expiry day,
- *   send SMS 5 days after expiry (grace period reminder), mark overdue invoices,
- *   apply pending plan switches whose effective date has arrived.
+ *   send SMS 5 days after expiry (grace period reminder), remind fixed-rate
+ *   hosts 2 days before an invoice is due, mark past-due invoices overdue and
+ *   alert those hosts that bookings have stopped, warn commission hosts whose
+ *   wallet dipped below LOW_WALLET_THRESHOLD, and apply pending plan switches
+ *   whose effective date has arrived.
  * - 1st of month only: generate invoices for fixed-rate hosts.
  * Secured with CRON_SECRET header.
  * Generate the secret: `openssl rand -base64 32`
@@ -268,62 +272,61 @@ export async function GET(req: NextRequest) {
     results.term_expiry_notifications = termExpiryNotifications;
 
     // ============================================================
-    // DAILY: Fixed-rate invoice grace reminder — 5 days past due date
-    // (2 days before the invoice flips to overdue and blocks new bookings).
+    // DAILY: Fixed-rate invoice reminder — 2 days BEFORE the due date.
+    // Fixed-rate has no grace: the day after due_date the invoice flips to
+    // overdue and new bookings stop, so the warning has to land beforehand.
     // ============================================================
-    const graceWarnDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (GRACE_PERIOD_DAYS - 2)))
+    const dueWarnDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 2))
       .toISOString().split("T")[0];
-    const graceWarnDayNext = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - (GRACE_PERIOD_DAYS - 3)))
-      .toISOString().split("T")[0];
-    const { data: graceInvoices } = await supabase
+    const { data: dueSoonInvoices } = await supabase
       .from("invoices")
       .select("id, host_id")
       .eq("status", "pending")
-      .gte("due_date", graceWarnDay)
-      .lt("due_date", graceWarnDayNext);
+      .eq("due_date", dueWarnDay);
 
-    let frGraceNotifications = 0;
-    const graceHostIds = [...new Set(((graceInvoices || []) as { id: string; host_id: string }[]).map((i) => i.host_id))];
-    if (graceHostIds.length > 0) {
-      const { data: graceHosts } = await supabase
+    let frDueSoonNotifications = 0;
+    const dueSoonHostIds = [...new Set(((dueSoonInvoices || []) as { id: string; host_id: string }[]).map((i) => i.host_id))];
+    if (dueSoonHostIds.length > 0) {
+      const { data: dueSoonHosts } = await supabase
         .from("hosts")
         .select("id, name, phone, email, notification_preference, line_channel_access_token, line_user_id")
         .eq("plan_type", "fixed_rate")
-        .in("id", graceHostIds);
+        .in("id", dueSoonHostIds);
 
       await runWithConcurrency(
-        (graceHosts || []) as HostAlertRow[],
+        (dueSoonHosts || []) as HostAlertRow[],
         10,
         async (host) => {
           try {
             const result = await notifyHostAlert(
               host,
-              `ใบแจ้งหนี้เกินกำหนด การจองจะถูกระงับใน 2 วัน กรุณาชำระเงิน`,
-              "ใบแจ้งหนี้เกินกำหนด",
+              `ใบแจ้งหนี้ครบกำหนดชำระใน 2 วัน (${fmtDateStr(dueWarnDay, "d MMM", "th")}) หากเลยกำหนด การจองใหม่จะถูกระงับ`,
+              "ใบแจ้งหนี้ใกล้ครบกำหนด",
             );
-            if (result.success) frGraceNotifications++;
+            if (result.success) frDueSoonNotifications++;
           } catch (err) {
-            console.error("[Cron] Fixed-rate grace reminder error for host:", host.id, err);
+            console.error("[Cron] Fixed-rate due reminder error for host:", host.id, err);
           }
         },
       );
     }
-    results.fr_grace_notifications = frGraceNotifications;
+    results.fr_due_soon_notifications = frDueSoonNotifications;
 
     // ============================================================
     // DAILY: Mark overdue invoices
-    // A fixed-rate invoice only blocks the host once the GRACE_PERIOD_DAYS grace
-    // window after its due date has elapsed (matches free/commission grace).
+    // Fixed-rate gets no grace window — an invoice blocks the host the day
+    // after its due date. Monthly invoices are due on the 5th, so an unpaid
+    // host stops taking new bookings on the 6th. Flipping the status here
+    // keeps /admin/billing and the host's invoice list in sync with the block.
     // ============================================================
-    const overdueCutoff = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - GRACE_PERIOD_DAYS))
-      .toISOString().split("T")[0];
     const { data: overdueInvoices } = await supabase
       .from("invoices")
       .select("id, host_id")
       .eq("status", "pending")
-      .lte("due_date", overdueCutoff);
+      .lt("due_date", today);
 
     let overdueCount = 0;
+    const newlyOverdueHostIds = new Set<string>();
     for (const inv of (overdueInvoices || []) as { id: string; host_id: string }[]) {
       const { error } = await supabase
         .from("invoices")
@@ -332,6 +335,7 @@ export async function GET(req: NextRequest) {
 
       if (!error) {
         overdueCount++;
+        newlyOverdueHostIds.add(inv.host_id);
         await logEvent({
           entityType: "billing",
           entityId: inv.id,
@@ -343,6 +347,95 @@ export async function GET(req: NextRequest) {
       }
     }
     results.invoices_overdue = overdueCount;
+
+    // Tell the hosts their bookings just stopped. The pending → overdue flip
+    // happens exactly once per invoice, so this can't send twice.
+    let frBlockedNotifications = 0;
+    if (newlyOverdueHostIds.size > 0) {
+      const { data: blockedHosts } = await supabase
+        .from("hosts")
+        .select("id, name, phone, email, notification_preference, line_channel_access_token, line_user_id")
+        .in("id", [...newlyOverdueHostIds]);
+
+      await runWithConcurrency(
+        (blockedHosts || []) as HostAlertRow[],
+        10,
+        async (host) => {
+          try {
+            const result = await notifyHostAlert(
+              host,
+              `ใบแจ้งหนี้เลยกำหนดชำระ การจองใหม่ถูกระงับแล้ว กรุณาชำระเงินเพื่อเปิดรับการจองอีกครั้ง`,
+              "การจองถูกระงับ",
+            );
+            if (result.success) frBlockedNotifications++;
+          } catch (err) {
+            console.error("[Cron] Fixed-rate blocked alert error for host:", host.id, err);
+          }
+        },
+      );
+    }
+    results.fr_blocked_notifications = frBlockedNotifications;
+
+    // ============================================================
+    // DAILY: Low wallet balance warning for commission hosts
+    // Fires once per dip below LOW_WALLET_THRESHOLD, well before the balance
+    // goes negative. Hosts already negative are skipped — notifyNegativeBalance
+    // (fired at deduction time) owns those, and two overlapping warnings about
+    // the same wallet would just be noise.
+    // ============================================================
+    const { data: lowWalletHosts } = await supabase
+      .from("hosts")
+      .select("id, name, phone, email, notification_preference, line_channel_access_token, line_user_id, wallet_balance")
+      .eq("plan_type", "commission")
+      .eq("status", "approved")
+      .gte("wallet_balance", 0)
+      .lt("wallet_balance", LOW_WALLET_THRESHOLD)
+      .is("wallet_low_notified_at", null);
+
+    let lowWalletNotifications = 0;
+    await runWithConcurrency(
+      (lowWalletHosts || []) as (HostAlertRow & { wallet_balance: number })[],
+      10,
+      async (host) => {
+        try {
+          const result = await notifyHostAlert(
+            host,
+            `ยอดเงินในกระเป๋าเหลือ ฿${host.wallet_balance.toLocaleString()} กรุณาเติมเงินเพื่อไม่ให้การจองสะดุด`,
+            "ยอดเงินเหลือน้อย",
+          );
+          // Only stamp on a successful send, so a failed delivery retries tomorrow.
+          if (!result.success) return;
+          lowWalletNotifications++;
+
+          await supabase
+            .from("hosts")
+            .update({ wallet_low_notified_at: new Date().toISOString(), updated_by: "system" } as never)
+            .eq("id", host.id);
+
+          await logEvent({
+            entityType: "host",
+            entityId: host.id,
+            eventType: EventType.WALLET_LOW_BALANCE,
+            actorType: "system",
+            actorId: null,
+            data: { wallet_balance: host.wallet_balance, threshold: LOW_WALLET_THRESHOLD },
+          });
+        } catch (err) {
+          console.error("[Cron] Low wallet warning error for host:", host.id, err);
+        }
+      },
+    );
+    results.low_wallet_notifications = lowWalletNotifications;
+
+    // Re-arm hosts who topped back up, so the next dip warns again.
+    const { data: rearmedHosts } = await supabase
+      .from("hosts")
+      .update({ wallet_low_notified_at: null } as never)
+      .eq("plan_type", "commission")
+      .gte("wallet_balance", LOW_WALLET_THRESHOLD)
+      .not("wallet_low_notified_at", "is", null)
+      .select("id");
+    results.low_wallet_rearmed = (rearmedHosts as unknown[] | null)?.length ?? 0;
 
     // ============================================================
     // DAILY: Apply pending plan switches whose effective date has arrived

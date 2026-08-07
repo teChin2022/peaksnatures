@@ -186,6 +186,11 @@ export default function DashboardBillingPage() {
   const [topupFile, setTopupFile] = useState<File | null>(null);
   const [topupLoading, setTopupLoading] = useState(false);
   const [payInvoiceId, setPayInvoiceId] = useState<string | null>(null);
+  // Fallback amount for an invoice the switch API surfaced — data.invoices only
+  // holds the last 5, so the blocking invoice isn't guaranteed to be in there.
+  const [payInvoiceAmount, setPayInvoiceAmount] = useState<number | null>(null);
+  // Plan the host was switching to when the empty-wallet gate stopped them.
+  const [pendingSwitch, setPendingSwitch] = useState<{ planType: string; termMonths?: number } | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     type: "switch" | "cancelSwitch";
     planType?: string;
@@ -231,6 +236,24 @@ export default function DashboardBillingPage() {
         window.dispatchEvent(new Event("host:plan-changed"));
       } else {
         const d = await res.json();
+        // The two billing blockers aren't dead ends — send the host straight to
+        // the action that unblocks them instead of a toast they can't act on.
+        if (d.error === "UNPAID_INVOICE") {
+          setConfirmDialog(null);
+          setPayInvoiceAmount(d.amount ?? null);
+          setPayInvoiceId(d.invoice_id);
+          toast.error(t("unpaidInvoiceDesc"));
+          return;
+        }
+        if (d.error === "WALLET_EMPTY") {
+          setConfirmDialog(null);
+          // Remember the intent so a successful top-up completes the switch the
+          // host originally asked for, rather than making them start over.
+          setPendingSwitch({ planType, termMonths });
+          setTopupSheetOpen(true);
+          toast.error(t("walletEmptyDesc"));
+          return;
+        }
         toast.error(d.error || "Failed to switch plan");
       }
     } catch {
@@ -277,6 +300,13 @@ export default function DashboardBillingPage() {
         setTopupFile(null);
         setTopupAmount("");
         setTopupSheetOpen(false);
+
+        // Finish the switch the host was blocked on, now that funds are in.
+        setPendingSwitch(null);
+        if (pendingSwitch && d.new_balance > 0) {
+          await handlePlanSwitch(pendingSwitch.planType, pendingSwitch.termMonths);
+          return;
+        }
         fetchBilling();
       } else {
         toast.error(d.error || d.message || "Verification failed");
@@ -1025,7 +1055,15 @@ export default function DashboardBillingPage() {
       </Dialog>
 
       {/* ── Top-up Sheet ── */}
-      <Sheet open={topupSheetOpen} onOpenChange={setTopupSheetOpen}>
+      <Sheet
+        open={topupSheetOpen}
+        onOpenChange={(open) => {
+          // Dismissing the sheet abandons the switch — don't resurrect it on
+          // some unrelated top-up later.
+          if (!open) setPendingSwitch(null);
+          setTopupSheetOpen(open);
+        }}
+      >
         <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
           <SheetHeader>
             <SheetTitle className="font-serif">{t("topUp")}</SheetTitle>
@@ -1033,6 +1071,13 @@ export default function DashboardBillingPage() {
           </SheetHeader>
 
           <div className="px-4 py-6 space-y-6">
+            {data.wallet_balance <= 0 && (
+              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
+                <p className="text-sm font-medium text-amber-800">{t("walletEmptyTitle")}</p>
+                <p className="text-sm text-amber-700 mt-1">{t("walletEmptyDesc")}</p>
+              </div>
+            )}
+
             {data.platform_payment && (
               <div className="rounded-xl bg-brand-50 border border-brand-100 p-4">
                 <p className="text-xs font-semibold uppercase tracking-wider text-brand mb-3">
@@ -1136,9 +1181,9 @@ export default function DashboardBillingPage() {
       {/* Invoice pay dialog (shared with the Wallet page) */}
       <InvoicePayDialog
         open={!!payInvoiceId}
-        onOpenChange={(o) => { if (!o) setPayInvoiceId(null); }}
+        onOpenChange={(o) => { if (!o) { setPayInvoiceId(null); setPayInvoiceAmount(null); } }}
         invoiceId={payInvoiceId}
-        amount={data.invoices.find((inv) => inv.id === payInvoiceId)?.amount ?? 0}
+        amount={data.invoices.find((inv) => inv.id === payInvoiceId)?.amount ?? payInvoiceAmount ?? 0}
         platformPayment={data.platform_payment}
         onPaid={fetchBilling}
       />

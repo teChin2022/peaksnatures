@@ -6,6 +6,7 @@ import { notFound, permanentRedirect } from "next/navigation";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { resolveSlugRedirect } from "@/lib/slug-redirect";
 import { isHostBlocked } from "@/lib/plan-expiry";
+import { hasPastDueInvoice } from "@/lib/billing";
 import { evaluatePromoCode } from "@/lib/promo-codes";
 import { localizeHomestay } from "@/lib/translation/translate-homestay";
 import { sanitizeRichText } from "@/lib/sanitize";
@@ -161,19 +162,11 @@ const getHomestayData = cache(async function getHomestayData(
 
   let bookingDisabled = false;
   if (host) {
-    const { data: overdueRows } =
-      host.plan_type === "fixed_rate"
-        ? await supabase
-            .from("invoices")
-            .select("id")
-            .eq("host_id", host.id)
-            .eq("status", "overdue")
-            .limit(1)
-        : { data: [] as unknown[] };
     bookingDisabled = isHostBlocked({
       plan_type: host.plan_type,
       plan_free_expires_at: host.plan_free_expires_at,
-      has_overdue_invoice: ((overdueRows as unknown[] | null)?.length ?? 0) > 0,
+      has_past_due_invoice:
+        host.plan_type === "fixed_rate" ? await hasPastDueInvoice(host.id, supabase) : false,
       wallet_balance: host.wallet_balance,
       wallet_credit_limit: host.wallet_credit_limit,
       wallet_negative_since: host.wallet_negative_since,

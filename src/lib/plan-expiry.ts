@@ -8,11 +8,15 @@
  *   Day +5 .............. SMS reminder ("bookings pause in 2 days")
  *   Day +7 onwards ...... Soft-blocked (new bookings blocked, upgrade required)
  *
- * Fixed-rate hosts are blocked when an invoice has been marked 'overdue'
- * (cron flips pending → overdue at due_date + GRACE_PERIOD_DAYS).
+ * Fixed-rate hosts get no grace: they are blocked the day after an unpaid
+ * invoice passes its due_date. Monthly invoices are generated on the 1st with
+ * due_date = the 5th, so a host who hasn't paid by the 5th stops taking new
+ * bookings on the 6th. GRACE_PERIOD_DAYS does not apply to this plan.
  *
  * Commission hosts are blocked when wallet has been negative (and below the
- * per-host credit limit) for more than GRACE_PERIOD_DAYS.
+ * per-host credit limit) for more than GRACE_PERIOD_DAYS. They are warned by
+ * SMS/LINE once the balance dips below LOW_WALLET_THRESHOLD, before it goes
+ * negative at all.
  */
 
 export type PlanPhase = "active" | "grace" | "blocked";
@@ -30,13 +34,13 @@ export interface PlanExpiryInfo {
 /**
  * Full state needed to determine whether a host is blocked.
  * For free-plan hosts only plan_type + plan_free_expires_at are needed; other
- * fields are ignored. Fixed-rate needs has_overdue_invoice. Commission needs
+ * fields are ignored. Fixed-rate needs has_past_due_invoice. Commission needs
  * the wallet fields.
  */
 export interface HostBlockState {
   plan_type: string;
   plan_free_expires_at: string | null;
-  has_overdue_invoice?: boolean;
+  has_past_due_invoice?: boolean;
   wallet_balance?: number;
   wallet_credit_limit?: number | null;
   wallet_negative_since?: string | null;
@@ -80,7 +84,7 @@ export function getPlanExpiryInfo(
  * Check if a host is soft-blocked from new bookings.
  * Behavior depends on plan_type:
  * - free: blocked after GRACE_PERIOD_DAYS past plan_free_expires_at
- * - fixed_rate: blocked if has_overdue_invoice is true
+ * - fixed_rate: blocked if has_past_due_invoice is true (no grace)
  * - commission: blocked if wallet negative > GRACE_PERIOD_DAYS and balance < -credit_limit
  */
 export function isHostBlocked(state: HostBlockState): boolean {
@@ -89,7 +93,7 @@ export function isHostBlocked(state: HostBlockState): boolean {
   }
 
   if (state.plan_type === "fixed_rate") {
-    return state.has_overdue_invoice === true;
+    return state.has_past_due_invoice === true;
   }
 
   if (state.plan_type === "commission") {

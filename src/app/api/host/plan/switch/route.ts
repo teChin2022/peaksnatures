@@ -50,7 +50,7 @@ export async function POST(req: NextRequest) {
 
     const { data: host } = await sc
       .from("hosts")
-      .select("id, plan_type, name, plan_free_expires_at, fixed_rate_override, fixed_rate_term_ends_at, plan_pending_type")
+      .select("id, plan_type, name, plan_free_expires_at, fixed_rate_override, fixed_rate_term_ends_at, plan_pending_type, wallet_balance")
       .eq("user_id", user.id)
       .single();
 
@@ -66,6 +66,7 @@ export async function POST(req: NextRequest) {
       fixed_rate_override: number | null;
       fixed_rate_term_ends_at: string | null;
       plan_pending_type: string | null;
+      wallet_balance: number | null;
     };
 
     const isFixedRateRenewal =
@@ -86,6 +87,41 @@ export async function POST(req: NextRequest) {
       return NextResponse.json(
         { error: "A plan switch is already pending — cancel it first." },
         { status: 400 },
+      );
+    }
+
+    // A fixed-rate host can't walk away from an unpaid invoice by switching to
+    // Commission — the debt has to be settled first. Checked before the wallet
+    // gate below so the host is told to pay the invoice, not to top up.
+    if (typedHost.plan_type === "fixed_rate" && plan_type === "commission") {
+      const { data: openInvoices } = await sc
+        .from("invoices")
+        .select("id, amount, due_date")
+        .eq("host_id", typedHost.id)
+        .in("status", ["pending", "overdue"])
+        .order("due_date", { ascending: true })
+        .limit(1);
+
+      const openInvoice = (openInvoices as { id: string; amount: number; due_date: string }[] | null)?.[0];
+      if (openInvoice) {
+        return NextResponse.json(
+          {
+            error: "UNPAID_INVOICE",
+            invoice_id: openInvoice.id,
+            amount: openInvoice.amount,
+            due_date: openInvoice.due_date,
+          },
+          { status: 402 },
+        );
+      }
+    }
+
+    // Commission is deducted from the wallet per booking, so an empty wallet
+    // would go negative on the very first booking. Require funds up front.
+    if (plan_type === "commission" && (typedHost.wallet_balance ?? 0) <= 0) {
+      return NextResponse.json(
+        { error: "WALLET_EMPTY", wallet_balance: typedHost.wallet_balance ?? 0 },
+        { status: 402 },
       );
     }
 

@@ -47,6 +47,7 @@ export interface Database {
           wallet_balance: number;
           wallet_credit_limit: number;
           wallet_negative_since: string | null;
+          wallet_low_notified_at: string | null;
           commission_pct_override: number | null;
           fixed_rate_override: number | null;
           fixed_rate_term_months: number | null;
@@ -87,6 +88,7 @@ export interface Database {
           wallet_balance?: number;
           wallet_credit_limit?: number;
           wallet_negative_since?: string | null;
+          wallet_low_notified_at?: string | null;
           commission_pct_override?: number | null;
           fixed_rate_override?: number | null;
           fixed_rate_term_months?: number | null;
@@ -127,6 +129,7 @@ export interface Database {
           wallet_balance?: number;
           wallet_credit_limit?: number;
           wallet_negative_since?: string | null;
+          wallet_low_notified_at?: string | null;
           commission_pct_override?: number | null;
           fixed_rate_override?: number | null;
           fixed_rate_term_months?: number | null;
