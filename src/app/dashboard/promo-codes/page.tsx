@@ -149,6 +149,18 @@ type RedemptionRow = PromoRedemption & {
 
 type RedemptionFilter = "all" | "pending" | "paid" | "cancelled";
 
+/**
+ * What the delete dialog needs to know about the code being removed.
+ * `blocking*` counts only redemptions with commission still owed — a ฿0
+ * redemption stays at "pending" forever (there is no Mark Paid flow for it),
+ * so it must never block deletion.
+ */
+type DeleteStats = {
+  total: number;
+  blockingCount: number;
+  blockingAmount: number;
+};
+
 type RecommenderRow = {
   name: string;
   phone: string | null;
@@ -189,6 +201,7 @@ export default function PromoCodesPage() {
 
   const [deleteTarget, setDeleteTarget] = useState<PromoCode | null>(null);
   const [deleting, setDeleting] = useState(false);
+  const [deleteStats, setDeleteStats] = useState<DeleteStats | null>(null);
 
   const [redemptionFilter, setRedemptionFilter] = useState<RedemptionFilter>("all");
   const [redemptionSearch, setRedemptionSearch] = useState("");
@@ -420,36 +433,77 @@ export default function PromoCodesPage() {
     await fetchData();
   }
 
-  function requestDelete(code: PromoCode) {
+  async function requestDelete(code: PromoCode) {
     setDeleteTarget(code);
+    setDeleteStats(null);
+    // Count against the DB rather than the in-memory `redemptions` array — that
+    // one is capped at 200 rows, which would understate the warning shown before
+    // a destructive action.
+    const supabase = createClient();
+    const { data } = await supabase
+      .from("promo_redemptions")
+      .select("payout_status, commission_amount")
+      .eq("promo_code_id", code.id);
+    const rows = (data as { payout_status: string; commission_amount: number }[] | null) || [];
+    const blocking = rows.filter(
+      (r) => r.payout_status === "pending" && Number(r.commission_amount || 0) > 0,
+    );
+    setDeleteStats({
+      total: rows.length,
+      blockingCount: blocking.length,
+      blockingAmount: blocking.reduce((sum, r) => sum + Number(r.commission_amount || 0), 0),
+    });
   }
 
   async function confirmDelete() {
     if (!deleteTarget) return;
-    const code = deleteTarget;
-    const used = redemptions.some((r) => r.promo_code_id === code.id);
     setDeleting(true);
-    const supabase = createClient();
-    if (used) {
-      const { error } = await supabase
-        .from("promo_codes")
-        .update({ is_active: false, updated_by: hostName || "host" } as never)
-        .eq("id", code.id);
-      if (error) {
-        toast.error(t("errorSave"));
+    try {
+      const res = await fetch(`/api/host/promo-codes/${deleteTarget.id}`, { method: "DELETE" });
+      if (res.status === 409) {
+        // Commission was settled elsewhere (or a booking landed) since the dialog
+        // opened — flip to the blocked state with the server's numbers.
+        const body = (await res.json()) as { pendingCount?: number; pendingAmount?: number };
+        const amount = Number(body.pendingAmount || 0);
+        setDeleteStats((prev) => ({
+          total: prev?.total ?? 0,
+          blockingCount: Number(body.pendingCount || 0),
+          blockingAmount: amount,
+        }));
+        toast.error(t("errorPendingPayout", { amount: amount.toLocaleString() }));
         setDeleting(false);
         return;
       }
-      toast.success(t("deactivated"));
-    } else {
-      const { error } = await supabase.from("promo_codes").delete().eq("id", code.id);
-      if (error) {
+      if (!res.ok) {
         toast.error(t("errorSave"));
         setDeleting(false);
         return;
       }
       toast.success(t("deleted"));
+    } catch {
+      toast.error(t("errorSave"));
+      setDeleting(false);
+      return;
     }
+    setDeleteTarget(null);
+    setDeleting(false);
+    await fetchData();
+  }
+
+  async function confirmDeactivate() {
+    if (!deleteTarget) return;
+    setDeleting(true);
+    const supabase = createClient();
+    const { error } = await supabase
+      .from("promo_codes")
+      .update({ is_active: false, updated_by: hostName || "host" } as never)
+      .eq("id", deleteTarget.id);
+    if (error) {
+      toast.error(t("errorSave"));
+      setDeleting(false);
+      return;
+    }
+    toast.success(t("deactivated"));
     setDeleteTarget(null);
     setDeleting(false);
     await fetchData();
@@ -1856,10 +1910,21 @@ export default function PromoCodesPage() {
           <DialogHeader>
             <DialogTitle>{tc("delete")}</DialogTitle>
             <DialogDescription>
-              {deleteTarget &&
-                (redemptions.some((r) => r.promo_code_id === deleteTarget.id)
-                  ? t("confirmDeactivate")
-                  : t("confirmDelete"))}
+              {!deleteStats ? (
+                <span className="flex items-center gap-2 text-earth-500">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                </span>
+              ) : deleteStats.blockingCount > 0 ? (
+                t("confirmDeleteBlocked", {
+                  amount: deleteStats.blockingAmount.toLocaleString(),
+                  name: deleteTarget?.recommender_name || t("recommender"),
+                })
+              ) : (
+                t("confirmDelete", {
+                  code: deleteTarget?.code || "",
+                  count: deleteStats.total,
+                })
+              )}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>
@@ -1871,14 +1936,29 @@ export default function PromoCodesPage() {
             >
               {tc("cancel")}
             </Button>
-            <Button
-              onClick={confirmDelete}
-              disabled={deleting}
-              className="cursor-pointer bg-red-600 text-white hover:bg-red-700"
-            >
-              {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-              {tc("delete")}
-            </Button>
+            {deleteStats && deleteStats.blockingCount > 0 ? (
+              // Commission still owed — deactivating is the only way out until
+              // the payout is marked paid. Already-inactive codes get no button.
+              deleteTarget?.is_active ? (
+                <Button
+                  onClick={confirmDeactivate}
+                  disabled={deleting}
+                  className="cursor-pointer bg-brand text-white hover:brightness-90"
+                >
+                  {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  {t("deactivate")}
+                </Button>
+              ) : null
+            ) : (
+              <Button
+                onClick={confirmDelete}
+                disabled={deleting || !deleteStats}
+                className="cursor-pointer bg-red-600 text-white hover:bg-red-700"
+              >
+                {deleting && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                {tc("delete")}
+              </Button>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>
