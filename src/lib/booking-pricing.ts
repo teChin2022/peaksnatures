@@ -168,6 +168,38 @@ export async function verifyRoomLineItem(
 }
 
 /**
+ * The room's own rate for a stay: the seasonal price for every night a season
+ * covers, the room's base price for the rest. No options, no guest-composition
+ * surcharge — just what the room is configured to cost.
+ *
+ * Used as the commission base for quick bookings, whose `total_price` is a
+ * host-entered figure (what they charged via an OTA or at the door) and may be
+ * 0. Returns null if the room no longer exists or the date range is invalid.
+ */
+export async function computeRoomRateTotal(
+  supabase: ServiceClient,
+  roomId: string,
+  checkIn: string,
+  checkOut: string,
+): Promise<number | null> {
+  const [{ data: roomRow }, { data: seasonRows }] = await Promise.all([
+    supabase.from("rooms").select("price_per_night").eq("id", roomId).single(),
+    supabase.from("room_seasonal_prices").select("*").eq("room_id", roomId),
+  ]);
+
+  const room = roomRow as unknown as { price_per_night: number } | null;
+  if (!room) return null;
+
+  const start = new Date(checkIn);
+  const end = new Date(checkOut);
+  if (!(end > start)) return null;
+
+  const seasons = (seasonRows as unknown as RoomSeasonalPrice[]) || [];
+  const { total } = calculateTotalPrice(room.price_per_night, start, end, seasons);
+  return total;
+}
+
+/**
  * Split an integer `total` across `weights` proportionally, using largest-remainder
  * rounding so the parts sum back to `total` EXACTLY (keeps GMV/commission exact when
  * splitting a cart discount or payment across its member rooms). The rounding

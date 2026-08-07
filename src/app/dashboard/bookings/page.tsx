@@ -195,6 +195,7 @@ export default function BookingsPage() {
 
   const [userId, setUserId] = useState<string | null>(null);
   const [hostName, setHostName] = useState<string | null>(null);
+  const [hostPlanType, setHostPlanType] = useState<string | null>(null);
   const [quickBookingOpen, setQuickBookingOpen] = useState(false);
   const [quickBookingRooms, setQuickBookingRooms] = useState<{ id: string; name: string; price_per_night: number; max_guests: number }[]>([]);
   const [firstHomestayId, setFirstHomestayId] = useState<string | null>(null);
@@ -231,15 +232,16 @@ export default function BookingsPage() {
     // Get host
     const { data: hostRow } = await supabase
       .from("hosts")
-      .select("id, name")
+      .select("id, name, plan_type")
       .eq("user_id", user.id)
       .single();
-    const host = hostRow as { id: string; name: string } | null;
+    const host = hostRow as { id: string; name: string; plan_type: string } | null;
     if (!host) {
       setLoading(false);
       return;
     }
     setHostName(host.name);
+    setHostPlanType(host.plan_type);
 
     // Get homestays for this host
     const { data: homestayRows } = await supabase
@@ -1268,6 +1270,11 @@ export default function BookingsPage() {
               {t("cancelConfirmDesc", { guest: cancelTarget?.guest_name || "" })}
             </DialogDescription>
           </DialogHeader>
+          {hostPlanType === "commission" && cancelTarget?.status === "confirmed" && (
+            <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
+              <p className="text-xs text-amber-800">{t("cancelCommissionNotice")}</p>
+            </div>
+          )}
           <div>
             <Label htmlFor="cancel-reason">{t("cancelReason")}</Label>
             <Textarea

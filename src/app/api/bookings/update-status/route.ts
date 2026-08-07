@@ -5,7 +5,7 @@ import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supab
 import { sendBookingStatusUpdateEmail } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room } from "@/types/database";
 import { logEvent, EventType } from "@/lib/history-log";
-import { deductCommission, refundCommission } from "@/lib/billing";
+import { deductCommission } from "@/lib/billing";
 import { cancelRedemptionForBooking } from "@/lib/promo-redemptions-server";
 
 export async function POST(req: NextRequest) {
@@ -154,11 +154,14 @@ export async function POST(req: NextRequest) {
       });
 
       // Commission handling — must run before notifications. Applies per member
-      // room so a multi-room group settles/refunds the whole cart's commission.
+      // room so a multi-room group settles the whole cart's commission.
+      //
+      // Cancelling does NOT refund — deliberate policy. Once a booking is
+      // confirmed the platform has earned its fee, and it stays charged whether
+      // the guest or the host cancels. Admins can hand it back manually via the
+      // wallet adjustment at /admin/hosts if a genuine mistake occurs.
       if (status === "confirmed") {
         for (const id of memberIds) await deductCommission(id);
-      } else if (status === "cancelled" && booking.status === "confirmed") {
-        for (const id of memberIds) await refundCommission(id);
       }
 
       try {

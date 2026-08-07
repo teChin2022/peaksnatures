@@ -487,6 +487,7 @@
     "cancelReason": "Reason for cancellation (optional)",
     "cancelReasonPlaceholder": "e.g. Payment slip is invalid, wrong amount...",
     "cancelReasonHint": "This reason will be included in the email sent to the guest.",
+    "cancelCommissionNotice": "The commission already charged for this booking will not be returned to your wallet.",
     "cancelledByGuest": "Cancelled by guest",
     "cancelledByHost": "Cancelled by host",
     "markCompleted": "Mark Completed",

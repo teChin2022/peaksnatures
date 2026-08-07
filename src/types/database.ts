@@ -386,6 +386,7 @@ export interface Database {
           num_guests: number;
           total_price: number;
           discount_amount: number;
+          commission_base: number | null;
           status: BookingStatus;
           payment_slip_url: string | null;
           easyslip_verified: boolean;
@@ -423,6 +424,7 @@ export interface Database {
           num_guests: number;
           total_price: number;
           discount_amount?: number;
+          commission_base?: number | null;
           status?: BookingStatus;
           payment_slip_url?: string | null;
           easyslip_verified?: boolean;
@@ -459,6 +461,7 @@ export interface Database {
           num_guests?: number;
           total_price?: number;
           discount_amount?: number;
+          commission_base?: number | null;
           status?: BookingStatus;
           payment_slip_url?: string | null;
           easyslip_verified?: boolean;

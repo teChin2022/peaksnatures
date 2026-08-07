@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
+import { computeRoomRateTotal } from "@/lib/booking-pricing";
+import { deductCommission } from "@/lib/billing";
 
 const quickBookingSchema = z.object({
   homestay_id: z.string().uuid(),
@@ -178,6 +180,26 @@ export async function POST(req: NextRequest) {
         { status: 500 }
       );
     }
+
+    // Commission base: the room's own configured rate for these dates, not the
+    // host-entered total_price (an OTA/walk-in figure that defaults to 0). Stored
+    // on the row so a retry from the billing queue reuses the same base.
+    const commissionBase = await computeRoomRateTotal(
+      supabase,
+      data.room_id,
+      data.check_in,
+      data.check_out,
+    );
+    if (commissionBase && commissionBase > 0) {
+      await supabase
+        .from("bookings")
+        .update({ commission_base: commissionBase } as never)
+        .eq("id", bookingId as string);
+    }
+
+    // Commission deduction is financial — run synchronously before responding,
+    // matching POST /api/bookings. No-ops for free and fixed-rate hosts.
+    await deductCommission(bookingId as string);
 
     // Fetch created booking
     const { data: booking } = await supabase

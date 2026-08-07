@@ -203,11 +203,17 @@ export async function deductCommission(bookingId: string): Promise<void> {
     // Fetch booking with homestay and host info
     const { data: bookingRow, error: bookingError } = await supabase
       .from("bookings")
-      .select("id, total_price, discount_amount, homestay_id")
+      .select("id, total_price, discount_amount, commission_base, homestay_id")
       .eq("id", bookingId)
       .single();
 
-    const booking = bookingRow as { id: string; total_price: number; discount_amount: number | null; homestay_id: string } | null;
+    const booking = bookingRow as {
+      id: string;
+      total_price: number;
+      discount_amount: number | null;
+      commission_base: number | null;
+      homestay_id: string;
+    } | null;
     if (bookingError || !booking) {
       console.error("[Billing] Booking not found for commission:", bookingId);
       return;
@@ -269,7 +275,12 @@ export async function deductCommission(bookingId: string): Promise<void> {
     // a host-issued promo doesn't silently shrink the platform's cut.
     // total_price is post-discount; adding discount_amount reconstructs
     // the original subtotal.
-    const commissionBase = booking.total_price + (booking.discount_amount || 0);
+    //
+    // commission_base overrides that when set — quick bookings carry a
+    // host-entered total_price (an OTA/walk-in figure that may be 0), so they
+    // are charged on the room's own configured rate instead.
+    const commissionBase =
+      booking.commission_base ?? booking.total_price + (booking.discount_amount || 0);
     // Wallet stores integer baht. Floor sub-baht commissions up to 1 so
     // small bookings still deduct something instead of silently rounding to 0.
     const rawCommission = commissionBase * commissionPct / 100;
