@@ -1,6 +1,5 @@
 import Link from "next/link";
-import Image from "next/image";
-import { ArrowLeft, ShieldCheck, CreditCard, Star, QrCode, Lock } from "lucide-react";
+import { ArrowLeft, CreditCard, Star, QrCode, Lock } from "lucide-react";
 import { getTranslations } from "next-intl/server";
 import { Button } from "@/components/ui/button";
 import { LanguageSwitcher } from "@/components/language-switcher";
@@ -37,16 +36,17 @@ export default async function TrustSafetyPage() {
       {/* Header */}
       <header className="sticky top-0 z-50 border-b bg-white/80 backdrop-blur-md">
         <div className="mx-auto flex h-16 max-w-7xl items-center justify-between px-4 sm:px-6">
-          <Link href="/" className="flex items-center gap-2">
-            <Image src="/logo.png" alt="Peaksnature" width={32} height={32} className="h-8 w-8 rounded" />
+          <Link
+            href="/"
+            className="flex items-center rounded-md outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+          >
             <span className="text-xl font-bold text-brand">{tc("brand")}</span>
           </Link>
-          <nav className="flex items-center gap-4">
+          <nav className="flex items-center gap-1">
             <LanguageSwitcher />
-            <Button variant="outline" size="sm" asChild>
-              <Link href="/">
-                <ArrowLeft className="mr-1 h-4 w-4" />
-                {tc("back")}
+            <Button variant="outline" size="icon" className="size-11" asChild>
+              <Link href="/" aria-label={tc("back")} title={tc("back")}>
+                <ArrowLeft className="h-4 w-4" />
               </Link>
             </Button>
           </nav>
@@ -56,9 +56,6 @@ export default async function TrustSafetyPage() {
       {/* Hero */}
       <section className="bg-gradient-to-b from-brand-50 to-white py-16">
         <div className="mx-auto max-w-3xl px-4 text-center sm:px-6">
-          <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-full bg-brand-50">
-            <ShieldCheck className="h-7 w-7 text-brand" />
-          </div>
           <h1 className="text-3xl font-bold text-gray-900 sm:text-4xl">{t("title")}</h1>
           <p className="mt-2 text-gray-600">{t("subtitle")}</p>
         </div>
