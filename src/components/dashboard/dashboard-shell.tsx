@@ -24,6 +24,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const [brandName, setBrandName] = useState("Peaksnature");
   const [brandLogo, setBrandLogo] = useState<string | null>(null);
   const [expiryInfo, setExpiryInfo] = useState<PlanExpiryInfo | null>(null);
+  const [invoiceBlocked, setInvoiceBlocked] = useState(false);
 
   useEffect(() => {
     const fetchBrand = async () => {
@@ -49,6 +50,22 @@ export function DashboardShell({ children }: DashboardShellProps) {
       // since the scheduled switch will resolve the expiry.
       const info = getPlanExpiryInfo(hostRow.plan_type, hostRow.plan_free_expires_at);
       setExpiryInfo(info.phase !== "active" && !hostRow.plan_pending_type ? info : null);
+
+      // Fixed-rate hosts are blocked the day after an invoice's due date. The
+      // expiry phase above only covers the free plan, so without this they'd
+      // lose bookings with no dashboard-wide explanation.
+      if (hostRow.plan_type === "fixed_rate") {
+        const today = new Date().toISOString().split("T")[0];
+        const { data: pastDue } = await supabase
+          .from("invoices")
+          .select("id")
+          .eq("host_id", hostRow.id)
+          .or(`status.eq.overdue,and(status.eq.pending,due_date.lt.${today})`)
+          .limit(1);
+        setInvoiceBlocked(((pastDue as unknown[] | null)?.length ?? 0) > 0);
+      } else {
+        setInvoiceBlocked(false);
+      }
 
       const { data: homestay } = await supabase
         .from("homestays")
@@ -119,6 +136,26 @@ export function DashboardShell({ children }: DashboardShellProps) {
               <Link href="/dashboard/billing">
                 <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white text-xs shrink-0">
                   {t("upgradePlan")}
+                </Button>
+              </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Fixed-rate banner — unpaid invoice past its due date */}
+        {invoiceBlocked && (
+          <div className="mx-4 sm:mx-6 lg:mx-8 mt-4">
+            <div className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-3">
+              <div className="rounded-lg bg-red-100 p-2 shrink-0">
+                <ShieldAlert className="h-4 w-4 text-red-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-red-800">{t("blockedTitle")}</p>
+                <p className="text-xs text-red-600 mt-0.5">{t("invoiceBlockedDesc")}</p>
+              </div>
+              <Link href="/dashboard/billing">
+                <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white text-xs shrink-0">
+                  {t("payNow")}
                 </Button>
               </Link>
             </div>

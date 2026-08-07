@@ -3,6 +3,15 @@ import { logEvent, EventType } from "@/lib/history-log";
 import type { HostBlockState } from "@/lib/plan-expiry";
 import type { FixedRateTermTier, Host, PlatformBillingConfig } from "@/types/database";
 
+type ServiceClient = ReturnType<typeof createServiceRoleClient>;
+
+/**
+ * Commission hosts are warned by SMS/LINE once their wallet dips below this,
+ * giving them room to top up before the balance goes negative and the
+ * GRACE_PERIOD_DAYS countdown to a booking block starts.
+ */
+export const LOW_WALLET_THRESHOLD = 300;
+
 /**
  * Get the platform billing config (singleton row).
  */
@@ -92,6 +101,58 @@ export function computeFixedRateInvoice(
   return { amount, period_start, period_end, term_months: months, discount_pct: discount };
 }
 
+/** Today as YYYY-MM-DD (UTC), matching how invoice due_date is written. */
+export function utcToday(): string {
+  return new Date().toISOString().split("T")[0];
+}
+
+/**
+ * PostgREST filter for "this invoice is blocking the host".
+ *
+ * Two ways an invoice blocks:
+ *  - status = 'overdue' — either the cron flipped it, or an admin marked it
+ *    overdue by hand (which stays a working lever even before the due date).
+ *  - status = 'pending' and the due date has passed — the block is driven by
+ *    due_date directly rather than waiting on the cron, so a missed or failed
+ *    cron run can't hand a non-paying host extra free days.
+ *
+ * `due_date < today` means an invoice due on the 5th still allows bookings on
+ * the 5th and blocks them from the 6th onwards.
+ */
+export function blockingInvoiceFilter(today = utcToday()): string {
+  return `status.eq.overdue,and(status.eq.pending,due_date.lt.${today})`;
+}
+
+/** Host ids among `hostIds` that have an invoice blocking new bookings. */
+export async function fetchPastDueHostIds(
+  hostIds: string[],
+  client?: ServiceClient,
+): Promise<Set<string>> {
+  if (hostIds.length === 0) return new Set();
+  const supabase = client ?? createServiceRoleClient();
+  const { data } = await supabase
+    .from("invoices")
+    .select("host_id")
+    .in("host_id", hostIds)
+    .or(blockingInvoiceFilter());
+  return new Set(((data as { host_id: string }[] | null) ?? []).map((r) => r.host_id));
+}
+
+/** Single-host variant of fetchPastDueHostIds. */
+export async function hasPastDueInvoice(
+  hostId: string,
+  client?: ServiceClient,
+): Promise<boolean> {
+  const supabase = client ?? createServiceRoleClient();
+  const { data } = await supabase
+    .from("invoices")
+    .select("id")
+    .eq("host_id", hostId)
+    .or(blockingInvoiceFilter())
+    .limit(1);
+  return ((data as unknown[] | null)?.length ?? 0) > 0;
+}
+
 /**
  * Fetch the full state needed by isHostBlocked for a given host.
  * Does one hosts read and (for fixed_rate) one invoices read.
@@ -113,16 +174,8 @@ export async function getHostBlockState(hostId: string): Promise<HostBlockState 
     wallet_negative_since: string | null;
   };
 
-  let has_overdue_invoice = false;
-  if (host.plan_type === "fixed_rate") {
-    const { data: overdueRows } = await supabase
-      .from("invoices")
-      .select("id")
-      .eq("host_id", hostId)
-      .eq("status", "overdue")
-      .limit(1);
-    has_overdue_invoice = ((overdueRows as unknown[] | null)?.length ?? 0) > 0;
-  }
+  const has_past_due_invoice =
+    host.plan_type === "fixed_rate" ? await hasPastDueInvoice(hostId, supabase) : false;
 
   return {
     plan_type: host.plan_type,
@@ -130,7 +183,7 @@ export async function getHostBlockState(hostId: string): Promise<HostBlockState 
     wallet_balance: host.wallet_balance ?? 0,
     wallet_credit_limit: host.wallet_credit_limit,
     wallet_negative_since: host.wallet_negative_since,
-    has_overdue_invoice,
+    has_past_due_invoice,
   };
 }
 
@@ -142,19 +195,34 @@ export async function getHostBlockState(hostId: string): Promise<HostBlockState 
  *
  * Idempotent: skips if commission already deducted (and not refunded).
  * Supports date-change cycles (deduct → refund → deduct).
+ *
+ * `commissionBaseOverride` is for callers that computed the base themselves
+ * (quick bookings, charged on the room rate rather than total_price). They also
+ * persist it to bookings.commission_base for the retry queue — passing it here
+ * as well means a failed persist can't silently downgrade the charge to
+ * total_price, which for a quick booking is often 0.
  */
-export async function deductCommission(bookingId: string): Promise<void> {
+export async function deductCommission(
+  bookingId: string,
+  commissionBaseOverride?: number,
+): Promise<void> {
   const supabase = createServiceRoleClient();
 
   try {
     // Fetch booking with homestay and host info
     const { data: bookingRow, error: bookingError } = await supabase
       .from("bookings")
-      .select("id, total_price, discount_amount, homestay_id")
+      .select("id, total_price, discount_amount, commission_base, homestay_id")
       .eq("id", bookingId)
       .single();
 
-    const booking = bookingRow as { id: string; total_price: number; discount_amount: number | null; homestay_id: string } | null;
+    const booking = bookingRow as {
+      id: string;
+      total_price: number;
+      discount_amount: number | null;
+      commission_base: number | null;
+      homestay_id: string;
+    } | null;
     if (bookingError || !booking) {
       console.error("[Billing] Booking not found for commission:", bookingId);
       return;
@@ -216,7 +284,14 @@ export async function deductCommission(bookingId: string): Promise<void> {
     // a host-issued promo doesn't silently shrink the platform's cut.
     // total_price is post-discount; adding discount_amount reconstructs
     // the original subtotal.
-    const commissionBase = booking.total_price + (booking.discount_amount || 0);
+    //
+    // commission_base overrides that when set — quick bookings carry a
+    // host-entered total_price (an OTA/walk-in figure that may be 0), so they
+    // are charged on the room's own configured rate instead.
+    const commissionBase =
+      commissionBaseOverride ??
+      booking.commission_base ??
+      booking.total_price + (booking.discount_amount || 0);
     // Wallet stores integer baht. Floor sub-baht commissions up to 1 so
     // small bookings still deduct something instead of silently rounding to 0.
     const rawCommission = commissionBase * commissionPct / 100;

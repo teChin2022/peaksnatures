@@ -5,7 +5,6 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendHostCancellationLineNotification, sendHostCancellationSmsNotification, dispatchHostNotification, buildCancellationMessage } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room } from "@/types/database";
 import { logEvent, EventType } from "@/lib/history-log";
-import { refundCommission } from "@/lib/billing";
 import { cancelRedemptionForBooking } from "@/lib/promo-redemptions-server";
 
 export async function POST(req: NextRequest) {
@@ -148,7 +147,10 @@ export async function POST(req: NextRequest) {
         req,
       });
 
-      await refundCommission(booking_id);
+      // No commission refund on cancellation — deliberate policy. Once a
+      // booking is confirmed the platform has earned its fee, and it stays
+      // charged whoever cancels. Admins can hand it back manually via the
+      // wallet adjustment at /admin/hosts if a genuine mistake occurs.
 
       try {
         let room = undefined;

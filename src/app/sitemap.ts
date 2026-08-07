@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { isHostBlocked } from "@/lib/plan-expiry";
+import { fetchPastDueHostIds } from "@/lib/billing";
 import { SITE_URL } from "@/lib/seo";
 
 export const revalidate = 3600;
@@ -73,26 +74,23 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     if (homestays.length === 0) return staticEntries;
 
     const hostIds = [...new Set(homestays.map((h) => h.host_id))];
-    const [{ data: hostRows }, { data: overdueRows }] = await Promise.all([
+    const [{ data: hostRows }, pastDueHostIds] = await Promise.all([
       supabase
         .from("hosts")
         .select(
           "id, plan_type, plan_free_expires_at, wallet_balance, wallet_credit_limit, wallet_negative_since",
         )
         .in("id", hostIds),
-      supabase.from("invoices").select("host_id").in("host_id", hostIds).eq("status", "overdue"),
+      fetchPastDueHostIds(hostIds, supabase),
     ]);
 
-    const overdueHostIds = new Set<string>(
-      ((overdueRows as { host_id: string }[] | null) ?? []).map((r) => r.host_id),
-    );
     const blockedHostIds = new Set<string>();
     for (const host of (hostRows as HostRow[] | null) ?? []) {
       if (
         isHostBlocked({
           plan_type: host.plan_type,
           plan_free_expires_at: host.plan_free_expires_at,
-          has_overdue_invoice: overdueHostIds.has(host.id),
+          has_past_due_invoice: pastDueHostIds.has(host.id),
           wallet_balance: host.wallet_balance ?? 0,
           wallet_credit_limit: host.wallet_credit_limit,
           wallet_negative_since: host.wallet_negative_since,

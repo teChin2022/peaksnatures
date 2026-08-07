@@ -47,6 +47,7 @@ export interface Database {
           wallet_balance: number;
           wallet_credit_limit: number;
           wallet_negative_since: string | null;
+          wallet_low_notified_at: string | null;
           commission_pct_override: number | null;
           fixed_rate_override: number | null;
           fixed_rate_term_months: number | null;
@@ -87,6 +88,7 @@ export interface Database {
           wallet_balance?: number;
           wallet_credit_limit?: number;
           wallet_negative_since?: string | null;
+          wallet_low_notified_at?: string | null;
           commission_pct_override?: number | null;
           fixed_rate_override?: number | null;
           fixed_rate_term_months?: number | null;
@@ -127,6 +129,7 @@ export interface Database {
           wallet_balance?: number;
           wallet_credit_limit?: number;
           wallet_negative_since?: string | null;
+          wallet_low_notified_at?: string | null;
           commission_pct_override?: number | null;
           fixed_rate_override?: number | null;
           fixed_rate_term_months?: number | null;
@@ -383,6 +386,7 @@ export interface Database {
           num_guests: number;
           total_price: number;
           discount_amount: number;
+          commission_base: number | null;
           status: BookingStatus;
           payment_slip_url: string | null;
           easyslip_verified: boolean;
@@ -420,6 +424,7 @@ export interface Database {
           num_guests: number;
           total_price: number;
           discount_amount?: number;
+          commission_base?: number | null;
           status?: BookingStatus;
           payment_slip_url?: string | null;
           easyslip_verified?: boolean;
@@ -456,6 +461,7 @@ export interface Database {
           num_guests?: number;
           total_price?: number;
           discount_amount?: number;
+          commission_base?: number | null;
           status?: BookingStatus;
           payment_slip_url?: string | null;
           easyslip_verified?: boolean;

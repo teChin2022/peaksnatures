@@ -1,5 +1,4 @@
 import Link from "next/link";
-import Image from "next/image";
 import { getTranslations } from "next-intl/server";
 
 export async function PlatformFooter() {
@@ -65,12 +64,9 @@ export async function PlatformFooter() {
         {/* Bottom bar */}
         <div className="mt-8 border-t pt-6">
           <div className="flex flex-col items-center gap-3 text-center sm:flex-row sm:justify-between">
-            <div className="flex items-center gap-2">
-              <Image src="/logo.png" alt="Peaksnature" width={20} height={20} className="h-5 w-5 rounded" />
-              <span className="text-sm text-gray-500">
-                {`\u00A9 ${new Date().getFullYear()} ${tc("brand")}.com ${tc("copyright")}`}
-              </span>
-            </div>
+            <span className="text-sm text-gray-500">
+              {`\u00A9 ${new Date().getFullYear()} ${tc("brand")}.com ${tc("copyright")}`}
+            </span>
           </div>
         </div>
       </div>

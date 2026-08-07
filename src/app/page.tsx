@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { isHostBlocked } from "@/lib/plan-expiry";
+import { fetchPastDueHostIds } from "@/lib/billing";
 import type { Homestay, Room } from "@/types/database";
 import { LandingNavbar } from "@/components/landing/navbar";
 import { LandingContent } from "@/components/landing/landing-content";
@@ -50,7 +51,7 @@ export default async function Home() {
   const homestayIds = homestays.map((h) => h.id);
   const hostIds = [...new Set(homestays.map((h) => h.host_id))];
 
-  const [{ data: roomRows }, { data: hostRows }, { data: reviewRows }, { data: overdueRows }] = homestayIds.length
+  const [{ data: roomRows }, { data: hostRows }, { data: reviewRows }, pastDueHostIds] = homestayIds.length
     ? await Promise.all([
         supabase
           .from("rooms")
@@ -65,13 +66,9 @@ export default async function Home() {
           .from("reviews")
           .select("homestay_id, rating")
           .in("homestay_id", homestayIds),
-        supabase
-          .from("invoices")
-          .select("host_id")
-          .in("host_id", hostIds)
-          .eq("status", "overdue"),
+        fetchPastDueHostIds(hostIds, supabase),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }, { data: [] }];
+    : [{ data: [] }, { data: [] }, { data: [] }, new Set<string>()];
 
   const rooms = (roomRows as unknown as Pick<Room, "homestay_id" | "price_per_night">[]) || [];
   const minPriceMap = new Map<string, number>();
@@ -81,10 +78,6 @@ export default async function Home() {
       minPriceMap.set(r.homestay_id, r.price_per_night);
     }
   }
-
-  const overdueHostIds = new Set<string>(
-    ((overdueRows as { host_id: string }[]) || []).map((r) => r.host_id),
-  );
 
   const hostVerifiedMap = new Map<string, boolean>();
   const blockedHostIds = new Set<string>();
@@ -102,7 +95,7 @@ export default async function Home() {
       isHostBlocked({
         plan_type: host.plan_type,
         plan_free_expires_at: host.plan_free_expires_at,
-        has_overdue_invoice: overdueHostIds.has(host.id),
+        has_past_due_invoice: pastDueHostIds.has(host.id),
         wallet_balance: host.wallet_balance ?? 0,
         wallet_credit_limit: host.wallet_credit_limit,
         wallet_negative_since: host.wallet_negative_since,
