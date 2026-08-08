@@ -2,7 +2,7 @@
 
 import { useState, useEffect } from "react";
 import { motion, AnimatePresence, useReducedMotion } from "motion/react";
-import { CalendarDays, ShoppingCart, ArrowRight } from "lucide-react";
+import { ShoppingCart, ArrowRight } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { Button } from "@/components/ui/button";
 import {
@@ -28,14 +28,15 @@ interface MobileBookingBarProps {
 type BookingStep = "dates" | "details" | "payment";
 
 // Shared focus-visible treatment for the bar's two tap targets (keyboard a11y).
-// Inset — the segmented pill clips overflow, so an offset ring would be cut off.
+// Inset — the pill clips overflow, so an offset ring would be cut off — and
+// white, because a brand ring is invisible against the brand-filled pill.
 const FOCUS_RING =
-  "focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand";
+  "focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-white";
 
-// Shared height + press feedback for both halves of the pill; each zone adds its
-// own layout (the date side is a text stack, the cart side is a centred icon).
+// Shared height + press feedback for both halves of the pill. The pill owns the
+// fill and the rounding; each half only paints its own hover state on top.
 const ZONE =
-  "flex min-h-14 cursor-pointer touch-manipulation items-center transition-colors hover:bg-earth-100 active:bg-earth-100";
+  "flex min-h-14 cursor-pointer touch-manipulation items-center justify-center transition-colors hover:bg-brand-hover active:bg-brand-hover disabled:cursor-not-allowed";
 
 export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBookingBarProps) {
   const t = useTranslations("common");
@@ -136,34 +137,40 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
             transition={reduceMotion ? { duration: 0.15 } : { type: "spring", damping: 25, stiffness: 300 }}
             className="fixed bottom-0 inset-x-0 z-40 border-t border-earth-200 bg-white/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)] md:hidden"
           >
-            {/* Segmented pill: a wide date field on the left, the icon-only cart
-                on the right. The date stack keeps a fixed two-line shape so the
-                bar never reflows once dates are picked. */}
+            {/* One solid pill so the two halves read as a single control — a
+                near-white cart tile beside a heavy brand block looked like a gap
+                in the bar rather than a button. The pill carries the fill, the
+                rounding and the disabled dimming for both halves. */}
             <div className="px-3 py-2.5">
-              <div className="flex items-stretch overflow-hidden rounded-2xl bg-earth-50 ring-1 ring-earth-200">
-                {/* Dates — opens the shared calendar, then scrolls to the rooms.
-                    No aria-label: the visible date text is the accessible name. */}
+              <div
+                className={`flex items-stretch overflow-hidden rounded-2xl bg-brand text-white ${
+                  bookingDisabled ? "opacity-40" : ""
+                }`}
+              >
+                {/* Primary action — always opens the calendar, so it doubles as
+                    the "change my dates" affordance once a range is picked; the
+                    dialog's onDone then nudges down to the rooms. Once dates
+                    exist they ride along as a second line, which also makes them
+                    part of the button's accessible name. */}
                 <button
                   type="button"
                   onClick={() => setCalendarOpen(true)}
-                  className={`min-w-0 flex-1 gap-2.5 px-3 py-2 text-left ${ZONE} ${FOCUS_RING}`}
+                  disabled={bookingDisabled}
+                  className={`flex-1 flex-col gap-0.5 px-4 ${ZONE} ${FOCUS_RING}`}
                 >
-                  <CalendarDays size={20} className="shrink-0 text-brand" />
-                  <span className="flex min-w-0 flex-col leading-tight">
-                    <span className="truncate text-[10px] font-semibold uppercase tracking-wider text-earth-500">
-                      {hasDates
-                        ? `${nights} ${nights > 1 ? t("nights") : t("night")}`
-                        : `${tb("checkInLabel")} — ${tb("checkOutLabel")}`}
+                  <span className="text-sm font-bold uppercase tracking-widest">{tb("bookHouse")}</span>
+                  {hasDates && (
+                    // 85% white on brand clears AA at this size (5.9:1); any
+                    // lighter and the 11px line would fail.
+                    <span className="whitespace-nowrap text-[11px] font-medium leading-tight text-white/85">
+                      {fmtDate(dateRange!.from!, "d MMM", locale)} – {fmtDate(dateRange!.to!, "d MMM", locale)} {nights}{" "}
+                      {nights > 1 ? t("nights") : t("night")}
                     </span>
-                    <span className={`truncate text-sm font-bold ${hasDates ? "text-earth-900" : "text-earth-500"}`}>
-                      {hasDates
-                        ? `${fmtDate(dateRange!.from!, "d MMM", locale)} – ${fmtDate(dateRange!.to!, "d MMM", locale)}`
-                        : tb("selectDates")}
-                    </span>
-                  </span>
+                  )}
                 </button>
 
-                <span aria-hidden className="my-2 w-px shrink-0 bg-earth-200" />
+                {/* Hairline seam so the cart still reads as its own tap target */}
+                <span aria-hidden className="my-2 w-px shrink-0 bg-white/20" />
 
                 {/* Cart — e-commerce icon + count badge; opens the details sheet */}
                 <button
@@ -171,15 +178,15 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
                   onClick={() => setSheetOpen(true)}
                   disabled={bookingDisabled}
                   aria-label={cartLabel}
-                  className={`w-17 shrink-0 justify-center ${ZONE} ${FOCUS_RING} disabled:cursor-not-allowed disabled:opacity-40`}
+                  className={`w-17 shrink-0 ${ZONE} ${FOCUS_RING}`}
                 >
-                  <span className="relative text-brand">
+                  <span className="relative">
                     <ShoppingCart size={26} />
                     {cartCount > 0 && (
-                      // Ring matches the pill, not the bar, so the badge sits clean
-                      // on earth-50. `cart-badge-pulse` keyframes live in globals.css
-                      // and self-disable under prefers-reduced-motion.
-                      <span className="cart-badge-pulse [--cart-badge-ring:var(--color-earth-50)] absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F83858] px-1 text-[11px] font-bold leading-none text-white ring-2 ring-earth-50">
+                      // Ring matches the pill it sits on, so the badge reads as a
+                      // clean cut-out. `cart-badge-pulse` lives in globals.css and
+                      // self-disables under prefers-reduced-motion.
+                      <span className="cart-badge-pulse [--cart-badge-ring:var(--color-brand)] absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F83858] px-1 text-[11px] font-bold leading-none text-white ring-2 ring-brand">
                         {cartCount}
                       </span>
                     )}

@@ -262,7 +262,7 @@
    The keyframe redraws the badge's 2px ring itself: animating `box-shadow`
    outranks Tailwind's `ring-*` utility (which is also a box-shadow), so the ring
    would otherwise vanish for the whole animation. --cart-badge-ring is the
-   surface behind the badge — pale earth on the mobile pill, white in the header.
+   surface behind the badge — brand green on the mobile pill, white in the header.
    The static `ring-*` class stays on both badges to cover reduced motion. */
 @keyframes cart-badge-pulse {
   0%, 100% {
