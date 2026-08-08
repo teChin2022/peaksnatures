@@ -131,7 +131,9 @@
     "roomFreeCount": "{count} available",
     "roomLeftCount": "{count} left",
     "roomBooked": "Booked",
-    "roomClosed": "Unavailable"
+    "roomClosed": "Unavailable",
+    "viewDetails": "View details",
+    "bookThisHouse": "Book this house"
   },
   "about": {
     "title": "About this place",
@@ -177,6 +179,8 @@
     "unavailableForDates": "Unavailable for these dates",
     "noAvailableRooms": "No houses available for the selected dates. Please try different dates.",
     "goToPhoto": "Go to photo {number}",
+    "prevPhoto": "Previous photo",
+    "nextPhoto": "Next photo",
     "availabilityTitle": "Availability & Rates",
     "legendBooked": "Booked",
     "legendAvailable": "Available",
@@ -195,6 +199,7 @@
     "stepPayment": "Payment",
     "stepConfirmed": "Confirmed",
     "selectDates": "Select Dates",
+    "bookHouse": "Book a House",
     "selectRoom": "Select House",
     "selectRoomFirst": "Please select a house first to see available dates",
     "selectDatesFirst": "Select your dates first to see available houses",
@@ -298,6 +303,7 @@
     "incompleteDatesDesc": "Please pick both your check-in and check-out dates before finishing.",
     "crossBookedTitle": "Those dates aren't available",
     "crossBookedDesc": "Every house is taken on the night of {date}, so a stay can't run across it. Your check-in is now {newDate} — pick a check-out date to continue.",
+    "crossBookedDescRoom": "This house is already taken on the night of {date}, so a stay can't run across it. Your check-in is now {newDate} — pick a check-out date to continue.",
     "errorBlockedDates": "Selected dates include blocked dates. Please choose different dates.",
     "errorSelectRoom": "Please select a house",
     "errorFillFields": "Please fill in all required fields",

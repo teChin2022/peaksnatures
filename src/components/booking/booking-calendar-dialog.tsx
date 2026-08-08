@@ -32,15 +32,22 @@ import { useBookingCart } from "@/components/booking/booking-cart-context";
  * first tap, so a half-picked range looks "set" but prices nothing — the header
  * below shows which half is still missing, and Done refuses to close until both
  * are picked.
+ *
+ * `roomId` narrows availability to a single room — pass it when the guest picked
+ * a room BEFORE their dates (the availability calendar's "book this house"), so
+ * the picker cannot hand back a range that room can't serve. Omit it on the
+ * room-agnostic date bars, where any room being free is enough.
  */
 export function BookingCalendarDialog({
   open,
   onOpenChange,
   onDone,
+  roomId = null,
 }: {
   open: boolean;
   onOpenChange: (open: boolean) => void;
   onDone?: () => void;
+  roomId?: string | null;
 }) {
   const { dateRange, setDates, nights, catalog, liveBookedRanges } = useBookingCart();
   const t = useTranslations("booking");
@@ -51,28 +58,34 @@ export function BookingCalendarDialog({
   // so the alert below can name the night that blocked it.
   const [crossedNight, setCrossedNight] = useState<string | null>(null);
 
-  // Homestay-wide blocked dates + dates fully booked across EVERY room (a date
-  // stays selectable as long as at least one room is free).
-  const { blockedHomestay, fullyEverywhere } = useMemo(() => {
-    const blocked = new Set(catalog.blockedDates.filter((d) => d.room_id === null).map((d) => d.date));
-    if (catalog.rooms.length === 0) return { blockedHomestay: blocked, fullyEverywhere: new Set<string>() };
-    const perRoom = catalog.rooms.map((r) => getFullyBookedForRoom(r.id, r.quantity || 1, liveBookedRanges));
-    const all = new Set<string>();
-    perRoom.forEach((s) => s.forEach((d) => all.add(d)));
-    const everywhere = new Set<string>();
-    all.forEach((d) => {
-      if (perRoom.every((s) => s.has(d))) everywhere.add(d);
-    });
-    return { blockedHomestay: blocked, fullyEverywhere: everywhere };
-  }, [catalog.blockedDates, catalog.rooms, liveBookedRanges]);
+  // An unknown id falls back to the room-agnostic set rather than to an empty
+  // one, so a stale id can never widen the picker into offering booked nights.
+  const scopedRoom = roomId ? catalog.rooms.find((r) => r.id === roomId) : undefined;
 
-  // Nights nobody can sleep in: closed by the host, or taken in every room.
-  // A blocked night is no more "stayable" than a booked one, so both are equally
-  // fine to check out on.
-  const unavailableNights = useMemo(
-    () => new Set([...blockedHomestay, ...fullyEverywhere]),
-    [blockedHomestay, fullyEverywhere],
-  );
+  /**
+   * Nights nobody can sleep in: closed by the host, or fully booked. A blocked
+   * night is no more "stayable" than a booked one, so both are equally fine to
+   * check out on.
+   *
+   * Scoped to one room, that is its own blocks (plus the homestay-wide ones) and
+   * its own fully-booked nights. Unscoped, a night only counts as unavailable
+   * once EVERY room is taken — the date stays selectable while one room is free.
+   */
+  const unavailableNights = useMemo(() => {
+    if (scopedRoom) {
+      const blocked = catalog.blockedDates
+        .filter((d) => d.room_id === null || d.room_id === scopedRoom.id)
+        .map((d) => d.date);
+      const booked = getFullyBookedForRoom(scopedRoom.id, scopedRoom.quantity || 1, liveBookedRanges);
+      return new Set([...blocked, ...booked]);
+    }
+
+    const blocked = catalog.blockedDates.filter((d) => d.room_id === null).map((d) => d.date);
+    if (catalog.rooms.length === 0) return new Set(blocked);
+    const perRoom = catalog.rooms.map((r) => getFullyBookedForRoom(r.id, r.quantity || 1, liveBookedRanges));
+    const everywhere = [...perRoom[0]].filter((d) => perRoom.every((s) => s.has(d)));
+    return new Set([...blocked, ...everywhere]);
+  }, [scopedRoom, catalog.blockedDates, catalog.rooms, liveBookedRanges]);
 
   const isComplete = nights >= 1;
   // Derived, not stored: the warning disappears the moment the range becomes valid.
@@ -185,7 +198,9 @@ export function BookingCalendarDialog({
             <div>
               <p className="text-xs font-bold text-amber-900">{t("crossBookedTitle")}</p>
               <p className="mt-0.5 text-xs text-amber-800">
-                {t("crossBookedDesc", {
+                {/* Scoped, "every house is taken" would be a lie — the blocking
+                    night is only taken in THIS house. */}
+                {t(scopedRoom ? "crossBookedDescRoom" : "crossBookedDesc", {
                   date: fmtDate(parseISO(crossedNight), alertDatePattern, locale),
                   newDate: dateRange?.from ? fmtDate(dateRange.from, alertDatePattern, locale) : "",
                 })}
