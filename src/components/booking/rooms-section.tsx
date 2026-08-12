@@ -410,37 +410,23 @@ function SingleRoomHero({
           </>
         )}
 
-        {/* Dot indicators — mobile only, top of image */}
+        {/* Dot indicators — top of image, identical on mobile and desktop. The button's
+            padding grows the tap target; the matching negative margins cancel it out of
+            layout, so the dots keep the tight gap-1.5 pitch. */}
         {multi && (
-          <div className="absolute inset-x-0 top-0 z-10 p-3 bg-gradient-to-b from-black/30 to-transparent md:hidden">
-            <div className="flex justify-center gap-1">
-              {images.map((_, i) => (
-                <button
-                  key={i}
-                  type="button"
-                  aria-label={t("goToPhoto", { number: i + 1 })}
-                  onClick={(e) => { e.stopPropagation(); setIndex(i); }}
-                  className="px-1 py-2 -my-1"
-                >
-                  <span
-                    className={`block h-1.5 rounded-full transition-all ${i === index ? "bg-white w-3" : "bg-white/50 w-1.5"}`}
-                  />
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
-
-        {/* Dot indicators — desktop/tablet only, top inside image */}
-        {multi && (
-          <div className="absolute inset-x-0 top-0 z-10 hidden md:flex justify-center gap-1.5 pt-3 pb-6 bg-gradient-to-b from-black/20 to-transparent">
+          <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-center gap-1.5 pt-3 pb-6 bg-gradient-to-b from-black/20 to-transparent">
             {images.map((_, i) => (
               <button
                 key={i}
                 type="button"
-                className={`rounded-full transition-all ${i === index ? "bg-white w-3 h-1.5" : "bg-white/50 w-1.5 h-1.5 hover:bg-white/80"}`}
+                aria-label={t("goToPhoto", { number: i + 1 })}
                 onClick={(e) => { e.stopPropagation(); setIndex(i); }}
-              />
+                className="px-1 -mx-1 py-2 -my-2"
+              >
+                <span
+                  className={`block h-1.5 rounded-full transition-all ${i === index ? "bg-white w-3" : "bg-white/50 w-1.5 pointer-fine:hover:bg-white/80"}`}
+                />
+              </button>
             ))}
           </div>
         )}

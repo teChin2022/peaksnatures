@@ -213,44 +213,26 @@ function RoomPhotos({ images, name }: { images: string[]; name: string }) {
         </>
       )}
 
-      {/* Dots sit at the TOP of the image, as on the room cards. Mobile keeps a
-          padded hit area; desktop is the tighter hover-able version. */}
+      {/* Dots sit at the TOP of the image, as on the room cards — identical on mobile
+          and desktop. The button's padding grows the tap target; the matching negative
+          margins cancel it out of layout, so the dots keep the tight gap-1.5 pitch. */}
       {multi && (
-        <div className="absolute inset-x-0 top-0 z-10 bg-gradient-to-b from-black/30 to-transparent p-3 md:hidden">
-          <div className="flex justify-center gap-1">
-            {images.map((_, i) => (
-              <button
-                key={i}
-                type="button"
-                aria-label={t("goToPhoto", { number: i + 1 })}
-                onClick={() => setIndex(i)}
-                className="px-1 py-2 -my-1"
-              >
-                <span
-                  className={cn(
-                    "block h-1.5 rounded-full transition-all",
-                    i === index ? "w-3 bg-white" : "w-1.5 bg-white/50",
-                  )}
-                />
-              </button>
-            ))}
-          </div>
-        </div>
-      )}
-
-      {multi && (
-        <div className="absolute inset-x-0 top-0 z-10 hidden justify-center gap-1.5 bg-gradient-to-b from-black/20 to-transparent pt-3 pb-6 md:flex">
+        <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-center gap-1.5 bg-gradient-to-b from-black/20 to-transparent pt-3 pb-6">
           {images.map((_, i) => (
             <button
               key={i}
               type="button"
               aria-label={t("goToPhoto", { number: i + 1 })}
               onClick={() => setIndex(i)}
-              className={cn(
-                "h-1.5 rounded-full transition-all",
-                i === index ? "w-3 bg-white" : "w-1.5 bg-white/50 hover:bg-white/80",
-              )}
-            />
+              className="px-1 -mx-1 py-2 -my-2"
+            >
+              <span
+                className={cn(
+                  "block h-1.5 rounded-full transition-all",
+                  i === index ? "w-3 bg-white" : "w-1.5 bg-white/50 pointer-fine:hover:bg-white/80",
+                )}
+              />
+            </button>
           ))}
         </div>
       )}
