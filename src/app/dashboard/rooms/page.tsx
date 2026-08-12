@@ -79,8 +79,6 @@ interface SpecialFormData {
   end_date: string;
   /** Added on top of the seasonal (or base) price, not a replacement price. */
   surcharge: string;
-  /** Create-time fan-out: write one independent row per house in the homestay. */
-  applyToAll: boolean;
 }
 
 interface OptionFormData {
@@ -139,7 +137,6 @@ const EMPTY_SPECIAL_FORM: SpecialFormData = {
   start_date: "",
   end_date: "",
   surcharge: "",
-  applyToAll: false,
 };
 
 export default function RoomsPage() {
@@ -716,8 +713,6 @@ export default function RoomsPage() {
       start_date: special.start_date ?? "",
       end_date: special.end_date ?? "",
       surcharge: special.surcharge.toString(),
-      // Fan-out is a create-time action; editing always targets this house's row.
-      applyToAll: false,
     });
   };
 
@@ -793,21 +788,19 @@ export default function RoomsPage() {
         logClientEvent({ homestay_id: homestayId, entity_type: "room", entity_id: editingRoom.id, event_type: "PRICE_UPDATED", data: { special_id: editingSpecial.id, name: rule.name, surcharge: rule.surcharge, rule_type: rule.rule_type } });
         toast.success(t("specialUpdated"));
       } else {
-        // "Apply to all houses" fans out into one independent row per house.
-        // They are separate rows from then on — editing one does not touch the rest.
-        const targetRooms = specialForm.applyToAll ? rooms : [editingRoom];
-        const payloads = targetRooms.map((r) => ({
-          ...rule,
-          room_id: r.id,
-          sort_order: (specialPrices[r.id] || []).length,
-          created_by: hostName || userId,
-        }));
+        // One house at a time. Rolling a rule out to the rest is the shared
+        // "copy to other houses" flow, same as seasonal pricing.
         const { error } = await supabase
           .from("room_special_prices")
-          .insert(payloads as never);
+          .insert({
+            ...rule,
+            room_id: editingRoom.id,
+            sort_order: (specialPrices[editingRoom.id] || []).length,
+            created_by: hostName || userId,
+          } as never);
         if (error) { toast.error(t("errorSpecialSave")); console.error(error); return; }
-        logClientEvent({ homestay_id: homestayId, entity_type: "room", entity_id: editingRoom.id, event_type: "PRICE_UPDATED", data: { action: "created", name: rule.name, surcharge: rule.surcharge, rule_type: rule.rule_type, applied_to_rooms: targetRooms.length } });
-        toast.success(specialForm.applyToAll ? t("specialCreatedAll", { count: targetRooms.length }) : t("specialCreated"));
+        logClientEvent({ homestay_id: homestayId, entity_type: "room", entity_id: editingRoom.id, event_type: "PRICE_UPDATED", data: { action: "created", name: rule.name, surcharge: rule.surcharge, rule_type: rule.rule_type } });
+        toast.success(t("specialCreated"));
       }
 
       resetSpecialForm();
@@ -2020,15 +2013,15 @@ export default function RoomsPage() {
 
                 {/* Special price add/edit form */}
                 <div className="space-y-3 rounded-md border bg-white p-3">
-                  <p className="text-xs font-medium text-gray-700">
-                    {editingSpecial ? t("editSpecial") : t("addSpecial")}
-                  </p>
-                  <Input
-                    placeholder={t("specialNamePlaceholder")}
-                    value={specialForm.name}
-                    onChange={(e) => setSpecialForm((f) => ({ ...f, name: e.target.value }))}
-                    className="text-sm"
-                  />
+                  <div>
+                    <Label className="text-xs">{t("specialName")}</Label>
+                    <Input
+                      placeholder={t("specialNamePlaceholder")}
+                      value={specialForm.name}
+                      onChange={(e) => setSpecialForm((f) => ({ ...f, name: e.target.value }))}
+                      className="mt-1 text-sm"
+                    />
+                  </div>
 
                   {/* Rule type */}
                   <div>
@@ -2233,23 +2226,6 @@ export default function RoomsPage() {
                       {specialSurchargePreview ?? t("specialSurchargeHint")}
                     </p>
                   </div>
-
-                  {/* Create-time fan-out. Hidden while editing (that row belongs to this
-                      house only) and on a room that has no id yet. */}
-                  {editingRoom && !editingSpecial && rooms.length > 1 && (
-                    <label className="flex cursor-pointer items-start gap-2">
-                      <input
-                        type="checkbox"
-                        checked={specialForm.applyToAll}
-                        onChange={(e) => setSpecialForm((f) => ({ ...f, applyToAll: e.target.checked }))}
-                        className="mt-0.5 h-4 w-4 rounded border-gray-300 text-brand focus:ring-brand"
-                      />
-                      <span className="text-xs text-gray-700">
-                        {t("specialApplyAll", { count: rooms.length })}
-                        <span className="mt-0.5 block text-[11px] text-gray-400">{t("specialApplyAllHint")}</span>
-                      </span>
-                    </label>
-                  )}
 
                   <p className="text-[11px] text-gray-400">{t("specialPrecedenceHint")}</p>
 
