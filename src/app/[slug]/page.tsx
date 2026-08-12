@@ -11,7 +11,7 @@ import { evaluatePromoCode } from "@/lib/promo-codes";
 import { localizeHomestay } from "@/lib/translation/translate-homestay";
 import { sanitizeRichText } from "@/lib/sanitize";
 import type { SupportedLocale } from "@/lib/translation/types";
-import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice, RoomOption, RoomGuestPricing, PromoCode } from "@/types/database";
+import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice, RoomSpecialPrice, RoomOption, RoomGuestPricing, PromoCode } from "@/types/database";
 import { HeroSection } from "@/components/booking/hero-section";
 import { DesktopDateSearch } from "@/components/booking/desktop-date-search";
 import { GallerySection } from "@/components/booking/gallery-section";
@@ -122,7 +122,7 @@ const getHomestayData = cache(async function getHomestayData(
     { data: confirmedBookingRows },
   ] = await Promise.all([
     supabase.from("hosts").select("*").eq("id", homestay.host_id).single(),
-    supabase.from("rooms").select("*, room_seasonal_prices(*), room_options(*), room_guest_pricing(*)").eq("homestay_id", homestay.id).order("created_at", { ascending: true }),
+    supabase.from("rooms").select("*, room_seasonal_prices(*), room_special_prices(*), room_options(*), room_guest_pricing(*)").eq("homestay_id", homestay.id).order("created_at", { ascending: true }),
     supabase.from("blocked_dates").select("*").eq("homestay_id", homestay.id),
     supabase.from("bookings").select("room_id, check_in, check_out").eq("homestay_id", homestay.id).in("status", ["pending", "confirmed", "verified"]),
     supabase.from("reviews").select("rating, rating_environment, rating_cleanliness, rating_service, rating_value", { count: "exact" }).eq("homestay_id", homestay.id),
@@ -133,9 +133,10 @@ const getHomestayData = cache(async function getHomestayData(
   ]);
 
   const host = hostRow as unknown as Host | null;
-  const roomsWithJoins = (roomRows as unknown as (Room & { room_seasonal_prices: RoomSeasonalPrice[]; room_options: RoomOption[]; room_guest_pricing: RoomGuestPricing[] })[]) || [];
-  const rooms = roomsWithJoins.map(({ room_seasonal_prices: _, room_options: _o, room_guest_pricing: _g, ...room }) => room as unknown as Room);
+  const roomsWithJoins = (roomRows as unknown as (Room & { room_seasonal_prices: RoomSeasonalPrice[]; room_special_prices: RoomSpecialPrice[]; room_options: RoomOption[]; room_guest_pricing: RoomGuestPricing[] })[]) || [];
+  const rooms = roomsWithJoins.map(({ room_seasonal_prices: _, room_special_prices: _s, room_options: _o, room_guest_pricing: _g, ...room }) => room as unknown as Room);
   const seasonalPrices = roomsWithJoins.flatMap((r) => r.room_seasonal_prices || []);
+  const specialPrices = roomsWithJoins.flatMap((r) => (r.room_special_prices || []).filter((s) => s.is_active));
   const roomOptionsList = roomsWithJoins.flatMap((r) => (r.room_options || []).filter((o) => o.is_active));
   const guestPricingList = roomsWithJoins.flatMap((r) => (r.room_guest_pricing || []).filter((g) => g.is_active));
   const blockedDates = (blockedRows as unknown as BlockedDate[]) || [];
@@ -192,10 +193,10 @@ const getHomestayData = cache(async function getHomestayData(
 
   const localized = host
     ? await localizeHomestay(
-        { homestay, rooms, roomOptions: roomOptionsList, reviews, seasonalPrices, guestPricing: guestPricingList, host },
+        { homestay, rooms, roomOptions: roomOptionsList, reviews, seasonalPrices, specialPrices, guestPricing: guestPricingList, host },
         locale,
       )
-    : { homestay, rooms, roomOptions: roomOptionsList, reviews, seasonalPrices, guestPricing: guestPricingList, host };
+    : { homestay, rooms, roomOptions: roomOptionsList, reviews, seasonalPrices, specialPrices, guestPricing: guestPricingList, host };
 
   return {
     homestay: {
@@ -212,6 +213,7 @@ const getHomestayData = cache(async function getHomestayData(
     blockedDates,
     bookedRanges,
     seasonalPrices: localized.seasonalPrices,
+    specialPrices: localized.specialPrices,
     roomOptions: localized.roomOptions,
     guestPricing: localized.guestPricing,
     reviews: localized.reviews,
@@ -285,7 +287,7 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
     notFound();
   }
 
-  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, roomOptions, guestPricing, reviews, averageRating, categoryAverages, reviewCount, totalBookings, lastBookingDate, bookingDisabled, mostBookedRoomId, hasConfirmedBookings } = data;
+  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, specialPrices, roomOptions, guestPricing, reviews, averageRating, categoryAverages, reviewCount, totalBookings, lastBookingDate, bookingDisabled, mostBookedRoomId, hasConfirmedBookings } = data;
 
   const initialPromo =
     promoParam && homestay.promo_codes_enabled
@@ -300,6 +302,7 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
   const cartCatalog = {
     rooms: activeRooms,
     seasonalPrices,
+    specialPrices,
     roomOptions,
     guestPricing,
     blockedDates,
@@ -432,7 +435,7 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
           />
         </div>
 
-        <RoomsSection rooms={sortedRooms} seasonalPrices={seasonalPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} popularRoomIds={popularRoomIds} />
+        <RoomsSection rooms={sortedRooms} seasonalPrices={seasonalPrices} specialPrices={specialPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} popularRoomIds={popularRoomIds} />
 
         {/* Booking (inline) */}
         <div className="bg-earth-50">
@@ -443,6 +446,7 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
             bookedRanges={bookedRanges}
             host={homestay.host}
             seasonalPrices={seasonalPrices}
+            specialPrices={specialPrices}
             roomOptions={roomOptions}
             guestPricing={guestPricing}
             bookingDisabled={bookingDisabled}

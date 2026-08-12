@@ -19,11 +19,12 @@ import {
   Users,
   ImageIcon,
   CalendarDays,
+  CalendarRange,
   ListPlus,
   Copy,
   AlertTriangle,
 } from "lucide-react";
-import type { RoomSeasonalPrice, RoomOption, RoomGuestPricing } from "@/types/database";
+import type { RoomSeasonalPrice, RoomSpecialPrice, RoomOption, RoomGuestPricing } from "@/types/database";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -46,6 +47,7 @@ import { toast } from "sonner";
 import { logClientEvent } from "@/lib/history-log-client";
 import { composeTierLabel } from "@/lib/guest-pricing";
 import { getPriceRange } from "@/lib/calculate-price";
+import { formatSpecialPriceRule } from "@/lib/special-price-label";
 
 interface RoomData {
   id: string;
@@ -67,6 +69,18 @@ interface SeasonFormData {
   price_per_night: string;
 }
 
+interface SpecialFormData {
+  id?: string;
+  name: string;
+  rule_type: "weekday" | "date";
+  weekdays: number[];
+  dates: string[];
+  start_date: string;
+  end_date: string;
+  /** Added on top of the seasonal (or base) price, not a replacement price. */
+  surcharge: string;
+}
+
 interface OptionFormData {
   id?: string;
   name: string;
@@ -83,19 +97,46 @@ interface TierFormData {
   useDefaultPrice: boolean;
 }
 
-// The three per-room pricing/service sections a host can copy onto other rooms.
-type CopySection = "tiers" | "options" | "seasons";
+// The per-room pricing/service sections a host can copy onto other rooms.
+type CopySection = "tiers" | "options" | "seasons" | "specials";
 
 const COPY_TABLE: Record<CopySection, string> = {
   tiers: "room_guest_pricing",
   options: "room_options",
   seasons: "room_seasonal_prices",
+  specials: "room_special_prices",
 };
 
 const COPY_TITLE_KEY: Record<CopySection, string> = {
   tiers: "copyTitleTiers",
   options: "copyTitleOptions",
   seasons: "copyTitleSeasons",
+  specials: "copyTitleSpecials",
+};
+
+/** 0=Sunday … 6=Saturday, matching JS Date.getDay(). Rendered Monday-first. */
+const WEEKDAY_ORDER = [1, 2, 3, 4, 5, 6, 0];
+
+/** Indexed by getDay(), so index 0 is Sunday even though the UI renders Monday-first. */
+const WEEKDAY_SHORT: Record<"th" | "en", string[]> = {
+  th: ["อา", "จ", "อ", "พ", "พฤ", "ศ", "ส"],
+  en: ["Su", "Mo", "Tu", "We", "Th", "Fr", "Sa"],
+};
+
+const WEEKDAY_PRESETS = [
+  { key: "specialPresetWeekend", days: [6, 0] },
+  { key: "specialPresetSaturday", days: [6] },
+  { key: "specialPresetSunday", days: [0] },
+] as const;
+
+const EMPTY_SPECIAL_FORM: SpecialFormData = {
+  name: "",
+  rule_type: "weekday",
+  weekdays: [],
+  dates: [],
+  start_date: "",
+  end_date: "",
+  surcharge: "",
 };
 
 export default function RoomsPage() {
@@ -127,6 +168,13 @@ export default function RoomsPage() {
   const [editingSeason, setEditingSeason] = useState<RoomSeasonalPrice | null>(null);
   const [savingSeason, setSavingSeason] = useState(false);
   const [pendingSeasons, setPendingSeasons] = useState<Omit<RoomSeasonalPrice, "id" | "room_id" | "created_at" | "created_by" | "updated_at" | "updated_by">[]>([]);
+
+  // Special date pricing state (weekday + specific-date rules)
+  const [specialPrices, setSpecialPrices] = useState<Record<string, RoomSpecialPrice[]>>({});
+  const [specialForm, setSpecialForm] = useState<SpecialFormData>(EMPTY_SPECIAL_FORM);
+  const [editingSpecial, setEditingSpecial] = useState<RoomSpecialPrice | null>(null);
+  const [savingSpecial, setSavingSpecial] = useState(false);
+  const [pendingSpecials, setPendingSpecials] = useState<Omit<RoomSpecialPrice, "id" | "room_id" | "created_at" | "created_by" | "updated_at" | "updated_by">[]>([]);
 
   // Room options state
   const [roomOptions, setRoomOptions] = useState<Record<string, RoomOption[]>>({});
@@ -206,23 +254,27 @@ export default function RoomsPage() {
 
     setHomestayId(homestay.id);
 
-    // Fetch rooms with seasonal prices + options + guest pricing in one joined query
+    // Fetch rooms with seasonal + special prices + options + guest pricing in one joined query
     const { data: roomRows } = await supabase
       .from("rooms")
-      .select("*, room_seasonal_prices(*), room_options(*), room_guest_pricing(*)")
+      .select("*, room_seasonal_prices(*), room_special_prices(*), room_options(*), room_guest_pricing(*)")
       .eq("homestay_id", homestay.id)
       .order("created_at", { ascending: true });
 
     if (roomRows) {
-      const roomsWithJoins = roomRows as unknown as (RoomData & { room_seasonal_prices: RoomSeasonalPrice[]; room_options: RoomOption[]; room_guest_pricing: RoomGuestPricing[] })[];
-      setRooms(roomsWithJoins.map(({ room_seasonal_prices: _, room_options: _o, room_guest_pricing: _g, ...room }) => room as unknown as RoomData));
+      const roomsWithJoins = roomRows as unknown as (RoomData & { room_seasonal_prices: RoomSeasonalPrice[]; room_special_prices: RoomSpecialPrice[]; room_options: RoomOption[]; room_guest_pricing: RoomGuestPricing[] })[];
+      setRooms(roomsWithJoins.map(({ room_seasonal_prices: _, room_special_prices: _sp, room_options: _o, room_guest_pricing: _g, ...room }) => room as unknown as RoomData));
 
       const grouped: Record<string, RoomSeasonalPrice[]> = {};
+      const specialGrouped: Record<string, RoomSpecialPrice[]> = {};
       const optGrouped: Record<string, RoomOption[]> = {};
       const tierGrouped: Record<string, RoomGuestPricing[]> = {};
       for (const r of roomsWithJoins) {
         if (r.room_seasonal_prices?.length) {
           grouped[r.id] = r.room_seasonal_prices;
+        }
+        if (r.room_special_prices?.length) {
+          specialGrouped[r.id] = r.room_special_prices.sort((a, b) => a.sort_order - b.sort_order);
         }
         if (r.room_options?.length) {
           optGrouped[r.id] = r.room_options.sort((a, b) => a.sort_order - b.sort_order);
@@ -232,6 +284,7 @@ export default function RoomsPage() {
         }
       }
       setSeasonalPrices(grouped);
+      setSpecialPrices(specialGrouped);
       setRoomOptions(optGrouped);
       setGuestTiers(tierGrouped);
     }
@@ -247,9 +300,11 @@ export default function RoomsPage() {
     setRoomImages([]);
     setEditingRoom(null);
     setPendingSeasons([]);
+    setPendingSpecials([]);
     setPendingOptions([]);
     setPendingTiers([]);
     resetSeasonForm();
+    resetSpecialForm();
     resetOptionForm();
     resetTierForm();
   };
@@ -420,6 +475,28 @@ export default function RoomsPage() {
             .insert(seasonPayloads as never);
           if (seasonError) {
             console.error("Insert seasons error:", seasonError);
+          }
+        }
+
+        // Save pending special date prices for the new room
+        if (pendingSpecials.length > 0) {
+          const specialPayloads = pendingSpecials.map((s, idx) => ({
+            room_id: (newRoom as { id: string }).id,
+            name: s.name,
+            rule_type: s.rule_type,
+            weekdays: s.weekdays,
+            dates: s.dates,
+            start_date: s.start_date,
+            end_date: s.end_date,
+            surcharge: s.surcharge,
+            sort_order: idx,
+            created_by: hostName || userId,
+          }));
+          const { error: specialError } = await supabase
+            .from("room_special_prices")
+            .insert(specialPayloads as never);
+          if (specialError) {
+            console.error("Insert special prices error:", specialError);
           }
         }
 
@@ -619,6 +696,136 @@ export default function RoomsPage() {
     });
   };
 
+  // --- Special date pricing handlers ---
+  const resetSpecialForm = () => {
+    setSpecialForm(EMPTY_SPECIAL_FORM);
+    setEditingSpecial(null);
+  };
+
+  const startEditSpecial = (special: RoomSpecialPrice) => {
+    setEditingSpecial(special);
+    setSpecialForm({
+      id: special.id,
+      name: special.name,
+      rule_type: special.rule_type,
+      weekdays: special.weekdays ?? [],
+      dates: special.dates ?? [],
+      start_date: special.start_date ?? "",
+      end_date: special.end_date ?? "",
+      surcharge: special.surcharge.toString(),
+    });
+  };
+
+  const toggleSpecialWeekday = (day: number) => {
+    setSpecialForm((f) => ({
+      ...f,
+      weekdays: f.weekdays.includes(day)
+        ? f.weekdays.filter((d) => d !== day)
+        : [...f.weekdays, day],
+    }));
+  };
+
+  const toggleSpecialDate = (dateStr: string) => {
+    setSpecialForm((f) => ({
+      ...f,
+      dates: f.dates.includes(dateStr)
+        ? f.dates.filter((d) => d !== dateStr)
+        : [...f.dates, dateStr].sort(),
+    }));
+  };
+
+  const handleSaveSpecial = async () => {
+    if (!specialForm.name.trim()) { toast.error(t("errorSpecialName")); return; }
+    if (specialForm.rule_type === "weekday" && specialForm.weekdays.length === 0) {
+      toast.error(t("errorSpecialWeekdays")); return;
+    }
+    if (specialForm.rule_type === "date" && specialForm.dates.length === 0) {
+      toast.error(t("errorSpecialDates")); return;
+    }
+    if (
+      specialForm.rule_type === "weekday" &&
+      specialForm.start_date && specialForm.end_date &&
+      specialForm.end_date < specialForm.start_date
+    ) {
+      toast.error(t("errorSpecialWindow")); return;
+    }
+    const surcharge = parseInt(specialForm.surcharge);
+    if (!surcharge || surcharge <= 0) { toast.error(t("errorSpecialPrice")); return; }
+
+    // Weekday rules keep no dates and vice versa, so a host switching rule type
+    // mid-edit can't leave a stale payload behind that still matches nights.
+    const isWeekday = specialForm.rule_type === "weekday";
+    const rule = {
+      name: specialForm.name.trim(),
+      rule_type: specialForm.rule_type,
+      weekdays: isWeekday ? specialForm.weekdays : [],
+      dates: isWeekday ? [] : specialForm.dates,
+      start_date: isWeekday && specialForm.start_date ? specialForm.start_date : null,
+      end_date: isWeekday && specialForm.end_date ? specialForm.end_date : null,
+      surcharge,
+    };
+
+    // For new rooms — stage locally until the room row exists.
+    // Overlapping rules are legitimate here (precedence resolves them), so unlike
+    // seasons there is no overlap check.
+    if (!editingRoom) {
+      setPendingSpecials((prev) => [...prev, { ...rule, is_active: true, sort_order: prev.length }]);
+      toast.success(t("specialCreated"));
+      resetSpecialForm();
+      return;
+    }
+
+    setSavingSpecial(true);
+    try {
+      const supabase = createClient();
+
+      if (editingSpecial) {
+        const { error } = await supabase
+          .from("room_special_prices")
+          .update({ ...rule, room_id: editingRoom.id, updated_by: hostName || userId } as never)
+          .eq("id", editingSpecial.id);
+        if (error) { toast.error(t("errorSpecialSave")); console.error(error); return; }
+        logClientEvent({ homestay_id: homestayId, entity_type: "room", entity_id: editingRoom.id, event_type: "PRICE_UPDATED", data: { special_id: editingSpecial.id, name: rule.name, surcharge: rule.surcharge, rule_type: rule.rule_type } });
+        toast.success(t("specialUpdated"));
+      } else {
+        // One house at a time. Rolling a rule out to the rest is the shared
+        // "copy to other houses" flow, same as seasonal pricing.
+        const { error } = await supabase
+          .from("room_special_prices")
+          .insert({
+            ...rule,
+            room_id: editingRoom.id,
+            sort_order: (specialPrices[editingRoom.id] || []).length,
+            created_by: hostName || userId,
+          } as never);
+        if (error) { toast.error(t("errorSpecialSave")); console.error(error); return; }
+        logClientEvent({ homestay_id: homestayId, entity_type: "room", entity_id: editingRoom.id, event_type: "PRICE_UPDATED", data: { action: "created", name: rule.name, surcharge: rule.surcharge, rule_type: rule.rule_type } });
+        toast.success(t("specialCreated"));
+      }
+
+      resetSpecialForm();
+      await fetchData();
+    } catch {
+      toast.error(t("errorSpecialSave"));
+    } finally {
+      setSavingSpecial(false);
+    }
+  };
+
+  const handleDeleteSpecial = (specialId: string) => {
+    showConfirm(t("confirmDeleteSpecial"), async () => {
+      try {
+        const supabase = createClient();
+        const { error } = await supabase.from("room_special_prices").delete().eq("id", specialId);
+        if (error) { toast.error(t("errorSpecialDelete")); console.error(error); return; }
+        toast.success(t("specialDeleted"));
+        await fetchData();
+      } catch {
+        toast.error(t("errorSpecialDelete"));
+      }
+    });
+  };
+
   // --- Room options handlers ---
   const resetOptionForm = () => {
     setOptionForm({ name: "", price: "", pricing_type: "per_night" });
@@ -786,6 +993,7 @@ export default function RoomsPage() {
   const sectionRows = (section: CopySection, roomId: string) => {
     if (section === "tiers") return guestTiers[roomId] || [];
     if (section === "options") return roomOptions[roomId] || [];
+    if (section === "specials") return specialPrices[roomId] || [];
     return seasonalPrices[roomId] || [];
   };
 
@@ -814,6 +1022,21 @@ export default function RoomsPage() {
         pricing_type: option.pricing_type,
         sort_order: idx,
         is_active: option.is_active,
+        created_by,
+      }));
+    }
+    if (section === "specials") {
+      return (specialPrices[editingRoom.id] || []).map((special, idx) => ({
+        room_id: targetRoomId,
+        name: special.name,
+        rule_type: special.rule_type,
+        weekdays: special.weekdays,
+        dates: special.dates,
+        start_date: special.start_date,
+        end_date: special.end_date,
+        surcharge: special.surcharge,
+        sort_order: idx,
+        is_active: special.is_active,
         created_by,
       }));
     }
@@ -916,15 +1139,31 @@ export default function RoomsPage() {
   };
 
   // "Use default price" tiers charge the room's normal nightly rate. With no date context here,
-  // show a seasonal range when seasons exist, else the base price (getPriceRange handles both).
+  // show a range when seasonal or special rules exist, else the base price (getPriceRange
+  // handles both).
   const defaultTierPriceLabel = useMemo(() => {
     const base = parseInt(roomPrice) || 0;
     const seasons = editingRoom ? (seasonalPrices[editingRoom.id] || []) : pendingSeasons;
-    const { min, max } = getPriceRange(base, seasons);
+    const specials = editingRoom ? (specialPrices[editingRoom.id] || []) : pendingSpecials;
+    const { min, max } = getPriceRange({ basePricePerNight: base, seasons, specialPrices: specials });
     return min !== max
       ? `฿${min.toLocaleString()}–฿${max.toLocaleString()}`
       : `฿${base.toLocaleString()}`;
-  }, [roomPrice, editingRoom, seasonalPrices, pendingSeasons]);
+  }, [roomPrice, editingRoom, seasonalPrices, pendingSeasons, specialPrices, pendingSpecials]);
+
+  // Worked example under the surcharge field: base + surcharge = what a normal
+  // night becomes. Null until both numbers are present, so the field falls back
+  // to the static hint rather than showing "฿0 + ฿0".
+  const specialSurchargePreview = useMemo(() => {
+    const base = parseInt(roomPrice);
+    const add = parseInt(specialForm.surcharge);
+    if (!base || !add || add <= 0) return null;
+    return t("specialSurchargePreview", {
+      base: base.toLocaleString(),
+      add: add.toLocaleString(),
+      total: (base + add).toLocaleString(),
+    });
+  }, [roomPrice, specialForm.surcharge, t]);
 
   // Derived values for the copy dialog
   const otherRooms = editingRoom ? rooms.filter((r) => r.id !== editingRoom.id) : [];
@@ -1676,6 +1915,332 @@ export default function RoomsPage() {
                     </Button>
                     {editingSeason && (
                       <Button size="sm" variant="outline" onClick={resetSeasonForm}>
+                        <X className="mr-1 h-3 w-3" />
+                        {tc("cancel")}
+                      </Button>
+                    )}
+                  </div>
+                </div>
+              </div>
+
+            {/* Special Date Pricing Section */}
+              <div className="space-y-3 rounded-lg border p-4">
+                <div className="flex items-center justify-between gap-2">
+                  <div className="flex items-center gap-2">
+                    <CalendarRange className="h-4 w-4 text-brand" />
+                    <h3 className="text-sm font-semibold text-gray-900">{t("specialPricing")}</h3>
+                  </div>
+                  {canCopy("specials") && (
+                    <button
+                      type="button"
+                      onClick={() => openCopyDialog("specials")}
+                      className="shrink-0 text-xs font-medium text-brand transition-opacity hover:opacity-80"
+                    >
+                      {t("copyToOthers")}
+                    </button>
+                  )}
+                </div>
+                <p className="text-xs text-gray-500">{t("specialPricingDesc")}</p>
+
+                {/* Rules list — DB rules for existing rooms, pending for new */}
+                {editingRoom ? (
+                  (specialPrices[editingRoom.id] || []).length > 0 ? (
+                    <div className="space-y-2">
+                      {(specialPrices[editingRoom.id] || []).map((special) => (
+                        <div
+                          key={special.id}
+                          className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-900">{special.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {formatSpecialPriceRule(special, locale)} · <span className="font-medium text-brand">+฿{special.surcharge.toLocaleString()}</span>{tc("perNight")}
+                            </p>
+                          </div>
+                          <div className="flex items-center gap-1">
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7"
+                              onClick={() => startEditSpecial(special)}
+                            >
+                              <Pencil className="h-3 w-3" />
+                            </Button>
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              className="h-7 w-7 text-red-500 hover:text-red-700"
+                              onClick={() => handleDeleteSpecial(special.id)}
+                            >
+                              <Trash2 className="h-3 w-3" />
+                            </Button>
+                          </div>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs italic text-gray-400">{t("noSpecials")}</p>
+                  )
+                ) : (
+                  pendingSpecials.length > 0 ? (
+                    <div className="space-y-2">
+                      {pendingSpecials.map((special, idx) => (
+                        <div
+                          key={idx}
+                          className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                        >
+                          <div className="min-w-0 flex-1">
+                            <p className="text-sm font-medium text-gray-900">{special.name}</p>
+                            <p className="text-xs text-gray-500">
+                              {formatSpecialPriceRule(special, locale)} · <span className="font-medium text-brand">+฿{special.surcharge.toLocaleString()}</span>{tc("perNight")}
+                            </p>
+                          </div>
+                          <Button
+                            variant="ghost"
+                            size="icon"
+                            className="h-7 w-7 text-red-500 hover:text-red-700"
+                            onClick={() => setPendingSpecials((prev) => prev.filter((_, i) => i !== idx))}
+                          >
+                            <Trash2 className="h-3 w-3" />
+                          </Button>
+                        </div>
+                      ))}
+                    </div>
+                  ) : (
+                    <p className="text-xs italic text-gray-400">{t("noSpecials")}</p>
+                  )
+                )}
+
+                {/* Special price add/edit form */}
+                <div className="space-y-3 rounded-md border bg-white p-3">
+                  <div>
+                    <Label className="text-xs">{t("specialName")}</Label>
+                    <Input
+                      placeholder={t("specialNamePlaceholder")}
+                      value={specialForm.name}
+                      onChange={(e) => setSpecialForm((f) => ({ ...f, name: e.target.value }))}
+                      className="mt-1 text-sm"
+                    />
+                  </div>
+
+                  {/* Rule type */}
+                  <div>
+                    <Label className="text-xs">{t("specialRuleType")}</Label>
+                    <div className="mt-1 inline-flex rounded-md border bg-gray-50 p-0.5">
+                      <button
+                        type="button"
+                        onClick={() => setSpecialForm((f) => ({ ...f, rule_type: "weekday" }))}
+                        className={`rounded px-3 py-1 text-xs font-medium transition-colors ${specialForm.rule_type === "weekday" ? "bg-white text-brand shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
+                      >
+                        {t("specialRuleWeekday")}
+                      </button>
+                      <button
+                        type="button"
+                        onClick={() => setSpecialForm((f) => ({ ...f, rule_type: "date" }))}
+                        className={`rounded px-3 py-1 text-xs font-medium transition-colors ${specialForm.rule_type === "date" ? "bg-white text-brand shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
+                      >
+                        {t("specialRuleDate")}
+                      </button>
+                    </div>
+                  </div>
+
+                  {specialForm.rule_type === "weekday" ? (
+                    <>
+                      {/* Presets */}
+                      <div>
+                        <Label className="text-xs">{t("specialWeekdays")}</Label>
+                        <div className="mt-1 flex flex-wrap gap-1.5">
+                          {WEEKDAY_PRESETS.map((preset) => (
+                            <button
+                              key={preset.key}
+                              type="button"
+                              onClick={() => setSpecialForm((f) => ({ ...f, weekdays: [...preset.days] }))}
+                              className="rounded-full border px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:border-brand hover:text-brand"
+                            >
+                              {t(preset.key)}
+                            </button>
+                          ))}
+                        </div>
+                        {/* Individual day toggles */}
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {WEEKDAY_ORDER.map((day) => {
+                            const on = specialForm.weekdays.includes(day);
+                            return (
+                              <button
+                                key={day}
+                                type="button"
+                                onClick={() => toggleSpecialWeekday(day)}
+                                aria-pressed={on}
+                                className={`h-8 min-w-9 rounded-md border px-2 text-xs font-medium transition-colors ${on ? "border-brand bg-brand text-white" : "bg-white text-gray-600 hover:border-brand hover:text-brand"}`}
+                              >
+                                {WEEKDAY_SHORT[locale === "th" ? "th" : "en"][day]}
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+
+                      {/* Optional window */}
+                      <div>
+                        <Label className="text-xs">{t("specialWindow")}</Label>
+                        <p className="mb-1 text-[11px] text-gray-400">{t("specialWindowHint")}</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="w-full justify-start text-left text-sm font-normal">
+                                <CalendarDays className="mr-2 h-3.5 w-3.5 text-gray-400" />
+                                {specialForm.start_date
+                                  ? fmtDate(specialForm.start_date)
+                                  : <span className="text-gray-400">{t("startDate")}</span>}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={specialForm.start_date ? parse(specialForm.start_date, "yyyy-MM-dd", new Date()) : undefined}
+                                onSelect={(date) => {
+                                  if (date) setSpecialForm((f) => ({ ...f, start_date: format(date, "yyyy-MM-dd") }));
+                                }}
+                                locale={locale === "th" ? thLocale : undefined}
+                                formatters={locale === "th" ? {
+                                  formatCaption: (date) => {
+                                    const month = date.toLocaleDateString("th-TH", { month: "long" });
+                                    const beYear = date.getFullYear() + 543;
+                                    return `${month} ${beYear}`;
+                                  },
+                                } : undefined}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                          <Popover>
+                            <PopoverTrigger asChild>
+                              <Button variant="outline" className="w-full justify-start text-left text-sm font-normal">
+                                <CalendarDays className="mr-2 h-3.5 w-3.5 text-gray-400" />
+                                {specialForm.end_date
+                                  ? fmtDate(specialForm.end_date)
+                                  : <span className="text-gray-400">{t("endDate")}</span>}
+                              </Button>
+                            </PopoverTrigger>
+                            <PopoverContent className="w-auto p-0" align="start">
+                              <Calendar
+                                mode="single"
+                                selected={specialForm.end_date ? parse(specialForm.end_date, "yyyy-MM-dd", new Date()) : undefined}
+                                onSelect={(date) => {
+                                  if (date) setSpecialForm((f) => ({ ...f, end_date: format(date, "yyyy-MM-dd") }));
+                                }}
+                                locale={locale === "th" ? thLocale : undefined}
+                                formatters={locale === "th" ? {
+                                  formatCaption: (date) => {
+                                    const month = date.toLocaleDateString("th-TH", { month: "long" });
+                                    const beYear = date.getFullYear() + 543;
+                                    return `${month} ${beYear}`;
+                                  },
+                                } : undefined}
+                              />
+                            </PopoverContent>
+                          </Popover>
+                        </div>
+                        {(specialForm.start_date || specialForm.end_date) && (
+                          <button
+                            type="button"
+                            onClick={() => setSpecialForm((f) => ({ ...f, start_date: "", end_date: "" }))}
+                            className="mt-1.5 text-[11px] font-medium text-gray-500 transition-colors hover:text-brand"
+                          >
+                            {t("specialWindowClear")}
+                          </button>
+                        )}
+                      </div>
+                    </>
+                  ) : (
+                    /* Specific dates */
+                    <div>
+                      <Label className="text-xs">{t("specialDates")}</Label>
+                      <Popover>
+                        <PopoverTrigger asChild>
+                          <Button variant="outline" className="mt-1 w-full justify-start text-left text-sm font-normal">
+                            <CalendarDays className="mr-2 h-3.5 w-3.5 text-gray-400" />
+                            {specialForm.dates.length > 0
+                              ? t("specialDatesCount", { count: specialForm.dates.length })
+                              : <span className="text-gray-400">{t("specialDatesPick")}</span>}
+                          </Button>
+                        </PopoverTrigger>
+                        <PopoverContent className="w-auto p-0" align="start">
+                          <Calendar
+                            mode="multiple"
+                            selected={specialForm.dates.map((d) => parse(d, "yyyy-MM-dd", new Date()))}
+                            onSelect={(dates) =>
+                              setSpecialForm((f) => ({
+                                ...f,
+                                dates: (dates ?? []).map((d) => format(d, "yyyy-MM-dd")).sort(),
+                              }))
+                            }
+                            locale={locale === "th" ? thLocale : undefined}
+                            formatters={locale === "th" ? {
+                              formatCaption: (date) => {
+                                const month = date.toLocaleDateString("th-TH", { month: "long" });
+                                const beYear = date.getFullYear() + 543;
+                                return `${month} ${beYear}`;
+                              },
+                            } : undefined}
+                          />
+                        </PopoverContent>
+                      </Popover>
+                      {specialForm.dates.length > 0 && (
+                        <div className="mt-2 flex flex-wrap gap-1.5">
+                          {specialForm.dates.map((d) => (
+                            <span
+                              key={d}
+                              className="inline-flex items-center gap-1 rounded-full border bg-gray-50 py-1 pl-2.5 pr-1 text-xs text-gray-700"
+                            >
+                              {fmtDate(d)}
+                              <button
+                                type="button"
+                                onClick={() => toggleSpecialDate(d)}
+                                aria-label={tc("delete")}
+                                className="rounded-full p-0.5 text-gray-400 transition-colors hover:bg-gray-200 hover:text-red-600"
+                              >
+                                <X className="h-3 w-3" />
+                              </button>
+                            </span>
+                          ))}
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  <div>
+                    <Label className="text-xs">{t("specialSurcharge")}</Label>
+                    <div className="relative">
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">+฿</span>
+                      <Input
+                        type="number"
+                        className="pl-9 text-sm"
+                        value={specialForm.surcharge}
+                        onChange={(e) => setSpecialForm((f) => ({ ...f, surcharge: e.target.value }))}
+                      />
+                    </div>
+                    {/* Spell the arithmetic out. The whole point of this tier is that the
+                        number ADDS to whatever sits under the night, and a bare number in
+                        a box is exactly what got read as a replacement price before. */}
+                    <p className="mt-1 text-[11px] text-gray-500">
+                      {specialSurchargePreview ?? t("specialSurchargeHint")}
+                    </p>
+                  </div>
+
+                  <p className="text-[11px] text-gray-400">{t("specialPrecedenceHint")}</p>
+
+                  <div className="flex gap-2">
+                    <Button
+                      size="sm"
+                      onClick={handleSaveSpecial}
+                      disabled={savingSpecial}
+                      className="hover:brightness-90 bg-brand"
+                    >
+                      {savingSpecial ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <Plus className="mr-1 h-3 w-3" />}
+                      {editingSpecial ? t("saveSpecial") : t("addSpecial")}
+                    </Button>
+                    {editingSpecial && (
+                      <Button size="sm" variant="outline" onClick={resetSpecialForm}>
                         <X className="mr-1 h-3 w-3" />
                         {tc("cancel")}
                       </Button>

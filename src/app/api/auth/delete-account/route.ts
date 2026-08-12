@@ -83,7 +83,7 @@ export async function DELETE(req: Request) {
       if (homestay) {
         const homestayRow = homestay as { id: string };
 
-        // Delete rooms and their seasonal prices
+        // Delete rooms and their pricing rules
         const { data: rooms } = await serviceClient
           .from("rooms")
           .select("id")
@@ -93,6 +93,10 @@ export async function DELETE(req: Request) {
           const roomIds = (rooms as { id: string }[]).map((r) => r.id);
           await serviceClient
             .from("room_seasonal_prices")
+            .delete()
+            .in("room_id", roomIds);
+          await serviceClient
+            .from("room_special_prices")
             .delete()
             .in("room_id", roomIds);
           await serviceClient

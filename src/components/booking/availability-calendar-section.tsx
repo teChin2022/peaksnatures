@@ -27,6 +27,7 @@ import {
   type RoomDayStatus,
 } from "@/lib/booking-dates";
 import { calculateTotalPrice } from "@/lib/calculate-price";
+import { formatSpecialPriceRule } from "@/lib/special-price-label";
 import { fmtDate, fmtDateStr } from "@/lib/format-date";
 import { useSwipe } from "@/hooks/use-swipe";
 import { cn } from "@/lib/utils";
@@ -273,9 +274,21 @@ function RoomDayDetail({
     [room.id, catalog.seasonalPrices],
   );
 
+  const specialPrices = useMemo(
+    () => catalog.specialPrices.filter((s) => s.room_id === room.id),
+    [room.id, catalog.specialPrices],
+  );
+
   const night = useMemo(
-    () => calculateTotalPrice(room.price_per_night, date, addDays(date, 1), seasons).breakdown[0],
-    [room.price_per_night, date, seasons],
+    () =>
+      calculateTotalPrice({
+        basePricePerNight: room.price_per_night,
+        checkIn: date,
+        checkOut: addDays(date, 1),
+        seasons,
+        specialPrices,
+      }).breakdown[0],
+    [room.price_per_night, date, seasons, specialPrices],
   );
 
   return (
@@ -349,6 +362,35 @@ function RoomDayDetail({
               <span className="text-xs text-earth-500">{tc("perNight")}</span>
             </div>
           </div>
+
+          {specialPrices.length > 0 && (
+            <div className="mt-5 border-t border-dashed border-earth-300 pt-4">
+              <div className="mb-3 flex items-center gap-2">
+                <Sparkles className="h-3 w-3 text-brand" strokeWidth={2.5} />
+                <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-earth-500">
+                  {tr("specialRates")}
+                </span>
+              </div>
+              <ul className="space-y-3">
+                {specialPrices.map((s) => (
+                  <li key={s.id} className="flex items-baseline justify-between gap-4">
+                    <div className="min-w-0 pr-2">
+                      <div className="truncate text-sm font-medium text-earth-900">{s.name}</div>
+                      <div className="mt-0.5 text-[11px] text-earth-500 tabular-nums">
+                        {formatSpecialPriceRule(s, locale)}
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-baseline gap-1 tabular-nums">
+                      <span className="text-lg font-bold text-brand">
+                        +฿{s.surcharge.toLocaleString()}
+                      </span>
+                      <span className="text-[10px] text-earth-500">{tc("perNight")}</span>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
 
           {seasons.length > 0 && (
             <div className="mt-5 border-t border-dashed border-earth-300 pt-4">

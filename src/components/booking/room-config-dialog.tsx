@@ -70,18 +70,25 @@ export function RoomConfigDialog({
   );
   const selectedTier = hasBaseTier ? tiers.find((g) => g.id === tierIds[0]) || null : null;
 
-  // Nightly rate a "use default price" tier (surcharge 0) is charged: the seasonal rate
-  // for the check-in night, or the room's base rate before dates are picked. Mirrors
-  // booking-section's defaultTierNightlyPrice so both surfaces quote the same number.
+  // Nightly rate a "use default price" tier (surcharge 0) is charged: the special or
+  // seasonal rate for the check-in night, or the room's base rate before dates are picked.
+  // Mirrors booking-section's defaultTierNightlyPrice so both surfaces quote the same number.
   const baseNightlyPrice = useMemo(() => {
     if (!room) return 0;
     if (!dateRange?.from || !dateRange?.to || nights < 1) return room.price_per_night;
     const seasons = catalog.seasonalPrices.filter((s) => s.room_id === room.id);
+    const specialPrices = catalog.specialPrices.filter((s) => s.room_id === room.id);
     return (
-      calculateTotalPrice(room.price_per_night, dateRange.from, dateRange.to, seasons).breakdown[0]?.price
+      calculateTotalPrice({
+        basePricePerNight: room.price_per_night,
+        checkIn: dateRange.from,
+        checkOut: dateRange.to,
+        seasons,
+        specialPrices,
+      }).breakdown[0]?.price
       ?? room.price_per_night
     );
-  }, [room, dateRange, nights, catalog.seasonalPrices]);
+  }, [room, dateRange, nights, catalog.seasonalPrices, catalog.specialPrices]);
 
   // When adding, cap quantity to how many more of this room may still be added.
   // When editing, quantity is irrelevant (we modify the existing line in place).

@@ -790,6 +790,61 @@ export interface Database {
           updated_by?: string;
         };
       };
+      room_special_prices: {
+        Row: {
+          id: string;
+          room_id: string;
+          name: string;
+          rule_type: "weekday" | "date";
+          /** 0=Sunday … 6=Saturday, matching JS Date.getDay(). */
+          weekdays: number[];
+          dates: string[];
+          start_date: string | null;
+          end_date: string | null;
+          /** THB added on top of the seasonal (or base) price for that night. */
+          surcharge: number;
+          is_active: boolean;
+          sort_order: number;
+          created_at: string;
+          created_by: string;
+          updated_at: string;
+          updated_by: string;
+        };
+        Insert: {
+          id?: string;
+          room_id: string;
+          name: string;
+          rule_type: "weekday" | "date";
+          weekdays?: number[];
+          dates?: string[];
+          start_date?: string | null;
+          end_date?: string | null;
+          surcharge: number;
+          is_active?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
+        };
+        Update: {
+          id?: string;
+          room_id?: string;
+          name?: string;
+          rule_type?: "weekday" | "date";
+          weekdays?: number[];
+          dates?: string[];
+          start_date?: string | null;
+          end_date?: string | null;
+          surcharge?: number;
+          is_active?: boolean;
+          sort_order?: number;
+          created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
+        };
+      };
       platform_admins: {
         Row: {
           id: string;
@@ -1286,6 +1341,7 @@ export type BlockedDate = Database["public"]["Tables"]["blocked_dates"]["Row"];
 export type BookingHold = Database["public"]["Tables"]["booking_holds"]["Row"];
 export type Review = Database["public"]["Tables"]["reviews"]["Row"];
 export type RoomSeasonalPrice = Database["public"]["Tables"]["room_seasonal_prices"]["Row"];
+export type RoomSpecialPrice = Database["public"]["Tables"]["room_special_prices"]["Row"];
 export type RoomOption = Database["public"]["Tables"]["room_options"]["Row"];
 export type RoomGuestPricing = Database["public"]["Tables"]["room_guest_pricing"]["Row"];
 export type PlatformAdmin = Database["public"]["Tables"]["platform_admins"]["Row"];

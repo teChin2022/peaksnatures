@@ -4,7 +4,7 @@ import { revalidateTag } from "next/cache";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendBookingConfirmationEmail, sendHostLineNotification, sendHostSmsNotification, dispatchHostNotification, buildNewBookingMessage, sendRecommenderPromoUsedNotification } from "@/lib/notifications";
-import type { Booking, Homestay, Host, PromoCode, Room, RoomSeasonalPrice } from "@/types/database";
+import type { Booking, Homestay, Host, PromoCode, Room, RoomSeasonalPrice, RoomSpecialPrice } from "@/types/database";
 import { calculateTotalPrice } from "@/lib/calculate-price";
 import {
   computeCompositionSurcharge,
@@ -143,14 +143,16 @@ export async function POST(req: NextRequest) {
 
     // Server-side price verification: never trust client-supplied total_price
     if (data.room_id) {
-      // Parallel: room price + seasonal prices + option prices + the room's guest pricing tiers.
-      // All the room's tiers are read (not just the chosen ones) so the server, not the
-      // client, decides whether the tier replaces the headcount or adds to the stepper.
+      // Parallel: room price + seasonal prices + special date prices + option prices +
+      // the room's guest pricing tiers. All the room's tiers are read (not just the chosen
+      // ones) so the server, not the client, decides whether the tier replaces the
+      // headcount or adds to the stepper.
       const optionIds = data.selected_options.map((o) => o.id);
       const tierIds = data.guest_pricing_ids ?? [];
-      const [{ data: roomRow, error: roomError }, { data: seasonRows }, { data: dbOptions }, { data: tierRows }] = await Promise.all([
+      const [{ data: roomRow, error: roomError }, { data: seasonRows }, { data: specialRows }, { data: dbOptions }, { data: tierRows }] = await Promise.all([
         supabase.from("rooms").select("price_per_night").eq("id", data.room_id).single(),
         supabase.from("room_seasonal_prices").select("*").eq("room_id", data.room_id),
+        supabase.from("room_special_prices").select("*").eq("room_id", data.room_id).eq("is_active", true),
         optionIds.length > 0
           ? supabase.from("room_options").select("id, price, pricing_type").eq("room_id", data.room_id).in("id", optionIds)
           : Promise.resolve({ data: null }),
@@ -177,8 +179,15 @@ export async function POST(req: NextRequest) {
       }
 
       const seasons = (seasonRows as unknown as RoomSeasonalPrice[]) || [];
+      const specialPrices = (specialRows as unknown as RoomSpecialPrice[]) || [];
 
-      const { total: serverBasePrice } = calculateTotalPrice(room.price_per_night, checkIn, checkOut, seasons);
+      const { total: serverBasePrice } = calculateTotalPrice({
+        basePricePerNight: room.price_per_night,
+        checkIn,
+        checkOut,
+        seasons,
+        specialPrices,
+      });
 
       // Validate selected options prices against DB.
       // per_night options charge price × nights; per_time options charge a single flat fee.

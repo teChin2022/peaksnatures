@@ -743,7 +743,14 @@ export function buildNewBookingMessage(
     ``,
     `💰 การชำระเงิน`,
     `   ยอดรวม: ฿${booking.total_price.toLocaleString()}`,
-    ...(room ? [`   (฿${room.price_per_night.toLocaleString()} × ${nights} คืน)`] : []),
+    // This parenthetical reads as an explanation of the total above it, so only
+    // print it when the base rate genuinely is the whole story. Seasonal prices,
+    // special-date surcharges, options, guest-composition surcharges and promo
+    // discounts each break the equality — and "฿1,800 × 3 คืน" sitting under a
+    // ฿6,500 total reads to the host as a system error.
+    ...(room && room.price_per_night * nights === booking.total_price
+      ? [`   (฿${room.price_per_night.toLocaleString()} × ${nights} คืน)`]
+      : []),
     ...((booking as Record<string, unknown>).payment_type === "deposit" ? [
       `   💳 ยอดที่ชำระ: ฿${((booking as Record<string, unknown>).amount_paid as number || 0).toLocaleString()} (มัดจำ)`,
       `   ⏳ ยอดค้าง: ฿${(booking.total_price - ((booking as Record<string, unknown>).amount_paid as number || 0)).toLocaleString()} (ชำระเมื่อเข้าพัก)`,
