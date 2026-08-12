@@ -3,7 +3,7 @@ import { after } from "next/server";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { sendDateChangeLineNotification, sendDateChangeSmsNotification, dispatchHostNotification, buildDateChangeMessage } from "@/lib/notifications";
-import type { Booking, Homestay, Host, Room, RoomSeasonalPrice } from "@/types/database";
+import type { Booking, Homestay, Host, Room, RoomSeasonalPrice, RoomSpecialPrice } from "@/types/database";
 import { calculateTotalPrice } from "@/lib/calculate-price";
 import { computeCompositionSurcharge } from "@/lib/guest-pricing";
 import { getDepositForMonth } from "@/lib/get-deposit";
@@ -112,7 +112,7 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // --- Parallel Batch 1: availability checks + room info + seasonal prices ---
+    // --- Parallel Batch 1: availability checks + room info + pricing rules ---
     // All queries below are independent and can run simultaneously
     let newTotalPrice = booking.total_price;
     let newDiscountAmount = booking.discount_amount || 0;
@@ -124,6 +124,7 @@ export async function POST(req: NextRequest) {
         { data: activeHolds },
         { data: pendingDcrs },
         { data: seasonRows },
+        { data: specialRows },
       ] = await Promise.all([
         // Room quantity + price in one query
         supabase.from("rooms").select("quantity, price_per_night").eq("id", targetRoomId).single(),
@@ -137,6 +138,8 @@ export async function POST(req: NextRequest) {
         supabase.from("date_change_requests").select("id").eq("status", "pending").eq("new_room_id", targetRoomId).neq("booking_id", data.booking_id).lt("new_check_in", data.new_check_out).gt("new_check_out", data.new_check_in),
         // Seasonal prices for price calculation
         supabase.from("room_seasonal_prices").select("*").eq("room_id", targetRoomId),
+        // Special date prices — override seasonal, so the repriced stay matches the booking page
+        supabase.from("room_special_prices").select("*").eq("room_id", targetRoomId).eq("is_active", true),
       ]);
 
       const roomInfo = roomInfoRow as unknown as { quantity: number; price_per_night: number } | null;
@@ -175,9 +178,16 @@ export async function POST(req: NextRequest) {
         );
       }
 
-      // Calculate price using room info + seasonal prices from parallel batch
+      // Calculate price using room info + seasonal/special prices from parallel batch
       const seasons = (seasonRows as unknown as RoomSeasonalPrice[]) || [];
-      const { total } = calculateTotalPrice(roomInfo.price_per_night, newCheckIn, newCheckOut, seasons);
+      const specialPrices = (specialRows as unknown as RoomSpecialPrice[]) || [];
+      const { total } = calculateTotalPrice({
+        basePricePerNight: roomInfo.price_per_night,
+        checkIn: newCheckIn,
+        checkOut: newCheckOut,
+        seasons,
+        specialPrices,
+      });
       const newNights = Math.round((newCheckOut.getTime() - newCheckIn.getTime()) / (1000 * 60 * 60 * 24));
       // Recalculate options for new nights. per_night options scale with the
       // new night count; per_time options stay flat regardless of date change.

@@ -3,7 +3,7 @@
 import { createContext, useContext, useReducer, useMemo, useCallback, useEffect, type ReactNode } from "react";
 import type { DateRange } from "react-day-picker";
 import { format, subDays, eachDayOfInterval } from "date-fns";
-import type { Room, RoomSeasonalPrice, RoomOption, RoomGuestPricing, BlockedDate } from "@/types/database";
+import type { Room, RoomSeasonalPrice, RoomSpecialPrice, RoomOption, RoomGuestPricing, BlockedDate } from "@/types/database";
 import { calculateTotalPrice } from "@/lib/calculate-price";
 import { computeCompositionSurcharge } from "@/lib/guest-pricing";
 import { getFullyBookedForRoom } from "@/lib/booking-dates";
@@ -32,6 +32,7 @@ export interface BookedRange {
 export interface BookingCatalog {
   rooms: Room[];
   seasonalPrices: RoomSeasonalPrice[];
+  specialPrices: RoomSpecialPrice[];
   roomOptions: RoomOption[];
   guestPricing: RoomGuestPricing[];
   blockedDates: BlockedDate[];
@@ -156,6 +157,14 @@ export function BookingCartProvider({
     return map;
   }, [catalog.seasonalPrices]);
 
+  const specialsByRoom = useMemo(() => {
+    const map: Record<string, RoomSpecialPrice[]> = {};
+    for (const s of catalog.specialPrices) {
+      (map[s.room_id] ||= []).push(s);
+    }
+    return map;
+  }, [catalog.specialPrices]);
+
   const countForRoom = useCallback(
     (roomId: string) => lines.filter((l) => l.roomId === roomId).length,
     [lines],
@@ -186,7 +195,14 @@ export function BookingCartProvider({
       const room = catalog.rooms.find((r) => r.id === line.roomId);
       if (!room) return 0;
       const seasons = seasonsByRoom[room.id] || [];
-      const base = calculateTotalPrice(room.price_per_night, dateRange.from, dateRange.to, seasons).total;
+      const specialPrices = specialsByRoom[room.id] || [];
+      const base = calculateTotalPrice({
+        basePricePerNight: room.price_per_night,
+        checkIn: dateRange.from,
+        checkOut: dateRange.to,
+        seasons,
+        specialPrices,
+      }).total;
       const opts = line.optionIds.reduce((s, id) => {
         const o = catalog.roomOptions.find((ro) => ro.id === id);
         if (!o) return s;
@@ -199,7 +215,7 @@ export function BookingCartProvider({
       const comp = computeCompositionSurcharge(perNight, nights);
       return base + opts + comp;
     },
-    [dateRange, nights, catalog.rooms, catalog.roomOptions, catalog.guestPricing, seasonsByRoom],
+    [dateRange, nights, catalog.rooms, catalog.roomOptions, catalog.guestPricing, seasonsByRoom, specialsByRoom],
   );
 
   const subtotal = useMemo(

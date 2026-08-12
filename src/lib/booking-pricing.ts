@@ -6,7 +6,7 @@ import {
   resolveGuestPricing,
   type TierPricingInput,
 } from "@/lib/guest-pricing";
-import type { RoomSeasonalPrice } from "@/types/database";
+import type { RoomSeasonalPrice, RoomSpecialPrice } from "@/types/database";
 
 type ServiceClient = ReturnType<typeof createServiceRoleClient>;
 
@@ -54,11 +54,11 @@ export type LineItemResult =
  * that the single-room `POST /api/bookings` runs inline (route.ts), lifted here
  * so the multi-room group route can call it once per line and sum the results.
  *
- * Never trusts client prices: re-reads room base price, seasonal prices, option
- * prices (per_night × nights / per_time flat), and the room's guest-composition
- * tiers. Reading ALL the room's tiers (not just the chosen ones) is what lets the
- * server decide the mode itself — see `resolveGuestPricing` — so a client cannot
- * assert "stepper mode" on a room whose tiers say otherwise.
+ * Never trusts client prices: re-reads room base price, seasonal prices, special
+ * date prices, option prices (per_night × nights / per_time flat), and the room's
+ * guest-composition tiers. Reading ALL the room's tiers (not just the chosen ones)
+ * is what lets the server decide the mode itself — see `resolveGuestPricing` — so a
+ * client cannot assert "stepper mode" on a room whose tiers say otherwise.
  */
 export async function verifyRoomLineItem(
   supabase: ServiceClient,
@@ -71,19 +71,25 @@ export async function verifyRoomLineItem(
 
   const tierIds = item.guest_pricing_ids ?? [];
 
-  const [{ data: roomRow, error: roomError }, { data: seasonRows }, { data: dbOptions }, { data: tierRows }] =
-    await Promise.all([
-      supabase.from("rooms").select("price_per_night, homestay_id").eq("id", item.room_id).single(),
-      supabase.from("room_seasonal_prices").select("*").eq("room_id", item.room_id),
-      optionIds.length > 0
-        ? supabase.from("room_options").select("id, price, pricing_type").eq("room_id", item.room_id).in("id", optionIds)
-        : Promise.resolve({ data: null }),
-      supabase
-        .from("room_guest_pricing")
-        .select("id, adults, children, detail, surcharge, sort_order")
-        .eq("room_id", item.room_id)
-        .eq("is_active", true),
-    ]);
+  const [
+    { data: roomRow, error: roomError },
+    { data: seasonRows },
+    { data: specialRows },
+    { data: dbOptions },
+    { data: tierRows },
+  ] = await Promise.all([
+    supabase.from("rooms").select("price_per_night, homestay_id").eq("id", item.room_id).single(),
+    supabase.from("room_seasonal_prices").select("*").eq("room_id", item.room_id),
+    supabase.from("room_special_prices").select("*").eq("room_id", item.room_id).eq("is_active", true),
+    optionIds.length > 0
+      ? supabase.from("room_options").select("id, price, pricing_type").eq("room_id", item.room_id).in("id", optionIds)
+      : Promise.resolve({ data: null }),
+    supabase
+      .from("room_guest_pricing")
+      .select("id, adults, children, detail, surcharge, sort_order")
+      .eq("room_id", item.room_id)
+      .eq("is_active", true),
+  ]);
 
   if (roomError || !roomRow) {
     return { ok: false, error: "Room not found", status: 404 };
@@ -101,7 +107,14 @@ export async function verifyRoomLineItem(
   }
 
   const seasons = (seasonRows as unknown as RoomSeasonalPrice[]) || [];
-  const { total: basePrice } = calculateTotalPrice(room.price_per_night, checkIn, checkOut, seasons);
+  const specialPrices = (specialRows as unknown as RoomSpecialPrice[]) || [];
+  const { total: basePrice } = calculateTotalPrice({
+    basePricePerNight: room.price_per_night,
+    checkIn,
+    checkOut,
+    seasons,
+    specialPrices,
+  });
 
   // Options: per_night charges price × nights; per_time charges a flat fee. DB is authoritative.
   let optionsTotal = 0;
@@ -168,9 +181,10 @@ export async function verifyRoomLineItem(
 }
 
 /**
- * The room's own rate for a stay: the seasonal price for every night a season
- * covers, the room's base price for the rest. No options, no guest-composition
- * surcharge — just what the room is configured to cost.
+ * The room's own rate for a stay: the special date price where a rule covers a
+ * night, the seasonal price where a season does, the room's base price for the
+ * rest. No options, no guest-composition surcharge — just what the room is
+ * configured to cost.
  *
  * Used as the commission base for quick bookings, whose `total_price` is a
  * host-entered figure (what they charged via an OTA or at the door) and may be
@@ -182,9 +196,10 @@ export async function computeRoomRateTotal(
   checkIn: string,
   checkOut: string,
 ): Promise<number | null> {
-  const [{ data: roomRow }, { data: seasonRows }] = await Promise.all([
+  const [{ data: roomRow }, { data: seasonRows }, { data: specialRows }] = await Promise.all([
     supabase.from("rooms").select("price_per_night").eq("id", roomId).single(),
     supabase.from("room_seasonal_prices").select("*").eq("room_id", roomId),
+    supabase.from("room_special_prices").select("*").eq("room_id", roomId).eq("is_active", true),
   ]);
 
   const room = roomRow as unknown as { price_per_night: number } | null;
@@ -195,7 +210,14 @@ export async function computeRoomRateTotal(
   if (!(end > start)) return null;
 
   const seasons = (seasonRows as unknown as RoomSeasonalPrice[]) || [];
-  const { total } = calculateTotalPrice(room.price_per_night, start, end, seasons);
+  const specialPrices = (specialRows as unknown as RoomSpecialPrice[]) || [];
+  const { total } = calculateTotalPrice({
+    basePricePerNight: room.price_per_night,
+    checkIn: start,
+    checkOut: end,
+    seasons,
+    specialPrices,
+  });
   return total;
 }
 

@@ -35,6 +35,11 @@ export const translatedSeasonalPriceSchema = z.object({
   name: z.string(),
 });
 
+export const translatedSpecialPriceSchema = z.object({
+  id: z.string(),
+  name: z.string(),
+});
+
 export const translatedRoomGuestPricingSchema = z.object({
   id: z.string(),
   detail: z.string().nullable(),
@@ -50,6 +55,9 @@ export const translationPayloadSchema = z.object({
   roomOptions: z.array(translatedRoomOptionSchema),
   reviews: z.array(translatedReviewSchema),
   seasonalPrices: z.array(translatedSeasonalPriceSchema),
+  // Added after the original payload shape; defaulted so a cache entry written
+  // before this field existed still parses instead of failing the page render.
+  specialPrices: z.array(translatedSpecialPriceSchema).default([]),
   roomGuestPricing: z.array(translatedRoomGuestPricingSchema),
   host: translatedHostSchema,
 });
@@ -59,6 +67,7 @@ export type TranslatedRoom = z.infer<typeof translatedRoomSchema>;
 export type TranslatedRoomOption = z.infer<typeof translatedRoomOptionSchema>;
 export type TranslatedReview = z.infer<typeof translatedReviewSchema>;
 export type TranslatedSeasonalPrice = z.infer<typeof translatedSeasonalPriceSchema>;
+export type TranslatedSpecialPrice = z.infer<typeof translatedSpecialPriceSchema>;
 export type TranslatedRoomGuestPricing = z.infer<typeof translatedRoomGuestPricingSchema>;
 export type TranslatedHost = z.infer<typeof translatedHostSchema>;
 export type TranslationPayload = z.infer<typeof translationPayloadSchema>;

@@ -6,7 +6,7 @@ import { useIsMobile } from "@/lib/use-is-mobile";
 import Image from "next/image";
 import { startOfToday, addMonths, parseISO } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
-import type { Room, RoomSeasonalPrice, BlockedDate } from "@/types/database";
+import type { Room, RoomSeasonalPrice, RoomSpecialPrice, BlockedDate } from "@/types/database";
 
 type BookingStep = "dates" | "details" | "payment";
 import { Badge } from "@/components/ui/badge";
@@ -20,6 +20,7 @@ import { toast } from "sonner";
 import { useBookingCartOptional, type CartLine } from "@/components/booking/booking-cart-context";
 import { RoomConfigDialog } from "@/components/booking/room-config-dialog";
 import { getPriceRange } from "@/lib/calculate-price";
+import { formatSpecialPriceRule } from "@/lib/special-price-label";
 import { getFullyBookedForRoom } from "@/lib/booking-dates";
 import { HTMLContent } from "@/components/ui/html-content";
 import { Calendar } from "@/components/ui/calendar";
@@ -110,6 +111,7 @@ interface BookedRange {
 }
 
 const EMPTY_SEASONAL_PRICES: RoomSeasonalPrice[] = [];
+const EMPTY_SPECIAL_PRICES: RoomSpecialPrice[] = [];
 const EMPTY_BOOKED_RANGES: BookedRange[] = [];
 const EMPTY_BLOCKED_DATES: BlockedDate[] = [];
 const EMPTY_POPULAR_IDS: ReadonlySet<string> = new Set();
@@ -117,12 +119,13 @@ const EMPTY_POPULAR_IDS: ReadonlySet<string> = new Set();
 interface RoomsSectionProps {
   rooms: Room[];
   seasonalPrices?: RoomSeasonalPrice[];
+  specialPrices?: RoomSpecialPrice[];
   bookedRanges?: BookedRange[];
   blockedDates?: BlockedDate[];
   popularRoomIds?: ReadonlySet<string>;
 }
 
-export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, bookedRanges = EMPTY_BOOKED_RANGES, blockedDates = EMPTY_BLOCKED_DATES, popularRoomIds = EMPTY_POPULAR_IDS }: RoomsSectionProps) {
+export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, specialPrices = EMPTY_SPECIAL_PRICES, bookedRanges = EMPTY_BOOKED_RANGES, blockedDates = EMPTY_BLOCKED_DATES, popularRoomIds = EMPTY_POPULAR_IDS }: RoomsSectionProps) {
   const t = useTranslations("rooms");
 
   const seasonsByRoom = useMemo(() => {
@@ -133,6 +136,15 @@ export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, bo
     }
     return map;
   }, [seasonalPrices]);
+
+  const specialsByRoom = useMemo(() => {
+    const map: Record<string, RoomSpecialPrice[]> = {};
+    for (const s of specialPrices) {
+      if (!map[s.room_id]) map[s.room_id] = [];
+      map[s.room_id].push(s);
+    }
+    return map;
+  }, [specialPrices]);
 
   if (!rooms.length) return null;
 
@@ -154,7 +166,7 @@ export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, bo
           {t("subtitle")}
         </p>
 
-        <RoomCards rooms={rooms} seasonsByRoom={seasonsByRoom} bookedRanges={bookedRanges} blockedDates={blockedDates} popularRoomIds={popularRoomIds} />
+        <RoomCards rooms={rooms} seasonsByRoom={seasonsByRoom} specialsByRoom={specialsByRoom} bookedRanges={bookedRanges} blockedDates={blockedDates} popularRoomIds={popularRoomIds} />
 
       </div>
     </section>
@@ -166,10 +178,10 @@ function getFullyBookedDates(roomId: string, rooms: Room[], bookedRanges: Booked
   return getFullyBookedForRoom(roomId, roomObj?.quantity || 1, bookedRanges);
 }
 
-function RoomPriceDisplay({ room, seasonalPrices }: { room: Room; seasonalPrices: RoomSeasonalPrice[] }) {
+function RoomPriceDisplay({ room, seasonalPrices, specialPrices }: { room: Room; seasonalPrices: RoomSeasonalPrice[]; specialPrices: RoomSpecialPrice[] }) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
-  const { min, max } = getPriceRange(room.price_per_night, seasonalPrices);
+  const { min, max } = getPriceRange({ basePricePerNight: room.price_per_night, seasons: seasonalPrices, specialPrices });
   const hasRange = min !== max;
   return (
     <div className="flex items-center gap-1">
@@ -223,6 +235,7 @@ function RoomDescriptionWithReadMore({ content, onReadMore }: { content: string;
 function SingleRoomHero({
   room,
   seasonalPrices,
+  specialPrices,
   onLightbox,
   onCalendar,
   onDesc,
@@ -235,6 +248,7 @@ function SingleRoomHero({
 }: {
   room: Room;
   seasonalPrices: RoomSeasonalPrice[];
+  specialPrices: RoomSpecialPrice[];
   onLightbox: () => void;
   onCalendar: () => void;
   onDesc: () => void;
@@ -291,7 +305,7 @@ function SingleRoomHero({
     onSwipeEnd: scheduleShow,
   });
 
-  const { min, max } = getPriceRange(room.price_per_night, seasonalPrices);
+  const { min, max } = getPriceRange({ basePricePerNight: room.price_per_night, seasons: seasonalPrices, specialPrices });
   const hasRange = min !== max;
 
   if (!room.is_active) {
@@ -535,7 +549,7 @@ function SingleRoomHero({
   );
 }
 
-function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRoomIds }: { rooms: Room[]; seasonsByRoom: Record<string, RoomSeasonalPrice[]>; bookedRanges: BookedRange[]; blockedDates: BlockedDate[]; popularRoomIds: ReadonlySet<string> }) {
+function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blockedDates, popularRoomIds }: { rooms: Room[]; seasonsByRoom: Record<string, RoomSeasonalPrice[]>; specialsByRoom: Record<string, RoomSpecialPrice[]>; bookedRanges: BookedRange[]; blockedDates: BlockedDate[]; popularRoomIds: ReadonlySet<string> }) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
   const [lightbox, setLightbox] = useState<{ images: string[]; name: string } | null>(null);
@@ -612,6 +626,7 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRo
             key={room.id}
             room={room}
             seasonalPrices={seasonsByRoom[room.id] || []}
+            specialPrices={specialsByRoom[room.id] || []}
             onLightbox={() => setLightbox({ images: room.images, name: room.name })}
             onCalendar={() => setCalendarRoomId(room.id)}
             onDesc={() => setDescRoomId(room.id)}
@@ -733,6 +748,36 @@ function RoomCards({ rooms, seasonsByRoom, bookedRanges, blockedDates, popularRo
                   <span className="text-xs text-earth-500">{tc("perNight")}</span>
                 </div>
               </div>
+
+              {/* Special date rates */}
+              {(specialsByRoom[calendarRoom.id] || []).length > 0 && (
+                <div className="mt-5 border-t border-dashed border-earth-300 pt-4">
+                  <div className="mb-3 flex items-center gap-2">
+                    <Sparkles className="h-3 w-3 text-brand" strokeWidth={2.5} />
+                    <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-earth-500">
+                      {t("specialRates")}
+                    </span>
+                  </div>
+                  <ul className="space-y-3">
+                    {(specialsByRoom[calendarRoom.id] || []).map((s) => (
+                      <li key={s.id} className="flex items-baseline justify-between gap-4">
+                        <div className="min-w-0 pr-2">
+                          <div className="truncate text-sm font-medium text-earth-900">{s.name}</div>
+                          <div className="mt-0.5 text-[11px] text-earth-500 tabular-nums">
+                            {formatSpecialPriceRule(s, locale)}
+                          </div>
+                        </div>
+                        <div className="flex shrink-0 items-baseline gap-1 tabular-nums">
+                          <span className="text-lg font-bold text-brand">
+                            +฿{s.surcharge.toLocaleString()}
+                          </span>
+                          <span className="text-[10px] text-earth-500">{tc("perNight")}</span>
+                        </div>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
 
               {/* Seasonal rates */}
               {(seasonsByRoom[calendarRoom.id] || []).length > 0 && (

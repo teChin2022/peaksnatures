@@ -24,7 +24,7 @@ import {
 } from "lucide-react";
 import { toast } from "sonner";
 import { useTranslations, useLocale } from "next-intl";
-import type { Homestay, Room, BlockedDate, Host, RoomSeasonalPrice, RoomOption, RoomGuestPricing } from "@/types/database";
+import type { Homestay, Room, BlockedDate, Host, RoomSeasonalPrice, RoomSpecialPrice, RoomOption, RoomGuestPricing } from "@/types/database";
 import { getPriceRange } from "@/lib/calculate-price";
 import { composeLineGuestLabel } from "@/lib/guest-pricing";
 import { isValidEmail, isValidPhone, sanitizePhoneInput } from "@/lib/utils";
@@ -57,6 +57,7 @@ interface BookedRange {
 
 const EMPTY_BOOKED_RANGES: BookedRange[] = [];
 const EMPTY_SEASONAL_PRICES: RoomSeasonalPrice[] = [];
+const EMPTY_SPECIAL_PRICES: RoomSpecialPrice[] = [];
 const EMPTY_ROOM_OPTIONS: RoomOption[] = [];
 const EMPTY_GUEST_PRICING: RoomGuestPricing[] = [];
 
@@ -119,6 +120,7 @@ interface BookingSectionProps {
   bookedRanges?: BookedRange[];
   host: Host;
   seasonalPrices?: RoomSeasonalPrice[];
+  specialPrices?: RoomSpecialPrice[];
   roomOptions?: RoomOption[];
   guestPricing?: RoomGuestPricing[];
   bookingDisabled?: boolean;
@@ -134,6 +136,7 @@ export function BookingSection({
   bookedRanges = EMPTY_BOOKED_RANGES,
   host,
   seasonalPrices = EMPTY_SEASONAL_PRICES,
+  specialPrices = EMPTY_SPECIAL_PRICES,
   roomOptions = EMPTY_ROOM_OPTIONS,
   guestPricing = EMPTY_GUEST_PRICING,
   bookingDisabled = false,
@@ -362,6 +365,15 @@ export function BookingSection({
     }
     return map;
   }, [seasonalPrices]);
+
+  const specialsByRoom = useMemo(() => {
+    const map: Record<string, RoomSpecialPrice[]> = {};
+    for (const s of specialPrices) {
+      if (!map[s.room_id]) map[s.room_id] = [];
+      map[s.room_id].push(s);
+    }
+    return map;
+  }, [specialPrices]);
 
   const nights = useMemo(() => {
     if (!dateRange?.from || !dateRange?.to) return 0;
@@ -915,8 +927,9 @@ export function BookingSection({
   };
 
   const roomSeasons = selectedRoom ? (seasonsByRoom[selectedRoom.id] || []) : [];
+  const roomSpecials = selectedRoom ? (specialsByRoom[selectedRoom.id] || []) : [];
   const { min: priceMin, max: priceMax } = selectedRoom
-    ? getPriceRange(selectedRoom.price_per_night, roomSeasons)
+    ? getPriceRange({ basePricePerNight: selectedRoom.price_per_night, seasons: roomSeasons, specialPrices: roomSpecials })
     : { min: 0, max: 0 };
   const priceLabel = selectedRoom
     ? priceMin !== priceMax
