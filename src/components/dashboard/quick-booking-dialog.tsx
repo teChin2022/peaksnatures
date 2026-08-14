@@ -223,19 +223,17 @@ export function QuickBookingDialog({
         </DialogHeader>
 
         <div className="space-y-4 pt-2">
-          {/* Guest Name */}
-          <div className="space-y-1.5">
-            <Label htmlFor="qb-name">{t("guestNameLabel")}</Label>
-            <Input
-              id="qb-name"
-              value={guestName}
-              onChange={(e) => setGuestName(e.target.value)}
-              placeholder={t("guestNamePlaceholder")}
-            />
-          </div>
-
-          {/* Phone + Email row */}
+          {/* Name + Phone row — the two required identity fields */}
           <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="qb-name">{t("guestNameLabel")}</Label>
+              <Input
+                id="qb-name"
+                value={guestName}
+                onChange={(e) => setGuestName(e.target.value)}
+                placeholder={t("guestNamePlaceholder")}
+              />
+            </div>
             <div className="space-y-1.5">
               <Label htmlFor="qb-phone">{t("guestPhoneLabel")}</Label>
               <Input
@@ -248,6 +246,10 @@ export function QuickBookingDialog({
                 placeholder={t("guestPhonePlaceholder")}
               />
             </div>
+          </div>
+
+          {/* Email + Platform row — both optional metadata */}
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="qb-email">{t("guestEmailLabel")}</Label>
               <Input
@@ -257,6 +259,21 @@ export function QuickBookingDialog({
                 onChange={(e) => setGuestEmail(e.target.value)}
                 placeholder={t("guestEmailPlaceholder")}
               />
+            </div>
+            <div className="space-y-1.5">
+              <Label>{t("bookingSourceLabel")}</Label>
+              <Select value={bookingSource} onValueChange={setBookingSource}>
+                <SelectTrigger className="w-full">
+                  <SelectValue placeholder={t("bookingSourcePlaceholder")} />
+                </SelectTrigger>
+                <SelectContent>
+                  {BOOKING_SOURCES.map((src) => (
+                    <SelectItem key={src.value} value={src.value}>
+                      {t(src.labelKey)}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
@@ -332,7 +349,7 @@ export function QuickBookingDialog({
             </p>
           )}
 
-          {/* Room + Source row */}
+          {/* House + Guests row — which unit, and how many people in it */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label>{t("selectRoomLabel")}</Label>
@@ -350,28 +367,9 @@ export function QuickBookingDialog({
               </Select>
             </div>
             <div className="space-y-1.5">
-              <Label>{t("bookingSourceLabel")}</Label>
-              <Select value={bookingSource} onValueChange={setBookingSource}>
-                <SelectTrigger className="w-full">
-                  <SelectValue placeholder={t("bookingSourcePlaceholder")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {BOOKING_SOURCES.map((src) => (
-                    <SelectItem key={src.value} value={src.value}>
-                      {t(src.labelKey)}
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          {/* Guests + Agreed Price row */}
-          <div className="grid grid-cols-2 gap-3">
-            <div className="space-y-1.5">
               <Label htmlFor="qb-guests">{t("numGuestsLabel")} ({locale === "th" ? "ไม่บังคับ" : "optional"})</Label>
-              <div className="flex items-center gap-2">
-                <Users className="h-4 w-4 text-gray-400 shrink-0" />
+              <div className="relative">
+                <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
                 <Input
                   id="qb-guests"
                   type="number"
@@ -379,13 +377,18 @@ export function QuickBookingDialog({
                   value={numGuests}
                   onChange={(e) => setNumGuests(e.target.value)}
                   placeholder="2"
+                  className="pl-9"
                 />
               </div>
             </div>
+          </div>
+
+          {/* Agreed Price + Amount Paid row — the balance rides under the paid field */}
+          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="qb-agreed">{t("agreedPriceLabel")}</Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">฿</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">฿</span>
                 <Input
                   id="qb-agreed"
                   type="number"
@@ -397,14 +400,10 @@ export function QuickBookingDialog({
                 />
               </div>
             </div>
-          </div>
-
-          {/* Amount Paid + Balance row */}
-          <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="qb-paid">{t("amountPaidInputLabel")}</Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">฿</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">฿</span>
                 <Input
                   id="qb-paid"
                   type="number"
@@ -414,24 +413,27 @@ export function QuickBookingDialog({
                   placeholder={t("totalPricePlaceholder")}
                   disabled={agreedNum <= 0}
                   aria-invalid={paidOver}
+                  aria-describedby="qb-paid-hint"
                   className={`pl-7 ${paidOver ? "border-red-500 focus-visible:ring-red-500" : ""}`}
                 />
               </div>
+              {/* Error takes the slot when invalid, otherwise the live balance */}
+              {paidOver ? (
+                <p id="qb-paid-hint" className="text-xs font-medium text-red-600">
+                  {t("errorPaidExceedsAgreed")}
+                </p>
+              ) : agreedNum > 0 ? (
+                <p
+                  id="qb-paid-hint"
+                  className={`text-xs font-medium ${balance > 0 ? "text-amber-600" : "text-brand"}`}
+                >
+                  {balance > 0
+                    ? t("balanceDue", { amount: balance.toLocaleString() })
+                    : t("paymentFull")}
+                </p>
+              ) : null}
             </div>
-            {agreedNum > 0 && (
-              <div className="space-y-1.5">
-                <Label className="text-amber-600">
-                  {t("balanceDue", { amount: "" }).replace(/[:\s฿]+$/, "")}
-                </Label>
-                <div className="flex h-9 items-center text-sm font-medium text-amber-600">
-                  ฿{balance.toLocaleString()}
-                </div>
-              </div>
-            )}
           </div>
-          {paidOver && (
-            <p className="text-xs text-red-600 -mt-2">{t("errorPaidExceedsAgreed")}</p>
-          )}
 
           {/* Notes */}
           <div className="space-y-1.5">
