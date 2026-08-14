@@ -15,6 +15,7 @@ const quickBookingSchema = z.object({
   check_out: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
   num_guests: z.number().int().min(1),
   total_price: z.number().int().min(0).optional().default(0),
+  amount_paid: z.number().int().min(0).optional(),
   booking_source: z.string().optional().default("other"),
   notes: z.string().optional(),
 });
@@ -38,6 +39,13 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data;
+
+    // The host enters an agreed price (total_price) and what the guest actually
+    // handed over (amount_paid); the shortfall becomes the balance shown on the
+    // booking. Omitting amount_paid means paid in full — the pre-existing API
+    // contract. Clamped to total_price so a bad client can't record an overpayment.
+    const amountPaid = Math.min(Math.max(data.amount_paid ?? data.total_price, 0), data.total_price);
+    const paymentType = amountPaid < data.total_price ? "deposit" : "full";
 
     const supabase = createServiceRoleClient();
 
@@ -144,8 +152,8 @@ export async function POST(req: NextRequest) {
         p_easyslip_response: null,
         p_session_id: null,
         p_notes: data.notes || null,
-        p_payment_type: "full",
-        p_amount_paid: data.total_price,
+        p_payment_type: paymentType,
+        p_amount_paid: amountPaid,
         p_created_by: host.name,
         p_selected_options: [],
         p_booking_source: data.booking_source,
@@ -233,6 +241,8 @@ export async function POST(req: NextRequest) {
           guest_name: data.guest_name,
           check_in: data.check_in,
           check_out: data.check_out,
+          total_price: data.total_price,
+          amount_paid: amountPaid,
           quick_booking: true,
         },
       });

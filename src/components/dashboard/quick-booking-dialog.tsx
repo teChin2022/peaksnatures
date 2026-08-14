@@ -86,6 +86,8 @@ export function QuickBookingDialog({
   const [checkOut, setCheckOut] = useState<Date | undefined>(defaultCheckOut);
   const [numGuests, setNumGuests] = useState("");
   const [totalPrice, setTotalPrice] = useState("");
+  const [amountPaid, setAmountPaid] = useState("");
+  const [paidTouched, setPaidTouched] = useState(false);
   const [bookingSource, setBookingSource] = useState("");
   const [notes, setNotes] = useState("");
   const [saving, setSaving] = useState(false);
@@ -103,6 +105,8 @@ export function QuickBookingDialog({
       setCheckOut(defaultCheckOut);
       setNumGuests("");
       setTotalPrice("");
+      setAmountPaid("");
+      setPaidTouched(false);
       setBookingSource("");
       setNotes("");
     }
@@ -113,13 +117,38 @@ export function QuickBookingDialog({
       ? Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24))
       : 0;
 
+  const agreedNum = totalPrice ? parseInt(totalPrice, 10) || 0 : 0;
+  const paidNum = amountPaid ? parseInt(amountPaid, 10) || 0 : 0;
+  const balance = Math.max(0, agreedNum - paidNum);
+  const paidOver = paidNum > agreedNum;
+
+  // The paid field mirrors the agreed price until the host edits it, so an OTA
+  // booking where only a total is entered still records as fully paid.
+  const handleAgreedChange = (v: string) => {
+    setTotalPrice(v);
+    if (!v || parseInt(v, 10) <= 0) {
+      // Clearing the agreed price disables the paid input, so drop any stale
+      // amount with it — otherwise a leftover value would block submit with no
+      // editable field to correct it.
+      setAmountPaid("");
+      setPaidTouched(false);
+    } else if (!paidTouched) {
+      setAmountPaid(v);
+    }
+  };
+  const handlePaidChange = (v: string) => {
+    setPaidTouched(true);
+    setAmountPaid(v);
+  };
+
   const canSubmit =
     guestName.trim() &&
     guestPhone.trim() &&
     roomId &&
     checkIn &&
     checkOut &&
-    nights > 0;
+    nights > 0 &&
+    !paidOver;
 
   const handleSubmit = async () => {
     if (!canSubmit || !checkIn || !checkOut) return;
@@ -129,6 +158,10 @@ export function QuickBookingDialog({
     }
     if (guestEmail.trim() && !isValidEmail(guestEmail)) {
       toast.error(t("errorInvalidEmail"));
+      return;
+    }
+    if (paidOver) {
+      toast.error(t("errorPaidExceedsAgreed"));
       return;
     }
     setSaving(true);
@@ -147,6 +180,7 @@ export function QuickBookingDialog({
           check_out: format(checkOut, "yyyy-MM-dd"),
           num_guests: numGuests ? parseInt(numGuests, 10) : 2,
           total_price: totalPrice ? parseInt(totalPrice, 10) : 0,
+          amount_paid: amountPaid ? parseInt(amountPaid, 10) : 0,
           booking_source: bookingSource || "other",
           notes: notes.trim() || undefined,
         }),
@@ -332,7 +366,7 @@ export function QuickBookingDialog({
             </div>
           </div>
 
-          {/* Guests + Total Price row */}
+          {/* Guests + Agreed Price row */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
               <Label htmlFor="qb-guests">{t("numGuestsLabel")} ({locale === "th" ? "ไม่บังคับ" : "optional"})</Label>
@@ -349,21 +383,55 @@ export function QuickBookingDialog({
               </div>
             </div>
             <div className="space-y-1.5">
-              <Label htmlFor="qb-price">{t("totalPriceLabel")}</Label>
+              <Label htmlFor="qb-agreed">{t("agreedPriceLabel")}</Label>
               <div className="relative">
                 <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">฿</span>
                 <Input
-                  id="qb-price"
+                  id="qb-agreed"
                   type="number"
                   min={0}
                   value={totalPrice}
-                  onChange={(e) => setTotalPrice(e.target.value)}
+                  onChange={(e) => handleAgreedChange(e.target.value)}
                   placeholder={t("totalPricePlaceholder")}
                   className="pl-7"
                 />
               </div>
             </div>
           </div>
+
+          {/* Amount Paid + Balance row */}
+          <div className="grid grid-cols-2 gap-3">
+            <div className="space-y-1.5">
+              <Label htmlFor="qb-paid">{t("amountPaidInputLabel")}</Label>
+              <div className="relative">
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm">฿</span>
+                <Input
+                  id="qb-paid"
+                  type="number"
+                  min={0}
+                  value={amountPaid}
+                  onChange={(e) => handlePaidChange(e.target.value)}
+                  placeholder={t("totalPricePlaceholder")}
+                  disabled={agreedNum <= 0}
+                  aria-invalid={paidOver}
+                  className={`pl-7 ${paidOver ? "border-red-500 focus-visible:ring-red-500" : ""}`}
+                />
+              </div>
+            </div>
+            {agreedNum > 0 && (
+              <div className="space-y-1.5">
+                <Label className="text-amber-600">
+                  {t("balanceDue", { amount: "" }).replace(/[:\s฿]+$/, "")}
+                </Label>
+                <div className="flex h-9 items-center text-sm font-medium text-amber-600">
+                  ฿{balance.toLocaleString()}
+                </div>
+              </div>
+            )}
+          </div>
+          {paidOver && (
+            <p className="text-xs text-red-600 -mt-2">{t("errorPaidExceedsAgreed")}</p>
+          )}
 
           {/* Notes */}
           <div className="space-y-1.5">
