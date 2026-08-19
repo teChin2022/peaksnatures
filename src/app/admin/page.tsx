@@ -4,6 +4,7 @@ import { isAdmin } from "@/lib/admin";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/admin/page-header";
 import { KpiCard } from "@/components/admin/kpi-card";
+import { AdminDemandSection } from "@/components/admin/admin-demand-section";
 
 async function getAdminStats() {
   const supabase = await createServerSupabaseClient();
@@ -11,7 +12,7 @@ async function getAdminStats() {
   if (!user || !(await isAdmin(user.id))) redirect("/");
 
   const sc = createServiceRoleClient();
-  const [hostsRes, pendingHostsRes, homestaysRes, totalBookingsRes, pendingBookingsRes, confirmedBookingsRes, revenueRes] = await Promise.all([
+  const [hostsRes, pendingHostsRes, homestaysRes, totalBookingsRes, pendingBookingsRes, confirmedBookingsRes, revenueRes, homestayListRes] = await Promise.all([
     sc.from("hosts").select("id", { count: "exact", head: true }),
     sc.from("hosts").select("id", { count: "exact", head: true }).eq("status", "pending"),
     sc.from("homestays").select("id", { count: "exact", head: true }),
@@ -19,6 +20,8 @@ async function getAdminStats() {
     sc.from("bookings").select("id", { count: "exact", head: true }).eq("status", "pending"),
     sc.from("bookings").select("id", { count: "exact", head: true }).eq("status", "confirmed"),
     sc.from("bookings").select("total_price").in("status", ["confirmed", "completed"]),
+    // Options for the demand panel's homestay filter.
+    sc.from("homestays").select("id, name").order("name"),
   ]);
 
   const revenueRows = (revenueRes.data as { total_price: number }[]) || [];
@@ -30,6 +33,7 @@ async function getAdminStats() {
     pendingBookings: pendingBookingsRes.count || 0,
     confirmedBookings: confirmedBookingsRes.count || 0,
     totalRevenue: revenueRows.reduce((sum, b) => sum + b.total_price, 0),
+    homestayList: (homestayListRes.data as { id: string; name: string }[]) || [],
   };
 }
 
@@ -60,6 +64,12 @@ export default async function AdminDashboardPage() {
             href={card.href}
           />
         ))}
+      </div>
+
+      {/* Guest demand, platform-wide. Same panel the hosts see on their own
+          dashboard, just unscoped and filterable. */}
+      <div className="mt-6">
+        <AdminDemandSection homestays={stats.homestayList} />
       </div>
     </div>
   );

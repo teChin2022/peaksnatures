@@ -19,6 +19,7 @@ import { AvailabilityCalendarSection } from "@/components/booking/availability-c
 import { AboutSection } from "@/components/booking/about-section";
 import { RoomsSection } from "@/components/booking/rooms-section";
 import { BookingCartProvider } from "@/components/booking/booking-cart-context";
+import { DemandTracker } from "@/components/booking/demand-tracker";
 import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingFooter } from "@/components/booking/booking-footer";
 import { HostLocationSection } from "@/components/booking/host-location-section";
@@ -401,6 +402,7 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
       <JsonLd data={lodgingLd} id="ld-lodging" />
       {faqLd && <JsonLd data={faqLd} id="ld-faq" />}
       <BookingCartProvider catalog={cartCatalog} homestayId={homestay.id}>
+      <DemandTracker homestayId={homestay.id} />
       <BookingHeader homestayName={homestay.name} logoUrl={homestay.logo_url} slug={homestay.slug} />
 
       <main className="pb-28 md:pb-0">
@@ -417,7 +419,7 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
 
         <DesktopDateSearch bookingDisabled={bookingDisabled} />
 
-        <AvailabilityCalendarSection />
+        <AvailabilityCalendarSection homestayId={homestay.id} />
 
         <GallerySection images={homestay.gallery} name={homestay.name} />
 
