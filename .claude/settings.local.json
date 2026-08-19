@@ -44,7 +44,9 @@
       "Bash(awk '/export function GallerySection/{f=1} f&&/<\\(section|div\\)/{print NR\": \"$0; c++} c>=2{exit}' src/components/booking/gallery-section.tsx)",
       "Bash(curl -s http://localhost:9240/json/version)",
       "Bash(curl -s -o /dev/null -w \"%{http_code}\\\\n\" http://localhost:3100/ing-khoa-camping)",
-      "Bash(awk '/CREATE OR REPLACE FUNCTION create_booking_group/,/LANGUAGE plpgsql/' supabase/migrations/059_booking_groups.sql)"
+      "Bash(awk '/CREATE OR REPLACE FUNCTION create_booking_group/,/LANGUAGE plpgsql/' supabase/migrations/059_booking_groups.sql)",
+      "Bash(curl -s -o /dev/null -m 6 -6 -w \"curl -6: %{http_code} connect=%{time_connect}s\\\\n\" https://api.easyslip.com/)",
+      "Bash(curl -s -o /dev/null -m 6 -4 -w \"curl -4: %{http_code} connect=%{time_connect}s\\\\n\" https://api.easyslip.com/)"
     ]
   },
   "prefersReducedMotion": false

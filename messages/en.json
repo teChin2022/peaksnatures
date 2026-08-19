@@ -333,6 +333,7 @@
     "errorUploadSlip": "Please upload your payment slip",
     "errorDuplicateSlip": "This payment slip has already been used. Please upload a different slip.",
     "errorSlipPending": "Bangkok Bank slips need a few minutes to process. Please wait 2-3 minutes and try again.",
+    "errorSlipVerifyFailed": "Could not verify the payment slip right now. Please try again in a moment.",
     "errorDatesUnavailable": "These dates are no longer available. Please select different dates.",
     "errorGeneric": "Something went wrong. Please try again.",
     "errorTooManyRequests": "Too many requests. Please try again in a moment.",

@@ -18,7 +18,11 @@ const MAX_BATCH = 20;
 export interface DemandEventInput {
   homestayId: string;
   eventType: DemandEventType;
-  /** "yyyy-MM-dd". Always format with date-fns — see formatDemandDate below. */
+  /**
+   * "yyyy-MM-dd". Callers must format with date-fns `format()`, never
+   * `Date.toISOString()` — the site runs in Asia/Bangkok (UTC+7), so UTC
+   * serialisation shifts every check-in back a day.
+   */
   checkIn?: string | null;
   checkOut?: string | null;
   nights?: number | null;

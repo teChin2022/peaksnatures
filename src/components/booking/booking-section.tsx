@@ -760,7 +760,22 @@ export function BookingSection({
         body: verifyForm,
       });
 
-      const verifyData = await verifyRes.json();
+      // Defensive: a 5xx from the edge can arrive as an HTML body, and this
+      // used to throw straight into the generic catch.
+      let verifyData: {
+        duplicate?: boolean;
+        slip_pending?: boolean;
+        verified?: boolean;
+        slip_hash?: string;
+        slip_trans_ref?: string | null;
+        payment_slip_url?: string | null;
+        easyslip_response?: unknown;
+      } = {};
+      try {
+        verifyData = await verifyRes.json();
+      } catch {
+        verifyData = {};
+      }
 
       if (verifyRes.status === 409 && verifyData.duplicate) {
         toast.error(t("errorDuplicateSlip"));
@@ -771,6 +786,17 @@ export function BookingSection({
 
       if (verifyData.slip_pending) {
         toast.error(t("errorSlipPending"));
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Stop here on a failed verification instead of falling through. Without
+      // this, a 500 left slip_hash undefined and we posted a booking that
+      // /api/bookings is guaranteed to reject with a 400 — the guest saw a
+      // generic error and no booking, with no way to tell what went wrong.
+      // The slip stays attached so the guest can simply retry.
+      if (!verifyRes.ok || !verifyData.slip_hash) {
+        toast.error(t("errorSlipVerifyFailed"));
         setIsSubmitting(false);
         return;
       }
