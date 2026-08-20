@@ -29,6 +29,37 @@ const RANGES = [7, 30, 90] as const;
 type Range = (typeof RANGES)[number];
 
 /**
+ * One horizontal bar row. Both charts in this panel render through it so their
+ * label, track and trailing columns line up exactly — previously each loop
+ * carried its own widths and the two charts' bars started and ended at
+ * different x-positions.
+ */
+function BarRow({
+  label,
+  value,
+  trailing,
+  children,
+}: {
+  label: string;
+  value: string;
+  /** Right-most column: drop-off % on the funnel, sold-out count on the dates. */
+  trailing?: React.ReactNode;
+  /** The bar fill, rendered inside the shared track. */
+  children: React.ReactNode;
+}) {
+  return (
+    <div className="flex items-center gap-3">
+      <span className="w-28 shrink-0 truncate text-xs text-gray-500 sm:w-36">{label}</span>
+      <div className="h-5 flex-1 overflow-hidden rounded bg-gray-50">{children}</div>
+      <span className="w-12 shrink-0 text-right text-xs font-medium tabular-nums text-gray-900">
+        {value}
+      </span>
+      <span className="w-14 shrink-0 text-right text-xs tabular-nums">{trailing}</span>
+    </div>
+  );
+}
+
+/**
  * Guest demand funnel. Shared verbatim by the host dashboard (ภาพรวม tab) and
  * the platform admin overview — the only differences are the endpoint it reads
  * and the labels it is handed.
@@ -155,23 +186,18 @@ export function DemandPanel({
                     prev && prev > 0 ? Math.round(((prev - row.sessions) / prev) * 100) : null;
                   const widthPct = top > 0 ? Math.max(1, (row.sessions / top) * 100) : 0;
                   return (
-                    <div key={row.stage} className="flex items-center gap-3">
-                      <span className="w-28 shrink-0 truncate text-xs text-gray-500 sm:w-36">
-                        {labels.stages[row.stage]}
-                      </span>
-                      <div className="h-5 flex-1 overflow-hidden rounded bg-gray-50">
-                        <div
-                          className="h-full rounded bg-brand/80"
-                          style={{ width: `${widthPct}%` }}
-                        />
-                      </div>
-                      <span className="w-12 shrink-0 text-right text-xs font-medium tabular-nums text-gray-900">
-                        {row.sessions.toLocaleString()}
-                      </span>
-                      <span className="w-14 shrink-0 text-right text-xs tabular-nums text-gray-400">
-                        {dropPct !== null && dropPct > 0 ? `-${dropPct}%` : ""}
-                      </span>
-                    </div>
+                    <BarRow
+                      key={row.stage}
+                      label={labels.stages[row.stage]}
+                      value={row.sessions.toLocaleString()}
+                      trailing={
+                        dropPct !== null && dropPct > 0 ? (
+                          <span className="text-gray-400">{`-${dropPct}%`}</span>
+                        ) : null
+                      }
+                    >
+                      <div className="h-full rounded bg-brand/80" style={{ width: `${widthPct}%` }} />
+                    </BarRow>
                   );
                 })}
               </div>
@@ -190,26 +216,30 @@ export function DemandPanel({
                     // serve. A tall amber bar is a date to unblock or re-price.
                     const lostShare = d.requested > 0 ? (d.unavailable / d.requested) * 100 : 0;
                     return (
-                      <div key={d.date} className="flex items-center gap-3">
-                        <span className="w-20 shrink-0 text-xs text-gray-500 sm:w-24">
-                          {fmtDateStr(d.date, "d MMM", locale)}
-                        </span>
-                        <div className="h-5 flex-1 overflow-hidden rounded bg-gray-50">
-                          <div className="flex h-full" style={{ width: `${Math.max(1, total)}%` }}>
-                            <div
-                              className="h-full bg-brand/80"
-                              style={{ width: `${100 - lostShare}%` }}
-                            />
-                            <div className="h-full bg-amber-400" style={{ width: `${lostShare}%` }} />
-                          </div>
+                      <BarRow
+                        key={d.date}
+                        label={fmtDateStr(d.date, "d MMM", locale)}
+                        value={d.requested.toLocaleString()}
+                        trailing={
+                          d.unavailable > 0 ? (
+                            <span className="text-amber-600">
+                              {`${d.unavailable} ${labels.soldOutSuffix}`}
+                            </span>
+                          ) : null
+                        }
+                      >
+                        {/* overflow-hidden so the wrapper's rounding actually clips the
+                            two segments — without it the amber tip stays square while
+                            the funnel's single fill is rounded, and the two charts read
+                            as different treatments again. */}
+                        <div
+                          className="flex h-full overflow-hidden rounded"
+                          style={{ width: `${Math.max(1, total)}%` }}
+                        >
+                          <div className="h-full bg-brand/80" style={{ width: `${100 - lostShare}%` }} />
+                          <div className="h-full bg-amber-400" style={{ width: `${lostShare}%` }} />
                         </div>
-                        <span className="w-12 shrink-0 text-right text-xs font-medium tabular-nums text-gray-900">
-                          {d.requested}
-                        </span>
-                        <span className="w-20 shrink-0 text-right text-xs tabular-nums text-amber-600">
-                          {d.unavailable > 0 ? `${d.unavailable} ${labels.soldOutSuffix}` : ""}
-                        </span>
-                      </div>
+                      </BarRow>
                     );
                   })}
                 </div>

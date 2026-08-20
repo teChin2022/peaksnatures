@@ -642,7 +642,7 @@
     "demandFunnelTitle": "ขั้นตอนการจอง",
     "demandTopDatesTitle": "วันที่คนอยากได้มากที่สุด",
     "demandTopDatesHint": "แถบสีเหลืองคือส่วนที่ไม่มีบ้านพักว่างให้จอง",
-    "demandStagePageView": "เข้าชมหน้า",
+    "demandStagePageView": "เข้าชมหน้าเว็บ",
     "demandStageCalendarView": "ดูปฏิทินบ้านพักว่าง",
     "demandStageDatesSelected": "เลือกวันเข้าพัก",
     "demandStageStep1": "จบขั้นที่ 1",
