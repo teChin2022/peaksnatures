@@ -681,6 +681,22 @@ export async function GET(req: NextRequest) {
       results.invoice_notifications = invoiceNotifications;
     }
 
+    // Demand-event retention. Rides this cron rather than adding a second
+    // vercel.json entry. The RPC caps its own delete, so a shortened retention
+    // window can never turn one nightly run into a table-wide delete — it just
+    // takes a few more nights to drain.
+    try {
+      const { data: pruned, error: pruneErr } = await supabase.rpc(
+        "prune_demand_events" as never,
+        { p_days: 180, p_limit: 10000 } as never,
+      );
+      if (pruneErr) throw new Error(pruneErr.message);
+      results.demand_events_pruned = pruned ?? 0;
+    } catch (err) {
+      console.error("[Cron] Demand prune error:", err);
+      results.demand_events_pruned = { error: err instanceof Error ? err.message : String(err) };
+    }
+
     await logEvent({
       entityType: "system",
       entityId: "cron_billing",

@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useCallback, useMemo, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import { format, startOfToday, addDays, addMonths } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
@@ -30,6 +30,8 @@ import { calculateTotalPrice } from "@/lib/calculate-price";
 import { formatSpecialPriceRule } from "@/lib/special-price-label";
 import { fmtDate, fmtDateStr } from "@/lib/format-date";
 import { useSwipe } from "@/hooks/use-swipe";
+import { DemandEvent } from "@/lib/demand-events";
+import { trackDemandOnce } from "@/lib/demand-track";
 import { cn } from "@/lib/utils";
 import type { Room } from "@/types/database";
 
@@ -437,7 +439,7 @@ function RoomDayDetail({
   );
 }
 
-export function AvailabilityCalendarSection() {
+export function AvailabilityCalendarSection({ homestayId }: { homestayId: string }) {
   const { catalog, liveBookedRanges, setDates } = useBookingCart();
   const t = useTranslations("availability");
   const locale = useLocale();
@@ -522,10 +524,33 @@ export function AvailabilityCalendarSection() {
   const detailRoom = detailRoomId ? activeRooms.find((r) => r.id === detailRoomId) : undefined;
   const showDetail = !!detailRoom && !!detailRow && !!selectedDate;
 
+  // Fires calendar_view once the guest actually scrolls the availability
+  // calendar into view. Disconnects on the first hit; trackDemandOnce guards
+  // against a second observer from a re-mount.
+  const sectionRef = useRef<HTMLElement | null>(null);
+  useEffect(() => {
+    const node = sectionRef.current;
+    if (!node || typeof IntersectionObserver === "undefined") return;
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (!entries.some((e) => e.isIntersecting)) return;
+        observer.disconnect();
+        trackDemandOnce(`calendar_view:${homestayId}`, {
+          homestayId,
+          eventType: DemandEvent.CALENDAR_VIEW,
+          locale,
+        });
+      },
+      { threshold: 0.25 },
+    );
+    observer.observe(node);
+    return () => observer.disconnect();
+  }, [homestayId, locale]);
+
   if (activeRooms.length === 0) return null;
 
   return (
-    <section className="py-14 md:py-20">
+    <section ref={sectionRef} className="py-14 md:py-20">
       <div className="mx-auto max-w-4xl px-4 sm:px-6">
         <div className="overflow-hidden pt-4 -mt-4">
           <motion.h2

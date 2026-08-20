@@ -11,7 +11,14 @@ import {
   MAX_SLIP_AGE_MS,
 } from "@/lib/easyslip";
 
-const slipRateLimit = createRateLimiter({ limit: 10, windowMs: 60_000 });
+/**
+ * Must exceed EASYSLIP_TOTAL_BUDGET_MS (45s) in src/lib/easyslip.ts. With no
+ * maxDuration the platform default killed this mid-verification and the guest
+ * got a bare 500. Vercel clamps this to the plan maximum.
+ */
+export const maxDuration = 60;
+
+const slipRateLimit = createRateLimiter({ limit: 10, windowMs: 60_000, name: "verify-slip" });
 
 /**
  * Pure slip verification endpoint.

@@ -927,6 +927,50 @@ export interface Database {
           created_at?: string;
         };
       };
+      demand_events: {
+        Row: {
+          id: string;
+          homestay_id: string;
+          session_id: string;
+          event_type: string;
+          check_in: string | null;
+          check_out: string | null;
+          nights: number | null;
+          step: string | null;
+          device: string | null;
+          locale: string | null;
+          data: Json;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          homestay_id: string;
+          session_id: string;
+          event_type: string;
+          check_in?: string | null;
+          check_out?: string | null;
+          nights?: number | null;
+          step?: string | null;
+          device?: string | null;
+          locale?: string | null;
+          data?: Json;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          homestay_id?: string;
+          session_id?: string;
+          event_type?: string;
+          check_in?: string | null;
+          check_out?: string | null;
+          nights?: number | null;
+          step?: string | null;
+          device?: string | null;
+          locale?: string | null;
+          data?: Json;
+          created_at?: string;
+        };
+      };
       platform_billing_config: {
         Row: {
           id: string;
@@ -1346,6 +1390,7 @@ export type RoomOption = Database["public"]["Tables"]["room_options"]["Row"];
 export type RoomGuestPricing = Database["public"]["Tables"]["room_guest_pricing"]["Row"];
 export type PlatformAdmin = Database["public"]["Tables"]["platform_admins"]["Row"];
 export type HistoryLog = Database["public"]["Tables"]["history_logs"]["Row"];
+export type DemandEventRow = Database["public"]["Tables"]["demand_events"]["Row"];
 export type DateChangeRequest = Database["public"]["Tables"]["date_change_requests"]["Row"];
 export type PlatformBillingConfig = Database["public"]["Tables"]["platform_billing_config"]["Row"];
 export type WalletTransaction = Database["public"]["Tables"]["wallet_transactions"]["Row"];

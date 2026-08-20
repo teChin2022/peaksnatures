@@ -32,6 +32,8 @@ import { getFullyBookedForRoom } from "@/lib/booking-dates";
 import { getDepositForMonth } from "@/lib/get-deposit";
 import { THAI_PROVINCES, getProvinceLabel } from "@/lib/provinces";
 import { useIsMobile } from "@/lib/use-is-mobile";
+import { DemandEvent } from "@/lib/demand-events";
+import { trackDemand } from "@/lib/demand-track";
 import generatePayload from "promptpay-qr";
 import { QRCodeSVG } from "qrcode.react";
 import { HTMLContent } from "@/components/ui/html-content";
@@ -211,6 +213,10 @@ export function BookingSection({
     if (slipPreview) URL.revokeObjectURL(slipPreview);
     setSlipFile(file);
     setSlipPreview(file ? URL.createObjectURL(file) : null);
+    // Only an attach counts; clearing the slip is not a step backwards.
+    if (file) {
+      trackDemand({ homestayId: homestay.id, eventType: DemandEvent.SLIP_UPLOADED, locale });
+    }
   };
 
   const handleRemoveSlip = () => {
@@ -250,6 +256,15 @@ export function BookingSection({
             setSlipPreview(data.url);
             // Create a dummy file reference so the submit button enables
             setSlipFile(new File(["phone-upload"], data.filename || "slip.jpg", { type: "image/jpeg" }));
+            // Cross-device upload bypasses handleSlipSelect, so the funnel
+            // stage has to be recorded here too or phone uploaders would look
+            // like they abandoned at step 3.
+            trackDemand({
+              homestayId: homestay.id,
+              eventType: DemandEvent.SLIP_UPLOADED,
+              locale,
+              data: { source: "cross_device" },
+            });
             if (pollingRef.current) clearInterval(pollingRef.current);
           }
         } catch {
@@ -264,7 +279,7 @@ export function BookingSection({
         pollingRef.current = null;
       }
     };
-  }, [step, paymentPhase, slipFile, phoneSlipReceived, uploadSessionId]);
+  }, [step, paymentPhase, slipFile, phoneSlipReceived, uploadSessionId, homestay.id, locale]);
 
   // Listen for "book-room" custom event dispatched from RoomsSection
   useEffect(() => {
@@ -531,11 +546,31 @@ export function BookingSection({
     setPromoInput("");
   }, []);
 
+  // Demand funnel. A step is recorded when the guest advances OUT of it, not on
+  // arrival: `step` initialises to "dates", so arrival-based tracking would make
+  // step 1 a duplicate of page_view. Always sync and never awaited — this sits
+  // in the hold-acquisition path and must not widen that race window.
+  const trackStep = useCallback(
+    (demandStep: "dates" | "details" | "payment") => {
+      trackDemand({
+        homestayId: homestay.id,
+        eventType: DemandEvent.CHECKOUT_STEP,
+        step: demandStep,
+        checkIn: dateRange?.from ? format(dateRange.from, "yyyy-MM-dd") : null,
+        checkOut: dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : null,
+        nights,
+        locale,
+      });
+    },
+    [homestay.id, dateRange, nights, locale],
+  );
+
   const handleProceedToDetails = () => {
     if (cartLines.length === 0) {
       toast.error(t("errorCartEmpty"));
       return;
     }
+    trackStep("dates");
     setStep("details");
     setTimeout(() => nameInputRef.current?.focus(), 100);
   };
@@ -570,6 +605,11 @@ export function BookingSection({
     }
     setErrors({});
     if (!dateRange?.from || !dateRange?.to || cartLines.length === 0) return;
+
+    // Finished step 2. Recorded before the hold loop on purpose: the gap
+    // between this and the "payment" event below is exactly the bookings lost
+    // to a 409 hold conflict.
+    trackStep("details");
 
     setIsSubmitting(true);
     setHoldProgress({ done: 0, total: cartLines.length });
@@ -637,6 +677,7 @@ export function BookingSection({
 
       setHoldId(firstHoldId);
       setHoldExpiresAt(firstExpiry);
+      trackStep("payment");
       setStep("payment");
     } catch {
       toast.error(t("errorGeneric"));
@@ -719,7 +760,22 @@ export function BookingSection({
         body: verifyForm,
       });
 
-      const verifyData = await verifyRes.json();
+      // Defensive: a 5xx from the edge can arrive as an HTML body, and this
+      // used to throw straight into the generic catch.
+      let verifyData: {
+        duplicate?: boolean;
+        slip_pending?: boolean;
+        verified?: boolean;
+        slip_hash?: string;
+        slip_trans_ref?: string | null;
+        payment_slip_url?: string | null;
+        easyslip_response?: unknown;
+      } = {};
+      try {
+        verifyData = await verifyRes.json();
+      } catch {
+        verifyData = {};
+      }
 
       if (verifyRes.status === 409 && verifyData.duplicate) {
         toast.error(t("errorDuplicateSlip"));
@@ -730,6 +786,17 @@ export function BookingSection({
 
       if (verifyData.slip_pending) {
         toast.error(t("errorSlipPending"));
+        setIsSubmitting(false);
+        return;
+      }
+
+      // Stop here on a failed verification instead of falling through. Without
+      // this, a 500 left slip_hash undefined and we posted a booking that
+      // /api/bookings is guaranteed to reject with a 400 — the guest saw a
+      // generic error and no booking, with no way to tell what went wrong.
+      // The slip stays attached so the guest can simply retry.
+      if (!verifyRes.ok || !verifyData.slip_hash) {
+        toast.error(t("errorSlipVerifyFailed"));
         setIsSubmitting(false);
         return;
       }
@@ -834,6 +901,14 @@ export function BookingSection({
 
       setBookingId(createdId);
       setSlipVerified(isSlipVerified);
+      trackDemand({
+        homestayId: homestay.id,
+        eventType: DemandEvent.BOOKING_SUBMITTED,
+        checkIn: format(dateRange.from, "yyyy-MM-dd"),
+        checkOut: format(dateRange.to, "yyyy-MM-dd"),
+        nights,
+        locale,
+      });
       // Hold is cleaned up server-side by create_booking_atomic; clear local state
       releaseHold();
       setHoldId(null);
