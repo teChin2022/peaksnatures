@@ -42,7 +42,14 @@ export async function GET(req: NextRequest) {
     const stats = await unstable_cache(
       () => getDemandStats(sc, { homestayId, days }),
       ["demand-stats", homestayId, String(days)],
-      { revalidate: 300, tags: [`demand:${homestayId}`] },
+      // 60s, matching the repo's fresh tier (/api/bookings/availability,
+      // /api/reviews, the landing page). Every other stat on the dashboard
+      // overview is fetched live through the browser Supabase client, so a
+      // 5-minute lag made the demand panel the one stale block on the page and
+      // made hand-edits to demand_events look like they hadn't applied.
+      // Nothing calls revalidateTag for this tag — the cache expires on time
+      // only, so this number is the whole freshness story.
+      { revalidate: 60, tags: [`demand:${homestayId}`] },
     )();
 
     return NextResponse.json(stats, { headers: { "Cache-Control": "private, no-store" } });

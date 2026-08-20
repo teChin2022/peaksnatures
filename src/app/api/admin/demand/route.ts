@@ -33,7 +33,12 @@ export async function GET(req: NextRequest) {
     const stats = await unstable_cache(
       () => getDemandStats(sc, { homestayId, days }),
       ["admin-demand-stats", homestayId ?? "all", String(days)],
-      { revalidate: 300, tags: ["admin-demand"] },
+      // Kept in step with the host route deliberately. Both render the same
+      // <DemandPanel> off the same getDemandStats query, so a split TTL would
+      // let an admin filtered to one homestay and that homestay's own host read
+      // different numbers for minutes at a time — exactly the disagreement
+      // sharing the query was meant to rule out.
+      { revalidate: 60, tags: ["admin-demand"] },
     )();
 
     return NextResponse.json(stats, { headers: { "Cache-Control": "private, no-store" } });
