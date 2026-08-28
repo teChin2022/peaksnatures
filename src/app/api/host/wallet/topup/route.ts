@@ -13,6 +13,7 @@ import {
   MAX_SLIP_AGE_MS,
 } from "@/lib/easyslip";
 import { getBillingConfig } from "@/lib/billing";
+import { isTopupAmount } from "@/lib/topup-amounts";
 
 export async function POST(req: NextRequest) {
   try {
@@ -63,7 +64,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Invalid file type" }, { status: 400 });
     }
 
-    if (expectedAmount <= 0) {
+    if (!isTopupAmount(expectedAmount)) {
       return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
     }
 

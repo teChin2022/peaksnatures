@@ -8,6 +8,7 @@ import { fmtDateStr } from "@/lib/format-date";
 import generatePayload from "promptpay-qr";
 import { QRCodeSVG } from "qrcode.react";
 import { InvoicePayDialog } from "@/components/dashboard/invoice-pay-dialog";
+import { TOPUP_AMOUNTS } from "@/lib/topup-amounts";
 import {
   Wallet,
   Clock,
@@ -25,7 +26,6 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
@@ -1103,17 +1103,8 @@ export default function DashboardBillingPage() {
             <form onSubmit={handleTopup} className="space-y-5">
               <div className="space-y-2">
                 <Label className="text-sm text-gray-700">{t("amount")} (THB)</Label>
-                <Input
-                  type="number"
-                  min="1"
-                  value={topupAmount}
-                  onChange={(e) => setTopupAmount(e.target.value)}
-                  className="text-lg font-mono"
-                  placeholder="0"
-                  required
-                />
                 <div className="flex gap-2">
-                  {[500, 1000, 2000, 5000].map((amt) => (
+                  {TOPUP_AMOUNTS.map((amt) => (
                     <button
                       key={amt}
                       type="button"
