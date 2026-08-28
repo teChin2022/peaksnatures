@@ -101,6 +101,84 @@ export function computeFixedRateInvoice(
   return { amount, period_start, period_end, term_months: months, discount_pct: discount };
 }
 
+/**
+ * Compute the single upfront invoice for a plan change that takes effect TODAY.
+ *
+ * Unlike computeFixedRateInvoice — which anchors a term to its own start date
+ * and is still what a renewal uses — this splits the charge in two so the host
+ * always lands back on the platform's calendar-month billing cycle:
+ *
+ *   stub — `startDate` through the end of that month, prorated by day and
+ *          charged at the undiscounted monthly rate.
+ *   term — whole discounted months, starting the 1st of the next month.
+ *
+ * `months === 1` means "put me on monthly billing", not "sell me one prepaid
+ * month": it buys the stub alone, and the 1st-of-month cron run then issues the
+ * next month's invoice as it does for every other fixed-rate host. Only
+ * months > 1 prepays, which is also the only case carrying a term discount.
+ *
+ * Starting on the 1st there is no partial period at all, so it is an ordinary
+ * term — delegated to computeFixedRateInvoice so the discount applies to every
+ * month rather than being lost on a full-month "stub".
+ */
+export function computeImmediateFixedRateInvoice(
+  host: Pick<Host, "fixed_rate_override">,
+  config: PlatformBillingConfig,
+  months: number,
+  startDate: Date,
+): {
+  amount: number;
+  stub_amount: number;
+  term_amount: number;
+  period_start: string;
+  period_end: string;
+  term_months: number;
+  discount_pct: number;
+  /** Days in the prorated stub. 0 when startDate is the 1st (no stub at all). */
+  prorated_days: number;
+  days_in_month: number;
+} {
+  const year = startDate.getUTCFullYear();
+  const month = startDate.getUTCMonth();
+  const dayOfMonth = startDate.getUTCDate();
+  const days_in_month = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+
+  if (dayOfMonth === 1) {
+    const base = computeFixedRateInvoice(host, config, months, startDate);
+    return {
+      ...base,
+      stub_amount: 0,
+      term_amount: base.amount,
+      prorated_days: 0,
+      days_in_month,
+    };
+  }
+
+  const monthly = getEffectiveFixedRate(host, config);
+  const prorated_days = days_in_month - dayOfMonth + 1;
+  const stub_amount = Math.round((monthly * prorated_days) / days_in_month);
+
+  const prepaidMonths = months === 1 ? 0 : months;
+  const discount_pct = prepaidMonths > 0 ? getFixedRateDiscount(months, config) : 0;
+  const term_amount = Math.round(monthly * prepaidMonths * (1 - discount_pct / 100));
+
+  // prepaidMonths === 0 collapses to the last day of startDate's own month, so
+  // one expression covers both shapes.
+  const end = new Date(Date.UTC(year, month + 1 + prepaidMonths, 0));
+
+  return {
+    amount: stub_amount + term_amount,
+    stub_amount,
+    term_amount,
+    period_start: startDate.toISOString().split("T")[0],
+    period_end: end.toISOString().split("T")[0],
+    term_months: months,
+    discount_pct,
+    prorated_days,
+    days_in_month,
+  };
+}
+
 /** Today as YYYY-MM-DD (UTC), matching how invoice due_date is written. */
 export function utcToday(): string {
   return new Date().toISOString().split("T")[0];

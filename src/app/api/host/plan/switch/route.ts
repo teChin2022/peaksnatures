@@ -5,10 +5,18 @@ import {
 } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
 import {
-  computeFixedRateInvoice,
+  computeImmediateFixedRateInvoice,
   getBillingConfig,
   isValidTermMonths,
+  LOW_WALLET_THRESHOLD,
 } from "@/lib/billing";
+
+/** Whole days left in a term, counting today. 0 once the term has ended. */
+function daysRemaining(termEndsAt: string, today: Date): number {
+  const end = new Date(`${termEndsAt}T00:00:00Z`).getTime();
+  const diff = Math.floor((end - today.getTime()) / 86_400_000) + 1;
+  return diff > 0 ? diff : 0;
+}
 
 export async function POST(req: NextRequest) {
   try {
@@ -50,7 +58,7 @@ export async function POST(req: NextRequest) {
 
     const { data: host } = await sc
       .from("hosts")
-      .select("id, plan_type, name, plan_free_expires_at, fixed_rate_override, fixed_rate_term_ends_at, plan_pending_type, wallet_balance")
+      .select("id, plan_type, name, plan_free_expires_at, fixed_rate_override, fixed_rate_term_months, fixed_rate_term_ends_at, plan_pending_type, wallet_balance")
       .eq("user_id", user.id)
       .single();
 
@@ -64,6 +72,7 @@ export async function POST(req: NextRequest) {
       name: string;
       plan_free_expires_at: string | null;
       fixed_rate_override: number | null;
+      fixed_rate_term_months: number | null;
       fixed_rate_term_ends_at: string | null;
       plan_pending_type: string | null;
       wallet_balance: number | null;
@@ -116,94 +125,66 @@ export async function POST(req: NextRequest) {
       }
     }
 
-    // Commission is deducted from the wallet per booking, so an empty wallet
-    // would go negative on the very first booking. Require funds up front.
-    if (plan_type === "commission" && (typedHost.wallet_balance ?? 0) <= 0) {
+    // Commission is deducted from the wallet per booking, so a near-empty
+    // wallet goes negative on the very first booking. Gate on the same figure
+    // the low-balance warning uses, rather than a second threshold that would
+    // let a host through at ฿1 and straight into the red.
+    if (plan_type === "commission" && (typedHost.wallet_balance ?? 0) < LOW_WALLET_THRESHOLD) {
       return NextResponse.json(
-        { error: "WALLET_EMPTY", wallet_balance: typedHost.wallet_balance ?? 0 },
+        {
+          error: "WALLET_LOW",
+          wallet_balance: typedHost.wallet_balance ?? 0,
+          required: LOW_WALLET_THRESHOLD,
+        },
         { status: 402 },
       );
     }
 
-    // Free → paid upgrades apply immediately (no charge on Free, no proration
-    // concern, and commission must take effect right away so new bookings
-    // actually deduct from the wallet). Paid → paid switches still schedule
-    // for the 1st of next month so billing cycles align.
     const now = new Date();
     const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const isUpgradeFromFree = typedHost.plan_type === "free";
 
-    if (isUpgradeFromFree) {
-      const updateFields: Record<string, unknown> = {
-        plan_type,
-        plan_pending_type: null,
-        plan_pending_effective_at: null,
-        plan_pending_term_months: null,
-        plan_free_expires_at: null,
-        updated_by: typedHost.name,
-      };
-
-      let invoicePayload: ReturnType<typeof computeFixedRateInvoice> | null = null;
-      if (plan_type === "fixed_rate" && term_months) {
-        const config = await getBillingConfig();
-        if (!config) {
-          return NextResponse.json({ error: "Billing config not found" }, { status: 500 });
-        }
-        invoicePayload = computeFixedRateInvoice(typedHost, config, term_months, today);
-        updateFields.fixed_rate_term_months = term_months;
-        updateFields.fixed_rate_term_started_at = invoicePayload.period_start;
-        updateFields.fixed_rate_term_ends_at = invoicePayload.period_end;
+    // ── Starting Fixed Rate: quote now, activate on payment ──
+    // Nothing is written here. The host is quoted, and POST /plan/activate
+    // recomputes this same figure from the slip before anything is persisted,
+    // so an abandoned payment leaves no invoice and no plan change behind.
+    if (plan_type === "fixed_rate" && !isFixedRateRenewal) {
+      const config = await getBillingConfig();
+      if (!config) {
+        return NextResponse.json({ error: "Billing config not found" }, { status: 500 });
       }
+      const quote = computeImmediateFixedRateInvoice(typedHost, config, term_months!, today);
+
+      return NextResponse.json(
+        { error: "PAYMENT_REQUIRED", plan_type, ...quote },
+        { status: 402 },
+      );
+    }
+
+    // ── Switching to Commission: applies immediately ──
+    if (plan_type === "commission") {
+      const forfeitedTermEndsAt =
+        typedHost.plan_type === "fixed_rate" ? typedHost.fixed_rate_term_ends_at : null;
+      const forfeitedDays = forfeitedTermEndsAt ? daysRemaining(forfeitedTermEndsAt, today) : 0;
 
       const { error: applyError } = await sc
         .from("hosts")
-        .update(updateFields as never)
+        .update({
+          plan_type: "commission",
+          plan_pending_type: null,
+          plan_pending_effective_at: null,
+          plan_pending_term_months: null,
+          plan_free_expires_at: null,
+          // Leaving fixed_rate behind — clear stale term fields.
+          fixed_rate_term_months: null,
+          fixed_rate_term_started_at: null,
+          fixed_rate_term_ends_at: null,
+          updated_by: typedHost.name,
+        } as never)
         .eq("id", typedHost.id);
 
       if (applyError) {
         console.error("[Plan Switch] apply error:", applyError);
         return NextResponse.json({ error: "Failed to switch plan" }, { status: 500 });
-      }
-
-      if (invoicePayload) {
-        const dueDate = new Date(Date.UTC(today.getUTCFullYear(), today.getUTCMonth(), today.getUTCDate() + 5))
-          .toISOString().split("T")[0];
-        const { error: invoiceError } = await sc
-          .from("invoices")
-          .insert({
-            host_id: typedHost.id,
-            amount: invoicePayload.amount,
-            period_start: invoicePayload.period_start,
-            period_end: invoicePayload.period_end,
-            term_months: invoicePayload.term_months,
-            discount_pct: invoicePayload.discount_pct,
-            due_date: dueDate,
-            status: "pending",
-            created_by: typedHost.name,
-            updated_by: typedHost.name,
-          } as never);
-
-        if (invoiceError) {
-          console.error("[Plan Switch] invoice insert error:", invoiceError);
-          return NextResponse.json({ error: "Plan switched but failed to create invoice" }, { status: 500 });
-        }
-
-        after(async () => {
-          await logEvent({
-            entityType: "billing",
-            entityId: typedHost.id,
-            eventType: EventType.INVOICE_CREATED,
-            actorType: "host",
-            actorId: user.id,
-            data: {
-              amount: invoicePayload!.amount,
-              period_start: invoicePayload!.period_start,
-              period_end: invoicePayload!.period_end,
-              term_months: invoicePayload!.term_months,
-              discount_pct: invoicePayload!.discount_pct,
-            },
-          });
-        });
       }
 
       after(async () => {
@@ -215,9 +196,17 @@ export async function POST(req: NextRequest) {
           actorId: user.id,
           data: {
             from: typedHost.plan_type,
-            to: plan_type,
+            to: "commission",
             immediate: true,
-            ...(term_months ? { term_months } : {}),
+            // The forfeiture is not recoverable from the host row once the term
+            // fields are cleared, so it has to live in the audit trail.
+            ...(forfeitedDays > 0
+              ? {
+                  forfeited_days: forfeitedDays,
+                  forfeited_term_ends_at: forfeitedTermEndsAt,
+                  forfeited_term_months: typedHost.fixed_rate_term_months,
+                }
+              : {}),
           },
           req,
         });
@@ -225,50 +214,29 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         success: true,
-        plan_type,
+        plan_type: "commission",
         applied_immediately: true,
-        ...(invoicePayload
-          ? {
-              invoice: {
-                amount: invoicePayload.amount,
-                term_months: invoicePayload.term_months,
-                discount_pct: invoicePayload.discount_pct,
-              },
-            }
-          : {}),
+        ...(forfeitedDays > 0 ? { forfeited_days: forfeitedDays } : {}),
       });
     }
 
-    // For fixed_rate → fixed_rate transitions (same-term renewal or cross-term
-    // change), the new term starts the day after the current term ends so there
-    // is no gap and no overlap. For all other transitions, schedule for the 1st
-    // of next month so billing cycles align.
-    const isFixedRateTransition =
-      typedHost.plan_type === "fixed_rate" && plan_type === "fixed_rate";
-
-    let effectiveDate: string;
-    if (isFixedRateTransition && typedHost.fixed_rate_term_ends_at) {
-      const end = new Date(typedHost.fixed_rate_term_ends_at);
-      const next = new Date(
-        Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate() + 1),
-      );
-      effectiveDate = next.toISOString().split("T")[0];
-    } else {
-      effectiveDate = new Date(now.getFullYear(), now.getMonth() + 1, 1)
-        .toISOString()
-        .split("T")[0];
-    }
-
-    const pendingFields: Record<string, unknown> = {
-      plan_pending_type: plan_type,
-      plan_pending_effective_at: effectiveDate,
-      plan_pending_term_months: plan_type === "fixed_rate" ? term_months : null,
-      updated_by: typedHost.name,
-    };
+    // ── Fixed Rate renewal: the only switch that is still scheduled ──
+    // A renewal is not a plan change — the host stays on Fixed Rate and the new
+    // term starts the day after the current one ends, so there is no gap and no
+    // overlap. Billing for it happens when the cron applies the pending switch.
+    const end = new Date(typedHost.fixed_rate_term_ends_at!);
+    const effectiveDate = new Date(
+      Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate() + 1),
+    ).toISOString().split("T")[0];
 
     const { error: updateError } = await sc
       .from("hosts")
-      .update(pendingFields as never)
+      .update({
+        plan_pending_type: plan_type,
+        plan_pending_effective_at: effectiveDate,
+        plan_pending_term_months: term_months,
+        updated_by: typedHost.name,
+      } as never)
       .eq("id", typedHost.id);
 
     if (updateError) {
@@ -287,8 +255,8 @@ export async function POST(req: NextRequest) {
           current_plan: typedHost.plan_type,
           new_plan: plan_type,
           effective_date: effectiveDate,
-          ...(term_months ? { term_months } : {}),
-          ...(isFixedRateTransition ? { renewal: true } : {}),
+          term_months,
+          renewal: true,
         },
         req,
       });
@@ -298,7 +266,7 @@ export async function POST(req: NextRequest) {
       success: true,
       plan_pending_type: plan_type,
       plan_pending_effective_at: effectiveDate,
-      ...(term_months ? { plan_pending_term_months: term_months } : {}),
+      plan_pending_term_months: term_months,
     });
   } catch (err) {
     console.error("[Plan Switch] unexpected error:", err);
