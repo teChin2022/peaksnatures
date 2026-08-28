@@ -232,21 +232,44 @@ export async function getHostBlockState(hostId: string): Promise<HostBlockState 
   const supabase = createServiceRoleClient();
   const { data: hostRow } = await supabase
     .from("hosts")
-    .select("plan_type, plan_free_expires_at, wallet_balance, wallet_credit_limit, wallet_negative_since")
+    .select(HOST_BLOCK_COLUMNS)
     .eq("id", hostId)
     .single();
 
   if (!hostRow) return null;
-  const host = hostRow as {
-    plan_type: string;
-    plan_free_expires_at: string | null;
-    wallet_balance: number | null;
-    wallet_credit_limit: number | null;
-    wallet_negative_since: string | null;
-  };
+  return hostBlockStateFrom(hostId, hostRow as unknown as HostBlockRow, supabase);
+}
 
+/**
+ * The `hosts` columns hostBlockStateFrom needs. Exported so a caller that is
+ * already reading the host — e.g. the booking route, which joins it off
+ * `homestays` — can select exactly these and skip a second round trip.
+ */
+export const HOST_BLOCK_COLUMNS =
+  "plan_type, plan_free_expires_at, wallet_balance, wallet_credit_limit, wallet_negative_since";
+
+export interface HostBlockRow {
+  plan_type: string;
+  plan_free_expires_at: string | null;
+  wallet_balance: number | null;
+  wallet_credit_limit: number | null;
+  wallet_negative_since: string | null;
+}
+
+/**
+ * Build a HostBlockState from an already-fetched host row, doing only the one
+ * lookup the row itself cannot answer (a fixed-rate host's past-due invoice).
+ *
+ * Split out of getHostBlockState so callers that hold the host row do not pay
+ * for re-reading it, without either side re-deriving the mapping.
+ */
+export async function hostBlockStateFrom(
+  hostId: string,
+  host: HostBlockRow,
+  client?: ServiceClient,
+): Promise<HostBlockState> {
   const has_past_due_invoice =
-    host.plan_type === "fixed_rate" ? await hasPastDueInvoice(hostId, supabase) : false;
+    host.plan_type === "fixed_rate" ? await hasPastDueInvoice(hostId, client) : false;
 
   return {
     plan_type: host.plan_type,

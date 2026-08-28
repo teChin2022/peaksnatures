@@ -84,21 +84,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // Upload slip to temporary storage (will be moved to booking path after booking creation)
-    const tempId = crypto.randomUUID();
-    const ext = file.name.split(".").pop() || "jpg";
-    const slipPath = `pending/${tempId}/slip.${ext}`;
-    const fileFromBuffer = new File([fileBuffer], file.name, { type: file.type });
-    await supabase.storage
-      .from("payment-slips")
-      .upload(slipPath, fileFromBuffer, { upsert: true, contentType: file.type });
-
-    const { data: signedUrlData } = await supabase.storage
-      .from("payment-slips")
-      .createSignedUrl(slipPath, 60 * 60); // 1 hour for immediate preview
-    const paymentSlipSignedUrl = signedUrlData?.signedUrl || null;
-
-    // --- Call EasySlip V2 API with auto-retry for SLIP_PENDING ---
+    // Checked before any upload — no point storing a slip we can't verify.
     if (!apiKey) {
       return NextResponse.json(
         { error: "Payment verification is not configured." },
@@ -106,13 +92,45 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const easySlipData = await callEasySlipV2(
-      fileBuffer,
-      file.name,
-      file.type,
-      apiKey,
-      expectedAmount,
-    );
+    // Upload slip to temporary storage (will be moved to booking path after booking creation)
+    const tempId = crypto.randomUUID();
+    const ext = file.name.split(".").pop() || "jpg";
+    const slipPath = `pending/${tempId}/slip.${ext}`;
+
+    // The upload and its signed URL have nothing to do with the EasySlip call,
+    // but used to run to completion before it started — measured at ~690ms of
+    // dead time on a 1.5MB slip, on top of EasySlip's own 1-4s. Run both in
+    // flight together; every response path below still gets its signed URL.
+    const storageTask = (async (): Promise<string | null> => {
+      try {
+        const fileFromBuffer = new File([fileBuffer], file.name, { type: file.type });
+        await supabase.storage
+          .from("payment-slips")
+          .upload(slipPath, fileFromBuffer, { upsert: true, contentType: file.type });
+
+        const { data: signedUrlData } = await supabase.storage
+          .from("payment-slips")
+          .createSignedUrl(slipPath, 60 * 60); // 1 hour for immediate preview
+        return signedUrlData?.signedUrl || null;
+      } catch (err) {
+        // The upload result was never error-checked here; a storage blip must
+        // not become a 500 that costs the guest their verified slip.
+        console.error("[Verify Slip] storage failed (non-fatal):", err);
+        return null;
+      }
+    })();
+
+    // --- Call EasySlip V2 API with auto-retry for SLIP_PENDING ---
+    const [easySlipData, paymentSlipSignedUrl] = await Promise.all([
+      callEasySlipV2(
+        fileBuffer,
+        file.name,
+        file.type,
+        apiKey,
+        expectedAmount,
+      ),
+      storageTask,
+    ]);
 
     // Handle V2 error responses
     if (!easySlipData.success) {

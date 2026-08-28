@@ -32,6 +32,7 @@ import { getFullyBookedForRoom } from "@/lib/booking-dates";
 import { getDepositForMonth } from "@/lib/get-deposit";
 import { THAI_PROVINCES, getProvinceLabel } from "@/lib/provinces";
 import { useIsMobile } from "@/lib/use-is-mobile";
+import { prepareSlip } from "@/lib/prepare-slip";
 import { DemandEvent } from "@/lib/demand-events";
 import { trackDemand } from "@/lib/demand-track";
 import generatePayload from "promptpay-qr";
@@ -209,12 +210,20 @@ export function BookingSection({
   const reduceMotion = useReducedMotion();
   const pulseHelp = pillInView && !reduceMotion && !getCookie(TUTORIAL_COOKIE);
 
-  const handleSlipSelect = (file: File | null) => {
+  const handleSlipSelect = async (file: File | null) => {
     if (slipPreview) URL.revokeObjectURL(slipPreview);
-    setSlipFile(file);
-    setSlipPreview(file ? URL.createObjectURL(file) : null);
+
+    // Shrink before it ever hits the network. Guests here are often on rural
+    // mobile data, where an untouched 2-4MB phone screenshot is several
+    // seconds of upload on its own — the largest single cost in the booking.
+    // Done at selection time, not at submit, so the work overlaps the guest
+    // still looking at the preview instead of the spinner.
+    const prepared = file ? await prepareSlip(file) : null;
+
+    setSlipFile(prepared);
+    setSlipPreview(prepared ? URL.createObjectURL(prepared) : null);
     // Only an attach counts; clearing the slip is not a step backwards.
-    if (file) {
+    if (prepared) {
       trackDemand({ homestayId: homestay.id, eventType: DemandEvent.SLIP_UPLOADED, locale });
     }
   };
@@ -616,32 +625,47 @@ export function BookingSection({
     try {
       const checkIn = format(dateRange.from, "yyyy-MM-dd");
       const checkOut = format(dateRange.to, "yyyy-MM-dd");
-      let firstHoldId: string | null = null;
-      let firstExpiry: number | null = null;
-
-      // Hold every room in the cart under the shared session id.
-      for (const line of cartLines) {
-        const res = await fetch("/api/bookings/hold", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            room_id: line.roomId,
-            check_in: checkIn,
-            check_out: checkOut,
-            session_id: uploadSessionId,
-            guest_phone: guestPhone.trim(),
-          }),
-        });
-
-        if (res.status === 409) {
-          const errorData = await res.json();
-          // Release whatever we already held this session, then bounce to the room list.
-          fetch("/api/bookings/hold", {
-            method: "DELETE",
+      // Hold every room in the cart under the shared session id. Fired
+      // together rather than one after another: each is an independent round
+      // trip against a different room, so a 3-room cart used to pay three
+      // serial latencies for work that has no ordering requirement. The
+      // per-IP rate limit is unchanged — same number of requests either way.
+      const settled = await Promise.all(
+        cartLines.map(async (line) => {
+          const res = await fetch("/api/bookings/hold", {
+            method: "POST",
             headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({ session_id: uploadSessionId }),
-          }).catch(() => {});
-          if (errorData.error === "DATES_UNAVAILABLE") {
+            body: JSON.stringify({
+              room_id: line.roomId,
+              check_in: checkIn,
+              check_out: checkOut,
+              session_id: uploadSessionId,
+              guest_phone: guestPhone.trim(),
+            }),
+          });
+          const payload = await res.json().catch(() => ({}));
+          setHoldProgress((p) => (p ? { ...p, done: p.done + 1 } : p));
+          return { status: res.status, ok: res.ok, payload };
+        }),
+      );
+
+      // Promise.all preserves cart order, so the guest sees the same message
+      // they would have before rather than whichever request happened to land
+      // first.
+      const failure = settled.find((r) => !r.ok);
+      if (failure) {
+        // Rooms that did succeed are held under this session and must be given
+        // back — in flight together, any of them can win while another loses.
+        // (The old loop only released on a 409, stranding rooms for the full
+        // 10-minute hold on a 429 or a 500.)
+        fetch("/api/bookings/hold", {
+          method: "DELETE",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ session_id: uploadSessionId }),
+        }).catch(() => {});
+
+        if (failure.status === 409) {
+          if (failure.payload?.error === "DATES_UNAVAILABLE") {
             toast.error(t("errorDatesUnavailable"));
             fetch(`/api/bookings/availability?homestay_id=${homestay.id}`)
               .then((r) => r.json())
@@ -651,32 +675,18 @@ export function BookingSection({
           } else {
             setShowHeldModal(true);
           }
-          setIsSubmitting(false);
-          return;
-        }
-
-        if (res.status === 429) {
+        } else if (failure.status === 429) {
           toast.error(t("errorTooManyRequests"));
-          setIsSubmitting(false);
-          return;
-        }
-
-        if (!res.ok) {
+        } else {
           toast.error(t("errorGeneric"));
-          setIsSubmitting(false);
-          return;
         }
-
-        const data = await res.json();
-        if (firstExpiry === null) {
-          firstHoldId = data.hold_id;
-          firstExpiry = new Date(data.expires_at).getTime();
-        }
-        setHoldProgress((p) => (p ? { ...p, done: p.done + 1 } : p));
+        setIsSubmitting(false);
+        return;
       }
 
-      setHoldId(firstHoldId);
-      setHoldExpiresAt(firstExpiry);
+      const first = settled[0]?.payload;
+      setHoldId(first?.hold_id ?? null);
+      setHoldExpiresAt(first?.expires_at ? new Date(first.expires_at).getTime() : null);
       trackStep("payment");
       setStep("payment");
     } catch {
@@ -741,7 +751,11 @@ export function BookingSection({
       if (phoneSlipReceived && phoneSlipUrl) {
         const slipRes = await fetch(phoneSlipUrl);
         const blob = await slipRes.blob();
-        slipToVerify = new File([blob], "slip.jpg", { type: blob.type });
+        // Came from the phone rather than handleSlipSelect, so it has not been
+        // through prepareSlip yet.
+        slipToVerify = await prepareSlip(
+          new File([blob], "slip.jpg", { type: blob.type }),
+        );
       } else {
         slipToVerify = slipFile;
       }
