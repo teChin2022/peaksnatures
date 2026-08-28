@@ -5,13 +5,38 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 ## Commands
 
 ```bash
-npm run dev      # Start dev server at http://localhost:3000 (Turbopack)
-npm run build    # Production build
-npm run start    # Start production server
-npm run lint     # Run ESLint
+npm run dev           # Start dev server at http://localhost:3000 (Turbopack)
+npm run build         # Production build
+npm run start         # Start production server
+npm run lint          # Run ESLint
+npm run test          # Run the Vitest suite once
+npm run test:watch    # Vitest in watch mode
+npm run test:coverage # Run with V8 coverage; fails below the 90% thresholds
 ```
 
-No test framework is configured — avoid suggesting test commands.
+Type-check with `npx tsc --noEmit` rather than `npm run build` — the local build
+fails on an empty `CRON_SECRET` independently of any given change.
+
+## Testing
+
+Vitest (`vitest.config.mts`) with V8 coverage. Tests are co-located as
+`*.test.ts` next to the source; shared helpers and row fixtures live in `test/`.
+
+- `test/setup.ts` pins `TZ=Asia/Bangkok` (several modules read local-time date
+  parts) and sets `CRON_SECRET` — `src/lib/auth/cron-auth.ts` throws at module
+  load without one of at least 32 characters. `REDIS_URL` is left unset so the
+  rate limiter uses its in-memory path.
+- `test/helpers/supabase.ts` builds a chainable `{ data, error }` query stub;
+  pass an array per table to script successive `.from()` calls.
+- `test/helpers/request.ts` builds a `NextRequest` for route handlers.
+- Coverage is enforced at 90% (lines, functions, branches, statements) over
+  `src/lib/**` and `src/app/api/**` only. Generated shadcn primitives, page and
+  layout shells, React components, hooks and declaration-only modules are
+  excluded — see `coverage.exclude` in `vitest.config.mts`.
+- Browser-only modules opt into a DOM with a `// @vitest-environment happy-dom`
+  docblock; everything else runs in the `node` environment.
+- Some tests deliberately pin behaviour that looks wrong, each marked with a
+  `KNOWN GAP` comment. Read the comment before "fixing" the code under test.
 
 ## Architecture Overview
 
