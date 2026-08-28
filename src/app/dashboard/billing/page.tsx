@@ -1,6 +1,7 @@
 "use client";
 
-import { useState, useEffect, useCallback, useRef } from "react";
+import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -9,7 +10,6 @@ import generatePayload from "promptpay-qr";
 import { QRCodeSVG } from "qrcode.react";
 import { InvoicePayDialog } from "@/components/dashboard/invoice-pay-dialog";
 import { PlanActivationDialog, type PlanQuote } from "@/components/dashboard/plan-activation-dialog";
-import { TOPUP_AMOUNTS } from "@/lib/topup-amounts";
 import { LOW_WALLET_THRESHOLD } from "@/lib/wallet-thresholds";
 import {
   Wallet,
@@ -28,7 +28,6 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -38,13 +37,6 @@ import {
   DialogDescription,
   DialogFooter,
 } from "@/components/ui/dialog";
-import {
-  Sheet,
-  SheetContent,
-  SheetHeader,
-  SheetTitle,
-  SheetDescription,
-} from "@/components/ui/sheet";
 
 interface TermTier {
   months: number;
@@ -183,16 +175,13 @@ export default function DashboardBillingPage() {
   const [loading, setLoading] = useState(true);
   const [switching, setSwitching] = useState(false);
   const [cancelling, setCancelling] = useState(false);
-  const [topupSheetOpen, setTopupSheetOpen] = useState(false);
-  const [topupAmount, setTopupAmount] = useState("");
-  const [topupFile, setTopupFile] = useState<File | null>(null);
-  const [topupLoading, setTopupLoading] = useState(false);
   const [payInvoiceId, setPayInvoiceId] = useState<string | null>(null);
   // Fallback amount for an invoice the switch API surfaced — data.invoices only
   // holds the last 5, so the blocking invoice isn't guaranteed to be in there.
   const [payInvoiceAmount, setPayInvoiceAmount] = useState<number | null>(null);
-  // Plan the host was switching to when the empty-wallet gate stopped them.
-  const [pendingSwitch, setPendingSwitch] = useState<{ planType: string; termMonths?: number } | null>(null);
+  // Minimum balance the switch API asked for when the empty-wallet gate stopped
+  // the host. Set = show the "top up in the Wallet page" prompt.
+  const [walletLowRequired, setWalletLowRequired] = useState<number | null>(null);
   // The 402 quote from /plan/switch. Nothing is persisted server-side until
   // the host pays, so closing the dialog needs no cleanup.
   const [planQuote, setPlanQuote] = useState<PlanQuote | null>(null);
@@ -204,8 +193,6 @@ export default function DashboardBillingPage() {
   const [termPickerOpen, setTermPickerOpen] = useState(false);
   const [selectedTermMonths, setSelectedTermMonths] = useState<number | null>(null);
   const [hoveredPlan, setHoveredPlan] = useState<string | null>(null);
-
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   const fetchBilling = useCallback(async () => {
     try {
@@ -252,11 +239,9 @@ export default function DashboardBillingPage() {
         }
         if (d.error === "WALLET_LOW") {
           setConfirmDialog(null);
-          // Remember the intent so a successful top-up completes the switch the
-          // host originally asked for, rather than making them start over.
-          setPendingSwitch({ planType, termMonths });
-          setTopupSheetOpen(true);
-          toast.error(t("walletLowDesc", { required: d.required ?? LOW_WALLET_THRESHOLD }));
+          // Top-up lives on the Wallet page (QR, amount, slip upload) — point the
+          // host there instead of duplicating that form in a sheet here.
+          setWalletLowRequired(d.required ?? LOW_WALLET_THRESHOLD);
           return;
         }
         // Fixed Rate is paid for before it starts: the switch only quotes, and
@@ -293,40 +278,6 @@ export default function DashboardBillingPage() {
     } finally {
       setCancelling(false);
       setConfirmDialog(null);
-    }
-  };
-
-  // ── Top-up ──
-  const handleTopup = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!topupFile || !topupAmount) return;
-    setTopupLoading(true);
-    try {
-      const form = new FormData();
-      form.append("file", topupFile);
-      form.append("amount", topupAmount);
-      const res = await fetch("/api/host/wallet/topup", { method: "POST", body: form });
-      const d = await res.json();
-      if (d.success) {
-        toast.success(`Top-up successful! New balance: ฿${d.new_balance.toLocaleString()}`);
-        setTopupFile(null);
-        setTopupAmount("");
-        setTopupSheetOpen(false);
-
-        // Finish the switch the host was blocked on, now that funds are in.
-        setPendingSwitch(null);
-        if (pendingSwitch && d.new_balance >= LOW_WALLET_THRESHOLD) {
-          await handlePlanSwitch(pendingSwitch.planType, pendingSwitch.termMonths);
-          return;
-        }
-        fetchBilling();
-      } else {
-        toast.error(d.error || d.message || "Verification failed");
-      }
-    } catch {
-      toast.error("Something went wrong");
-    } finally {
-      setTopupLoading(false);
     }
   };
 
@@ -1066,122 +1017,36 @@ export default function DashboardBillingPage() {
         </DialogContent>
       </Dialog>
 
-      {/* ── Top-up Sheet ── */}
-      <Sheet
-        open={topupSheetOpen}
-        onOpenChange={(open) => {
-          // Dismissing the sheet abandons the switch — don't resurrect it on
-          // some unrelated top-up later.
-          if (!open) setPendingSwitch(null);
-          setTopupSheetOpen(open);
-        }}
-      >
-        <SheetContent side="right" className="sm:max-w-md overflow-y-auto">
-          <SheetHeader>
-            <SheetTitle className="font-serif">{t("topUp")}</SheetTitle>
-            <SheetDescription>{t("topUpDesc")}</SheetDescription>
-          </SheetHeader>
+      {/* ── Wallet-low prompt → Wallet page (where top-up actually lives) ── */}
+      <Dialog open={walletLowRequired !== null} onOpenChange={(open) => { if (!open) setWalletLowRequired(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("walletLowTitle")}</DialogTitle>
+            <DialogDescription>
+              {t("walletLowDesc", { required: walletLowRequired ?? LOW_WALLET_THRESHOLD })}
+            </DialogDescription>
+          </DialogHeader>
 
-          <div className="px-4 py-6 space-y-6">
-            {data.wallet_balance < LOW_WALLET_THRESHOLD && (
-              <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <p className="text-sm font-medium text-amber-800">{t("walletLowTitle")}</p>
-                <p className="text-sm text-amber-700 mt-1">
-                  {t("walletLowDesc", { required: LOW_WALLET_THRESHOLD })}
-                </p>
-              </div>
-            )}
-
-            {data.platform_payment && (
-              <div className="rounded-xl bg-brand-50 border border-brand-100 p-4">
-                <p className="text-xs font-semibold uppercase tracking-wider text-brand mb-3">
-                  {t("transferTo")}
-                </p>
-                {data.platform_payment.payment_display === "qr" && data.platform_payment.promptpay_id && (
-                  <p className="text-sm text-gray-700">
-                    PromptPay: <span className="font-mono font-medium">{data.platform_payment.promptpay_id}</span>
-                  </p>
-                )}
-                {data.platform_payment.payment_display === "bank" && (
-                  <div className="space-y-1 text-sm text-gray-700">
-                    {data.platform_payment.bank_name && <p>{data.platform_payment.bank_name}</p>}
-                    {data.platform_payment.bank_account_number && (
-                      <p className="font-mono font-medium">{data.platform_payment.bank_account_number}</p>
-                    )}
-                    {data.platform_payment.bank_account_name && <p>{data.platform_payment.bank_account_name}</p>}
-                  </div>
-                )}
-              </div>
-            )}
-
-            <form onSubmit={handleTopup} className="space-y-5">
-              <div className="space-y-2">
-                <Label className="text-sm text-gray-700">{t("amount")} (THB)</Label>
-                <div className="flex gap-2">
-                  {TOPUP_AMOUNTS.map((amt) => (
-                    <button
-                      key={amt}
-                      type="button"
-                      onClick={() => setTopupAmount(String(amt))}
-                      className={`flex-1 rounded-lg border py-1.5 text-xs font-medium transition-colors ${
-                        topupAmount === String(amt)
-                          ? "border-brand/30 bg-brand-50 text-brand"
-                          : "border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
-                      }`}
-                    >
-                      ฿{amt.toLocaleString()}
-                    </button>
-                  ))}
-                </div>
-              </div>
-
-              <div className="space-y-2">
-                <Label className="text-sm text-gray-700">{t("paymentSlip")}</Label>
-                <div
-                  onClick={() => fileInputRef.current?.click()}
-                  onDragOver={(e) => { e.preventDefault(); e.stopPropagation(); }}
-                  onDrop={(e) => {
-                    e.preventDefault();
-                    e.stopPropagation();
-                    const file = e.dataTransfer.files?.[0];
-                    if (file) setTopupFile(file);
-                  }}
-                  className={`border-2 border-dashed rounded-xl p-6 text-center cursor-pointer transition-colors ${
-                    topupFile
-                      ? "border-brand/30 bg-brand-50/50"
-                      : "border-gray-200 hover:border-brand/20 hover:bg-brand-50/20"
-                  }`}
-                >
-                  <Upload className="h-6 w-6 text-gray-300 mx-auto mb-2" />
-                  <p className="text-sm text-gray-500">
-                    {topupFile ? topupFile.name : t("dragOrClick")}
-                  </p>
-                  <input
-                    ref={fileInputRef}
-                    type="file"
-                    accept="image/*"
-                    className="hidden"
-                    onChange={(e) => setTopupFile(e.target.files?.[0] || null)}
-                  />
-                </div>
-              </div>
-
-              <Button
-                type="submit"
-                disabled={topupLoading || !topupFile || !topupAmount}
-                className="w-full bg-brand hover:bg-brand-hover"
-              >
-                {topupLoading ? (
-                  <Loader2 className="h-4 w-4 animate-spin mr-2" />
-                ) : (
-                  <Upload className="h-4 w-4 mr-2" />
-                )}
-                {t("verifyAndTopUp")}
-              </Button>
-            </form>
+          <div className="rounded-xl border border-earth-100 bg-earth-50/60 px-4 py-3 flex items-center justify-between">
+            <span className="text-sm text-earth-500">{t("walletBalance")}</span>
+            <span className="text-lg font-serif text-gray-900">
+              ฿{data.wallet_balance.toLocaleString()}
+            </span>
           </div>
-        </SheetContent>
-      </Sheet>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setWalletLowRequired(null)}>
+              {t("cancel")}
+            </Button>
+            <Button asChild className="bg-brand hover:bg-brand-hover">
+              <Link href="/dashboard/wallet">
+                {t("goToWallet")}
+                <ArrowRight className="w-4 h-4 ml-2" />
+              </Link>
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Invoice pay dialog (shared with the Wallet page) */}
       <InvoicePayDialog
