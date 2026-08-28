@@ -64,9 +64,17 @@ export async function POST(req: NextRequest) {
     const apiKey = process.env.EASYSLIP_API_KEY;
     const supabase = createServiceRoleClient();
 
+    // Phase timings. The function, the database and EasySlip sit in three
+    // different places, so "which leg is slow" cannot be guessed from outside
+    // — it has to be measured where it happens. One line per request.
+    const t0 = Date.now();
+    let tHash = 0;
+    let tDupes = 0;
+
     // Compute file hash for duplicate detection (our own DB-level check)
     const fileBuffer = await file.arrayBuffer();
     const slipHash = await computeSlipHash(fileBuffer);
+    tHash = Date.now() - t0;
 
     // Cross-table duplicate slip check
     const [bk, grp, dc, inv, wtx] = await Promise.all([
@@ -76,6 +84,8 @@ export async function POST(req: NextRequest) {
       supabase.from("invoices").select("id").eq("slip_hash", slipHash).limit(1),
       supabase.from("wallet_transactions").select("id").eq("slip_hash", slipHash).limit(1),
     ]);
+
+    tDupes = Date.now() - t0 - tHash;
 
     if ([bk, grp, dc, inv, wtx].some((r) => (r.data as unknown[] | null)?.length)) {
       return NextResponse.json(
@@ -121,6 +131,9 @@ export async function POST(req: NextRequest) {
     })();
 
     // --- Call EasySlip V2 API with auto-retry for SLIP_PENDING ---
+    const tParallelStart = Date.now();
+    let tEasySlip = 0;
+    let tStorage = 0;
     const [easySlipData, paymentSlipSignedUrl] = await Promise.all([
       callEasySlipV2(
         fileBuffer,
@@ -128,9 +141,23 @@ export async function POST(req: NextRequest) {
         file.type,
         apiKey,
         expectedAmount,
-      ),
-      storageTask,
+      ).then((r) => {
+        tEasySlip = Date.now() - tParallelStart;
+        return r;
+      }),
+      storageTask.then((r) => {
+        tStorage = Date.now() - tParallelStart;
+        return r;
+      }),
     ]);
+
+    console.log(
+      `[Verify Slip] ${Math.round(file.size / 1024)}KB` +
+        ` hash=${tHash}ms dupes=${tDupes}ms` +
+        ` easyslip=${tEasySlip}ms storage=${tStorage}ms` +
+        ` (parallel, wall ${Date.now() - tParallelStart}ms)` +
+        ` total=${Date.now() - t0}ms`,
+    );
 
     // Handle V2 error responses
     if (!easySlipData.success) {
