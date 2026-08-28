@@ -27,10 +27,10 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
-import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InvoicePayDialog } from "@/components/dashboard/invoice-pay-dialog";
+import { TOPUP_AMOUNTS } from "@/lib/topup-amounts";
 
 /* ─── Types ─── */
 
@@ -131,7 +131,6 @@ export default function WalletPage() {
 
   // ── Top-up ──
   const [topupAmount, setTopupAmount] = useState("");
-  const [customAmount, setCustomAmount] = useState(false);
   const [topupFile, setTopupFileRaw] = useState<File | null>(null);
   const [topupPreview, setTopupPreview] = useState<string | null>(null);
   const [topupLoading, setTopupLoading] = useState(false);
@@ -473,14 +472,14 @@ export default function WalletPage() {
                 {/* Amount selection */}
                 <div className="space-y-3 mb-5">
                   <Label className="text-sm text-gray-700">{t("amount")} (THB)</Label>
-                  <div className="grid grid-cols-4 gap-2">
-                    {[300, 500, 1000, 2000].map((amt) => (
+                  <div className="grid grid-cols-3 gap-2">
+                    {TOPUP_AMOUNTS.map((amt) => (
                       <button
                         key={amt}
                         type="button"
-                        onClick={() => { setTopupAmount(String(amt)); setCustomAmount(false); }}
+                        onClick={() => setTopupAmount(String(amt))}
                         className={`rounded-xl border py-2.5 text-sm font-medium transition-all ${
-                          !customAmount && topupAmount === String(amt)
+                          topupAmount === String(amt)
                             ? "border-brand/30 bg-brand-50 text-brand ring-1 ring-brand/20"
                             : "border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
                         }`}
@@ -488,44 +487,6 @@ export default function WalletPage() {
                         ฿{amt.toLocaleString()}
                       </button>
                     ))}
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => { setCustomAmount(true); setTopupAmount(""); }}
-                      className={`rounded-xl border px-3.5 py-2 text-sm font-medium transition-all whitespace-nowrap ${
-                        customAmount
-                          ? "border-brand/30 bg-brand-50 text-brand ring-1 ring-brand/20"
-                          : "border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
-                      }`}
-                    >
-                      {t("customAmount")}
-                    </button>
-                    {customAmount && (
-                      <Input
-                        type="number"
-                        min="1"
-                        max="3000"
-                        step="1"
-                        value={topupAmount}
-                        onChange={(e) => {
-                          const raw = e.target.value;
-                          if (raw === "") {
-                            setTopupAmount("");
-                            return;
-                          }
-                          const n = Math.floor(Number(raw));
-                          if (!Number.isFinite(n) || n < 1) {
-                            setTopupAmount("1");
-                            return;
-                          }
-                          setTopupAmount(String(Math.min(n, 3000)));
-                        }}
-                        className="flex-1 text-lg font-mono h-10"
-                        placeholder="1 - 3,000"
-                        autoFocus
-                      />
-                    )}
                   </div>
                 </div>
 
