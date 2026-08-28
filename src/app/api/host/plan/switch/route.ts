@@ -8,8 +8,8 @@ import {
   computeImmediateFixedRateInvoice,
   getBillingConfig,
   isValidTermMonths,
-  LOW_WALLET_THRESHOLD,
 } from "@/lib/billing";
+import { LOW_WALLET_THRESHOLD } from "@/lib/wallet-thresholds";
 
 /** Whole days left in a term, counting today. 0 once the term has ended. */
 function daysRemaining(termEndsAt: string, today: Date): number {

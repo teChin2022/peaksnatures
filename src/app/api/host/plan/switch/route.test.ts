@@ -3,7 +3,7 @@ import { POST } from "./route";
 import { signIn, signOut } from "../../../../../../test/helpers/auth";
 import { makeRequest, readJson } from "../../../../../../test/helpers/request";
 import { makeBillingConfig } from "../../../../../../test/fixtures/db";
-import { LOW_WALLET_THRESHOLD } from "@/lib/billing";
+import { LOW_WALLET_THRESHOLD } from "@/lib/wallet-thresholds";
 
 const h = vi.hoisted(() => ({
   createServerSupabaseClient: vi.fn(),

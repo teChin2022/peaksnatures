@@ -6,13 +6,6 @@ import type { FixedRateTermTier, Host, PlatformBillingConfig } from "@/types/dat
 type ServiceClient = ReturnType<typeof createServiceRoleClient>;
 
 /**
- * Commission hosts are warned by SMS/LINE once their wallet dips below this,
- * giving them room to top up before the balance goes negative and the
- * GRACE_PERIOD_DAYS countdown to a booking block starts.
- */
-export const LOW_WALLET_THRESHOLD = 300;
-
-/**
  * Get the platform billing config (singleton row).
  */
 export async function getBillingConfig(): Promise<PlatformBillingConfig | null> {

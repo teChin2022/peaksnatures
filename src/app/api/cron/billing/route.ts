@@ -8,8 +8,8 @@ import {
   getEffectiveFixedRate,
   isValidTermMonths,
   processBillingRetryQueue,
-  LOW_WALLET_THRESHOLD,
 } from "@/lib/billing";
+import { LOW_WALLET_THRESHOLD } from "@/lib/wallet-thresholds";
 import { GRACE_PERIOD_DAYS } from "@/lib/plan-expiry";
 import { sendSms, notifyHostAlert } from "@/lib/notifications";
 import { fmtDateStr } from "@/lib/format-date";

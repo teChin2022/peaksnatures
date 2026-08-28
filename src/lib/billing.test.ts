@@ -1,6 +1,5 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  LOW_WALLET_THRESHOLD,
   blockingInvoiceFilter,
   computeFixedRateInvoice,
   computeImmediateFixedRateInvoice,
@@ -11,6 +10,7 @@ import {
   utcToday,
 } from "@/lib/billing";
 import { makeBillingConfig } from "../../test/fixtures/db";
+import { LOW_WALLET_THRESHOLD } from "@/lib/wallet-thresholds";
 
 /** period_start is serialised via toISOString(), so build start dates in UTC. */
 const utc = (y: number, m: number, day: number) => new Date(Date.UTC(y, m - 1, day));

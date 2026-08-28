@@ -10,7 +10,7 @@ import { QRCodeSVG } from "qrcode.react";
 import { InvoicePayDialog } from "@/components/dashboard/invoice-pay-dialog";
 import { PlanActivationDialog, type PlanQuote } from "@/components/dashboard/plan-activation-dialog";
 import { TOPUP_AMOUNTS } from "@/lib/topup-amounts";
-import { LOW_WALLET_THRESHOLD } from "@/lib/billing";
+import { LOW_WALLET_THRESHOLD } from "@/lib/wallet-thresholds";
 import {
   Wallet,
   Clock,
