@@ -1748,6 +1748,7 @@
     "invoiceBlockedDesc": "Your invoice is past its due date and new bookings are paused. Pay it to start accepting bookings again.",
     "walletLowTitle": "Top up required",
     "walletLowDesc": "Keep at least ฿{required} in your wallet before switching to the Commission plan.",
+    "goToWallet": "Go to Wallet",
     "unpaidInvoiceDesc": "Settle your outstanding invoice before switching to the Commission plan.",
     "upgradePlan": "Upgrade",
     "walletBalance": "Balance",
