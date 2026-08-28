@@ -10,7 +10,7 @@ const h = vi.hoisted(() => ({
   afterCallbacks: [] as Array<() => unknown>,
   logEvent: vi.fn(),
   deductCommission: vi.fn(),
-  getHostBlockState: vi.fn(),
+  hostBlockStateFrom: vi.fn(),
   isHostBlocked: vi.fn(),
   sendBookingConfirmationEmail: vi.fn(),
   dispatchHostNotification: vi.fn(),
@@ -31,7 +31,8 @@ vi.mock("@/lib/history-log", async (importOriginal) => ({
 }));
 vi.mock("@/lib/billing", () => ({
   deductCommission: h.deductCommission,
-  getHostBlockState: h.getHostBlockState,
+  hostBlockStateFrom: h.hostBlockStateFrom,
+  HOST_BLOCK_COLUMNS: "plan_type, plan_free_expires_at, wallet_balance, wallet_credit_limit, wallet_negative_since",
 }));
 vi.mock("@/lib/plan-expiry", () => ({ isHostBlocked: h.isHostBlocked }));
 vi.mock("@/lib/notifications", () => ({
@@ -65,10 +66,30 @@ const body = (over: Record<string, unknown> = {}) => ({
   ...over,
 });
 
+/**
+ * The homestay row as the route now reads it — one query carrying the host
+ * (for the block check and the deposit) and the promo flag.
+ */
+const homestayRow = (over: Record<string, unknown> = {}) => ({
+  host_id: "host-1",
+  promo_codes_enabled: false,
+  hosts: {
+    plan_type: "commission",
+    plan_free_expires_at: null,
+    wallet_balance: 5000,
+    wallet_credit_limit: 0,
+    wallet_negative_since: null,
+    deposit_amount: 0,
+    deposit_by_month: null,
+    ...(over.hosts as Record<string, unknown> | undefined),
+  },
+  ...over,
+});
+
 /** The table script for a plain two-night booking at 1000/night. */
 function tables(over: Record<string, QueryResponse | QueryResponse[]> = {}) {
   return {
-    homestays: [{ data: { host_id: "host-1" } }],
+    homestays: { data: homestayRow() },
     rooms: { data: { price_per_night: 1000 } },
     room_seasonal_prices: { data: [] },
     room_special_prices: { data: [] },
@@ -127,7 +148,7 @@ beforeEach(() => {
   h.sendRecommenderPromoUsedNotification.mockResolvedValue({ success: true });
   h.deductCommission.mockResolvedValue(undefined);
   h.logEvent.mockResolvedValue(undefined);
-  h.getHostBlockState.mockResolvedValue(null);
+  h.hostBlockStateFrom.mockResolvedValue({ plan_type: "commission", plan_free_expires_at: null });
   h.isHostBlocked.mockReturnValue(false);
   mockClient();
 });
@@ -221,7 +242,7 @@ describe("POST /api/bookings", () => {
 
   describe("blocked hosts", () => {
     it("refuses a booking for a host who is soft-blocked", async () => {
-      h.getHostBlockState.mockResolvedValue({ plan_type: "free", plan_free_expires_at: "2020-01-01" });
+      h.hostBlockStateFrom.mockResolvedValue({ plan_type: "free", plan_free_expires_at: "2020-01-01" });
       h.isHostBlocked.mockReturnValue(true);
 
       await expect(readJson(await post(body()))).resolves.toEqual({
@@ -231,15 +252,15 @@ describe("POST /api/bookings", () => {
     });
 
     it("proceeds when the host is in good standing", async () => {
-      h.getHostBlockState.mockResolvedValue({ plan_type: "commission", plan_free_expires_at: null });
+      h.hostBlockStateFrom.mockResolvedValue({ plan_type: "commission", plan_free_expires_at: null });
       h.isHostBlocked.mockReturnValue(false);
       expect((await post(body())).status).toBe(201);
     });
 
     it("proceeds when the homestay has no host row to check", async () => {
-      mockClient({ tables: tables({ homestays: [{ data: null }] }) });
+      mockClient({ tables: tables({ homestays: { data: null } }) });
       expect((await post(body())).status).toBe(201);
-      expect(h.getHostBlockState).not.toHaveBeenCalled();
+      expect(h.hostBlockStateFrom).not.toHaveBeenCalled();
     });
   });
 
@@ -387,7 +408,7 @@ describe("POST /api/bookings", () => {
   describe("promo codes", () => {
     const promoTables = (over: Record<string, QueryResponse | QueryResponse[]> = {}) =>
       tables({
-        homestays: [{ data: { host_id: "host-1" } }, { data: { promo_codes_enabled: true } }],
+        homestays: { data: homestayRow({ promo_codes_enabled: true }) },
         promo_codes: { data: makePromoCode({ id: PROMO_ID, discount_value: 10 }) },
         promo_redemptions: { data: [] },
         ...over,
@@ -448,7 +469,7 @@ describe("POST /api/bookings", () => {
     it("refuses a code when the homestay has promo codes switched off", async () => {
       mockClient({
         tables: promoTables({
-          homestays: [{ data: { host_id: "host-1" } }, { data: { promo_codes_enabled: false } }],
+          homestays: { data: homestayRow({ promo_codes_enabled: false }) },
         }),
       });
 
@@ -505,7 +526,7 @@ describe("POST /api/bookings", () => {
   describe("deposits", () => {
     const depositTables = (deposit: unknown) =>
       tables({
-        homestays: [{ data: { host_id: "host-1" } }, { data: { hosts: deposit } }],
+        homestays: { data: homestayRow({ hosts: deposit }) },
       });
 
     it("charges the host's configured deposit rather than the client's figure", async () => {
@@ -611,7 +632,7 @@ describe("POST /api/bookings", () => {
     it("tells the recommender their code earned a commission", async () => {
       mockClient({
         tables: tables({
-          homestays: [{ data: { host_id: "host-1" } }, { data: { promo_codes_enabled: true } }],
+          homestays: { data: homestayRow({ promo_codes_enabled: true }) },
           promo_codes: {
             data: makePromoCode({
               id: PROMO_ID,
@@ -636,7 +657,7 @@ describe("POST /api/bookings", () => {
     it("stays quiet to the recommender until the slip is verified", async () => {
       mockClient({
         tables: tables({
-          homestays: [{ data: { host_id: "host-1" } }, { data: { promo_codes_enabled: true } }],
+          homestays: { data: homestayRow({ promo_codes_enabled: true }) },
           promo_codes: { data: makePromoCode({ id: PROMO_ID, recommender_name: "Ann" }) },
         }),
       });
@@ -704,7 +725,7 @@ describe("POST /api/bookings", () => {
     it("still honours the host's deposit configuration", async () => {
       const supabase = mockClient({
         tables: tables({
-          homestays: [{ data: { host_id: "host-1" } }, { data: { hosts: { deposit_amount: 500, deposit_by_month: null } } }],
+          homestays: { data: homestayRow({ hosts: { deposit_amount: 500, deposit_by_month: null } }) },
         }),
       });
 
@@ -773,7 +794,7 @@ describe("POST /api/bookings", () => {
   it("logs but does not rethrow when the recommender notice fails", async () => {
     mockClient({
       tables: tables({
-        homestays: [{ data: { host_id: "host-1" } }, { data: { promo_codes_enabled: true } }],
+        homestays: { data: homestayRow({ promo_codes_enabled: true }) },
         promo_codes: { data: makePromoCode({ id: PROMO_ID, recommender_name: "Ann" }) },
       }),
     });

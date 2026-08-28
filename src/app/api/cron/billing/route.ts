@@ -8,8 +8,8 @@ import {
   getEffectiveFixedRate,
   isValidTermMonths,
   processBillingRetryQueue,
-  LOW_WALLET_THRESHOLD,
 } from "@/lib/billing";
+import { LOW_WALLET_THRESHOLD } from "@/lib/wallet-thresholds";
 import { GRACE_PERIOD_DAYS } from "@/lib/plan-expiry";
 import { sendSms, notifyHostAlert } from "@/lib/notifications";
 import { fmtDateStr } from "@/lib/format-date";
@@ -488,6 +488,10 @@ export async function GET(req: NextRequest) {
         updateFields.fixed_rate_term_started_at = termInvoice.period_start;
         updateFields.fixed_rate_term_ends_at = termInvoice.period_end;
       } else if (host.plan_pending_type === "commission") {
+        // LEGACY DRAIN: since plan/switch applies commission changes immediately,
+        // nothing writes plan_pending_type = 'commission' any more. This branch
+        // exists for rows written before that change and must not be deleted as
+        // unreachable until they have all aged out.
         // Leaving fixed_rate behind — clear stale term fields.
         updateFields.fixed_rate_term_months = null;
         updateFields.fixed_rate_term_started_at = null;
@@ -574,9 +578,16 @@ export async function GET(req: NextRequest) {
         .eq("plan_type", "fixed_rate")
         .eq("status", "approved");
 
-      const periodStart = new Date(now.getFullYear(), now.getMonth(), 1).toISOString().split("T")[0];
-      const periodEnd = new Date(now.getFullYear(), now.getMonth() + 1, 0).toISOString().split("T")[0];
-      const dueDate = new Date(now.getFullYear(), now.getMonth(), 5).toISOString().split("T")[0];
+      // UTC-explicit like every other date in this file. The local-time
+      // constructors these replaced agreed with UTC only because Vercel runs
+      // TZ=UTC — under any other zone they shifted the whole billing period
+      // back a day (periodEnd 29 Sep instead of 30 Sep in Asia/Bangkok).
+      const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
+        .toISOString().split("T")[0];
+      const periodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0))
+        .toISOString().split("T")[0];
+      const dueDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 5))
+        .toISOString().split("T")[0];
 
       let invoiceCount = 0;
       let invoiceNotifications = 0;

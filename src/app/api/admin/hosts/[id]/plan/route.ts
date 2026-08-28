@@ -5,7 +5,7 @@ import {
 } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { logEvent, EventType } from "@/lib/history-log";
-import { computeFixedRateInvoice, getBillingConfig, isValidTermMonths } from "@/lib/billing";
+import { computeImmediateFixedRateInvoice, getBillingConfig, isValidTermMonths } from "@/lib/billing";
 import type { PlatformBillingConfig } from "@/types/database";
 
 export async function PATCH(
@@ -60,7 +60,7 @@ export async function PATCH(
 
     const now = new Date();
     const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    let invoicePayload: ReturnType<typeof computeFixedRateInvoice> | null = null;
+    let invoicePayload: ReturnType<typeof computeImmediateFixedRateInvoice> | null = null;
 
     if (plan_type === "fixed_rate") {
       // Assigning fixed_rate must start a term (and bill it) just like the host
@@ -95,7 +95,7 @@ export async function PATCH(
       // fixed_rate — prevents an idempotent admin re-save (the plan dialog
       // pre-selects the current plan) from double-billing or truncating a term.
       if (!alreadyActiveFixedRate) {
-        invoicePayload = computeFixedRateInvoice(current, config as PlatformBillingConfig, term_months, today);
+        invoicePayload = computeImmediateFixedRateInvoice(current, config as PlatformBillingConfig, term_months, today);
         updateData.fixed_rate_term_months = term_months;
         updateData.fixed_rate_term_started_at = invoicePayload.period_start;
         updateData.fixed_rate_term_ends_at = invoicePayload.period_end;

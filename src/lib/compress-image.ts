@@ -7,19 +7,25 @@
 interface CompressOptions {
   /** Maximum width or height in pixels (default: 1920) */
   maxDimension?: number;
-  /** WebP quality 0-1 (default: 0.8) */
+  /** Encoder quality 0-1 (default: 0.8) */
   quality?: number;
+  /**
+   * Output MIME type (default: "image/webp"). Callers whose consumer is a
+   * third party rather than our own storage should pick "image/jpeg" — see
+   * the payment-slip path in booking-section.tsx.
+   */
+  type?: "image/webp" | "image/jpeg";
 }
 
 /**
  * Compress an image file on the client before uploading.
- * Returns a new File in WebP format with the given max dimension.
+ * Returns a new File in the requested format with the given max dimension.
  */
 export async function compressImage(
   file: File,
   options: CompressOptions = {}
 ): Promise<File> {
-  const { maxDimension = 1920, quality = 0.8 } = options;
+  const { maxDimension = 1920, quality = 0.8, type = "image/webp" } = options;
 
   // Skip non-image files
   if (!file.type.startsWith("image/")) return file;
@@ -50,7 +56,7 @@ export async function compressImage(
     const ctx = canvas.getContext("2d");
     if (!ctx) return file;
     ctx.drawImage(bitmap, 0, 0, newWidth, newHeight);
-    blob = await canvas.convertToBlob({ type: "image/webp", quality });
+    blob = await canvas.convertToBlob({ type, quality });
   } else {
     const canvas = document.createElement("canvas");
     canvas.width = newWidth;
@@ -61,7 +67,7 @@ export async function compressImage(
     blob = await new Promise<Blob>((resolve) => {
       canvas.toBlob(
         (b) => resolve(b || new Blob()),
-        "image/webp",
+        type,
         quality
       );
     });
@@ -69,7 +75,11 @@ export async function compressImage(
 
   bitmap.close();
 
-  // Build a new filename with .webp extension
+  // Re-encoding is not guaranteed to shrink an already-optimised image, and
+  // shipping a bigger file would defeat the point.
+  if (blob.size >= file.size) return file;
+
   const baseName = file.name.replace(/\.[^.]+$/, "");
-  return new File([blob], `${baseName}.webp`, { type: "image/webp" });
+  const ext = type === "image/jpeg" ? "jpg" : "webp";
+  return new File([blob], `${baseName}.${ext}`, { type });
 }

@@ -8,7 +8,9 @@ import { fmtDateStr } from "@/lib/format-date";
 import generatePayload from "promptpay-qr";
 import { QRCodeSVG } from "qrcode.react";
 import { InvoicePayDialog } from "@/components/dashboard/invoice-pay-dialog";
+import { PlanActivationDialog, type PlanQuote } from "@/components/dashboard/plan-activation-dialog";
 import { TOPUP_AMOUNTS } from "@/lib/topup-amounts";
+import { LOW_WALLET_THRESHOLD } from "@/lib/wallet-thresholds";
 import {
   Wallet,
   Clock,
@@ -191,6 +193,9 @@ export default function DashboardBillingPage() {
   const [payInvoiceAmount, setPayInvoiceAmount] = useState<number | null>(null);
   // Plan the host was switching to when the empty-wallet gate stopped them.
   const [pendingSwitch, setPendingSwitch] = useState<{ planType: string; termMonths?: number } | null>(null);
+  // The 402 quote from /plan/switch. Nothing is persisted server-side until
+  // the host pays, so closing the dialog needs no cleanup.
+  const [planQuote, setPlanQuote] = useState<PlanQuote | null>(null);
   const [confirmDialog, setConfirmDialog] = useState<{
     type: "switch" | "cancelSwitch";
     planType?: string;
@@ -245,13 +250,20 @@ export default function DashboardBillingPage() {
           toast.error(t("unpaidInvoiceDesc"));
           return;
         }
-        if (d.error === "WALLET_EMPTY") {
+        if (d.error === "WALLET_LOW") {
           setConfirmDialog(null);
           // Remember the intent so a successful top-up completes the switch the
           // host originally asked for, rather than making them start over.
           setPendingSwitch({ planType, termMonths });
           setTopupSheetOpen(true);
-          toast.error(t("walletEmptyDesc"));
+          toast.error(t("walletLowDesc", { required: d.required ?? LOW_WALLET_THRESHOLD }));
+          return;
+        }
+        // Fixed Rate is paid for before it starts: the switch only quotes, and
+        // the activation dialog is what actually changes the plan.
+        if (d.error === "PAYMENT_REQUIRED") {
+          setConfirmDialog(null);
+          setPlanQuote(d as PlanQuote);
           return;
         }
         toast.error(d.error || "Failed to switch plan");
@@ -303,7 +315,7 @@ export default function DashboardBillingPage() {
 
         // Finish the switch the host was blocked on, now that funds are in.
         setPendingSwitch(null);
-        if (pendingSwitch && d.new_balance > 0) {
+        if (pendingSwitch && d.new_balance >= LOW_WALLET_THRESHOLD) {
           await handlePlanSwitch(pendingSwitch.planType, pendingSwitch.termMonths);
           return;
         }
@@ -362,9 +374,6 @@ export default function DashboardBillingPage() {
       new Date(data.plan_free_expires_at) < new Date(),
   );
   const isFreeExpired = isPastFreeExpiry && !data.plan_pending_type;
-  // Free → paid switches apply immediately (no waiting for the 1st of the month).
-  const isImmediateSwitch = data.plan_type === "free";
-
   const hasActiveTerm = Boolean(
     data.plan_type === "fixed_rate" &&
       data.fixed_rate_term_months &&
@@ -392,6 +401,9 @@ export default function DashboardBillingPage() {
           (1000 * 60 * 60 * 24),
       )
     : null;
+  // Days the host would forfeit by leaving Fixed Rate now, counting today —
+  // matching how the server records forfeited_days in the audit log.
+  const forfeitDays = Math.max((daysUntilTermEnd ?? 0) + 1, 0);
   const termExpired = data.fixed_rate_term_ends_at
     ? data.fixed_rate_term_ends_at < todayStr
     : true;
@@ -611,7 +623,7 @@ export default function DashboardBillingPage() {
       >
         <p className="text-earth-400 text-sm flex items-center justify-center">
           <HelpCircle className="w-4 h-4 mr-1.5" />
-          {t(isImmediateSwitch ? "switchNoteImmediate" : "switchNote")}
+          {t("switchNote")}
         </p>
       </motion.div>
 
@@ -915,7 +927,7 @@ export default function DashboardBillingPage() {
                               : "",
                             plan: planLabel(confirmDialog.planType || ""),
                           })
-                        : t(isImmediateSwitch ? "switchConfirmDescImmediate" : "switchConfirmDesc", {
+                        : t(isFixedRateSwitch ? "switchConfirmDescFixedRate" : "switchConfirmDesc", {
                             plan: planLabel(confirmDialog.planType || ""),
                           })}
                   </DialogDescription>
@@ -924,11 +936,11 @@ export default function DashboardBillingPage() {
                   <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 flex items-start gap-3">
                     <AlertTriangle className="h-4 w-4 text-amber-600 shrink-0 mt-0.5" />
                     <p className="text-xs text-amber-700">
-                      {t("switchFromActiveTermWarning")}
+                      {t("switchFromActiveTermWarning", { days: forfeitDays })}
                     </p>
                   </div>
                 )}
-                {isFixedRateSwitch && confirmDialog.termMonths && (
+                {isRenewal && confirmDialog.termMonths && (
                   <div className="rounded-xl border border-earth-200 bg-earth-50 px-4 py-3 text-sm text-earth-700">
                     {t("termSummaryLine", {
                       months: confirmDialog.termMonths,
@@ -1071,10 +1083,12 @@ export default function DashboardBillingPage() {
           </SheetHeader>
 
           <div className="px-4 py-6 space-y-6">
-            {data.wallet_balance <= 0 && (
+            {data.wallet_balance < LOW_WALLET_THRESHOLD && (
               <div className="rounded-xl border border-amber-200 bg-amber-50 p-4">
-                <p className="text-sm font-medium text-amber-800">{t("walletEmptyTitle")}</p>
-                <p className="text-sm text-amber-700 mt-1">{t("walletEmptyDesc")}</p>
+                <p className="text-sm font-medium text-amber-800">{t("walletLowTitle")}</p>
+                <p className="text-sm text-amber-700 mt-1">
+                  {t("walletLowDesc", { required: LOW_WALLET_THRESHOLD })}
+                </p>
               </div>
             )}
 
@@ -1177,6 +1191,20 @@ export default function DashboardBillingPage() {
         amount={data.invoices.find((inv) => inv.id === payInvoiceId)?.amount ?? payInvoiceAmount ?? 0}
         platformPayment={data.platform_payment}
         onPaid={fetchBilling}
+      />
+
+      {/* Pay-then-activate dialog for Fixed Rate */}
+      <PlanActivationDialog
+        open={!!planQuote}
+        onOpenChange={(o) => { if (!o) setPlanQuote(null); }}
+        quote={planQuote}
+        platformPayment={data.platform_payment}
+        monthlyRate={monthlyRate}
+        onActivated={() => {
+          setPlanQuote(null);
+          fetchBilling();
+          window.dispatchEvent(new Event("host:plan-changed"));
+        }}
       />
     </div>
   );

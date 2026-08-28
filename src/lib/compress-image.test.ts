@@ -2,8 +2,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { compressImage } from "@/lib/compress-image";
 
-const imageFile = (name = "photo.jpg", type = "image/jpeg") =>
-  new File([new Uint8Array([1, 2, 3])], name, { type });
+const imageFile = (name = "photo.jpg", type = "image/jpeg", bytes = 4096) =>
+  new File([new Uint8Array(bytes)], name, { type });
 
 let close: ReturnType<typeof vi.fn>;
 let drawImage: ReturnType<typeof vi.fn>;
@@ -61,6 +61,26 @@ describe("compressImage", () => {
 
   it("renames a file that has no extension", async () => {
     expect((await compressImage(imageFile("holiday", "image/jpeg"))).name).toBe("holiday.webp");
+  });
+
+  it("encodes JPEG when asked, for consumers that cannot take WebP", async () => {
+    convertToBlob = vi.fn(() => Promise.resolve(new Blob(["jpeg"], { type: "image/jpeg" })));
+    useOffscreenCanvas();
+    const result = await compressImage(imageFile("slip.png", "image/png"), { type: "image/jpeg" });
+
+    expect(convertToBlob).toHaveBeenCalledWith(expect.objectContaining({ type: "image/jpeg" }));
+    expect(result.name).toBe("slip.jpg");
+    expect(result.type).toBe("image/jpeg");
+  });
+
+  // Re-encoding an already-small image can grow it; sending the bigger one
+  // would defeat the point of compressing at all.
+  it("keeps the original when re-encoding would not shrink it", async () => {
+    const original = imageFile("tiny.jpg", "image/jpeg", 8);
+    convertToBlob = vi.fn(() => Promise.resolve(new Blob([new Uint8Array(64)], { type: "image/webp" })));
+    useOffscreenCanvas();
+
+    await expect(compressImage(original)).resolves.toBe(original);
   });
 
   it("leaves a non-image file untouched", async () => {

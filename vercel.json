@@ -1,5 +1,6 @@
 {
   "buildCommand": "rm -rf .next && next build",
+  "regions": ["sin1"],
   "crons": [
     {
       "path": "/api/cron/billing",

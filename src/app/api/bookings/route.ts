@@ -14,7 +14,8 @@ import {
 } from "@/lib/guest-pricing";
 import { getDepositForMonth } from "@/lib/get-deposit";
 import { logEvent, EventType } from "@/lib/history-log";
-import { deductCommission } from "@/lib/billing";
+import { deductCommission, hostBlockStateFrom, HOST_BLOCK_COLUMNS, type HostBlockRow } from "@/lib/billing";
+import { isHostBlocked } from "@/lib/plan-expiry";
 import { computeCommissionAmount, computePromoDiscount, evaluatePromoCode } from "@/lib/promo-codes";
 
 const bookingSchema = z.object({
@@ -120,20 +121,36 @@ export async function POST(req: NextRequest) {
     let guestPricingLabel: string | null = null;
     let guestPricingSurcharge = 0;
 
-    // Check if host is soft-blocked (free expired, overdue invoice, or overdrawn wallet)
-    const { data: homestayHost } = await supabase
+    // One read for everything this route needs off the homestay and its host:
+    // the block check here, the promo gate further down, and the deposit
+    // amount at the end. These were three separate sequential queries against
+    // the same homestay row plus a fourth for the host — ~520ms of round trips
+    // that this collapses into one (plus a conditional invoice read for
+    // fixed-rate hosts).
+    const { data: homestayRow } = await supabase
       .from("homestays")
-      .select("host_id")
+      .select(
+        `host_id, promo_codes_enabled, hosts(${HOST_BLOCK_COLUMNS}, deposit_amount, deposit_by_month)`,
+      )
       .eq("id", data.homestay_id)
       .single();
-    const hostId = (homestayHost as { host_id: string } | null)?.host_id;
-    if (hostId) {
-      const [{ isHostBlocked }, { getHostBlockState }] = await Promise.all([
-        import("@/lib/plan-expiry"),
-        import("@/lib/billing"),
-      ]);
-      const blockState = await getHostBlockState(hostId);
-      if (blockState && isHostBlocked(blockState)) {
+
+    const homestayCtx = homestayRow as unknown as {
+      host_id: string;
+      promo_codes_enabled: boolean | null;
+      hosts:
+        | (HostBlockRow & {
+            deposit_amount: number;
+            deposit_by_month: Record<string, number> | null;
+          })
+        | null;
+    } | null;
+
+    // Check if host is soft-blocked (free expired, overdue invoice, or overdrawn wallet)
+    const hostId = homestayCtx?.host_id;
+    if (hostId && homestayCtx?.hosts) {
+      const blockState = await hostBlockStateFrom(hostId, homestayCtx.hosts, supabase);
+      if (isHostBlocked(blockState)) {
         return NextResponse.json(
           { error: "This homestay is temporarily unavailable for new bookings" },
           { status: 403 }
@@ -231,13 +248,7 @@ export async function POST(req: NextRequest) {
       // Promo state is stashed on `req` via locals — use a closure on the outer scope.
       let serverPrice = subtotal;
       if (data.promo_code_id) {
-        const { data: homestayFlag } = await supabase
-          .from("homestays")
-          .select("promo_codes_enabled")
-          .eq("id", data.homestay_id)
-          .single();
-        const flagEnabled = (homestayFlag as { promo_codes_enabled: boolean } | null)?.promo_codes_enabled;
-        if (!flagEnabled) {
+        if (!homestayCtx?.promo_codes_enabled) {
           return NextResponse.json({ error: "Promo codes are not enabled for this homestay" }, { status: 400 });
         }
 
@@ -290,14 +301,8 @@ export async function POST(req: NextRequest) {
 
     // Validate payment_type and amount_paid
     if (data.payment_type === "deposit") {
-      // Single joined query for host deposit config
-      const { data: depositRow } = await supabase
-        .from("homestays")
-        .select("hosts(deposit_amount, deposit_by_month)")
-        .eq("id", data.homestay_id)
-        .single();
-
-      const hostData = (depositRow as unknown as { hosts: { deposit_amount: number; deposit_by_month: Record<string, number> | null } | null })?.hosts;
+      // Host deposit config came with the homestay read at the top.
+      const hostData = homestayCtx?.hosts ?? null;
       const checkInDate = new Date(data.check_in);
       const hostDeposit = hostData ? getDepositForMonth(hostData, checkInDate) : 0;
       if (hostDeposit <= 0) {

@@ -71,6 +71,38 @@ Path alias: `@/*` → `./src/*`
 3. Guest uploads PromptPay slip → `/api/verify-slip` calls **EasySlip API**
 4. If verified: booking auto-confirmed → host notified via **LINE Messaging API**, guest via **Resend email**
 
+### Host Billing Plans
+
+Three plans on `hosts.plan_type`: `free`, `commission` (per-booking cut deducted
+from a prepaid wallet), `fixed_rate` (a monthly subscription, always billed
+upfront — never at month end).
+
+Plan changes take effect immediately, and Fixed Rate is paid for before it
+starts:
+
+1. Host picks Fixed Rate → `POST /api/host/plan/switch` returns **402
+   `PAYMENT_REQUIRED`** with a quote and **writes nothing**
+2. Host uploads a PromptPay slip → `POST /api/host/plan/activate` recomputes the
+   amount server-side, verifies via EasySlip, then the
+   `activate_fixed_rate_plan` RPC writes the paid invoice and flips the plan in
+   one transaction
+3. An abandoned payment therefore leaves no invoice and no plan change behind
+
+Mid-month entry is prorated: `computeImmediateFixedRateInvoice`
+(`src/lib/billing.ts`) charges the rest of the current month at the day rate,
+plus whole discounted months for a multi-month term. A `term_months` of 1 means
+"monthly billing" and buys only the part-month — the 1st-of-month cron bills the
+rest as usual.
+
+Switching to Commission applies in place and requires a wallet of at least
+`LOW_WALLET_THRESHOLD` (฿300); leaving Fixed Rate mid-term forfeits the
+remainder with no refund, recorded as `forfeited_days` in the audit log.
+
+`plan_pending_*` now only ever describes a **Fixed Rate renewal** (the new term
+starts the day after the current one ends). The cron's apply-pending section
+still handles a pending `commission` switch so pre-existing rows drain — don't
+delete that branch as unreachable.
+
 ### Supabase Clients
 
 - `src/lib/supabase/client.ts` — browser-side client

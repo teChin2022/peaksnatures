@@ -6,13 +6,6 @@ import type { FixedRateTermTier, Host, PlatformBillingConfig } from "@/types/dat
 type ServiceClient = ReturnType<typeof createServiceRoleClient>;
 
 /**
- * Commission hosts are warned by SMS/LINE once their wallet dips below this,
- * giving them room to top up before the balance goes negative and the
- * GRACE_PERIOD_DAYS countdown to a booking block starts.
- */
-export const LOW_WALLET_THRESHOLD = 300;
-
-/**
  * Get the platform billing config (singleton row).
  */
 export async function getBillingConfig(): Promise<PlatformBillingConfig | null> {
@@ -101,6 +94,84 @@ export function computeFixedRateInvoice(
   return { amount, period_start, period_end, term_months: months, discount_pct: discount };
 }
 
+/**
+ * Compute the single upfront invoice for a plan change that takes effect TODAY.
+ *
+ * Unlike computeFixedRateInvoice — which anchors a term to its own start date
+ * and is still what a renewal uses — this splits the charge in two so the host
+ * always lands back on the platform's calendar-month billing cycle:
+ *
+ *   stub — `startDate` through the end of that month, prorated by day and
+ *          charged at the undiscounted monthly rate.
+ *   term — whole discounted months, starting the 1st of the next month.
+ *
+ * `months === 1` means "put me on monthly billing", not "sell me one prepaid
+ * month": it buys the stub alone, and the 1st-of-month cron run then issues the
+ * next month's invoice as it does for every other fixed-rate host. Only
+ * months > 1 prepays, which is also the only case carrying a term discount.
+ *
+ * Starting on the 1st there is no partial period at all, so it is an ordinary
+ * term — delegated to computeFixedRateInvoice so the discount applies to every
+ * month rather than being lost on a full-month "stub".
+ */
+export function computeImmediateFixedRateInvoice(
+  host: Pick<Host, "fixed_rate_override">,
+  config: PlatformBillingConfig,
+  months: number,
+  startDate: Date,
+): {
+  amount: number;
+  stub_amount: number;
+  term_amount: number;
+  period_start: string;
+  period_end: string;
+  term_months: number;
+  discount_pct: number;
+  /** Days in the prorated stub. 0 when startDate is the 1st (no stub at all). */
+  prorated_days: number;
+  days_in_month: number;
+} {
+  const year = startDate.getUTCFullYear();
+  const month = startDate.getUTCMonth();
+  const dayOfMonth = startDate.getUTCDate();
+  const days_in_month = new Date(Date.UTC(year, month + 1, 0)).getUTCDate();
+
+  if (dayOfMonth === 1) {
+    const base = computeFixedRateInvoice(host, config, months, startDate);
+    return {
+      ...base,
+      stub_amount: 0,
+      term_amount: base.amount,
+      prorated_days: 0,
+      days_in_month,
+    };
+  }
+
+  const monthly = getEffectiveFixedRate(host, config);
+  const prorated_days = days_in_month - dayOfMonth + 1;
+  const stub_amount = Math.round((monthly * prorated_days) / days_in_month);
+
+  const prepaidMonths = months === 1 ? 0 : months;
+  const discount_pct = prepaidMonths > 0 ? getFixedRateDiscount(months, config) : 0;
+  const term_amount = Math.round(monthly * prepaidMonths * (1 - discount_pct / 100));
+
+  // prepaidMonths === 0 collapses to the last day of startDate's own month, so
+  // one expression covers both shapes.
+  const end = new Date(Date.UTC(year, month + 1 + prepaidMonths, 0));
+
+  return {
+    amount: stub_amount + term_amount,
+    stub_amount,
+    term_amount,
+    period_start: startDate.toISOString().split("T")[0],
+    period_end: end.toISOString().split("T")[0],
+    term_months: months,
+    discount_pct,
+    prorated_days,
+    days_in_month,
+  };
+}
+
 /** Today as YYYY-MM-DD (UTC), matching how invoice due_date is written. */
 export function utcToday(): string {
   return new Date().toISOString().split("T")[0];
@@ -161,21 +232,44 @@ export async function getHostBlockState(hostId: string): Promise<HostBlockState 
   const supabase = createServiceRoleClient();
   const { data: hostRow } = await supabase
     .from("hosts")
-    .select("plan_type, plan_free_expires_at, wallet_balance, wallet_credit_limit, wallet_negative_since")
+    .select(HOST_BLOCK_COLUMNS)
     .eq("id", hostId)
     .single();
 
   if (!hostRow) return null;
-  const host = hostRow as {
-    plan_type: string;
-    plan_free_expires_at: string | null;
-    wallet_balance: number | null;
-    wallet_credit_limit: number | null;
-    wallet_negative_since: string | null;
-  };
+  return hostBlockStateFrom(hostId, hostRow as unknown as HostBlockRow, supabase);
+}
 
+/**
+ * The `hosts` columns hostBlockStateFrom needs. Exported so a caller that is
+ * already reading the host — e.g. the booking route, which joins it off
+ * `homestays` — can select exactly these and skip a second round trip.
+ */
+export const HOST_BLOCK_COLUMNS =
+  "plan_type, plan_free_expires_at, wallet_balance, wallet_credit_limit, wallet_negative_since";
+
+export interface HostBlockRow {
+  plan_type: string;
+  plan_free_expires_at: string | null;
+  wallet_balance: number | null;
+  wallet_credit_limit: number | null;
+  wallet_negative_since: string | null;
+}
+
+/**
+ * Build a HostBlockState from an already-fetched host row, doing only the one
+ * lookup the row itself cannot answer (a fixed-rate host's past-due invoice).
+ *
+ * Split out of getHostBlockState so callers that hold the host row do not pay
+ * for re-reading it, without either side re-deriving the mapping.
+ */
+export async function hostBlockStateFrom(
+  hostId: string,
+  host: HostBlockRow,
+  client?: ServiceClient,
+): Promise<HostBlockState> {
   const has_past_due_invoice =
-    host.plan_type === "fixed_rate" ? await hasPastDueInvoice(hostId, supabase) : false;
+    host.plan_type === "fixed_rate" ? await hasPastDueInvoice(hostId, client) : false;
 
   return {
     plan_type: host.plan_type,
