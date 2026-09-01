@@ -41,11 +41,21 @@ describe("getPlanExpiryInfo", () => {
     });
   });
 
-  it("enters grace on the day of expiry with the full period remaining", () => {
+  it("stays active for the whole of the expiry day itself", () => {
+    // Day 0 is the last free day, not the first grace day — the same reading
+    // every other end date on the platform gets.
     expect(getPlanExpiryInfo("free", expiryDaysAgo(0))).toEqual({
-      phase: "grace",
+      phase: "active",
       daysSinceExpiry: 0,
-      graceDaysRemaining: GRACE_PERIOD_DAYS,
+      graceDaysRemaining: null,
+    });
+  });
+
+  it("enters grace the day after expiry", () => {
+    expect(getPlanExpiryInfo("free", expiryDaysAgo(1))).toEqual({
+      phase: "grace",
+      daysSinceExpiry: 1,
+      graceDaysRemaining: GRACE_PERIOD_DAYS - 1,
     });
   });
 
@@ -55,6 +65,12 @@ describe("getPlanExpiryInfo", () => {
       daysSinceExpiry: 3,
       graceDaysRemaining: 4,
     });
+  });
+
+  it("keeps the day-5 SMS honest — two days left when it is sent", () => {
+    // The cron tells the host "bookings pause in 2 days" on day 5.
+    expect(getPlanExpiryInfo("free", expiryDaysAgo(5)).graceDaysRemaining).toBe(2);
+    expect(getPlanExpiryInfo("free", expiryDaysAgo(7)).phase).toBe("blocked");
   });
 
   it("stays in grace on the last day and blocks on the seventh", () => {
@@ -71,6 +87,50 @@ describe("getPlanExpiryInfo", () => {
 
   it("stays blocked long after expiry", () => {
     expect(getPlanExpiryInfo("free", expiryDaysAgo(400))).toMatchObject({ phase: "blocked" });
+  });
+
+  it("falls back to blocked on an unparseable expiry instead of throwing", () => {
+    // billingToday() raises RangeError on an invalid Date, and this function
+    // gates the booking routes.
+    expect(getPlanExpiryInfo("free", "not-a-date")).toEqual({
+      phase: "blocked",
+      daysSinceExpiry: null,
+      graceDaysRemaining: 0,
+    });
+  });
+});
+
+describe("getPlanExpiryInfo across the Bangkok day boundary", () => {
+  /** What Postgres stores for a bare '2026-08-31' — 07:00 in Bangkok. */
+  const EXPIRES = "2026-08-31T00:00:00Z";
+  const at = (iso: string) => getPlanExpiryInfo("free", EXPIRES, new Date(iso)).phase;
+
+  it("no longer expires the host mid-morning on their last free day", () => {
+    // 08:00 on 31 Aug in Bangkok. Comparing instants put them in grace here.
+    expect(at("2026-08-31T01:00:00Z")).toBe("active");
+    // 23:00 on 31 Aug in Bangkok — still their day.
+    expect(at("2026-08-31T16:00:00Z")).toBe("active");
+  });
+
+  it("turns over at Bangkok midnight", () => {
+    expect(at("2026-08-31T16:59:59Z")).toBe("active");
+    // 00:00 on 1 Sep in Bangkok.
+    expect(at("2026-08-31T17:00:00Z")).toBe("grace");
+  });
+
+  it("blocks from the start of day 7, not seven hours into it", () => {
+    // 23:00 on 6 Sep in Bangkok.
+    expect(at("2026-09-06T16:00:00Z")).toBe("grace");
+    // 00:00 on 7 Sep in Bangkok.
+    expect(at("2026-09-06T17:00:00Z")).toBe("blocked");
+  });
+
+  it("counts the free day and the grace days the header promises", () => {
+    const days = (iso: string) =>
+      getPlanExpiryInfo("free", EXPIRES, new Date(iso)).daysSinceExpiry;
+    expect(days("2026-08-31T16:00:00Z")).toBe(0); // last free day
+    expect(days("2026-09-01T05:00:00Z")).toBe(1); // first grace day
+    expect(days("2026-09-06T05:00:00Z")).toBe(6); // last grace day
   });
 });
 

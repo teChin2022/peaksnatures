@@ -1,13 +1,12 @@
 import { afterEach, describe, expect, it, vi } from "vitest";
 import {
-  blockingInvoiceFilter,
+  billingToday,
   computeFixedRateInvoice,
   computeImmediateFixedRateInvoice,
   getEffectiveCommissionPct,
   getEffectiveFixedRate,
   getFixedRateDiscount,
   isValidTermMonths,
-  utcToday,
 } from "@/lib/billing";
 import { makeBillingConfig } from "../../test/fixtures/db";
 import { LOW_WALLET_THRESHOLD } from "@/lib/wallet-thresholds";
@@ -328,37 +327,30 @@ describe("computeImmediateFixedRateInvoice", () => {
   });
 });
 
-describe("utcToday", () => {
-  it("returns today's UTC date as YYYY-MM-DD", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-06-15T10:00:00Z"));
-    expect(utcToday()).toBe("2026-06-15");
-  });
-
-  it("reports the UTC day even when the local day has already rolled over", () => {
-    vi.useFakeTimers();
-    // 06:00 on the 16th in Bangkok is still 23:00 on the 15th in UTC.
-    vi.setSystemTime(new Date("2026-06-15T23:00:00Z"));
-    expect(utcToday()).toBe("2026-06-15");
-  });
-});
-
-describe("blockingInvoiceFilter", () => {
-  it("matches overdue invoices and pending ones past their due date", () => {
-    expect(blockingInvoiceFilter("2026-06-15")).toBe(
-      "status.eq.overdue,and(status.eq.pending,due_date.lt.2026-06-15)",
+// billingToday itself is covered in billing-dates.test.ts; importing it from
+// @/lib/billing here also holds the re-export in place for the API routes.
+describe("billingToday feeding the invoice", () => {
+  it("bills a host activating just after Bangkok midnight for whole months only", () => {
+    // The reported case: ฿750/month × 3 months, paid at 01:00 on 1 September.
+    // Off the UTC clock this charged 750 × 1/31 = ฿24 for 31 August on top.
+    const config = makeBillingConfig({
+      fixed_rate_amount: 750,
+      fixed_rate_term_tiers: [{ months: 3, discount_pct: 0 }],
+    });
+    const quote = computeImmediateFixedRateInvoice(
+      { fixed_rate_override: null },
+      config,
+      3,
+      billingToday(new Date("2026-08-31T18:00:00Z")),
     );
-  });
 
-  it("uses a strict less-than, so an invoice due today does not block yet", () => {
-    expect(blockingInvoiceFilter("2026-06-15")).toContain("due_date.lt.");
-    expect(blockingInvoiceFilter("2026-06-15")).not.toContain("due_date.lte.");
-  });
-
-  it("defaults to today in UTC", () => {
-    vi.useFakeTimers();
-    vi.setSystemTime(new Date("2026-06-15T10:00:00Z"));
-    expect(blockingInvoiceFilter()).toContain("2026-06-15");
+    expect(quote).toMatchObject({
+      amount: 2250,
+      stub_amount: 0,
+      prorated_days: 0,
+      period_start: "2026-09-01",
+      period_end: "2026-11-30",
+    });
   });
 });
 

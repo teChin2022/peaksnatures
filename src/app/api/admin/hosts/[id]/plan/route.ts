@@ -5,7 +5,7 @@ import {
 } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { logEvent, EventType } from "@/lib/history-log";
-import { computeImmediateFixedRateInvoice, getBillingConfig, isValidTermMonths } from "@/lib/billing";
+import { billingToday, computeImmediateFixedRateInvoice, getBillingConfig, isValidTermMonths } from "@/lib/billing";
 import type { PlatformBillingConfig } from "@/types/database";
 
 export async function PATCH(
@@ -58,8 +58,7 @@ export async function PATCH(
     updateData.plan_pending_effective_at = null;
     updateData.plan_pending_term_months = null;
 
-    const now = new Date();
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const today = billingToday();
     let invoicePayload: ReturnType<typeof computeImmediateFixedRateInvoice> | null = null;
 
     if (plan_type === "fixed_rate") {

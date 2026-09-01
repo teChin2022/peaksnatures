@@ -1,7 +1,17 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
+import { blockingInvoiceFilter } from "@/lib/billing-dates";
 import type { HostBlockState } from "@/lib/plan-expiry";
 import type { FixedRateTermTier, Host, PlatformBillingConfig } from "@/types/database";
+
+// The billing calendar lives in its own import-free module so `"use client"`
+// pages can share it; re-exported here so server callers keep one entry point.
+export {
+  BILLING_TIME_ZONE,
+  billingToday,
+  billingTodayStr,
+  blockingInvoiceFilter,
+} from "@/lib/billing-dates";
 
 type ServiceClient = ReturnType<typeof createServiceRoleClient>;
 
@@ -170,28 +180,6 @@ export function computeImmediateFixedRateInvoice(
     prorated_days,
     days_in_month,
   };
-}
-
-/** Today as YYYY-MM-DD (UTC), matching how invoice due_date is written. */
-export function utcToday(): string {
-  return new Date().toISOString().split("T")[0];
-}
-
-/**
- * PostgREST filter for "this invoice is blocking the host".
- *
- * Two ways an invoice blocks:
- *  - status = 'overdue' — either the cron flipped it, or an admin marked it
- *    overdue by hand (which stays a working lever even before the due date).
- *  - status = 'pending' and the due date has passed — the block is driven by
- *    due_date directly rather than waiting on the cron, so a missed or failed
- *    cron run can't hand a non-paying host extra free days.
- *
- * `due_date < today` means an invoice due on the 5th still allows bookings on
- * the 5th and blocks them from the 6th onwards.
- */
-export function blockingInvoiceFilter(today = utcToday()): string {
-  return `status.eq.overdue,and(status.eq.pending,due_date.lt.${today})`;
 }
 
 /** Host ids among `hostIds` that have an invoice blocking new bookings. */

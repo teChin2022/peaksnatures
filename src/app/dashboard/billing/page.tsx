@@ -11,6 +11,8 @@ import { QRCodeSVG } from "qrcode.react";
 import { InvoicePayDialog } from "@/components/dashboard/invoice-pay-dialog";
 import { PlanActivationDialog, type PlanQuote } from "@/components/dashboard/plan-activation-dialog";
 import { LOW_WALLET_THRESHOLD } from "@/lib/wallet-thresholds";
+import { billingTodayStr } from "@/lib/billing-dates";
+import { getPlanExpiryInfo } from "@/lib/plan-expiry";
 import {
   Wallet,
   Clock,
@@ -318,12 +320,13 @@ export default function DashboardBillingPage() {
     return <p className="text-sm text-gray-500 py-12 text-center">Failed to load billing information.</p>;
   }
 
-  const todayStr = new Date().toISOString().split("T")[0];
-  const isPastFreeExpiry = Boolean(
-    data.plan_type === "free" &&
-      data.plan_free_expires_at &&
-      new Date(data.plan_free_expires_at) < new Date(),
-  );
+  // Bangkok, not the browser's clock and not UTC: every figure derived from
+  // this is compared against a date the server wrote off the same calendar.
+  const todayStr = billingTodayStr();
+  // Via getPlanExpiryInfo rather than a raw instant compare, so the banner
+  // flips at the same Bangkok-day boundary that actually blocks bookings.
+  const isPastFreeExpiry =
+    getPlanExpiryInfo(data.plan_type, data.plan_free_expires_at).phase !== "active";
   const isFreeExpired = isPastFreeExpiry && !data.plan_pending_type;
   const hasActiveTerm = Boolean(
     data.plan_type === "fixed_rate" &&

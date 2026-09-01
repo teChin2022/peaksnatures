@@ -24,6 +24,7 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
 import { cn } from "@/lib/utils";
 import { fmtDate, fmtDateStr } from "@/lib/format-date";
+import { getPlanExpiryInfo } from "@/lib/plan-expiry";
 import { fmtTHB } from "@/lib/format-currency";
 
 interface HostRow {
@@ -369,7 +370,8 @@ export default function AdminHostsPage() {
                             <span
                               className={cn(
                                 "text-[10px]",
-                                new Date(host.plan_free_expires_at) < new Date()
+                                getPlanExpiryInfo(host.plan_type, host.plan_free_expires_at)
+                                  .phase !== "active"
                                   ? "text-destructive font-medium"
                                   : "text-earth-500"
                               )}
