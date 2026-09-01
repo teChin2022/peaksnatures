@@ -3,6 +3,7 @@ import { after } from "next/server";
 import { revalidateTag } from "next/cache";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { deleteBookingDraft } from "@/lib/booking-draft-server";
 import { sendBookingConfirmationEmail, sendHostLineNotification, sendHostSmsNotification, dispatchHostNotification, buildNewBookingMessage, sendRecommenderPromoUsedNotification } from "@/lib/notifications";
 import type { Booking, Homestay, Host, PromoCode, Room, RoomSeasonalPrice, RoomSpecialPrice } from "@/types/database";
 import { calculateTotalPrice } from "@/lib/calculate-price";
@@ -448,6 +449,8 @@ export async function POST(req: NextRequest) {
             commissionAmount: computeCommissionAmount(promoState.promo, promoState.subtotal),
           }, data.locale || "th").catch((e) => console.error("[Promo] Recommender notify failed:", e));
         }
+        // They finished — the saved draft has done its job.
+        await deleteBookingDraft(supabase, data.homestay_id, data.guest_phone, data.guest_email);
       });
 
       if (data.easyslip_verified) revalidateTag("admin-stats", "max");
@@ -510,6 +513,7 @@ export async function POST(req: NextRequest) {
         req,
       });
       await sendNotifications((booking as unknown as Booking).id, supabase, data.locale || "th", data.easyslip_verified);
+      await deleteBookingDraft(supabase, data.homestay_id, data.guest_phone, data.guest_email);
     });
 
     if (data.easyslip_verified) revalidateTag("admin-stats", "max");

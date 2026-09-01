@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Menu, LogIn, ArrowRightLeft } from "lucide-react";
+import { Menu, LogIn, ArrowRightLeft, History } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   DropdownMenu,
@@ -13,15 +13,20 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { LanguageSwitcherIcon } from "@/components/language-switcher-icon";
 import { HeaderCart } from "@/components/booking/header-cart";
+import { ResumeBookingDialog } from "@/components/booking/resume-booking-dialog";
 
 interface BookingHeaderProps {
   homestayName: string;
   logoUrl?: string | null;
   slug: string;
+  homestayId: string;
+  /** False when the host has booking_draft_hours = 0, or bookings are blocked. */
+  resumeEnabled?: boolean;
 }
 
-export function BookingHeader({ homestayName, logoUrl, slug }: BookingHeaderProps) {
+export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeEnabled = false }: BookingHeaderProps) {
   const [scrolled, setScrolled] = useState(false);
+  const [resumeOpen, setResumeOpen] = useState(false);
   const t = useTranslations("bookingMenu");
 
   useEffect(() => {
@@ -85,10 +90,30 @@ export function BookingHeader({ homestayName, logoUrl, slug }: BookingHeaderProp
                   {t("changeBooking")}
                 </Link>
               </DropdownMenuItem>
+              {resumeEnabled && (
+                <DropdownMenuItem
+                  className="cursor-pointer"
+                  // preventDefault before opening: without it the menu's
+                  // focus-return fights the dialog's focus trap, which works on
+                  // desktop and traps the field on iOS Safari.
+                  onSelect={(e) => {
+                    e.preventDefault();
+                    setResumeOpen(true);
+                  }}
+                >
+                  <History className="mr-2 h-4 w-4" />
+                  {t("resumeBooking")}
+                </DropdownMenuItem>
+              )}
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
       </div>
+      {/* Sibling of the menu on purpose: rendered inside DropdownMenuContent it
+          would unmount the moment the menu closes. */}
+      {resumeEnabled && (
+        <ResumeBookingDialog open={resumeOpen} onOpenChange={setResumeOpen} homestayId={homestayId} />
+      )}
     </nav>
   );
 }

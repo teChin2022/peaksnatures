@@ -403,7 +403,15 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
       {faqLd && <JsonLd data={faqLd} id="ld-faq" />}
       <BookingCartProvider catalog={cartCatalog} homestayId={homestay.id}>
       <DemandTracker homestayId={homestay.id} />
-      <BookingHeader homestayName={homestay.name} logoUrl={homestay.logo_url} slug={homestay.slug} />
+      <BookingHeader
+        homestayName={homestay.name}
+        logoUrl={homestay.logo_url}
+        slug={homestay.slug}
+        homestayId={homestay.id}
+        // Hidden when the host turned drafts off, and when bookings are
+        // blocked at all — restoring into a dead form helps nobody.
+        resumeEnabled={(homestay.host.booking_draft_hours ?? 0) > 0 && !bookingDisabled}
+      />
 
       <main className="pb-28 md:pb-0">
         <Breadcrumbs items={breadcrumbItems} visuallyHidden />

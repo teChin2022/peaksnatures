@@ -71,6 +71,7 @@ export function makeHost(over: Partial<Host> = {}): Host {
     deposit_amount: 0,
     deposit_by_month: null,
     cancellation_days: 7,
+    booking_draft_hours: 24,
     notification_preference: "sms",
     security_pin_hash: null,
     status: "approved",

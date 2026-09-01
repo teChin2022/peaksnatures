@@ -701,6 +701,22 @@ export async function GET(req: NextRequest) {
       results.demand_events_pruned = { error: err instanceof Error ? err.message : String(err) };
     }
 
+    // Abandoned booking drafts. Rides this cron for the same reason as the
+    // block above. NOTE this sweep bounds *retention* only, never correctness:
+    // POST /api/bookings/draft/lookup filters expires_at > NOW() itself, so a
+    // draft the cron has not collected yet is already invisible to guests.
+    try {
+      const { data: pruned, error: pruneErr } = await supabase.rpc(
+        "prune_booking_drafts" as never,
+        { p_limit: 5000 } as never,
+      );
+      if (pruneErr) throw new Error(pruneErr.message);
+      results.booking_drafts_pruned = pruned ?? 0;
+    } catch (err) {
+      console.error("[Cron] Booking draft prune error:", err);
+      results.booking_drafts_pruned = { error: err instanceof Error ? err.message : String(err) };
+    }
+
     await logEvent({
       entityType: "system",
       entityId: "cron_billing",
