@@ -9,6 +9,7 @@ import {
   isValidTermMonths,
   processBillingRetryQueue,
 } from "@/lib/billing";
+import { cronBillingDates } from "./dates";
 import { LOW_WALLET_THRESHOLD } from "@/lib/wallet-thresholds";
 import { GRACE_PERIOD_DAYS } from "@/lib/plan-expiry";
 import { sendSms, notifyHostAlert } from "@/lib/notifications";
@@ -88,21 +89,26 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Billing config not found" }, { status: 500 });
     }
 
-    const now = new Date();
-    const todayUTC = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
-    const today = todayUTC.toISOString().split("T")[0];
-    const in3Days = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 3))
-      .toISOString().split("T")[0];
-    const in3DaysNext = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 4))
-      .toISOString().split("T")[0];
-    const tomorrowStr = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 1))
-      .toISOString().split("T")[0];
-    // 5 days ago = hosts whose plan expired 5 days ago (grace period reminder)
-    const ago5Days = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 5))
-      .toISOString().split("T")[0];
-    const ago5DaysNext = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() - 4))
-      .toISOString().split("T")[0];
-    const isFirstOfMonth = now.getUTCDate() === 1;
+    // Every date this run works from, derived once off the Bangkok billing
+    // calendar. ago5Days/ago5DaysNext bound the grace-period reminder to hosts
+    // whose plan expired exactly 5 days ago.
+    const {
+      todayDate,
+      today,
+      tomorrow: tomorrowStr,
+      in3Days,
+      in3DaysNext,
+      in7Days,
+      in7DaysNext,
+      ago5Days,
+      ago5DaysNext,
+      dueWarnDay,
+      dueInFiveDays,
+      isFirstOfMonth,
+      monthStart,
+      monthEnd,
+      monthDueDate,
+    } = cronBillingDates();
 
     // ============================================================
     // DAILY: Send SMS 3 days before free plan expiry
@@ -208,10 +214,6 @@ export async function GET(req: NextRequest) {
     // ============================================================
     // DAILY: 7 days before fixed_rate term ends — pre-expiry alert (LINE/SMS/email)
     // ============================================================
-    const in7Days = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 7))
-      .toISOString().split("T")[0];
-    const in7DaysNext = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 8))
-      .toISOString().split("T")[0];
     const { data: termExpiringIn7Days } = await supabase
       .from("hosts")
       .select("id, name, phone, email, notification_preference, line_channel_access_token, line_user_id, fixed_rate_term_ends_at")
@@ -276,8 +278,6 @@ export async function GET(req: NextRequest) {
     // Fixed-rate has no grace: the day after due_date the invoice flips to
     // overdue and new bookings stop, so the warning has to land beforehand.
     // ============================================================
-    const dueWarnDay = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate() + 2))
-      .toISOString().split("T")[0];
     const { data: dueSoonInvoices } = await supabase
       .from("invoices")
       .select("id, host_id")
@@ -471,7 +471,7 @@ export async function GET(req: NextRequest) {
           host as unknown as Pick<Host, "fixed_rate_override">,
           config as PlatformBillingConfig,
           appliedTerm,
-          todayUTC,
+          todayDate,
         );
       }
 
@@ -528,8 +528,6 @@ export async function GET(req: NextRequest) {
       });
 
       if (termInvoice && termInvoice.amount > 0) {
-        const dueDate = new Date(Date.UTC(todayUTC.getUTCFullYear(), todayUTC.getUTCMonth(), todayUTC.getUTCDate() + 5))
-          .toISOString().split("T")[0];
         const { error: invErr } = await supabase
           .from("invoices")
           .insert({
@@ -539,7 +537,7 @@ export async function GET(req: NextRequest) {
             period_end: termInvoice.period_end,
             term_months: termInvoice.term_months,
             discount_pct: termInvoice.discount_pct,
-            due_date: dueDate,
+            due_date: dueInFiveDays,
             status: "pending",
             created_by: "system",
             updated_by: "system",
@@ -578,16 +576,11 @@ export async function GET(req: NextRequest) {
         .eq("plan_type", "fixed_rate")
         .eq("status", "approved");
 
-      // UTC-explicit like every other date in this file. The local-time
-      // constructors these replaced agreed with UTC only because Vercel runs
-      // TZ=UTC — under any other zone they shifted the whole billing period
-      // back a day (periodEnd 29 Sep instead of 30 Sep in Asia/Bangkok).
-      const periodStart = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 1))
-        .toISOString().split("T")[0];
-      const periodEnd = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth() + 1, 0))
-        .toISOString().split("T")[0];
-      const dueDate = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), 5))
-        .toISOString().split("T")[0];
+      // The calendar month this run falls in, on the Bangkok billing calendar
+      // — see ./dates for why that is not the same as now.getUTC*().
+      const periodStart = monthStart;
+      const periodEnd = monthEnd;
+      const dueDate = monthDueDate;
 
       let invoiceCount = 0;
       let invoiceNotifications = 0;

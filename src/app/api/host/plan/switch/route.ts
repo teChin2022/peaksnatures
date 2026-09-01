@@ -5,6 +5,7 @@ import {
 } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
 import {
+  billingToday,
   computeImmediateFixedRateInvoice,
   getBillingConfig,
   isValidTermMonths,
@@ -140,8 +141,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const now = new Date();
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const today = billingToday();
 
     // ── Starting Fixed Rate: quote now, activate on payment ──
     // Nothing is written here. The host is quoted, and POST /plan/activate

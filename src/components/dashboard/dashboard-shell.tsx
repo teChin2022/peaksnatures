@@ -8,6 +8,7 @@ import { Sidebar, MobileSidebar } from "./sidebar";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { getPlanExpiryInfo, type PlanExpiryInfo } from "@/lib/plan-expiry";
+import { blockingInvoiceFilter } from "@/lib/billing-dates";
 import Link from "next/link";
 import { useTranslations } from "next-intl";
 
@@ -55,12 +56,11 @@ export function DashboardShell({ children }: DashboardShellProps) {
       // expiry phase above only covers the free plan, so without this they'd
       // lose bookings with no dashboard-wide explanation.
       if (hostRow.plan_type === "fixed_rate") {
-        const today = new Date().toISOString().split("T")[0];
         const { data: pastDue } = await supabase
           .from("invoices")
           .select("id")
           .eq("host_id", hostRow.id)
-          .or(`status.eq.overdue,and(status.eq.pending,due_date.lt.${today})`)
+          .or(blockingInvoiceFilter())
           .limit(1);
         setInvoiceBlocked(((pastDue as unknown[] | null)?.length ?? 0) > 0);
       } else {

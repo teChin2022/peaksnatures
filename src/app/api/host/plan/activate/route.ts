@@ -14,6 +14,7 @@ import {
   MAX_SLIP_AGE_MS,
 } from "@/lib/easyslip";
 import {
+  billingToday,
   computeImmediateFixedRateInvoice,
   getBillingConfig,
   isValidTermMonths,
@@ -96,8 +97,7 @@ export async function POST(req: NextRequest) {
 
     // Re-check eligibility: the quote and this request are minutes apart, and an
     // admin may have moved the host in between.
-    const now = new Date();
-    const today = new Date(Date.UTC(now.getUTCFullYear(), now.getUTCMonth(), now.getUTCDate()));
+    const today = billingToday();
     const todayStr = today.toISOString().split("T")[0];
 
     if (

@@ -1,12 +1,17 @@
 /**
  * Host block / plan expiry utilities.
  *
- * Free plan timeline:
+ * Free plan timeline. Every boundary is a Bangkok calendar day, and Day 0 is
+ * plan_free_expires_at itself:
  *   Day -3 .............. SMS warning
- *   Day  0 .............. Plan expires (SMS sent)
- *   Day +1 to +7 ........ Grace period (host can still operate, banner shown)
+ *   Day  0 .............. Last free day — the plan expires at the end of it
+ *   Day +1 to +6 ........ Grace period (host can still operate, banner shown)
  *   Day +5 .............. SMS reminder ("bookings pause in 2 days")
  *   Day +7 onwards ...... Soft-blocked (new bookings blocked, upgrade required)
+ *
+ * The old comment said grace ran to Day +7 while also blocking from Day +7. The
+ * cron's Day +5 SMS promises bookings pause in two days, which settles it at
+ * Day +7 — so graceDaysRemaining reads 2 on Day +5, and the message is true.
  *
  * Fixed-rate hosts get no grace: they are blocked the day after an unpaid
  * invoice passes its due_date. Monthly invoices are generated on the 1st with
@@ -18,6 +23,8 @@
  * SMS/LINE once the balance dips below LOW_WALLET_THRESHOLD, before it goes
  * negative at all.
  */
+
+import { billingToday } from "@/lib/billing-dates";
 
 export type PlanPhase = "active" | "grace" | "blocked";
 
@@ -48,24 +55,41 @@ export interface HostBlockState {
 
 /**
  * Determine the free-plan expiry phase for a host.
- * Works in any timezone — uses UTC internally.
+ *
+ * Counts whole days on the Bangkok billing calendar rather than milliseconds
+ * between instants. plan_free_expires_at is TIMESTAMPTZ, but every writer sends
+ * a bare YYYY-MM-DD which Postgres stores at 00:00+00 — 07:00 in Bangkok. That
+ * made a host told "free until the 31st" leave `active` at breakfast time on
+ * the 31st, seventeen hours early.
+ *
+ * Day 0 — the expiry date itself — is a free day, matching every other end date
+ * on the platform: a fixed-rate term is active on its last day, and an invoice
+ * does not block until the day after its due_date.
  */
 export function getPlanExpiryInfo(
   planType: string,
   planFreeExpiresAt: string | null,
+  now: Date = new Date(),
 ): PlanExpiryInfo {
   if (planType !== "free" || !planFreeExpiresAt) {
     return { phase: "active", daysSinceExpiry: null, graceDaysRemaining: null };
   }
 
-  const now = new Date();
   const expiresAt = new Date(planFreeExpiresAt);
+  if (Number.isNaN(expiresAt.getTime())) {
+    // Unreachable from the TIMESTAMPTZ column, but this function gates six
+    // booking routes and billingToday() throws a RangeError on an invalid
+    // Date. Keep the outcome the millisecond arithmetic used to produce for a
+    // bad value rather than 500-ing the booking path.
+    return { phase: "blocked", daysSinceExpiry: null, graceDaysRemaining: 0 };
+  }
 
-  const msPerDay = 24 * 60 * 60 * 1000;
-  const diffMs = now.getTime() - expiresAt.getTime();
-  const daysSinceExpiry = Math.floor(diffMs / msPerDay);
+  // Both anchors are UTC midnight, so the gap is an exact multiple of a day.
+  const daysSinceExpiry = Math.round(
+    (billingToday(now).getTime() - billingToday(expiresAt).getTime()) / 86_400_000,
+  );
 
-  if (daysSinceExpiry < 0) {
+  if (daysSinceExpiry <= 0) {
     return { phase: "active", daysSinceExpiry, graceDaysRemaining: null };
   }
 

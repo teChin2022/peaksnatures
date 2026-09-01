@@ -160,6 +160,28 @@ describe("POST /api/host/plan/activate", () => {
       });
     });
 
+    it("charges whole months only once Bangkok has rolled into the 1st", async () => {
+      // 01:00 on 1 September in Bangkok is 18:00 on 31 August in UTC. Pricing
+      // off the UTC clock billed a ฿24 one-day stub for a 31 August the host
+      // never bought, on top of the ฿2,250 term.
+      vi.setSystemTime(new Date("2026-08-31T18:00:00Z"));
+      h.getBillingConfig.mockResolvedValue(
+        makeBillingConfig({
+          fixed_rate_amount: 750,
+          promptpay_id: RECEIVER,
+          fixed_rate_term_tiers: [{ months: 3, discount_pct: 0 }],
+        }),
+      );
+      const supabase = mockClient();
+      await post({ term_months: "3" });
+
+      expect(rpcArgs(supabase)).toMatchObject({
+        p_amount: 2250,
+        p_period_start: "2026-09-01",
+        p_period_end: "2026-11-30",
+      });
+    });
+
     it("refuses a slip that does not match the recomputed amount", async () => {
       h.callEasySlipV2.mockResolvedValue(easySlipSuccess(1));
       const supabase = mockClient();
