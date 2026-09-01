@@ -26,6 +26,9 @@ import { cn } from "@/lib/utils";
 import { fmtDate, fmtDateStr } from "@/lib/format-date";
 import { getPlanExpiryInfo } from "@/lib/plan-expiry";
 import { fmtTHB } from "@/lib/format-currency";
+import { billingToday, billingTodayStr } from "@/lib/billing-dates";
+import { computeImmediateFixedRateInvoice } from "@/lib/billing-calc";
+import type { PlatformBillingConfig } from "@/types/database";
 
 interface HostRow {
   id: string;
@@ -41,6 +44,8 @@ interface HostRow {
   plan_free_expires_at: string | null;
   commission_pct_override: number | null;
   fixed_rate_override: number | null;
+  fixed_rate_term_months: number | null;
+  fixed_rate_term_ends_at: string | null;
   homestay: { name: string; slug: string; is_active: boolean } | null;
 }
 
@@ -49,6 +54,24 @@ const PLAN_LABELS: Record<string, string> = {
   commission: "Commission",
   fixed_rate: "Fixed Rate",
 };
+
+/**
+ * Is this host mid-term on Fixed Rate?
+ *
+ * Character-for-character the predicate the route uses to decide whether to
+ * (re)start a term and bill for it — see the `alreadyActiveFixedRate` check in
+ * api/admin/hosts/[id]/plan/route.ts, where `todayStr` is billingToday() in
+ * YYYY-MM-DD, i.e. billingTodayStr(). Keeping one expression means the dialog
+ * cannot offer a term the save would silently ignore. An expired or NULL term
+ * is not active: the route starts a fresh one, so the picker stays open.
+ */
+function hasActiveTerm(host: HostRow): boolean {
+  return (
+    host.plan_type === "fixed_rate" &&
+    !!host.fixed_rate_term_ends_at &&
+    host.fixed_rate_term_ends_at >= billingTodayStr()
+  );
+}
 
 const PLAN_TONES: Record<string, string> = {
   free:       "bg-earth-50 text-earth-700 border-earth-200/60",
@@ -67,7 +90,7 @@ interface PaginatedResponse {
 type StatusFilter = "all" | "pending" | "approved";
 
 type DialogState =
-  | { type: "plan"; hostId: string; hostName: string }
+  | { type: "plan"; host: HostRow }
   | { type: "rate"; host: HostRow }
   | { type: "wallet"; hostId: string; hostName: string }
   | { type: "approve"; hostId: string; hostName: string }
@@ -88,6 +111,11 @@ export default function AdminHostsPage() {
 
   const [planType, setPlanType] = useState("free");
   const [planExpiry, setPlanExpiry] = useState("");
+  const [termMonths, setTermMonths] = useState<number | null>(null);
+  // The term options and the monthly rate both live on the singleton billing
+  // config, so the dialog offers exactly the tiers isValidTermMonths accepts
+  // and exactly the tiers a host sees — edit them in Admin -> Settings.
+  const [billingConfig, setBillingConfig] = useState<PlatformBillingConfig | null>(null);
 
   const [rateCommission, setRateCommission] = useState("");
   const [rateFixed, setRateFixed] = useState("");
@@ -112,6 +140,17 @@ export default function AdminHostsPage() {
   useEffect(() => {
     fetchHosts(page, statusFilter);
   }, [page, statusFilter, fetchHosts]);
+
+  useEffect(() => {
+    (async () => {
+      try {
+        const r = await fetch("/api/admin/billing-config");
+        if (r.ok) setBillingConfig(await r.json());
+      } catch {
+        console.error("Failed to fetch billing config");
+      }
+    })();
+  }, []);
 
   const handleFilterChange = (f: StatusFilter) => {
     setStatusFilter(f);
@@ -188,15 +227,35 @@ export default function AdminHostsPage() {
 
     const expiresAt = planType === "free" && planExpiry ? new Date(planExpiry).toISOString() : null;
 
-    setActionLoading(dialog.hostId);
+    setActionLoading(dialog.host.id);
     try {
-      const r = await fetch(`/api/admin/hosts/${dialog.hostId}/plan`, {
+      const r = await fetch(`/api/admin/hosts/${dialog.host.id}/plan`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ plan_type: planType, plan_free_expires_at: expiresAt }),
+        body: JSON.stringify({
+          plan_type: planType,
+          plan_free_expires_at: expiresAt,
+          ...(planType === "fixed_rate" && termMonths ? { term_months: termMonths } : {}),
+        }),
       });
       if (r.ok) {
-        toast.success("Plan updated");
+        // The route skips billing for a host who is already mid-term, and skips
+        // the invoice entirely when one is already open — say which happened
+        // rather than a bare "Plan updated" after quoting a price.
+        const d = (await r.json()) as {
+          term_started?: boolean;
+          invoice_created?: boolean;
+          amount?: number | null;
+        };
+        if (planType !== "fixed_rate") {
+          toast.success("Plan updated");
+        } else if (!d.term_started) {
+          toast.success("Plan updated — existing Fixed Rate term kept, nothing billed");
+        } else if (d.invoice_created) {
+          toast.success(`Plan updated — ${fmtTHB(d.amount ?? 0)} invoiced to the host`);
+        } else {
+          toast.success("Plan updated — term started, but no invoice: the host already has an open one");
+        }
         fetchHosts(page, statusFilter);
       } else {
         const data = await r.json();
@@ -276,7 +335,14 @@ export default function AdminHostsPage() {
   const openPlanDialog = (host: HostRow) => {
     setPlanType(host.plan_type);
     setPlanExpiry(host.plan_free_expires_at ? host.plan_free_expires_at.split("T")[0] : "");
-    setDialog({ type: "plan", hostId: host.id, hostName: host.name });
+    const tiers = billingConfig?.fixed_rate_term_tiers || [];
+    setTermMonths(
+      host.fixed_rate_term_months &&
+        tiers.some((t) => t.months === host.fixed_rate_term_months)
+        ? host.fixed_rate_term_months
+        : null,
+    );
+    setDialog({ type: "plan", host });
   };
 
   const openRateDialog = (host: HostRow) => {
@@ -290,6 +356,16 @@ export default function AdminHostsPage() {
     setWalletReason("");
     setDialog({ type: "wallet", hostId: host.id, hostName: host.name });
   };
+
+  // Fixed Rate without a term would fall through to the route's 1-month
+  // default, which on any day but the 1st buys only the rest of this month —
+  // so make the admin pick. A host already mid-term keeps theirs; nothing to
+  // choose, nothing to block.
+  const termRequired =
+    dialog?.type === "plan" &&
+    planType === "fixed_rate" &&
+    !hasActiveTerm(dialog.host) &&
+    !termMonths;
 
   return (
     <div>
@@ -387,6 +463,20 @@ export default function AdminHostsPage() {
                           {host.fixed_rate_override != null && (
                             <span className="rounded px-1.5 py-0.5 text-[10px] text-earth-700 bg-earth-50 tabular-nums">
                               {fmtTHB(host.fixed_rate_override)}/mo override
+                            </span>
+                          )}
+                          {host.plan_type === "fixed_rate" && host.fixed_rate_term_ends_at && (
+                            <span
+                              className={cn(
+                                "rounded px-1.5 py-0.5 text-[10px]",
+                                hasActiveTerm(host)
+                                  ? "text-earth-700 bg-earth-50"
+                                  : "text-destructive font-medium"
+                              )}
+                            >
+                              {host.fixed_rate_term_months ? `${host.fixed_rate_term_months}mo · ` : ""}
+                              {hasActiveTerm(host) ? "ends" : "ended"}{" "}
+                              {fmtDateStr(host.fixed_rate_term_ends_at, "MMM d, yyyy", "en")}
                             </span>
                           )}
                           {host.plan_type === "commission" && (
@@ -590,11 +680,11 @@ export default function AdminHostsPage() {
 
       {/* ── Set Plan Dialog ── */}
       <Dialog open={dialog?.type === "plan"} onOpenChange={(open) => { if (!open) setDialog(null); }}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-serif">Set Plan</DialogTitle>
             <DialogDescription>
-              Set plan for <strong>{dialog?.type === "plan" ? dialog.hostName : ""}</strong>
+              Set plan for <strong>{dialog?.type === "plan" ? dialog.host.name : ""}</strong>
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4 py-2">
@@ -659,10 +749,22 @@ export default function AdminHostsPage() {
                 <p className="text-[11px] text-earth-400">Leave empty for no expiry</p>
               </div>
             )}
+            {planType === "fixed_rate" && dialog?.type === "plan" && (
+              <FixedRateTermField
+                host={dialog.host}
+                config={billingConfig}
+                value={termMonths}
+                onChange={setTermMonths}
+              />
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" className="cursor-pointer border-earth-200" onClick={() => setDialog(null)}>Cancel</Button>
-            <Button onClick={handleSetPlan} disabled={actionLoading !== null} className="cursor-pointer bg-brand hover:bg-brand-hover text-white">
+            <Button
+              onClick={handleSetPlan}
+              disabled={actionLoading !== null || termRequired}
+              className="cursor-pointer bg-brand hover:bg-brand-hover text-white"
+            >
               {actionLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
               Save Plan
             </Button>
@@ -758,6 +860,171 @@ export default function AdminHostsPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+    </div>
+  );
+}
+
+/**
+ * Pick the Fixed Rate subscription term, with the amount the host will actually
+ * be invoiced for each option.
+ *
+ * The options are whatever Admin -> Settings has configured — the same tiers
+ * the host's own term picker shows and the same list the route validates
+ * against, so a term offered here can never be one the save discards. Prices
+ * come from computeImmediateFixedRateInvoice, the single function that decides
+ * what a plan change costs, rather than a second formula that would drift from
+ * the invoice the route writes a moment later.
+ */
+function FixedRateTermField({
+  host,
+  config,
+  value,
+  onChange,
+}: {
+  host: HostRow;
+  config: PlatformBillingConfig | null;
+  value: number | null;
+  onChange: (months: number) => void;
+}) {
+  if (hasActiveTerm(host)) {
+    return (
+      <div className="space-y-2">
+        <Label>Term</Label>
+        <div className="rounded-xl border border-earth-200 bg-earth-50 px-3 py-2.5 space-y-1">
+          <p className="text-xs font-medium text-earth-800">
+            Active term
+            {host.fixed_rate_term_months ? `: ${host.fixed_rate_term_months} months` : ""}, ends{" "}
+            {fmtDateStr(host.fixed_rate_term_ends_at!, "d MMM yyyy", "en")}
+          </p>
+          <p className="text-[11px] text-earth-500">
+            Saving keeps this term — nothing is billed and no invoice is created.
+          </p>
+        </div>
+      </div>
+    );
+  }
+
+  if (!config) {
+    return <p className="text-xs text-earth-400">Loading terms…</p>;
+  }
+
+  const tiers = config.fixed_rate_term_tiers || [];
+  if (tiers.length === 0) {
+    return (
+      <p className="text-xs text-destructive">
+        No subscription terms configured — add one under Settings → Billing first.
+      </p>
+    );
+  }
+
+  // Bangkok calendar, never the browser's — the route anchors the same term to
+  // billingToday(), and a UTC-derived date disagrees with it for the first
+  // seven hours of every Thai day.
+  const today = billingToday();
+  const quoteFor = (months: number) =>
+    computeImmediateFixedRateInvoice(
+      { fixed_rate_override: host.fixed_rate_override },
+      config,
+      months,
+      today,
+    );
+
+  const monthly = host.fixed_rate_override || config.fixed_rate_amount;
+  const selected =
+    value && tiers.some((t) => t.months === value) ? quoteFor(value) : null;
+  const dayAfter = (date: string, offset = 1) => {
+    const d = new Date(`${date}T00:00:00Z`);
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth(), d.getUTCDate() + offset))
+      .toISOString()
+      .split("T")[0];
+  };
+  const endOfStartMonth = (date: string) => {
+    const d = new Date(`${date}T00:00:00Z`);
+    return new Date(Date.UTC(d.getUTCFullYear(), d.getUTCMonth() + 1, 0)).toISOString().split("T")[0];
+  };
+  const fmt = (date: string) => fmtDateStr(date, "d MMM yyyy", "en");
+
+  return (
+    <div className="space-y-2">
+      <Label>Term</Label>
+      <div className="grid grid-cols-2 gap-2">
+        {tiers.map((tier) => {
+          const quote = quoteFor(tier.months);
+          const isSelected = value === tier.months;
+          return (
+            <button
+              key={tier.months}
+              type="button"
+              onClick={() => onChange(tier.months)}
+              className={cn(
+                "relative text-left rounded-xl border p-2.5 transition-colors cursor-pointer",
+                isSelected
+                  ? "border-brand bg-brand-50/60"
+                  : "border-earth-200 hover:border-earth-300 hover:bg-earth-50/60",
+              )}
+            >
+              {tier.discount_pct > 0 && (
+                <span className="absolute top-1.5 right-1.5 bg-amber-100 text-amber-700 text-[9px] font-bold uppercase tracking-wider py-0.5 px-1.5 rounded-full">
+                  Save {tier.discount_pct}%
+                </span>
+              )}
+              {/* A 1-month tier is "put this host on monthly billing", not a
+                  prepaid month — it buys only the rest of the current month,
+                  which is why its price looks small. */}
+              <p className="text-xs font-medium text-earth-800">
+                {tier.months === 1 ? "Monthly" : `${tier.months} months`}
+              </p>
+              <p className="text-base font-semibold tabular-nums text-earth-900 mt-0.5">
+                {fmtTHB(quote.amount)}
+              </p>
+            </button>
+          );
+        })}
+      </div>
+
+      {selected && (
+        <div className="rounded-xl border border-earth-200 bg-earth-50 px-3 py-2.5 space-y-1.5 text-xs">
+          {selected.stub_amount > 0 && (
+            <div className="flex justify-between gap-3">
+              <span className="text-earth-600">
+                {fmt(selected.period_start)} – {fmt(endOfStartMonth(selected.period_start))} (
+                {selected.prorated_days} of {selected.days_in_month} days)
+              </span>
+              <span className="font-medium tabular-nums text-earth-900">{fmtTHB(selected.stub_amount)}</span>
+            </div>
+          )}
+          {selected.term_amount > 0 && (
+            <div className="flex justify-between gap-3">
+              <span className="text-earth-600">
+                {fmt(
+                  selected.stub_amount > 0
+                    ? dayAfter(endOfStartMonth(selected.period_start))
+                    : selected.period_start,
+                )}{" "}
+                – {fmt(selected.period_end)} ({selected.term_months} months)
+              </span>
+              <span className="font-medium tabular-nums text-earth-900">{fmtTHB(selected.term_amount)}</span>
+            </div>
+          )}
+          {selected.discount_pct > 0 && (
+            <p className="text-brand">{selected.discount_pct}% term discount applied</p>
+          )}
+          <div className="flex justify-between gap-3 border-t border-earth-200 pt-1.5">
+            <span className="font-medium text-earth-700">Invoiced now</span>
+            <span className="font-semibold tabular-nums text-earth-900">{fmtTHB(selected.amount)}</span>
+          </div>
+          {monthly > 0 && (
+            <p className="text-[11px] text-earth-500">
+              From {fmt(dayAfter(selected.period_end))} the host is invoiced {fmtTHB(monthly)} on the 1st
+              of each month.
+            </p>
+          )}
+          <p className="text-[11px] text-earth-400">
+            If the host already has an unpaid invoice, the term is still set but no new invoice is
+            created.
+          </p>
+        </div>
+      )}
     </div>
   );
 }

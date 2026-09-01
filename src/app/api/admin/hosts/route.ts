@@ -33,7 +33,7 @@ export async function GET(req: NextRequest) {
     // Get paginated hosts
     let hostsQuery = sc
       .from("hosts")
-      .select("id, user_id, name, email, phone, status, is_verified, created_at, plan_type, wallet_balance, plan_free_expires_at, commission_pct_override, fixed_rate_override")
+      .select("id, user_id, name, email, phone, status, is_verified, created_at, plan_type, wallet_balance, plan_free_expires_at, commission_pct_override, fixed_rate_override, fixed_rate_term_months, fixed_rate_term_ends_at")
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
     if (statusFilter) hostsQuery = hostsQuery.eq("status", statusFilter);
@@ -58,7 +58,7 @@ export async function GET(req: NextRequest) {
       homestayMap.set(h.host_id, { name: h.name, slug: h.slug, is_active: h.is_active });
     }
 
-    const data = (hosts as { id: string; user_id: string; name: string; email: string; phone: string | null; status: string; is_verified: boolean; created_at: string; plan_type: string; wallet_balance: number; plan_free_expires_at: string | null; commission_pct_override: number | null; fixed_rate_override: number | null }[]).map((h) => ({
+    const data = (hosts as { id: string; user_id: string; name: string; email: string; phone: string | null; status: string; is_verified: boolean; created_at: string; plan_type: string; wallet_balance: number; plan_free_expires_at: string | null; commission_pct_override: number | null; fixed_rate_override: number | null; fixed_rate_term_months: number | null; fixed_rate_term_ends_at: string | null }[]).map((h) => ({
       ...h,
       homestay: homestayMap.get(h.id) || null,
     }));
