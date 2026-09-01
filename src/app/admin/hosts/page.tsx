@@ -239,9 +239,8 @@ export default function AdminHostsPage() {
         }),
       });
       if (r.ok) {
-        // The route skips billing for a host who is already mid-term, and skips
-        // the invoice entirely when one is already open — say which happened
-        // rather than a bare "Plan updated" after quoting a price.
+        // A re-save on a mid-term host starts nothing and records nothing —
+        // say so rather than a bare "Plan updated" after quoting a price.
         const d = (await r.json()) as {
           term_started?: boolean;
           invoice_created?: boolean;
@@ -250,11 +249,9 @@ export default function AdminHostsPage() {
         if (planType !== "fixed_rate") {
           toast.success("Plan updated");
         } else if (!d.term_started) {
-          toast.success("Plan updated — existing Fixed Rate term kept, nothing billed");
-        } else if (d.invoice_created) {
-          toast.success(`Plan updated — ${fmtTHB(d.amount ?? 0)} invoiced to the host`);
+          toast.success("Plan updated — existing Fixed Rate term kept, nothing recorded");
         } else {
-          toast.success("Plan updated — term started, but no invoice: the host already has an open one");
+          toast.success(`Plan updated — ${fmtTHB(d.amount ?? 0)} recorded as paid`);
         }
         fetchHosts(page, statusFilter);
       } else {
@@ -1010,7 +1007,7 @@ function FixedRateTermField({
             <p className="text-brand">{selected.discount_pct}% term discount applied</p>
           )}
           <div className="flex justify-between gap-3 border-t border-earth-200 pt-1.5">
-            <span className="font-medium text-earth-700">Invoiced now</span>
+            <span className="font-medium text-earth-700">Recorded as paid</span>
             <span className="font-semibold tabular-nums text-earth-900">{fmtTHB(selected.amount)}</span>
           </div>
           {monthly > 0 && (
@@ -1020,8 +1017,8 @@ function FixedRateTermField({
             </p>
           )}
           <p className="text-[11px] text-earth-400">
-            If the host already has an unpaid invoice, the term is still set but no new invoice is
-            created.
+            Saved as a paid invoice — the host is not billed for this and is never blocked over it.
+            Any unrelated unpaid invoice they have stays open.
           </p>
         </div>
       )}

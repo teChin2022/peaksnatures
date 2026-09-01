@@ -3,6 +3,7 @@ import { PATCH } from "./route";
 import { signIn, signOut, sessionError } from "../../../../../../../test/helpers/auth";
 import { makeRequest, readJson } from "../../../../../../../test/helpers/request";
 import { makeBillingConfig } from "../../../../../../../test/fixtures/db";
+import { EventType } from "@/lib/history-log";
 import type { QueryResponse } from "../../../../../../../test/helpers/supabase";
 
 const h = vi.hoisted(() => ({
@@ -50,8 +51,6 @@ const patch = (body: Record<string, unknown>) =>
 interface Scenario {
   /** The host row the fixed_rate branch reads back before deciding. */
   host?: Record<string, unknown>;
-  /** Rows returned by the "does an invoice already block us" check. */
-  openInvoices?: unknown[];
   hosts?: QueryResponse[];
   invoices?: QueryResponse[];
 }
@@ -66,12 +65,12 @@ const freeHost = {
  * `.from("hosts")` is called twice on the fixed_rate path — read, then update —
  * but only once (the update) for free/commission, which never reads the host.
  */
-const scenario = ({ host = freeHost, openInvoices = [], hosts, invoices }: Scenario = {}) =>
+const scenario = ({ host = freeHost, hosts, invoices }: Scenario = {}) =>
   signIn(h, {
     tables: {
       platform_admins: { data: { name: "Root" } },
       hosts: hosts ?? [{ data: host }, {}],
-      invoices: invoices ?? [{ data: openInvoices }, {}],
+      invoices: invoices ?? [{}],
     },
   });
 
@@ -114,7 +113,7 @@ describe("PATCH /api/admin/hosts/[id]/plan", () => {
           fixed_rate_term_ends_at: "2027-03-31",
         }),
       );
-      expect(sc.builderFor("invoices", 1).insert).toHaveBeenCalledWith(
+      expect(sc.builderFor("invoices", 0).insert).toHaveBeenCalledWith(
         expect.objectContaining({
           host_id: HOST_ID,
           amount: 5767,
@@ -122,8 +121,11 @@ describe("PATCH /api/admin/hosts/[id]/plan", () => {
           period_end: "2027-03-31",
           term_months: 6,
           discount_pct: 10,
-          due_date: "2026-09-25",
-          status: "pending",
+          // Paid on its own start day: blockingInvoiceFilter matches neither
+          // `overdue` nor `pending` past due, so this row can never block.
+          due_date: "2026-09-20",
+          status: "paid",
+          paid_at: "2026-09-20T10:00:00.000Z",
         }),
       );
     });
@@ -162,6 +164,13 @@ describe("PATCH /api/admin/hosts/[id]/plan", () => {
       await patch({ plan_type: "fixed_rate", term_months: 12 });
       for (const cb of h.afterCallbacks) await cb();
 
+      expect(h.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          entityType: "billing",
+          eventType: EventType.INVOICE_PAID,
+          data: expect.objectContaining({ amount: 367 + 9600, settled_offline: true }),
+        }),
+      );
       expect(h.logEvent).toHaveBeenCalledWith(
         expect.objectContaining({
           entityType: "host",
@@ -221,17 +230,35 @@ describe("PATCH /api/admin/hosts/[id]/plan", () => {
       );
     });
 
-    it("sets the term but skips the invoice when the host already has an open one", async () => {
-      const sc = scenario({ openInvoices: [{ id: "inv-1" }] });
+    it("records the paid term without checking for an existing open invoice", async () => {
+      const sc = scenario();
 
       const { body } = await readJson(await patch({ plan_type: "fixed_rate", term_months: 6 }));
-      expect(body).toMatchObject({ term_started: true, invoice_created: false, amount: 5767 });
+      expect(body).toMatchObject({ term_started: true, invoice_created: true, amount: 5767 });
 
-      expect(sc.builderFor("hosts", 1).update).toHaveBeenCalledWith(
-        expect.objectContaining({ fixed_rate_term_months: 6 }),
+      // Exactly one invoices call, and it is the insert. The old guard looked
+      // first and skipped when anything was open, handing over a term with no
+      // record that it had been paid for; a paid row stacks nothing, so it
+      // writes unconditionally and unrelated debts stay open on their own.
+      const invoiceCalls = sc.calls.filter((c) => c.table === "invoices");
+      expect(invoiceCalls).toHaveLength(1);
+      expect(invoiceCalls[0].builder.insert).toHaveBeenCalledWith(
+        expect.objectContaining({ amount: 5767, status: "paid" }),
       );
-      // Only the open-invoice lookup — nothing was inserted on top of it.
-      expect(sc.calls.filter((c) => c.table === "invoices")).toHaveLength(1);
+      expect(invoiceCalls[0].builder.select).not.toHaveBeenCalled();
+    });
+
+    it("never writes a pending invoice, whatever the term", async () => {
+      for (const term_months of [1, 6, 12]) {
+        const sc = scenario();
+        await patch({ plan_type: "fixed_rate", term_months });
+        expect(sc.builderFor("invoices", 0).insert).toHaveBeenCalledWith(
+          expect.objectContaining({ status: "paid" }),
+        );
+        expect(sc.builderFor("invoices", 0).insert).not.toHaveBeenCalledWith(
+          expect.objectContaining({ status: "pending" }),
+        );
+      }
     });
 
     it("prices the term off a per-host rate override", async () => {
@@ -240,7 +267,7 @@ describe("PATCH /api/admin/hosts/[id]/plan", () => {
       });
 
       await patch({ plan_type: "fixed_rate", term_months: 6 });
-      expect(sc.builderFor("invoices", 1).insert).toHaveBeenCalledWith(
+      expect(sc.builderFor("invoices", 0).insert).toHaveBeenCalledWith(
         expect.objectContaining({ amount: 733 + 10800 }),
       );
     });
@@ -321,7 +348,7 @@ describe("PATCH /api/admin/hosts/[id]/plan", () => {
     });
 
     it("reports 500 when the invoice insert fails", async () => {
-      scenario({ invoices: [{ data: [] }, { error: { message: "constraint" } }] });
+      scenario({ invoices: [{ error: { message: "constraint" } }] });
       await expect(readJson(await patch({ plan_type: "fixed_rate", term_months: 6 }))).resolves.toEqual({
         status: 500,
         body: { error: "Plan set but failed to create invoice" },
