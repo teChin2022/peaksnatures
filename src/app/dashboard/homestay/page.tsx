@@ -138,7 +138,7 @@ export default function HomestayPage() {
   const [depositAmount, setDepositAmount] = useState(0);
   const [depositByMonth, setDepositByMonth] = useState<Record<string, number>>({});
   const [cancellationDays, setCancellationDays] = useState(0);
-  const [bookingDraftHours, setBookingDraftHours] = useState(24);
+  const [bookingDraftHours, setBookingDraftHours] = useState(1);
   const heroInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -170,8 +170,8 @@ export default function HomestayPage() {
       setDepositByMonth(host.deposit_by_month || {});
       setCancellationDays(host.cancellation_days || 0);
       // `??`, not `||`: 0 is a real setting here (feature off), so `||`
-      // would silently turn it back into 24 on every save.
-      setBookingDraftHours(host.booking_draft_hours ?? 24);
+      // would silently turn it back into the default on every save.
+      setBookingDraftHours(host.booking_draft_hours ?? 1);
 
       const { data } = await supabase
         .from("homestays")

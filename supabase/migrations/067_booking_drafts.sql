@@ -32,15 +32,23 @@
 -- 1) Per-host retention. 0 disables the feature for that host: nothing is
 -- written and nothing is returned. Same idiom as cancellation_days = 0
 -- disabling guest cancellation (024).
+--
+-- The default is 1 hour, not a day. A draft is only ever written at the
+-- step 2 -> step 3 transition (booking-section.tsx, inside
+-- handleProceedToPayment), so the only guest it can serve is one who reached
+-- the PromptPay QR and left. That guest either finishes the transfer in
+-- minutes or has abandoned it, and the room hold they are returning to expires
+-- long before an hour is up. Keeping their phone, email and stay dates on file
+-- past that window is PDPA cost with no matching benefit.
 ALTER TABLE hosts
-  ADD COLUMN IF NOT EXISTS booking_draft_hours INTEGER NOT NULL DEFAULT 24;
+  ADD COLUMN IF NOT EXISTS booking_draft_hours INTEGER NOT NULL DEFAULT 1;
 
 ALTER TABLE hosts
   ADD CONSTRAINT hosts_booking_draft_hours_range
   CHECK (booking_draft_hours >= 0 AND booking_draft_hours <= 168);
 
 COMMENT ON COLUMN hosts.booking_draft_hours IS
-  'How long an unfinished booking stays restorable by phone + email, in hours. 0 = feature off for this host. Capped at 168 (7 days) to match the absolute ceiling in prune_booking_drafts, so the setting and the sweep can never disagree.';
+  'How long a booking that reached the payment step stays payable by phone + email, in hours. 0 = feature off for this host. Capped at 168 (7 days) to match the absolute ceiling in prune_booking_drafts, so the setting and the sweep can never disagree.';
 
 -- 2) The draft itself.
 CREATE TABLE booking_drafts (
