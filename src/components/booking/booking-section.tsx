@@ -944,6 +944,9 @@ export function BookingSection({
         duplicate?: boolean;
         slip_pending?: boolean;
         verified?: boolean;
+        reason?: string;
+        message?: string;
+        error?: string;
         slip_hash?: string;
         slip_trans_ref?: string | null;
         payment_slip_url?: string | null;
@@ -974,12 +977,32 @@ export function BookingSection({
       // generic error and no booking, with no way to tell what went wrong.
       // The slip stays attached so the guest can simply retry.
       if (!verifyRes.ok || !verifyData.slip_hash) {
-        toast.error(t("errorSlipVerifyFailed"));
+        // Say WHICH failure this was. "Verification failed" is the same words
+        // for a 4MB photo, an unconfigured API key, a rate limit and a real
+        // mismatch — so a guest retries something that cannot succeed, and a
+        // broken deployment is indistinguishable from a bad screenshot.
+        // 429 has no body reason: it comes from the shared rate limiter.
+        const reason = verifyRes.status === 429 ? "RATE_LIMITED" : verifyData.reason;
+        const key = `slipError${reason}` as Parameters<typeof t>[0];
+        console.error(
+          `[Slip] verification failed (HTTP ${verifyRes.status}, reason=${reason ?? "none"}):`,
+          verifyData.error || verifyData.message || "no message",
+        );
+        toast.error(reason && t.has(key) ? t(key) : t("errorSlipVerifyFailed"));
         setIsSubmitting(false);
         return;
       }
 
       const isSlipVerified = !!verifyData.verified;
+      if (!isSlipVerified) {
+        // The guest still gets a booking (confirmedTextPending explains the
+        // manual review), but the reason is otherwise invisible — including to
+        // whoever is testing why nothing ever auto-confirms.
+        console.warn(
+          `[Slip] not auto-verified (reason=${verifyData.reason ?? "none"}):`,
+          verifyData.message || "no message",
+        );
+      }
       const checkIn = format(dateRange.from, "yyyy-MM-dd");
       const checkOut = format(dateRange.to, "yyyy-MM-dd");
       const optionsForLine = (optionIds: string[]) =>
@@ -1092,13 +1115,13 @@ export function BookingSection({
       setHoldId(null);
       setHoldExpiresAt(null);
 
-      // 4. Upload slip to session storage (backup)
-      const uploadForm = new FormData();
-      uploadForm.append("slip", slipToVerify);
-      fetch(`/api/slip-upload/${uploadSessionId}`, {
-        method: "POST",
-        body: uploadForm,
-      }).catch(() => { });
+      // No second upload here. This used to re-send the whole slip to
+      // /api/slip-upload/{uploadSessionId} as a "backup", but nothing ever read
+      // it: sessions/{id}/slip is consumed only by the cross-device polling
+      // loop BEFORE submission, and the booking stores the pending/{uuid} path
+      // that /api/verify-slip already wrote. It cost the guest a second
+      // full-file upload on mobile data and left an orphan object that nothing
+      // deletes.
 
       setShowConfirmedModal(true);
       // toast.success(t("successSubmitted"));
