@@ -3,7 +3,7 @@
 import { useState, useEffect } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Menu, LogIn, ArrowRightLeft, History } from "lucide-react";
+import { Menu, LogIn, ArrowRightLeft, Receipt } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   DropdownMenu,
@@ -101,7 +101,7 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
                     setResumeOpen(true);
                   }}
                 >
-                  <History className="mr-2 h-4 w-4" />
+                  <Receipt className="mr-2 h-4 w-4" />
                   {t("resumeBooking")}
                 </DropdownMenuItem>
               )}

@@ -2,7 +2,7 @@
 
 import { useRef, useState } from "react";
 import { useTranslations } from "next-intl";
-import { Loader2, History } from "lucide-react";
+import { Loader2, Receipt } from "lucide-react";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import {
   Dialog,
@@ -22,7 +22,7 @@ interface ResumeBookingDialogProps {
 }
 
 /**
- * "Continue an unfinished booking" — the way back in for a guest who reached the
+ * "Pay for Your Booking" — the way back in for a guest who reached the
  * QR, switched to their banking app, and never came back to the tab.
  *
  * Deliberately dumb: it looks the draft up and dispatches ONE event. It holds no
@@ -129,7 +129,7 @@ export function ResumeBookingDialog({ open, onOpenChange, homestayId }: ResumeBo
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <History className="h-5 w-5 text-brand" />
+            <Receipt className="h-5 w-5 text-brand" />
             {t("title")}
           </DialogTitle>
           <DialogDescription>{t("desc")}</DialogDescription>
