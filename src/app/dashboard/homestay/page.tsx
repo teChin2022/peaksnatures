@@ -1150,7 +1150,7 @@ export default function HomestayPage() {
               <div className="space-y-2">
                 <Label className="text-sm">{t("resumeDraftHours")}</Label>
                 <div className="flex flex-wrap gap-2">
-                  {[0, 6, 24, 72, 168].map((hours) => (
+                  {[0, 1, 3, 6, 24, 72, 168].map((hours) => (
                     <button
                       key={hours}
                       type="button"

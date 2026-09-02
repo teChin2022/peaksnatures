@@ -11,6 +11,7 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { BookingCalendarDialog } from "@/components/booking/booking-calendar-dialog";
 import { isValidEmail, isValidPhone, sanitizePhoneInput } from "@/lib/utils";
 import type { BookingDraftResponse, ResumeDraftDetail } from "@/lib/booking-draft";
 
@@ -29,6 +30,11 @@ interface ResumeBookingDialogProps {
  * change that follows, because step 2's fields live in its local state and
  * splitting the restore across two components would commit the cart while the
  * guest fields were still in flight.
+ *
+ * The one exception is the date picker it hands a guest whose lookup missed:
+ * BookingCalendarDialog calls `useBookingCart()`, which THROWS without a
+ * provider. Safe because BookingHeader — this component's only mount point —
+ * renders inside BookingCartProvider (src/app/[slug]/page.tsx). Keep it there.
  */
 export function ResumeBookingDialog({ open, onOpenChange, homestayId }: ResumeBookingDialogProps) {
   const t = useTranslations("resumeBooking");
@@ -39,6 +45,10 @@ export function ResumeBookingDialog({ open, onOpenChange, homestayId }: ResumeBo
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [notFound, setNotFound] = useState(false);
+  // Own instance rather than a global "open the picker" event: on mobile
+  // DesktopDateSearch is only CSS-hidden (`hidden md:block`) and its dialog
+  // portals to <body>, so a broadcast would stack two calendars.
+  const [calendarOpen, setCalendarOpen] = useState(false);
 
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileError, setTurnstileError] = useState(false);
@@ -100,12 +110,21 @@ export function ResumeBookingDialog({ open, onOpenChange, homestayId }: ResumeBo
     }
   };
 
+  // Nothing saved: the next thing they need is dates, so hand them the picker
+  // rather than dropping them at an empty booking panel. Closing this dialog and
+  // opening the next in the same tick makes two Radix dialogs fight over the
+  // focus scope and the body pointer-events lock — hence the delay, the same
+  // 150ms the date bars use between a dialog and what follows it.
   const startNew = () => {
     onOpenChange(false);
-    document.getElementById("booking-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setTimeout(() => setCalendarOpen(true), 150);
   };
 
+  const scrollToRooms = () =>
+    document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
+
   return (
+    <>
     <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
@@ -122,22 +141,15 @@ export function ResumeBookingDialog({ open, onOpenChange, homestayId }: ResumeBo
               <p className="text-sm font-semibold text-earth-900">{t("notFoundTitle")}</p>
               <p className="mt-1 text-xs text-earth-500">{t("notFoundDesc")}</p>
             </div>
-            <div className="flex gap-2">
-              <button
-                type="button"
-                onClick={() => setNotFound(false)}
-                className="flex-1 rounded-full border border-earth-200 px-4 py-3 text-sm font-medium text-earth-700 hover:bg-earth-50 transition-colors"
-              >
-                {t("submit")}
-              </button>
-              <button
-                type="button"
-                onClick={startNew}
-                className="flex-1 rounded-full bg-brand px-4 py-3 text-sm font-bold text-white hover:bg-brand-hover transition-colors"
-              >
-                {t("startNew")}
-              </button>
-            </div>
+            {/* One button, one real choice. Retrying a typo'd phone or email is
+                the X plus the menu again — reopening keeps both fields typed. */}
+            <button
+              type="button"
+              onClick={startNew}
+              className="w-full rounded-full bg-brand px-4 py-3 text-sm font-bold text-white hover:bg-brand-hover transition-colors"
+            >
+              {t("startNew")}
+            </button>
           </div>
         ) : (
           <form
@@ -237,5 +249,9 @@ export function ResumeBookingDialog({ open, onOpenChange, homestayId }: ResumeBo
         )}
       </DialogContent>
     </Dialog>
+
+    {/* Same shared picker the two date bars use; onDone nudges to the houses. */}
+    <BookingCalendarDialog open={calendarOpen} onOpenChange={setCalendarOpen} onDone={scrollToRooms} />
+    </>
   );
 }
