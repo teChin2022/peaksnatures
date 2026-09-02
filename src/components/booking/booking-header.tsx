@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
 import { Menu, LogIn, ArrowRightLeft, Receipt } from "lucide-react";
@@ -27,6 +27,10 @@ interface BookingHeaderProps {
 export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeEnabled = false }: BookingHeaderProps) {
   const [scrolled, setScrolled] = useState(false);
   const [resumeOpen, setResumeOpen] = useState(false);
+  // Set while the resume item is handing off to its dialog, read once by
+  // onCloseAutoFocus below. A ref, not state: it must be readable in the same
+  // interaction, and it must not re-render the nav.
+  const openingResumeRef = useRef(false);
   const t = useTranslations("bookingMenu");
 
   useEffect(() => {
@@ -77,7 +81,21 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
                 <Menu size={20} />
               </button>
             </DropdownMenuTrigger>
-            <DropdownMenuContent align="end" className="w-56">
+            <DropdownMenuContent
+              align="end"
+              className="w-56"
+              // Radix hands focus back to the trigger as the menu closes. When
+              // the close is the one opening the resume dialog, that focus
+              // return fights the dialog's focus trap — survivable on desktop,
+              // it traps the field on iOS Safari. Suppressing it here is what
+              // lets the item close the menu normally; the two Link items above
+              // still get the focus return they want.
+              onCloseAutoFocus={(e) => {
+                if (!openingResumeRef.current) return;
+                openingResumeRef.current = false;
+                e.preventDefault();
+              }}
+            >
               <DropdownMenuItem asChild>
                 <Link href={`/${slug}/check-in-out`} className="cursor-pointer">
                   <LogIn className="mr-2 h-4 w-4" />
@@ -93,11 +111,11 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
               {resumeEnabled && (
                 <DropdownMenuItem
                   className="cursor-pointer"
-                  // preventDefault before opening: without it the menu's
-                  // focus-return fights the dialog's focus trap, which works on
-                  // desktop and traps the field on iOS Safari.
-                  onSelect={(e) => {
-                    e.preventDefault();
+                  // No preventDefault: that kept the menu open behind the
+                  // dialog and left it open afterwards. Let Radix close it and
+                  // neutralise the focus return in onCloseAutoFocus instead.
+                  onSelect={() => {
+                    openingResumeRef.current = true;
                     setResumeOpen(true);
                   }}
                 >

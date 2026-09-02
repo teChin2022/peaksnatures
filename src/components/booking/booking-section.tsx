@@ -354,7 +354,18 @@ export function BookingSection({
       setStep("dates");
       setDateRange({ from: parseISO(draft.check_in), to: parseISO(draft.check_out) });
       setPendingDraft(draft);
-      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      // The dialog that dispatched this is still open — it calls onOpenChange
+      // only after we return — and Radix locks body scroll while a dialog is
+      // mounted (react-remove-scroll sets overflow:hidden on <body>), so
+      // scrolling here is a silent no-op: the guest is left wherever the header
+      // menu was while the panel swaps to step 3 far below. Defer past the exit
+      // animation, the same 250ms handleStayInBooking uses for this exact
+      // reason. The section's top edge is the right landing spot for every
+      // outcome — its position does not move between steps — so this covers the
+      // clean restore into step 3 and the step-1 fallbacks alike.
+      setTimeout(() => {
+        sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 250);
     };
     document.addEventListener("resume-draft", handler);
     return () => document.removeEventListener("resume-draft", handler);
