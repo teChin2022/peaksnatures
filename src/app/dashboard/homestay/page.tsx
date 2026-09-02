@@ -29,6 +29,7 @@ import {
   ArrowUp,
   ArrowDown,
   Trash2,
+  History,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
@@ -137,6 +138,7 @@ export default function HomestayPage() {
   const [depositAmount, setDepositAmount] = useState(0);
   const [depositByMonth, setDepositByMonth] = useState<Record<string, number>>({});
   const [cancellationDays, setCancellationDays] = useState(0);
+  const [bookingDraftHours, setBookingDraftHours] = useState(1);
   const heroInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -152,11 +154,11 @@ export default function HomestayPage() {
 
       const { data: hostRow } = await supabase
         .from("hosts")
-        .select("id, name, deposit_amount, deposit_by_month, cancellation_days")
+        .select("id, name, deposit_amount, deposit_by_month, cancellation_days, booking_draft_hours")
         .eq("user_id", user.id)
         .single();
 
-      const host = hostRow as { id: string; name: string; deposit_amount: number; deposit_by_month: Record<string, number> | null; cancellation_days: number } | null;
+      const host = hostRow as { id: string; name: string; deposit_amount: number; deposit_by_month: Record<string, number> | null; cancellation_days: number; booking_draft_hours: number | null } | null;
       if (!host) {
         setLoading(false);
         return;
@@ -167,6 +169,9 @@ export default function HomestayPage() {
       setDepositAmount(host.deposit_amount || 0);
       setDepositByMonth(host.deposit_by_month || {});
       setCancellationDays(host.cancellation_days || 0);
+      // `??`, not `||`: 0 is a real setting here (feature off), so `||`
+      // would silently turn it back into the default on every save.
+      setBookingDraftHours(host.booking_draft_hours ?? 1);
 
       const { data } = await supabase
         .from("homestays")
@@ -537,6 +542,7 @@ export default function HomestayPage() {
           deposit_amount: depositAmount,
           deposit_by_month: Object.keys(depositByMonth).length > 0 ? depositByMonth : null,
           cancellation_days: cancellationDays,
+          booking_draft_hours: bookingDraftHours,
           updated_by: hostName || userId,
         } as never)
         .eq("id", hostId);
@@ -1133,6 +1139,38 @@ export default function HomestayPage() {
                   ))}
                 </div>
                 <p className="text-xs text-gray-500">{t("cancellationDaysHint")}</p>
+              </div>
+            </div>
+
+            <div className="border-t pt-4 space-y-3">
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <History className="h-4 w-4 text-brand" />
+                {t("resumeDrafts")}
+              </div>
+              <div className="space-y-2">
+                <Label className="text-sm">{t("resumeDraftHours")}</Label>
+                <div className="flex flex-wrap gap-2">
+                  {[0, 1, 3, 6, 24, 72, 168].map((hours) => (
+                    <button
+                      key={hours}
+                      type="button"
+                      className="rounded-full px-3 py-1.5 text-sm font-medium border transition-colors"
+                      style={
+                        bookingDraftHours === hours
+                          ? { backgroundColor: "#2F5D50", color: "white", borderColor: "#2F5D50" }
+                          : { borderColor: "#d1d5db", color: "#374151" }
+                      }
+                      onClick={() => setBookingDraftHours(hours)}
+                    >
+                      {hours === 0
+                        ? t("resumeDraftDisabled")
+                        : hours < 24
+                          ? t("resumeDraftHoursLabel", { hours })
+                          : t("resumeDraftDaysLabel", { days: hours / 24 })}
+                    </button>
+                  ))}
+                </div>
+                <p className="text-xs text-gray-500">{t("resumeDraftHoursHint")}</p>
               </div>
             </div>
           </CardContent>

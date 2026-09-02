@@ -26,15 +26,29 @@ const slipRateLimit = createRateLimiter({ limit: 10, windowMs: 60_000, name: "ve
  * Does NOT create or modify bookings — the caller decides what to do next.
  *
  * Returns on success: { verified: true, slip_hash, slip_trans_ref, easyslip_response, payment_slip_url }
- * Returns on failure: { verified: false, message, ... } or { error, duplicate: true } (409)
+ * Returns on failure: { verified: false, message, reason, ... } or { error, duplicate: true } (409)
  * Returns on SLIP_PENDING: { verified: false, slip_pending: true, message, ... }
+ *
+ * EVERY failure path carries a stable `reason` code. The English `message` is
+ * for logs and developers; `reason` is what the client maps to localised copy.
+ * Without it the booking form could only say "verification failed" for a 4MB
+ * photo, an unconfigured API key, a rate limit and a genuine mismatch alike —
+ * which is indistinguishable from the feature being broken, and leaves the
+ * guest retrying something that will never succeed.
  */
 export async function POST(req: NextRequest) {
   const rateLimited = await slipRateLimit.check(req);
   if (rateLimited) return rateLimited;
 
+  // Before req.formData(), which is where the guest's upload actually happens.
+  // The clock used to start after it, so the single most variable leg — a
+  // multi-megabyte slip arriving over rural mobile data — was invisible, and a
+  // request the guest waited 30s for logged total=3000ms and looked healthy.
+  const tRequestStart = Date.now();
+
   try {
     const formData = await req.formData();
+    const tUpload = Date.now() - tRequestStart;
     const file = formData.get("file") as File | null;
     const expectedAmount = Number(formData.get("expected_amount") || "0");
     const expectedReceiver = formData.get("expected_receiver") as string | null;
@@ -42,21 +56,21 @@ export async function POST(req: NextRequest) {
 
     if (!file) {
       return NextResponse.json(
-        { error: "No file uploaded" },
+        { error: "No file uploaded", reason: "NO_FILE" },
         { status: 400 }
       );
     }
 
     if (file.size > MAX_FILE_SIZE) {
       return NextResponse.json(
-        { error: "File too large. Maximum size is 4MB." },
+        { error: "File too large. Maximum size is 4MB.", reason: "FILE_TOO_LARGE" },
         { status: 400 }
       );
     }
 
     if (!ALLOWED_TYPES.includes(file.type)) {
       return NextResponse.json(
-        { error: "Invalid file type. Only JPEG, PNG, WebP, and HEIC images are allowed." },
+        { error: "Invalid file type. Only JPEG, PNG, WebP, and HEIC images are allowed.", reason: "INVALID_FILE_TYPE" },
         { status: 400 }
       );
     }
@@ -89,7 +103,7 @@ export async function POST(req: NextRequest) {
 
     if ([bk, grp, dc, inv, wtx].some((r) => (r.data as unknown[] | null)?.length)) {
       return NextResponse.json(
-        { error: "This payment slip has already been used for another booking.", duplicate: true },
+        { error: "This payment slip has already been used for another booking.", duplicate: true, reason: "DUPLICATE" },
         { status: 409 }
       );
     }
@@ -97,7 +111,7 @@ export async function POST(req: NextRequest) {
     // Checked before any upload — no point storing a slip we can't verify.
     if (!apiKey) {
       return NextResponse.json(
-        { error: "Payment verification is not configured." },
+        { error: "Payment verification is not configured.", reason: "NOT_CONFIGURED" },
         { status: 503 }
       );
     }
@@ -153,10 +167,10 @@ export async function POST(req: NextRequest) {
 
     console.log(
       `[Verify Slip] ${Math.round(file.size / 1024)}KB` +
-        ` hash=${tHash}ms dupes=${tDupes}ms` +
+        ` upload=${tUpload}ms hash=${tHash}ms dupes=${tDupes}ms` +
         ` easyslip=${tEasySlip}ms storage=${tStorage}ms` +
         ` (parallel, wall ${Date.now() - tParallelStart}ms)` +
-        ` total=${Date.now() - t0}ms`,
+        ` server=${Date.now() - t0}ms total=${Date.now() - tRequestStart}ms`,
     );
 
     // Handle V2 error responses
@@ -166,6 +180,7 @@ export async function POST(req: NextRequest) {
         return NextResponse.json({
           verified: false,
           slip_pending: true,
+          reason: "SLIP_PENDING",
           message: "Bangkok Bank slips need a few minutes to process. Please wait 2-3 minutes and try again.",
           slip_hash: slipHash,
           payment_slip_url: slipPath,
@@ -176,6 +191,13 @@ export async function POST(req: NextRequest) {
 
       return NextResponse.json({
         verified: false,
+        // Carries the upstream code so a timeout, a quota error and a genuinely
+        // unreadable slip stay distinguishable in logs. Codes raised by
+        // callEasySlipV2 itself are already namespaced (UPSTREAM_TIMEOUT,
+        // UPSTREAM_UNREACHABLE) — don't stutter them.
+        reason: easySlipData.error.code.startsWith("UPSTREAM_")
+          ? easySlipData.error.code
+          : `UPSTREAM_${easySlipData.error.code}`,
         message: `Slip verification failed: ${easySlipData.error.message}`,
         slip_hash: slipHash,
         payment_slip_url: slipPath,
@@ -189,7 +211,7 @@ export async function POST(req: NextRequest) {
     // V2 built-in duplicate detection
     if (easySlipData.data.isDuplicate) {
       return NextResponse.json(
-        { error: "This payment slip has already been used.", duplicate: true },
+        { error: "This payment slip has already been used.", duplicate: true, reason: "DUPLICATE" },
         { status: 409 }
       );
     }
@@ -202,6 +224,7 @@ export async function POST(req: NextRequest) {
     if (slipAgeMs > MAX_SLIP_AGE_MS || slipAgeMs < 0) {
       return NextResponse.json({
         verified: false,
+        reason: "SLIP_TOO_OLD",
         message: "Payment slip is too old or has an invalid date. Please use a recent transfer slip (within 1 hour).",
         slip_hash: slipHash,
         payment_slip_url: slipPath,
@@ -223,7 +246,7 @@ export async function POST(req: NextRequest) {
 
       if ([bkRef, grpRef, dcRef, invRef, wtxRef].some((r) => (r.data as unknown[] | null)?.length)) {
         return NextResponse.json(
-          { error: "This payment transaction has already been used for another booking.", duplicate: true },
+          { error: "This payment transaction has already been used for another booking.", duplicate: true, reason: "DUPLICATE" },
           { status: 409 }
         );
       }
@@ -253,6 +276,11 @@ export async function POST(req: NextRequest) {
     if (!amountMatch || !receiverMatch) {
       return NextResponse.json({
         verified: false,
+        reason: !amountMatch && !receiverMatch
+          ? "AMOUNT_AND_RECEIVER_MISMATCH"
+          : !amountMatch
+            ? "AMOUNT_MISMATCH"
+            : "RECEIVER_MISMATCH",
         message: `Verification mismatch. ${!amountMatch ? `Amount: expected ฿${expectedAmount}, got ฿${slipAmount}.` : ""} ${!receiverMatch ? "Receiver account does not match." : ""}`.trim(),
         slip_hash: slipHash,
         payment_slip_url: slipPath,
@@ -286,7 +314,7 @@ export async function POST(req: NextRequest) {
   } catch (error) {
     console.error("Verify slip error:", error);
     return NextResponse.json(
-      { error: "Failed to verify slip" },
+      { error: "Failed to verify slip", reason: "SERVER_ERROR" },
       { status: 500 }
     );
   }

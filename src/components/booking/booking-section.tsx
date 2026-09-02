@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
-import { format, differenceInDays, eachDayOfInterval, subDays } from "date-fns";
+import { format, differenceInDays, eachDayOfInterval, subDays, parseISO } from "date-fns";
 import { fmtDate } from "@/lib/format-date";
 import { motion, AnimatePresence, useInView, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
@@ -23,6 +23,8 @@ import {
   Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, Sparkles, FileText, Lock, MousePointerClick, ListPlus, Gift, HelpCircle, BedDouble,
 } from "lucide-react";
 import { toast } from "sonner";
+import { billingTodayStr } from "@/lib/billing-dates";
+import { reconcileDraftWithCatalog, type ResumeDraftDetail } from "@/lib/booking-draft";
 import { useTranslations, useLocale } from "next-intl";
 import type { Homestay, Room, BlockedDate, Host, RoomSeasonalPrice, RoomSpecialPrice, RoomOption, RoomGuestPricing } from "@/types/database";
 import { getPriceRange } from "@/lib/calculate-price";
@@ -148,13 +150,15 @@ export function BookingSection({
   const t = useTranslations("booking");
   const tc = useTranslations("common");
   const tt = useTranslations("bookingTutorial");
+  const tr = useTranslations("resumeBooking");
+  const resumeEnabled = (host.booking_draft_hours ?? 0) > 0;
   const [step, setStep] = useState<BookingStep>("dates");
   const [showConfirmedModal, setShowConfirmedModal] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
   // Cart + shared dates live in the BookingCartProvider, so the sticky date bar,
   // room-card "Add to cart", the cart modal, and this panel all share one cart.
   const cart = useBookingCart();
-  const { dateRange, lines: cartLines, setDates: setDateRange, clear: clearCart, computeLineGross, subtotal } = cart;
+  const { dateRange, lines: cartLines, setDates: setDateRange, clear: clearCart, addLine, isRoomAvailableForRange, computeLineGross, subtotal } = cart;
   // Step 1's empty state opens the real picker instead of pointing at the sticky bar.
   const [calendarOpen, setCalendarOpen] = useState(false);
   // The "draft" room currently being configured to add. The cart accumulates lines.
@@ -309,6 +313,64 @@ export function BookingSection({
     return () => document.removeEventListener("book-room", handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rooms]);
+
+  // --- Resume an abandoned booking ---------------------------------------
+  // Dispatched by ResumeBookingDialog once a draft is found. Restoring runs in
+  // three phases because each one needs the previous phase's state committed:
+  //   1. guest fields + dates        (dates first: isRoomAvailableForRange reads
+  //                                   the cart's CURRENT range, so reconciling
+  //                                   before they land rejects every house)
+  //   2. reconcile against the catalog, then rebuild the cart
+  //   3. once the cart matches, re-acquire the holds through the normal path
+  // Phase 3 deliberately reuses handleProceedToPayment untouched, which is what
+  // gives the 409 DATES_UNAVAILABLE / DATES_HELD / 429 outcomes for free.
+  const [pendingDraft, setPendingDraft] = useState<ResumeDraftDetail | null>(null);
+  const [restoreExpected, setRestoreExpected] = useState<number | null>(null);
+  const restoreSubtotalRef = useRef(0);
+  const restoredRef = useRef(false);
+
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const draft = (e as CustomEvent<ResumeDraftDetail>).detail;
+      if (!draft?.found) return;
+
+      setGuestName(draft.guest.name);
+      setGuestEmail(draft.guest.email);
+      setGuestPhone(draft.phone);
+      setGuestProvince(draft.guest.province);
+      setGuestNote(draft.guest.note);
+      setPaymentOption(draft.payment_option);
+      setPromoInput(draft.promo_code ?? "");
+      // Never trust a stored discount: the code is re-validated in phase 3.
+      setAppliedPromo(null);
+      // They consented in the dialog, so this is honest rather than a bypass.
+      setPdpaConsent(true);
+      handleRemoveSlip();
+      // A fresh session id, always. It doubles as the cross-device slip path, so
+      // reusing it would let the polling effect pick up a slip left over from
+      // the abandoned attempt and treat it as a new upload. 049's same-phone
+      // takeover means a new session id costs nothing for reclaiming the hold.
+      setUploadSessionId(crypto.randomUUID());
+      setStep("dates");
+      setDateRange({ from: parseISO(draft.check_in), to: parseISO(draft.check_out) });
+      setPendingDraft(draft);
+      // The dialog that dispatched this is still open — it calls onOpenChange
+      // only after we return — and Radix locks body scroll while a dialog is
+      // mounted (react-remove-scroll sets overflow:hidden on <body>), so
+      // scrolling here is a silent no-op: the guest is left wherever the header
+      // menu was while the panel swaps to step 3 far below. Defer past the exit
+      // animation, the same 250ms handleStayInBooking uses for this exact
+      // reason. The section's top edge is the right landing spot for every
+      // outcome — its position does not move between steps — so this covers the
+      // clean restore into step 3 and the step-1 fallbacks alike.
+      setTimeout(() => {
+        sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      }, 250);
+    };
+    document.addEventListener("resume-draft", handler);
+    return () => document.removeEventListener("resume-draft", handler);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   // Broadcast the current step so MobileBookingBar can hide itself past step 1
   useEffect(() => {
@@ -560,7 +622,7 @@ export function BookingSection({
   // step 1 a duplicate of page_view. Always sync and never awaited — this sits
   // in the hold-acquisition path and must not widen that race window.
   const trackStep = useCallback(
-    (demandStep: "dates" | "details" | "payment") => {
+    (demandStep: "dates" | "details" | "payment", data?: Record<string, unknown>) => {
       trackDemand({
         homestayId: homestay.id,
         eventType: DemandEvent.CHECKOUT_STEP,
@@ -569,6 +631,7 @@ export function BookingSection({
         checkOut: dateRange?.to ? format(dateRange.to, "yyyy-MM-dd") : null,
         nights,
         locale,
+        ...(data ? { data } : {}),
       });
     },
     [homestay.id, dateRange, nights, locale],
@@ -687,7 +750,40 @@ export function BookingSection({
       const first = settled[0]?.payload;
       setHoldId(first?.hold_id ?? null);
       setHoldExpiresAt(first?.expires_at ? new Date(first.expires_at).getTime() : null);
-      trackStep("payment");
+
+      // Snapshot the form so a guest who switches to their banking app and
+      // never comes back can restore it with their phone + email instead of
+      // retyping steps 1 and 2. This is the ONLY reliable moment to write it: a
+      // backgrounded or memory-killed tab fires no pagehide and no trustworthy
+      // visibilitychange — the same reason handleHoldExpired never runs in that
+      // case. Fire-and-forget, like trackDemand: a slow save must never delay
+      // the QR, and its failure must never surface here.
+      fetch("/api/bookings/draft", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          homestay_id: homestay.id,
+          guest_phone: guestPhone.trim(),
+          guest_email: guestEmail.trim(),
+          guest_name: guestName.trim(),
+          guest_province: guestProvince,
+          guest_note: guestNote,
+          check_in: checkIn,
+          check_out: checkOut,
+          lines: cartLines.map((l) => ({
+            room_id: l.roomId,
+            num_guests: l.numGuests,
+            tier_ids: l.tierIds,
+            option_ids: l.optionIds,
+          })),
+          promo_code: appliedPromo?.code ?? (promoInput.trim() || null),
+          payment_option: paymentOption,
+          subtotal_at_save: subtotal,
+          locale,
+        }),
+      }).catch(() => {});
+
+      trackStep("payment", restoredRef.current ? { source: "resumed" } : undefined);
       setStep("payment");
     } catch {
       toast.error(t("errorGeneric"));
@@ -696,6 +792,85 @@ export function BookingSection({
       setHoldProgress(null);
     }
   };
+
+  // handleProceedToPayment is a plain render-scope function, not a useCallback,
+  // so calling it from an effect would capture a stale closure. Same shape as
+  // releaseHoldRef below.
+  const proceedRef = useRef(handleProceedToPayment);
+  useEffect(() => { proceedRef.current = handleProceedToPayment; });
+
+  // Phase 2: the draft's dates are committed, so the catalog check is meaningful.
+  useEffect(() => {
+    if (!pendingDraft) return;
+    if (!dateRange?.from || !dateRange?.to) return;
+    if (format(dateRange.from, "yyyy-MM-dd") !== pendingDraft.check_in) return;
+
+    const result = reconcileDraftWithCatalog(pendingDraft, {
+      rooms,
+      roomOptions,
+      guestPricing,
+      isRoomAvailableForRange,
+      todayStr: billingTodayStr(),
+    });
+    restoreSubtotalRef.current = pendingDraft.subtotal_at_save;
+    setPendingDraft(null);
+
+    if (result.reason === "past_dates") {
+      setDateRange(undefined);
+      toast.error(tr("restoredDatesPast"));
+      return;
+    }
+
+    clearCart();
+    for (const l of result.lines) {
+      addLine({
+        lineId: crypto.randomUUID(),
+        roomId: l.room_id,
+        numGuests: l.num_guests,
+        tierIds: l.tier_ids,
+        optionIds: l.option_ids,
+      });
+    }
+
+    if (result.reason === "no_rooms") {
+      toast.error(tr("restoredNoRooms"));
+      return;
+    }
+    // Something is gone: stop at step 1 so they re-pick knowingly, rather than
+    // paying for a cart we quietly edited. Their details stay filled in.
+    if (result.droppedCount > 0) {
+      toast.warning(
+        result.droppedRoomNames.length > 0
+          ? tr("restoredPartial", { names: result.droppedRoomNames.join(", ") })
+          : tr("restoredPartialGeneric"),
+      );
+      return;
+    }
+
+    setRestoreExpected(result.lines.length);
+  }, [pendingDraft, dateRange, rooms, roomOptions, guestPricing, isRoomAvailableForRange, clearCart, addLine, setDateRange, tr]);
+
+  // Phase 3: the cart now reflects the restored lines, so the hold request will
+  // see them.
+  useEffect(() => {
+    if (restoreExpected === null) return;
+    if (cartLines.length !== restoreExpected) return;
+    setRestoreExpected(null);
+
+    void (async () => {
+      // Re-validate rather than trust: a code can have expired or hit MAX_USES
+      // since they saved.
+      if (promoInput.trim()) await handleApplyPromo({ silent: true });
+      if (restoreSubtotalRef.current > 0 && subtotal !== restoreSubtotalRef.current) {
+        toast.warning(tr("restoredPriceChanged"));
+      } else {
+        toast.success(tr("restored"));
+      }
+      restoredRef.current = true;
+      await proceedRef.current();
+    })();
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [restoreExpected, cartLines.length]);
 
   const releaseHold = useCallback(() => {
     if (!holdId) return;
@@ -780,6 +955,9 @@ export function BookingSection({
         duplicate?: boolean;
         slip_pending?: boolean;
         verified?: boolean;
+        reason?: string;
+        message?: string;
+        error?: string;
         slip_hash?: string;
         slip_trans_ref?: string | null;
         payment_slip_url?: string | null;
@@ -810,12 +988,32 @@ export function BookingSection({
       // generic error and no booking, with no way to tell what went wrong.
       // The slip stays attached so the guest can simply retry.
       if (!verifyRes.ok || !verifyData.slip_hash) {
-        toast.error(t("errorSlipVerifyFailed"));
+        // Say WHICH failure this was. "Verification failed" is the same words
+        // for a 4MB photo, an unconfigured API key, a rate limit and a real
+        // mismatch — so a guest retries something that cannot succeed, and a
+        // broken deployment is indistinguishable from a bad screenshot.
+        // 429 has no body reason: it comes from the shared rate limiter.
+        const reason = verifyRes.status === 429 ? "RATE_LIMITED" : verifyData.reason;
+        const key = `slipError${reason}` as Parameters<typeof t>[0];
+        console.error(
+          `[Slip] verification failed (HTTP ${verifyRes.status}, reason=${reason ?? "none"}):`,
+          verifyData.error || verifyData.message || "no message",
+        );
+        toast.error(reason && t.has(key) ? t(key) : t("errorSlipVerifyFailed"));
         setIsSubmitting(false);
         return;
       }
 
       const isSlipVerified = !!verifyData.verified;
+      if (!isSlipVerified) {
+        // The guest still gets a booking (confirmedTextPending explains the
+        // manual review), but the reason is otherwise invisible — including to
+        // whoever is testing why nothing ever auto-confirms.
+        console.warn(
+          `[Slip] not auto-verified (reason=${verifyData.reason ?? "none"}):`,
+          verifyData.message || "no message",
+        );
+      }
       const checkIn = format(dateRange.from, "yyyy-MM-dd");
       const checkOut = format(dateRange.to, "yyyy-MM-dd");
       const optionsForLine = (optionIds: string[]) =>
@@ -928,13 +1126,13 @@ export function BookingSection({
       setHoldId(null);
       setHoldExpiresAt(null);
 
-      // 4. Upload slip to session storage (backup)
-      const uploadForm = new FormData();
-      uploadForm.append("slip", slipToVerify);
-      fetch(`/api/slip-upload/${uploadSessionId}`, {
-        method: "POST",
-        body: uploadForm,
-      }).catch(() => { });
+      // No second upload here. This used to re-send the whole slip to
+      // /api/slip-upload/{uploadSessionId} as a "backup", but nothing ever read
+      // it: sessions/{id}/slip is consumed only by the cross-device polling
+      // loop BEFORE submission, and the booking stores the pending/{uuid} path
+      // that /api/verify-slip already wrote. It cost the guest a second
+      // full-file upload on mobile data and left an orphan object that nothing
+      // deletes.
 
       setShowConfirmedModal(true);
       // toast.success(t("successSubmitted"));
@@ -1682,7 +1880,10 @@ export function BookingSection({
                           </div>
 
                           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">
-                            {t("doNotClosePage")}
+                            {/* Only promise the resume route when this host
+                                actually keeps drafts; otherwise the menu item
+                                the copy points at is not rendered. */}
+                            {t(resumeEnabled ? "doNotClosePageResume" : "doNotClosePage")}
                           </div>
 
                           <button onClick={() => setPaymentPhase("upload")}

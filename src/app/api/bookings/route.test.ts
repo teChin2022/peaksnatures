@@ -616,6 +616,25 @@ describe("POST /api/bookings", () => {
   });
 
   describe("deferred work", () => {
+    // The saved draft exists only to get an abandoning guest back to the QR.
+    // Once they actually book, it is PII with no remaining purpose.
+    it("clears the guest's saved draft once the booking completes", async () => {
+      const supabase = mockClient();
+
+      await post(body({ guest_phone: "089-876-5432", guest_email: "Guest@Example.COM" }));
+      expect(supabase.calls.some((c) => c.table === "booking_drafts")).toBe(false);
+
+      await runAfter();
+
+      const draftQuery = supabase.builderFor("booking_drafts");
+      expect(draftQuery.delete).toHaveBeenCalled();
+      expect(draftQuery.eq).toHaveBeenCalledWith("homestay_id", HOMESTAY_ID);
+      // Normalised on both columns, so the row written at step 2 -> 3 is the
+      // row deleted here.
+      expect(draftQuery.eq).toHaveBeenCalledWith("guest_phone", "0898765432");
+      expect(draftQuery.eq).toHaveBeenCalledWith("guest_email", "guest@example.com");
+    });
+
     it("logs the booking and notifies afterwards, not before responding", async () => {
       await post(body());
       expect(h.logEvent).not.toHaveBeenCalled();

@@ -54,6 +54,7 @@ export interface Database {
           fixed_rate_term_started_at: string | null;
           fixed_rate_term_ends_at: string | null;
           plan_pending_term_months: number | null;
+          booking_draft_hours: number;
           created_at: string;
           created_by: string;
           updated_at: string;
@@ -95,6 +96,7 @@ export interface Database {
           fixed_rate_term_started_at?: string | null;
           fixed_rate_term_ends_at?: string | null;
           plan_pending_term_months?: number | null;
+          booking_draft_hours?: number;
           created_at?: string;
           created_by?: string;
           updated_at?: string;
@@ -136,6 +138,7 @@ export interface Database {
           fixed_rate_term_started_at?: string | null;
           fixed_rate_term_ends_at?: string | null;
           plan_pending_term_months?: number | null;
+          booking_draft_hours?: number;
           created_at?: string;
           created_by?: string;
           updated_at?: string;
@@ -927,6 +930,50 @@ export interface Database {
           created_at?: string;
         };
       };
+      booking_drafts: {
+        Row: {
+          id: string;
+          homestay_id: string;
+          guest_phone: string;
+          guest_email: string;
+          check_in: string;
+          check_out: string;
+          payload: Json;
+          expires_at: string;
+          created_at: string;
+          created_by: string;
+          updated_at: string;
+          updated_by: string;
+        };
+        Insert: {
+          id?: string;
+          homestay_id: string;
+          guest_phone: string;
+          guest_email: string;
+          check_in: string;
+          check_out: string;
+          payload?: Json;
+          expires_at: string;
+          created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
+        };
+        Update: {
+          id?: string;
+          homestay_id?: string;
+          guest_phone?: string;
+          guest_email?: string;
+          check_in?: string;
+          check_out?: string;
+          payload?: Json;
+          expires_at?: string;
+          created_at?: string;
+          created_by?: string;
+          updated_at?: string;
+          updated_by?: string;
+        };
+      };
       demand_events: {
         Row: {
           id: string;
@@ -1383,6 +1430,7 @@ export type Booking = Database["public"]["Tables"]["bookings"]["Row"];
 export type BookingGroup = Database["public"]["Tables"]["booking_groups"]["Row"];
 export type BlockedDate = Database["public"]["Tables"]["blocked_dates"]["Row"];
 export type BookingHold = Database["public"]["Tables"]["booking_holds"]["Row"];
+export type BookingDraftRow = Database["public"]["Tables"]["booking_drafts"]["Row"];
 export type Review = Database["public"]["Tables"]["reviews"]["Row"];
 export type RoomSeasonalPrice = Database["public"]["Tables"]["room_seasonal_prices"]["Row"];
 export type RoomSpecialPrice = Database["public"]["Tables"]["room_special_prices"]["Row"];

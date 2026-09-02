@@ -116,7 +116,7 @@ describe("POST /api/verify-slip", () => {
       const req = makeFormRequest("/api/verify-slip", { expected_amount: "2000" }, { ip: uniqueIp() });
       await expect(readJson(await POST(req))).resolves.toEqual({
         status: 400,
-        body: { error: "No file uploaded" },
+        body: { error: "No file uploaded", reason: "NO_FILE" },
       });
     });
 
@@ -143,7 +143,7 @@ describe("POST /api/verify-slip", () => {
       vi.stubEnv("EASYSLIP_API_KEY", "");
       await expect(readJson(await post())).resolves.toEqual({
         status: 503,
-        body: { error: "Payment verification is not configured." },
+        body: { error: "Payment verification is not configured.", reason: "NOT_CONFIGURED" },
       });
     });
   });
@@ -186,6 +186,84 @@ describe("POST /api/verify-slip", () => {
 
       const { body } = await readJson(await post());
       expect(body).toMatchObject({ verified: true, slip_trans_ref: null });
+    });
+  });
+
+  // Every failure carries a stable code. The booking form maps these to
+  // localised copy; without them a 4MB photo, an unconfigured key, a rate limit
+  // and a genuine mismatch all reach the guest as the same sentence, and the
+  // guest retries something that can never succeed.
+  describe("failure reason codes", () => {
+    it("names an oversized file", async () => {
+      const big = new File([new Uint8Array(5 * 1024 * 1024)], "slip.jpg", { type: "image/jpeg" });
+      const { status, body } = await readJson(await post({ file: big }));
+      expect(status).toBe(400);
+      expect(body).toMatchObject({ reason: "FILE_TOO_LARGE" });
+    });
+
+    it("names an unsupported file type", async () => {
+      const pdf = new File([new Uint8Array(32)], "slip.pdf", { type: "application/pdf" });
+      const { status, body } = await readJson(await post({ file: pdf }));
+      expect(status).toBe(400);
+      expect(body).toMatchObject({ reason: "INVALID_FILE_TYPE" });
+    });
+
+    it("names a duplicate slip", async () => {
+      mockClient({ tables: { ...noDuplicates(), bookings: [{ data: [{ id: "b1" }] }] } });
+      const { status, body } = await readJson(await post());
+      expect(status).toBe(409);
+      expect(body).toMatchObject({ reason: "DUPLICATE", duplicate: true });
+    });
+
+    it("names an amount mismatch separately from a receiver mismatch", async () => {
+      callEasySlipV2.mockResolvedValue(
+        easySlipSuccess({ amountInSlip: 999, isAmountMatched: false }),
+      );
+      expect((await readJson(await post())).body).toMatchObject({
+        verified: false,
+        reason: "AMOUNT_MISMATCH",
+      });
+    });
+
+    it("names a receiver mismatch", async () => {
+      const slip = easySlipSuccess();
+      (slip as { data: { rawSlip: { receiver: unknown } } }).data.rawSlip.receiver = {
+        account: { proxy: { type: "MSISDN", account: "xxx-xxx-0000" } },
+      };
+      callEasySlipV2.mockResolvedValue(slip);
+      expect((await readJson(await post())).body).toMatchObject({
+        verified: false,
+        reason: "RECEIVER_MISMATCH",
+      });
+    });
+
+    it("keeps the upstream code when EasySlip itself fails", async () => {
+      callEasySlipV2.mockResolvedValue({
+        success: false,
+        error: { code: "UPSTREAM_TIMEOUT", message: "timed out" },
+      });
+      expect((await readJson(await post())).body).toMatchObject({
+        verified: false,
+        reason: "UPSTREAM_TIMEOUT",
+      });
+    });
+
+    it("namespaces an upstream code that is not already namespaced", async () => {
+      callEasySlipV2.mockResolvedValue({
+        success: false,
+        error: { code: "HTTP_429", message: "rate limited" },
+      });
+      expect((await readJson(await post())).body).toMatchObject({
+        reason: "UPSTREAM_HTTP_429",
+      });
+    });
+
+    it("names a slip that is too old", async () => {
+      const slip = easySlipSuccess();
+      (slip as { data: { rawSlip: { date: string } } }).data.rawSlip.date =
+        new Date(Date.now() - 2 * 60 * 60 * 1000).toISOString();
+      callEasySlipV2.mockResolvedValue(slip);
+      expect((await readJson(await post())).body).toMatchObject({ reason: "SLIP_TOO_OLD" });
     });
   });
 
@@ -341,7 +419,7 @@ describe("POST /api/verify-slip", () => {
       });
       await expect(readJson(await post())).resolves.toEqual({
         status: 500,
-        body: { error: "Failed to verify slip" },
+        body: { error: "Failed to verify slip", reason: "SERVER_ERROR" },
       });
     });
   });
