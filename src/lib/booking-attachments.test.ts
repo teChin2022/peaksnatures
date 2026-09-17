@@ -133,7 +133,7 @@ describe("validateAttachmentUpload", () => {
   });
 
   // The cap is checked before anything about the file, so a host at the limit
-  // gets "you have ten already" rather than a complaint about the file they
+  // gets "you are at the cap" rather than a complaint about the file they
   // cannot store regardless.
   it("reports the limit ahead of a file problem", () => {
     expect(

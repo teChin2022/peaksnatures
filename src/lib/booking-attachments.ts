@@ -15,11 +15,16 @@
 export const ATTACHMENTS_BUCKET = "booking-attachments";
 
 /**
- * Per-booking ceiling. The homestay gallery allows 15 and a review 5; ten is
- * the number of chat screenshots a special-requests conversation actually
- * produces, and it bounds the signed-URL batch the detail dialog mints.
+ * Per-booking ceiling. The homestay gallery allows 15 and a review 5; five is
+ * what a special-requests conversation leaves worth keeping — the screenshots
+ * that pin an agreement, not the whole thread — and it bounds the signed-URL
+ * batch the detail dialog mints.
+ *
+ * Lowering this is safe for rows already above it: remainingAttachmentSlots()
+ * clamps at zero, so a booking that collected more under an older cap keeps
+ * every image and simply cannot add another.
  */
-export const MAX_ATTACHMENTS_PER_BOOKING = 10;
+export const MAX_ATTACHMENTS_PER_BOOKING = 5;
 
 /**
  * Matches MAX_FILE_SIZE in easyslip.ts so a host never meets two different
