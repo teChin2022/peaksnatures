@@ -48,6 +48,12 @@ export interface StorageMockOptions {
   /** The signed URL createSignedUrl() hands back; null models a failure. */
   signedUrl?: string | null;
   uploadError?: unknown;
+  /**
+   * What remove() reports. Note the real client does NOT error on a missing
+   * key — it resolves `{ data: [], error: null }` — so a delete retry is
+   * idempotent, and only a genuine storage failure sets this.
+   */
+  removeError?: unknown;
 }
 
 export interface SupabaseMockOptions {
@@ -77,6 +83,8 @@ export interface SupabaseMock {
     from: ReturnType<typeof vi.fn>;
     upload: ReturnType<typeof vi.fn>;
     createSignedUrl: ReturnType<typeof vi.fn>;
+    createSignedUrls: ReturnType<typeof vi.fn>;
+    remove: ReturnType<typeof vi.fn>;
   };
   /** Every `.from()` call in order, for asserting what was queried and written. */
   calls: Array<{ table: string; builder: QueryBuilderMock }>;
@@ -93,7 +101,11 @@ export function createSupabaseMock(options: SupabaseMockOptions = {}): SupabaseM
     storage = {},
     deleteUserError = null,
   } = options;
-  const { signedUrl = "https://storage.test/signed-slip", uploadError = null } = storage;
+  const {
+    signedUrl = "https://storage.test/signed-slip",
+    uploadError = null,
+    removeError = null,
+  } = storage;
   const queues = new Map<string, QueryResponse[]>();
   for (const [table, response] of Object.entries(tables)) {
     if (Array.isArray(response)) queues.set(table, [...response]);
@@ -113,10 +125,28 @@ export function createSupabaseMock(options: SupabaseMockOptions = {}): SupabaseM
   const createSignedUrl = vi.fn(() =>
     Promise.resolve({ data: signedUrl === null ? null : { signedUrl }, error: null }),
   );
+  // One entry per requested path, positionally — the shape mapSignedUrls() zips.
+  const createSignedUrls = vi.fn((paths: string[]) =>
+    Promise.resolve({
+      data: signedUrl === null ? null : paths.map(() => ({ signedUrl })),
+      error: null,
+    }),
+  );
+  // The real client resolves `{ data: [], error: null }` for a key that is
+  // already gone, which is what makes a delete retry idempotent.
+  const remove = vi.fn(() =>
+    Promise.resolve({ data: removeError ? null : [], error: removeError }),
+  );
 
   return {
     from,
-    storage: { from: vi.fn(() => ({ upload, createSignedUrl })), upload, createSignedUrl },
+    storage: {
+      from: vi.fn(() => ({ upload, createSignedUrl, createSignedUrls, remove })),
+      upload,
+      createSignedUrl,
+      createSignedUrls,
+      remove,
+    },
     rpc: vi.fn((name: string) => Promise.resolve(settle(rpc[name] ?? {}))),
     auth: {
       getUser: vi.fn(() => Promise.resolve({ data: { user }, error: authError })),

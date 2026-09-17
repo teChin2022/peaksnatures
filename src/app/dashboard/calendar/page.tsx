@@ -64,6 +64,7 @@ import {
 import { toast } from "sonner";
 import type { BookingStatus } from "@/types/database";
 import { QuickBookingDialog } from "@/components/dashboard/quick-booking-dialog";
+import { BookingAttachments } from "@/components/dashboard/booking-attachments";
 
 interface BookingRow {
   id: string;
@@ -1282,6 +1283,14 @@ export default function CalendarPage() {
                             {tDash("noSlip")}
                           </div>
                         )}
+
+                        {/* Same panel as the bookings page, one slot lower than
+                            the slip for the same reason. Keyed because both panes
+                            stay mounted here: tapping back and opening another
+                            booking only changes the prop, and without a fresh
+                            instance the grid shows the previous guest's images
+                            until the fetch effect runs. */}
+                        <BookingAttachments key={activeBookingId} bookingId={activeBookingId} />
 
                         <div className="rounded-lg border bg-gray-50 p-4 space-y-2 text-sm">
                           <div className="flex items-center gap-2">
