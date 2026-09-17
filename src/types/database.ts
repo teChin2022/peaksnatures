@@ -930,6 +930,40 @@ export interface Database {
           created_at?: string;
         };
       };
+      booking_attachments: {
+        Row: {
+          id: string;
+          booking_id: string;
+          homestay_id: string;
+          storage_path: string;
+          mime_type: string;
+          byte_size: number;
+          created_at: string;
+          created_by: string;
+        };
+        Insert: {
+          id?: string;
+          booking_id: string;
+          homestay_id: string;
+          storage_path: string;
+          mime_type: string;
+          byte_size: number;
+          created_at?: string;
+          created_by?: string;
+        };
+        // Rows are immutable by design — 068 gives the table no updated_at and
+        // no UPDATE policy. Present only to satisfy the generated table shape.
+        Update: {
+          id?: string;
+          booking_id?: string;
+          homestay_id?: string;
+          storage_path?: string;
+          mime_type?: string;
+          byte_size?: number;
+          created_at?: string;
+          created_by?: string;
+        };
+      };
       booking_drafts: {
         Row: {
           id: string;
@@ -1431,6 +1465,7 @@ export type BookingGroup = Database["public"]["Tables"]["booking_groups"]["Row"]
 export type BlockedDate = Database["public"]["Tables"]["blocked_dates"]["Row"];
 export type BookingHold = Database["public"]["Tables"]["booking_holds"]["Row"];
 export type BookingDraftRow = Database["public"]["Tables"]["booking_drafts"]["Row"];
+export type BookingAttachment = Database["public"]["Tables"]["booking_attachments"]["Row"];
 export type Review = Database["public"]["Tables"]["reviews"]["Row"];
 export type RoomSeasonalPrice = Database["public"]["Tables"]["room_seasonal_prices"]["Row"];
 export type RoomSpecialPrice = Database["public"]["Tables"]["room_special_prices"]["Row"];

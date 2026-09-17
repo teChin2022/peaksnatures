@@ -23,6 +23,7 @@ import {
   CreditCard,
   ArrowRightLeft,
   Zap,
+  Paperclip,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -53,6 +54,8 @@ import { fmtDateStr } from "@/lib/format-date";
 import { logClientEvent } from "@/lib/history-log-client";
 import { getProvinceLabel } from "@/lib/provinces";
 import { QuickBookingDialog } from "@/components/dashboard/quick-booking-dialog";
+import { BookingAttachments } from "@/components/dashboard/booking-attachments";
+import { countAttachmentsByBooking } from "@/lib/booking-attachments";
 
 interface BookingRow {
   id: string;
@@ -155,6 +158,25 @@ async function resolveSlipUrls(
   }));
 }
 
+/**
+ * Attachment counts for a page of bookings, in one round trip.
+ *
+ * Only counts — the signed URLs for the grid are minted when a detail dialog
+ * opens, for that one booking. Prefetching them for 20 bookings would sign up
+ * to 200 URLs nobody looks at.
+ */
+async function fetchAttachmentCounts(
+  bookingIds: string[],
+  supabase: ReturnType<typeof createClient>
+): Promise<Record<string, number>> {
+  if (bookingIds.length === 0) return {};
+  const { data } = await supabase
+    .from("booking_attachments")
+    .select("booking_id")
+    .in("booking_id", bookingIds);
+  return countAttachmentsByBooking(data as { booking_id: string }[] | null);
+}
+
 const statusConfig: Record<
   BookingStatus,
   { labelKey: string; color: string; icon: React.ElementType }
@@ -177,11 +199,30 @@ export default function BookingsPage() {
   const [totalCount, setTotalCount] = useState(0);
   const [totalPendingCount, setTotalPendingCount] = useState(0);
   const [totalConfirmedCount, setTotalConfirmedCount] = useState(0);
+  // Declared up here with the other list state: every fetcher below writes it.
+  const [attachmentCounts, setAttachmentCounts] = useState<Record<string, number>>({});
+  const [detailTarget, setDetailTarget] = useState<DisplayBooking | null>(null);
+  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
+
+  const openDetail = useCallback((booking: DisplayBooking) => {
+    setDetailTarget(booking);
+    setDetailDialogOpen(true);
+  }, []);
+
+  // Kept in step by the attachments panel itself, so adding or deleting one
+  // updates the card badge behind the dialog without refetching the page.
+  const handleAttachmentCountChange = useCallback((bookingId: string, count: number) => {
+    setAttachmentCounts((prev) => ({ ...prev, [bookingId]: count }));
+  }, []);
 
   // Store lookup maps so loadMore can reuse them
   const homestayMapRef = useRef<Record<string, string>>({});
   const roomMapRef = useRef<Record<string, string>>({});
   const homestayIdsRef = useRef<string[]>([]);
+  // fetchBookings also runs after a quick booking is created, and ?booking= is
+  // still in the URL then — without this the detail dialog would pop open on
+  // top of the booking the host just made.
+  const deepLinkHandledRef = useRef(false);
 
   const toDisplay = useCallback(
     (rows: BookingRow[]): DisplayBooking[] =>
@@ -288,14 +329,17 @@ export default function BookingsPage() {
 
     // Parallel: resolve slip URLs + fetch date change requests (independent)
     const bookingIds = rawRows.map((b) => b.id);
-    const [rows, dcrResult] = await Promise.all([
+    const [rows, dcrResult, counts] = await Promise.all([
       resolveSlipUrls(rawRows, supabase),
       bookingIds.length > 0
         ? supabase.from("date_change_requests").select("id, booking_id, old_check_in, old_check_out, new_check_in, new_check_out, old_total_price, new_total_price, price_difference, status, requested_by, easyslip_verified, payment_slip_url, old_room_id, new_room_id").in("booking_id", bookingIds).eq("status", "pending")
         : Promise.resolve({ data: null }),
+      fetchAttachmentCounts(bookingIds, supabase),
     ]);
 
-    setBookings(toDisplay(rows));
+    const displayed = toDisplay(rows);
+    setBookings(displayed);
+    setAttachmentCounts(counts);
     setHasMore(rows.length === PAGE_SIZE && rows.length < (total || 0));
 
     if (dcrResult.data) {
@@ -311,12 +355,43 @@ export default function BookingsPage() {
     }
 
     setLoading(false);
+
+    /**
+     * ?booking=<id> opens that booking's detail dialog — the landing spot for
+     * the attachment badge on /dashboard/checkins, which has no dialog of its
+     * own. Handled here rather than in its own effect so the open happens after
+     * this function's awaits, alongside every other setState it makes.
+     *
+     * Read off window.location rather than useSearchParams(): that hook forces
+     * a <Suspense> boundary at build time, which is a lot of machinery for a
+     * value read exactly once on mount.
+     */
+    if (deepLinkHandledRef.current) return;
+    const wanted = new URLSearchParams(window.location.search).get("booking");
+    if (!wanted) return;
+    deepLinkHandledRef.current = true;
+
+    const loaded = displayed.find((b) => b.id === wanted);
+    if (loaded) {
+      openDetail(loaded);
+      return;
+    }
+
+    // Older than the first page of 20 — fetch that one booking rather than
+    // paging forward until it appears.
+    const { data: single } = await supabase.from("bookings").select("*").eq("id", wanted).single();
+    if (!single) return;
+    const [withSlip] = await resolveSlipUrls([single as unknown as BookingRow], supabase);
+    const deepCounts = await fetchAttachmentCounts([wanted], supabase);
+    setAttachmentCounts((prev) => ({ ...prev, ...deepCounts }));
+    openDetail(toDisplay([withSlip])[0]);
   };
 
   useEffect(() => {
     // eslint-disable-next-line react-hooks/set-state-in-effect -- async data fetch; setState calls occur after await boundaries
     fetchBookings();
   }, []);
+
 
   // Refetch the All-tab list when filters change (skips first run before bootstrap)
   const bootstrappedRef = useRef(false);
@@ -375,6 +450,11 @@ export default function BookingsPage() {
       ? await supabase.from("date_change_requests").select("id, booking_id, old_check_in, old_check_out, new_check_in, new_check_out, old_total_price, new_total_price, price_difference, status, requested_by, easyslip_verified, payment_slip_url, old_room_id, new_room_id").in("booking_id", bookingIds).eq("status", "pending")
       : { data: null };
 
+    // Merge, not replace: the unfiltered list stays mounted behind the filter,
+    // and its badges are read from this same map.
+    const counts = await fetchAttachmentCounts(bookingIds, supabase);
+    setAttachmentCounts((prev) => ({ ...prev, ...counts }));
+
     setFilteredBookings(toDisplay(rows));
     setFilteredCount(count || 0);
     setHasMoreFiltered(rows.length === PAGE_SIZE && rows.length < (count || 0));
@@ -422,8 +502,18 @@ export default function BookingsPage() {
       .order("created_at", { ascending: false })
       .range(from, to);
 
+    const counts = await fetchAttachmentCounts(
+      ((bookingRows as unknown as BookingRow[]) || []).map((b) => b.id),
+      supabase
+    );
+
     const rawRows = (bookingRows as unknown as BookingRow[]) || [];
     const rows = await resolveSlipUrls(rawRows, supabase);
+    // Merge: the earlier pages are still on screen and still need their badges.
+    setAttachmentCounts((prev) => ({
+      ...prev,
+      ...counts,
+    }));
     const newBookings = toDisplay(rows);
     if (filtersActive) {
       setFilteredBookings((prev) => [...prev, ...newBookings]);
@@ -482,9 +572,6 @@ export default function BookingsPage() {
   const [updatingStatus, setUpdatingStatus] = useState(false);
   const [completeTarget, setCompleteTarget] = useState<DisplayBooking | null>(null);
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
-  const [detailTarget, setDetailTarget] = useState<DisplayBooking | null>(null);
-  const [detailDialogOpen, setDetailDialogOpen] = useState(false);
-
   // Date change state
   const [dateChangeRequests, setDateChangeRequests] = useState<Record<string, DateChangeRequestRow>>({});
   const [submittingDateChange, setSubmittingDateChange] = useState(false);
@@ -770,7 +857,7 @@ export default function BookingsPage() {
                           {booking.payment_slip_url ? (
                             <button
                               className="group relative h-full w-full overflow-hidden"
-                              onClick={() => { setDetailTarget(booking); setDetailDialogOpen(true); }}
+                              onClick={() => openDetail(booking)}
                             >
                               <Image
                                 src={booking.payment_slip_url}
@@ -850,6 +937,19 @@ export default function BookingsPage() {
                                   {t("paymentFull")}
                                 </Badge>
                               ) : null}
+                              {/* The half that actually solves forgetting: the
+                                  host sees at a glance that this booking has
+                                  agreed requests sitting behind it. */}
+                              {(attachmentCounts[booking.id] ?? 0) > 0 && (
+                                <Badge
+                                  variant="secondary"
+                                  className="bg-slate-100 text-slate-700"
+                                  title={t("attachmentsTitle")}
+                                >
+                                  <Paperclip className="mr-1 h-3 w-3" />
+                                  {attachmentCounts[booking.id]}
+                                </Badge>
+                              )}
                             </div>
                             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
                               <span className="flex items-center gap-1">
@@ -940,7 +1040,7 @@ export default function BookingsPage() {
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => { setDetailTarget(booking); setDetailDialogOpen(true); }}
+                              onClick={() => openDetail(booking)}
                             >
                               <Eye className="mr-1 h-3.5 w-3.5" />
                               {t("viewDetails")}
@@ -1106,6 +1206,11 @@ export default function BookingsPage() {
                   {t("noSlip")}
                 </div>
               )}
+
+              <BookingAttachments
+                bookingId={detailTarget.id}
+                onCountChange={handleAttachmentCountChange}
+              />
 
               {/* Booking Info */}
               <div className="rounded-lg border bg-gray-50 p-4 space-y-2 text-sm">

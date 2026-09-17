@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations, useLocale } from "next-intl";
 import { differenceInDays } from "date-fns";
@@ -18,12 +19,14 @@ import {
   ClipboardCheck,
   StickyNote,
   ListPlus,
+  Paperclip,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
+import { countAttachmentsByBooking } from "@/lib/booking-attachments";
 
 interface SelectedOption {
   id: string;
@@ -48,6 +51,8 @@ interface CheckinBooking {
   notes: string | null;
   selected_options: SelectedOption[] | null;
   room_name: string;
+  /** Computed, not selected — the column list above is deliberately explicit. */
+  attachment_count: number;
 }
 
 export default function CheckinsPage() {
@@ -128,7 +133,17 @@ export default function CheckinsPage() {
         room_name: b.room_id ? roomMap[b.room_id] || "-" : "-",
       }));
 
-      setBookings(rows);
+      // Counts only, in one query. This is the surface where forgetting an
+      // agreed request actually costs something: the guest is at the door.
+      const { data: attachmentRows } = rows.length > 0
+        ? await supabase
+            .from("booking_attachments")
+            .select("booking_id")
+            .in("booking_id", rows.map((b) => b.id))
+        : { data: null };
+      const counts = countAttachmentsByBooking(attachmentRows as { booking_id: string }[] | null);
+
+      setBookings(rows.map((b) => ({ ...b, attachment_count: counts[b.id] ?? 0 })));
       setLoading(false);
     };
 
@@ -193,6 +208,15 @@ export default function CheckinsPage() {
                         <p className="text-xs text-gray-400 mt-0.5">
                           ID: {booking.id.slice(0, 8)}
                         </p>
+                        {booking.attachment_count > 0 && (
+                          <Link
+                            href={`/dashboard/bookings?booking=${booking.id}`}
+                            className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 transition-colors pointer-fine:hover:bg-slate-200"
+                          >
+                            <Paperclip className="h-3 w-3" />
+                            {t("attachments")} ({booking.attachment_count})
+                          </Link>
+                        )}
                       </div>
                       {isCheckedIn ? (
                         <Badge variant="secondary" className="bg-brand-50 text-brand shrink-0">
