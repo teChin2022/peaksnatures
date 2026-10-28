@@ -5,6 +5,7 @@ import { notifyAdminsNewHostRegistration } from "@/lib/notifications";
 import type { Database } from "@/types/database";
 import type { EmailOtpType } from "@supabase/supabase-js";
 import { logEvent, EventType } from "@/lib/history-log";
+import { isValidPhone } from "@/lib/utils";
 
 export async function GET(req: NextRequest) {
   const { searchParams, origin } = new URL(req.url);
@@ -81,13 +82,16 @@ export async function GET(req: NextRequest) {
         if (!existingHost) {
           const name =
             user.user_metadata?.name || user.email?.split("@")[0] || "Host";
+          // user_metadata is client-writable (signUp can be called directly with the anon key), so re-check it.
+          const metaPhone = user.user_metadata?.phone;
+          const phone = typeof metaPhone === "string" && isValidPhone(metaPhone) ? metaPhone : null;
           const { error: hostError } = await serviceClient
             .from("hosts")
             .insert({
               user_id: user.id,
               name,
               email: user.email!,
-              phone: null,
+              phone,
               promptpay_id: "",
               status: "pending",
               created_by: name,
@@ -114,6 +118,7 @@ export async function GET(req: NextRequest) {
               await notifyAdminsNewHostRegistration({
                 hostName: name,
                 hostEmail: user.email!,
+                hostPhone: phone,
                 appUrl: origin,
               }).catch((err) => console.error("[Admin Notify] Failed:", err));
             });

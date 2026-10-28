@@ -3,10 +3,12 @@ import { z } from "zod";
 import { createServerClient } from "@supabase/ssr";
 import type { Database } from "@/types/database";
 import { verifyTurnstileToken } from "@/lib/turnstile";
+import { isValidPhone } from "@/lib/utils";
 
 const registerSchema = z.object({
   name: z.string().min(1, "Name is required"),
   email: z.string().email("Invalid email"),
+  phone: z.string().refine(isValidPhone, "Phone number must be 10 digits"),
   password: z
     .string()
     .min(6, "Password must be at least 6 characters")
@@ -27,7 +29,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: firstError }, { status: 400 });
     }
 
-    const { name, email, password, turnstileToken } = parsed.data;
+    const { name, email, phone, password, turnstileToken } = parsed.data;
 
     // Verify Turnstile CAPTCHA token
     const captchaResult = await verifyTurnstileToken(turnstileToken);
@@ -64,7 +66,7 @@ export async function POST(req: NextRequest) {
       email,
       password,
       options: {
-        data: { name },
+        data: { name, phone },
         emailRedirectTo: `${origin}/api/auth/callback?next=/dashboard`,
       },
     });

@@ -3,7 +3,7 @@
 import { useState, useRef } from "react";
 import Link from "next/link";
 import Image from "next/image";
-import { Mountain, Loader2, Eye, EyeOff, Mail, User } from "lucide-react";
+import { Mountain, Loader2, Eye, EyeOff, Mail, Phone, User } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { Button } from "@/components/ui/button";
@@ -11,12 +11,13 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
-import { isValidEmail } from "@/lib/utils";
+import { isValidEmail, isValidPhone, sanitizePhoneInput } from "@/lib/utils";
 
 export default function RegisterPage() {
   const t = useTranslations("auth");
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
+  const [phone, setPhone] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
@@ -56,10 +57,15 @@ export default function RegisterPage() {
   const handleRegister = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
-    setTouched(new Set(["name", "email", "password", "confirmPassword"]));
+    setTouched(new Set(["name", "email", "phone", "password", "confirmPassword"]));
 
     if (!isValidEmail(email)) {
       setError(t("errorInvalidEmail"));
+      return;
+    }
+
+    if (!isValidPhone(phone)) {
+      setError(t("errorInvalidPhone"));
       return;
     }
 
@@ -84,7 +90,7 @@ export default function RegisterPage() {
       const res = await fetch("/api/auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ name, email, password, turnstileToken: turnstileToken || "" }),
+        body: JSON.stringify({ name, email, phone, password, turnstileToken: turnstileToken || "" }),
       });
 
       const data = await res.json();
@@ -189,6 +195,25 @@ export default function RegisterPage() {
                       required
                       autoComplete="email"
                       className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("email") && !email.trim() ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-gray-200 hover:!border-gray-400 focus-visible:!border-gray-400"} !bg-white transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0`}
+                    />
+                  </div>
+                </div>
+                <div className="space-y-1.5">
+                  <label htmlFor="phone" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("phone")} <span className="text-red-500">*</span></label>
+                  <div className="relative">
+                    <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <Input
+                      id="phone"
+                      type="tel"
+                      inputMode="numeric"
+                      maxLength={10}
+                      placeholder={t("phonePlaceholder")}
+                      value={phone}
+                      onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
+                      onBlur={() => setTouched(prev => new Set([...prev, "phone"]))}
+                      required
+                      autoComplete="tel"
+                      className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("phone") && !isValidPhone(phone) ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-gray-200 hover:!border-gray-400 focus-visible:!border-gray-400"} !bg-white transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0`}
                     />
                   </div>
                 </div>

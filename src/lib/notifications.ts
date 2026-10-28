@@ -987,6 +987,7 @@ export async function sendHostLineNotification(
 interface NewHostInfo {
   hostName: string;
   hostEmail: string;
+  hostPhone?: string | null;
   appUrl?: string;
 }
 
@@ -1016,6 +1017,7 @@ export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
       ``,
       `👤 ชื่อ: ${info.hostName}`,
       `📧 อีเมล: ${info.hostEmail}`,
+      ...(info.hostPhone ? [`📱 เบอร์โทร: ${info.hostPhone}`] : []),
       ``,
       `กรุณาตรวจสอบและอนุมัติที่ Admin Panel`,
       ...(reviewLink ? [`🔗 ${reviewLink}`] : []),
@@ -1045,6 +1047,7 @@ export async function notifyAdminsNewHostRegistration(info: NewHostInfo) {
                   <table style="width: 100%; border-collapse: collapse;">
                     <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">Name</td><td style="padding: 8px 0; color: #111827; font-size: 14px; font-weight: 600;">${info.hostName}</td></tr>
                     <tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">Email</td><td style="padding: 8px 0; color: #111827; font-size: 14px;">${info.hostEmail}</td></tr>
+                    ${info.hostPhone ? `<tr><td style="padding: 8px 0; color: #6b7280; font-size: 14px; vertical-align: top;">Phone</td><td style="padding: 8px 0; color: #111827; font-size: 14px;">${info.hostPhone}</td></tr>` : ""}
                   </table>
                 </div>
                 ${reviewLink ? `<a href="${reviewLink}" style="display: inline-block; background: #111827; color: white; padding: 12px 24px; border-radius: 8px; text-decoration: none; font-weight: 600;">Review in Admin Panel</a>` : ""}
