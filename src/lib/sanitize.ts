@@ -18,3 +18,19 @@ const RICH_TEXT_OPTIONS: sanitizeHtml.IOptions = {
 export function sanitizeRichText<T extends string | null | undefined>(html: T): T {
   return (html == null ? html : sanitizeHtml(html, RICH_TEXT_OPTIONS)) as T;
 }
+
+/**
+ * Host rich text as plain text, for meta descriptions and JSON-LD, which would
+ * otherwise show the tags literally. Sanitizing first leaves only allowlisted
+ * tags and the &amp; &lt; &gt; escapes, so both regexes below are exhaustive.
+ */
+export function richTextToPlainText(html: string | null | undefined): string {
+  if (html == null) return "";
+  return sanitizeRichText(html)
+    .replace(/<[^>]*>/g, " ")
+    .replace(/&lt;/g, "<")
+    .replace(/&gt;/g, ">")
+    .replace(/&amp;/g, "&")
+    .replace(/\s+/g, " ")
+    .trim();
+}

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { sanitizeRichText } from "@/lib/sanitize";
+import { richTextToPlainText, sanitizeRichText } from "@/lib/sanitize";
 
 describe("sanitizeRichText", () => {
   it("keeps the formatting the rich-text editor can produce", () => {
@@ -38,5 +38,27 @@ describe("sanitizeRichText", () => {
 
   it("leaves plain text untouched", () => {
     expect(sanitizeRichText("Just words, no markup.")).toBe("Just words, no markup.");
+  });
+});
+
+describe("richTextToPlainText", () => {
+  // The live meta description on /view-sudkhet carried these tags verbatim.
+  it("turns paragraphs and line breaks into spaces", () => {
+    const html = "<p>ทิ้งความวุ่นวายไว้ข้างล่าง<br />โฮมสเตย์เล็ก ๆ ที่ซ่อนตัวอยู่</p><p>ท่ามกลางภูเขา</p>";
+    expect(richTextToPlainText(html)).toBe("ทิ้งความวุ่นวายไว้ข้างล่าง โฮมสเตย์เล็ก ๆ ที่ซ่อนตัวอยู่ ท่ามกลางภูเขา");
+  });
+
+  it("decodes the escapes sanitizing leaves, without double-decoding", () => {
+    expect(richTextToPlainText("<p>Tom &amp; Jerry &lt;3</p>")).toBe("Tom & Jerry <3");
+    expect(richTextToPlainText("<p>&amp;lt;</p>")).toBe("&lt;");
+  });
+
+  it("drops script content instead of leaking it into the text", () => {
+    expect(richTextToPlainText("<p>Hi</p><script>alert('xss')</script>")).toBe("Hi");
+  });
+
+  it("returns an empty string for a missing description", () => {
+    expect(richTextToPlainText(null)).toBe("");
+    expect(richTextToPlainText(undefined)).toBe("");
   });
 });

@@ -9,7 +9,7 @@ import { isHostBlocked } from "@/lib/plan-expiry";
 import { hasPastDueInvoice } from "@/lib/billing";
 import { evaluatePromoCode } from "@/lib/promo-codes";
 import { localizeHomestay } from "@/lib/translation/translate-homestay";
-import { sanitizeRichText } from "@/lib/sanitize";
+import { richTextToPlainText, sanitizeRichText } from "@/lib/sanitize";
 import type { SupportedLocale } from "@/lib/translation/types";
 import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice, RoomSpecialPrice, RoomOption, RoomGuestPricing, PromoCode } from "@/types/database";
 import { HeroSection } from "@/components/booking/hero-section";
@@ -243,7 +243,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
 
   const { homestay } = data;
   const titleAbsolute = `${homestay.name} — Book Now | ${SITE_NAME}`;
-  const rawDescription = homestay.description || homestay.tagline || homestay.name;
+  const rawDescription = richTextToPlainText(homestay.description) || homestay.tagline || homestay.name;
   const description =
     rawDescription.length > 155 ? `${rawDescription.slice(0, 155).trim()}…` : rawDescription;
   const ogDescription = homestay.tagline || description;
@@ -328,7 +328,7 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
     "@type": "LodgingBusiness",
     "@id": pageUrl,
     name: homestay.name,
-    description: homestay.description,
+    description: richTextToPlainText(homestay.description),
     url: pageUrl,
     image: [homestay.hero_image_url, ...(homestay.gallery || [])].filter(Boolean),
     address: {
@@ -336,6 +336,10 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
       addressLocality: homestay.location,
       addressCountry: "TH",
     },
+    telephone: homestay.host.phone ?? undefined,
+    checkinTime: homestay.check_in_time ?? undefined,
+    checkoutTime: homestay.check_out_time ?? undefined,
+    sameAs: [homestay.facebook_url, homestay.instagram_url, homestay.tiktok_url].filter(Boolean),
     amenityFeature: (homestay.amenities || []).map((name) => ({
       "@type": "LocationFeatureSpecification",
       name,

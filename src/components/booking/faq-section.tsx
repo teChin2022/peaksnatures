@@ -50,7 +50,8 @@ export function FaqSection({ items }: FaqSectionProps) {
             {visible.map((item, i) => (
               <AccordionItem key={i} value={`faq-${i}`}>
                 <AccordionTrigger>{item.question}</AccordionTrigger>
-                <AccordionContent>{item.answer}</AccordionContent>
+                {/* forceMount keeps closed answers in the HTML for crawlers that don't run JS */}
+                <AccordionContent forceMount>{item.answer}</AccordionContent>
               </AccordionItem>
             ))}
           </Accordion>

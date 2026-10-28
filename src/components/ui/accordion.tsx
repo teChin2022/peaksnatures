@@ -46,7 +46,7 @@ const AccordionContent = React.forwardRef<
 >(({ className, children, ...props }, ref) => (
   <AccordionPrimitive.Content
     ref={ref}
-    className="overflow-hidden text-sm text-earth-600"
+    className="overflow-hidden text-sm text-earth-600 data-[state=closed]:hidden"
     {...props}
   >
     <div className={cn("pb-4 pt-0 leading-relaxed whitespace-pre-wrap", className)}>
