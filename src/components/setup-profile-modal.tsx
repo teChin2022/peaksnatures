@@ -4,6 +4,7 @@ import { useState } from "react";
 import { useTranslations } from "next-intl";
 import { Phone, CreditCard, Loader2, Lock } from "lucide-react";
 import { isValidPhone, sanitizePhoneInput } from "@/lib/utils";
+import { setupProfileUpdate } from "@/lib/setup-profile";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -78,10 +79,7 @@ export function SetupProfileModal({
         const supabase = createClient();
         const { error: updateError } = await supabase
           .from("hosts")
-          .update({
-            phone: phone.trim(),
-            promptpay_id: promptpayId.trim(),
-          } as never)
+          .update(setupProfileUpdate({ needsPhone, phone, needsPromptpay, promptpayId }) as never)
           .eq("id", hostId);
 
         if (updateError) {

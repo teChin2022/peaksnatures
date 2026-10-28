@@ -22,40 +22,35 @@ type HostRow = {
 };
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  const now = new Date();
-
+  // No lastModified on static pages: stamping "now" on every regeneration
+  // teaches crawlers (Bing feeds ChatGPT search) to ignore lastmod entirely.
   const staticEntries: MetadataRoute.Sitemap = [
     {
       url: `${SITE_URL}/`,
-      lastModified: now,
       changeFrequency: "daily",
       priority: 1.0,
       alternates: { languages: { en: `${SITE_URL}/`, th: `${SITE_URL}/` } },
     },
     {
       url: `${SITE_URL}/about`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.5,
       alternates: { languages: { en: `${SITE_URL}/about`, th: `${SITE_URL}/about` } },
     },
     {
       url: `${SITE_URL}/trust-safety`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.4,
       alternates: { languages: { en: `${SITE_URL}/trust-safety`, th: `${SITE_URL}/trust-safety` } },
     },
     {
       url: `${SITE_URL}/host-guidelines`,
-      lastModified: now,
       changeFrequency: "monthly",
       priority: 0.4,
       alternates: { languages: { en: `${SITE_URL}/host-guidelines`, th: `${SITE_URL}/host-guidelines` } },
     },
     {
       url: `${SITE_URL}/legal`,
-      lastModified: now,
       changeFrequency: "yearly",
       priority: 0.2,
       alternates: { languages: { en: `${SITE_URL}/legal`, th: `${SITE_URL}/legal` } },
@@ -100,28 +95,18 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       }
     }
 
+    // /[slug]/reviews is only the write-a-review form (noindex), so it is not listed.
     const homestayEntries: MetadataRoute.Sitemap = homestays
       .filter((h) => !blockedHostIds.has(h.host_id))
-      .flatMap((h) => {
+      .map((h) => {
         const slugUrl = `${SITE_URL}/${h.slug}`;
-        const reviewsUrl = `${SITE_URL}/${h.slug}/reviews`;
-        const lastModified = new Date(h.updated_at);
-        return [
-          {
-            url: slugUrl,
-            lastModified,
-            changeFrequency: "weekly" as const,
-            priority: 0.9,
-            alternates: { languages: { en: slugUrl, th: slugUrl } },
-          },
-          {
-            url: reviewsUrl,
-            lastModified,
-            changeFrequency: "weekly" as const,
-            priority: 0.5,
-            alternates: { languages: { en: reviewsUrl, th: reviewsUrl } },
-          },
-        ];
+        return {
+          url: slugUrl,
+          lastModified: new Date(h.updated_at),
+          changeFrequency: "weekly" as const,
+          priority: 0.9,
+          alternates: { languages: { en: slugUrl, th: slugUrl } },
+        };
       });
 
     return [...staticEntries, ...homestayEntries];

@@ -56,7 +56,8 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
       description,
       images: image ? [image] : undefined,
     },
-    robots: { index: true, follow: true },
+    // A write-a-review form: nothing for a searcher, so keep it out of the index.
+    robots: { index: false, follow: true },
   };
 }
 

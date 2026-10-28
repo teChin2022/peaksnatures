@@ -1999,10 +1999,14 @@ export function BookingSection({
               </DialogDescription>
             </DialogHeader>
             {bookingId && (
-              <Badge className="mt-3 mb-4 bg-earth-100 text-earth-900" variant="secondary">
+              <Badge className="mt-3 bg-earth-100 text-earth-900" variant="secondary">
                 {t("bookingId")}: {bookingId}
               </Badge>
             )}
+            <div className="mt-3 mb-4 flex flex-col items-center gap-0.5 text-sm text-earth-500">
+              <span className="flex items-center gap-1.5"><Mail size={14} className="shrink-0" />{t("checkEmailForDetails")}</span>
+              <span className="font-medium text-earth-900 break-all">{guestEmail}</span>
+            </div>
 
             <div className="bg-earth-50 p-5 rounded-2xl w-full text-left space-y-2.5 text-sm mt-2">
               <div className="flex justify-between">

@@ -488,6 +488,29 @@ describe("notifyAdminsNewHostRegistration", () => {
     expect(JSON.parse(linePush![1].body as string).messages[0].text).not.toContain("🔗");
   });
 
+  it("includes the phone the host registered with", async () => {
+    admins([
+      { email: "admin@peaksnature.com", line_user_id: "U-admin", line_channel_access_token: "admin-token" },
+    ]);
+
+    await notifyAdminsNewHostRegistration({ ...info, hostPhone: "0812345678" });
+
+    const linePush = fetchMock.mock.calls.find((c) => c[0] === LINE_ENDPOINT);
+    expect(JSON.parse(linePush![1].body as string).messages[0].text).toContain("📱 เบอร์โทร: 0812345678");
+    expect(resendSend).toHaveBeenCalledWith(
+      expect.objectContaining({ html: expect.stringContaining("0812345678") }),
+    );
+  });
+
+  it("leaves the phone line out for a host without one", async () => {
+    admins([{ email: null, line_user_id: "U-admin", line_channel_access_token: "admin-token" }]);
+
+    await notifyAdminsNewHostRegistration({ ...info, hostPhone: null });
+
+    const linePush = fetchMock.mock.calls.find((c) => c[0] === LINE_ENDPOINT);
+    expect(JSON.parse(linePush![1].body as string).messages[0].text).not.toContain("📱");
+  });
+
   it("does nothing when there are no admins", async () => {
     admins([]);
     await notifyAdminsNewHostRegistration(info);

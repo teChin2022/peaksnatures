@@ -120,14 +120,6 @@ const websiteLd = {
   name: SITE_NAME,
   url: SITE_URL,
   inLanguage: ["th-TH", "en-US"],
-  potentialAction: {
-    "@type": "SearchAction",
-    target: {
-      "@type": "EntryPoint",
-      urlTemplate: `${SITE_URL}/?q={search_term_string}`,
-    },
-    "query-input": "required name=search_term_string",
-  },
 };
 
 export default async function RootLayout({

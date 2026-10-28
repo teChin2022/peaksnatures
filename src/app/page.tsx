@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { isHostBlocked } from "@/lib/plan-expiry";
 import { fetchPastDueHostIds } from "@/lib/billing";
+import { landingStats } from "@/lib/landing-stats";
 import type { Homestay, Room } from "@/types/database";
 import { LandingNavbar } from "@/components/landing/navbar";
 import { LandingContent } from "@/components/landing/landing-content";
@@ -51,7 +52,7 @@ export default async function Home() {
   const homestayIds = homestays.map((h) => h.id);
   const hostIds = [...new Set(homestays.map((h) => h.host_id))];
 
-  const [{ data: roomRows }, { data: hostRows }, { data: reviewRows }, pastDueHostIds] = homestayIds.length
+  const [{ data: roomRows }, { data: hostRows }, { data: reviewRows }, pastDueHostIds, { count: confirmedBookings }] = homestayIds.length
     ? await Promise.all([
         supabase
           .from("rooms")
@@ -64,11 +65,15 @@ export default async function Home() {
           .in("id", hostIds),
         supabase
           .from("reviews")
-          .select("homestay_id, rating")
+          .select("homestay_id, rating, would_return")
           .in("homestay_id", homestayIds),
         fetchPastDueHostIds(hostIds, supabase),
+        supabase
+          .from("bookings")
+          .select("id", { count: "exact", head: true })
+          .in("status", ["confirmed", "completed"]),
       ])
-    : [{ data: [] }, { data: [] }, { data: [] }, new Set<string>()];
+    : [{ data: [] }, { data: [] }, { data: [] }, new Set<string>(), { count: 0 }];
 
   const rooms = (roomRows as unknown as Pick<Room, "homestay_id" | "price_per_night">[]) || [];
   const minPriceMap = new Map<string, number>();
@@ -105,7 +110,7 @@ export default async function Home() {
     }
   }
 
-  const reviewData = (reviewRows as { homestay_id: string; rating: number }[]) || [];
+  const reviewData = (reviewRows as { homestay_id: string; rating: number; would_return: string | null }[]) || [];
   const reviewCountMap = new Map<string, number>();
   const reviewSumMap = new Map<string, number>();
   for (const rv of reviewData) {
@@ -115,6 +120,13 @@ export default async function Home() {
 
   // Filter out homestays whose host is soft-blocked (expired free plan past grace period)
   const activeHomestays = homestays.filter((h) => !blockedHostIds.has(h.host_id));
+
+  // shortcut: reviewRows stops at Supabase's 1000-row max_rows, so past 1000 reviews the count understates; move to an RPC aggregate before then.
+  const stats = landingStats({
+    homestays: activeHomestays.length,
+    confirmedBookings: confirmedBookings ?? 0,
+    reviews: reviewData,
+  });
 
   const homestayData = activeHomestays.map((h) => {
     const count = reviewCountMap.get(h.id) || 0;
@@ -146,7 +158,7 @@ export default async function Home() {
     <div className="min-h-screen bg-white font-sans text-gray-900 selection:bg-gray-200">
       <LandingNavbar />
       <main>
-        <LandingContent homestays={homestayData} />
+        <LandingContent homestays={homestayData} stats={stats} />
       </main>
       <LandingFooter />
     </div>
