@@ -2,7 +2,9 @@
 
 import { useState } from "react";
 import { motion, useScroll, useTransform } from "motion/react";
+import type { LandingStat } from "@/lib/landing-stats";
 import { LandingHero } from "./hero";
+import { LandingStats } from "./stats";
 import { WhyPeaksnature } from "./why-peaksnature";
 import { UniqueHomestays } from "./unique-homestays";
 import { ForHosts } from "./for-hosts";
@@ -21,7 +23,7 @@ interface HomestayData {
   is_host_verified: boolean;
 }
 
-export function LandingContent({ homestays }: { homestays: HomestayData[] }) {
+export function LandingContent({ homestays, stats }: { homestays: HomestayData[]; stats: LandingStat[] }) {
   const [locationFilter, setLocationFilter] = useState("");
   const { scrollYProgress } = useScroll();
   const progressWidth = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
@@ -36,6 +38,7 @@ export function LandingContent({ homestays }: { homestays: HomestayData[] }) {
 
       <LandingHero onSearch={(loc) => setLocationFilter(loc)} />
       <WhyPeaksnature />
+      <LandingStats stats={stats} />
       <UniqueHomestays homestays={homestays} locationFilter={locationFilter} />
       <ForHosts />
     </>
