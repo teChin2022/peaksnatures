@@ -1,4 +1,5 @@
 import { ImageResponse } from "next/og";
+import sharp from "sharp";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { SITE_NAME } from "@/lib/seo";
 
@@ -13,12 +14,29 @@ type HomestayRow = {
   hero_image_url: string | null;
 };
 
-export default async function Image({ params }: { params: { slug: string } }) {
+// Satori only decodes PNG/JPEG/GIF/SVG, and hero uploads are WebP (compressImage).
+async function heroAsJpegDataUri(url: string): Promise<string | null> {
+  try {
+    const res = await fetch(url);
+    if (!res.ok) return null;
+    const jpeg = await sharp(Buffer.from(await res.arrayBuffer()))
+      .resize(size.width, size.height, { fit: "cover" })
+      .jpeg({ quality: 80 })
+      .toBuffer();
+    return `data:image/jpeg;base64,${jpeg.toString("base64")}`;
+  } catch {
+    // A broken hero must not take the whole card down.
+    return null;
+  }
+}
+
+export default async function Image({ params }: { params: Promise<{ slug: string }> }) {
+  const { slug } = await params;
   const supabase = createServiceRoleClient();
   const { data } = await supabase
     .from("homestays")
     .select("name, tagline, location, hero_image_url")
-    .eq("slug", params.slug)
+    .eq("slug", slug)
     .eq("is_active", true)
     .single();
 
@@ -27,7 +45,7 @@ export default async function Image({ params }: { params: { slug: string } }) {
   const name = homestay?.name ?? SITE_NAME;
   const tagline = homestay?.tagline ?? "Book a nature homestay";
   const location = homestay?.location ?? "Thailand";
-  const heroImageUrl = homestay?.hero_image_url ?? null;
+  const heroImage = homestay?.hero_image_url ? await heroAsJpegDataUri(homestay.hero_image_url) : null;
 
   return new ImageResponse(
     (
@@ -42,14 +60,15 @@ export default async function Image({ params }: { params: { slug: string } }) {
           background: "#1a2e2a",
         }}
       >
-        {heroImageUrl && (
+        {heroImage && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
-            src={heroImageUrl}
+            src={heroImage}
             alt={name}
             style={{
               position: "absolute",
-              inset: 0,
+              top: 0,
+              left: 0,
               width: "100%",
               height: "100%",
               objectFit: "cover",
@@ -58,8 +77,12 @@ export default async function Image({ params }: { params: { slug: string } }) {
         )}
         <div
           style={{
+            // Satori ignores the `inset` shorthand; spell the box out.
             position: "absolute",
-            inset: 0,
+            top: 0,
+            left: 0,
+            width: "100%",
+            height: "100%",
             background:
               "linear-gradient(180deg, rgba(0,0,0,0.15) 0%, rgba(0,0,0,0.55) 60%, rgba(0,0,0,0.85) 100%)",
           }}
@@ -102,7 +125,7 @@ export default async function Image({ params }: { params: { slug: string } }) {
                 opacity: 0.85,
               }}
             >
-              📍 {location}
+              {`📍 ${location}`}
             </div>
             <div
               style={{
