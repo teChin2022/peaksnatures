@@ -65,6 +65,8 @@ export const EventType = {
   PLAN_EXPIRED: "PLAN_EXPIRED",
   RATE_OVERRIDE_CHANGED: "RATE_OVERRIDE_CHANGED",
   BILLING_RETRY_EXHAUSTED: "BILLING_RETRY_EXHAUSTED",
+  // A slip EasySlip verified that we then refused — real money with no row.
+  PLATFORM_PAYMENT_REJECTED: "PLATFORM_PAYMENT_REJECTED",
 } as const;
 
 export type EventTypeValue = (typeof EventType)[keyof typeof EventType];

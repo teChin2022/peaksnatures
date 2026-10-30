@@ -15,6 +15,13 @@ import {
 import { getBillingConfig } from "@/lib/billing";
 import { isTopupAmount } from "@/lib/topup-amounts";
 
+/**
+ * Must exceed EASYSLIP_TOTAL_BUDGET_MS in src/lib/easyslip.ts — see
+ * /api/verify-slip. Being killed mid-verification is worse here: EasySlip has
+ * already recorded the slip, so the host's retry is refused as a duplicate.
+ */
+export const maxDuration = 60;
+
 export async function POST(req: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient();
@@ -44,7 +51,9 @@ export async function POST(req: NextRequest) {
 
     // Get platform billing config for payment verification
     const config = await getBillingConfig();
-    if (!config) {
+    // With no receiver there is nothing to check a slip against — refuse before
+    // EasySlip sees the slip and remembers it.
+    if (!config || (!config.promptpay_id && !config.bank_account_number)) {
       return NextResponse.json({ error: "Billing not configured" }, { status: 503 });
     }
 
@@ -115,30 +124,52 @@ export async function POST(req: NextRequest) {
     }
 
     const rawSlip = easySlipData.data.rawSlip;
+    const slipAmount = easySlipData.data.amountInSlip ?? rawSlip.amount.amount;
+
+    // EasySlip has now seen this slip and answers any resubmission with
+    // isDuplicate, so every refusal from here on strands a real transfer.
+    // Leave a trail an admin can find and settle it from.
+    const refuse = (reason: string, body: Record<string, unknown>, status = 200) => {
+      after(() =>
+        logEvent({
+          entityType: "billing",
+          entityId: typedHost.id,
+          eventType: EventType.PLATFORM_PAYMENT_REJECTED,
+          actorType: "host",
+          actorId: user.id,
+          data: {
+            reason,
+            host_id: typedHost.id,
+            expected_amount: expectedAmount,
+            slip_amount: slipAmount,
+            trans_ref: rawSlip.transRef || null,
+            slip_path: slipPath,
+          },
+          req,
+        }),
+      );
+      return NextResponse.json(body, { status });
+    };
 
     if (easySlipData.data.isDuplicate) {
-      return NextResponse.json(
-        { error: "This payment slip has already been used.", duplicate: true },
-        { status: 409 }
-      );
+      return refuse("duplicate", { error: "This payment slip has already been used.", duplicate: true }, 409);
     }
 
     // Check slip age
     const slipAge = Date.now() - new Date(rawSlip.date).getTime();
     if (slipAge > MAX_SLIP_AGE_MS || slipAge < 0) {
-      return NextResponse.json({ verified: false, message: "Slip is too old. Use a recent transfer." });
+      return refuse("slip_too_old", { verified: false, message: "Slip is too old. Use a recent transfer." });
     }
 
     // Verify receiver is the platform account
     const receiverOk = validateReceiver(rawSlip, config.promptpay_id, config.bank_account_number);
     if (!receiverOk) {
-      return NextResponse.json({ verified: false, message: "Receiver does not match platform account." });
+      return refuse("receiver_mismatch", { verified: false, message: "Receiver does not match platform account." });
     }
 
     // Amount check
-    const slipAmount = easySlipData.data.amountInSlip ?? rawSlip.amount.amount;
     if (slipAmount !== expectedAmount) {
-      return NextResponse.json({
+      return refuse("amount_mismatch", {
         verified: false,
         message: `Amount mismatch: expected ฿${expectedAmount}, got ฿${slipAmount}`,
       });
@@ -161,7 +192,7 @@ export async function POST(req: NextRequest) {
 
     if (topupError) {
       console.error("[Wallet Topup] RPC error:", topupError);
-      return NextResponse.json({ error: "Failed to process top-up" }, { status: 500 });
+      return refuse("db_error", { error: "Failed to process top-up" }, 500);
     }
 
     const newBalance = (result as { new_balance: number }[])?.[0]?.new_balance ?? 0;

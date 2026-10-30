@@ -5,7 +5,6 @@ import { useTranslations, useLocale } from "next-intl";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { fmtDateStr } from "@/lib/format-date";
-import generatePayload from "promptpay-qr";
 import { QRCodeSVG } from "qrcode.react";
 import {
   ArrowUpCircle,
@@ -30,6 +29,7 @@ import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InvoicePayDialog } from "@/components/dashboard/invoice-pay-dialog";
+import { PromptPayQr } from "@/components/dashboard/promptpay-qr";
 import { TOPUP_AMOUNTS } from "@/lib/topup-amounts";
 
 /* ─── Types ─── */
@@ -444,16 +444,10 @@ export default function WalletPage() {
                       <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400 mb-3">
                         {t("scanToPay")}
                       </p>
-                      <div className="bg-white p-3 rounded-2xl shadow-sm border border-earth-100">
-                        <QRCodeSVG
-                          value={generatePayload(
-                            billing.platform_payment.promptpay_id,
-                            topupAmount && Number(topupAmount) > 0 ? { amount: Number(topupAmount) } : { amount: 0 },
-                          )}
-                          size={160}
-                          level="M"
-                        />
-                      </div>
+                      <PromptPayQr
+                        promptpayId={billing.platform_payment.promptpay_id}
+                        amount={Number(topupAmount) > 0 ? Number(topupAmount) : 0}
+                      />
                       {topupAmount && Number(topupAmount) > 0 && (
                         <p className="text-lg font-mono font-bold text-gray-900 mt-2">
                           ฿{Number(topupAmount).toLocaleString()}

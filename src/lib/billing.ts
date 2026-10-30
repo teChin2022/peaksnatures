@@ -20,6 +20,7 @@ export {
 export {
   computeFixedRateInvoice,
   computeImmediateFixedRateInvoice,
+  fixedRateStartDate,
   getEffectiveCommissionPct,
   getEffectiveFixedRate,
   getFixedRateDiscount,
@@ -282,7 +283,13 @@ export async function deductCommission(
       return;
     }
 
-    const newBalance = (result as { new_balance: number }[])?.[0]?.new_balance ?? 0;
+    const row = (result as { new_balance: number; transaction_id: string | null }[])?.[0];
+    // The RPC repeats the idempotency check above under the host lock, and
+    // charges nothing when a concurrent confirmation or a retry got there first.
+    // Logging that, or alerting on its balance, would report a charge that
+    // never happened.
+    if (!row?.transaction_id) return;
+    const newBalance = row.new_balance ?? 0;
 
     // Log the event
     await logEvent({

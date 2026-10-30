@@ -53,6 +53,8 @@ interface Scenario {
   host?: Record<string, unknown>;
   hosts?: QueryResponse[];
   invoices?: QueryResponse[];
+  /** What activate_fixed_rate_plan answers. */
+  rpc?: QueryResponse;
 }
 
 const freeHost = {
@@ -65,14 +67,21 @@ const freeHost = {
  * `.from("hosts")` is called twice on the fixed_rate path — read, then update —
  * but only once (the update) for free/commission, which never reads the host.
  */
-const scenario = ({ host = freeHost, hosts, invoices }: Scenario = {}) =>
+const scenario = ({ host = freeHost, hosts, invoices, rpc = {} }: Scenario = {}) =>
   signIn(h, {
     tables: {
       platform_admins: { data: { name: "Root" } },
       hosts: hosts ?? [{ data: host }, {}],
       invoices: invoices ?? [{}],
     },
+    rpc: { activate_fixed_rate_plan: rpc },
   });
+
+/** The arguments activate_fixed_rate_plan was called with, or null. */
+const rpcArgs = (sc: ReturnType<typeof scenario>) => {
+  const call = (sc.rpc as ReturnType<typeof vi.fn>).mock.calls[0];
+  return call ? (call[1] as Record<string, unknown>) : null;
+};
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -105,29 +114,23 @@ describe("PATCH /api/admin/hosts/[id]/plan", () => {
         },
       });
 
-      expect(sc.builderFor("hosts", 1).update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          plan_type: "fixed_rate",
-          fixed_rate_term_months: 6,
-          fixed_rate_term_started_at: "2026-09-20",
-          fixed_rate_term_ends_at: "2027-03-31",
-        }),
-      );
-      expect(sc.builderFor("invoices", 0).insert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          host_id: HOST_ID,
-          amount: 5767,
-          period_start: "2026-09-20",
-          period_end: "2027-03-31",
-          term_months: 6,
-          discount_pct: 10,
-          // Paid on its own start day: blockingInvoiceFilter matches neither
-          // `overdue` nor `pending` past due, so this row can never block.
-          due_date: "2026-09-20",
-          status: "paid",
-          paid_at: "2026-09-20T10:00:00.000Z",
-        }),
-      );
+      // The plan, the term and the paid invoice commit in one RPC. As two calls
+      // — host update, then invoice insert — a failed insert left a term with
+      // no invoice behind it.
+      expect(sc.rpc).toHaveBeenCalledWith("activate_fixed_rate_plan", {
+        p_host_id: HOST_ID,
+        p_amount: 5767,
+        p_period_start: "2026-09-20",
+        p_period_end: "2027-03-31",
+        p_term_months: 6,
+        p_discount_pct: 10,
+        p_created_by: "Root",
+        // Born paid: blockingInvoiceFilter matches neither `overdue` nor
+        // `pending` past due, so this row can never block.
+        p_status: "paid",
+      });
+      expect(sc.calls.filter((c) => c.table === "invoices")).toHaveLength(0);
+      expect(sc.builderFor("hosts", 0).update).not.toHaveBeenCalled();
     });
 
     it("falls back to a 1-month term when none is sent", async () => {
@@ -136,13 +139,11 @@ describe("PATCH /api/admin/hosts/[id]/plan", () => {
       const { body } = await readJson(await patch({ plan_type: "fixed_rate" }));
       expect(body).toMatchObject({ term_months: 1, term_started: true, amount: 367 });
 
-      expect(sc.builderFor("hosts", 1).update).toHaveBeenCalledWith(
-        expect.objectContaining({
-          fixed_rate_term_months: 1,
-          // A 1-month term buys only the rest of the current month.
-          fixed_rate_term_ends_at: "2026-09-30",
-        }),
-      );
+      expect(rpcArgs(sc)).toMatchObject({
+        p_term_months: 1,
+        // A 1-month term buys only the rest of the current month.
+        p_period_end: "2026-09-30",
+      });
     });
 
     it("falls back to 1 month for a term that is not a configured tier", async () => {
@@ -150,13 +151,7 @@ describe("PATCH /api/admin/hosts/[id]/plan", () => {
 
       const { body } = await readJson(await patch({ plan_type: "fixed_rate", term_months: 9 }));
       expect(body).toMatchObject({ term_months: 1 });
-
-      expect(sc.builderFor("hosts", 1).update).toHaveBeenCalledWith(
-        expect.objectContaining({ fixed_rate_term_months: 1 }),
-      );
-      expect(sc.builderFor("hosts", 1).update).not.toHaveBeenCalledWith(
-        expect.objectContaining({ fixed_rate_term_months: 9 }),
-      );
+      expect(rpcArgs(sc)).toMatchObject({ p_term_months: 1 });
     });
 
     it("records the chosen term in the audit log", async () => {
@@ -211,9 +206,26 @@ describe("PATCH /api/admin/hosts/[id]/plan", () => {
       expect(update).not.toHaveProperty("fixed_rate_term_months");
       expect(update).not.toHaveProperty("fixed_rate_term_ends_at");
       expect(sc.calls.filter((c) => c.table === "invoices")).toHaveLength(0);
+      expect(sc.rpc).not.toHaveBeenCalled();
     });
 
-    it("restarts the term once the old one has expired", async () => {
+    // Same price the host's own re-activation and the daily cron charge: the
+    // whole month from the 1st, never a cheaper stub.
+    it("bills a lapsed Fixed Rate host the whole month from the 1st", async () => {
+      const sc = scenario({
+        host: { plan_type: "fixed_rate", fixed_rate_override: null, fixed_rate_term_ends_at: "2026-08-31" },
+      });
+
+      const { body } = await readJson(await patch({ plan_type: "fixed_rate", term_months: 1 }));
+      expect(body).toMatchObject({ term_started: true, invoice_created: true, amount: 1000 });
+      expect(rpcArgs(sc)).toMatchObject({
+        p_amount: 1000,
+        p_period_start: "2026-09-01",
+        p_period_end: "2026-09-30",
+      });
+    });
+
+    it("never bills twice for days a mid-month term already covered", async () => {
       const sc = scenario({
         host: {
           plan_type: "fixed_rate",
@@ -225,9 +237,7 @@ describe("PATCH /api/admin/hosts/[id]/plan", () => {
 
       const { body } = await readJson(await patch({ plan_type: "fixed_rate", term_months: 6 }));
       expect(body).toMatchObject({ term_started: true, invoice_created: true });
-      expect(sc.builderFor("hosts", 1).update).toHaveBeenCalledWith(
-        expect.objectContaining({ fixed_rate_term_months: 6 }),
-      );
+      expect(rpcArgs(sc)).toMatchObject({ p_term_months: 6, p_period_start: "2026-09-20" });
     });
 
     it("records the paid term without checking for an existing open invoice", async () => {
@@ -236,28 +246,19 @@ describe("PATCH /api/admin/hosts/[id]/plan", () => {
       const { body } = await readJson(await patch({ plan_type: "fixed_rate", term_months: 6 }));
       expect(body).toMatchObject({ term_started: true, invoice_created: true, amount: 5767 });
 
-      // Exactly one invoices call, and it is the insert. The old guard looked
-      // first and skipped when anything was open, handing over a term with no
-      // record that it had been paid for; a paid row stacks nothing, so it
-      // writes unconditionally and unrelated debts stay open on their own.
-      const invoiceCalls = sc.calls.filter((c) => c.table === "invoices");
-      expect(invoiceCalls).toHaveLength(1);
-      expect(invoiceCalls[0].builder.insert).toHaveBeenCalledWith(
-        expect.objectContaining({ amount: 5767, status: "paid" }),
-      );
-      expect(invoiceCalls[0].builder.select).not.toHaveBeenCalled();
+      // No invoices read at all. The old guard looked first and skipped when
+      // anything was open, handing over a term with no record that it had been
+      // paid for; a paid row stacks nothing, so it writes unconditionally and
+      // unrelated debts stay open on their own.
+      expect(sc.calls.filter((c) => c.table === "invoices")).toHaveLength(0);
+      expect(rpcArgs(sc)).toMatchObject({ p_amount: 5767, p_status: "paid" });
     });
 
     it("never writes a pending invoice, whatever the term", async () => {
       for (const term_months of [1, 6, 12]) {
         const sc = scenario();
         await patch({ plan_type: "fixed_rate", term_months });
-        expect(sc.builderFor("invoices", 0).insert).toHaveBeenCalledWith(
-          expect.objectContaining({ status: "paid" }),
-        );
-        expect(sc.builderFor("invoices", 0).insert).not.toHaveBeenCalledWith(
-          expect.objectContaining({ status: "pending" }),
-        );
+        expect(rpcArgs(sc)).toMatchObject({ p_status: "paid" });
       }
     });
 
@@ -267,9 +268,7 @@ describe("PATCH /api/admin/hosts/[id]/plan", () => {
       });
 
       await patch({ plan_type: "fixed_rate", term_months: 6 });
-      expect(sc.builderFor("invoices", 0).insert).toHaveBeenCalledWith(
-        expect.objectContaining({ amount: 733 + 10800 }),
-      );
+      expect(rpcArgs(sc)).toMatchObject({ p_amount: 733 + 10800 });
     });
 
     it("reports 500 when the billing config is missing", async () => {
@@ -347,11 +346,22 @@ describe("PATCH /api/admin/hosts/[id]/plan", () => {
       });
     });
 
-    it("reports 500 when the invoice insert fails", async () => {
-      scenario({ invoices: [{ error: { message: "constraint" } }] });
+    it("reports 500 when the activation RPC fails, having written nothing", async () => {
+      const sc = scenario({ rpc: { error: { message: "constraint" } } });
       await expect(readJson(await patch({ plan_type: "fixed_rate", term_months: 6 }))).resolves.toEqual({
         status: 500,
-        body: { error: "Plan set but failed to create invoice" },
+        body: { error: "Failed to update plan" },
+      });
+      expect(sc.builderFor("hosts", 0).update).not.toHaveBeenCalled();
+      expect(h.afterCallbacks).toHaveLength(0);
+    });
+
+    // Another writer started a term between the route's read and the RPC.
+    it("reports 409 when the RPC finds a term already running", async () => {
+      scenario({ rpc: { error: { message: "ALREADY_ACTIVE" } } });
+      await expect(readJson(await patch({ plan_type: "fixed_rate", term_months: 6 }))).resolves.toEqual({
+        status: 409,
+        body: { error: "Host already has an active Fixed Rate term" },
       });
     });
   });

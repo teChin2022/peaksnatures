@@ -27,6 +27,24 @@ describe("cronBillingDates", () => {
       monthStart: "2026-09-01",
       monthEnd: "2026-09-30",
       monthDueDate: "2026-09-05",
+      lapsedTermDueDate: "2026-09-05",
+    });
+  });
+
+  describe("lapsedTermDueDate — when a lapsed Fixed Rate term's bill falls due", () => {
+    it("is the usual 5th when the term is billed on the 1st", () => {
+      expect(cronBillingDates(JUST_AFTER_BANGKOK_MIDNIGHT).lapsedTermDueDate).toBe("2026-09-05");
+    });
+
+    // A late payer settled on 2 Oct and is billed for October on the 3rd. The
+    // 5th would give them two days; the 6th onwards would block them on sight.
+    it("is five days out on any later day", () => {
+      expect(cronBillingDates(new Date("2026-10-03T00:00:00Z")).lapsedTermDueDate).toBe("2026-10-08");
+      expect(cronBillingDates(new Date("2026-10-20T00:00:00Z")).lapsedTermDueDate).toBe("2026-10-25");
+    });
+
+    it("runs into the next month near the end of this one", () => {
+      expect(cronBillingDates(new Date("2026-10-30T00:00:00Z")).lapsedTermDueDate).toBe("2026-11-04");
     });
   });
 

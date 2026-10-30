@@ -89,6 +89,35 @@ export function computeFixedRateInvoice(
 }
 
 /**
+ * Where a Fixed Rate period bought on `day` starts.
+ *
+ * A host coming from Free or Commission starts on `day` itself and pays a
+ * prorated stub for the rest of that month (computeImmediateFixedRateInvoice).
+ * A host already on Fixed Rate whose term has lapsed is re-entering the
+ * monthly cycle instead, and pays the whole month from the 1st — the same
+ * invoice the daily cron issues when it catches them first, so the two paths
+ * can never charge a lapsed host different amounts.
+ *
+ * Never before the day after their last term, though. Terms end on a month's
+ * last day, so that is normally the 1st anyway; a term that ended mid-month
+ * would otherwise be billed twice for the days it already covered. The same
+ * rule prices a renewal: a host still mid-term buys the term that starts the
+ * day after the paid one ends.
+ */
+export function fixedRateStartDate(
+  host: Pick<Host, "plan_type" | "fixed_rate_term_ends_at">,
+  day: Date,
+): Date {
+  if (host.plan_type !== "fixed_rate") return day;
+  const monthStart = new Date(Date.UTC(day.getUTCFullYear(), day.getUTCMonth(), 1));
+  if (!host.fixed_rate_term_ends_at) return monthStart;
+  const dayAfterTerm = new Date(
+    new Date(`${host.fixed_rate_term_ends_at}T00:00:00Z`).getTime() + 86_400_000,
+  );
+  return dayAfterTerm > monthStart ? dayAfterTerm : monthStart;
+}
+
+/**
  * Compute the single upfront invoice for a plan change that takes effect TODAY.
  *
  * Unlike computeFixedRateInvoice — which anchors a term to its own start date

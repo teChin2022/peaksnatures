@@ -54,12 +54,14 @@ const HOST: {
   plan_type: string;
   fixed_rate_override: number | null;
   fixed_rate_term_ends_at: string | null;
+  wallet_balance: number | null;
 } = {
   id: "host-1",
   name: "Peaks Homestay",
   plan_type: "commission",
   fixed_rate_override: null,
   fixed_rate_term_ends_at: null,
+  wallet_balance: 0,
 };
 
 const slipFile = (name = "slip.jpg", type = "image/jpeg", bytes = 32) =>
@@ -189,6 +191,144 @@ describe("POST /api/host/plan/activate", () => {
       expect(status).toBe(200);
       expect(body).toMatchObject({ verified: false });
       expect(supabase.rpc).not.toHaveBeenCalled();
+    });
+
+    // Paid at 23:55 on 31 Aug (Bangkok) for the 1-day stub the dialog quoted,
+    // uploaded at 00:05 on 1 Sep. Pricing at upload time asked ฿1,500 for a
+    // whole September instead, refused the ฿48 slip — and EasySlip then called
+    // the same slip a duplicate on every retry.
+    it("charges what the quote was on the day the slip was paid", async () => {
+      vi.setSystemTime(new Date("2026-08-31T17:05:00Z"));
+      h.callEasySlipV2.mockResolvedValue(easySlipSuccess(48, "2026-08-31T16:55:00Z"));
+      const supabase = mockClient();
+      const { body } = await readJson(await post({ term_months: "1" }));
+
+      expect(body).toMatchObject({ success: true });
+      expect(rpcArgs(supabase)).toMatchObject({
+        p_amount: 48, // 1500 × 1/31
+        p_period_start: "2026-08-31",
+        p_period_end: "2026-08-31",
+      });
+    });
+
+    // A lapsed Fixed Rate host re-enters monthly billing from the 1st — the same
+    // whole month the daily cron would invoice them, never a cheaper stub.
+    it("charges a lapsed Fixed Rate host the whole month from the 1st", async () => {
+      const supabase = mockClient({ plan_type: "fixed_rate", fixed_rate_term_ends_at: "2026-07-31" });
+      await post({ term_months: "1" });
+      expect(rpcArgs(supabase)).toMatchObject({
+        p_amount: 1500,
+        p_period_start: "2026-08-01",
+        p_period_end: "2026-08-31",
+      });
+    });
+
+    it("still prorates a host coming from Commission on the same day", async () => {
+      const supabase = mockClient({ plan_type: "commission" });
+      await post({ term_months: "1" });
+      expect(rpcArgs(supabase)).toMatchObject({ p_amount: STUB, p_period_start: "2026-08-20" });
+    });
+
+    // A mid-term host renews: the new term starts the day after the paid one,
+    // so not one day they already bought is charged again.
+    it("renews a host mid-term from the day after their term ends", async () => {
+      const supabase = mockClient({ plan_type: "fixed_rate", fixed_rate_term_ends_at: "2026-08-31" });
+      const { body } = await readJson(await post({ term_months: "6" }));
+      expect(body).toMatchObject({ success: true });
+      expect(rpcArgs(supabase)).toMatchObject({
+        p_amount: 8100,
+        p_term_months: 6,
+        p_period_start: "2026-09-01",
+        p_period_end: "2027-02-28",
+      });
+    });
+  });
+
+  // Refused before the EasySlip call: after it, the slip is spent and the
+  // host's transfer would be stranded.
+  describe("refusals that must not spend the slip", () => {
+    it("refuses a host whose wallet is below zero", async () => {
+      const supabase = mockClient({ wallet_balance: -1 });
+      const { status } = await readJson(await post());
+      expect(status).toBe(402);
+      expect(h.callEasySlipV2).not.toHaveBeenCalled();
+      expect(supabase.rpc).not.toHaveBeenCalled();
+    });
+
+    // Mirrors /plan/switch, which quotes a renewing host without the wallet gate.
+    it("does not refuse a renewing host over a negative wallet", async () => {
+      mockClient({ plan_type: "fixed_rate", fixed_rate_term_ends_at: "2026-08-31", wallet_balance: -500 });
+      await expect(readJson(await post())).resolves.toMatchObject({ status: 200 });
+    });
+
+    it.each([
+      ["lapsed", "2026-07-31"],
+      ["running", "2026-08-31"],
+    ])("refuses a Fixed Rate host with a %s term who still owes an invoice", async (_, endsAt) => {
+      const supabase = signIn(h, {
+        tables: {
+          hosts: { data: { ...HOST, plan_type: "fixed_rate", fixed_rate_term_ends_at: endsAt } },
+          ...noDuplicates(),
+          invoices: { data: [{ id: "inv-open" }] },
+        },
+      });
+      const { status } = await readJson(await post());
+      expect(status).toBe(402);
+      expect(h.callEasySlipV2).not.toHaveBeenCalled();
+      expect(supabase.rpc).not.toHaveBeenCalled();
+    });
+
+    it("refuses when the platform has no receiving account configured", async () => {
+      h.getBillingConfig.mockResolvedValue(
+        makeBillingConfig({ fixed_rate_amount: 1500, promptpay_id: null, bank_account_number: null }),
+      );
+      await expect(readJson(await post())).resolves.toMatchObject({ status: 503 });
+      expect(h.callEasySlipV2).not.toHaveBeenCalled();
+    });
+  });
+
+  // After EasySlip verifies a slip it will never verify it again, so a refusal
+  // from then on is the only record of a real transfer.
+  describe("a verified slip that is refused", () => {
+    it("is logged with what an admin needs to settle it", async () => {
+      h.callEasySlipV2.mockResolvedValue(easySlipSuccess(1));
+      await post();
+      for (const cb of h.afterCallbacks) await cb();
+
+      expect(h.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: "PLATFORM_PAYMENT_REJECTED",
+          data: expect.objectContaining({
+            reason: "amount_mismatch",
+            host_id: "host-1",
+            expected_amount: STUB,
+            slip_amount: 1,
+            trans_ref: "TXN-123",
+            slip_path: expect.stringMatching(/^plan-activation\/host-1\//),
+          }),
+        }),
+      );
+    });
+
+    it("is not logged when EasySlip itself could not verify it", async () => {
+      h.callEasySlipV2.mockResolvedValue({
+        success: false,
+        error: { code: "INVALID", message: "unreadable" },
+      } as unknown as EasySlipV2Response);
+      await post();
+      for (const cb of h.afterCallbacks) await cb();
+      expect(h.logEvent).not.toHaveBeenCalled();
+    });
+
+    // Two activations with two different slips can both clear the active-term
+    // check; the RPC re-checks it under the host lock.
+    it("maps the RPC's ALREADY_ACTIVE to a 409 and logs it", async () => {
+      mockClient({}, { activate_fixed_rate_plan: { error: { message: "ALREADY_ACTIVE" } } });
+      await expect(readJson(await post())).resolves.toMatchObject({ status: 409 });
+      for (const cb of h.afterCallbacks) await cb();
+      expect(h.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ data: expect.objectContaining({ reason: "already_active" }) }),
+      );
     });
   });
 
@@ -321,15 +461,6 @@ describe("POST /api/host/plan/activate", () => {
       signOut(h);
       await expect(readJson(await post()))
         .resolves.toEqual({ status: 401, body: { error: "Unauthorized" } });
-    });
-
-    // The quote and the payment are minutes apart; an admin may have moved the
-    // host in between, and a mid-term host must not be double-charged.
-    it("refuses a host already mid-term on Fixed Rate", async () => {
-      const supabase = mockClient({ plan_type: "fixed_rate", fixed_rate_term_ends_at: "2027-02-28" });
-      const { status } = await readJson(await post());
-      expect(status).toBe(400);
-      expect(supabase.rpc).not.toHaveBeenCalled();
     });
 
     it("lets a host whose term has already ended pay for a new one", async () => {

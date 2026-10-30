@@ -5,7 +5,13 @@ import {
 } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { logEvent, EventType } from "@/lib/history-log";
-import { billingToday, computeImmediateFixedRateInvoice, getBillingConfig, isValidTermMonths } from "@/lib/billing";
+import {
+  billingToday,
+  computeImmediateFixedRateInvoice,
+  fixedRateStartDate,
+  getBillingConfig,
+  isValidTermMonths,
+} from "@/lib/billing";
 import type { PlatformBillingConfig } from "@/types/database";
 
 export async function PATCH(
@@ -99,7 +105,14 @@ export async function PATCH(
       // fixed_rate — prevents an idempotent admin re-save (the plan dialog
       // pre-selects the current plan) from double-billing or truncating a term.
       if (!alreadyActiveFixedRate) {
-        invoicePayload = computeImmediateFixedRateInvoice(current, config as PlatformBillingConfig, termMonths, today);
+        // A lapsed Fixed Rate host pays the whole month from the 1st, exactly as
+        // their own re-activation and the daily cron would charge them.
+        invoicePayload = computeImmediateFixedRateInvoice(
+          current,
+          config as PlatformBillingConfig,
+          termMonths,
+          fixedRateStartDate(current, today),
+        );
         updateData.fixed_rate_term_months = termMonths;
         updateData.fixed_rate_term_started_at = invoicePayload.period_start;
         updateData.fixed_rate_term_ends_at = invoicePayload.period_end;
@@ -111,20 +124,10 @@ export async function PATCH(
       updateData.fixed_rate_term_ends_at = null;
     }
 
-    const { error: updateError } = await sc
-      .from("hosts")
-      .update(updateData as never)
-      .eq("id", id);
-
-    if (updateError) {
-      console.error("[Admin SetPlan] update error:", updateError);
-      return NextResponse.json({ error: "Failed to update plan" }, { status: 500 });
-    }
-
     if (invoicePayload && invoicePayload.amount > 0) {
-      // Born paid, exactly as activate_fixed_rate_plan writes it: an admin
+      // Born paid, through the same RPC the host-paid activation uses: an admin
       // assigning Fixed Rate is recording an arrangement they have already
-      // settled, not sending the host a bill. Two things follow from that.
+      // settled, not sending the host a bill. Three things follow from that.
       //
       // It cannot block. blockingInvoiceFilter matches only `overdue` or
       // `pending` past its due date, so a paid row never trips isHostBlocked —
@@ -132,30 +135,33 @@ export async function PATCH(
       // this as `pending` on a 5-day fuse meant a 12-month term could darken a
       // host's booking page a week after an admin touched their plan.
       //
-      // And it is written unconditionally. The old guard skipped the insert
-      // when any invoice was already open, to avoid stacking a second one the
-      // host would have to pay; a paid row stacks nothing, and skipping it now
-      // would silently hand over a term with no record that it was paid for.
+      // It is written unconditionally. The old guard skipped the insert when
+      // any invoice was already open, to avoid stacking a second one the host
+      // would have to pay; a paid row stacks nothing, and skipping it would
+      // silently hand over a term with no record that it was paid for.
       // Unrelated debts stay open on their own terms.
-      const { error: invoiceError } = await sc
-        .from("invoices")
-        .insert({
-          host_id: id,
-          amount: invoicePayload.amount,
-          period_start: invoicePayload.period_start,
-          period_end: invoicePayload.period_end,
-          term_months: invoicePayload.term_months,
-          discount_pct: invoicePayload.discount_pct,
-          due_date: invoicePayload.period_start,
-          status: "paid",
-          paid_at: new Date().toISOString(),
-          created_by: adminName,
-          updated_by: adminName,
-        } as never);
+      //
+      // And the plan, the term and the invoice commit together. Two calls — host
+      // update, then invoice insert — could leave a term with no invoice.
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const { error: rpcError } = await (sc.rpc as any)("activate_fixed_rate_plan", {
+        p_host_id: id,
+        p_amount: invoicePayload.amount,
+        p_period_start: invoicePayload.period_start,
+        p_period_end: invoicePayload.period_end,
+        p_term_months: invoicePayload.term_months,
+        p_discount_pct: invoicePayload.discount_pct,
+        p_created_by: adminName,
+        p_status: "paid",
+      });
 
-      if (invoiceError) {
-        console.error("[Admin SetPlan] invoice insert error:", invoiceError);
-        return NextResponse.json({ error: "Plan set but failed to create invoice" }, { status: 500 });
+      if (rpcError) {
+        console.error("[Admin SetPlan] activation error:", rpcError);
+        // Another writer started a term between the read above and now.
+        if (String(rpcError.message || "").includes("ALREADY_ACTIVE")) {
+          return NextResponse.json({ error: "Host already has an active Fixed Rate term" }, { status: 409 });
+        }
+        return NextResponse.json({ error: "Failed to update plan" }, { status: 500 });
       }
 
       invoiceCreated = true;
@@ -178,6 +184,18 @@ export async function PATCH(
           req,
         });
       });
+    } else {
+      // Nothing to invoice: Free, Commission, a re-save on a host mid-term, or a
+      // comped (฿0) term.
+      const { error: updateError } = await sc
+        .from("hosts")
+        .update(updateData as never)
+        .eq("id", id);
+
+      if (updateError) {
+        console.error("[Admin SetPlan] update error:", updateError);
+        return NextResponse.json({ error: "Failed to update plan" }, { status: 500 });
+      }
     }
 
     after(async () => {

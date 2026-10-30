@@ -27,7 +27,7 @@ import { fmtDate, fmtDateStr } from "@/lib/format-date";
 import { getPlanExpiryInfo } from "@/lib/plan-expiry";
 import { fmtTHB } from "@/lib/format-currency";
 import { billingToday, billingTodayStr } from "@/lib/billing-dates";
-import { computeImmediateFixedRateInvoice } from "@/lib/billing-calc";
+import { computeImmediateFixedRateInvoice, fixedRateStartDate } from "@/lib/billing-calc";
 import type { PlatformBillingConfig } from "@/types/database";
 
 interface HostRow {
@@ -923,7 +923,8 @@ function FixedRateTermField({
       { fixed_rate_override: host.fixed_rate_override },
       config,
       months,
-      today,
+      // The route prices a lapsed Fixed Rate host from the 1st; quote the same.
+      fixedRateStartDate(host, today),
     );
 
   const monthly = host.fixed_rate_override || config.fixed_rate_amount;
@@ -966,8 +967,9 @@ function FixedRateTermField({
                 </span>
               )}
               {/* A 1-month tier is "put this host on monthly billing", not a
-                  prepaid month — it buys only the rest of the current month,
-                  which is why its price looks small. */}
+                  prepaid month — for a host new to Fixed Rate it buys only the
+                  rest of the current month, which is why its price can look
+                  small. A lapsed Fixed Rate host pays the whole month. */}
               <p className="text-xs font-medium text-earth-800">
                 {tier.months === 1 ? "Monthly" : `${tier.months} months`}
               </p>

@@ -3,6 +3,7 @@ import {
   billingToday,
   computeFixedRateInvoice,
   computeImmediateFixedRateInvoice,
+  fixedRateStartDate,
   getEffectiveCommissionPct,
   getEffectiveFixedRate,
   getFixedRateDiscount,
@@ -329,6 +330,43 @@ describe("computeImmediateFixedRateInvoice", () => {
 
 // billingToday itself is covered in billing-dates.test.ts; importing it from
 // @/lib/billing here also holds the re-export in place for the API routes.
+describe("fixedRateStartDate", () => {
+  const day = utc(2026, 9, 20);
+
+  it("starts a host new to Fixed Rate on the day itself, so they pay a stub", () => {
+    for (const plan_type of ["free", "commission"]) {
+      expect(fixedRateStartDate({ plan_type, fixed_rate_term_ends_at: null }, day)).toEqual(day);
+    }
+  });
+
+  // Re-entering the monthly cycle costs the whole month — the same invoice the
+  // daily cron would issue, never a cheaper stub.
+  it("starts a lapsed Fixed Rate host on the 1st", () => {
+    expect(
+      fixedRateStartDate({ plan_type: "fixed_rate", fixed_rate_term_ends_at: "2026-08-31" }, day),
+    ).toEqual(utc(2026, 9, 1));
+  });
+
+  it("starts a Fixed Rate host who never had a term on the 1st", () => {
+    expect(fixedRateStartDate({ plan_type: "fixed_rate", fixed_rate_term_ends_at: null }, day)).toEqual(
+      utc(2026, 9, 1),
+    );
+  });
+
+  // A renewal: the term is still running, so the new one picks up after it.
+  it("starts a host still mid-term the day after their term ends", () => {
+    expect(
+      fixedRateStartDate({ plan_type: "fixed_rate", fixed_rate_term_ends_at: "2026-09-30" }, day),
+    ).toEqual(utc(2026, 10, 1));
+  });
+
+  it("never reaches back over days a mid-month term already covered", () => {
+    expect(
+      fixedRateStartDate({ plan_type: "fixed_rate", fixed_rate_term_ends_at: "2026-09-12" }, day),
+    ).toEqual(utc(2026, 9, 13));
+  });
+});
+
 describe("billingToday feeding the invoice", () => {
   it("bills a host activating just after Bangkok midnight for whole months only", () => {
     // The reported case: ฿750/month × 3 months, paid at 01:00 on 1 September.

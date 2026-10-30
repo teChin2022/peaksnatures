@@ -257,5 +257,33 @@ describe("POST /api/host/wallet/topup", () => {
         message: expect.stringContaining("Receiver does not match"),
       });
     });
+
+    // An unconfigured receiver used to accept a slip paid to anyone. Refused
+    // before EasySlip sees — and remembers — the slip.
+    it("refuses when the platform has no receiving account configured", async () => {
+      h.getBillingConfig.mockResolvedValue({ promptpay_id: null, bank_account_number: null });
+      await expect(readJson(await post({ amount: "1000" }))).resolves.toMatchObject({ status: 503 });
+      expect(h.callEasySlipV2).not.toHaveBeenCalled();
+    });
+
+    // EasySlip won't verify the slip again, so this log is the only record of
+    // a real transfer an admin may have to settle by hand.
+    it("logs a verified slip it then refuses", async () => {
+      h.callEasySlipV2.mockResolvedValue(easySlipSuccess(2000));
+      await post({ amount: "1000" });
+      for (const cb of h.afterCallbacks) await cb();
+
+      expect(h.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: "PLATFORM_PAYMENT_REJECTED",
+          data: expect.objectContaining({
+            reason: "amount_mismatch",
+            expected_amount: 1000,
+            slip_amount: 2000,
+            trans_ref: "TXN-123",
+          }),
+        }),
+      );
+    });
   });
 });

@@ -6,8 +6,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { fmtDateStr } from "@/lib/format-date";
-import generatePayload from "promptpay-qr";
-import { QRCodeSVG } from "qrcode.react";
+import { PromptPayQr } from "@/components/dashboard/promptpay-qr";
 import { InvoicePayDialog } from "@/components/dashboard/invoice-pay-dialog";
 import { PlanActivationDialog, type PlanQuote } from "@/components/dashboard/plan-activation-dialog";
 import { LOW_WALLET_THRESHOLD } from "@/lib/wallet-thresholds";
@@ -184,6 +183,9 @@ export default function DashboardBillingPage() {
   // Minimum balance the switch API asked for when the empty-wallet gate stopped
   // the host. Set = show the "top up in the Wallet page" prompt.
   const [walletLowRequired, setWalletLowRequired] = useState<number | null>(null);
+  // How far below zero the wallet is, when the negative-wallet gate stopped a
+  // switch to Fixed Rate. Set = the same top-up prompt, worded for the debt.
+  const [walletDebt, setWalletDebt] = useState<number | null>(null);
   // The 402 quote from /plan/switch. Nothing is persisted server-side until
   // the host pays, so closing the dialog needs no cleanup.
   const [planQuote, setPlanQuote] = useState<PlanQuote | null>(null);
@@ -224,8 +226,7 @@ export default function DashboardBillingPage() {
         }),
       });
       if (res.ok) {
-        const d = await res.json();
-        toast.success(d.applied_immediately ? t("switchAppliedImmediate") : t("switchScheduled"));
+        toast.success(t("switchAppliedImmediate"));
         fetchBilling();
         window.dispatchEvent(new Event("host:plan-changed"));
       } else {
@@ -244,6 +245,12 @@ export default function DashboardBillingPage() {
           // Top-up lives on the Wallet page (QR, amount, slip upload) — point the
           // host there instead of duplicating that form in a sheet here.
           setWalletLowRequired(d.required ?? LOW_WALLET_THRESHOLD);
+          return;
+        }
+        // Fixed Rate never collects a wallet debt, so it has to be cleared first.
+        if (d.error === "WALLET_NEGATIVE") {
+          setConfirmDialog(null);
+          setWalletDebt(Math.abs(d.wallet_balance ?? 0));
           return;
         }
         // Fixed Rate is paid for before it starts: the switch only quotes, and
@@ -328,10 +335,11 @@ export default function DashboardBillingPage() {
   const isPastFreeExpiry =
     getPlanExpiryInfo(data.plan_type, data.plan_free_expires_at).phase !== "active";
   const isFreeExpired = isPastFreeExpiry && !data.plan_pending_type;
+  // Monthly terms count too: leaving forfeits their paid days just the same,
+  // and the server logs them as forfeited_days whatever the term length.
   const hasActiveTerm = Boolean(
     data.plan_type === "fixed_rate" &&
       data.fixed_rate_term_months &&
-      data.fixed_rate_term_months > 1 &&
       data.fixed_rate_term_ends_at &&
       data.fixed_rate_term_ends_at >= todayStr,
   );
@@ -340,6 +348,17 @@ export default function DashboardBillingPage() {
     if (planKey === "fixed_rate") {
       setSelectedTermMonths(null);
       setTermPickerOpen(true);
+      return;
+    }
+    // /plan/switch's wallet gate, checked before the host confirms instead of
+    // after. An unpaid Fixed Rate invoice still comes first, as it does there.
+    // shortcut: data.invoices is the last 5 only, so an older open invoice is
+    // asked for after the top-up rather than before; page the list if that matters.
+    const owesInvoice =
+      data.plan_type === "fixed_rate" &&
+      data.invoices.some((inv) => inv.status === "pending" || inv.status === "overdue");
+    if (planKey === "commission" && data.wallet_balance < LOW_WALLET_THRESHOLD && !owesInvoice) {
+      setWalletLowRequired(LOW_WALLET_THRESHOLD);
       return;
     }
     setConfirmDialog({ type: "switch", planType: planKey });
@@ -725,9 +744,7 @@ export default function DashboardBillingPage() {
                         ) : data.platform_payment?.promptpay_id ? (
                           <>
                             <p className="text-sm text-earth-500 mb-3">{locale === "th" ? "สแกน QR เพื่อชำระเงิน" : "Scan QR to pay"}</p>
-                            <div className="bg-white p-3 rounded-2xl shadow-sm border border-earth-100">
-                              <QRCodeSVG value={generatePayload(data.platform_payment.promptpay_id, { amount: paymentAmount })} size={160} level="M" />
-                            </div>
+                            <PromptPayQr promptpayId={data.platform_payment.promptpay_id} amount={paymentAmount} />
                             {data.platform_payment.bank_account_name && (
                               <p className="mt-3 text-sm font-medium text-earth-700">{data.platform_payment.bank_account_name}</p>
                             )}
@@ -846,8 +863,11 @@ export default function DashboardBillingPage() {
             const showLeaveTermWarning =
               hasActiveTerm && confirmDialog.planType !== "fixed_rate";
             const isFixedRateSwitch = confirmDialog.planType === "fixed_rate";
+            // Mirrors /plan/switch: only a term still running can be renewed. A
+            // lapsed one is re-activated and paid for up front, not scheduled
+            // for "the day after" a term that is already over.
             const isRenewal =
-              isFixedRateSwitch && data.plan_type === "fixed_rate";
+              isFixedRateSwitch && data.plan_type === "fixed_rate" && !termExpired;
             const renewalEffectiveDate = data.fixed_rate_term_ends_at
               ? (() => {
                   const end = new Date(data.fixed_rate_term_ends_at);
@@ -1021,12 +1041,17 @@ export default function DashboardBillingPage() {
       </Dialog>
 
       {/* ── Wallet-low prompt → Wallet page (where top-up actually lives) ── */}
-      <Dialog open={walletLowRequired !== null} onOpenChange={(open) => { if (!open) setWalletLowRequired(null); }}>
+      <Dialog
+        open={walletLowRequired !== null || walletDebt !== null}
+        onOpenChange={(open) => { if (!open) { setWalletLowRequired(null); setWalletDebt(null); } }}
+      >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>{t("walletLowTitle")}</DialogTitle>
             <DialogDescription>
-              {t("walletLowDesc", { required: walletLowRequired ?? LOW_WALLET_THRESHOLD })}
+              {walletDebt !== null
+                ? t("walletNegativeDesc", { debt: walletDebt.toLocaleString() })
+                : t("walletLowDesc", { required: walletLowRequired ?? LOW_WALLET_THRESHOLD })}
             </DialogDescription>
           </DialogHeader>
 
@@ -1038,7 +1063,7 @@ export default function DashboardBillingPage() {
           </div>
 
           <DialogFooter>
-            <Button variant="outline" onClick={() => setWalletLowRequired(null)}>
+            <Button variant="outline" onClick={() => { setWalletLowRequired(null); setWalletDebt(null); }}>
               {t("cancel")}
             </Button>
             <Button asChild className="bg-brand hover:bg-brand-hover">

@@ -145,21 +145,48 @@ starts:
    one transaction
 3. An abandoned payment therefore leaves no invoice and no plan change behind
 
-Mid-month entry is prorated: `computeImmediateFixedRateInvoice`
-(`src/lib/billing.ts`) charges the rest of the current month at the day rate,
-plus whole discounted months for a multi-month term. A `term_months` of 1 means
-"monthly billing" and buys only the part-month — the 1st-of-month cron bills the
-rest as usual. "The current month" and the day it starts on are read off the
-Bangkok calendar — pass `billingToday()`, never a UTC-derived date.
+`activate_fixed_rate_plan` (migration 070) is the **only** writer of a Fixed
+Rate term and its invoice: activation, renewal and admin Set Plan (`paid`), the
+cron's lapsed-term billing and legacy pending renewals (`pending`). Never write
+the term and the invoice in two calls — a failure between them leaves a term
+nobody was billed for.
+
+Mid-month entry is prorated for a host coming from Free or Commission:
+`computeImmediateFixedRateInvoice` (`src/lib/billing.ts`) charges the rest of
+the current month at the day rate, plus whole discounted months for a
+multi-month term. A host already on Fixed Rate whose term lapsed pays the whole
+month from the 1st instead — `fixedRateStartDate()` decides the start for every
+quote and charge (host switch, activation, admin Set Plan and its dialog). A
+`term_months` of 1 means "monthly billing": after the part-month, the cron bills
+each month as it comes. "The current month" and the day it starts on are read
+off the Bangkok calendar — pass `billingToday()`, never a UTC-derived date.
+
+The cron bills a lapsed Fixed Rate term (ended, or never set) **every day**, not
+only on the 1st: the whole current month, due the 5th on the 1st and five days
+out otherwise (`src/app/api/cron/billing/lapsed.ts`). A host still owing an
+invoice is skipped, so bills never stack; the morning after they pay, they are
+billed for the current month. Before this, a missed 1st or a late payment meant
+a free month.
 
 Switching to Commission applies in place and requires a wallet of at least
 `LOW_WALLET_THRESHOLD` (฿300); leaving Fixed Rate mid-term forfeits the
 remainder with no refund, recorded as `forfeited_days` in the audit log.
+Switching to Fixed Rate requires a wallet of at least ฿0 (`WALLET_NEGATIVE`) —
+Fixed Rate never collects a wallet debt.
 
-`plan_pending_*` now only ever describes a **Fixed Rate renewal** (the new term
-starts the day after the current one ends). The cron's apply-pending section
-still handles a pending `commission` switch so pre-existing rows drain — don't
-delete that branch as unreachable.
+Renewing a term that is still running is quoted and paid exactly like
+activation (`/plan/switch` 402 → `/plan/activate`) and applies at once:
+`fixedRateStartDate()` starts the new term the day after the paid one ends, so
+no day is charged twice. A lapsed term is re-activated from the 1st instead.
+Nothing writes `plan_pending_*` any more. The cron's apply-pending section (its
+renewal and `commission` branches) only drains rows written before that — don't
+delete it as unreachable until they have aged out.
+
+Platform payment routes (activate, wallet top-up, invoice pay) must refuse
+everything they can **before** calling EasySlip: EasySlip reports a slip it has
+verified once as a duplicate forever, so any refusal after that strands a real
+transfer. Those refusals are logged as `PLATFORM_PAYMENT_REJECTED` (with the
+transRef) for an admin to settle by hand.
 
 ### The billing calendar (Asia/Bangkok)
 
@@ -199,7 +226,7 @@ it — `@/lib/billing` cannot be imported from the client (it reaches
 `next/headers` and `ioredis`), but it re-exports everything here for server
 callers. Same pattern as `wallet-thresholds.ts`.
 
-The daily cron derives all fifteen of its dates from one anchor via
+The daily cron derives all sixteen of its dates from one anchor via
 `cronBillingDates()` (`src/app/api/cron/billing/dates.ts`), which is pure and
 unit-tested — the route itself has no tests, so date arithmetic belongs in that
 module, not inline.
@@ -241,5 +268,13 @@ Per-host LINE credentials (`line_channel_access_token`, `line_user_id`) are stor
 ### Security
 
 Security headers are set in `next.config.ts` (CSP, HSTS, X-Frame-Options). Auth is session-based via Supabase, enforced at the middleware level. Cloudflare Turnstile is used for CAPTCHA. Security PINs and passwords are hashed with `bcryptjs`.
+
+RLS filters rows, not columns. A host's session may update only an allowlist of
+`hosts` columns — the profile and settings fields the dashboard writes from the
+browser (migration 069). Before writing a new `hosts` column from a
+`"use client"` page, add it to that grant, or the save fails with 42501.
+Billing columns (plan, term, wallet, overrides, status) are written only by API
+routes on the service-role client. The `bookings` table has no such limit yet —
+a host can still update their own bookings directly; that hardening is pending.
 
 Rate limiting (`src/lib/rate-limit.ts`) is Redis-backed via `ioredis` when `REDIS_URL` is set, with an in-memory per-process fallback otherwise. Both Turnstile (`src/lib/turnstile.ts`) and the rate limiter are designed to **fail open** — Cloudflare or Redis being unreachable must never block legitimate bookings.

@@ -27,6 +27,8 @@ export interface PlanQuote {
   discount_pct: number;
   prorated_days: number;
   days_in_month: number;
+  /** A running term being renewed: the period starts the day after it ends. */
+  renewal?: boolean;
 }
 
 interface PlanActivationDialogProps {
@@ -161,8 +163,8 @@ export function PlanActivationDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto">
         <DialogHeader>
-          <DialogTitle>{t("title")}</DialogTitle>
-          <DialogDescription>{t("desc")}</DialogDescription>
+          <DialogTitle>{t(quote?.renewal ? "renewTitle" : "title")}</DialogTitle>
+          <DialogDescription>{t(quote?.renewal ? "renewDesc" : "desc")}</DialogDescription>
         </DialogHeader>
 
         <SlipPaymentFields
