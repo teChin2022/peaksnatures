@@ -6,8 +6,7 @@ import { useTranslations, useLocale } from "next-intl";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { fmtDateStr } from "@/lib/format-date";
-import generatePayload from "promptpay-qr";
-import { QRCodeSVG } from "qrcode.react";
+import { PromptPayQr } from "@/components/dashboard/promptpay-qr";
 import { InvoicePayDialog } from "@/components/dashboard/invoice-pay-dialog";
 import { PlanActivationDialog, type PlanQuote } from "@/components/dashboard/plan-activation-dialog";
 import { LOW_WALLET_THRESHOLD } from "@/lib/wallet-thresholds";
@@ -734,9 +733,7 @@ export default function DashboardBillingPage() {
                         ) : data.platform_payment?.promptpay_id ? (
                           <>
                             <p className="text-sm text-earth-500 mb-3">{locale === "th" ? "สแกน QR เพื่อชำระเงิน" : "Scan QR to pay"}</p>
-                            <div className="bg-white p-3 rounded-2xl shadow-sm border border-earth-100">
-                              <QRCodeSVG value={generatePayload(data.platform_payment.promptpay_id, { amount: paymentAmount })} size={160} level="M" />
-                            </div>
+                            <PromptPayQr promptpayId={data.platform_payment.promptpay_id} amount={paymentAmount} />
                             {data.platform_payment.bank_account_name && (
                               <p className="mt-3 text-sm font-medium text-earth-700">{data.platform_payment.bank_account_name}</p>
                             )}
