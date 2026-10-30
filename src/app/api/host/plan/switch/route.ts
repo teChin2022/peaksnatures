@@ -7,6 +7,7 @@ import { logEvent, EventType } from "@/lib/history-log";
 import {
   billingToday,
   computeImmediateFixedRateInvoice,
+  fixedRateStartDate,
   getBillingConfig,
   isValidTermMonths,
 } from "@/lib/billing";
@@ -79,18 +80,21 @@ export async function POST(req: NextRequest) {
       wallet_balance: number | null;
     };
 
+    const today = billingToday();
+    const todayStr = today.toISOString().split("T")[0];
+
+    // A renewal extends a term that is still running. Once the term has ended
+    // (or never existed) there is nothing to extend: the host re-activates
+    // instead, paying up front like anyone (re-)entering Fixed Rate. Scheduling
+    // it as a renewal dated the day after a long-gone term billed it in arrears.
     const isFixedRateRenewal =
-      typedHost.plan_type === "fixed_rate" && plan_type === "fixed_rate";
+      typedHost.plan_type === "fixed_rate" &&
+      plan_type === "fixed_rate" &&
+      !!typedHost.fixed_rate_term_ends_at &&
+      typedHost.fixed_rate_term_ends_at >= todayStr;
 
-    if (typedHost.plan_type === plan_type && !isFixedRateRenewal) {
+    if (typedHost.plan_type === plan_type && plan_type !== "fixed_rate") {
       return NextResponse.json({ error: "Already on this plan" }, { status: 400 });
-    }
-
-    if (isFixedRateRenewal && !typedHost.fixed_rate_term_ends_at) {
-      return NextResponse.json(
-        { error: "No active term to renew. Pick a term to start fresh." },
-        { status: 400 },
-      );
     }
 
     if (typedHost.plan_pending_type) {
@@ -101,9 +105,11 @@ export async function POST(req: NextRequest) {
     }
 
     // A fixed-rate host can't walk away from an unpaid invoice by switching to
-    // Commission — the debt has to be settled first. Checked before the wallet
-    // gate below so the host is told to pay the invoice, not to top up.
-    if (typedHost.plan_type === "fixed_rate" && plan_type === "commission") {
+    // Commission, nor buy a fresh term past one — the old invoice would keep
+    // blocking them either way. The debt has to be settled first. Checked
+    // before the wallet gates below so the host is told to pay the invoice,
+    // not to top up.
+    if (typedHost.plan_type === "fixed_rate" && !isFixedRateRenewal) {
       const { data: openInvoices } = await sc
         .from("invoices")
         .select("id, amount, due_date")
@@ -141,18 +147,31 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const today = billingToday();
-
     // ── Starting Fixed Rate: quote now, activate on payment ──
     // Nothing is written here. The host is quoted, and POST /plan/activate
     // recomputes this same figure from the slip before anything is persisted,
     // so an abandoned payment leaves no invoice and no plan change behind.
     if (plan_type === "fixed_rate" && !isFixedRateRenewal) {
+      // Fixed Rate never touches the wallet, so a debt carried over from
+      // Commission would never be collected — and switching would lift the
+      // block that debt earned.
+      if ((typedHost.wallet_balance ?? 0) < 0) {
+        return NextResponse.json(
+          { error: "WALLET_NEGATIVE", wallet_balance: typedHost.wallet_balance },
+          { status: 402 },
+        );
+      }
+
       const config = await getBillingConfig();
       if (!config) {
         return NextResponse.json({ error: "Billing config not found" }, { status: 500 });
       }
-      const quote = computeImmediateFixedRateInvoice(typedHost, config, term_months!, today);
+      const quote = computeImmediateFixedRateInvoice(
+        typedHost,
+        config,
+        term_months!,
+        fixedRateStartDate(typedHost, today),
+      );
 
       return NextResponse.json(
         { error: "PAYMENT_REQUIRED", plan_type, ...quote },

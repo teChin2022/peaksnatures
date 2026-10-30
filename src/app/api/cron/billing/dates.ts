@@ -40,6 +40,12 @@ export interface CronBillingDates {
   monthEnd: string;
   /** 5th of the current month — monthly invoice due_date. */
   monthDueDate: string;
+  /**
+   * due_date for a lapsed term billed today: the usual 5th on the 1st, five
+   * days out on any later day — by mid-month the 5th has passed, and an
+   * invoice born past its due date would block the host the moment it exists.
+   */
+  lapsedTermDueDate: string;
 }
 
 /** `base` shifted by whole days, as YYYY-MM-DD. */
@@ -60,6 +66,7 @@ function monthDayStr(base: Date, monthOffset: number, day: number): string {
 
 export function cronBillingDates(now: Date = new Date()): CronBillingDates {
   const todayDate = billingToday(now);
+  const isFirstOfMonth = todayDate.getUTCDate() === 1;
 
   return {
     todayDate,
@@ -73,10 +80,11 @@ export function cronBillingDates(now: Date = new Date()): CronBillingDates {
     ago5DaysNext: dayStr(todayDate, -4),
     dueWarnDay: dayStr(todayDate, 2),
     dueInFiveDays: dayStr(todayDate, 5),
-    isFirstOfMonth: todayDate.getUTCDate() === 1,
+    isFirstOfMonth,
     monthStart: monthDayStr(todayDate, 0, 1),
     // Day 0 of next month is the last day of this one.
     monthEnd: monthDayStr(todayDate, 1, 0),
     monthDueDate: monthDayStr(todayDate, 0, 5),
+    lapsedTermDueDate: isFirstOfMonth ? monthDayStr(todayDate, 0, 5) : dayStr(todayDate, 5),
   };
 }

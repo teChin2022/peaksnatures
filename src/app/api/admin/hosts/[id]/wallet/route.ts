@@ -25,7 +25,8 @@ export async function POST(
     const body = await req.json();
     const { amount, reason } = body;
 
-    if (typeof amount !== "number" || amount === 0) {
+    // The wallet holds whole baht (INTEGER), as every other wallet write does.
+    if (typeof amount !== "number" || !Number.isInteger(amount) || amount === 0) {
       return NextResponse.json({ error: "Invalid amount" }, { status: 400 });
     }
 
@@ -43,45 +44,27 @@ export async function POST(
       .single();
     const adminName = (adminRow as { name: string } | null)?.name || user.id;
 
-    // Atomic wallet adjustment using advisory lock
-    const { data: host } = await sc
-      .from("hosts")
-      .select("wallet_balance")
-      .eq("id", id)
-      .single();
+    // Balance, ledger row and wallet_negative_since in one transaction, under
+    // the host lock the other wallet RPCs take. Reading the balance here and
+    // writing balance + amount back overwrote any commission deducted in
+    // between, and never kept wallet_negative_since in step with the balance.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const { data: result, error: adjustError } = await (sc.rpc as any)("adjust_wallet", {
+      p_host_id: id,
+      p_amount: amount,
+      p_description: `Admin adjustment: ${reason}`,
+      p_created_by: adminName,
+    });
 
-    if (!host) {
-      return NextResponse.json({ error: "Host not found" }, { status: 404 });
-    }
-
-    const newBalance = (host as { wallet_balance: number }).wallet_balance + amount;
-
-    const { error: updateError } = await sc
-      .from("hosts")
-      .update({ wallet_balance: newBalance, updated_by: adminName } as never)
-      .eq("id", id);
-
-    if (updateError) {
-      console.error("[Admin WalletAdjust] update error:", updateError);
+    if (adjustError) {
+      console.error("[Admin WalletAdjust] RPC error:", adjustError);
+      if (String(adjustError.message || "").includes("HOST_NOT_FOUND")) {
+        return NextResponse.json({ error: "Host not found" }, { status: 404 });
+      }
       return NextResponse.json({ error: "Failed to adjust wallet" }, { status: 500 });
     }
 
-    // Insert transaction record
-    const { error: txnError } = await sc
-      .from("wallet_transactions")
-      .insert({
-        host_id: id,
-        type: "adjustment",
-        amount,
-        balance_after: newBalance,
-        description: `Admin adjustment: ${reason}`,
-        status: "verified",
-        created_by: adminName,
-      } as never);
-
-    if (txnError) {
-      console.error("[Admin WalletAdjust] transaction insert error:", txnError);
-    }
+    const newBalance = (result as { new_balance: number }[])?.[0]?.new_balance ?? 0;
 
     after(async () => {
       await logEvent({

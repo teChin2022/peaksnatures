@@ -280,10 +280,78 @@ describe("POST /api/host/plan/switch", () => {
       expect(hostUpdate(supabase)).not.toHaveProperty("plan_type");
     });
 
-    it("refuses to renew when there is no term to renew", async () => {
-      mockClient({ plan_type: "fixed_rate", fixed_rate_term_ends_at: null });
+    it("still schedules a renewal on the term's last day", async () => {
+      mockClient({ plan_type: "fixed_rate", fixed_rate_term_months: 1, fixed_rate_term_ends_at: "2026-08-20" });
+      const { status, body } = await readJson(await post({ plan_type: "fixed_rate", term_months: 6 }));
+      expect(status).toBe(200);
+      expect(body).toMatchObject({ plan_pending_effective_at: "2026-08-21" });
+    });
+  });
+
+  // Once the term is over there is nothing left to renew. This used to schedule
+  // a "renewal" dated the day after a long-gone term, billed in arrears.
+  describe("re-activating a lapsed Fixed Rate term", () => {
+    it.each([
+      ["has ended", "2026-07-31"],
+      ["never existed", null],
+    ])("quotes the whole month from the 1st when the term %s", async (_, endsAt) => {
+      const supabase = mockClient({ plan_type: "fixed_rate", fixed_rate_term_ends_at: endsAt });
+      const { status, body } = await readJson(await post({ plan_type: "fixed_rate", term_months: 1 }));
+
+      expect(status).toBe(402);
+      expect(body).toMatchObject({
+        error: "PAYMENT_REQUIRED",
+        amount: 1500,
+        stub_amount: 0,
+        period_start: "2026-08-01",
+        period_end: "2026-08-31",
+      });
+      expect(hostUpdate(supabase)).toBeNull();
+    });
+
+    it("prices a prepaid term from the 1st too", async () => {
+      mockClient({ plan_type: "fixed_rate", fixed_rate_term_ends_at: "2026-07-31" });
+      const { body } = await readJson(await post({ plan_type: "fixed_rate", term_months: 6 }));
+      expect(body).toMatchObject({
+        amount: 8100, // 1500 × 6 × 0.90, no stub
+        period_start: "2026-08-01",
+        period_end: "2027-01-31",
+      });
+    });
+
+    // A fresh term would leave the old invoice blocking the host anyway.
+    it("demands the open invoice before quoting a new term", async () => {
+      mockClient(
+        { plan_type: "fixed_rate", fixed_rate_term_ends_at: "2026-07-31" },
+        { invoices: { data: [{ id: "inv-7", amount: 1500, due_date: "2026-07-05" }] } },
+      );
+      const { status, body } = await readJson(await post({ plan_type: "fixed_rate", term_months: 1 }));
+      expect(status).toBe(402);
+      expect(body).toMatchObject({ error: "UNPAID_INVOICE", invoice_id: "inv-7" });
+    });
+  });
+
+  // Fixed Rate never touches the wallet, so a Commission debt carried across
+  // would never be collected — and the switch would lift its booking block.
+  describe("the negative-wallet gate", () => {
+    it.each(["commission", "free"])("refuses a %s host whose wallet is below zero", async (plan) => {
+      const supabase = mockClient({ plan_type: plan, wallet_balance: -1 });
+      const { status, body } = await readJson(await post({ plan_type: "fixed_rate", term_months: 1 }));
+      expect(status).toBe(402);
+      expect(body).toEqual({ error: "WALLET_NEGATIVE", wallet_balance: -1 });
+      expect(hostUpdate(supabase)).toBeNull();
+    });
+
+    it("lets an empty wallet through to the quote", async () => {
+      mockClient({ wallet_balance: 0 });
+      await expect(readJson(await post({ plan_type: "fixed_rate", term_months: 1 })))
+        .resolves.toMatchObject({ status: 402, body: { error: "PAYMENT_REQUIRED" } });
+    });
+
+    it("does not gate a renewal of a term that is still running", async () => {
+      mockClient({ plan_type: "fixed_rate", fixed_rate_term_ends_at: "2027-02-28", wallet_balance: -500 });
       await expect(readJson(await post({ plan_type: "fixed_rate", term_months: 6 })))
-        .resolves.toMatchObject({ status: 400 });
+        .resolves.toMatchObject({ status: 200 });
     });
   });
 

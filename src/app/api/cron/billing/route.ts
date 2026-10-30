@@ -5,11 +5,11 @@ import { assertCronAuthorized } from "@/lib/auth/cron-auth";
 import {
   computeFixedRateInvoice,
   getBillingConfig,
-  getEffectiveFixedRate,
   isValidTermMonths,
   processBillingRetryQueue,
 } from "@/lib/billing";
 import { cronBillingDates } from "./dates";
+import { lapsedTermInvoice } from "./lapsed";
 import { LOW_WALLET_THRESHOLD } from "@/lib/wallet-thresholds";
 import { GRACE_PERIOD_DAYS } from "@/lib/plan-expiry";
 import { sendSms, notifyHostAlert } from "@/lib/notifications";
@@ -18,6 +18,9 @@ import type { Host, PlatformBillingConfig } from "@/types/database";
 
 export const dynamic = "force-dynamic";
 export const runtime = "nodejs";
+// One long sequential run of notifications and billing; the lapsed-term sweep
+// sits near the end of it, and a run killed early bills nobody that day.
+export const maxDuration = 60;
 
 /** Host fields needed to route a multi-channel alert (LINE → SMS → email). */
 type HostAlertRow = {
@@ -59,9 +62,9 @@ async function runWithConcurrency<T>(
  *   send SMS 5 days after expiry (grace period reminder), remind fixed-rate
  *   hosts 2 days before an invoice is due, mark past-due invoices overdue and
  *   alert those hosts that bookings have stopped, warn commission hosts whose
- *   wallet dipped below LOW_WALLET_THRESHOLD, and apply pending plan switches
- *   whose effective date has arrived.
- * - 1st of month only: generate invoices for fixed-rate hosts.
+ *   wallet dipped below LOW_WALLET_THRESHOLD, apply pending plan switches
+ *   whose effective date has arrived, and bill fixed-rate hosts whose term has
+ *   run out (see ./lapsed — this used to happen on the 1st only).
  * Secured with CRON_SECRET header.
  * Generate the secret: `openssl rand -base64 32`
  * Set CRON_SECRET in Vercel Environment Variables (both Production & Preview).
@@ -92,6 +95,7 @@ export async function GET(req: NextRequest) {
     // Every date this run works from, derived once off the Bangkok billing
     // calendar. ago5Days/ago5DaysNext bound the grace-period reminder to hosts
     // whose plan expired exactly 5 days ago.
+    const dates = cronBillingDates();
     const {
       todayDate,
       today,
@@ -105,10 +109,7 @@ export async function GET(req: NextRequest) {
       dueWarnDay,
       dueInFiveDays,
       isFirstOfMonth,
-      monthStart,
-      monthEnd,
-      monthDueDate,
-    } = cronBillingDates();
+    } = dates;
 
     // ============================================================
     // DAILY: Send SMS 3 days before free plan expiry
@@ -498,12 +499,33 @@ export async function GET(req: NextRequest) {
         updateFields.fixed_rate_term_ends_at = null;
       }
 
-      const { error } = await supabase
-        .from("hosts")
-        .update(updateFields as never)
-        .eq("id", host.id);
+      // A term with something to bill starts through the RPC, so the term and
+      // its invoice commit together. This used to update the host first and
+      // swallow a failed invoice insert, leaving a renewed term nobody was
+      // billed for; now a failure writes nothing and the switch stays pending
+      // for tomorrow's run.
+      const billable = termInvoice && termInvoice.amount > 0 ? termInvoice : null;
+      const { error } = billable
+        ? await supabase.rpc("activate_fixed_rate_plan" as never, {
+            p_host_id: host.id,
+            p_amount: billable.amount,
+            p_period_start: billable.period_start,
+            p_period_end: billable.period_end,
+            p_term_months: billable.term_months,
+            p_discount_pct: billable.discount_pct,
+            p_created_by: "system",
+            p_status: "pending",
+            p_due_date: dueInFiveDays,
+          } as never)
+        : await supabase
+            .from("hosts")
+            .update(updateFields as never)
+            .eq("id", host.id);
 
-      if (error) continue;
+      if (error) {
+        console.error("[Cron] Pending plan switch failed for host:", host.id, error);
+        continue;
+      }
 
       switchCount++;
       const isRenewal = host.plan_type === "fixed_rate" && switchingToFixedRate;
@@ -527,163 +549,150 @@ export async function GET(req: NextRequest) {
         },
       });
 
-      if (termInvoice && termInvoice.amount > 0) {
-        const { error: invErr } = await supabase
-          .from("invoices")
-          .insert({
-            host_id: host.id,
-            amount: termInvoice.amount,
-            period_start: termInvoice.period_start,
-            period_end: termInvoice.period_end,
-            term_months: termInvoice.term_months,
-            discount_pct: termInvoice.discount_pct,
-            due_date: dueInFiveDays,
-            status: "pending",
-            created_by: "system",
-            updated_by: "system",
-          } as never);
-        if (!invErr) {
-          switchInvoiceCount++;
-          await logEvent({
-            entityType: "billing",
-            entityId: host.id,
-            eventType: EventType.INVOICE_CREATED,
-            actorType: "system",
-            actorId: null,
-            data: {
-              amount: termInvoice.amount,
-              period_start: termInvoice.period_start,
-              period_end: termInvoice.period_end,
-              term_months: termInvoice.term_months,
-              discount_pct: termInvoice.discount_pct,
-            },
-          });
-        }
+      if (billable) {
+        switchInvoiceCount++;
+        await logEvent({
+          entityType: "billing",
+          entityId: host.id,
+          eventType: EventType.INVOICE_CREATED,
+          actorType: "system",
+          actorId: null,
+          data: {
+            amount: billable.amount,
+            period_start: billable.period_start,
+            period_end: billable.period_end,
+            term_months: billable.term_months,
+            discount_pct: billable.discount_pct,
+          },
+        });
       }
     }
     results.plan_switches = switchCount;
     results.plan_switch_invoices = switchInvoiceCount;
 
-    if (isFirstOfMonth) {
-      // ============================================================
-      // MONTHLY (1st only): Generate 1-month revert invoice for fixed_rate
-      // hosts whose multi-month term has ended (or who never had one).
-      // Hosts mid-term skip — they already paid upfront.
-      // ============================================================
-      const { data: fixedRateHosts } = await supabase
-        .from("hosts")
-        .select("id, fixed_rate_override, fixed_rate_term_ends_at, name, phone, notification_preference, line_channel_access_token, line_user_id")
-        .eq("plan_type", "fixed_rate")
-        .eq("status", "approved");
+    // ============================================================
+    // DAILY: Bill fixed-rate hosts whose term has run out (or who never had
+    // one) for the whole current month. This used to run on the 1st only, so a
+    // missed 1st billed nobody that month and a host who settled an overdue
+    // invoice mid-month was never billed for it — see ./lapsed for the rule.
+    // Hosts mid-term are filtered out here; lapsedTermInvoice re-checks.
+    // ============================================================
+    const { data: lapsedHosts } = await supabase
+      .from("hosts")
+      .select("id, fixed_rate_override, fixed_rate_term_ends_at, name, phone, notification_preference, line_channel_access_token, line_user_id")
+      .eq("plan_type", "fixed_rate")
+      .eq("status", "approved")
+      .or(`fixed_rate_term_ends_at.is.null,fixed_rate_term_ends_at.lt.${today}`);
 
-      // The calendar month this run falls in, on the Bangkok billing calendar
-      // — see ./dates for why that is not the same as now.getUTC*().
-      const periodStart = monthStart;
-      const periodEnd = monthEnd;
-      const dueDate = monthDueDate;
+    let invoiceCount = 0;
+    let invoiceNotifications = 0;
+    await runWithConcurrency(
+      (lapsedHosts || []) as { id: string; fixed_rate_override: number | null; fixed_rate_term_ends_at: string | null; name: string; phone: string | null; notification_preference: string | null; line_channel_access_token: string | null; line_user_id: string | null }[],
+      5,
+      async (host) => {
+        const { data: existing } = await supabase
+          .from("invoices")
+          .select("id")
+          .eq("host_id", host.id)
+          .in("status", ["pending", "overdue"])
+          .limit(1);
 
-      let invoiceCount = 0;
-      let invoiceNotifications = 0;
-      await runWithConcurrency(
-        (fixedRateHosts || []) as { id: string; fixed_rate_override: number | null; fixed_rate_term_ends_at: string | null; name: string; phone: string | null; notification_preference: string | null; line_channel_access_token: string | null; line_user_id: string | null }[],
-        5,
-        async (host) => {
-          // Mid-term hosts already paid upfront — skip.
-          if (host.fixed_rate_term_ends_at && host.fixed_rate_term_ends_at >= today) return;
+        const invoice = lapsedTermInvoice(
+          host,
+          ((existing as unknown[] | null)?.length ?? 0) > 0,
+          config as PlatformBillingConfig,
+          dates,
+        );
+        if (!invoice) return;
 
-          const { data: existing } = await supabase
-            .from("invoices")
-            .select("id, status")
-            .eq("host_id", host.id)
-            .in("status", ["pending", "overdue"])
-            .limit(1);
-
-          if ((existing as unknown[] | null)?.length) return;
-
-          // Reaching here means the prior term has ended (mid-term hosts returned
-          // above). Roll the host onto this month's 1-month period regardless of
-          // the billable amount, so the daily term-expiry warnings and the
-          // mid-term skip see correct dates even for comped (฿0) hosts.
+        // A comped (฿0) host has nothing to bill, but still rolls onto this
+        // month so the daily term-expiry warnings and the mid-term skip see
+        // real dates.
+        if (invoice.amount <= 0) {
           await supabase
             .from("hosts")
             .update({
               fixed_rate_term_months: 1,
-              fixed_rate_term_started_at: periodStart,
-              fixed_rate_term_ends_at: periodEnd,
+              fixed_rate_term_started_at: invoice.period_start,
+              fixed_rate_term_ends_at: invoice.period_end,
               updated_by: "system",
             } as never)
             .eq("id", host.id);
+          return;
+        }
 
-          const amount = getEffectiveFixedRate(
-            host as unknown as Pick<Host, "fixed_rate_override">,
-            config as PlatformBillingConfig,
-          );
+        // The term and its invoice commit together. A failure writes nothing,
+        // so tomorrow's run finds the term still lapsed and bills it then.
+        const { error } = await supabase.rpc("activate_fixed_rate_plan" as never, {
+          p_host_id: host.id,
+          p_amount: invoice.amount,
+          p_period_start: invoice.period_start,
+          p_period_end: invoice.period_end,
+          p_term_months: invoice.term_months,
+          p_discount_pct: invoice.discount_pct,
+          p_created_by: "system",
+          p_status: "pending",
+          p_due_date: invoice.due_date,
+        } as never);
 
-          if (amount <= 0) return;
+        if (error) {
+          console.error("[Cron] Lapsed-term billing failed for host:", host.id, error);
+          return;
+        }
 
-          const { error } = await supabase
-            .from("invoices")
-            .insert({
-              host_id: host.id,
-              amount,
-              period_start: periodStart,
-              period_end: periodEnd,
-              term_months: 1,
-              discount_pct: 0,
-              due_date: dueDate,
-              status: "pending",
-              created_by: "system",
-              updated_by: "system",
-            } as never);
+        invoiceCount++;
+        await logEvent({
+          entityType: "billing",
+          entityId: host.id,
+          eventType: EventType.INVOICE_CREATED,
+          actorType: "system",
+          actorId: null,
+          data: {
+            amount: invoice.amount,
+            period_start: invoice.period_start,
+            period_end: invoice.period_end,
+            term_months: invoice.term_months,
+            discount_pct: invoice.discount_pct,
+            due_date: invoice.due_date,
+          },
+        });
 
-          if (error) return;
+        const monthLabel = fmtDateStr(invoice.period_start, "MMMM yyyy", "th"); // e.g. "พฤษภาคม 2569"
+        const dueLabel = fmtDateStr(invoice.due_date, "d MMM", "th");
+        const message = `ใบแจ้งหนี้ประจำเดือน${monthLabel} ฿${invoice.amount.toLocaleString()} ครบกำหนดชำระภายใน ${dueLabel} กรุณาเข้าระบบเพื่อชำระเงิน`;
+        try {
+          const preference = host.notification_preference || "sms";
+          let sent = false;
 
-          invoiceCount++;
-          await logEvent({
-            entityType: "billing",
-            entityId: host.id,
-            eventType: EventType.INVOICE_CREATED,
-            actorType: "system",
-            actorId: null,
-            data: { amount, period_start: periodStart, period_end: periodEnd, term_months: 1, discount_pct: 0 },
-          });
-
-          const monthLabel = fmtDateStr(periodStart, "MMMM yyyy", "th"); // e.g. "พฤษภาคม 2569"
-          const message = `ใบแจ้งหนี้ประจำเดือน${monthLabel} ฿${amount.toLocaleString()} ครบกำหนดชำระภายในวันที่ 5 กรุณาเข้าระบบเพื่อชำระเงิน`;
-          try {
-            const preference = host.notification_preference || "sms";
-            let sent = false;
-
-            if (preference === "line" && host.line_channel_access_token && host.line_user_id) {
-              const response = await fetch("https://api.line.me/v2/bot/message/push", {
-                method: "POST",
-                headers: {
-                  "Content-Type": "application/json",
-                  Authorization: `Bearer ${host.line_channel_access_token}`,
-                },
-                body: JSON.stringify({
-                  to: host.line_user_id,
-                  messages: [{ type: "text", text: message }],
-                }),
-                signal: AbortSignal.timeout(5000),
-              });
-              sent = response.ok;
-            }
-
-            if (!sent && host.phone) {
-              const result = await sendSms(host.phone, message);
-              sent = result.success;
-            }
-
-            if (sent) invoiceNotifications++;
-          } catch (err) {
-            console.error("[Cron] Invoice reminder error for host:", host.id, err);
+          if (preference === "line" && host.line_channel_access_token && host.line_user_id) {
+            const response = await fetch("https://api.line.me/v2/bot/message/push", {
+              method: "POST",
+              headers: {
+                "Content-Type": "application/json",
+                Authorization: `Bearer ${host.line_channel_access_token}`,
+              },
+              body: JSON.stringify({
+                to: host.line_user_id,
+                messages: [{ type: "text", text: message }],
+              }),
+              signal: AbortSignal.timeout(5000),
+            });
+            sent = response.ok;
           }
-        },
-      );
-      results.invoices_created = invoiceCount;
-      results.invoice_notifications = invoiceNotifications;
-    }
+
+          if (!sent && host.phone) {
+            const result = await sendSms(host.phone, message);
+            sent = result.success;
+          }
+
+          if (sent) invoiceNotifications++;
+        } catch (err) {
+          console.error("[Cron] Invoice reminder error for host:", host.id, err);
+        }
+      },
+    );
+    results.invoices_created = invoiceCount;
+    results.invoice_notifications = invoiceNotifications;
 
     // Demand-event retention. Rides this cron rather than adding a second
     // vercel.json entry. The RPC caps its own delete, so a shortened retention

@@ -114,11 +114,21 @@ describe("validateReceiver", () => {
     expect(validateReceiver({} as EasySlipV2RawSlip, "0811051234", null)).toBe(false);
   });
 
-  // KNOWN GAP: a host with no configured receiver accepts a slip paid to anyone.
-  // Pinned deliberately — security-relevant and flagged for review.
-  it("accepts any receiver when the host has none configured", () => {
+  // Used to return true here: an unconfigured receiver accepted a slip paid to anyone.
+  it("refuses every slip when no receiver is configured at all", () => {
     const slip = rawSlip({ proxy: { type: "MSISDN", account: "xxx-xxx-9999" } });
-    expect(validateReceiver(slip, null, null)).toBe(true);
+    expect(validateReceiver(slip, null, null)).toBe(false);
+    expect(validateReceiver(slip, "", "")).toBe(false);
+  });
+
+  // A bank-only platform config (no PromptPay ID) skipped the check entirely,
+  // so a transfer to the payer's own second account passed.
+  it("checks the bank account alone when no PromptPay ID is configured", () => {
+    const toPlatform = rawSlip({ bank: { type: "BANKAC", account: "xxx-x-x5678-x" } });
+    expect(validateReceiver(toPlatform, null, "1234567890")).toBe(true);
+
+    const toSomeoneElse = rawSlip({ bank: { type: "BANKAC", account: "xxx-x-x9999-x" } });
+    expect(validateReceiver(toSomeoneElse, null, "1234567890")).toBe(false);
   });
 });
 

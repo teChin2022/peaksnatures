@@ -68,7 +68,7 @@ const deductTables = (over: {
   billing_retry_queue: {},
 });
 
-const deductOk = { data: [{ new_balance: 800 }], error: null };
+const deductOk = { data: [{ new_balance: 800, transaction_id: "txn-1" }], error: null };
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -341,6 +341,18 @@ describe("deductCommission", () => {
       await deductCommission("booking-1");
       expect(supabase.rpc).toHaveBeenCalled();
     });
+
+    // Two confirmations at once both pass the count above; the RPC repeats it
+    // under the host lock and charges only the first. The second must not log
+    // or alert on a charge that never happened.
+    it("reports nothing when the RPC charged nothing because a racing call won", async () => {
+      mockClient(deductTables({ host: { ...COMMISSION_HOST, wallet_balance: 100 } }), {
+        deduct_wallet_commission: { data: [{ new_balance: -100, transaction_id: null }], error: null },
+      });
+      await deductCommission("booking-1");
+      expect(logEvent).not.toHaveBeenCalled();
+      expect(sendSms).not.toHaveBeenCalled();
+    });
   });
 
   describe("does nothing when the picture is incomplete", () => {
@@ -401,7 +413,7 @@ describe("deductCommission", () => {
   });
 
   describe("negative balance warnings", () => {
-    const overdrawn = { data: [{ new_balance: -500 }], error: null };
+    const overdrawn = { data: [{ new_balance: -500, transaction_id: "txn-1" }], error: null };
 
     it("stays quiet while the balance is still positive", async () => {
       mockClient(deductTables(), { deduct_wallet_commission: deductOk });

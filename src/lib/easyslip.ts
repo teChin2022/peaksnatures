@@ -226,14 +226,18 @@ export function matchesAccount(easyslipVal: string | undefined | null, expected:
 
 /**
  * Validate receiver account against expected PromptPay/bank account.
+ *
+ * Fails closed: with neither configured nothing matches. It used to wave every
+ * slip through when the PromptPay ID was empty — even with a bank account set
+ * — so a bank-only platform config accepted a transfer to any account at all,
+ * the payer's own included. matchesAccount() refuses an empty expected value,
+ * which is what makes each half of the check below opt-in.
  */
 export function validateReceiver(
   rawSlip: EasySlipV2RawSlip,
   expectedReceiver: string | null,
   expectedReceiverBank: string | null,
 ): boolean {
-  if (!expectedReceiver) return true;
-
   const receiverProxy = rawSlip.receiver?.account?.proxy?.account;
   const receiverBank = rawSlip.receiver?.account?.bank?.account;
   const expectedDigits = extractVisibleDigits(expectedReceiver);

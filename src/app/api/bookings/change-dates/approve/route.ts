@@ -179,8 +179,15 @@ export async function POST(req: NextRequest) {
       // Recalculate commission: refund old amount, deduct new based on the
       // updated price. This refund is a repricing step, not a cancellation —
       // cancellations deliberately keep the fee.
-      await refundCommission(booking.id);
-      await deductCommission(booking.id);
+      //
+      // Only while the host is still on Commission. deductCommission charges
+      // nothing on any other plan, so after a switch to Fixed Rate this pair
+      // refunded the fee and never took it back. The fee was earned when the
+      // booking was confirmed, so off Commission it stays as charged.
+      if (host.plan_type === "commission") {
+        await refundCommission(booking.id);
+        await deductCommission(booking.id);
+      }
 
       try {
         let room = undefined;

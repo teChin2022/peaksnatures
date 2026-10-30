@@ -16,9 +16,17 @@ import {
 import {
   billingToday,
   computeImmediateFixedRateInvoice,
+  fixedRateStartDate,
   getBillingConfig,
   isValidTermMonths,
 } from "@/lib/billing";
+
+/**
+ * Must exceed EASYSLIP_TOTAL_BUDGET_MS in src/lib/easyslip.ts — see
+ * /api/verify-slip. Being killed mid-verification is worse here: EasySlip has
+ * already recorded the slip, so the host's retry is refused as a duplicate.
+ */
+export const maxDuration = 60;
 
 // Every call reaches EasySlip, which is metered and billed per request, before
 // any DB write. No other /api/host route rate-limits, but none of them can burn
@@ -55,7 +63,7 @@ export async function POST(req: NextRequest) {
 
     const { data: host } = await sc
       .from("hosts")
-      .select("id, name, plan_type, fixed_rate_override, fixed_rate_term_ends_at")
+      .select("id, name, plan_type, fixed_rate_override, fixed_rate_term_ends_at, wallet_balance")
       .eq("user_id", user.id)
       .single();
 
@@ -69,10 +77,13 @@ export async function POST(req: NextRequest) {
       plan_type: string;
       fixed_rate_override: number | null;
       fixed_rate_term_ends_at: string | null;
+      wallet_balance: number | null;
     };
 
     const config = await getBillingConfig();
-    if (!config) {
+    // With no receiver there is nothing to check a slip against — refuse before
+    // EasySlip sees the slip and remembers it.
+    if (!config || (!config.promptpay_id && !config.bank_account_number)) {
       return NextResponse.json({ error: "Billing not configured" }, { status: 503 });
     }
 
@@ -111,8 +122,46 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // The authoritative amount. Never read from the request.
-    const quote = computeImmediateFixedRateInvoice(typedHost, config, termMonths, today);
+    // Every refusal below lands before the EasySlip call: after it, the slip is
+    // spent and the host's money would be stranded.
+
+    // Fixed Rate never touches the wallet, so a debt carried over from
+    // Commission would never be collected — and switching would lift the block
+    // that debt earned.
+    if ((typedHost.wallet_balance ?? 0) < 0) {
+      return NextResponse.json(
+        { error: "Top up your wallet to at least ฿0 before switching to Fixed Rate." },
+        { status: 402 },
+      );
+    }
+
+    // A lapsed Fixed Rate host who still owes an invoice would pay for a new
+    // term and stay blocked by the old one. The daily cron puts them back on
+    // monthly billing by itself once that invoice is paid.
+    if (typedHost.plan_type === "fixed_rate") {
+      const { data: openInvoices } = await sc
+        .from("invoices")
+        .select("id")
+        .eq("host_id", typedHost.id)
+        .in("status", ["pending", "overdue"])
+        .limit(1);
+      if ((openInvoices as unknown[] | null)?.length) {
+        return NextResponse.json(
+          { error: "Pay your open invoice before buying a new term." },
+          { status: 402 },
+        );
+      }
+    }
+
+    // Today's price, which only feeds EasySlip's informational matchAmount. The
+    // amount actually charged is re-priced from the slip's own date below.
+    // Never read from the request.
+    const quote = computeImmediateFixedRateInvoice(
+      typedHost,
+      config,
+      termMonths,
+      fixedRateStartDate(typedHost, today),
+    );
 
     const apiKey = process.env.EASYSLIP_API_KEY;
     if (!apiKey) {
@@ -158,26 +207,68 @@ export async function POST(req: NextRequest) {
     }
 
     const rawSlip = easySlipData.data.rawSlip;
+    const slipAmount = easySlipData.data.amountInSlip ?? rawSlip.amount.amount;
+    // What this activation charges. Re-priced from the slip's date once that is
+    // known to be good; refuse() logs whichever figure the slip was held to.
+    let charged = quote;
+
+    // EasySlip has now seen this slip and answers any resubmission with
+    // isDuplicate, so every refusal from here on strands a real transfer.
+    // Leave a trail an admin can find and settle it from.
+    const refuse = (reason: string, body: Record<string, unknown>, status = 200) => {
+      after(() =>
+        logEvent({
+          entityType: "billing",
+          entityId: typedHost.id,
+          eventType: EventType.PLATFORM_PAYMENT_REJECTED,
+          actorType: "host",
+          actorId: user.id,
+          data: {
+            reason,
+            host_id: typedHost.id,
+            expected_amount: charged.amount,
+            slip_amount: slipAmount,
+            term_months: termMonths,
+            trans_ref: rawSlip.transRef || null,
+            slip_path: slipPath,
+          },
+          req,
+        }),
+      );
+      return NextResponse.json(body, { status });
+    };
 
     if (easySlipData.data.isDuplicate) {
-      return NextResponse.json({ error: "This payment slip has already been used.", duplicate: true }, { status: 409 });
+      return refuse("duplicate", { error: "This payment slip has already been used.", duplicate: true }, 409);
     }
 
-    const slipAge = Date.now() - new Date(rawSlip.date).getTime();
-    if (slipAge > MAX_SLIP_AGE_MS || slipAge < 0) {
-      return NextResponse.json({ verified: false, message: "Slip is too old." });
+    const slipTime = new Date(rawSlip.date);
+    const slipAge = Date.now() - slipTime.getTime();
+    // Written NaN-safe on purpose: the slip's date also prices the plan below.
+    if (!(slipAge >= 0 && slipAge <= MAX_SLIP_AGE_MS)) {
+      return refuse("slip_too_old", { verified: false, message: "Slip is too old." });
     }
+
+    // Price off the Bangkok day the host paid, not the day they uploaded. The QR
+    // they paid carried the /plan/switch quote; repricing at upload time missed
+    // it by a day for a slip sent at 23:55 and uploaded at 00:05 — and EasySlip
+    // then refused that same slip as a duplicate on every retry.
+    charged = computeImmediateFixedRateInvoice(
+      typedHost,
+      config,
+      termMonths,
+      fixedRateStartDate(typedHost, billingToday(slipTime)),
+    );
 
     const receiverOk = validateReceiver(rawSlip, config.promptpay_id, config.bank_account_number);
     if (!receiverOk) {
-      return NextResponse.json({ verified: false, message: "Receiver does not match platform account." });
+      return refuse("receiver_mismatch", { verified: false, message: "Receiver does not match platform account." });
     }
 
-    const slipAmount = easySlipData.data.amountInSlip ?? rawSlip.amount.amount;
-    if (slipAmount !== quote.amount) {
-      return NextResponse.json({
+    if (slipAmount !== charged.amount) {
+      return refuse("amount_mismatch", {
         verified: false,
-        message: `Amount mismatch: expected ฿${quote.amount}, got ฿${slipAmount}`,
+        message: `Amount mismatch: expected ฿${charged.amount}, got ฿${slipAmount}`,
       });
     }
 
@@ -185,11 +276,11 @@ export async function POST(req: NextRequest) {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const { data: result, error: activateError } = await (sc.rpc as any)("activate_fixed_rate_plan", {
       p_host_id: typedHost.id,
-      p_amount: quote.amount,
-      p_period_start: quote.period_start,
-      p_period_end: quote.period_end,
-      p_term_months: quote.term_months,
-      p_discount_pct: quote.discount_pct,
+      p_amount: charged.amount,
+      p_period_start: charged.period_start,
+      p_period_end: charged.period_end,
+      p_term_months: charged.term_months,
+      p_discount_pct: charged.discount_pct,
       p_slip_url: slipPath,
       p_slip_hash: slipHash,
       p_slip_trans_ref: rawSlip.transRef || null,
@@ -203,12 +294,18 @@ export async function POST(req: NextRequest) {
       // two requests race the same slip past the hash check above.
       const message = String(activateError.message || "").toLowerCase();
       if (message.includes("duplicate") || message.includes("unique")) {
-        return NextResponse.json(
+        return refuse(
+          "duplicate",
           { error: "This payment slip has already been used.", duplicate: true },
-          { status: 409 },
+          409,
         );
       }
-      return NextResponse.json({ error: "Failed to activate plan" }, { status: 500 });
+      // Two activations with two different slips both cleared the active-term
+      // check above; the RPC re-checks it under the host lock.
+      if (message.includes("already_active")) {
+        return refuse("already_active", { error: "Already on Fixed Rate with an active term." }, 409);
+      }
+      return refuse("db_error", { error: "Failed to activate plan" }, 500);
     }
 
     const invoiceId = (result as { invoice_id: string }[])?.[0]?.invoice_id ?? null;
@@ -222,13 +319,13 @@ export async function POST(req: NextRequest) {
         actorType: "host",
         actorId: user.id,
         data: {
-          amount: quote.amount,
-          stub_amount: quote.stub_amount,
-          term_amount: quote.term_amount,
-          period_start: quote.period_start,
-          period_end: quote.period_end,
-          term_months: quote.term_months,
-          discount_pct: quote.discount_pct,
+          amount: charged.amount,
+          stub_amount: charged.stub_amount,
+          term_amount: charged.term_amount,
+          period_start: charged.period_start,
+          period_end: charged.period_end,
+          term_months: charged.term_months,
+          discount_pct: charged.discount_pct,
           slip_hash: slipHash,
           activation: true,
         },
@@ -245,7 +342,7 @@ export async function POST(req: NextRequest) {
           from: previousPlan,
           to: "fixed_rate",
           immediate: true,
-          term_months: quote.term_months,
+          term_months: charged.term_months,
           invoice_id: invoiceId,
         },
         req,
@@ -257,9 +354,9 @@ export async function POST(req: NextRequest) {
       verified: true,
       plan_type: "fixed_rate",
       invoice_id: invoiceId,
-      amount: quote.amount,
-      period_start: quote.period_start,
-      period_end: quote.period_end,
+      amount: charged.amount,
+      period_start: charged.period_start,
+      period_end: charged.period_end,
     });
   } catch (error) {
     console.error("[Plan Activate] error:", error);
