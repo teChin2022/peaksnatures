@@ -146,10 +146,10 @@ starts:
 3. An abandoned payment therefore leaves no invoice and no plan change behind
 
 `activate_fixed_rate_plan` (migration 070) is the **only** writer of a Fixed
-Rate term and its invoice: activation and admin Set Plan (`paid`), the cron's
-renewals and lapsed-term billing (`pending`). Never write the term and the
-invoice in two calls — a failure between them leaves a term nobody was billed
-for.
+Rate term and its invoice: activation, renewal and admin Set Plan (`paid`), the
+cron's lapsed-term billing and legacy pending renewals (`pending`). Never write
+the term and the invoice in two calls — a failure between them leaves a term
+nobody was billed for.
 
 Mid-month entry is prorated for a host coming from Free or Commission:
 `computeImmediateFixedRateInvoice` (`src/lib/billing.ts`) charges the rest of
@@ -174,11 +174,13 @@ remainder with no refund, recorded as `forfeited_days` in the audit log.
 Switching to Fixed Rate requires a wallet of at least ฿0 (`WALLET_NEGATIVE`) —
 Fixed Rate never collects a wallet debt.
 
-`plan_pending_*` now only ever describes a **Fixed Rate renewal** of a term that
-is still running (the new term starts the day after it ends). A lapsed term is
-re-activated and paid up front instead. The cron's apply-pending section still
-handles a pending `commission` switch so pre-existing rows drain — don't delete
-that branch as unreachable.
+Renewing a term that is still running is quoted and paid exactly like
+activation (`/plan/switch` 402 → `/plan/activate`) and applies at once:
+`fixedRateStartDate()` starts the new term the day after the paid one ends, so
+no day is charged twice. A lapsed term is re-activated from the 1st instead.
+Nothing writes `plan_pending_*` any more. The cron's apply-pending section (its
+renewal and `commission` branches) only drains rows written before that — don't
+delete it as unreachable until they have aged out.
 
 Platform payment routes (activate, wallet top-up, invoice pay) must refuse
 everything they can **before** calling EasySlip: EasySlip reports a slip it has

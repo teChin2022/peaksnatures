@@ -440,7 +440,9 @@ export async function GET(req: NextRequest) {
 
     // ============================================================
     // DAILY: Apply pending plan switches whose effective date has arrived
-    // (free hosts past expiry schedule same-day switches to avoid a gap)
+    // LEGACY DRAIN: nothing writes plan_pending_* any more — Commission applies
+    // at once and a renewal is paid up front through /plan/activate. This only
+    // applies rows written before that; keep it until they have aged out.
     // ============================================================
     const { data: pendingSwitches } = await supabase
       .from("hosts")

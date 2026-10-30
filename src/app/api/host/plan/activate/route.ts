@@ -111,32 +111,31 @@ export async function POST(req: NextRequest) {
     const today = billingToday();
     const todayStr = today.toISOString().split("T")[0];
 
-    if (
+    // A host still mid-term is renewing. fixedRateStartDate starts the new term
+    // the day after the paid one ends, so no day already paid for is charged
+    // again, and the RPC's ALREADY_ACTIVE check still stops two slips buying
+    // the same renewal.
+    const isRenewal =
       typedHost.plan_type === "fixed_rate" &&
-      typedHost.fixed_rate_term_ends_at &&
-      typedHost.fixed_rate_term_ends_at >= todayStr
-    ) {
-      return NextResponse.json(
-        { error: "Already on Fixed Rate with an active term." },
-        { status: 400 },
-      );
-    }
+      !!typedHost.fixed_rate_term_ends_at &&
+      typedHost.fixed_rate_term_ends_at >= todayStr;
 
     // Every refusal below lands before the EasySlip call: after it, the slip is
     // spent and the host's money would be stranded.
 
     // Fixed Rate never touches the wallet, so a debt carried over from
     // Commission would never be collected — and switching would lift the block
-    // that debt earned.
-    if ((typedHost.wallet_balance ?? 0) < 0) {
+    // that debt earned. A renewing host is already past that gate, as in
+    // /plan/switch, which quoted them without it.
+    if (!isRenewal && (typedHost.wallet_balance ?? 0) < 0) {
       return NextResponse.json(
         { error: "Top up your wallet to at least ฿0 before switching to Fixed Rate." },
         { status: 402 },
       );
     }
 
-    // A lapsed Fixed Rate host who still owes an invoice would pay for a new
-    // term and stay blocked by the old one. The daily cron puts them back on
+    // A Fixed Rate host who still owes an invoice would pay for a new term and
+    // stay blocked by the old one. The daily cron puts a lapsed host back on
     // monthly billing by itself once that invoice is paid.
     if (typedHost.plan_type === "fixed_rate") {
       const { data: openInvoices } = await sc

@@ -100,7 +100,9 @@ export function computeFixedRateInvoice(
  *
  * Never before the day after their last term, though. Terms end on a month's
  * last day, so that is normally the 1st anyway; a term that ended mid-month
- * would otherwise be billed twice for the days it already covered.
+ * would otherwise be billed twice for the days it already covered. The same
+ * rule prices a renewal: a host still mid-term buys the term that starts the
+ * day after the paid one ends.
  */
 export function fixedRateStartDate(
   host: Pick<Host, "plan_type" | "fixed_rate_term_ends_at">,

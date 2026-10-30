@@ -209,9 +209,10 @@ describe("POST /api/host/plan/switch", () => {
       expect(body).not.toHaveProperty("forfeited_days");
     });
 
-    describe("the wallet gate", () => {
-      it.each([0, 1, LOW_WALLET_THRESHOLD - 1])("blocks a ฿%i wallet", async (balance) => {
-        const supabase = mockClient({ plan_type: "free", wallet_balance: balance });
+    // Coming from Free and leaving Fixed Rate land on the same gate.
+    describe.each(["free", "fixed_rate"])("the wallet gate, from %s", (plan) => {
+      it.each([-100, 0, 1, LOW_WALLET_THRESHOLD - 1])("blocks a ฿%i wallet", async (balance) => {
+        const supabase = mockClient({ plan_type: plan, wallet_balance: balance });
         const { status, body } = await readJson(await post({ plan_type: "commission" }));
         expect(status).toBe(402);
         expect(body).toMatchObject({
@@ -225,14 +226,14 @@ describe("POST /api/host/plan/switch", () => {
       it.each([LOW_WALLET_THRESHOLD, LOW_WALLET_THRESHOLD + 1])(
         "lets a ฿%i wallet through",
         async (balance) => {
-          mockClient({ plan_type: "free", wallet_balance: balance });
+          mockClient({ plan_type: plan, wallet_balance: balance });
           const { status } = await readJson(await post({ plan_type: "commission" }));
           expect(status).toBe(200);
         },
       );
 
       it("treats a null balance as empty", async () => {
-        mockClient({ plan_type: "free", wallet_balance: null });
+        mockClient({ plan_type: plan, wallet_balance: null });
         const { body } = await readJson(await post({ plan_type: "commission" }));
         expect(body).toMatchObject({ error: "WALLET_LOW", wallet_balance: 0 });
       });
@@ -253,38 +254,72 @@ describe("POST /api/host/plan/switch", () => {
     });
   });
 
-  // A renewal is not a plan change: the host stays on Fixed Rate and the new
-  // term picks up where the paid one ends, so it must NOT become immediate.
+  // A renewal is paid for now and applied now, but the new term picks up where
+  // the paid one ends: the days already bought are neither lost nor sold twice.
   describe("renewing Fixed Rate", () => {
-    it("still schedules for the day after the current term ends", async () => {
+    // The reported case. A monthly term paid to the 31st was scheduled for the
+    // 1st and only billed then, instead of being bought on the spot.
+    it("quotes the new term from the day after the paid one, and writes nothing", async () => {
       const supabase = mockClient({
+        plan_type: "fixed_rate",
+        fixed_rate_term_months: 1,
+        fixed_rate_term_ends_at: "2026-08-31",
+      });
+      const { status, body } = await readJson(
+        await post({ plan_type: "fixed_rate", term_months: 6 }),
+      );
+
+      expect(status).toBe(402);
+      expect(body).toMatchObject({
+        error: "PAYMENT_REQUIRED",
+        renewal: true,
+        amount: 8100, // 1500 × 6 × 0.90 — no stub: 20–31 Aug is already paid
+        stub_amount: 0,
+        period_start: "2026-09-01",
+        period_end: "2027-02-28",
+        term_months: 6,
+      });
+      expect(hostUpdate(supabase)).toBeNull();
+      expect(h.afterCallbacks).toHaveLength(0);
+    });
+
+    it("starts after a longer term too, however far off its end is", async () => {
+      mockClient({
         plan_type: "fixed_rate",
         fixed_rate_term_months: 6,
         fixed_rate_term_ends_at: "2027-02-28",
       });
-      const { status, body } = await readJson(
-        await post({ plan_type: "fixed_rate", term_months: 12 }),
-      );
-
-      expect(status).toBe(200);
+      const { body } = await readJson(await post({ plan_type: "fixed_rate", term_months: 12 }));
       expect(body).toMatchObject({
-        plan_pending_type: "fixed_rate",
-        plan_pending_effective_at: "2027-03-01",
-        plan_pending_term_months: 12,
+        renewal: true,
+        amount: 14400, // 1500 × 12 × 0.80
+        period_start: "2027-03-01",
+        period_end: "2028-02-29",
       });
-      expect(hostUpdate(supabase)).toMatchObject({
-        plan_pending_type: "fixed_rate",
-        plan_pending_effective_at: "2027-03-01",
-      });
-      // Crucially, the live plan and term are untouched.
-      expect(hostUpdate(supabase)).not.toHaveProperty("plan_type");
     });
 
-    it("still schedules a renewal on the term's last day", async () => {
+    // A term is still active on its last day, so it is renewed, not re-activated.
+    it("renews on the term's last day from the next day", async () => {
       mockClient({ plan_type: "fixed_rate", fixed_rate_term_months: 1, fixed_rate_term_ends_at: "2026-08-20" });
       const { status, body } = await readJson(await post({ plan_type: "fixed_rate", term_months: 6 }));
-      expect(status).toBe(200);
-      expect(body).toMatchObject({ plan_pending_effective_at: "2026-08-21" });
+      expect(status).toBe(402);
+      expect(body).toMatchObject({
+        renewal: true,
+        amount: 8632, // 1500 × 11/31 for 21–31 Aug, plus 8100
+        period_start: "2026-08-21",
+      });
+    });
+
+    // /plan/activate refuses this before EasySlip; quoting it would have the
+    // host transfer money for a renewal that cannot go through.
+    it("demands the open invoice before quoting a renewal", async () => {
+      mockClient(
+        { plan_type: "fixed_rate", fixed_rate_term_ends_at: "2026-08-31" },
+        { invoices: { data: [{ id: "inv-8", amount: 1500, due_date: "2026-08-25" }] } },
+      );
+      const { status, body } = await readJson(await post({ plan_type: "fixed_rate", term_months: 6 }));
+      expect(status).toBe(402);
+      expect(body).toMatchObject({ error: "UNPAID_INVOICE", invoice_id: "inv-8" });
     });
   });
 
@@ -351,7 +386,7 @@ describe("POST /api/host/plan/switch", () => {
     it("does not gate a renewal of a term that is still running", async () => {
       mockClient({ plan_type: "fixed_rate", fixed_rate_term_ends_at: "2027-02-28", wallet_balance: -500 });
       await expect(readJson(await post({ plan_type: "fixed_rate", term_months: 6 })))
-        .resolves.toMatchObject({ status: 200 });
+        .resolves.toMatchObject({ status: 402, body: { error: "PAYMENT_REQUIRED" } });
     });
   });
 

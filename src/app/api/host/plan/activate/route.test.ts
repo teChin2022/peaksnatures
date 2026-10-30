@@ -228,6 +228,20 @@ describe("POST /api/host/plan/activate", () => {
       await post({ term_months: "1" });
       expect(rpcArgs(supabase)).toMatchObject({ p_amount: STUB, p_period_start: "2026-08-20" });
     });
+
+    // A mid-term host renews: the new term starts the day after the paid one,
+    // so not one day they already bought is charged again.
+    it("renews a host mid-term from the day after their term ends", async () => {
+      const supabase = mockClient({ plan_type: "fixed_rate", fixed_rate_term_ends_at: "2026-08-31" });
+      const { body } = await readJson(await post({ term_months: "6" }));
+      expect(body).toMatchObject({ success: true });
+      expect(rpcArgs(supabase)).toMatchObject({
+        p_amount: 8100,
+        p_term_months: 6,
+        p_period_start: "2026-09-01",
+        p_period_end: "2027-02-28",
+      });
+    });
   });
 
   // Refused before the EasySlip call: after it, the slip is spent and the
@@ -241,10 +255,19 @@ describe("POST /api/host/plan/activate", () => {
       expect(supabase.rpc).not.toHaveBeenCalled();
     });
 
-    it("refuses a lapsed Fixed Rate host who still owes an invoice", async () => {
+    // Mirrors /plan/switch, which quotes a renewing host without the wallet gate.
+    it("does not refuse a renewing host over a negative wallet", async () => {
+      mockClient({ plan_type: "fixed_rate", fixed_rate_term_ends_at: "2026-08-31", wallet_balance: -500 });
+      await expect(readJson(await post())).resolves.toMatchObject({ status: 200 });
+    });
+
+    it.each([
+      ["lapsed", "2026-07-31"],
+      ["running", "2026-08-31"],
+    ])("refuses a Fixed Rate host with a %s term who still owes an invoice", async (_, endsAt) => {
       const supabase = signIn(h, {
         tables: {
-          hosts: { data: { ...HOST, plan_type: "fixed_rate", fixed_rate_term_ends_at: "2026-07-31" } },
+          hosts: { data: { ...HOST, plan_type: "fixed_rate", fixed_rate_term_ends_at: endsAt } },
           ...noDuplicates(),
           invoices: { data: [{ id: "inv-open" }] },
         },
@@ -438,15 +461,6 @@ describe("POST /api/host/plan/activate", () => {
       signOut(h);
       await expect(readJson(await post()))
         .resolves.toEqual({ status: 401, body: { error: "Unauthorized" } });
-    });
-
-    // The quote and the payment are minutes apart; an admin may have moved the
-    // host in between, and a mid-term host must not be double-charged.
-    it("refuses a host already mid-term on Fixed Rate", async () => {
-      const supabase = mockClient({ plan_type: "fixed_rate", fixed_rate_term_ends_at: "2027-02-28" });
-      const { status } = await readJson(await post());
-      expect(status).toBe(400);
-      expect(supabase.rpc).not.toHaveBeenCalled();
     });
 
     it("lets a host whose term has already ended pay for a new one", async () => {

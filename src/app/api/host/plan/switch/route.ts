@@ -83,10 +83,11 @@ export async function POST(req: NextRequest) {
     const today = billingToday();
     const todayStr = today.toISOString().split("T")[0];
 
-    // A renewal extends a term that is still running. Once the term has ended
-    // (or never existed) there is nothing to extend: the host re-activates
-    // instead, paying up front like anyone (re-)entering Fixed Rate. Scheduling
-    // it as a renewal dated the day after a long-gone term billed it in arrears.
+    // A renewal extends a term that is still running. It is paid for now, like
+    // any Fixed Rate purchase, and fixedRateStartDate starts it the day after
+    // the paid term ends, so no day is charged twice. Once the term has ended
+    // (or never existed) there is nothing to extend: the host re-activates from
+    // the 1st instead.
     const isFixedRateRenewal =
       typedHost.plan_type === "fixed_rate" &&
       plan_type === "fixed_rate" &&
@@ -109,7 +110,7 @@ export async function POST(req: NextRequest) {
     // blocking them either way. The debt has to be settled first. Checked
     // before the wallet gates below so the host is told to pay the invoice,
     // not to top up.
-    if (typedHost.plan_type === "fixed_rate" && !isFixedRateRenewal) {
+    if (typedHost.plan_type === "fixed_rate") {
       const { data: openInvoices } = await sc
         .from("invoices")
         .select("id, amount, due_date")
@@ -147,15 +148,15 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    // ── Starting Fixed Rate: quote now, activate on payment ──
+    // ── Starting or renewing Fixed Rate: quote now, activate on payment ──
     // Nothing is written here. The host is quoted, and POST /plan/activate
     // recomputes this same figure from the slip before anything is persisted,
     // so an abandoned payment leaves no invoice and no plan change behind.
-    if (plan_type === "fixed_rate" && !isFixedRateRenewal) {
+    if (plan_type === "fixed_rate") {
       // Fixed Rate never touches the wallet, so a debt carried over from
       // Commission would never be collected — and switching would lift the
-      // block that debt earned.
-      if ((typedHost.wallet_balance ?? 0) < 0) {
+      // block that debt earned. A renewing host is already past that gate.
+      if (!isFixedRateRenewal && (typedHost.wallet_balance ?? 0) < 0) {
         return NextResponse.json(
           { error: "WALLET_NEGATIVE", wallet_balance: typedHost.wallet_balance },
           { status: 402 },
@@ -174,108 +175,58 @@ export async function POST(req: NextRequest) {
       );
 
       return NextResponse.json(
-        { error: "PAYMENT_REQUIRED", plan_type, ...quote },
+        { error: "PAYMENT_REQUIRED", plan_type, renewal: isFixedRateRenewal, ...quote },
         { status: 402 },
       );
     }
 
     // ── Switching to Commission: applies immediately ──
-    if (plan_type === "commission") {
-      const forfeitedTermEndsAt =
-        typedHost.plan_type === "fixed_rate" ? typedHost.fixed_rate_term_ends_at : null;
-      const forfeitedDays = forfeitedTermEndsAt ? daysRemaining(forfeitedTermEndsAt, today) : 0;
+    // fixed_rate returned above, so plan_type is commission from here on.
+    const forfeitedTermEndsAt =
+      typedHost.plan_type === "fixed_rate" ? typedHost.fixed_rate_term_ends_at : null;
+    const forfeitedDays = forfeitedTermEndsAt ? daysRemaining(forfeitedTermEndsAt, today) : 0;
 
-      const { error: applyError } = await sc
-        .from("hosts")
-        .update({
-          plan_type: "commission",
-          plan_pending_type: null,
-          plan_pending_effective_at: null,
-          plan_pending_term_months: null,
-          plan_free_expires_at: null,
-          // Leaving fixed_rate behind — clear stale term fields.
-          fixed_rate_term_months: null,
-          fixed_rate_term_started_at: null,
-          fixed_rate_term_ends_at: null,
-          updated_by: typedHost.name,
-        } as never)
-        .eq("id", typedHost.id);
-
-      if (applyError) {
-        console.error("[Plan Switch] apply error:", applyError);
-        return NextResponse.json({ error: "Failed to switch plan" }, { status: 500 });
-      }
-
-      after(async () => {
-        await logEvent({
-          entityType: "host",
-          entityId: typedHost.id,
-          eventType: EventType.PLAN_CHANGED,
-          actorType: "host",
-          actorId: user.id,
-          data: {
-            from: typedHost.plan_type,
-            to: "commission",
-            immediate: true,
-            // The forfeiture is not recoverable from the host row once the term
-            // fields are cleared, so it has to live in the audit trail.
-            ...(forfeitedDays > 0
-              ? {
-                  forfeited_days: forfeitedDays,
-                  forfeited_term_ends_at: forfeitedTermEndsAt,
-                  forfeited_term_months: typedHost.fixed_rate_term_months,
-                }
-              : {}),
-          },
-          req,
-        });
-      });
-
-      return NextResponse.json({
-        success: true,
-        plan_type: "commission",
-        applied_immediately: true,
-        ...(forfeitedDays > 0 ? { forfeited_days: forfeitedDays } : {}),
-      });
-    }
-
-    // ── Fixed Rate renewal: the only switch that is still scheduled ──
-    // A renewal is not a plan change — the host stays on Fixed Rate and the new
-    // term starts the day after the current one ends, so there is no gap and no
-    // overlap. Billing for it happens when the cron applies the pending switch.
-    const end = new Date(typedHost.fixed_rate_term_ends_at!);
-    const effectiveDate = new Date(
-      Date.UTC(end.getUTCFullYear(), end.getUTCMonth(), end.getUTCDate() + 1),
-    ).toISOString().split("T")[0];
-
-    const { error: updateError } = await sc
+    const { error: applyError } = await sc
       .from("hosts")
       .update({
-        plan_pending_type: plan_type,
-        plan_pending_effective_at: effectiveDate,
-        plan_pending_term_months: term_months,
+        plan_type: "commission",
+        plan_pending_type: null,
+        plan_pending_effective_at: null,
+        plan_pending_term_months: null,
+        plan_free_expires_at: null,
+        // Leaving fixed_rate behind — clear stale term fields.
+        fixed_rate_term_months: null,
+        fixed_rate_term_started_at: null,
+        fixed_rate_term_ends_at: null,
         updated_by: typedHost.name,
       } as never)
       .eq("id", typedHost.id);
 
-    if (updateError) {
-      console.error("[Plan Switch] update error:", updateError);
-      return NextResponse.json({ error: "Failed to schedule plan switch" }, { status: 500 });
+    if (applyError) {
+      console.error("[Plan Switch] apply error:", applyError);
+      return NextResponse.json({ error: "Failed to switch plan" }, { status: 500 });
     }
 
     after(async () => {
       await logEvent({
         entityType: "host",
         entityId: typedHost.id,
-        eventType: EventType.PLAN_SWITCH_SCHEDULED,
+        eventType: EventType.PLAN_CHANGED,
         actorType: "host",
         actorId: user.id,
         data: {
-          current_plan: typedHost.plan_type,
-          new_plan: plan_type,
-          effective_date: effectiveDate,
-          term_months,
-          renewal: true,
+          from: typedHost.plan_type,
+          to: "commission",
+          immediate: true,
+          // The forfeiture is not recoverable from the host row once the term
+          // fields are cleared, so it has to live in the audit trail.
+          ...(forfeitedDays > 0
+            ? {
+                forfeited_days: forfeitedDays,
+                forfeited_term_ends_at: forfeitedTermEndsAt,
+                forfeited_term_months: typedHost.fixed_rate_term_months,
+              }
+            : {}),
         },
         req,
       });
@@ -283,9 +234,9 @@ export async function POST(req: NextRequest) {
 
     return NextResponse.json({
       success: true,
-      plan_pending_type: plan_type,
-      plan_pending_effective_at: effectiveDate,
-      plan_pending_term_months: term_months,
+      plan_type: "commission",
+      applied_immediately: true,
+      ...(forfeitedDays > 0 ? { forfeited_days: forfeitedDays } : {}),
     });
   } catch (err) {
     console.error("[Plan Switch] unexpected error:", err);

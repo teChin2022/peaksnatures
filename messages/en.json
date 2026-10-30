@@ -1795,7 +1795,6 @@
     "switchConfirmDesc": "Switch to {plan}? This takes effect immediately and applies to all new bookings.",
     "switchConfirmDescFixedRate": "Switch to {plan}? You'll pay for it on the next screen, and it starts as soon as your payment is verified.",
     "switchConfirmAction": "Confirm Switch",
-    "switchScheduled": "Plan switch scheduled",
     "switchAppliedImmediate": "Plan switched successfully",
     "cancelSwitchTitle": "Cancel Plan Switch?",
     "cancelSwitchDesc": "Cancel the pending switch to {plan}?",
@@ -1813,7 +1812,7 @@
     "perMonth": "per month",
     "saveX": "Save {pct}%",
     "termSuffix": "term",
-    "termStartsOn": "Started",
+    "termStartsOn": "Start",
     "termEndsOn": "Expires",
     "daysLeft": "{n} days remaining",
     "termExpired": "This term has ended — pick a new one to continue with a discount.",
@@ -1824,7 +1823,7 @@
     "switchFromActiveTermWarning": "You have {days} days left on your prepaid term. Switching now forfeits them — no refund is issued.",
     "pendingRenewal": "Renewal scheduled — next {months}-month term starts on {date}",
     "renewConfirmTitle": "Renew Fixed Rate plan?",
-    "renewConfirmDesc": "Your next {months}-month term will start on {date} (the day after your current term ends). You'll receive an upfront invoice for the new term on that date."
+    "renewConfirmDesc": "Your next {months}-month term starts on {date}, the day after your current term ends. You'll pay for it on the next screen, and it's confirmed as soon as your payment is verified."
   },
   "walletPage": {
     "title": "Wallet",
@@ -1914,6 +1913,8 @@
   "planActivation": {
     "title": "Activate Fixed Rate",
     "desc": "Your plan starts as soon as this payment is verified.",
+    "renewTitle": "Renew Fixed Rate",
+    "renewDesc": "Your new term is confirmed as soon as this payment is verified.",
     "partialMonth": "{start} – {end} (part month)",
     "prepaidTerm": "{start} – {end} ({months} months)",
     "discountNote": "{pct}% term discount applied",

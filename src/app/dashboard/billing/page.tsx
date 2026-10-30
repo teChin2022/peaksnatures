@@ -226,8 +226,7 @@ export default function DashboardBillingPage() {
         }),
       });
       if (res.ok) {
-        const d = await res.json();
-        toast.success(d.applied_immediately ? t("switchAppliedImmediate") : t("switchScheduled"));
+        toast.success(t("switchAppliedImmediate"));
         fetchBilling();
         window.dispatchEvent(new Event("host:plan-changed"));
       } else {
@@ -336,10 +335,11 @@ export default function DashboardBillingPage() {
   const isPastFreeExpiry =
     getPlanExpiryInfo(data.plan_type, data.plan_free_expires_at).phase !== "active";
   const isFreeExpired = isPastFreeExpiry && !data.plan_pending_type;
+  // Monthly terms count too: leaving forfeits their paid days just the same,
+  // and the server logs them as forfeited_days whatever the term length.
   const hasActiveTerm = Boolean(
     data.plan_type === "fixed_rate" &&
       data.fixed_rate_term_months &&
-      data.fixed_rate_term_months > 1 &&
       data.fixed_rate_term_ends_at &&
       data.fixed_rate_term_ends_at >= todayStr,
   );
@@ -348,6 +348,17 @@ export default function DashboardBillingPage() {
     if (planKey === "fixed_rate") {
       setSelectedTermMonths(null);
       setTermPickerOpen(true);
+      return;
+    }
+    // /plan/switch's wallet gate, checked before the host confirms instead of
+    // after. An unpaid Fixed Rate invoice still comes first, as it does there.
+    // shortcut: data.invoices is the last 5 only, so an older open invoice is
+    // asked for after the top-up rather than before; page the list if that matters.
+    const owesInvoice =
+      data.plan_type === "fixed_rate" &&
+      data.invoices.some((inv) => inv.status === "pending" || inv.status === "overdue");
+    if (planKey === "commission" && data.wallet_balance < LOW_WALLET_THRESHOLD && !owesInvoice) {
+      setWalletLowRequired(LOW_WALLET_THRESHOLD);
       return;
     }
     setConfirmDialog({ type: "switch", planType: planKey });

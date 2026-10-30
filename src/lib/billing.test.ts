@@ -353,6 +353,13 @@ describe("fixedRateStartDate", () => {
     );
   });
 
+  // A renewal: the term is still running, so the new one picks up after it.
+  it("starts a host still mid-term the day after their term ends", () => {
+    expect(
+      fixedRateStartDate({ plan_type: "fixed_rate", fixed_rate_term_ends_at: "2026-09-30" }, day),
+    ).toEqual(utc(2026, 10, 1));
+  });
+
   it("never reaches back over days a mid-month term already covered", () => {
     expect(
       fixedRateStartDate({ plan_type: "fixed_rate", fixed_rate_term_ends_at: "2026-09-12" }, day),
