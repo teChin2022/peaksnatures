@@ -14,7 +14,6 @@
   "hero": {
     "verifiedHost": "โฮสต์ยืนยันตัวตนแล้ว",
     "instantConfirm": "จองแล้วได้รับการยืนยันทันที",
-    "freeCancellation": "ยกเลิกฟรีภายในเวลาที่กำหนด",
     "checkAvailability": "เช็กบ้านพักว่าง",
     "search": "ค้นหา"
   },
@@ -369,6 +368,7 @@
     "payFull": "ชำระเต็มจำนวน",
     "cancellationPolicy": "นโยบายการยกเลิก",
     "cancellationPolicyNote": "ยกเลิกฟรีล่วงหน้า {days} วันก่อนเช็คอิน",
+    "freeCancellationUntil": "ยกเลิกฟรีถึง {date}",
     "payDeposit": "ชำระมัดจำ",
     "amountPaid": "ยอดที่ชำระ",
     "balanceDue": "ยอดค้างชำระ",
@@ -393,7 +393,7 @@
     "trustData": "ข้อมูลการจอง",
     "trustDataDesc": "ข้อมูลของคุณถูกใช้เพื่อการจองเท่านั้น",
     "trustStep": "จองง่ายในไม่กี่ขั้นตอน",
-    "trustStepDesc": "เลือกวัน เลือกบ้านพัก และส่งคำขอได้ทันที",
+    "trustStepDesc": "เลือกวัน เลือกบ้านพัก แล้วจองได้ทันที",
     "confirmedClose": "ปิด"
   },
   "auth": {
@@ -470,6 +470,9 @@
     "totalRevenue": "รายได้รวม",
     "allBookings": "การจองทั้งหมด",
     "groupBadge": "กลุ่ม",
+    "groupConfirmed": "ยืนยันแล้ว {count} หลัง",
+    "groupCancelled": "ยกเลิกแล้ว {count} หลัง",
+    "groupCancelNote": "การจองนี้เป็นแบบกลุ่ม การยกเลิกจะยกเลิกบ้านพักทุกหลังในกลุ่มนี้ และผู้เข้าพักจะได้รับอีเมลแจ้งรายการทั้งหมด",
     "pending": "รอดำเนินการ",
     "confirmedTab": "ยืนยันแล้ว",
     "noBookings": "ไม่มีการจองในหมวดนี้",
@@ -937,6 +940,7 @@
     "addCustomProhibition": "เพิ่มกฎเอง",
     "customProhibitionPlaceholder": "เช่น ห้ามเปิดเพลงดังหลัง 4 ทุ่ม",
     "commonProhibitions": "เพิ่มด่วน",
+    "changeIcon": "เปลี่ยนไอคอน",
     "slugChangeWarning": "การเปลี่ยน URL slug จะทำให้ลิงก์ QR Code และบุ๊กมาร์กที่แชร์ไว้ก่อนหน้าใช้ไม่ได้ ลิงก์เก่าจะเปลี่ยนเส้นทางไปยัง URL ใหม่โดยอัตโนมัติ",
     "slugChangeConfirm": "เปลี่ยน Slug",
     "confirmDeleteTitle": "ยืนยันการลบ",
@@ -1483,6 +1487,7 @@
   },
   "bookingFooter": {
     "hostedBy": "ดูแลโดย {name}",
+    "contact": "ติดต่อ",
     "poweredBy": "ขับเคลื่อนโดย"
   },
   "cookie": {

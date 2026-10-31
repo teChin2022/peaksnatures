@@ -41,7 +41,10 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter } from "@/components/ui/dialog";
 import { toast } from "sonner";
 import { RichTextEditor } from "@/components/ui/rich-text-editor";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { logClientEvent } from "@/lib/history-log-client";
+import { AMENITY_PRESETS, RULE_PRESETS, autoIconKey, type ListKind } from "@/lib/list-icons";
+import { LIST_ICONS, ListIcon } from "@/components/booking/list-icon";
 
 interface HomestayData {
   id: string;
@@ -55,6 +58,8 @@ interface HomestayData {
   max_guests: number;
   amenities: string[];
   prohibitions: string[];
+  amenity_icons: Record<string, string> | null;
+  prohibition_icons: Record<string, string> | null;
   check_in_time: string | null;
   check_out_time: string | null;
   hero_image_url: string | null;
@@ -71,18 +76,49 @@ interface HomestayData {
   faq: { question: string; answer: string }[];
 }
 
-const COMMON_AMENITIES = [
-  "ไวไฟ (WiFi)",
-  "ที่จอดรถ (Parking)",
-  "ห้องครัว (Kitchen)",
-  "เตาผิง (Fireplace)",
-];
+/** Icon button on a selected amenity/rule chip; opens the grid of icons to pick from. */
+function IconPicker({ value, kind, label, onChange }: { value: string; kind: ListKind; label: string; onChange: (key: string) => void }) {
+  const [open, setOpen] = useState(false);
+  return (
+    <Popover open={open} onOpenChange={setOpen}>
+      <PopoverTrigger asChild>
+        <button
+          type="button"
+          aria-label={label}
+          className="inline-flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-white/20 hover:bg-white/35"
+        >
+          <ListIcon name={value} kind={kind} className="h-3.5 w-3.5" />
+        </button>
+      </PopoverTrigger>
+      <PopoverContent align="start" className="w-auto p-2">
+        <div className="grid grid-cols-8 gap-1">
+          {Object.keys(LIST_ICONS).map((key) => (
+            <button
+              key={key}
+              type="button"
+              aria-label={key}
+              aria-pressed={key === value}
+              onClick={() => {
+                onChange(key);
+                setOpen(false);
+              }}
+              className={`flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-gray-100 ${
+                key === value ? "bg-brand/10 text-brand ring-1 ring-brand/30" : "text-gray-600"
+              }`}
+            >
+              <ListIcon name={key} kind={kind} className="h-4 w-4" />
+            </button>
+          ))}
+        </div>
+      </PopoverContent>
+    </Popover>
+  );
+}
 
-const COMMON_PROHIBITIONS = [
-  "ห้ามสูบบุหรี่ (No Smoking)",
-  "ห้ามนำสัตว์เลี้ยงเข้า (No Pets)",
-  "ห้ามเล่นเพลงดัง (No Loud Music)"
-];
+/** Only the icons a host picked for items still in the list — the rest are auto-picked on render. */
+function pickedIcons(labels: string[], icons: Record<string, string>): Record<string, string> {
+  return Object.fromEntries(labels.filter((label) => icons[label]).map((label) => [label, icons[label]]));
+}
 
 const MONTH_KEYS = ["1","2","3","4","5","6","7","8","9","10","11","12"] as const;
 
@@ -119,6 +155,9 @@ export default function HomestayPage() {
   const [customAmenity, setCustomAmenity] = useState("");
   const [prohibitions, setProhibitions] = useState<string[]>([]);
   const [customProhibition, setCustomProhibition] = useState("");
+  // Hand-picked icons by label; anything absent gets autoIconKey's choice.
+  const [amenityIcons, setAmenityIcons] = useState<Record<string, string>>({});
+  const [prohibitionIcons, setProhibitionIcons] = useState<Record<string, string>>({});
   const [checkInTime, setCheckInTime] = useState("14:00");
   const [checkOutTime, setCheckOutTime] = useState("11:00");
   const [heroImageUrl, setHeroImageUrl] = useState("");
@@ -191,6 +230,8 @@ export default function HomestayPage() {
         setMapEmbedUrl(h.map_embed_url || "");
         setAmenities(h.amenities || []);
         setProhibitions(h.prohibitions || []);
+        setAmenityIcons(h.amenity_icons || {});
+        setProhibitionIcons(h.prohibition_icons || {});
         setCheckInTime(h.check_in_time || "14:00");
         setCheckOutTime(h.check_out_time || "11:00");
         setHeroImageUrl(h.hero_image_url || "");
@@ -480,6 +521,8 @@ export default function HomestayPage() {
         map_embed_url: mapEmbedUrl.trim() || null,
         amenities,
         prohibitions,
+        amenity_icons: pickedIcons(amenities, amenityIcons),
+        prohibition_icons: pickedIcons(prohibitions, prohibitionIcons),
         check_in_time: checkInTime || "14:00",
         check_out_time: checkOutTime || "11:00",
         hero_image_url: heroImageUrl.trim() || null,
@@ -778,8 +821,14 @@ export default function HomestayPage() {
                   {amenities.map((a) => (
                     <Badge
                       key={a}
-                      className="cursor-pointer pr-1 hover:brightness-90 bg-brand max-w-full whitespace-normal text-left shrink"
+                      className="cursor-pointer pl-1 pr-1 hover:brightness-90 bg-brand max-w-full whitespace-normal text-left shrink"
                     >
+                      <IconPicker
+                        value={amenityIcons[a] || autoIconKey(a, "amenity")}
+                        kind="amenity"
+                        label={t("changeIcon")}
+                        onChange={(key) => setAmenityIcons((prev) => ({ ...prev, [a]: key }))}
+                      />
                       {a}
                       <button
                         type="button"
@@ -825,7 +874,7 @@ export default function HomestayPage() {
             <div>
               <Label className="mb-2 block text-sm text-gray-500">{t("commonAmenities")}</Label>
               <div className="flex flex-wrap gap-2">
-                {COMMON_AMENITIES.filter((a) => !amenities.includes(a)).map((a) => (
+                {AMENITY_PRESETS.filter((a) => !amenities.includes(a)).map((a) => (
                   <Badge
                     key={a}
                     variant="outline"
@@ -833,6 +882,7 @@ export default function HomestayPage() {
                     onClick={() => toggleAmenity(a)}
                   >
                     <Plus className="mr-0.5 h-3 w-3" />
+                    <ListIcon name={autoIconKey(a, "amenity")} kind="amenity" className="text-gray-500" />
                     {a}
                   </Badge>
                 ))}
@@ -858,8 +908,14 @@ export default function HomestayPage() {
                   {prohibitions.map((p) => (
                     <Badge
                       key={p}
-                      className="cursor-pointer pr-1 hover:brightness-90 bg-brand max-w-full whitespace-normal text-left shrink"
+                      className="cursor-pointer pl-1 pr-1 hover:brightness-90 bg-brand max-w-full whitespace-normal text-left shrink"
                     >
+                      <IconPicker
+                        value={prohibitionIcons[p] || autoIconKey(p, "rule")}
+                        kind="rule"
+                        label={t("changeIcon")}
+                        onChange={(key) => setProhibitionIcons((prev) => ({ ...prev, [p]: key }))}
+                      />
                       {p}
                       <button
                         type="button"
@@ -905,7 +961,7 @@ export default function HomestayPage() {
             <div>
               <Label className="mb-2 block text-sm text-gray-500">{t("commonProhibitions")}</Label>
               <div className="flex flex-wrap gap-2">
-                {COMMON_PROHIBITIONS.filter((p) => !prohibitions.includes(p)).map((p) => (
+                {RULE_PRESETS.filter((p) => !prohibitions.includes(p)).map((p) => (
                   <Badge
                     key={p}
                     variant="outline"
@@ -913,6 +969,7 @@ export default function HomestayPage() {
                     onClick={() => toggleProhibition(p)}
                   >
                     <Plus className="mr-0.5 h-3 w-3" />
+                    <ListIcon name={autoIconKey(p, "rule")} kind="rule" className="text-gray-500" />
                     {p}
                   </Badge>
                 ))}

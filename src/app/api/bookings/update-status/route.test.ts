@@ -11,6 +11,8 @@ const h = vi.hoisted(() => ({
   deductCommission: vi.fn(),
   cancelRedemptionForBooking: vi.fn(),
   sendBookingStatusUpdateEmail: vi.fn(),
+  sendGroupBookingConfirmationEmail: vi.fn(),
+  loadGroupBookingDetails: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({
@@ -34,6 +36,10 @@ vi.mock("@/lib/promo-redemptions-server", () => ({
 }));
 vi.mock("@/lib/notifications", () => ({
   sendBookingStatusUpdateEmail: h.sendBookingStatusUpdateEmail,
+  sendGroupBookingConfirmationEmail: h.sendGroupBookingConfirmationEmail,
+}));
+vi.mock("@/lib/booking-group-details", () => ({
+  loadGroupBookingDetails: h.loadGroupBookingDetails,
 }));
 
 const BOOKING_ID = "booking-1";
@@ -78,6 +84,8 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   h.afterCallbacks.length = 0;
   h.sendBookingStatusUpdateEmail.mockResolvedValue(undefined);
+  h.sendGroupBookingConfirmationEmail.mockResolvedValue(undefined);
+  h.loadGroupBookingDetails.mockResolvedValue(null);
   h.deductCommission.mockResolvedValue(undefined);
   h.logEvent.mockResolvedValue(undefined);
   h.cancelRedemptionForBooking.mockResolvedValue(undefined);
@@ -90,7 +98,7 @@ describe("POST /api/bookings/update-status", () => {
 
     await expect(readJson(await post({ booking_id: BOOKING_ID, status: "confirmed" }))).resolves.toEqual({
       status: 200,
-      body: { success: true, status: "confirmed" },
+      body: { success: true, status: "confirmed", member_ids: [BOOKING_ID] },
     });
     expect(supabase.builderFor("bookings", 1).update).toHaveBeenCalledWith({
       status: "confirmed",
@@ -259,6 +267,49 @@ describe("POST /api/bookings/update-status", () => {
 
       expect(h.cancelRedemptionForBooking).toHaveBeenCalledWith(expect.anything(), BOOKING_ID, "Somchai");
       expect(h.cancelRedemptionForBooking).toHaveBeenCalledWith(expect.anything(), "booking-2", "Somchai");
+    });
+
+    it("returns every room it changed so the dashboard can update the whole cart", async () => {
+      mockClient({ tables: groupTables([{ id: "booking-2" }, { id: "booking-3" }]) });
+
+      const { body } = await readJson(await post({ booking_id: BOOKING_ID, status: "confirmed" }));
+
+      expect(body).toMatchObject({ member_ids: [BOOKING_ID, "booking-2", "booking-3"] });
+    });
+
+    it("emails the guest one confirmation listing every house in the cart", async () => {
+      const details = { group: { id: "group-1" }, items: [{}, {}] };
+      h.loadGroupBookingDetails.mockResolvedValue(details);
+      mockClient({ tables: groupTables([{ id: "booking-2" }]) });
+
+      await post({ booking_id: BOOKING_ID, status: "confirmed", locale: "en" });
+      await runAfter();
+
+      expect(h.loadGroupBookingDetails).toHaveBeenCalledWith(expect.anything(), "group-1");
+      expect(h.sendGroupBookingConfirmationEmail).toHaveBeenCalledWith(details, "en", "confirmed", undefined);
+      expect(h.sendBookingStatusUpdateEmail).not.toHaveBeenCalled();
+    });
+
+    it("emails one cancellation for the cart, with the host's reason", async () => {
+      const details = { group: { id: "group-1" }, items: [{}, {}] };
+      h.loadGroupBookingDetails.mockResolvedValue(details);
+      mockClient({ tables: groupTables([{ id: "booking-2" }]) });
+
+      await post({ booking_id: BOOKING_ID, status: "cancelled", reason: "Slip amount wrong" });
+      await runAfter();
+
+      expect(h.sendGroupBookingConfirmationEmail).toHaveBeenCalledWith(details, "th", "cancelled", "Slip amount wrong");
+      expect(h.sendBookingStatusUpdateEmail).not.toHaveBeenCalled();
+    });
+
+    it("falls back to the single-room email when the cart cannot be read", async () => {
+      mockClient({ tables: groupTables([{ id: "booking-2" }]) });
+
+      await post({ booking_id: BOOKING_ID, status: "confirmed" });
+      await runAfter();
+
+      expect(h.sendGroupBookingConfirmationEmail).not.toHaveBeenCalled();
+      expect(h.sendBookingStatusUpdateEmail).toHaveBeenCalledWith(expect.anything(), "confirmed", "th", undefined);
     });
   });
 

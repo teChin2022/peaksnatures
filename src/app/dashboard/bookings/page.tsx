@@ -579,6 +579,15 @@ export default function BookingsPage() {
   const [rejectTarget, setRejectTarget] = useState<DateChangeRequestRow | null>(null);
   const [rejectReason, setRejectReason] = useState("");
 
+  // A cart is confirmed or cancelled as one (the API cascades to every room and
+  // returns their ids), so apply the result to each of them — in the tab list
+  // and in a search/filter view alike.
+  const applyStatus = (ids: string[], patch: Partial<DisplayBooking>) => {
+    const update = (list: DisplayBooking[]) => list.map((b) => (ids.includes(b.id) ? { ...b, ...patch } : b));
+    setBookings(update);
+    setFilteredBookings(update);
+  };
+
   const handleCancelClick = (booking: DisplayBooking) => {
     setCancelTarget(booking);
     setCancelReason("");
@@ -611,15 +620,14 @@ export default function BookingsPage() {
           locale,
         }),
       });
+      const data = await res.json();
       if (!res.ok) {
-        const data = await res.json();
         toast.error(data.error || t("errorUpdate"));
         return;
       }
-      setBookings((prev) =>
-        prev.map((b) => (b.id === cancelTarget.id ? { ...b, status: "cancelled" as BookingStatus, cancelled_by: hostName || "host" } : b))
-      );
-      toast.success(t("cancel") + "!");
+      const ids: string[] = data.member_ids ?? [cancelTarget.id];
+      applyStatus(ids, { status: "cancelled" as BookingStatus, cancelled_by: hostName || "host" });
+      toast.success(ids.length > 1 ? t("groupCancelled", { count: ids.length }) : t("cancel") + "!");
     } catch {
       toast.error(t("errorUpdate"));
     } finally {
@@ -1062,15 +1070,14 @@ export default function BookingsPage() {
                                           locale,
                                         }),
                                       });
+                                      const data = await res.json();
                                       if (!res.ok) {
-                                        const data = await res.json();
                                         toast.error(data.error || t("errorUpdate"));
                                         return;
                                       }
-                                      setBookings((prev) =>
-                                        prev.map((b) => (b.id === booking.id ? { ...b, status: "confirmed" as BookingStatus } : b))
-                                      );
-                                      toast.success(t("confirm") + "!");
+                                      const ids: string[] = data.member_ids ?? [booking.id];
+                                      applyStatus(ids, { status: "confirmed" as BookingStatus });
+                                      toast.success(ids.length > 1 ? t("groupConfirmed", { count: ids.length }) : t("confirm") + "!");
                                     } catch {
                                       toast.error(t("errorUpdate"));
                                     } finally {
@@ -1318,16 +1325,15 @@ export default function BookingsPage() {
                               locale,
                             }),
                           });
+                          const data = await res.json();
                           if (!res.ok) {
-                            const data = await res.json();
                             toast.error(data.error || t("errorUpdate"));
                             return;
                           }
-                          setBookings((prev) =>
-                            prev.map((b) => (b.id === detailTarget.id ? { ...b, status: "confirmed" as BookingStatus } : b))
-                          );
+                          const ids: string[] = data.member_ids ?? [detailTarget.id];
+                          applyStatus(ids, { status: "confirmed" as BookingStatus });
                           setDetailTarget((prev) => prev ? { ...prev, status: "confirmed" } : null);
-                          toast.success(t("confirm") + "!");
+                          toast.success(ids.length > 1 ? t("groupConfirmed", { count: ids.length }) : t("confirm") + "!");
                         } catch {
                           toast.error(t("errorUpdate"));
                         } finally {
@@ -1378,6 +1384,11 @@ export default function BookingsPage() {
           {hostPlanType === "commission" && cancelTarget?.status === "confirmed" && (
             <div className="rounded-lg border border-amber-200 bg-amber-50 px-3 py-2.5">
               <p className="text-xs text-amber-800">{t("cancelCommissionNotice")}</p>
+            </div>
+          )}
+          {cancelTarget?.group_id && (
+            <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2.5">
+              <p className="text-xs text-indigo-800">{t("groupCancelNote")}</p>
             </div>
           )}
           <div>

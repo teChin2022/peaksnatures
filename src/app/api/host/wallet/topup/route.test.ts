@@ -110,7 +110,7 @@ describe("POST /api/host/wallet/topup", () => {
       expect(body).toMatchObject({ success: true, verified: true, amount, new_balance: 5000 });
     });
 
-    it.each([300, 500, 1500, 2500, 5000, 999, 1, 0, -1000])(
+    it.each([300, 2000, 3000, 2500, 5000, 999, 1, 0, -1000])(
       "rejects ฿%i",
       async (amount) => {
         await expect(readJson(await post({ amount: String(amount) }))).resolves.toEqual({
@@ -147,13 +147,13 @@ describe("POST /api/host/wallet/topup", () => {
   describe("a good top-up", () => {
     it("credits the wallet through the atomic RPC", async () => {
       const supabase = mockClient(3000);
-      await post({ amount: "2000" });
+      await post({ amount: "1500" });
 
       expect(supabase.rpc).toHaveBeenCalledWith(
         "topup_wallet",
         expect.objectContaining({
           p_host_id: HOST.id,
-          p_amount: 2000,
+          p_amount: 1500,
           p_easyslip_verified: true,
           p_created_by: HOST.name,
         }),
@@ -162,7 +162,7 @@ describe("POST /api/host/wallet/topup", () => {
 
     it("stores the slip under the host's folder", async () => {
       const supabase = mockClient();
-      await post({ amount: "3000" });
+      await post({ amount: "500" });
 
       expect(supabase.storage.from).toHaveBeenCalledWith("payment-slips");
       expect(supabase.storage.upload).toHaveBeenCalledWith(
@@ -173,9 +173,9 @@ describe("POST /api/host/wallet/topup", () => {
     });
 
     it("passes the chosen amount to the verification service", async () => {
-      await post({ amount: "3000" });
+      await post({ amount: "1500" });
       expect(h.callEasySlipV2).toHaveBeenCalledWith(
-        expect.any(ArrayBuffer), "slip.jpg", "image/jpeg", "easyslip-key", 3000,
+        expect.any(ArrayBuffer), "slip.jpg", "image/jpeg", "easyslip-key", 1500,
       );
     });
 

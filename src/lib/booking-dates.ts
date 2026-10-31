@@ -55,14 +55,10 @@ export function makeStayDisabledMatcher(
 }
 
 /**
- * Returns a Set of date strings (yyyy-MM-dd) that are fully booked for a given room.
+ * Units of a room taken by bookings, per night (yyyy-MM-dd).
  * A booking with check_in=12, check_out=14 occupies nights 12 & 13 (not 14).
  */
-export function getFullyBookedForRoom(
-  roomId: string,
-  roomQuantity: number,
-  bookedRanges: BookedRange[],
-): Set<string> {
+function bookedUnitsByNight(roomId: string, bookedRanges: BookedRange[]): Map<string, number> {
   const dateCountMap = new Map<string, number>();
   for (const b of bookedRanges) {
     if (b.room_id !== roomId) continue;
@@ -79,11 +75,44 @@ export function getFullyBookedForRoom(
       // Skip malformed dates
     }
   }
+  return dateCountMap;
+}
+
+/**
+ * Returns a Set of date strings (yyyy-MM-dd) that are fully booked for a given room.
+ * A booking with check_in=12, check_out=14 occupies nights 12 & 13 (not 14).
+ */
+export function getFullyBookedForRoom(
+  roomId: string,
+  roomQuantity: number,
+  bookedRanges: BookedRange[],
+): Set<string> {
   const fullyBooked = new Set<string>();
-  dateCountMap.forEach((count, date) => {
+  bookedUnitsByNight(roomId, bookedRanges).forEach((count, date) => {
     if (count >= roomQuantity) fullyBooked.add(date);
   });
   return fullyBooked;
+}
+
+/**
+ * Units of a room free on EVERY night of a stay — how many a guest can still
+ * book for those dates. 0 when any night is blocked for the room or the whole
+ * homestay; the full quantity when no nights are given (no dates picked yet).
+ */
+export function freeUnitsForStay(
+  roomId: string,
+  quantity: number,
+  nightKeys: string[],
+  bookedRanges: BookedRange[],
+  blockedDates: BlockedLike[],
+): number {
+  if (nightKeys.length === 0) return quantity;
+  const blocked = new Set(
+    blockedDates.filter((d) => d.room_id === null || d.room_id === roomId).map((d) => d.date),
+  );
+  if (nightKeys.some((k) => blocked.has(k))) return 0;
+  const booked = bookedUnitsByNight(roomId, bookedRanges);
+  return Math.max(0, nightKeys.reduce((free, k) => Math.min(free, quantity - (booked.get(k) ?? 0)), quantity));
 }
 
 export type DayAvailability = "available" | "partial" | "full";

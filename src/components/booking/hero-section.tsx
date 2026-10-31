@@ -14,6 +14,8 @@ interface HeroSectionProps {
   isVerified?: boolean;
   averageRating?: number;
   reviewCount?: number;
+  /** Host's guest-cancellation window; 0 means guests cannot cancel. */
+  cancellationDays?: number;
 }
 
 export function HeroSection({
@@ -24,8 +26,10 @@ export function HeroSection({
   isVerified,
   averageRating = 0,
   reviewCount = 0,
+  cancellationDays = 0,
 }: HeroSectionProps) {
   const t = useTranslations("hero");
+  const tb = useTranslations("booking");
   const { scrollY } = useScroll();
   const imageY = useTransform(scrollY, [0, 500], [0, 80]);
   const contentOpacity = useTransform(scrollY, [0, 400], [1, 0]);
@@ -115,12 +119,14 @@ export function HeroSection({
                   {t("instantConfirm")}
                 </span>
               );
-              items.push(
-                <span key="freeCancellation" className="inline-flex items-center gap-1.5">
-                  <CalendarX size={14} className="text-brand-200" />
-                  {t("freeCancellation")}
-                </span>
-              );
+              if (cancellationDays > 0) {
+                items.push(
+                  <span key="freeCancellation" className="inline-flex items-center gap-1.5">
+                    <CalendarX size={14} className="text-brand-200" />
+                    {tb("cancellationPolicyNote", { days: cancellationDays })}
+                  </span>
+                );
+              }
               return items.map((item, i) => (
                 <React.Fragment key={i}>
                   {i > 0 && <span className="text-white/40">•</span>}

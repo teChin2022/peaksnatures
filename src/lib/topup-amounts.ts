@@ -2,11 +2,10 @@
  * The only amounts a host may top up.
  *
  * Enforced in /api/host/wallet/topup — the `topup_wallet` RPC takes any INTEGER,
- * so the route is the single place the rule is real. The wallet page and the
- * billing sheet render this list as their preset buttons; neither offers a
- * free-form amount.
+ * so the route is the single place the rule is real. The wallet page renders
+ * this list as its preset buttons and offers no free-form amount.
  */
-export const TOPUP_AMOUNTS = [1000, 2000, 3000] as const;
+export const TOPUP_AMOUNTS = [500, 1000, 1500] as const;
 
 export type TopupAmount = (typeof TOPUP_AMOUNTS)[number];
 

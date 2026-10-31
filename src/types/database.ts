@@ -158,6 +158,8 @@ export interface Database {
           max_guests: number;
           amenities: string[];
           prohibitions: string[];
+          amenity_icons: Record<string, string>;
+          prohibition_icons: Record<string, string>;
           check_in_time: string | null;
           check_out_time: string | null;
           hero_image_url: string | null;
@@ -190,6 +192,8 @@ export interface Database {
           max_guests?: number;
           amenities?: string[];
           prohibitions?: string[];
+          amenity_icons?: Record<string, string>;
+          prohibition_icons?: Record<string, string>;
           check_in_time?: string | null;
           check_out_time?: string | null;
           hero_image_url?: string | null;
@@ -222,6 +226,8 @@ export interface Database {
           max_guests?: number;
           amenities?: string[];
           prohibitions?: string[];
+          amenity_icons?: Record<string, string>;
+          prohibition_icons?: Record<string, string>;
           check_in_time?: string | null;
           check_out_time?: string | null;
           hero_image_url?: string | null;

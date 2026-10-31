@@ -14,7 +14,6 @@
   "hero": {
     "verifiedHost": "Verified Host",
     "instantConfirm": "Instant confirmation",
-    "freeCancellation": "Free cancellation within policy",
     "checkAvailability": "Check availability",
     "search": "Search"
   },
@@ -369,6 +368,7 @@
     "payFull": "Pay Full Amount",
     "cancellationPolicy": "Cancellation Policy",
     "cancellationPolicyNote": "Free cancellation up to {days} days before check-in",
+    "freeCancellationUntil": "Free cancellation until {date}",
     "payDeposit": "Pay Deposit",
     "amountPaid": "Amount Paid",
     "balanceDue": "Remaining Balance",
@@ -393,7 +393,7 @@
     "trustSecure": "Secure & Private",
     "trustSecureDesc": "We handle your information with care",
     "trustStep": "Quick & Easy Booking",
-    "trustStepDesc": "Pick your dates, choose a house, and send your request",
+    "trustStepDesc": "Pick your dates, choose a house, and book instantly",
     "confirmedClose": "Close"
   },
   "auth": {
@@ -470,6 +470,9 @@
     "totalRevenue": "Total Revenue",
     "allBookings": "All Bookings",
     "groupBadge": "Group",
+    "groupConfirmed": "Confirmed {count} houses",
+    "groupCancelled": "Cancelled {count} houses",
+    "groupCancelNote": "This is a group booking. Cancelling cancels every house in it, and the guest gets one email listing them all.",
     "pending": "Pending",
     "confirmedTab": "Confirmed",
     "noBookings": "No bookings in this category",
@@ -937,6 +940,7 @@
     "addCustomProhibition": "Add custom rule",
     "customProhibitionPlaceholder": "e.g. No loud music after 10 PM",
     "commonProhibitions": "Quick add",
+    "changeIcon": "Change icon",
     "slugChangeWarning": "Changing the URL slug will break all previously shared links, QR codes, and bookmarks. Old links will automatically redirect to the new URL.",
     "slugChangeConfirm": "Change Slug",
     "confirmDeleteTitle": "Confirm Delete",
@@ -1483,6 +1487,7 @@
   },
   "bookingFooter": {
     "hostedBy": "Hosted by {name}",
+    "contact": "Contact",
     "poweredBy": "Powered by"
   },
   "cookie": {

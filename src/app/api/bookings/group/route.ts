@@ -11,9 +11,9 @@ import {
   dispatchGroupHostNotification,
   buildGroupBookingMessage,
   sendRecommenderPromoUsedNotification,
-  type GroupBookingDetails,
 } from "@/lib/notifications";
-import type { Booking, BookingGroup, Homestay, Host, PromoCode, Room } from "@/types/database";
+import { loadGroupBookingDetails } from "@/lib/booking-group-details";
+import type { Booking, PromoCode } from "@/types/database";
 import { verifyRoomLineItem, splitProportional, type LineItemInput } from "@/lib/booking-pricing";
 import { getDepositForMonth } from "@/lib/get-deposit";
 import { logEvent, EventType } from "@/lib/history-log";
@@ -70,45 +70,9 @@ async function sendGroupNotifications(
   isVerified: boolean,
 ) {
   try {
-    const { data: groupRow } = await supabase
-      .from("booking_groups")
-      .select("*, homestay:homestays(*, host:hosts(*))")
-      .eq("id", groupId)
-      .single();
-    if (!groupRow) {
-      console.error("[Notification] Booking group not found:", groupId);
-      return;
-    }
-
-    const joined = groupRow as unknown as BookingGroup & {
-      homestay: (Homestay & { host: Host | null }) | null;
-    };
-    const homestay = joined.homestay;
-    if (!homestay) return;
-    const host = homestay.host;
-    if (!host) return;
-
-    const { homestay: _h, ...groupFields } = joined;
-    void _h;
-    const group = groupFields as BookingGroup;
-
-    const { data: memberRows } = await supabase
-      .from("bookings")
-      .select("*, room:rooms(*)")
-      .eq("group_id", groupId)
-      .order("created_at", { ascending: true });
-
-    const items = ((memberRows as unknown as (Booking & { room: Room | null })[]) || []).map((row) => {
-      const { room, ...bookingFields } = row;
-      return { booking: bookingFields as Booking, room: (room as Room) || undefined };
-    });
-
-    const details: GroupBookingDetails = {
-      group,
-      homestay: homestay as Homestay,
-      host: host as Host,
-      items,
-    };
+    const details = await loadGroupBookingDetails(supabase, groupId);
+    if (!details) return;
+    const { items } = details;
 
     const emailType = isVerified ? "confirmed" : "pending";
     const hostNotifType = isVerified ? "confirmed" : "flagged";
