@@ -6,7 +6,7 @@ import { format, subDays, eachDayOfInterval } from "date-fns";
 import type { Room, RoomSeasonalPrice, RoomSpecialPrice, RoomOption, RoomGuestPricing, BlockedDate } from "@/types/database";
 import { calculateTotalPrice } from "@/lib/calculate-price";
 import { computeCompositionSurcharge } from "@/lib/guest-pricing";
-import { getFullyBookedForRoom } from "@/lib/booking-dates";
+import { getFullyBookedForRoom, freeUnitsForStay } from "@/lib/booking-dates";
 
 /**
  * One room added to the cart. Dates are shared across the whole cart (stored on
@@ -170,9 +170,14 @@ export function BookingCartProvider({
     [lines],
   );
 
+  // Once dates are picked, units other guests hold (and host blocks) count too,
+  // not only the ones already in this cart.
   const remainingForRoom = useCallback(
-    (room: Room) => Math.max(0, (room.quantity || 1) - lines.filter((l) => l.roomId === room.id).length),
-    [lines],
+    (room: Room) => {
+      const free = freeUnitsForStay(room.id, room.quantity || 1, rangeNightKeys, liveBookedRanges, catalog.blockedDates);
+      return Math.max(0, free - lines.filter((l) => l.roomId === room.id).length);
+    },
+    [lines, rangeNightKeys, liveBookedRanges, catalog.blockedDates],
   );
 
   const isRoomAvailableForRange = useCallback(

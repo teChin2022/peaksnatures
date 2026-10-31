@@ -245,6 +245,7 @@ function SingleRoomHero({
   isPopular,
   unavailableForDates,
   datesChosen,
+  remaining = 0,
 }: {
   room: Room;
   seasonalPrices: RoomSeasonalPrice[];
@@ -258,6 +259,8 @@ function SingleRoomHero({
   isPopular?: boolean;
   unavailableForDates?: boolean;
   datesChosen?: boolean;
+  /** Units still bookable for the chosen dates; only meaningful once dates are chosen. */
+  remaining?: number;
 }) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
@@ -471,9 +474,11 @@ function SingleRoomHero({
                   <Users className="h-3.5 w-3.5" />
                   {tc("guests")} {room.max_guests}
                 </span>
-                <span className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-1 text-white/90 backdrop-blur-sm">
-                  {t("available", { count: room.quantity })}
-                </span>
+                {datesChosen && remaining > 0 && (
+                  <span className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-1 text-white/90 backdrop-blur-sm">
+                    {t("available", { count: remaining })}
+                  </span>
+                )}
                 {room.description && (
                   <button
                     type="button"
@@ -636,6 +641,7 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
             isPopular={popularRoomIds.has(room.id)}
             unavailableForDates={false}
             datesChosen={datesChosen}
+            remaining={cart?.remainingForRoom(room)}
           />
         ))}
         {datesChosen && visibleRooms.length === 0 && (

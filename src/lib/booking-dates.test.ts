@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildAvailabilityLookup,
   firstUnavailableNight,
+  freeUnitsForStay,
   getFullyBookedForRoom,
   getStayNightKeys,
   makeStayDisabledMatcher,
@@ -123,6 +124,38 @@ describe("getFullyBookedForRoom", () => {
 
   it("returns an empty set when there are no bookings", () => {
     expect(getFullyBookedForRoom("room-a", 1, []).size).toBe(0);
+  });
+});
+
+describe("freeUnitsForStay", () => {
+  const stay = [key(12), key(13)];
+
+  it("subtracts units other guests hold on the busiest night of the stay", () => {
+    expect(freeUnitsForStay("room-a", 2, stay, [range({ check_in: key(13) })], [])).toBe(1);
+  });
+
+  it("ignores bookings for other rooms", () => {
+    expect(freeUnitsForStay("room-a", 2, stay, [range({ room_id: "room-b" })], [])).toBe(2);
+  });
+
+  it("never goes below zero on an over-booked night", () => {
+    expect(freeUnitsForStay("room-a", 1, stay, [range(), range()], [])).toBe(0);
+  });
+
+  it("returns 0 when a night is blocked for the room", () => {
+    expect(freeUnitsForStay("room-a", 2, stay, [], [{ room_id: "room-a", date: key(13) }])).toBe(0);
+  });
+
+  it("returns 0 when a night is blocked for the whole homestay", () => {
+    expect(freeUnitsForStay("room-a", 2, stay, [], [{ room_id: null, date: key(12) }])).toBe(0);
+  });
+
+  it("ignores another room's block", () => {
+    expect(freeUnitsForStay("room-a", 2, stay, [], [{ room_id: "room-b", date: key(12) }])).toBe(2);
+  });
+
+  it("returns the full quantity before any dates are picked", () => {
+    expect(freeUnitsForStay("room-a", 3, [], [range()], [{ room_id: null, date: key(12) }])).toBe(3);
   });
 });
 

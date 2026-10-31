@@ -26,7 +26,8 @@ import { toast } from "sonner";
 import { billingTodayStr } from "@/lib/billing-dates";
 import { reconcileDraftWithCatalog, type ResumeDraftDetail } from "@/lib/booking-draft";
 import { useTranslations, useLocale } from "next-intl";
-import type { Homestay, Room, BlockedDate, Host, RoomSeasonalPrice, RoomSpecialPrice, RoomOption, RoomGuestPricing } from "@/types/database";
+import type { Homestay, Room, BlockedDate, RoomSeasonalPrice, RoomSpecialPrice, RoomOption, RoomGuestPricing } from "@/types/database";
+import type { BookingHost } from "@/lib/public-host";
 import { getPriceRange } from "@/lib/calculate-price";
 import { composeLineGuestLabel } from "@/lib/guest-pricing";
 import { isValidEmail, isValidPhone, sanitizePhoneInput } from "@/lib/utils";
@@ -123,7 +124,7 @@ interface BookingSectionProps {
   rooms: Room[];
   blockedDates: BlockedDate[];
   bookedRanges?: BookedRange[];
-  host: Host;
+  host: BookingHost;
   seasonalPrices?: RoomSeasonalPrice[];
   specialPrices?: RoomSpecialPrice[];
   roomOptions?: RoomOption[];
@@ -510,6 +511,15 @@ export function BookingSection({
     }
     return totalPrice;
   }, [paymentOption, depositAvailable, resolvedDeposit, totalPrice]);
+
+  // Same cut-off as /api/bookings/cancel (cancel allowed while days-to-check-in
+  // >= cancellation_days), so the last free day is check-in minus N. Hidden once passed.
+  const cancellationDays = host.cancellation_days || 0;
+  const freeCancelDeadline = cancellationDays > 0 && dateRange?.from ? subDays(dateRange.from, cancellationDays) : null;
+  const freeCancelUntil =
+    freeCancelDeadline && format(freeCancelDeadline, "yyyy-MM-dd") >= billingTodayStr()
+      ? fmtDate(freeCancelDeadline, "d MMM yyyy", locale)
+      : null;
 
   const handleSaveQr = useCallback(() => {
     const container = qrContainerRef.current;
@@ -1776,6 +1786,9 @@ export function BookingSection({
                                 <span>{t("payDeposit")}: ฿{resolvedDeposit.toLocaleString()}</span>
                                 <span>{t("payFull")}: ฿{totalPrice.toLocaleString()}</span>
                               </div>
+                            )}
+                            {freeCancelUntil && (
+                              <p className="text-xs text-emerald-700">{t("freeCancellationUntil", { date: freeCancelUntil })}</p>
                             )}
                           </div>
                           <div className="flex flex-col sm:flex-row gap-3">

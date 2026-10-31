@@ -31,6 +31,8 @@ import { ReviewsDisplay } from "@/components/reviews/reviews-display";
 import { JsonLd } from "@/components/seo/json-ld";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { SITE_NAME, SITE_URL, buildAlternates } from "@/lib/seo";
+import { toBookingHost } from "@/lib/public-host";
+import { resolveIconKeys } from "@/lib/list-icons";
 
 const BookingSection = dynamic(() => import("@/components/booking/booking-section").then((m) => m.BookingSection));
 const MobileBookingBar = dynamic(() => import("@/components/booking/mobile-booking-bar").then((m) => m.MobileBookingBar));
@@ -226,6 +228,9 @@ const getHomestayData = cache(async function getHomestayData(
     bookingDisabled,
     mostBookedRoomId,
     hasConfirmedBookings,
+    // From the Thai labels the host's icon picks are keyed by — before translation rewrites them.
+    amenityIcons: resolveIconKeys(homestay.amenities ?? [], homestay.amenity_icons, "amenity"),
+    prohibitionIcons: resolveIconKeys(homestay.prohibitions ?? [], homestay.prohibition_icons, "rule"),
   };
 });
 
@@ -242,7 +247,7 @@ export async function generateMetadata({ params }: PageProps): Promise<Metadata>
   }
 
   const { homestay } = data;
-  const titleAbsolute = `${homestay.name} — Book Now | ${SITE_NAME}`;
+  const titleAbsolute = `${[homestay.name, homestay.location].filter(Boolean).join(" — ")} | ${SITE_NAME}`;
   const rawDescription = richTextToPlainText(homestay.description) || homestay.tagline || homestay.name;
   const description =
     rawDescription.length > 155 ? `${rawDescription.slice(0, 155).trim()}…` : rawDescription;
@@ -288,7 +293,7 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
     notFound();
   }
 
-  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, specialPrices, roomOptions, guestPricing, reviews, averageRating, categoryAverages, reviewCount, totalBookings, lastBookingDate, bookingDisabled, mostBookedRoomId, hasConfirmedBookings } = data;
+  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, specialPrices, roomOptions, guestPricing, reviews, averageRating, categoryAverages, reviewCount, totalBookings, lastBookingDate, bookingDisabled, mostBookedRoomId, hasConfirmedBookings, amenityIcons, prohibitionIcons } = data;
 
   const initialPromo =
     promoParam && homestay.promo_codes_enabled
@@ -386,6 +391,11 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
     { label: homestay.name },
   ];
 
+  // The booking form is a client component: its props land in the page source,
+  // so it gets the homestay without the host row, and only the host fields it reads.
+  const { host, ...homestayForClient } = homestay;
+  const bookingHost = toBookingHost(host);
+
   const faqItems = (homestay.faq || []).filter(
     (f) => f.question?.trim() && f.answer?.trim(),
   );
@@ -426,6 +436,7 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
           isVerified={homestay.host.is_verified}
           averageRating={averageRating}
           reviewCount={reviewCount}
+          cancellationDays={homestay.host.cancellation_days}
           // location={homestay.location}
         />
 
@@ -454,11 +465,11 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
         {/* Booking (inline) */}
         <div className="bg-earth-50">
           <BookingSection
-            homestay={homestay}
+            homestay={homestayForClient}
             rooms={activeRooms}
             blockedDates={blockedDates}
             bookedRanges={bookedRanges}
-            host={homestay.host}
+            host={bookingHost}
             seasonalPrices={seasonalPrices}
             specialPrices={specialPrices}
             roomOptions={roomOptions}
@@ -474,6 +485,8 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
           maxGuests={homestay.max_guests}
           location={homestay.location}
           prohibitions={homestay.prohibitions}
+          amenityIcons={amenityIcons}
+          prohibitionIcons={prohibitionIcons}
         />
 
         <div className="bg-earth-50">
@@ -510,6 +523,7 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
         logoUrl={homestay.logo_url}
         location={homestay.location}
         hostName={homestay.host.name}
+        hostPhone={homestay.host.phone}
         socialLinks={{
           facebook_url: homestay.facebook_url,
           tiktok_url: homestay.tiktok_url,

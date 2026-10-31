@@ -251,6 +251,12 @@ export async function sendBookingConfirmationEmail(details: BookingDetails, loca
 // ============================================================
 // BOOKING STATUS UPDATE EMAIL (sent to guest after host review)
 // ============================================================
+
+/** For host-typed text (e.g. a cancel reason) placed inside email HTML. */
+function escapeHtml(text: string): string {
+  return text.replace(/[&<>"']/g, (c) => ({ "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&#39;" })[c]!);
+}
+
 export async function sendBookingStatusUpdateEmail(
   details: BookingDetails,
   newStatus: "confirmed" | "cancelled",
@@ -293,7 +299,7 @@ export async function sendBookingStatusUpdateEmail(
     const reasonHtml = !isConfirmed && reason
       ? `<div style="margin: 16px 0; padding: 12px 16px; background: #fef2f2; border-left: 4px solid #ef4444; border-radius: 4px;">
            <p style="margin: 0; font-size: 14px; color: #991b1b; font-weight: 600;">${isTh ? "เหตุผล" : "Reason"}:</p>
-           <p style="margin: 4px 0 0; font-size: 14px; color: #7f1d1d;">${reason}</p>
+           <p style="margin: 4px 0 0; font-size: 14px; color: #7f1d1d;">${escapeHtml(reason)}</p>
          </div>`
       : "";
 
@@ -1660,11 +1666,15 @@ async function localizeGroupEmailContent(
   };
 }
 
-/** Guest confirmation email for a cart — per-room block + one combined total. */
+/**
+ * Guest email for a cart — per-room block + one combined total. Sent pending or
+ * confirmed at checkout, and confirmed or cancelled when the host reviews it.
+ */
 export async function sendGroupBookingConfirmationEmail(
   details: GroupBookingDetails,
   locale: string = "th",
-  type: "confirmed" | "pending" = "confirmed",
+  type: "confirmed" | "pending" | "cancelled" = "confirmed",
+  reason?: string,
 ) {
   const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
   if (!apiKey) {
@@ -1683,16 +1693,19 @@ export async function sendGroupBookingConfirmationEmail(
       : DEFAULT_FROM;
     const isTh = locale === "th";
     const isConfirmed = type === "confirmed";
+    const isCancelled = type === "cancelled";
 
     const localized = await localizeGroupEmailContent(homestay, items, locale);
 
     const subject = isConfirmed
       ? (isTh ? `การจองของคุณได้รับการยืนยันแล้ว (${items.length} หลัง) – ${localized.homestayName}` : `Your Booking Has Been Confirmed (${items.length} houses) – ${localized.homestayName}`)
-      : (isTh ? `ได้รับการจองแล้ว — รอการตรวจสอบ — ${localized.homestayName}` : `Booking Received — Pending Review — ${localized.homestayName}`);
+      : isCancelled
+        ? (isTh ? `การจองถูกยกเลิก (${items.length} หลัง) – ${localized.homestayName}` : `Booking Cancelled (${items.length} houses) – ${localized.homestayName}`)
+        : (isTh ? `ได้รับการจองแล้ว — รอการตรวจสอบ — ${localized.homestayName}` : `Booking Received — Pending Review — ${localized.homestayName}`);
 
     const labelStyle = `padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top; line-height: 1.4;`;
     const valueStyle = `padding: 10px 0; color: #111827; font-size: 14px; vertical-align: top; line-height: 1.5;`;
-    const accent = isConfirmed ? "#111827" : "#d97706";
+    const accent = isConfirmed ? "#111827" : isCancelled ? "#ef4444" : "#d97706";
 
     const roomRows = items
       .map((it, i) => {
@@ -1729,13 +1742,24 @@ export async function sendGroupBookingConfirmationEmail(
 
     const headerText = isConfirmed
       ? (isTh ? `การจองของคุณได้รับการยืนยันแล้ว` : `Your Booking Has Been Confirmed`)
-      : (isTh ? `ได้รับการจองแล้ว — รอการตรวจสอบ` : `Booking Received — Pending Review`);
-    const headerBg = isConfirmed ? "#f9fafb" : "#f59e0b";
+      : isCancelled
+        ? (isTh ? `การจองถูกยกเลิก` : `Booking Cancelled`)
+        : (isTh ? `ได้รับการจองแล้ว — รอการตรวจสอบ` : `Booking Received — Pending Review`);
+    const headerBg = isConfirmed ? "#f9fafb" : isCancelled ? "#ef4444" : "#f59e0b";
     const headerColor = isConfirmed ? "#111827" : "#ffffff";
 
     const closingText = isConfirmed
       ? (isTh ? "การชำระเงินของคุณได้รับการยืนยันเรียบร้อยแล้ว" : "Your payment has been confirmed.")
-      : (isTh ? "สลิปการชำระเงินไม่สามารถตรวจสอบอัตโนมัติได้ เจ้าของที่พักจะตรวจสอบและยืนยันให้ในเร็วๆ นี้" : "Your payment slip could not be auto-verified. The host will review and confirm your booking shortly.");
+      : isCancelled
+        ? (isTh ? "ขออภัย การจองของคุณไม่สามารถยืนยันได้ หากมีข้อสงสัย กรุณาติดต่อเจ้าของที่พักโดยตรง" : "Unfortunately, your booking could not be confirmed. If you have any questions, please contact the host directly.")
+        : (isTh ? "สลิปการชำระเงินไม่สามารถตรวจสอบอัตโนมัติได้ เจ้าของที่พักจะตรวจสอบและยืนยันให้ในเร็วๆ นี้" : "Your payment slip could not be auto-verified. The host will review and confirm your booking shortly.");
+
+    const reasonHtml = isCancelled && reason
+      ? `<div style="margin: 0 0 24px; padding: 12px 16px; background: #fef2f2; border-left: 4px solid #ef4444; border-radius: 4px;">
+           <p style="margin: 0; font-size: 14px; color: #991b1b; font-weight: 600;">${isTh ? "เหตุผล" : "Reason"}:</p>
+           <p style="margin: 4px 0 0; font-size: 14px; color: #7f1d1d;">${escapeHtml(reason)}</p>
+         </div>`
+      : "";
 
     const html = `
       <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
@@ -1745,6 +1769,7 @@ export async function sendGroupBookingConfirmationEmail(
         <div style="padding: 32px 24px;">
           <p style="font-size: 16px; color: #111827; margin: 0 0 16px;">${isTh ? `เรียน คุณ${group.guest_name}` : `Dear ${group.guest_name}`},</p>
           <p style="font-size: 14px; color: #374151; margin: 0 0 24px; line-height: 1.6;">${isTh ? `รายละเอียดการจอง ${items.length} หลังของคุณที่ ${localized.homestayName} มีดังนี้` : `Here are the details of your ${items.length}-house booking at ${localized.homestayName}:`}</p>
+          ${reasonHtml}
           <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px 24px; margin-bottom: 24px;">
             <h2 style="color: #111827; font-size: 16px; font-weight: 700; margin: 0 0 8px;">${isTh ? "รายละเอียดการจอง" : "Booking Details"}</h2>
             <table style="width: 100%; border-collapse: collapse;">

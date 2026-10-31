@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cn, getInitials, isValidEmail, isValidPhone, sanitizePhoneInput } from "@/lib/utils";
+import { cn, getInitials, isValidEmail, isValidPhone, lineUrl, sanitizePhoneInput } from "@/lib/utils";
 
 describe("cn", () => {
   it("joins class names", () => {
@@ -81,5 +81,29 @@ describe("isValidPhone", () => {
     for (const value of ["081234567", "08123456789", "081-234-5678", "+66812345678", ""]) {
       expect(isValidPhone(value)).toBe(false);
     }
+  });
+});
+
+describe("lineUrl", () => {
+  it("keeps a full link the host pasted instead of nesting it in another", () => {
+    // Was rendered as https://line.me/R/ti/p/https://line.me/ti/p/... on a live page.
+    expect(lineUrl("https://line.me/ti/p/AbCdEf123")).toBe("https://line.me/ti/p/AbCdEf123");
+  });
+
+  it("adds the scheme to a bare line.me or lin.ee link", () => {
+    expect(lineUrl("line.me/ti/p/AbCdEf123")).toBe("https://line.me/ti/p/AbCdEf123");
+    expect(lineUrl("lin.ee/xYz12")).toBe("https://lin.ee/xYz12");
+  });
+
+  it("links an official account ID through the OA path", () => {
+    expect(lineUrl("@peaksnature")).toBe("https://line.me/R/ti/p/%40peaksnature");
+  });
+
+  it("links a personal ID through the ~ path", () => {
+    expect(lineUrl("somchai.j")).toBe("https://line.me/ti/p/~somchai.j");
+  });
+
+  it("trims surrounding spaces", () => {
+    expect(lineUrl("  @peaksnature ")).toBe("https://line.me/R/ti/p/%40peaksnature");
   });
 });

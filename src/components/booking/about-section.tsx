@@ -1,18 +1,6 @@
 "use client";
 
 import { useState, useRef, useEffect } from "react";
-import {
-  Wifi,
-  Car,
-  UtensilsCrossed,
-  TreePine,
-  Waves,
-  Flame,
-  BookOpen,
-  Telescope,
-  Fish,
-  Check
-} from "lucide-react";
 
 import { useTranslations } from "next-intl";
 import { motion } from "motion/react";
@@ -24,23 +12,33 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
-
-const AMENITY_ICONS: Record<string, React.ElementType> = {
-  WiFi: Wifi,
-  Parking: Car,
-  Kitchen: UtensilsCrossed,
-  Garden: TreePine,
-  BBQ: Flame,
-  Kayaking: Waves,
-  Fishing: Fish,
-  Restaurant: UtensilsCrossed,
-  Swimming: Waves,
-  Telescope: Telescope,
-  Fireplace: Flame,
-  Library: BookOpen,
-};
+import { ListIcon } from "@/components/booking/list-icon";
+import { autoIconKey, type ListKind } from "@/lib/list-icons";
 
 const VISIBLE_ITEMS = 4;
+
+/**
+ * `icons` are resolved from the original Thai labels on the server. In English
+ * the labels are a translation that is not guaranteed to keep the array's
+ * length, so a mismatched list re-picks icons from the words it shows.
+ */
+function ListRows({ labels, icons, kind, limit }: { labels: string[]; icons?: string[]; kind: ListKind; limit?: number }) {
+  const aligned = icons?.length === labels.length;
+  return (
+    <>
+      {labels.slice(0, limit).map((label, i) => (
+        <div key={label} className="flex items-center gap-2 text-sm text-earth-700">
+          <ListIcon
+            name={(aligned && icons[i]) || autoIconKey(label, kind)}
+            kind={kind}
+            className="h-4 w-4 shrink-0 text-brand"
+          />
+          <span>{label}</span>
+        </div>
+      ))}
+    </>
+  );
+}
 
 interface AboutSectionProps {
   description: string;
@@ -48,6 +46,8 @@ interface AboutSectionProps {
   maxGuests: number;
   location: string;
   prohibitions?: string[];
+  amenityIcons?: string[];
+  prohibitionIcons?: string[];
 }
 
 export function AboutSection({
@@ -56,6 +56,8 @@ export function AboutSection({
   maxGuests,
   location,
   prohibitions = [],
+  amenityIcons,
+  prohibitionIcons,
 }: AboutSectionProps) {
   const t = useTranslations("about");
   const [descModal, setDescModal] = useState(false);
@@ -124,15 +126,7 @@ export function AboutSection({
           <div>
             <h3 className="text-lg font-serif text-earth-800">{t("amenities")}</h3>
             <div className="mt-3 space-y-2">
-              {amenities.slice(0, VISIBLE_ITEMS).map((amenity) => (
-                <div
-                  key={amenity}
-                  className="flex items-center gap-2 text-sm text-earth-700"
-                >
-                  <Check className="h-4 w-4 shrink-0 text-brand" />
-                  <span>{amenity}</span>
-                </div>
-              ))}
+              <ListRows labels={amenities} icons={amenityIcons} kind="amenity" limit={VISIBLE_ITEMS} />
             </div>
             {amenities.length > VISIBLE_ITEMS && (
               <button
@@ -149,15 +143,7 @@ export function AboutSection({
             <div>
               <h3 className="text-lg font-serif text-earth-800">{t("rules")}</h3>
               <div className="mt-3 space-y-2">
-                {prohibitions.slice(0, VISIBLE_ITEMS).map((rule) => (
-                  <div
-                    key={rule}
-                    className="flex items-center gap-2 text-sm text-earth-700"
-                  >
-                    <Check className="h-4 w-4 shrink-0 text-brand" />
-                    <span>{rule}</span>
-                  </div>
-                ))}
+                <ListRows labels={prohibitions} icons={prohibitionIcons} kind="rule" limit={VISIBLE_ITEMS} />
               </div>
               {prohibitions.length > VISIBLE_ITEMS && (
                 <button
@@ -193,15 +179,7 @@ export function AboutSection({
             <DialogDescription className="sr-only">{t("amenities")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            {amenities.map((amenity) => (
-              <div
-                key={amenity}
-                className="flex items-center gap-2 text-sm text-earth-700"
-              >
-                <Check className="h-4 w-4 shrink-0 text-brand" />
-                <span>{amenity}</span>
-              </div>
-            ))}
+            <ListRows labels={amenities} icons={amenityIcons} kind="amenity" />
           </div>
         </DialogContent>
       </Dialog>
@@ -214,15 +192,7 @@ export function AboutSection({
             <DialogDescription className="sr-only">{t("rules")}</DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            {prohibitions.map((rule) => (
-              <div
-                key={rule}
-                className="flex items-center gap-2 text-sm text-earth-700"
-              >
-                <Check className="h-4 w-4 shrink-0 text-brand" />
-                <span>{rule}</span>
-              </div>
-            ))}
+            <ListRows labels={prohibitions} icons={prohibitionIcons} kind="rule" />
           </div>
         </DialogContent>
       </Dialog>

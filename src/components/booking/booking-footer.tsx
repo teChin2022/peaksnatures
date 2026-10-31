@@ -1,6 +1,7 @@
 import Image from "next/image";
-import { MapPin } from "lucide-react";
+import { MapPin, Phone } from "lucide-react";
 import { useTranslations } from "next-intl";
+import { lineUrl } from "@/lib/utils";
 
 interface SocialLinks {
   facebook_url?: string | null;
@@ -14,6 +15,7 @@ interface BookingFooterProps {
   logoUrl?: string | null;
   location: string;
   hostName: string;
+  hostPhone?: string | null;
   socialLinks?: SocialLinks;
 }
 
@@ -57,8 +59,10 @@ export function BookingFooter({
   logoUrl,
   location,
   hostName,
+  hostPhone,
   socialLinks,
 }: BookingFooterProps) {
+  const t = useTranslations("bookingFooter");
   const tc = useTranslations("common");
 
   const hasSocials = socialLinks && (
@@ -71,79 +75,97 @@ export function BookingFooter({
       <div className="h-px w-full bg-gradient-to-r from-transparent via-earth-600 to-transparent" />
 
       <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
-        {/* Brand + Social cluster */}
-        <div className="flex flex-col items-center gap-4 mb-6">
-          {/* Logo + Name */}
-          <div className="flex flex-col items-center gap-2.5">
-            {logoUrl && (
-              <Image
-                src={logoUrl}
-                alt={homestayName}
-                width={40}
-                height={40}
-                className="h-10 w-10 rounded-full object-cover ring-1 ring-earth-700"
-              />
-            )}
-            <div className="text-center">
-              <h3 className="font-semibold text-earth-50 text-base tracking-wide">
-                {homestayName}
-              </h3>
-              <div className="mt-1 flex items-center justify-center gap-1 text-xs text-earth-500">
-                <MapPin className="h-3 w-3" />
-                {location}
+        {/* Brand + socials | Contact — stacked and centred on mobile, side by side from sm */}
+        <div className="mb-8 flex flex-col items-center gap-8 text-center sm:flex-row sm:items-start sm:justify-between sm:text-left">
+          <div className="flex flex-col items-center gap-4 sm:items-start">
+            {/* Logo + Name */}
+            <div className="flex items-center gap-3">
+              {logoUrl && (
+                <Image
+                  src={logoUrl}
+                  alt={homestayName}
+                  width={40}
+                  height={40}
+                  className="h-10 w-10 rounded-full object-cover ring-1 ring-earth-700"
+                />
+              )}
+              <div className="text-left">
+                <h3 className="font-semibold text-earth-50 text-base tracking-wide">
+                  {homestayName}
+                </h3>
+                <p className="mt-0.5 text-xs text-earth-500">{t("hostedBy", { name: hostName })}</p>
               </div>
             </div>
+
+            {/* Social icons — tucked right under brand */}
+            {hasSocials && (
+              <div className="flex items-center gap-2">
+                {socialLinks.facebook_url && (
+                  <a
+                    href={socialLinks.facebook_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={SOCIAL_ICON_CLASS}
+                    aria-label="Facebook"
+                  >
+                    <FacebookIcon className="h-3.5 w-3.5" />
+                  </a>
+                )}
+                {socialLinks.instagram_url && (
+                  <a
+                    href={socialLinks.instagram_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={SOCIAL_ICON_CLASS}
+                    aria-label="Instagram"
+                  >
+                    <InstagramIcon className="h-3.5 w-3.5" />
+                  </a>
+                )}
+                {socialLinks.tiktok_url && (
+                  <a
+                    href={socialLinks.tiktok_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={SOCIAL_ICON_CLASS}
+                    aria-label="TikTok"
+                  >
+                    <TikTokIcon className="h-3.5 w-3.5" />
+                  </a>
+                )}
+                {socialLinks.line_id && (
+                  <a
+                    href={lineUrl(socialLinks.line_id)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className={SOCIAL_ICON_CLASS}
+                    aria-label="LINE"
+                  >
+                    <LineIcon className="h-3.5 w-3.5" />
+                  </a>
+                )}
+              </div>
+            )}
           </div>
 
-          {/* Social icons — tucked right under brand */}
-          {hasSocials && (
-            <div className="flex items-center gap-2">
-              {socialLinks.facebook_url && (
-                <a
-                  href={socialLinks.facebook_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={SOCIAL_ICON_CLASS}
-                  aria-label="Facebook"
-                >
-                  <FacebookIcon className="h-3.5 w-3.5" />
-                </a>
-              )}
-              {socialLinks.instagram_url && (
-                <a
-                  href={socialLinks.instagram_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={SOCIAL_ICON_CLASS}
-                  aria-label="Instagram"
-                >
-                  <InstagramIcon className="h-3.5 w-3.5" />
-                </a>
-              )}
-              {socialLinks.tiktok_url && (
-                <a
-                  href={socialLinks.tiktok_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={SOCIAL_ICON_CLASS}
-                  aria-label="TikTok"
-                >
-                  <TikTokIcon className="h-3.5 w-3.5" />
-                </a>
-              )}
-              {socialLinks.line_id && (
-                <a
-                  href={`https://line.me/R/ti/p/${socialLinks.line_id.replace("@", "%40")}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className={SOCIAL_ICON_CLASS}
-                  aria-label="LINE"
-                >
-                  <LineIcon className="h-3.5 w-3.5" />
-                </a>
-              )}
-            </div>
-          )}
+          {/* Contact */}
+          <div className="flex flex-col items-center gap-2.5 sm:items-start">
+            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-earth-500">{t("contact")}</p>
+            <p className="flex items-start gap-2 text-sm text-earth-300">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-earth-500" />
+              <span>{location}</span>
+            </p>
+            {hostPhone && (
+              <a
+                href={`tel:${hostPhone}`}
+                className="flex items-center gap-2 text-sm text-earth-300 transition-colors hover:text-white"
+              >
+                <Phone className="h-4 w-4 shrink-0 text-earth-500" />
+                {/* 0812345678 → 081-234-5678; any other shape is shown as entered */}
+                {hostPhone.replace(/^(\d{3})(\d{3})(\d{4})$/, "$1-$2-$3")}
+              </a>
+            )}
+          </div>
         </div>
 
         {/* Divider */}

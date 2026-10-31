@@ -117,6 +117,8 @@ export function makeHomestay(over: Partial<Homestay> = {}): Homestay {
     max_guests: 8,
     amenities: [],
     prohibitions: [],
+    amenity_icons: {},
+    prohibition_icons: {},
     check_in_time: "14:00",
     check_out_time: "12:00",
     hero_image_url: null,

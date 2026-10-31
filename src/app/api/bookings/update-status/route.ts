@@ -2,7 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { revalidateTag } from "next/cache";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
-import { sendBookingStatusUpdateEmail } from "@/lib/notifications";
+import { sendBookingStatusUpdateEmail, sendGroupBookingConfirmationEmail } from "@/lib/notifications";
+import { loadGroupBookingDetails } from "@/lib/booking-group-details";
 import type { Booking, Homestay, Host, Room } from "@/types/database";
 import { logEvent, EventType } from "@/lib/history-log";
 import { deductCommission } from "@/lib/billing";
@@ -165,6 +166,16 @@ export async function POST(req: NextRequest) {
       }
 
       try {
+        // A cart was paid with one slip and changed as one, so the guest gets one
+        // email listing every house — not the single email naming only this room.
+        if (groupId) {
+          const groupDetails = await loadGroupBookingDetails(supabase, groupId);
+          if (groupDetails) {
+            await sendGroupBookingConfirmationEmail(groupDetails, locale || "th", status, reason);
+            return;
+          }
+        }
+
         // Parallel: homestay+host (joined) + room
         const [{ data: hsJoined }, roomResult] = await Promise.all([
           supabase.from("homestays").select("*, hosts(*)").eq("id", booking.homestay_id).single(),
@@ -197,7 +208,8 @@ export async function POST(req: NextRequest) {
 
     revalidateTag("admin-stats", "max");
     revalidateTag(`booking-availability:${booking.homestay_id}`, "max");
-    return NextResponse.json({ success: true, status });
+    // Every booking the change touched, so the dashboard can update a whole cart at once.
+    return NextResponse.json({ success: true, status, member_ids: memberIds });
   } catch (error) {
     console.error("[UpdateStatus] Error:", error);
     return NextResponse.json(
