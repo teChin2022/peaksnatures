@@ -391,10 +391,9 @@ export default function WalletPage() {
 
                   {billing.plan_type === "commission" && billing.effective_commission_pct != null && (
                     <p className="text-xs text-earth-400 mt-2">
-                      {billing.effective_commission_pct}% {locale === "th" ? "คอมมิชชั่นต่อการจอง" : "commission per booking"}
-                      {billing.effective_quick_commission_pct != null &&
-                        billing.effective_quick_commission_pct !== billing.effective_commission_pct &&
-                        ` · ${locale === "th" ? "จองด่วน" : "quick bookings"} ${billing.effective_quick_commission_pct}%`}
+                      {locale === "th"
+                        ? `คอมมิชชั่น: ลูกค้าจองผ่านเว็บ ${billing.effective_commission_pct}% · จองด่วน ${billing.effective_quick_commission_pct}%`
+                        : `Commission: guest booking ${billing.effective_commission_pct}% · quick booking ${billing.effective_quick_commission_pct}%`}
                     </p>
                   )}
 

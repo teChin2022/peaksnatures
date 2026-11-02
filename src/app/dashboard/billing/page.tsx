@@ -94,6 +94,10 @@ const PLAN_LABEL_KEYS: Record<string, string> = {
   fixed_rate: "fixedRatePlan",
 };
 
+// Commission is charged per booking channel, each at its own rate.
+const GUEST_BOOKING = { en: "guest booking", th: "ลูกค้าจองผ่านเว็บ" };
+const QUICK_BOOKING = { en: "quick booking", th: "จองด่วน" };
+
 const PLANS = [
   {
     key: "free",
@@ -162,7 +166,7 @@ function getPlanPrice(key: string, data: BillingData): { price: string; period: 
   if (key === "free") return { price: "฿0", period: "/month", periodTh: "/เดือน" };
   if (key === "commission") {
     const pct = data.effective_commission_pct;
-    return { price: pct != null ? `${pct}%` : "—", period: "/booking", periodTh: "/การจอง" };
+    return { price: pct != null ? `${pct}%` : "—", period: `/${GUEST_BOOKING.en}`, periodTh: `/${GUEST_BOOKING.th}` };
   }
   // fixed_rate
   const rate = data.effective_fixed_rate;
@@ -365,12 +369,7 @@ export default function DashboardBillingPage() {
     setConfirmDialog({ type: "switch", planType: planKey });
   };
 
-  // Shown only once an admin prices quick bookings apart from guest bookings.
-  const quickPct = data.effective_quick_commission_pct;
-  const quickRateNote =
-    quickPct != null && quickPct !== data.effective_commission_pct
-      ? locale === "th" ? `จองด่วน ${quickPct}%` : `Quick bookings: ${quickPct}%`
-      : null;
+  const lang = locale === "th" ? "th" : "en";
 
   const monthlyRate = data.effective_fixed_rate ?? 0;
   const computeTermTotal = (months: number, discountPct: number) =>
@@ -550,8 +549,13 @@ export default function DashboardBillingPage() {
                   <span className="text-4xl font-extrabold tracking-tight text-gray-900">{price}</span>
                   <span className="text-earth-400 ml-2 font-medium">{period}</span>
                 </div>
-                {plan.key === "commission" && quickRateNote && (
-                  <p className="text-xs text-earth-500 mt-1">{quickRateNote}</p>
+                {plan.key === "commission" && (
+                  <div className="flex items-baseline">
+                    <span className="text-4xl font-extrabold tracking-tight text-gray-900">
+                      {data.effective_quick_commission_pct != null ? `${data.effective_quick_commission_pct}%` : "—"}
+                    </span>
+                    <span className="text-earth-400 ml-2 font-medium">/{QUICK_BOOKING[lang]}</span>
+                  </div>
                 )}
                 {isCurrent && plan.key === "free" && data.plan_free_expires_at && (
                   <p className="text-xs text-earth-500 mt-1">
@@ -651,11 +655,17 @@ export default function DashboardBillingPage() {
                 <span className="text-sm font-medium text-gray-600">{t("commissionPlan")}</span>
               </div>
               <div className="text-center">
-                <p className="text-4xl sm:text-5xl font-serif tracking-tight text-gray-900">
-                  {data.effective_commission_pct ?? 0}%
-                </p>
-                <p className="text-sm text-earth-400 mt-1">/{locale === "th" ? "การจอง" : "booking"}</p>
-                {quickRateNote && <p className="text-xs text-earth-500 mt-1">{quickRateNote}</p>}
+                <div className="grid grid-cols-2 gap-4">
+                  {[
+                    { pct: data.effective_commission_pct, label: GUEST_BOOKING[lang] },
+                    { pct: data.effective_quick_commission_pct, label: QUICK_BOOKING[lang] },
+                  ].map(({ pct, label }) => (
+                    <div key={label}>
+                      <p className="text-4xl sm:text-5xl font-serif tracking-tight text-gray-900">{pct ?? 0}%</p>
+                      <p className="text-sm text-earth-400 mt-1">/{label}</p>
+                    </div>
+                  ))}
+                </div>
                 <p className="text-sm text-earth-500 mt-3">
                   {locale === "th"
                     ? "จ่ายตามการใช้งาน เหมาะสำหรับโฮสต์ตามฤดูกาล"
