@@ -79,6 +79,7 @@ export async function PUT(req: NextRequest) {
     const body = await req.json();
     const {
       commission_pct,
+      quick_commission_pct,
       fixed_rate_amount,
       fixed_rate_term_tiers,
       promptpay_id,
@@ -112,6 +113,7 @@ export async function PUT(req: NextRequest) {
 
     const updateData: Record<string, unknown> = {};
     if (commission_pct !== undefined) updateData.commission_pct = commission_pct;
+    if (quick_commission_pct !== undefined) updateData.quick_commission_pct = quick_commission_pct;
     if (fixed_rate_amount !== undefined) updateData.fixed_rate_amount = fixed_rate_amount;
     if (tiersValue !== undefined) updateData.fixed_rate_term_tiers = tiersValue;
     if (promptpay_id !== undefined) updateData.promptpay_id = promptpay_id;

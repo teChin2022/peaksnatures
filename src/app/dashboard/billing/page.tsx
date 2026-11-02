@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { fmtDateStr } from "@/lib/format-date";
 import { PromptPayQr } from "@/components/dashboard/promptpay-qr";
 import { InvoicePayDialog } from "@/components/dashboard/invoice-pay-dialog";
+import { InvoiceStatusBadge, InvoiceSummary, invoiceStatus, type InvoiceRow } from "@/components/dashboard/invoice-summary";
 import { PlanActivationDialog, type PlanQuote } from "@/components/dashboard/plan-activation-dialog";
 import { LOW_WALLET_THRESHOLD } from "@/lib/wallet-thresholds";
 import { billingTodayStr } from "@/lib/billing-dates";
@@ -28,7 +29,6 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -52,6 +52,7 @@ interface BillingData {
   plan_pending_term_months: number | null;
   wallet_balance: number;
   effective_commission_pct: number | null;
+  effective_quick_commission_pct: number | null;
   effective_fixed_rate: number | null;
   fixed_rate_term_months: number | null;
   fixed_rate_term_started_at: string | null;
@@ -68,16 +69,6 @@ interface BillingData {
   recent_transactions: TransactionRow[];
 }
 
-interface InvoiceRow {
-  id: string;
-  amount: number;
-  period_start: string;
-  period_end: string;
-  status: string;
-  due_date: string;
-  paid_at: string | null;
-}
-
 interface TransactionRow {
   id: string;
   type: string;
@@ -92,6 +83,10 @@ const PLAN_LABEL_KEYS: Record<string, string> = {
   commission: "commissionPlan",
   fixed_rate: "fixedRatePlan",
 };
+
+// Commission is charged per booking channel, each at its own rate.
+const GUEST_BOOKING = { en: "guest booking", th: "ลูกค้าจองผ่านเว็บ" };
+const QUICK_BOOKING = { en: "quick booking", th: "จองด่วน" };
 
 const PLANS = [
   {
@@ -161,7 +156,7 @@ function getPlanPrice(key: string, data: BillingData): { price: string; period: 
   if (key === "free") return { price: "฿0", period: "/month", periodTh: "/เดือน" };
   if (key === "commission") {
     const pct = data.effective_commission_pct;
-    return { price: pct != null ? `${pct}%` : "—", period: "/booking", periodTh: "/การจอง" };
+    return { price: pct != null ? `${pct}%` : "—", period: `/${GUEST_BOOKING.en}`, periodTh: `/${GUEST_BOOKING.th}` };
   }
   // fixed_rate
   const rate = data.effective_fixed_rate;
@@ -364,6 +359,8 @@ export default function DashboardBillingPage() {
     setConfirmDialog({ type: "switch", planType: planKey });
   };
 
+  const lang = locale === "th" ? "th" : "en";
+
   const monthlyRate = data.effective_fixed_rate ?? 0;
   const computeTermTotal = (months: number, discountPct: number) =>
     Math.round(monthlyRate * months * (1 - discountPct / 100));
@@ -542,6 +539,14 @@ export default function DashboardBillingPage() {
                   <span className="text-4xl font-extrabold tracking-tight text-gray-900">{price}</span>
                   <span className="text-earth-400 ml-2 font-medium">{period}</span>
                 </div>
+                {plan.key === "commission" && (
+                  <div className="flex items-baseline">
+                    <span className="text-4xl font-extrabold tracking-tight text-gray-900">
+                      {data.effective_quick_commission_pct != null ? `${data.effective_quick_commission_pct}%` : "—"}
+                    </span>
+                    <span className="text-earth-400 ml-2 font-medium">/{QUICK_BOOKING[lang]}</span>
+                  </div>
+                )}
                 {isCurrent && plan.key === "free" && data.plan_free_expires_at && (
                   <p className="text-xs text-earth-500 mt-1">
                     {t("expiresOn")} {fmtDateStr(data.plan_free_expires_at, "d MMM yyyy", locale)}
@@ -640,10 +645,17 @@ export default function DashboardBillingPage() {
                 <span className="text-sm font-medium text-gray-600">{t("commissionPlan")}</span>
               </div>
               <div className="text-center">
-                <p className="text-4xl sm:text-5xl font-serif tracking-tight text-gray-900">
-                  {data.effective_commission_pct ?? 0}%
-                </p>
-                <p className="text-sm text-earth-400 mt-1">/{locale === "th" ? "การจอง" : "booking"}</p>
+                <div className="grid grid-cols-2 gap-4">
+                  {[
+                    { pct: data.effective_commission_pct, label: GUEST_BOOKING[lang] },
+                    { pct: data.effective_quick_commission_pct, label: QUICK_BOOKING[lang] },
+                  ].map(({ pct, label }) => (
+                    <div key={label}>
+                      <p className="text-4xl sm:text-5xl font-serif tracking-tight text-gray-900">{pct ?? 0}%</p>
+                      <p className="text-sm text-earth-400 mt-1">/{label}</p>
+                    </div>
+                  ))}
+                </div>
                 <p className="text-sm text-earth-500 mt-3">
                   {locale === "th"
                     ? "จ่ายตามการใช้งาน เหมาะสำหรับโฮสต์ตามฤดูกาล"
@@ -756,11 +768,8 @@ export default function DashboardBillingPage() {
                         <p className="text-xs text-earth-400 mt-0.5">
                           {fmtDateStr(pendingInvoice.period_start, "d MMM", locale)} — {fmtDateStr(pendingInvoice.period_end, "d MMM yyyy", locale)}
                         </p>
-                        {pendingInvoice.status === "overdue" && (
-                          <Badge className="mt-2 bg-red-100 text-red-700 rounded-full text-[11px] font-medium">
-                            <AlertTriangle className="h-3 w-3 mr-0.5" />
-                            {locale === "th" ? "เลยกำหนดชำระ" : "Overdue"}
-                          </Badge>
+                        {invoiceStatus(pendingInvoice) === "overdue" && (
+                          <InvoiceStatusBadge status="overdue" className="mt-2" />
                         )}
                         <p className="text-xs text-earth-400 mt-1">
                           {t("dueDate")}: {fmtDateStr(pendingInvoice.due_date, "d MMM yyyy", locale)}
@@ -796,53 +805,27 @@ export default function DashboardBillingPage() {
                       {t("invoices")}
                     </p>
                     <div className="space-y-3">
-                      {data.invoices.map((inv, i) => (
-                        <motion.div
-                          key={inv.id}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.06, duration: 0.3 }}
-                          className={`rounded-xl border p-4 transition-colors ${
-                            inv.status === "overdue"
-                              ? "border-red-200 bg-red-50/30"
-                              : inv.status === "paid"
-                              ? "border-gray-100 bg-gray-50/50"
-                              : "border-gray-200 bg-white"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <p className="font-serif text-lg text-gray-900">
-                                ฿{inv.amount.toLocaleString()}
-                              </p>
-                              <p className="text-xs text-gray-400 mt-0.5">
-                                {fmtDateStr(inv.period_start, "d MMM", locale)} —{" "}
-                                {fmtDateStr(inv.period_end, "d MMM yyyy", locale)}
-                              </p>
-                            </div>
-                            <Badge
-                              className={`rounded-full text-[11px] font-medium ${
-                                inv.status === "paid"
-                                  ? "bg-green-100 text-green-700"
-                                  : inv.status === "overdue"
-                                  ? "bg-red-100 text-red-700"
-                                  : "bg-amber-100 text-amber-700"
-                              }`}
-                            >
-                              {inv.status === "paid" && <CheckCircle className="h-3 w-3 mr-0.5" />}
-                              {inv.status === "overdue" && <AlertTriangle className="h-3 w-3 mr-0.5" />}
-                              {inv.status === "pending" && <Clock className="h-3 w-3 mr-0.5" />}
-                              {inv.status}
-                            </Badge>
-                          </div>
-
-                          {inv.status === "paid" && inv.paid_at && (
-                            <p className="text-[11px] text-gray-400 mt-2">
-                              {t("paidOn")} {fmtDateStr(inv.paid_at, "d MMM yyyy", locale)}
-                            </p>
-                          )}
-                        </motion.div>
-                      ))}
+                      {data.invoices.map((inv, i) => {
+                        const status = invoiceStatus(inv);
+                        return (
+                          <motion.div
+                            key={inv.id}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: i * 0.06, duration: 0.3 }}
+                            className={`rounded-xl border p-4 transition-colors ${
+                              status === "overdue"
+                                ? "border-red-200 bg-red-50/30"
+                                : status === "paid"
+                                ? "border-gray-100 bg-gray-50/50"
+                                : "border-gray-200 bg-white"
+                            }`}
+                          >
+                            {/* No pay button here: the payment box above handles the open invoice. */}
+                            <InvoiceSummary invoice={inv} planType={data.plan_type} />
+                          </motion.div>
+                        );
+                      })}
                     </div>
                   </CardContent>
                 )}

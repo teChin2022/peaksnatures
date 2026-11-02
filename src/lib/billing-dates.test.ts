@@ -4,6 +4,7 @@ import {
   billingToday,
   billingTodayStr,
   blockingInvoiceFilter,
+  isInvoiceBlocking,
 } from "@/lib/billing-dates";
 
 const iso = (d: Date) => d.toISOString().split("T")[0];
@@ -93,5 +94,32 @@ describe("blockingInvoiceFilter", () => {
     vi.useFakeTimers();
     vi.setSystemTime(new Date("2026-09-05T10:00:00Z"));
     expect(blockingInvoiceFilter()).toContain("due_date.lt.2026-09-05");
+  });
+});
+
+describe("isInvoiceBlocking", () => {
+  const TODAY = "2026-11-06";
+
+  it("blocks a pending invoice from the day after its due date", () => {
+    expect(isInvoiceBlocking({ status: "pending", due_date: "2026-11-05" }, TODAY)).toBe(true);
+  });
+
+  it("still lets a pending invoice through on its due date", () => {
+    expect(isInvoiceBlocking({ status: "pending", due_date: "2026-11-06" }, TODAY)).toBe(false);
+  });
+
+  it("blocks an invoice marked overdue, whatever its due date", () => {
+    expect(isInvoiceBlocking({ status: "overdue", due_date: "2026-12-05" }, TODAY)).toBe(true);
+  });
+
+  it("never blocks a paid invoice", () => {
+    expect(isInvoiceBlocking({ status: "paid", due_date: "2026-11-01" }, TODAY)).toBe(false);
+  });
+
+  it("reads today off the Bangkok calendar, like the filter", () => {
+    // 01:00 on the 6th in Bangkok, still the 5th in UTC.
+    vi.useFakeTimers();
+    vi.setSystemTime(new Date("2026-11-05T18:00:00Z"));
+    expect(isInvoiceBlocking({ status: "pending", due_date: "2026-11-05" })).toBe(true);
   });
 });

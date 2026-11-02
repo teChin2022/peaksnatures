@@ -20,12 +20,17 @@ import type { FixedRateTermTier, Host, PlatformBillingConfig } from "@/types/dat
 /**
  * Get the effective commission percentage for a host.
  * Uses per-host override if set, otherwise falls back to global config.
+ * `quick` selects the host quick-booking rate instead of the guest-booking one;
+ * each channel has its own platform rate and its own per-host override.
  */
 export function getEffectiveCommissionPct(
-  host: Pick<Host, "commission_pct_override">,
+  host: Pick<Host, "commission_pct_override" | "quick_commission_pct_override">,
   config: PlatformBillingConfig,
+  quick = false,
 ): number {
-  return host.commission_pct_override || config.commission_pct;
+  return quick
+    ? host.quick_commission_pct_override || config.quick_commission_pct
+    : host.commission_pct_override || config.commission_pct;
 }
 
 /**

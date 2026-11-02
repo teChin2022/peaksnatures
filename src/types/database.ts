@@ -49,6 +49,7 @@ export interface Database {
           wallet_negative_since: string | null;
           wallet_low_notified_at: string | null;
           commission_pct_override: number | null;
+          quick_commission_pct_override: number | null;
           fixed_rate_override: number | null;
           fixed_rate_term_months: number | null;
           fixed_rate_term_started_at: string | null;
@@ -91,6 +92,7 @@ export interface Database {
           wallet_negative_since?: string | null;
           wallet_low_notified_at?: string | null;
           commission_pct_override?: number | null;
+          quick_commission_pct_override?: number | null;
           fixed_rate_override?: number | null;
           fixed_rate_term_months?: number | null;
           fixed_rate_term_started_at?: string | null;
@@ -133,6 +135,7 @@ export interface Database {
           wallet_negative_since?: string | null;
           wallet_low_notified_at?: string | null;
           commission_pct_override?: number | null;
+          quick_commission_pct_override?: number | null;
           fixed_rate_override?: number | null;
           fixed_rate_term_months?: number | null;
           fixed_rate_term_started_at?: string | null;
@@ -1062,6 +1065,7 @@ export interface Database {
         Row: {
           id: string;
           commission_pct: number;
+          quick_commission_pct: number;
           fixed_rate_amount: number;
           fixed_rate_term_tiers: FixedRateTermTier[];
           promptpay_id: string | null;
@@ -1075,6 +1079,7 @@ export interface Database {
         Insert: {
           id?: string;
           commission_pct?: number;
+          quick_commission_pct?: number;
           fixed_rate_amount?: number;
           fixed_rate_term_tiers?: FixedRateTermTier[];
           promptpay_id?: string | null;
@@ -1088,6 +1093,7 @@ export interface Database {
         Update: {
           id?: string;
           commission_pct?: number;
+          quick_commission_pct?: number;
           fixed_rate_amount?: number;
           fixed_rate_term_tiers?: FixedRateTermTier[];
           promptpay_id?: string | null;

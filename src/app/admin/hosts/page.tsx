@@ -43,6 +43,7 @@ interface HostRow {
   wallet_balance: number;
   plan_free_expires_at: string | null;
   commission_pct_override: number | null;
+  quick_commission_pct_override: number | null;
   fixed_rate_override: number | null;
   fixed_rate_term_months: number | null;
   fixed_rate_term_ends_at: string | null;
@@ -118,6 +119,7 @@ export default function AdminHostsPage() {
   const [billingConfig, setBillingConfig] = useState<PlatformBillingConfig | null>(null);
 
   const [rateCommission, setRateCommission] = useState("");
+  const [rateQuickCommission, setRateQuickCommission] = useState("");
   const [rateFixed, setRateFixed] = useState("");
 
   const [walletAmount, setWalletAmount] = useState("");
@@ -298,10 +300,14 @@ export default function AdminHostsPage() {
     if (!dialog || dialog.type !== "rate") return;
 
     const commission_pct_override = rateCommission === "" ? null : parseFloat(rateCommission);
+    const quick_commission_pct_override = rateQuickCommission === "" ? null : parseFloat(rateQuickCommission);
     const fixed_rate_override = rateFixed === "" ? null : parseInt(rateFixed);
 
     if (commission_pct_override !== null && isNaN(commission_pct_override)) {
       toast.error("Invalid commission percentage"); return;
+    }
+    if (quick_commission_pct_override !== null && isNaN(quick_commission_pct_override)) {
+      toast.error("Invalid quick booking commission percentage"); return;
     }
     if (fixed_rate_override !== null && isNaN(fixed_rate_override)) {
       toast.error("Invalid fixed rate"); return;
@@ -312,7 +318,7 @@ export default function AdminHostsPage() {
       const r = await fetch(`/api/admin/hosts/${dialog.host.id}/rate-override`, {
         method: "PATCH",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ commission_pct_override, fixed_rate_override }),
+        body: JSON.stringify({ commission_pct_override, quick_commission_pct_override, fixed_rate_override }),
       });
       if (r.ok) {
         toast.success("Rate override saved");
@@ -344,6 +350,7 @@ export default function AdminHostsPage() {
 
   const openRateDialog = (host: HostRow) => {
     setRateCommission(host.commission_pct_override != null ? String(host.commission_pct_override) : "");
+    setRateQuickCommission(host.quick_commission_pct_override != null ? String(host.quick_commission_pct_override) : "");
     setRateFixed(host.fixed_rate_override != null ? String(host.fixed_rate_override) : "");
     setDialog({ type: "rate", host });
   };
@@ -454,7 +461,12 @@ export default function AdminHostsPage() {
                           )}
                           {host.commission_pct_override != null && (
                             <span className="rounded px-1.5 py-0.5 text-[10px] text-brand bg-brand-50">
-                              {host.commission_pct_override}% override
+                              {host.commission_pct_override}% guest override
+                            </span>
+                          )}
+                          {host.quick_commission_pct_override != null && (
+                            <span className="rounded px-1.5 py-0.5 text-[10px] text-brand bg-brand-50">
+                              {host.quick_commission_pct_override}% quick override
                             </span>
                           )}
                           {host.fixed_rate_override != null && (
@@ -780,7 +792,7 @@ export default function AdminHostsPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="rate-commission">Commission % Override</Label>
+              <Label htmlFor="rate-commission">Guest Booking Commission % Override</Label>
               <Input
                 id="rate-commission"
                 type="number"
@@ -789,6 +801,19 @@ export default function AdminHostsPage() {
                 max="100"
                 value={rateCommission}
                 onChange={(e) => setRateCommission(e.target.value)}
+                placeholder="Global default"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="rate-quick-commission">Quick Booking Commission % Override</Label>
+              <Input
+                id="rate-quick-commission"
+                type="number"
+                step="0.01"
+                min="0"
+                max="100"
+                value={rateQuickCommission}
+                onChange={(e) => setRateQuickCommission(e.target.value)}
                 placeholder="Global default"
               />
             </div>

@@ -49,8 +49,29 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: "Failed to fetch transactions" }, { status: 500 });
     }
 
+    // Commission and refund rows reference a booking; attach who stayed where so
+    // the host isn't left matching a booking-id prefix. reference_id is written
+    // only by the wallet RPCs, so these are this host's own bookings.
+    const rows = (transactions || []) as { type: string; reference_id: string | null }[];
+    const bookingRef = (t: (typeof rows)[number]) =>
+      t.type === "commission" || t.type === "refund" ? t.reference_id : null;
+    const bookingIds = [...new Set(rows.map(bookingRef).filter((id): id is string => !!id))];
+    const bookingsById = new Map<string, unknown>();
+    if (bookingIds.length > 0) {
+      const { data: bookings, error: bookingsError } = await sc
+        .from("bookings")
+        .select("id, guest_name, check_in, check_out, booking_source, room:rooms(name)")
+        .in("id", bookingIds);
+      // Not fatal: the ledger itself is still right, rows just fall back to the id.
+      if (bookingsError) console.error("[Wallet Transactions] booking lookup failed:", bookingsError);
+      for (const b of (bookings as { id: string }[] | null) ?? []) bookingsById.set(b.id, b);
+    }
+
     return NextResponse.json({
-      transactions: transactions || [],
+      transactions: rows.map((t) => {
+        const ref = bookingRef(t);
+        return { ...t, booking: (ref && bookingsById.get(ref)) ?? null };
+      }),
       total: total || 0,
       page,
       limit,

@@ -77,3 +77,15 @@ export function billingTodayStr(now?: Date): string {
 export function blockingInvoiceFilter(today = billingTodayStr()): string {
   return `status.eq.overdue,and(status.eq.pending,due_date.lt.${today})`;
 }
+
+/**
+ * blockingInvoiceFilter for an invoice already in hand, so a page can show it
+ * as overdue from the moment it blocks — not only once the cron flips status.
+ * Keep the two rules identical.
+ */
+export function isInvoiceBlocking(
+  invoice: { status: string; due_date: string },
+  today = billingTodayStr(),
+): boolean {
+  return invoice.status === "overdue" || (invoice.status === "pending" && invoice.due_date < today);
+}

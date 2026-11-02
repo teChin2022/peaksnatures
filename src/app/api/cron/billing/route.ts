@@ -301,7 +301,7 @@ export async function GET(req: NextRequest) {
           try {
             const result = await notifyHostAlert(
               host,
-              `ใบแจ้งหนี้ครบกำหนดชำระใน 2 วัน (${fmtDateStr(dueWarnDay, "d MMM", "th")}) หากเลยกำหนด การจองใหม่จะถูกระงับ`,
+              `ใบแจ้งหนี้ครบกำหนดชำระใน 2 วัน (${fmtDateStr(dueWarnDay, "d MMM", "th")}) หากเกินกำหนด การจองใหม่จะถูกระงับ`,
               "ใบแจ้งหนี้ใกล้ครบกำหนด",
             );
             if (result.success) frDueSoonNotifications++;
@@ -365,7 +365,7 @@ export async function GET(req: NextRequest) {
           try {
             const result = await notifyHostAlert(
               host,
-              `ใบแจ้งหนี้เลยกำหนดชำระ การจองใหม่ถูกระงับแล้ว กรุณาชำระเงินเพื่อเปิดรับการจองอีกครั้ง`,
+              `ใบแจ้งหนี้เกินกำหนด การจองใหม่ถูกระงับแล้ว กรุณาชำระเงินเพื่อเปิดรับการจองอีกครั้ง`,
               "การจองถูกระงับ",
             );
             if (result.success) frBlockedNotifications++;

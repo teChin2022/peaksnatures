@@ -56,6 +56,7 @@ import { getProvinceLabel } from "@/lib/provinces";
 import { QuickBookingDialog } from "@/components/dashboard/quick-booking-dialog";
 import { BookingAttachments } from "@/components/dashboard/booking-attachments";
 import { countAttachmentsByBooking } from "@/lib/booking-attachments";
+import { cartActionTargets, cartMoney, groupIntoCarts, housesDiffer, mergeById } from "@/lib/booking-carts";
 
 interface BookingRow {
   id: string;
@@ -177,6 +178,21 @@ async function fetchAttachmentCounts(
   return countAttachmentsByBooking(data as { booking_id: string }[] | null);
 }
 
+/**
+ * The rest of every cart a page touches. A page of 20 rows can stop part-way
+ * through a cart, and a cart card adds up all of its houses, so a missing house
+ * would show the host a short total.
+ */
+async function withCartSiblings(
+  rows: BookingRow[],
+  supabase: ReturnType<typeof createClient>
+): Promise<BookingRow[]> {
+  const groupIds = [...new Set(rows.flatMap((r) => (r.group_id ? [r.group_id] : [])))];
+  if (groupIds.length === 0) return rows;
+  const { data } = await supabase.from("bookings").select("*").in("group_id", groupIds);
+  return mergeById(rows, (data as unknown as BookingRow[]) || []);
+}
+
 const statusConfig: Record<
   BookingStatus,
   { labelKey: string; color: string; icon: React.ElementType }
@@ -201,11 +217,16 @@ export default function BookingsPage() {
   const [totalConfirmedCount, setTotalConfirmedCount] = useState(0);
   // Declared up here with the other list state: every fetcher below writes it.
   const [attachmentCounts, setAttachmentCounts] = useState<Record<string, number>>({});
-  const [detailTarget, setDetailTarget] = useState<DisplayBooking | null>(null);
+  // Rows paged from the server, per list. Not the list's length: each page also
+  // pulls in the rest of every cart it touches, and those are not part of paging.
+  const [pagedCount, setPagedCount] = useState(0);
+  const [pagedFilteredCount, setPagedFilteredCount] = useState(0);
+  // Every house of one cart; a single booking is a cart of one.
+  const [detailTarget, setDetailTarget] = useState<DisplayBooking[] | null>(null);
   const [detailDialogOpen, setDetailDialogOpen] = useState(false);
 
-  const openDetail = useCallback((booking: DisplayBooking) => {
-    setDetailTarget(booking);
+  const openDetail = useCallback((cart: DisplayBooking[]) => {
+    setDetailTarget(cart);
     setDetailDialogOpen(true);
   }, []);
 
@@ -325,7 +346,8 @@ export default function BookingsPage() {
     setTotalPendingCount(pendingCnt || 0);
     setTotalConfirmedCount(confirmedCnt || 0);
 
-    const rawRows = (bookingRows as unknown as BookingRow[]) || [];
+    const pageRows = (bookingRows as unknown as BookingRow[]) || [];
+    const rawRows = await withCartSiblings(pageRows, supabase);
 
     // Parallel: resolve slip URLs + fetch date change requests (independent)
     const bookingIds = rawRows.map((b) => b.id);
@@ -340,7 +362,8 @@ export default function BookingsPage() {
     const displayed = toDisplay(rows);
     setBookings(displayed);
     setAttachmentCounts(counts);
-    setHasMore(rows.length === PAGE_SIZE && rows.length < (total || 0));
+    setPagedCount(pageRows.length);
+    setHasMore(pageRows.length === PAGE_SIZE && pageRows.length < (total || 0));
 
     if (dcrResult.data) {
       const map: Record<string, DateChangeRequestRow> = {};
@@ -371,20 +394,21 @@ export default function BookingsPage() {
     if (!wanted) return;
     deepLinkHandledRef.current = true;
 
-    const loaded = displayed.find((b) => b.id === wanted);
+    const loaded = groupIntoCarts(displayed).find((cart) => cart.some((b) => b.id === wanted));
     if (loaded) {
       openDetail(loaded);
       return;
     }
 
-    // Older than the first page of 20 — fetch that one booking rather than
-    // paging forward until it appears.
+    // Older than the first page of 20 — fetch that one booking (and the rest of
+    // its cart) rather than paging forward until it appears.
     const { data: single } = await supabase.from("bookings").select("*").eq("id", wanted).single();
     if (!single) return;
-    const [withSlip] = await resolveSlipUrls([single as unknown as BookingRow], supabase);
-    const deepCounts = await fetchAttachmentCounts([wanted], supabase);
+    const cartRows = await withCartSiblings([single as unknown as BookingRow], supabase);
+    const withSlips = await resolveSlipUrls(cartRows, supabase);
+    const deepCounts = await fetchAttachmentCounts(cartRows.map((b) => b.id), supabase);
     setAttachmentCounts((prev) => ({ ...prev, ...deepCounts }));
-    openDetail(toDisplay([withSlip])[0]);
+    openDetail(groupIntoCarts(toDisplay(withSlips))[0]);
   };
 
   useEffect(() => {
@@ -420,6 +444,7 @@ export default function BookingsPage() {
     if (!isFiltered) {
       setFilteredBookings([]);
       setFilteredCount(0);
+      setPagedFilteredCount(0);
       setHasMoreFiltered(false);
       return;
     }
@@ -442,8 +467,8 @@ export default function BookingsPage() {
       .order("created_at", { ascending: false })
       .range(0, PAGE_SIZE - 1);
 
-    const rawRows = (data as unknown as BookingRow[]) || [];
-    const rows = await resolveSlipUrls(rawRows, supabase);
+    const pageRows = (data as unknown as BookingRow[]) || [];
+    const rows = await resolveSlipUrls(await withCartSiblings(pageRows, supabase), supabase);
 
     const bookingIds = rows.map((b) => b.id);
     const dcrResult = bookingIds.length > 0
@@ -457,7 +482,8 @@ export default function BookingsPage() {
 
     setFilteredBookings(toDisplay(rows));
     setFilteredCount(count || 0);
-    setHasMoreFiltered(rows.length === PAGE_SIZE && rows.length < (count || 0));
+    setPagedFilteredCount(pageRows.length);
+    setHasMoreFiltered(pageRows.length === PAGE_SIZE && pageRows.length < (count || 0));
 
     if (dcrResult.data) {
       setDateChangeRequests((prev) => {
@@ -481,7 +507,7 @@ export default function BookingsPage() {
     if (filtersActive ? !hasMoreFiltered : !hasMore) return;
     setLoadingMore(true);
     const supabase = createClient();
-    const from = filtersActive ? filteredBookings.length : bookings.length;
+    const from = filtersActive ? pagedFilteredCount : pagedCount;
     const to = from + PAGE_SIZE - 1;
     const sanitized = searchQuery.trim().replace(/[%,]/g, "");
 
@@ -502,12 +528,10 @@ export default function BookingsPage() {
       .order("created_at", { ascending: false })
       .range(from, to);
 
-    const counts = await fetchAttachmentCounts(
-      ((bookingRows as unknown as BookingRow[]) || []).map((b) => b.id),
-      supabase
-    );
+    const pageRows = (bookingRows as unknown as BookingRow[]) || [];
+    const rawRows = await withCartSiblings(pageRows, supabase);
+    const counts = await fetchAttachmentCounts(rawRows.map((b) => b.id), supabase);
 
-    const rawRows = (bookingRows as unknown as BookingRow[]) || [];
     const rows = await resolveSlipUrls(rawRows, supabase);
     // Merge: the earlier pages are still on screen and still need their badges.
     setAttachmentCounts((prev) => ({
@@ -515,22 +539,27 @@ export default function BookingsPage() {
       ...counts,
     }));
     const newBookings = toDisplay(rows);
+    const end = from + pageRows.length;
+    // mergeById: a house pulled in with an earlier page's cart comes back on its own page too.
     if (filtersActive) {
-      setFilteredBookings((prev) => [...prev, ...newBookings]);
-      setHasMoreFiltered(rows.length === PAGE_SIZE && from + rows.length < filteredCount);
+      setFilteredBookings((prev) => mergeById(prev, newBookings));
+      setPagedFilteredCount(end);
+      setHasMoreFiltered(pageRows.length === PAGE_SIZE && end < filteredCount);
     } else {
-      setBookings((prev) => [...prev, ...newBookings]);
-      setHasMore(rows.length === PAGE_SIZE && from + rows.length < totalCount);
+      setBookings((prev) => mergeById(prev, newBookings));
+      setPagedCount(end);
+      setHasMore(pageRows.length === PAGE_SIZE && end < totalCount);
     }
     setLoadingMore(false);
   };
 
-  const updateStatus = async (id: string, status: BookingStatus) => {
+  // Several ids when a cart's houses are completed together.
+  const updateStatus = async (ids: string[], status: BookingStatus) => {
     const supabase = createClient();
     const { error } = await supabase
       .from("bookings")
       .update({ status, updated_by: hostName || userId } as never)
-      .eq("id", id);
+      .in("id", ids);
 
     if (error) {
       toast.error(t("errorUpdate"));
@@ -538,17 +567,19 @@ export default function BookingsPage() {
       return;
     }
 
-    const booking = bookings.find((b) => b.id === id);
-    logClientEvent({
-      homestay_id: booking?.homestay_id,
-      entity_type: "booking",
-      entity_id: id,
-      event_type: status === "confirmed" ? "BOOKING_CONFIRMED" : status === "cancelled" ? "BOOKING_CANCELLED" : "CHECKOUT",
-      data: { previous_status: booking?.status, new_status: status },
-    });
+    for (const id of ids) {
+      const booking = bookings.find((b) => b.id === id);
+      logClientEvent({
+        homestay_id: booking?.homestay_id,
+        entity_type: "booking",
+        entity_id: id,
+        event_type: status === "confirmed" ? "BOOKING_CONFIRMED" : status === "cancelled" ? "BOOKING_CANCELLED" : "CHECKOUT",
+        data: { previous_status: booking?.status, new_status: status },
+      });
+    }
 
     setBookings((prev) =>
-      prev.map((b) => (b.id === id ? { ...b, status } : b))
+      prev.map((b) => (ids.includes(b.id) ? { ...b, status } : b))
     );
     toast.success(
       status === "confirmed" ? t("confirm") + "!" :
@@ -570,7 +601,8 @@ export default function BookingsPage() {
   const [cancelDialogOpen, setCancelDialogOpen] = useState(false);
   const [cancelReason, setCancelReason] = useState("");
   const [updatingStatus, setUpdatingStatus] = useState(false);
-  const [completeTarget, setCompleteTarget] = useState<DisplayBooking | null>(null);
+  // Every confirmed house of the cart that is past check-out.
+  const [completeTarget, setCompleteTarget] = useState<DisplayBooking[] | null>(null);
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false);
   // Date change state
   const [dateChangeRequests, setDateChangeRequests] = useState<Record<string, DateChangeRequestRow>>({});
@@ -594,14 +626,14 @@ export default function BookingsPage() {
     setCancelDialogOpen(true);
   };
 
-  const handleCompleteClick = (booking: DisplayBooking) => {
-    setCompleteTarget(booking);
+  const handleCompleteClick = (houses: DisplayBooking[]) => {
+    setCompleteTarget(houses);
     setCompleteDialogOpen(true);
   };
 
   const handleConfirmComplete = async () => {
     if (!completeTarget) return;
-    await updateStatus(completeTarget.id, "completed");
+    await updateStatus(completeTarget.map((b) => b.id), "completed");
     setCompleteDialogOpen(false);
     setCompleteTarget(null);
   };
@@ -721,6 +753,114 @@ export default function BookingsPage() {
     }
   };
 
+  // Shared by a card's header and its house lines: a cart shows these once while
+  // its houses agree, and on each house once they drift apart (housesDiffer).
+  const renderStatusBadges = (b: DisplayBooking) => {
+    const config = statusConfig[b.status];
+    const StatusIcon = config.icon;
+    return (
+      <>
+        <Badge variant="secondary" className={config.color}>
+          <StatusIcon className="mr-1 h-3 w-3" />
+          {t(config.labelKey)}
+        </Badge>
+        {b.status === "cancelled" && b.cancelled_by && (
+          <Badge variant="secondary" className="bg-red-50 text-red-600 text-[11px]">
+            {b.cancelled_by === b.guest_name ? t("cancelledByGuest") : t("cancelledByHost")}
+          </Badge>
+        )}
+      </>
+    );
+  };
+
+  const renderStayBadges = (b: DisplayBooking) => (
+    <>
+      {b.checked_in_at && (
+        <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+          <CheckCircle2 className="mr-1 h-3 w-3" />
+          {t("guestCheckedIn")}
+        </Badge>
+      )}
+      {b.checked_out_at && (
+        <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+          <CheckCircle2 className="mr-1 h-3 w-3" />
+          {t("guestCheckedOut")}
+        </Badge>
+      )}
+    </>
+  );
+
+  const renderDates = (b: DisplayBooking) => (
+    <span className="flex items-center gap-1">
+      <CalendarDays className="h-3.5 w-3.5" />
+      {fmtDateStr(b.check_in, "d MMM yyyy", locale)} → {fmtDateStr(b.check_out, "d MMM yyyy", locale)}
+    </span>
+  );
+
+  // Pending date change request banner. Requests are per house, so a cart shows
+  // each one under its own house.
+  const renderDateChange = (booking: DisplayBooking) =>
+    dateChangeRequests[booking.id] && (
+      <div className="rounded-lg border border-blue-200 bg-blue-50 p-2.5 mt-1">
+        <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700 mb-1">
+          <ArrowRightLeft className="h-3.5 w-3.5" />
+          {t("dateChangeRequest")}
+          <span className="text-blue-500 font-normal">({dateChangeRequests[booking.id].requested_by})</span>
+        </div>
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-blue-600 mb-2">
+          <span>{t("dateChangeFrom")}: {fmtDateStr(dateChangeRequests[booking.id].old_check_in, "d MMM yyyy", locale)}</span>
+          <span>{t("dateChangeTo")}: {fmtDateStr(dateChangeRequests[booking.id].new_check_in, "d MMM yyyy", locale)} → {fmtDateStr(dateChangeRequests[booking.id].new_check_out, "d MMM yyyy", locale)}</span>
+          {dateChangeRequests[booking.id].old_room_id && dateChangeRequests[booking.id].new_room_id && dateChangeRequests[booking.id].old_room_id !== dateChangeRequests[booking.id].new_room_id && (
+            <span>{t("dateChangeRoom")}: {dateChangeRequests[booking.id].old_room_name ?? "—"} → {dateChangeRequests[booking.id].new_room_name ?? "—"}</span>
+          )}
+          {dateChangeRequests[booking.id].price_difference !== 0 && (
+            <span className={dateChangeRequests[booking.id].price_difference > 0 ? "text-red-600 font-medium" : "text-green-600 font-medium"}>
+              {t("dateChangePriceDiff")}: {dateChangeRequests[booking.id].price_difference > 0 ? "+" : ""}฿{dateChangeRequests[booking.id].price_difference.toLocaleString()}
+            </span>
+          )}
+          {dateChangeRequests[booking.id].easyslip_verified && (
+            <Badge variant="secondary" className="bg-brand-50 text-brand text-[10px] py-0">
+              <ShieldCheck className="mr-0.5 h-2.5 w-2.5" />
+              {t("dateChangeSlipVerified")}
+            </Badge>
+          )}
+        </div>
+        <div className="flex gap-2">
+          <Button
+            size="sm"
+            className="flex-1 hover:brightness-90 text-white bg-brand"
+            onClick={() => handleApproveDateChange(dateChangeRequests[booking.id])}
+            disabled={submittingDateChange}
+          >
+            {submittingDateChange ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
+            {t("dateChangeApprove")}
+          </Button>
+          <Button
+            size="sm"
+            variant="outline"
+            className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
+            onClick={() => {
+              setRejectTarget(dateChangeRequests[booking.id]);
+              setRejectReason("");
+              setRejectDialogOpen(true);
+            }}
+            disabled={submittingDateChange}
+          >
+            <XCircle className="mr-1 h-3 w-3" />
+            {t("dateChangeReject")}
+          </Button>
+        </div>
+      </div>
+    );
+
+  // The open popup's cart. Its first house carries what the houses share:
+  // guest, slip, homestay.
+  const detail = detailTarget?.[0] ?? null;
+  const detailIsGroup = (detailTarget?.length ?? 0) > 1;
+  const detailPerHouse = housesDiffer(detailTarget ?? []);
+  const detailMoney = cartMoney(detailTarget ?? []);
+  const { pending: detailPending, completable: detailCompletable } = cartActionTargets(detailTarget ?? [], new Date());
+
   if (loading) {
     return (
       <div>
@@ -839,12 +979,15 @@ export default function BookingsPage() {
 
         {(["all", "pending", "confirmed"] as const).map((tab) => {
           const sourceList = filtersActive ? filteredBookings : bookings;
-          const filtered = sourceList.filter(
-            (b) => tab === "all" || b.status === tab || (tab === "pending" && b.status === "verified") || (tab === "pending" && dateChangeRequests[b.id])
+          // A cart shows in a tab when any of its houses belongs there, and always whole.
+          const carts = groupIntoCarts(sourceList).filter((cart) =>
+            cart.some(
+              (b) => tab === "all" || b.status === tab || (tab === "pending" && b.status === "verified") || (tab === "pending" && dateChangeRequests[b.id])
+            )
           );
           return (
             <TabsContent key={tab} value={tab} className="mt-4 space-y-3">
-              {filtered.length === 0 ? (
+              {carts.length === 0 ? (
                 <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 py-12 text-center">
                   <CalendarDays className="h-10 w-10 text-gray-300" />
                   <p className="mt-3 text-sm font-medium text-gray-500">
@@ -853,19 +996,25 @@ export default function BookingsPage() {
                 </div>
               ) : (
                 <>
-                {filtered.map((booking) => {
-                  const config = statusConfig[booking.status];
-                  const StatusIcon = config.icon;
+                {carts.map((cart) => {
+                  // The first house carries what a cart's houses share: guest,
+                  // slip, homestay, source.
+                  const booking = cart[0];
+                  const isGroup = cart.length > 1;
+                  const perHouse = housesDiffer(cart);
+                  const money = cartMoney(cart);
+                  const { pending, confirmed, completable } = cartActionTargets(cart, new Date());
+                  const attachmentCount = cart.reduce((n, b) => n + (attachmentCounts[b.id] ?? 0), 0);
 
                   return (
-                    <Card key={booking.id} className="overflow-hidden py-0 gap-0">
+                    <Card key={booking.group_id ?? booking.id} className="overflow-hidden py-0 gap-0">
                       <div className="flex">
                         {/* Slip image — full left side */}
                         <div className="relative w-28 shrink-0 sm:w-36">
                           {booking.payment_slip_url ? (
                             <button
                               className="group relative h-full w-full overflow-hidden"
-                              onClick={() => openDetail(booking)}
+                              onClick={() => openDetail(cart)}
                             >
                               <Image
                                 src={booking.payment_slip_url}
@@ -892,21 +1041,10 @@ export default function BookingsPage() {
                               {booking.guest_name}
                             </h3>
                             <div className="flex flex-wrap items-center gap-1.5">
-                              <Badge
-                                variant="secondary"
-                                className={config.color}
-                              >
-                                <StatusIcon className="mr-1 h-3 w-3" />
-                                {t(config.labelKey)}
-                              </Badge>
+                              {!perHouse && renderStatusBadges(booking)}
                               {booking.group_id && (
                                 <Badge variant="secondary" className="bg-indigo-50 text-indigo-700">
                                   {t("groupBadge")}
-                                </Badge>
-                              )}
-                              {booking.status === "cancelled" && booking.cancelled_by && (
-                                <Badge variant="secondary" className="bg-red-50 text-red-600 text-[11px]">
-                                  {booking.cancelled_by === booking.guest_name ? t("cancelledByGuest") : t("cancelledByHost")}
                                 </Badge>
                               )}
                               {booking.booking_source && booking.booking_source !== "guest" ? (
@@ -924,23 +1062,14 @@ export default function BookingsPage() {
                                   ✓ {t("paymentVerified")}
                                 </Badge>
                               ) : null}
-                              {booking.checked_in_at && (
-                                <Badge variant="secondary" className="bg-blue-100 text-blue-700">
-                                  <CheckCircle2 className="mr-1 h-3 w-3" />
-                                  {t("guestCheckedIn")}
-                                </Badge>
-                              )}
-                              {booking.checked_out_at && (
-                                <Badge variant="secondary" className="bg-purple-100 text-purple-700">
-                                  <CheckCircle2 className="mr-1 h-3 w-3" />
-                                  {t("guestCheckedOut")}
-                                </Badge>
-                              )}
-                              {booking.payment_type === "deposit" && booking.amount_paid < booking.total_price ? (
+                              {!perHouse && renderStayBadges(booking)}
+                              {/* Cart totals: a cart's deposit is split across its
+                                  houses by price, so one house's share means nothing. */}
+                              {money.deposit && money.paid < money.total ? (
                                 <Badge variant="secondary" className="bg-amber-100 text-amber-700">
                                   {t("paymentDeposit")}
                                 </Badge>
-                              ) : booking.amount_paid >= booking.total_price ? (
+                              ) : money.paid >= money.total ? (
                                 <Badge variant="secondary" className="bg-brand-50 text-brand">
                                   {t("paymentFull")}
                                 </Badge>
@@ -948,14 +1077,14 @@ export default function BookingsPage() {
                               {/* The half that actually solves forgetting: the
                                   host sees at a glance that this booking has
                                   agreed requests sitting behind it. */}
-                              {(attachmentCounts[booking.id] ?? 0) > 0 && (
+                              {attachmentCount > 0 && (
                                 <Badge
                                   variant="secondary"
                                   className="bg-slate-100 text-slate-700"
                                   title={t("attachmentsTitle")}
                                 >
                                   <Paperclip className="mr-1 h-3 w-3" />
-                                  {attachmentCounts[booking.id]}
+                                  {attachmentCount}
                                 </Badge>
                               )}
                             </div>
@@ -964,17 +1093,14 @@ export default function BookingsPage() {
                                 <Home className="h-3.5 w-3.5" />
                                 {booking.homestay_name}
                               </span>
-                              <span>{booking.room_name}</span>
-                              <span className="flex items-center gap-1">
-                                <CalendarDays className="h-3.5 w-3.5" />
-                                {fmtDateStr(booking.check_in, "d MMM yyyy", locale)} → {fmtDateStr(booking.check_out, "d MMM yyyy", locale)}
-                              </span>
+                              {!isGroup && <span>{booking.room_name}</span>}
+                              {!perHouse && renderDates(booking)}
                               <span className="font-medium text-brand">
-                                ฿{booking.total_price.toLocaleString()}
+                                ฿{money.total.toLocaleString()}
                               </span>
-                              {booking.amount_paid < booking.total_price && (
+                              {money.paid < money.total && (
                                 <span className="font-medium text-amber-600">
-                                  {t("balanceDue", { amount: (booking.total_price - booking.amount_paid).toLocaleString() })}
+                                  {t("balanceDue", { amount: (money.total - money.paid).toLocaleString() })}
                                 </span>
                               )}
                               {booking.guest_province && (
@@ -984,76 +1110,44 @@ export default function BookingsPage() {
                                 </span>
                               )}
                             </div>
+                            {isGroup && (
+                              <ul className="space-y-1 text-sm text-gray-700">
+                                {cart.map((b) => (
+                                  <li key={b.id}>
+                                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
+                                      <span className="font-medium">• {b.room_name}</span>
+                                      {perHouse && (
+                                        <>
+                                          <span className="text-gray-500">{renderDates(b)}</span>
+                                          {renderStatusBadges(b)}
+                                          {renderStayBadges(b)}
+                                        </>
+                                      )}
+                                    </div>
+                                    {renderDateChange(b)}
+                                  </li>
+                                ))}
+                              </ul>
+                            )}
                             <p className="text-xs text-gray-400">
-                              ID: {booking.id.slice(0, 8)}… ·{" "}
+                              ID: {(booking.group_id ?? booking.id).slice(0, 8)}… ·{" "}
                               {booking.guest_email} · {booking.guest_phone}
                             </p>
 
-                            {/* Pending date change request banner */}
-                            {dateChangeRequests[booking.id] && (
-                              <div className="rounded-lg border border-blue-200 bg-blue-50 p-2.5 mt-1">
-                                <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700 mb-1">
-                                  <ArrowRightLeft className="h-3.5 w-3.5" />
-                                  {t("dateChangeRequest")}
-                                  <span className="text-blue-500 font-normal">({dateChangeRequests[booking.id].requested_by})</span>
-                                </div>
-                                <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-blue-600 mb-2">
-                                  <span>{t("dateChangeFrom")}: {fmtDateStr(dateChangeRequests[booking.id].old_check_in, "d MMM yyyy", locale)}</span>
-                                  <span>{t("dateChangeTo")}: {fmtDateStr(dateChangeRequests[booking.id].new_check_in, "d MMM yyyy", locale)} → {fmtDateStr(dateChangeRequests[booking.id].new_check_out, "d MMM yyyy", locale)}</span>
-                                  {dateChangeRequests[booking.id].old_room_id && dateChangeRequests[booking.id].new_room_id && dateChangeRequests[booking.id].old_room_id !== dateChangeRequests[booking.id].new_room_id && (
-                                    <span>{t("dateChangeRoom")}: {dateChangeRequests[booking.id].old_room_name ?? "—"} → {dateChangeRequests[booking.id].new_room_name ?? "—"}</span>
-                                  )}
-                                  {dateChangeRequests[booking.id].price_difference !== 0 && (
-                                    <span className={dateChangeRequests[booking.id].price_difference > 0 ? "text-red-600 font-medium" : "text-green-600 font-medium"}>
-                                      {t("dateChangePriceDiff")}: {dateChangeRequests[booking.id].price_difference > 0 ? "+" : ""}฿{dateChangeRequests[booking.id].price_difference.toLocaleString()}
-                                    </span>
-                                  )}
-                                  {dateChangeRequests[booking.id].easyslip_verified && (
-                                    <Badge variant="secondary" className="bg-brand-50 text-brand text-[10px] py-0">
-                                      <ShieldCheck className="mr-0.5 h-2.5 w-2.5" />
-                                      {t("dateChangeSlipVerified")}
-                                    </Badge>
-                                  )}
-                                </div>
-                                <div className="flex gap-2">
-                                  <Button
-                                    size="sm"
-                                    className="flex-1 hover:brightness-90 text-white bg-brand"
-                                    onClick={() => handleApproveDateChange(dateChangeRequests[booking.id])}
-                                    disabled={submittingDateChange}
-                                  >
-                                    {submittingDateChange ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
-                                    {t("dateChangeApprove")}
-                                  </Button>
-                                  <Button
-                                    size="sm"
-                                    variant="outline"
-                                    className="flex-1 text-red-600 border-red-200 hover:bg-red-50"
-                                    onClick={() => {
-                                      setRejectTarget(dateChangeRequests[booking.id]);
-                                      setRejectReason("");
-                                      setRejectDialogOpen(true);
-                                    }}
-                                    disabled={submittingDateChange}
-                                  >
-                                    <XCircle className="mr-1 h-3 w-3" />
-                                    {t("dateChangeReject")}
-                                  </Button>
-                                </div>
-                              </div>
-                            )}
+                            {!isGroup && renderDateChange(booking)}
                           </div>
 
                           <div className="flex flex-wrap items-center gap-2">
                             <Button
                               variant="outline"
                               size="sm"
-                              onClick={() => openDetail(booking)}
+                              onClick={() => openDetail(cart)}
                             >
                               <Eye className="mr-1 h-3.5 w-3.5" />
                               {t("viewDetails")}
                             </Button>
-                            {(booking.status === "pending" || booking.status === "verified") && !booking.easyslip_verified && (
+                            {/* update-status cascades to every house, so one eligible house is enough. */}
+                            {pending && (
                               <>
                                 <Button
                                   size="sm"
@@ -1065,7 +1159,7 @@ export default function BookingsPage() {
                                         method: "POST",
                                         headers: { "Content-Type": "application/json" },
                                         body: JSON.stringify({
-                                          booking_id: booking.id,
+                                          booking_id: pending.id,
                                           status: "confirmed",
                                           locale,
                                         }),
@@ -1075,7 +1169,7 @@ export default function BookingsPage() {
                                         toast.error(data.error || t("errorUpdate"));
                                         return;
                                       }
-                                      const ids: string[] = data.member_ids ?? [booking.id];
+                                      const ids: string[] = data.member_ids ?? [pending.id];
                                       applyStatus(ids, { status: "confirmed" as BookingStatus });
                                       toast.success(ids.length > 1 ? t("groupConfirmed", { count: ids.length }) : t("confirm") + "!");
                                     } catch {
@@ -1091,19 +1185,19 @@ export default function BookingsPage() {
                                 <Button
                                   variant="destructive"
                                   size="sm"
-                                  onClick={() => handleCancelClick(booking)}
+                                  onClick={() => handleCancelClick(pending)}
                                 >
                                   {t("cancel")}
                                 </Button>
                               </>
                             )}
-                            {booking.status === "confirmed" && (
+                            {confirmed && (
                               <>
-                                {new Date(booking.check_out) <= new Date() && (
+                                {completable.length > 0 && (
                                   <Button
                                     size="sm"
                                     className="hover:brightness-90 text-white bg-brand"
-                                    onClick={() => handleCompleteClick(booking)}
+                                    onClick={() => handleCompleteClick(completable)}
                                   >
                                     <CheckCircle2 className="mr-1 h-3.5 w-3.5" />
                                     {t("markCompleted")}
@@ -1112,7 +1206,7 @@ export default function BookingsPage() {
                                 <Button
                                   variant="outline"
                                   size="sm"
-                                  onClick={() => handleCancelClick(booking)}
+                                  onClick={() => handleCancelClick(confirmed)}
                                 >
                                   {t("cancel")}
                                 </Button>
@@ -1130,7 +1224,7 @@ export default function BookingsPage() {
                   <div className="flex flex-col items-center gap-2 pt-4">
                     <p className="text-xs text-gray-400">
                       {t("showingCount", {
-                        count: filtersActive ? filteredBookings.length : bookings.length,
+                        count: filtersActive ? pagedFilteredCount : pagedCount,
                         total: filtersActive ? filteredCount : totalCount,
                       })}
                     </p>
@@ -1164,28 +1258,28 @@ export default function BookingsPage() {
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               {t("bookingDetails")}
-              {detailTarget && (
+              {detail && !detailPerHouse && (
                 <Badge
                   variant="secondary"
-                  className={statusConfig[detailTarget.status].color}
+                  className={statusConfig[detail.status].color}
                 >
-                  {React.createElement(statusConfig[detailTarget.status].icon, { className: "mr-1 h-3 w-3" })}
-                  {t(statusConfig[detailTarget.status].labelKey)}
+                  {React.createElement(statusConfig[detail.status].icon, { className: "mr-1 h-3 w-3" })}
+                  {t(statusConfig[detail.status].labelKey)}
                 </Badge>
               )}
             </DialogTitle>
           </DialogHeader>
-          {detailTarget && (
+          {detailTarget && detail && (
             <div className="space-y-4">
-              {/* Payment Slip */}
-              {detailTarget.payment_slip_url ? (
+              {/* Payment Slip: one slip pays for the whole cart */}
+              {detail.payment_slip_url ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
                     <h4 className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
                       <CreditCard className="h-4 w-4" />
                       {t("paymentSlip")}
                     </h4>
-                    {detailTarget.easyslip_verified ? (
+                    {detail.easyslip_verified ? (
                       <Badge variant="secondary" className="bg-brand/5 text-brand">
                         <ShieldCheck className="mr-1 h-3 w-3" />
                         {t("paymentVerified")}
@@ -1199,7 +1293,7 @@ export default function BookingsPage() {
                   </div>
                   <div className="rounded-lg border bg-gray-50 p-2">
                     <Image
-                      src={detailTarget.payment_slip_url}
+                      src={detail.payment_slip_url}
                       alt="Payment slip"
                       width={400}
                       height={320}
@@ -1214,97 +1308,135 @@ export default function BookingsPage() {
                 </div>
               )}
 
-              <BookingAttachments
-                bookingId={detailTarget.id}
-                onCountChange={handleAttachmentCountChange}
-              />
+              {/* Attachments are saved per house, so a cart gets one panel per house. */}
+              {detailTarget.map((b) => (
+                <div key={b.id}>
+                  {detailIsGroup && (
+                    <p className="mb-1 text-xs font-medium text-gray-500">{b.room_name}</p>
+                  )}
+                  <BookingAttachments
+                    bookingId={b.id}
+                    onCountChange={handleAttachmentCountChange}
+                  />
+                </div>
+              ))}
 
               {/* Booking Info */}
               <div className="rounded-lg border bg-gray-50 p-4 space-y-2 text-sm">
                 <div className="flex items-center gap-2">
                   <User className="h-4 w-4 text-gray-400" />
-                  <span className="font-medium text-gray-900">{detailTarget.guest_name}</span>
+                  <span className="font-medium text-gray-900">{detail.guest_name}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Mail className="h-4 w-4 text-gray-400" />
-                  <span className="text-gray-600">{detailTarget.guest_email}</span>
+                  <span className="text-gray-600">{detail.guest_email}</span>
                 </div>
                 <div className="flex items-center gap-2">
                   <Phone className="h-4 w-4 text-gray-400" />
-                  <span className="text-gray-600">{detailTarget.guest_phone}</span>
+                  <span className="text-gray-600">{detail.guest_phone}</span>
                 </div>
-                {detailTarget.guest_province && (
+                {detail.guest_province && (
                   <div className="flex items-center gap-2">
                     <MapPin className="h-4 w-4 text-gray-400" />
-                    <span className="text-gray-600">{getProvinceLabel(detailTarget.guest_province, locale)}</span>
+                    <span className="text-gray-600">{getProvinceLabel(detail.guest_province, locale)}</span>
                   </div>
                 )}
                 <div className="border-t border-gray-200 pt-2 mt-2 space-y-1">
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">{t("room")}</span>
-                    <span className="font-medium">{detailTarget.room_name}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">{t("dates")}</span>
-                    <span>{fmtDateStr(detailTarget.check_in, "d MMM yyyy", locale)} → {fmtDateStr(detailTarget.check_out, "d MMM yyyy", locale)}</span>
-                  </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-500">{t("guests")}</span>
-                    {/* Headcount always leads: in stepper mode the label names only the
-                        EXTRA guests, so showing it alone would hide the real party size. */}
-                    <span>{detailTarget.num_guests}{detailTarget.guest_pricing_label ? ` (${detailTarget.guest_pricing_label})` : ""}</span>
-                  </div>
-                  {detailTarget.selected_options && detailTarget.selected_options.length > 0 && (
-                    <div>
-                      <span className="text-gray-500">{t("options")}</span>
-                      <div className="mt-1 space-y-0.5">
-                        {detailTarget.selected_options.map((o: { name: string; price: number }, i: number) => (
-                          <div key={i} className="flex justify-between text-xs">
-                            <span className="text-gray-600">{o.name}</span>
-                            <span className="font-medium text-brand">+฿{o.price.toLocaleString()}</span>
-                          </div>
-                        ))}
-                      </div>
+                  {detailIsGroup && !detailPerHouse && (
+                    <div className="flex justify-between">
+                      <span className="text-gray-500">{t("dates")}</span>
+                      <span>{fmtDateStr(detail.check_in, "d MMM yyyy", locale)} → {fmtDateStr(detail.check_out, "d MMM yyyy", locale)}</span>
                     </div>
                   )}
-                  {(detailTarget.discount_amount ?? 0) > 0 && (
+                  {detailTarget.map((b) => (
+                    <div key={b.id} className={detailIsGroup ? "space-y-1 pt-1" : "space-y-1"}>
+                      {detailIsGroup ? (
+                        // The house's own price: total_price carries its share of
+                        // the cart promo, which the discount line takes off once.
+                        <div className="flex justify-between font-medium text-gray-900">
+                          <span>{b.room_name}</span>
+                          <span>฿{(b.total_price + (b.discount_amount ?? 0)).toLocaleString()}</span>
+                        </div>
+                      ) : (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">{t("room")}</span>
+                          <span className="font-medium">{b.room_name}</span>
+                        </div>
+                      )}
+                      {detailPerHouse && (
+                        <div className="flex flex-wrap gap-1.5">
+                          {renderStatusBadges(b)}
+                          {renderStayBadges(b)}
+                        </div>
+                      )}
+                      {(!detailIsGroup || detailPerHouse) && (
+                        <div className="flex justify-between">
+                          <span className="text-gray-500">{t("dates")}</span>
+                          <span>{fmtDateStr(b.check_in, "d MMM yyyy", locale)} → {fmtDateStr(b.check_out, "d MMM yyyy", locale)}</span>
+                        </div>
+                      )}
+                      <div className="flex justify-between">
+                        <span className="text-gray-500">{t("guests")}</span>
+                        {/* Headcount always leads: in stepper mode the label names only the
+                            EXTRA guests, so showing it alone would hide the real party size. */}
+                        <span>{b.num_guests}{b.guest_pricing_label ? ` (${b.guest_pricing_label})` : ""}</span>
+                      </div>
+                      {b.selected_options && b.selected_options.length > 0 && (
+                        <div>
+                          <span className="text-gray-500">{t("options")}</span>
+                          <div className="mt-1 space-y-0.5">
+                            {b.selected_options.map((o: { name: string; price: number }, i: number) => (
+                              <div key={i} className="flex justify-between text-xs">
+                                <span className="text-gray-600">{o.name}</span>
+                                <span className="font-medium text-brand">+฿{o.price.toLocaleString()}</span>
+                              </div>
+                            ))}
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ))}
+                  {/* Cart totals: a cart's deposit is split across its houses by
+                      price, so one house's share means nothing to the host. */}
+                  {detailMoney.discount > 0 && (
                     <>
                       <div className="flex justify-between text-sm">
                         <span className="text-gray-500">{t("subtotal")}</span>
-                        <span className="font-medium text-gray-900">฿{(detailTarget.total_price + (detailTarget.discount_amount ?? 0)).toLocaleString()}</span>
+                        <span className="font-medium text-gray-900">฿{(detailMoney.total + detailMoney.discount).toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-emerald-700">{t("promoDiscount")}</span>
-                        <span className="font-medium text-emerald-700">−฿{(detailTarget.discount_amount ?? 0).toLocaleString()}</span>
+                        <span className="font-medium text-emerald-700">−฿{detailMoney.discount.toLocaleString()}</span>
                       </div>
                     </>
                   )}
                   <div className="flex justify-between">
                     <span className="text-gray-500">{t("total")}</span>
-                    <span className="font-bold text-brand">฿{detailTarget.total_price.toLocaleString()}</span>
+                    <span className="font-bold text-brand">฿{detailMoney.total.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-500">{t("amountPaid")}</span>
-                    <span className="font-medium text-gray-900">฿{detailTarget.amount_paid.toLocaleString()}</span>
+                    <span className="font-medium text-gray-900">฿{detailMoney.paid.toLocaleString()}</span>
                   </div>
-                  {detailTarget.amount_paid < detailTarget.total_price && (
+                  {detailMoney.paid < detailMoney.total && (
                     <div className="flex justify-between">
                       <span className="text-amber-600">{t("balanceDue", { amount: "" }).replace(/[:\s฿]+$/, "")}</span>
-                      <span className="font-medium text-amber-600">฿{(detailTarget.total_price - detailTarget.amount_paid).toLocaleString()}</span>
+                      <span className="font-medium text-amber-600">฿{(detailMoney.total - detailMoney.paid).toLocaleString()}</span>
                     </div>
                   )}
                 </div>
-                <p className="text-xs text-gray-400 pt-1">ID: {detailTarget.id}</p>
+                {/* A cart goes by its group id, the one the guest's email and the host's LINE message show. */}
+                <p className="text-xs text-gray-400 pt-1">ID: {detail.group_id ?? detail.id}</p>
               </div>
 
               {/* Action buttons */}
-              {(detailTarget.status === "pending" || detailTarget.status === "verified") && !detailTarget.easyslip_verified && (
+              {detailPending && (
                 <DialogFooter className="gap-2">
                   <Button
                     variant="destructive"
                     onClick={() => {
                       setDetailDialogOpen(false);
-                      handleCancelClick(detailTarget);
+                      handleCancelClick(detailPending);
                     }}
                   >
                     {t("cancel")}
@@ -1313,14 +1445,14 @@ export default function BookingsPage() {
                     className="hover:brightness-90 bg-brand"
                     disabled={updatingStatus}
                     onClick={async () => {
-                      if (detailTarget.status === "pending" || detailTarget.status === "verified") {
+                      if (detailPending.status === "pending" || detailPending.status === "verified") {
                         setUpdatingStatus(true);
                         try {
                           const res = await fetch("/api/bookings/update-status", {
                             method: "POST",
                             headers: { "Content-Type": "application/json" },
                             body: JSON.stringify({
-                              booking_id: detailTarget.id,
+                              booking_id: detailPending.id,
                               status: "confirmed",
                               locale,
                             }),
@@ -1330,9 +1462,9 @@ export default function BookingsPage() {
                             toast.error(data.error || t("errorUpdate"));
                             return;
                           }
-                          const ids: string[] = data.member_ids ?? [detailTarget.id];
+                          const ids: string[] = data.member_ids ?? [detailPending.id];
                           applyStatus(ids, { status: "confirmed" as BookingStatus });
-                          setDetailTarget((prev) => prev ? { ...prev, status: "confirmed" } : null);
+                          setDetailTarget((prev) => prev && prev.map((b) => (ids.includes(b.id) ? { ...b, status: "confirmed" as BookingStatus } : b)));
                           toast.success(ids.length > 1 ? t("groupConfirmed", { count: ids.length }) : t("confirm") + "!");
                         } catch {
                           toast.error(t("errorUpdate"));
@@ -1340,8 +1472,8 @@ export default function BookingsPage() {
                           setUpdatingStatus(false);
                         }
                       } else {
-                        await updateStatus(detailTarget.id, "confirmed");
-                        setDetailTarget((prev) => prev ? { ...prev, status: "confirmed" } : null);
+                        await updateStatus([detailPending.id], "confirmed");
+                        setDetailTarget((prev) => prev && prev.map((b) => (b.id === detailPending.id ? { ...b, status: "confirmed" as BookingStatus } : b)));
                       }
                       setDetailDialogOpen(false);
                     }}
@@ -1350,13 +1482,13 @@ export default function BookingsPage() {
                   </Button>
                 </DialogFooter>
               )}
-              {detailTarget.status === "confirmed" && new Date(detailTarget.check_out) <= new Date() && (
+              {detailCompletable.length > 0 && (
                 <DialogFooter>
                   <Button
                     className="hover:brightness-90 text-white bg-brand"
                     onClick={() => {
                       setDetailDialogOpen(false);
-                      handleCompleteClick(detailTarget);
+                      handleCompleteClick(detailCompletable);
                     }}
                   >
                     <CheckCircle2 className="mr-1 h-4 w-4" />
@@ -1471,7 +1603,7 @@ export default function BookingsPage() {
               {t("completeConfirmTitle")}
             </DialogTitle>
             <DialogDescription>
-              {t("completeConfirmDesc", { guest: completeTarget?.guest_name || "" })}
+              {t("completeConfirmDesc", { guest: completeTarget?.[0]?.guest_name || "" })}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex gap-2 sm:justify-end">

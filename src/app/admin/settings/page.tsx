@@ -18,6 +18,7 @@ import type { FixedRateTermTier } from "@/types/database";
 interface BillingConfig {
   id: string;
   commission_pct: number;
+  quick_commission_pct: number;
   fixed_rate_amount: number;
   fixed_rate_term_tiers: FixedRateTermTier[];
   promptpay_id: string | null;
@@ -35,9 +36,9 @@ interface TierDraft {
 function BillingFormSkeleton() {
   return (
     <div className="space-y-4">
-      {/* Commission % + Fixed Rate */}
+      {/* Guest commission % + Quick commission % + Fixed Rate */}
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-        {[0, 1].map((i) => (
+        {[0, 1, 2].map((i) => (
           <div key={i} className="space-y-2">
             <Skeleton className="h-4 w-28" />
             <Skeleton className="h-9 w-full rounded-md" />
@@ -108,6 +109,7 @@ export default function AdminSettingsPage() {
   const [billingSaving, setBillingSaving] = useState(false);
   const [billingForm, setBillingForm] = useState({
     commission_pct: "",
+    quick_commission_pct: "",
     fixed_rate_amount: "",
     promptpay_id: "",
     bank_name: "",
@@ -127,6 +129,7 @@ export default function AdminSettingsPage() {
         setBillingConfig(data);
         setBillingForm({
           commission_pct: String(data.commission_pct),
+          quick_commission_pct: String(data.quick_commission_pct),
           fixed_rate_amount: String(data.fixed_rate_amount),
           promptpay_id: data.promptpay_id || "",
           bank_name: data.bank_name || "",
@@ -185,6 +188,7 @@ export default function AdminSettingsPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           commission_pct: parseFloat(billingForm.commission_pct) || 0,
+          quick_commission_pct: parseFloat(billingForm.quick_commission_pct) || 0,
           fixed_rate_amount: parseInt(billingForm.fixed_rate_amount) || 0,
           fixed_rate_term_tiers: tiers,
           promptpay_id: billingForm.promptpay_id || null,
@@ -297,7 +301,7 @@ export default function AdminSettingsPage() {
             <form onSubmit={handleBillingSave} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
-                  <Label htmlFor="commission_pct">Commission (%)</Label>
+                  <Label htmlFor="commission_pct">Guest booking commission (%)</Label>
                   <Input
                     id="commission_pct"
                     type="number"
@@ -306,6 +310,18 @@ export default function AdminSettingsPage() {
                     max="100"
                     value={billingForm.commission_pct}
                     onChange={(e) => setBillingForm((f) => ({ ...f, commission_pct: e.target.value }))}
+                  />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="quick_commission_pct">Quick booking commission (%)</Label>
+                  <Input
+                    id="quick_commission_pct"
+                    type="number"
+                    step="0.01"
+                    min="0"
+                    max="100"
+                    value={billingForm.quick_commission_pct}
+                    onChange={(e) => setBillingForm((f) => ({ ...f, quick_commission_pct: e.target.value }))}
                   />
                 </div>
                 <div className="space-y-2">

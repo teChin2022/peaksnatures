@@ -42,6 +42,7 @@ const COMMISSION_HOST = {
   id: "host-1",
   plan_type: "commission",
   commission_pct_override: null,
+  quick_commission_pct_override: null,
   wallet_balance: 1000,
   wallet_credit_limit: 0,
   name: "Somchai",
@@ -288,6 +289,53 @@ describe("deductCommission", () => {
 
       await deductCommission("booking-1");
       expect(supabase.rpc).toHaveBeenCalledWith("deduct_wallet_commission", expect.objectContaining({ p_amount: 100 }));
+    });
+  });
+
+  // The fixture config is guest 10% / quick 4%, so each case below fails loudly
+  // if the channel is misread.
+  describe("the rate by booking channel", () => {
+    const booking = (booking_source: string) => ({
+      id: "b", total_price: 2000, discount_amount: 0, commission_base: null, homestay_id: "homestay-1", booking_source,
+    });
+
+    it("charges a host quick booking the platform quick rate", async () => {
+      const supabase = mockClient(deductTables({ booking: booking("walk_in") }), { deduct_wallet_commission: deductOk });
+
+      await deductCommission("booking-1");
+      expect(supabase.rpc).toHaveBeenCalledWith("deduct_wallet_commission", expect.objectContaining({
+        p_amount: 80, // 4% of 2000
+        p_description: expect.stringContaining("Commission 4%"),
+      }));
+    });
+
+    it("charges a guest booking the guest rate", async () => {
+      const supabase = mockClient(deductTables({ booking: booking("guest") }), { deduct_wallet_commission: deductOk });
+
+      await deductCommission("booking-1");
+      expect(supabase.rpc).toHaveBeenCalledWith("deduct_wallet_commission", expect.objectContaining({ p_amount: 200 }));
+    });
+
+    it("uses the host's quick override for a quick booking, not their guest override", async () => {
+      const supabase = mockClient(
+        deductTables({
+          booking: booking("agoda"),
+          host: { ...COMMISSION_HOST, commission_pct_override: 5, quick_commission_pct_override: 1.5 },
+        }),
+        { deduct_wallet_commission: deductOk },
+      );
+
+      await deductCommission("booking-1");
+      expect(supabase.rpc).toHaveBeenCalledWith("deduct_wallet_commission", expect.objectContaining({ p_amount: 30 }));
+    });
+
+    it("logs the booking's source, so a differing rate is explainable", async () => {
+      mockClient(deductTables({ booking: booking("walk_in") }), { deduct_wallet_commission: deductOk });
+
+      await deductCommission("booking-1");
+      expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({
+        data: expect.objectContaining({ booking_source: "walk_in", commission_pct: 4 }),
+      }));
     });
   });
 

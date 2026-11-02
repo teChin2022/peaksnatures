@@ -111,6 +111,16 @@ describe("POST /api/bookings/quick", () => {
     );
   });
 
+  // "guest" is what selects the guest commission rate, so a host-entered
+  // booking must not be able to claim it.
+  it("refuses the guest booking source", async () => {
+    const supabase = mockClient();
+    const { status } = await readJson(await post(body({ booking_source: "guest" })));
+    expect(status).toBe(400);
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(h.deductCommission).not.toHaveBeenCalled();
+  });
+
   describe("what the guest handed over", () => {
     it("treats an omitted amount as paid in full", async () => {
       const supabase = mockClient();
