@@ -8,6 +8,7 @@ import { toast } from "sonner";
 import { fmtDateStr } from "@/lib/format-date";
 import { PromptPayQr } from "@/components/dashboard/promptpay-qr";
 import { InvoicePayDialog } from "@/components/dashboard/invoice-pay-dialog";
+import { InvoiceStatusBadge, InvoiceSummary, invoiceStatus, type InvoiceRow } from "@/components/dashboard/invoice-summary";
 import { PlanActivationDialog, type PlanQuote } from "@/components/dashboard/plan-activation-dialog";
 import { LOW_WALLET_THRESHOLD } from "@/lib/wallet-thresholds";
 import { billingTodayStr } from "@/lib/billing-dates";
@@ -28,7 +29,6 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Skeleton } from "@/components/ui/skeleton";
 import {
   Dialog,
@@ -67,16 +67,6 @@ interface BillingData {
   } | null;
   invoices: InvoiceRow[];
   recent_transactions: TransactionRow[];
-}
-
-interface InvoiceRow {
-  id: string;
-  amount: number;
-  period_start: string;
-  period_end: string;
-  status: string;
-  due_date: string;
-  paid_at: string | null;
 }
 
 interface TransactionRow {
@@ -778,11 +768,8 @@ export default function DashboardBillingPage() {
                         <p className="text-xs text-earth-400 mt-0.5">
                           {fmtDateStr(pendingInvoice.period_start, "d MMM", locale)} — {fmtDateStr(pendingInvoice.period_end, "d MMM yyyy", locale)}
                         </p>
-                        {pendingInvoice.status === "overdue" && (
-                          <Badge className="mt-2 bg-red-100 text-red-700 rounded-full text-[11px] font-medium">
-                            <AlertTriangle className="h-3 w-3 mr-0.5" />
-                            {locale === "th" ? "เลยกำหนดชำระ" : "Overdue"}
-                          </Badge>
+                        {invoiceStatus(pendingInvoice) === "overdue" && (
+                          <InvoiceStatusBadge status="overdue" className="mt-2" />
                         )}
                         <p className="text-xs text-earth-400 mt-1">
                           {t("dueDate")}: {fmtDateStr(pendingInvoice.due_date, "d MMM yyyy", locale)}
@@ -818,53 +805,27 @@ export default function DashboardBillingPage() {
                       {t("invoices")}
                     </p>
                     <div className="space-y-3">
-                      {data.invoices.map((inv, i) => (
-                        <motion.div
-                          key={inv.id}
-                          initial={{ opacity: 0, y: 8 }}
-                          animate={{ opacity: 1, y: 0 }}
-                          transition={{ delay: i * 0.06, duration: 0.3 }}
-                          className={`rounded-xl border p-4 transition-colors ${
-                            inv.status === "overdue"
-                              ? "border-red-200 bg-red-50/30"
-                              : inv.status === "paid"
-                              ? "border-gray-100 bg-gray-50/50"
-                              : "border-gray-200 bg-white"
-                          }`}
-                        >
-                          <div className="flex items-start justify-between">
-                            <div>
-                              <p className="font-serif text-lg text-gray-900">
-                                ฿{inv.amount.toLocaleString()}
-                              </p>
-                              <p className="text-xs text-gray-400 mt-0.5">
-                                {fmtDateStr(inv.period_start, "d MMM", locale)} —{" "}
-                                {fmtDateStr(inv.period_end, "d MMM yyyy", locale)}
-                              </p>
-                            </div>
-                            <Badge
-                              className={`rounded-full text-[11px] font-medium ${
-                                inv.status === "paid"
-                                  ? "bg-green-100 text-green-700"
-                                  : inv.status === "overdue"
-                                  ? "bg-red-100 text-red-700"
-                                  : "bg-amber-100 text-amber-700"
-                              }`}
-                            >
-                              {inv.status === "paid" && <CheckCircle className="h-3 w-3 mr-0.5" />}
-                              {inv.status === "overdue" && <AlertTriangle className="h-3 w-3 mr-0.5" />}
-                              {inv.status === "pending" && <Clock className="h-3 w-3 mr-0.5" />}
-                              {inv.status}
-                            </Badge>
-                          </div>
-
-                          {inv.status === "paid" && inv.paid_at && (
-                            <p className="text-[11px] text-gray-400 mt-2">
-                              {t("paidOn")} {fmtDateStr(inv.paid_at, "d MMM yyyy", locale)}
-                            </p>
-                          )}
-                        </motion.div>
-                      ))}
+                      {data.invoices.map((inv, i) => {
+                        const status = invoiceStatus(inv);
+                        return (
+                          <motion.div
+                            key={inv.id}
+                            initial={{ opacity: 0, y: 8 }}
+                            animate={{ opacity: 1, y: 0 }}
+                            transition={{ delay: i * 0.06, duration: 0.3 }}
+                            className={`rounded-xl border p-4 transition-colors ${
+                              status === "overdue"
+                                ? "border-red-200 bg-red-50/30"
+                                : status === "paid"
+                                ? "border-gray-100 bg-gray-50/50"
+                                : "border-gray-200 bg-white"
+                            }`}
+                          >
+                            {/* No pay button here: the payment box above handles the open invoice. */}
+                            <InvoiceSummary invoice={inv} planType={data.plan_type} />
+                          </motion.div>
+                        );
+                      })}
                     </div>
                   </CardContent>
                 )}

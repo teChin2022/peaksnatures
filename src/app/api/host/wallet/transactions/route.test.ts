@@ -2,6 +2,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import { GET } from "./route";
 import { signIn, signOut, sessionError } from "../../../../../../test/helpers/auth";
 import { makeRequest, readJson } from "../../../../../../test/helpers/request";
+import type { QueryResponse } from "../../../../../../test/helpers/supabase";
 
 const mocks = vi.hoisted(() => ({
   createServerSupabaseClient: vi.fn(),
@@ -91,5 +92,64 @@ describe("GET /api/host/wallet/transactions", () => {
       status: 500,
       body: { error: "Something went wrong" },
     });
+  });
+});
+
+describe("booking details on commission and refund rows", () => {
+  const BOOKING = {
+    id: "bk-1",
+    guest_name: "Somsri",
+    check_in: "2026-11-12",
+    check_out: "2026-11-14",
+    booking_source: "agoda",
+    room: { name: "Riverside House" },
+  };
+  const ledger = [
+    { id: "t1", type: "commission", amount: -60, reference_id: "bk-1" },
+    { id: "t2", type: "refund", amount: 60, reference_id: "bk-1" },
+    { id: "t3", type: "topup", amount: 500, reference_id: "slip-ref-9" },
+  ];
+  const withLedger = (bookings: QueryResponse) =>
+    signIn(mocks, {
+      tables: { hosts: { data: { id: "host-1" } }, wallet_transactions: [{ count: 3 }, { data: ledger }], bookings },
+    });
+  const bookingsOf = (body: unknown) =>
+    (body as { transactions: { booking: unknown }[] }).transactions.map((t) => t.booking);
+
+  it("attaches the guest, house and stay to commission and refund rows only", async () => {
+    withLedger({ data: [BOOKING] });
+    const { body } = await readJson(await get());
+    expect(bookingsOf(body)).toEqual([BOOKING, BOOKING, null]);
+  });
+
+  it("looks the bookings up once, by the booking-linked ids alone", async () => {
+    const sc = withLedger({ data: [BOOKING] });
+    await get();
+    expect(sc.calls.filter((c) => c.table === "bookings")).toHaveLength(1);
+    // Deduped, and the top-up's reference is not a booking id.
+    expect(sc.builderFor("bookings").in).toHaveBeenCalledWith("id", ["bk-1"]);
+  });
+
+  it("skips the lookup when no row references a booking", async () => {
+    const sc = withTransactions([{ id: "t3", type: "topup", amount: 500, reference_id: "slip-ref-9" }]);
+    await get();
+    expect(sc.calls.some((c) => c.table === "bookings")).toBe(false);
+  });
+
+  it("leaves booking null once the booking itself is gone", async () => {
+    withLedger({ data: [] });
+    const { body } = await readJson(await get());
+    expect(bookingsOf(body)).toEqual([null, null, null]);
+  });
+
+  it("still returns the ledger when the booking lookup fails", async () => {
+    const error = vi.spyOn(console, "error").mockImplementation(() => {});
+    withLedger({ data: null, error: { message: "boom" } });
+
+    const { status, body } = await readJson(await get());
+
+    expect(status).toBe(200);
+    expect(bookingsOf(body)).toEqual([null, null, null]);
+    expect(error).toHaveBeenCalledWith("[Wallet Transactions] booking lookup failed:", { message: "boom" });
   });
 });

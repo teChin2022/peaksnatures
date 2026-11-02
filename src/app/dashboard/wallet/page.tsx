@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
+import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
@@ -11,13 +12,12 @@ import {
   ArrowDownCircle,
   RotateCcw,
   SlidersHorizontal,
-  Clock,
-  CheckCircle,
   AlertTriangle,
   Loader2,
   Upload,
   Receipt,
   ChevronDown,
+  ChevronRight,
   TrendingUp,
   TrendingDown,
   Banknote,
@@ -25,10 +25,10 @@ import {
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
-import { Badge } from "@/components/ui/badge";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
 import { InvoicePayDialog } from "@/components/dashboard/invoice-pay-dialog";
+import { InvoiceSummary, invoiceStatus, type InvoiceRow } from "@/components/dashboard/invoice-summary";
 import { PromptPayQr } from "@/components/dashboard/promptpay-qr";
 import { TOPUP_AMOUNTS } from "@/lib/topup-amounts";
 
@@ -57,16 +57,14 @@ interface Transaction {
   reference_id: string | null;
   created_at: string;
   status: string;
-}
-
-interface Invoice {
-  id: string;
-  amount: number;
-  period_start: string;
-  period_end: string;
-  status: string;
-  due_date: string;
-  paid_at: string | null;
+  /** Set on commission and refund rows whose booking still exists. */
+  booking: {
+    guest_name: string;
+    check_in: string;
+    check_out: string;
+    booking_source: string | null;
+    room: { name: string } | null;
+  } | null;
 }
 
 /* ─── Constants ─── */
@@ -81,34 +79,48 @@ const TXN_TYPE_CONFIG: Record<string, { icon: typeof ArrowUpCircle; color: strin
   adjustment: { icon: SlidersHorizontal, color: "text-gray-600",    bg: "bg-gray-50 border-gray-200" },
 };
 
-const INVOICE_STATUS_CONFIG: Record<string, { color: string; bg: string; icon: typeof CheckCircle }> = {
-  pending: { color: "text-amber-700",  bg: "bg-amber-50 border-amber-200",  icon: Clock },
-  paid:    { color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200", icon: CheckCircle },
-  overdue: { color: "text-red-700",    bg: "bg-red-50 border-red-200",    icon: AlertTriangle },
-};
-
 /* ─── Page ─── */
 
 export default function WalletPage() {
   const t = useTranslations("walletPage");
+  const td = useTranslations("dashboard");
   const locale = useLocale();
 
   const getTxLabel = (tx: Transaction): string => {
     const ref = tx.reference_id ? tx.reference_id.slice(0, 8) : "";
     const desc = tx.description || "";
+    const guest = tx.booking?.guest_name;
 
     if (tx.type === "commission") {
       const pctMatch = desc.match(/(\d+(?:\.\d+)?)\s*%/);
+      if (pctMatch && guest) return t("txCommissionFor", { pct: pctMatch[1], guest });
       if (pctMatch && ref) return t("txCommission", { pct: pctMatch[1], ref });
       return t("txCommissionGeneric");
     }
     if (tx.type === "refund") {
+      if (guest) return t("txRefundFor", { guest });
       if (ref) return t("txRefund", { ref });
       return t("txRefundGeneric");
     }
     if (tx.type === "topup") return t("txTopup");
     if (tx.type === "adjustment") return desc || t("txAdjustment");
     return desc || tx.type;
+  };
+
+  // House · stay dates · channel — enough to recognise the booking at a glance.
+  const getBookingDetail = (b: NonNullable<Transaction["booking"]>): string => {
+    const source = b.booking_source;
+    // Same rule deductCommission charges by: anything but "guest" is a quick booking.
+    let channel = t("channelGuest");
+    if (source && source !== "guest") {
+      const key = `source${source.split("_").map((w) => w.charAt(0).toUpperCase() + w.slice(1)).join("")}` as Parameters<typeof td>[0];
+      channel = source === "other" ? t("channelQuick") : `${t("channelQuick")} (${td.has(key) ? td(key) : source})`;
+    }
+    return [
+      b.room?.name,
+      `${fmtDateStr(b.check_in, "d MMM", locale)} – ${fmtDateStr(b.check_out, "d MMM yyyy", locale)}`,
+      channel,
+    ].filter(Boolean).join(" · ");
   };
 
   // ── Billing data ──
@@ -123,7 +135,7 @@ export default function WalletPage() {
   const [txnFilter, setTxnFilter] = useState<string>("all");
 
   // ── Invoices ──
-  const [invoices, setInvoices] = useState<Invoice[]>([]);
+  const [invoices, setInvoices] = useState<InvoiceRow[]>([]);
   const [invoiceLoading, setInvoiceLoading] = useState(false);
   const [invoiceFilter, setInvoiceFilter] = useState<string>("all");
 
@@ -266,7 +278,7 @@ export default function WalletPage() {
 
   const filteredInvoices = invoiceFilter === "all"
     ? invoices
-    : invoices.filter((inv) => inv.status === invoiceFilter);
+    : invoices.filter((inv) => invoiceStatus(inv) === invoiceFilter);
 
   /* ─── Top-up ─── */
 
@@ -391,9 +403,7 @@ export default function WalletPage() {
 
                   {billing.plan_type === "commission" && billing.effective_commission_pct != null && (
                     <p className="text-xs text-earth-400 mt-2">
-                      {locale === "th"
-                        ? `คอมมิชชั่น: ลูกค้าจองผ่านเว็บ ${billing.effective_commission_pct}% · จองด่วน ${billing.effective_quick_commission_pct}%`
-                        : `Commission: guest booking ${billing.effective_commission_pct}% · quick booking ${billing.effective_quick_commission_pct}%`}
+                      {`${locale === "th" ? "คอมมิชชั่น" : "Commission"}: ${t("channelGuest")} ${billing.effective_commission_pct}% · ${t("channelQuick")} ${billing.effective_quick_commission_pct}%`}
                     </p>
                   )}
 
@@ -676,15 +686,14 @@ export default function WalletPage() {
                     const config = TXN_TYPE_CONFIG[tx.type] || TXN_TYPE_CONFIG.adjustment;
                     const Icon = config.icon;
                     const isPositive = tx.amount > 0;
+                    // Opens the booking's own detail dialog (bookings page ?booking=).
+                    const href = tx.booking && tx.reference_id
+                      ? `/dashboard/bookings?booking=${tx.reference_id}`
+                      : null;
+                    const rowClass = "flex items-center gap-4 px-5 py-4 hover:bg-earth-50/50 transition-colors";
 
-                    return (
-                      <motion.div
-                        key={tx.id}
-                        initial={{ opacity: 0, x: -8 }}
-                        animate={{ opacity: 1, x: 0 }}
-                        transition={{ delay: i * 0.03, duration: 0.25 }}
-                        className="flex items-center gap-4 px-5 py-4 hover:bg-earth-50/50 transition-colors"
-                      >
+                    const content = (
+                      <>
                         {/* Type icon */}
                         <div className={`h-9 w-9 rounded-xl border flex items-center justify-center shrink-0 ${config.bg}`}>
                           <Icon className={`h-4 w-4 ${config.color}`} />
@@ -695,6 +704,11 @@ export default function WalletPage() {
                           <p className="text-sm font-medium text-gray-800 truncate">
                             {getTxLabel(tx)}
                           </p>
+                          {tx.booking && (
+                            <p className="text-xs text-earth-500 truncate mt-0.5">
+                              {getBookingDetail(tx.booking)}
+                            </p>
+                          )}
                           <p className="text-[11px] text-earth-400 font-mono mt-0.5">
                             {fmtDateStr(tx.created_at, "d MMM yyyy, HH:mm", locale)}
                           </p>
@@ -711,6 +725,24 @@ export default function WalletPage() {
                             {t("balanceAfter")} ฿{tx.balance_after.toLocaleString()}
                           </p>
                         </div>
+
+                        {/* Spacer on plain rows keeps every amount in one column */}
+                        {href
+                          ? <ChevronRight className="h-4 w-4 text-earth-300 shrink-0" />
+                          : <span className="w-4 shrink-0" aria-hidden />}
+                      </>
+                    );
+
+                    return (
+                      <motion.div
+                        key={tx.id}
+                        initial={{ opacity: 0, x: -8 }}
+                        animate={{ opacity: 1, x: 0 }}
+                        transition={{ delay: i * 0.03, duration: 0.25 }}
+                      >
+                        {href
+                          ? <Link href={href} className={rowClass}>{content}</Link>
+                          : <div className={rowClass}>{content}</div>}
                       </motion.div>
                     );
                   })}
@@ -792,9 +824,6 @@ export default function WalletPage() {
           ) : (
             <div className="space-y-3">
               {filteredInvoices.map((inv, i) => {
-                const statusConf = INVOICE_STATUS_CONFIG[inv.status] || INVOICE_STATUS_CONFIG.pending;
-                const StatusIcon = statusConf.icon;
-
                 return (
                   <motion.div
                     key={inv.id}
@@ -803,47 +832,10 @@ export default function WalletPage() {
                     transition={{ delay: i * 0.06, duration: 0.3 }}
                   >
                     <Card className={`overflow-hidden border-0 shadow-md transition-shadow hover:shadow-lg ${
-                      inv.status === "overdue" ? "ring-1 ring-red-200" : ""
+                      invoiceStatus(inv) === "overdue" ? "ring-1 ring-red-200" : ""
                     }`}>
                       <CardContent className="p-5">
-                        <div className="flex items-start justify-between gap-4">
-                          {/* Left: amount + period */}
-                          <div>
-                            <p className="text-2xl font-serif text-gray-900 leading-tight">
-                              ฿{inv.amount.toLocaleString()}
-                            </p>
-                            <p className="text-xs text-earth-400 mt-1">
-                              {fmtDateStr(inv.period_start, "d MMM", locale)} — {fmtDateStr(inv.period_end, "d MMM yyyy", locale)}
-                            </p>
-                          </div>
-
-                          {/* Right: status badge */}
-                          <Badge className={`rounded-full text-[11px] font-medium border ${statusConf.bg} ${statusConf.color}`}>
-                            <StatusIcon className="h-3 w-3 mr-1" />
-                            {t(inv.status)}
-                          </Badge>
-                        </div>
-
-                        {/* Footer: due date / paid date / action */}
-                        <div className="mt-4 pt-3 border-t border-earth-50 flex items-center justify-between">
-                          <div className="text-xs text-earth-400">
-                            {inv.status === "paid" && inv.paid_at ? (
-                              <span>{t("paidOn")} {fmtDateStr(inv.paid_at, "d MMM yyyy", locale)}</span>
-                            ) : (
-                              <span>{t("dueDate")}: {fmtDateStr(inv.due_date, "d MMM yyyy", locale)}</span>
-                            )}
-                          </div>
-
-                          {(inv.status === "pending" || inv.status === "overdue") && (
-                            <Button
-                              size="sm"
-                              className="bg-brand hover:bg-brand-hover text-white rounded-full px-5 text-xs shadow-sm"
-                              onClick={() => setPayInvoiceId(inv.id)}
-                            >
-                              {t("payNow")}
-                            </Button>
-                          )}
-                        </div>
+                        <InvoiceSummary invoice={inv} planType={billing.plan_type} onPay={() => setPayInvoiceId(inv.id)} />
                       </CardContent>
                     </Card>
                   </motion.div>
