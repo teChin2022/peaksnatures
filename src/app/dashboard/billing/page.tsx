@@ -52,6 +52,7 @@ interface BillingData {
   plan_pending_term_months: number | null;
   wallet_balance: number;
   effective_commission_pct: number | null;
+  effective_quick_commission_pct: number | null;
   effective_fixed_rate: number | null;
   fixed_rate_term_months: number | null;
   fixed_rate_term_started_at: string | null;
@@ -364,6 +365,13 @@ export default function DashboardBillingPage() {
     setConfirmDialog({ type: "switch", planType: planKey });
   };
 
+  // Shown only once an admin prices quick bookings apart from guest bookings.
+  const quickPct = data.effective_quick_commission_pct;
+  const quickRateNote =
+    quickPct != null && quickPct !== data.effective_commission_pct
+      ? locale === "th" ? `จองด่วน ${quickPct}%` : `Quick bookings: ${quickPct}%`
+      : null;
+
   const monthlyRate = data.effective_fixed_rate ?? 0;
   const computeTermTotal = (months: number, discountPct: number) =>
     Math.round(monthlyRate * months * (1 - discountPct / 100));
@@ -542,6 +550,9 @@ export default function DashboardBillingPage() {
                   <span className="text-4xl font-extrabold tracking-tight text-gray-900">{price}</span>
                   <span className="text-earth-400 ml-2 font-medium">{period}</span>
                 </div>
+                {plan.key === "commission" && quickRateNote && (
+                  <p className="text-xs text-earth-500 mt-1">{quickRateNote}</p>
+                )}
                 {isCurrent && plan.key === "free" && data.plan_free_expires_at && (
                   <p className="text-xs text-earth-500 mt-1">
                     {t("expiresOn")} {fmtDateStr(data.plan_free_expires_at, "d MMM yyyy", locale)}
@@ -644,6 +655,7 @@ export default function DashboardBillingPage() {
                   {data.effective_commission_pct ?? 0}%
                 </p>
                 <p className="text-sm text-earth-400 mt-1">/{locale === "th" ? "การจอง" : "booking"}</p>
+                {quickRateNote && <p className="text-xs text-earth-500 mt-1">{quickRateNote}</p>}
                 <p className="text-sm text-earth-500 mt-3">
                   {locale === "th"
                     ? "จ่ายตามการใช้งาน เหมาะสำหรับโฮสต์ตามฤดูกาล"

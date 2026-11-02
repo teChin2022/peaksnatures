@@ -20,14 +20,16 @@ afterEach(() => {
 });
 
 describe("getEffectiveCommissionPct", () => {
+  const noOverrides = { commission_pct_override: null, quick_commission_pct_override: null };
+
   it("uses the platform rate when the host has no override", () => {
     const config = makeBillingConfig({ commission_pct: 12 });
-    expect(getEffectiveCommissionPct({ commission_pct_override: null }, config)).toBe(12);
+    expect(getEffectiveCommissionPct(noOverrides, config)).toBe(12);
   });
 
   it("prefers the host's override", () => {
     const config = makeBillingConfig({ commission_pct: 12 });
-    expect(getEffectiveCommissionPct({ commission_pct_override: 5 }, config)).toBe(5);
+    expect(getEffectiveCommissionPct({ ...noOverrides, commission_pct_override: 5 }, config)).toBe(5);
   });
 
   // KNOWN GAP: the fallback is `||`, not `??`, so a deliberate zero-commission
@@ -35,7 +37,27 @@ describe("getEffectiveCommissionPct", () => {
   // platform rate. Pinned deliberately — flagged for review.
   it("ignores a zero override and charges the platform rate instead", () => {
     const config = makeBillingConfig({ commission_pct: 12 });
-    expect(getEffectiveCommissionPct({ commission_pct_override: 0 }, config)).toBe(12);
+    expect(getEffectiveCommissionPct({ ...noOverrides, commission_pct_override: 0 }, config)).toBe(12);
+  });
+
+  describe("quick bookings", () => {
+    const config = makeBillingConfig({ commission_pct: 3, quick_commission_pct: 2 });
+
+    it("use the platform quick rate when the host has no override", () => {
+      expect(getEffectiveCommissionPct(noOverrides, config, true)).toBe(2);
+    });
+
+    it("prefer the host's quick override", () => {
+      expect(getEffectiveCommissionPct({ ...noOverrides, quick_commission_pct_override: 1.5 }, config, true)).toBe(1.5);
+    });
+
+    it("ignore the host's guest override", () => {
+      expect(getEffectiveCommissionPct({ ...noOverrides, commission_pct_override: 5 }, config, true)).toBe(2);
+    });
+
+    it("do not leak their override into guest bookings", () => {
+      expect(getEffectiveCommissionPct({ ...noOverrides, quick_commission_pct_override: 1.5 }, config)).toBe(3);
+    });
   });
 });
 

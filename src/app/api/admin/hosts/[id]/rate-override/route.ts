@@ -23,7 +23,7 @@ export async function PATCH(
 
     const { id } = await params;
     const body = await req.json();
-    const { commission_pct_override, fixed_rate_override } = body;
+    const { commission_pct_override, quick_commission_pct_override, fixed_rate_override } = body;
 
     const sc = createServiceRoleClient();
 
@@ -31,20 +31,24 @@ export async function PATCH(
       sc.from("platform_admins").select("name").eq("user_id", user.id).single(),
       sc
         .from("hosts")
-        .select("commission_pct_override, fixed_rate_override")
+        .select("commission_pct_override, quick_commission_pct_override, fixed_rate_override")
         .eq("id", id)
         .single(),
     ]);
     const adminName = (adminRow as { name: string } | null)?.name || user.id;
     const previous = (prevRow as {
       commission_pct_override: number | null;
+      quick_commission_pct_override: number | null;
       fixed_rate_override: number | null;
-    } | null) || { commission_pct_override: null, fixed_rate_override: null };
+    } | null) || { commission_pct_override: null, quick_commission_pct_override: null, fixed_rate_override: null };
 
     const updateData: Record<string, unknown> = { updated_by: adminName };
 
     if (commission_pct_override !== undefined) {
       updateData.commission_pct_override = commission_pct_override;
+    }
+    if (quick_commission_pct_override !== undefined) {
+      updateData.quick_commission_pct_override = quick_commission_pct_override;
     }
     if (fixed_rate_override !== undefined) {
       updateData.fixed_rate_override = fixed_rate_override;
@@ -70,6 +74,7 @@ export async function PATCH(
         data: {
           previous: {
             commission_pct_override: previous.commission_pct_override,
+            quick_commission_pct_override: previous.quick_commission_pct_override,
             fixed_rate_override: previous.fixed_rate_override,
           },
           new: {
@@ -77,6 +82,10 @@ export async function PATCH(
               commission_pct_override !== undefined
                 ? commission_pct_override
                 : previous.commission_pct_override,
+            quick_commission_pct_override:
+              quick_commission_pct_override !== undefined
+                ? quick_commission_pct_override
+                : previous.quick_commission_pct_override,
             fixed_rate_override:
               fixed_rate_override !== undefined
                 ? fixed_rate_override

@@ -41,6 +41,8 @@ export function makeBillingConfig(over: Partial<PlatformBillingConfig> = {}): Pl
   return {
     id: "config-1",
     commission_pct: 10,
+    // Deliberately not 10, so a guest/quick rate mix-up cannot pass a test.
+    quick_commission_pct: 4,
     fixed_rate_amount: 1000,
     fixed_rate_term_tiers: [
       { months: 1, discount_pct: 0 },
@@ -91,6 +93,7 @@ export function makeHost(over: Partial<Host> = {}): Host {
     wallet_negative_since: null,
     wallet_low_notified_at: null,
     commission_pct_override: null,
+    quick_commission_pct_override: null,
     fixed_rate_override: null,
     fixed_rate_term_months: null,
     fixed_rate_term_started_at: null,

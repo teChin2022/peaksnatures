@@ -16,7 +16,8 @@ const quickBookingSchema = z.object({
   num_guests: z.number().int().min(1),
   total_price: z.number().int().min(0).optional().default(0),
   amount_paid: z.number().int().min(0).optional(),
-  booking_source: z.string().optional().default("other"),
+  // "guest" marks a guest booking and selects the guest commission rate.
+  booking_source: z.string().refine((s) => s !== "guest", "Reserved booking source").optional().default("other"),
   notes: z.string().optional(),
 });
 

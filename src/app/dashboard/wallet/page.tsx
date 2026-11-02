@@ -38,6 +38,7 @@ interface BillingData {
   plan_type: string;
   wallet_balance: number;
   effective_commission_pct: number | null;
+  effective_quick_commission_pct: number | null;
   platform_payment: {
     promptpay_id: string | null;
     bank_name: string | null;
@@ -391,6 +392,9 @@ export default function WalletPage() {
                   {billing.plan_type === "commission" && billing.effective_commission_pct != null && (
                     <p className="text-xs text-earth-400 mt-2">
                       {billing.effective_commission_pct}% {locale === "th" ? "คอมมิชชั่นต่อการจอง" : "commission per booking"}
+                      {billing.effective_quick_commission_pct != null &&
+                        billing.effective_quick_commission_pct !== billing.effective_commission_pct &&
+                        ` · ${locale === "th" ? "จองด่วน" : "quick bookings"} ${billing.effective_quick_commission_pct}%`}
                     </p>
                   )}
 

@@ -3,7 +3,7 @@ import { logEvent, EventType } from "@/lib/history-log";
 import { blockingInvoiceFilter } from "@/lib/billing-dates";
 import { getEffectiveCommissionPct } from "@/lib/billing-calc";
 import type { HostBlockState } from "@/lib/plan-expiry";
-import type { Host, PlatformBillingConfig } from "@/types/database";
+import type { PlatformBillingConfig } from "@/types/database";
 
 // The billing calendar lives in its own import-free module so `"use client"`
 // pages can share it; re-exported here so server callers keep one entry point.
@@ -159,7 +159,7 @@ export async function deductCommission(
     // Fetch booking with homestay and host info
     const { data: bookingRow, error: bookingError } = await supabase
       .from("bookings")
-      .select("id, total_price, discount_amount, commission_base, homestay_id")
+      .select("id, total_price, discount_amount, commission_base, homestay_id, booking_source")
       .eq("id", bookingId)
       .single();
 
@@ -169,6 +169,7 @@ export async function deductCommission(
       discount_amount: number | null;
       commission_base: number | null;
       homestay_id: string;
+      booking_source: string | null;
     } | null;
     if (bookingError || !booking) {
       console.error("[Billing] Booking not found for commission:", bookingId);
@@ -189,7 +190,7 @@ export async function deductCommission(
 
     const { data: hostRow, error: hostError } = await supabase
       .from("hosts")
-      .select("id, plan_type, commission_pct_override, wallet_balance, wallet_credit_limit, name, email, phone, notification_preference, line_channel_access_token, line_user_id")
+      .select("id, plan_type, commission_pct_override, quick_commission_pct_override, wallet_balance, wallet_credit_limit, name, email, phone, notification_preference, line_channel_access_token, line_user_id")
       .eq("id", homestay.host_id)
       .single();
 
@@ -197,6 +198,7 @@ export async function deductCommission(
       id: string;
       plan_type: string;
       commission_pct_override: number | null;
+      quick_commission_pct_override: number | null;
       wallet_balance: number;
       wallet_credit_limit: number | null;
       name: string;
@@ -223,10 +225,10 @@ export async function deductCommission(
       return;
     }
 
-    const commissionPct = getEffectiveCommissionPct(
-      host as Pick<Host, "commission_pct_override">,
-      config,
-    );
+    // Read off the row, not passed in, so retries and date-change re-deductions
+    // charge the same channel's rate. Same rule as the dashboard's ⚡ quick badge.
+    const quick = !!booking.booking_source && booking.booking_source !== "guest";
+    const commissionPct = getEffectiveCommissionPct(host, config, quick);
     // Platform commission is charged on the original subtotal (GMV) so
     // a host-issued promo doesn't silently shrink the platform's cut.
     // total_price is post-discount; adding discount_amount reconstructs
@@ -304,6 +306,7 @@ export async function deductCommission(
         booking_id: bookingId,
         total_price: booking.total_price,
         discount_amount: booking.discount_amount || 0,
+        booking_source: booking.booking_source,
         commission_base: commissionBase,
         commission_pct: commissionPct,
         commission_amount: commissionAmount,
