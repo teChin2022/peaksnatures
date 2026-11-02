@@ -699,3 +699,108 @@ describe("email template sweep across locales and variants", () => {
     },
   );
 });
+
+/**
+ * A cart's money lives on its house rows: /api/bookings/group splits the promo
+ * and the deposit across them by price, and pay-balance settles one house
+ * without touching booking_groups. These pin what the guest and host read.
+ */
+describe("cart money in the guest email and the host LINE text", () => {
+  const baht = (n: number) => `฿${n.toLocaleString()}`;
+  const pine = makeRoom({ name: "Pine House" });
+  const oak = makeRoom({ id: "room-2", name: "Oak House" });
+  const cart = (group: Partial<Parameters<typeof makeBookingGroup>[0]>, rows: Partial<Booking>[]) =>
+    groupDetails({
+      group: makeBookingGroup(group),
+      items: rows.map((r, i) => ({ booking: makeBooking({ id: `b-${i + 1}`, ...r }), room: i === 0 ? pine : oak })),
+    });
+  const sentHtml = () => (resendSend.mock.calls[0][0] as { html: string }).html;
+
+  // ฿6,000 + ฿3,000 houses with a ฿300 promo, split 200/100 across the rows.
+  const promoCart = () =>
+    cart({ total_price: 8700, discount_amount: 300, amount_paid: 8700 }, [
+      { total_price: 5800, discount_amount: 200, amount_paid: 5800 },
+      { total_price: 2900, discount_amount: 100, amount_paid: 2900 },
+    ]);
+
+  it("prices each house at its own price, so the lines add up to the subtotal", async () => {
+    await sendGroupBookingConfirmationEmail(promoCart());
+    const html = sentHtml();
+
+    expect(html).toContain(baht(6000));
+    expect(html).toContain(baht(3000));
+    expect(html).toContain(baht(9000)); // subtotal
+    expect(html).toContain(`−${baht(300)}`);
+    expect(html).toContain(baht(8700)); // total
+    expect(html).not.toContain(baht(5800));
+    expect(html).not.toContain(baht(2900));
+  });
+
+  const depositCart = () =>
+    cart({ payment_type: "deposit", amount_paid: 1000, total_price: 4000 }, [
+      { total_price: 2000, amount_paid: 500, payment_type: "deposit" },
+      { total_price: 2000, amount_paid: 500, payment_type: "deposit" },
+    ]);
+
+  it("tells a confirmed deposit cart what is left to pay on arrival", async () => {
+    await sendGroupBookingConfirmationEmail(depositCart(), "th", "confirmed");
+    const html = sentHtml();
+
+    expect(html).toContain("ยอดค้างชำระ");
+    expect(html).toContain(baht(3000));
+    expect(html).toContain("ชำระเมื่อเข้าพัก");
+  });
+
+  it("does not ask a cancelled cart to pay a balance on arrival", async () => {
+    await sendGroupBookingConfirmationEmail(depositCart(), "th", "cancelled", "ไม่ว่าง");
+    const html = sentHtml();
+
+    expect(html).not.toContain("ยอดค้างชำระ");
+    expect(html).not.toContain("ชำระเมื่อเข้าพัก");
+    expect(html).toContain(baht(4000)); // the total still shows
+  });
+
+  // pay-balance accepts a verified booking, so a guest can settle one house
+  // before the host confirms the cart; booking_groups still says ฿1,000 paid.
+  it("reads paid and balance from the houses, not the stale group row", async () => {
+    await sendGroupBookingConfirmationEmail(
+      cart({ payment_type: "deposit", amount_paid: 1000, total_price: 4000 }, [
+        { total_price: 2000, amount_paid: 2000, payment_type: "full" },
+        { total_price: 2000, amount_paid: 500, payment_type: "deposit" },
+      ]),
+      "th",
+      "confirmed",
+    );
+    const html = sentHtml();
+
+    expect(html).toContain(baht(2500)); // paid
+    expect(html).toContain(baht(1500)); // balance
+    expect(html).not.toContain(baht(1000));
+  });
+
+  it("shows no balance once every house is paid, even if the cart began as a deposit", async () => {
+    await sendGroupBookingConfirmationEmail(
+      cart({ payment_type: "deposit", amount_paid: 1000, total_price: 4000 }, [
+        { total_price: 2000, amount_paid: 2000, payment_type: "full" },
+        { total_price: 2000, amount_paid: 2000, payment_type: "full" },
+      ]),
+      "th",
+      "confirmed",
+    );
+    expect(sentHtml()).not.toContain("ยอดค้างชำระ");
+  });
+
+  it("gives the host each house's own price and takes the promo off once in LINE", () => {
+    const message = buildGroupBookingMessage(promoCart());
+
+    expect(message).toContain(`· ${baht(6000)}`);
+    expect(message).toContain(`· ${baht(3000)}`);
+    expect(message).toContain(`ส่วนลด: −${baht(300)}`);
+    expect(message).toContain(`ยอดรวมทั้งหมด: ${baht(8700)}`);
+    expect(message).not.toContain(baht(5800));
+  });
+
+  it("adds no discount line to a LINE text without a promo", () => {
+    expect(buildGroupBookingMessage(groupDetails())).not.toContain("ส่วนลด");
+  });
+});

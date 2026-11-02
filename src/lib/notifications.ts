@@ -2,6 +2,7 @@ import { format, parseISO } from "date-fns";
 import { th as thLocale, enUS as enLocale } from "date-fns/locale";
 import type { Booking, BookingGroup, Homestay, Host, PromoCode, Room } from "@/types/database";
 import { getProvinceLabel } from "@/lib/provinces";
+import { cartMoney } from "@/lib/booking-carts";
 import { localizeStrings } from "@/lib/translation/localize-strings";
 import type { SupportedLocale } from "@/lib/translation/types";
 
@@ -1491,7 +1492,9 @@ export function buildGroupBookingMessage(
       const opts = Array.isArray(b.selected_options) && (b.selected_options as { name: string; price: number }[]).length > 0
         ? `\n      🔧 ${(b.selected_options as { name: string; price: number }[]).map((o) => `${o.name} (+฿${o.price.toLocaleString()})`).join(", ")}`
         : "";
-      return `   ${idx + 1}) ${it.room?.name || "Standard"} · ${formatBookingDate(b.check_in, "th")} → ${formatBookingDate(b.check_out, "th")} · ${nights} คืน · ${b.num_guests} ท่าน${guestsLabel} · ฿${b.total_price.toLocaleString()}${opts}`;
+      // The house's own price: total_price carries its share of the cart promo,
+      // which the ส่วนลด line below takes off once.
+      return `   ${idx + 1}) ${it.room?.name || "Standard"} · ${formatBookingDate(b.check_in, "th")} → ${formatBookingDate(b.check_out, "th")} · ${nights} คืน · ${b.num_guests} ท่าน${guestsLabel} · ฿${(b.total_price + b.discount_amount).toLocaleString()}${opts}`;
     })
     .join("\n");
 
@@ -1519,6 +1522,7 @@ export function buildGroupBookingMessage(
     roomLines,
     ``,
     `💰 การชำระเงิน`,
+    ...(group.discount_amount > 0 ? [`   ส่วนลด: −฿${group.discount_amount.toLocaleString()}`] : []),
     `   ยอดรวมทั้งหมด: ฿${group.total_price.toLocaleString()}`,
     `   (ชำระเป็นสลิปเดียว)`,
     ...depositLines,
@@ -1686,6 +1690,9 @@ export async function sendGroupBookingConfirmationEmail(
     const resend = new Resend(apiKey);
 
     const { group, homestay, items } = details;
+    // From the house rows, not the group row: pay-balance settles one house and
+    // never updates booking_groups, so a later cancel email would show old amounts.
+    const money = cartMoney(items.map((it) => it.booking));
     const DEFAULT_FROM = "Peaksnature <onboarding@resend.dev>";
     const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
     const fromEmail = cleaned
@@ -1725,19 +1732,20 @@ export async function sendGroupBookingConfirmationEmail(
               <div style="color: #6b7280; font-size: 12px; margin-top: 2px;">${ci} → ${co} · ${nights} ${isTh ? "คืน" : "nights"} · ${guestsLabel}</div>
               ${optionsHtml}
             </td>
-            <td style="${valueStyle} text-align: right; font-weight: 600;">฿${b.total_price.toLocaleString()}</td>
+            <td style="${valueStyle} text-align: right; font-weight: 600;">฿${(b.total_price + b.discount_amount).toLocaleString()}</td>
           </tr>`;
       })
       .join("");
 
-    const discountRow = group.discount_amount > 0
-      ? `<tr><td style="${labelStyle}">${isTh ? "ยอดก่อนหักส่วนลด" : "Subtotal"}</td><td style="${valueStyle} text-align: right;">฿${(group.total_price + group.discount_amount).toLocaleString()}</td></tr>
-         <tr><td style="${labelStyle} color: #047857;">${isTh ? "ส่วนลด" : "Discount"}</td><td style="${valueStyle} text-align: right; color: #047857; font-weight: 600;">−฿${group.discount_amount.toLocaleString()}</td></tr>`
+    const discountRow = money.discount > 0
+      ? `<tr><td style="${labelStyle}">${isTh ? "ยอดก่อนหักส่วนลด" : "Subtotal"}</td><td style="${valueStyle} text-align: right;">฿${(money.total + money.discount).toLocaleString()}</td></tr>
+         <tr><td style="${labelStyle} color: #047857;">${isTh ? "ส่วนลด" : "Discount"}</td><td style="${valueStyle} text-align: right; color: #047857; font-weight: 600;">−฿${money.discount.toLocaleString()}</td></tr>`
       : "";
 
-    const depositRows = group.payment_type === "deposit"
-      ? `<tr><td style="${labelStyle}">${isTh ? "ยอดที่ชำระ" : "Amount Paid"}</td><td style="${valueStyle} text-align: right; font-weight: 600;">฿${(group.amount_paid || 0).toLocaleString()}</td></tr>
-         <tr><td style="${labelStyle}">${isTh ? "ยอดค้างชำระ" : "Balance Due"}</td><td style="${valueStyle} text-align: right; font-weight: 600;">฿${(group.total_price - (group.amount_paid || 0)).toLocaleString()} <span style="color: #6b7280; font-size: 12px;">(${isTh ? "ชำระเมื่อเข้าพัก" : "pay on arrival"})</span></td></tr>`
+    // A cancelled cart is not paid on arrival, so it gets no balance block.
+    const depositRows = !isCancelled && money.deposit && money.paid < money.total
+      ? `<tr><td style="${labelStyle}">${isTh ? "ยอดที่ชำระ" : "Amount Paid"}</td><td style="${valueStyle} text-align: right; font-weight: 600;">฿${money.paid.toLocaleString()}</td></tr>
+         <tr><td style="${labelStyle}">${isTh ? "ยอดค้างชำระ" : "Balance Due"}</td><td style="${valueStyle} text-align: right; font-weight: 600;">฿${(money.total - money.paid).toLocaleString()} <span style="color: #6b7280; font-size: 12px;">(${isTh ? "ชำระเมื่อเข้าพัก" : "pay on arrival"})</span></td></tr>`
       : "";
 
     const headerText = isConfirmed
@@ -1780,7 +1788,7 @@ export async function sendGroupBookingConfirmationEmail(
             <table style="width: 100%; border-collapse: collapse;">
               ${roomRows}
               ${discountRow}
-              <tr><td style="padding: 16px 12px 0 0; color: #6b7280; font-size: 14px; border-top: 1px solid #e5e7eb;">${isTh ? "ยอดชำระรวมทั้งหมด" : "Total"}</td><td style="padding: 16px 0 0; color: ${accent}; font-size: 18px; font-weight: 700; border-top: 1px solid #e5e7eb; text-align: right;">฿${group.total_price.toLocaleString()}</td></tr>
+              <tr><td style="padding: 16px 12px 0 0; color: #6b7280; font-size: 14px; border-top: 1px solid #e5e7eb;">${isTh ? "ยอดชำระรวมทั้งหมด" : "Total"}</td><td style="padding: 16px 0 0; color: ${accent}; font-size: 18px; font-weight: 700; border-top: 1px solid #e5e7eb; text-align: right;">฿${money.total.toLocaleString()}</td></tr>
               ${depositRows}
             </table>
           </div>
