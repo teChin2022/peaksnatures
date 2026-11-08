@@ -2,14 +2,17 @@
 
 import { useState, useEffect, useRef } from "react";
 import Link from "next/link";
-import { User } from "lucide-react";
+import { Menu, User } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { AnimatePresence, motion } from "motion/react";
+import { FullScreenMenu } from "@/components/full-screen-menu";
 
 export function LandingNavbar() {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [scrolled, setScrolled] = useState(false);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const t = useTranslations("common");
+  const th = useTranslations("home");
 
   const menuRef = useRef<HTMLDivElement>(null);
 
@@ -83,7 +86,16 @@ export function LandingNavbar() {
             <Globe size={20} />
           </button> */}
 
-          <div className="relative" ref={menuRef}>
+          <button
+            type="button"
+            aria-label={t("menu")}
+            onClick={() => setMobileMenuOpen(true)}
+            className={`lg:hidden p-3 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${scrolled ? "text-earth-900" : "text-white"}`}
+          >
+            <Menu size={20} />
+          </button>
+
+          <div className="relative hidden lg:block" ref={menuRef}>
             <button 
               onClick={() => setIsMenuOpen(!isMenuOpen)}
               className={`p-3 rounded-full hover:bg-white/10 transition-colors cursor-pointer ${scrolled ? 'text-earth-900' : 'text-white'}`}
@@ -113,6 +125,20 @@ export function LandingNavbar() {
 
         </div>
       </div>
+      {/* Below lg: the page's sections, then the host links. */}
+      <FullScreenMenu
+        open={mobileMenuOpen}
+        onOpenChange={setMobileMenuOpen}
+        title="Peaksnature"
+        items={[
+          { label: th("whyTitle"), href: "#why-peaksnature" },
+          { label: th("featured"), href: "#unique-homestays" },
+        ]}
+        secondaryItems={[
+          { label: t("hostRegister"), href: "/register" },
+          { label: t("hostLogin"), href: "/login" },
+        ]}
+      />
     </nav>
   );
 }

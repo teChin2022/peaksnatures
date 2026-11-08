@@ -42,7 +42,7 @@ export function LanguageSwitcherIcon({ scrolled }: Props) {
     });
   };
 
-  const buttonClass = `p-2 rounded-full hover:bg-white/10 transition-colors cursor-pointer text-lg leading-none ${
+  const buttonClass = `inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-white/10 transition-colors cursor-pointer text-lg leading-none ${
     scrolled ? "text-[#111111]" : "text-white"
   } ${isPending ? "opacity-60" : ""}`;
 

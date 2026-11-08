@@ -285,6 +285,25 @@
   }
 }
 
+/* Landing hero scroll cue: the line under "Discover" draws down, then retracts
+   from the top, on a loop. Static under reduced motion. */
+@keyframes scroll-cue {
+  0% { transform: scaleY(0); transform-origin: top; }
+  45% { transform: scaleY(1); transform-origin: top; }
+  55% { transform: scaleY(1); transform-origin: bottom; }
+  100% { transform: scaleY(0); transform-origin: bottom; }
+}
+
+.scroll-cue-line {
+  animation: scroll-cue 2.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .scroll-cue-line {
+    animation: none;
+  }
+}
+
 /* ── Dashboard: Organic Luxury utilities ── */
 
 /* Grain texture overlay (SVG noise) */

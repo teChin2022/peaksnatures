@@ -34,7 +34,9 @@ interface ResumeBookingDialogProps {
  * The one exception is the date picker it hands a guest whose lookup missed:
  * BookingCalendarDialog calls `useBookingCart()`, which THROWS without a
  * provider. Safe because BookingHeader — this component's only mount point —
- * renders inside BookingCartProvider (src/app/[slug]/page.tsx). Keep it there.
+ * mounts it only with resumeEnabled, which only the booking page
+ * (src/app/[slug]/book/page.tsx) sets, inside BookingCartProvider. The landing
+ * renders BookingHeader without the provider, so it must never set it.
  */
 export function ResumeBookingDialog({ open, onOpenChange, homestayId }: ResumeBookingDialogProps) {
   const t = useTranslations("resumeBooking");

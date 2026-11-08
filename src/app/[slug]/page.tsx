@@ -1,286 +1,56 @@
-import { cache } from "react";
 import type { Metadata } from "next";
-import { cookies } from "next/headers";
-import dynamic from "next/dynamic";
-import { notFound, permanentRedirect } from "next/navigation";
-import { createServiceRoleClient } from "@/lib/supabase/server";
+import { notFound, permanentRedirect, redirect } from "next/navigation";
+import { getTranslations } from "next-intl/server";
 import { resolveSlugRedirect } from "@/lib/slug-redirect";
-import { isHostBlocked } from "@/lib/plan-expiry";
-import { hasPastDueInvoice } from "@/lib/billing";
-import { evaluatePromoCode } from "@/lib/promo-codes";
-import { localizeHomestay } from "@/lib/translation/translate-homestay";
-import { richTextToPlainText, sanitizeRichText } from "@/lib/sanitize";
-import type { SupportedLocale } from "@/lib/translation/types";
-import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice, RoomSpecialPrice, RoomOption, RoomGuestPricing, PromoCode } from "@/types/database";
-import { HeroSection } from "@/components/booking/hero-section";
-import { DesktopDateSearch } from "@/components/booking/desktop-date-search";
-import { GallerySection } from "@/components/booking/gallery-section";
-import { AvailabilityCalendarSection } from "@/components/booking/availability-calendar-section";
-import { AboutSection } from "@/components/booking/about-section";
-import { RoomsSection } from "@/components/booking/rooms-section";
-import { BookingCartProvider } from "@/components/booking/booking-cart-context";
-import { DemandTracker } from "@/components/booking/demand-tracker";
+import { richTextToPlainText } from "@/lib/sanitize";
+import { bookingPath } from "@/lib/booking-path";
+import { lowestNightlyPrice } from "@/lib/calculate-price";
+import { billingTodayStr } from "@/lib/billing-dates";
+import { upcomingSeasons } from "@/lib/room-rates";
+import { galleryPhotos } from "@/lib/gallery-layout";
 import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingFooter } from "@/components/booking/booking-footer";
+import { LandingHero } from "@/components/booking/landing-hero";
+import { AboutSection } from "@/components/booking/about-section";
+import { GallerySection } from "@/components/booking/gallery-section";
 import { HostLocationSection } from "@/components/booking/host-location-section";
 import { CheckInInfoSection } from "@/components/booking/check-in-info-section";
 import { PoliciesSection } from "@/components/booking/policies-section";
 import { FaqSection } from "@/components/booking/faq-section";
-import { FinalCtaSection } from "@/components/booking/final-cta-section";
+import { LandingBookBar, LandingCta } from "@/components/booking/landing-cta";
+import { PageViewTracker } from "@/components/booking/page-view-tracker";
+import { SectionMark } from "@/components/booking/section-mark";
+import { RespectReducedMotion } from "@/components/respect-reduced-motion";
 import { ReviewsDisplay } from "@/components/reviews/reviews-display";
+import { LandingRooms, type LandingRoom } from "@/components/booking/landing-rooms";
 import { JsonLd } from "@/components/seo/json-ld";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
-import { SITE_NAME, SITE_URL, buildAlternates } from "@/lib/seo";
-import { toBookingHost } from "@/lib/public-host";
-import { resolveIconKeys } from "@/lib/list-icons";
-
-const BookingSection = dynamic(() => import("@/components/booking/booking-section").then((m) => m.BookingSection));
-const MobileBookingBar = dynamic(() => import("@/components/booking/mobile-booking-bar").then((m) => m.MobileBookingBar));
-
+import { SITE_NAME, SITE_URL } from "@/lib/seo";
+import { getHomestayData, homestayMetadata, notFoundMetadata, readLocale } from "./data";
 
 export const revalidate = 30;
 
-const EMPTY_POPULAR_ROOM_IDS: ReadonlySet<string> = new Set();
-
 interface PageProps {
   params: Promise<{ slug: string }>;
-  searchParams: Promise<{ promo?: string }>;
+  searchParams: Promise<{ promo?: string | string[] }>;
 }
-
-export type InitialPromoInfo = {
-  id: string;
-  code: string;
-  discount_type: "percentage" | "fixed";
-  discount_value: number;
-  recommender_name: string | null;
-};
-
-const getPromoLinkInfo = cache(async function getPromoLinkInfo(
-  homestayId: string,
-  rawCode: string,
-): Promise<InitialPromoInfo | null> {
-  const code = rawCode.trim().toUpperCase();
-  if (!code) return null;
-
-  const supabase = createServiceRoleClient();
-  const { data: row } = await supabase
-    .from("promo_codes")
-    .select(
-      "id, code, discount_type, discount_value, recommender_name, start_at, expires_at, max_uses, times_used, is_active",
-    )
-    .eq("homestay_id", homestayId)
-    .ilike("code", code)
-    .maybeSingle();
-
-  if (!row) return null;
-
-  const promo = row as unknown as PromoCode;
-  const verdict = evaluatePromoCode(promo);
-  if (!verdict.ok) return null;
-
-  return {
-    id: promo.id,
-    code: promo.code,
-    discount_type: promo.discount_type,
-    discount_value: Number(promo.discount_value || 0),
-    recommender_name: promo.recommender_name,
-  };
-});
-
-async function readLocale(): Promise<SupportedLocale> {
-  const cookieStore = await cookies();
-  return cookieStore.get("locale")?.value === "en" ? "en" : "th";
-}
-
-const getHomestayData = cache(async function getHomestayData(
-  slug: string,
-  locale: SupportedLocale,
-) {
-  const supabase = createServiceRoleClient();
-
-  const { data: homestayRow } = await supabase
-    .from("homestays")
-    .select("*")
-    .eq("slug", slug)
-    .eq("is_active", true)
-    .single();
-
-  if (!homestayRow) return null;
-
-  const homestay = homestayRow as unknown as Homestay;
-
-  // Parallel fetch: all queries below are independent of each other
-  // B4+B5: rooms joined with seasonal_prices (eliminates sequential fetch),
-  // review count merged into ratings query (3 review queries → 2)
-  const GRID_REVIEWS = 6;
-  const [
-    { data: hostRow },
-    { data: roomRows },
-    { data: blockedRows },
-    { data: bookingRows },
-    { data: allRatings, count: reviewCount },
-    { data: reviewRows },
-    { count: totalBookingsCount },
-    { data: lastBookingRow },
-    { data: confirmedBookingRows },
-  ] = await Promise.all([
-    supabase.from("hosts").select("*").eq("id", homestay.host_id).single(),
-    supabase.from("rooms").select("*, room_seasonal_prices(*), room_special_prices(*), room_options(*), room_guest_pricing(*)").eq("homestay_id", homestay.id).order("created_at", { ascending: true }),
-    supabase.from("blocked_dates").select("*").eq("homestay_id", homestay.id),
-    supabase.from("bookings").select("room_id, check_in, check_out").eq("homestay_id", homestay.id).in("status", ["pending", "confirmed", "verified"]),
-    supabase.from("reviews").select("rating, rating_environment, rating_cleanliness, rating_service, rating_value", { count: "exact" }).eq("homestay_id", homestay.id),
-    supabase.from("reviews").select("*, bookings(guest_province)").eq("homestay_id", homestay.id).order("created_at", { ascending: false }).range(0, GRID_REVIEWS - 1),
-    supabase.from("bookings").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]),
-    supabase.from("bookings").select("created_at").eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("bookings").select("room_id").eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]).not("room_id", "is", null),
-  ]);
-
-  const host = hostRow as unknown as Host | null;
-  const roomsWithJoins = (roomRows as unknown as (Room & { room_seasonal_prices: RoomSeasonalPrice[]; room_special_prices: RoomSpecialPrice[]; room_options: RoomOption[]; room_guest_pricing: RoomGuestPricing[] })[]) || [];
-  const rooms = roomsWithJoins.map(({ room_seasonal_prices: _, room_special_prices: _s, room_options: _o, room_guest_pricing: _g, ...room }) => room as unknown as Room);
-  const seasonalPrices = roomsWithJoins.flatMap((r) => r.room_seasonal_prices || []);
-  const specialPrices = roomsWithJoins.flatMap((r) => (r.room_special_prices || []).filter((s) => s.is_active));
-  const roomOptionsList = roomsWithJoins.flatMap((r) => (r.room_options || []).filter((o) => o.is_active));
-  const guestPricingList = roomsWithJoins.flatMap((r) => (r.room_guest_pricing || []).filter((g) => g.is_active));
-  const blockedDates = (blockedRows as unknown as BlockedDate[]) || [];
-  const bookedRanges = (bookingRows as { room_id: string | null; check_in: string; check_out: string }[]) || [];
-  const ratings = (allRatings as { rating: number; rating_environment: number | null; rating_cleanliness: number | null; rating_service: number | null; rating_value: number | null }[]) || [];
-  const averageRating =
-    ratings.length > 0
-      ? Math.round((ratings.reduce((sum, r) => sum + r.rating, 0) / ratings.length) * 10) / 10
-      : 0;
-  const reviews = (reviewRows as unknown as (Review & { bookings: { guest_province: string | null } | null })[]) || [];
-
-  // Category averages for preview
-  const computeAvg = (key: "rating_environment" | "rating_cleanliness" | "rating_service" | "rating_value") => {
-    const vals = ratings.filter((r) => r[key] != null).map((r) => r[key] as number);
-    if (vals.length === 0) return 0;
-    return Math.round((vals.reduce((s, v) => s + v, 0) / vals.length) * 10) / 10;
-  };
-  const categoryAverages = {
-    environment: computeAvg("rating_environment"),
-    cleanliness: computeAvg("rating_cleanliness"),
-    service: computeAvg("rating_service"),
-    value: computeAvg("rating_value"),
-  };
-
-  let bookingDisabled = false;
-  if (host) {
-    bookingDisabled = isHostBlocked({
-      plan_type: host.plan_type,
-      plan_free_expires_at: host.plan_free_expires_at,
-      has_past_due_invoice:
-        host.plan_type === "fixed_rate" ? await hasPastDueInvoice(host.id, supabase) : false,
-      wallet_balance: host.wallet_balance,
-      wallet_credit_limit: host.wallet_credit_limit,
-      wallet_negative_since: host.wallet_negative_since,
-    });
-  }
-
-  const roomBookingCounts = new Map<string, number>();
-  for (const row of (confirmedBookingRows as { room_id: string }[] | null) ?? []) {
-    roomBookingCounts.set(row.room_id, (roomBookingCounts.get(row.room_id) ?? 0) + 1);
-  }
-  let mostBookedRoomId: string | null = null;
-  let bestCount = 0;
-  for (const [id, count] of roomBookingCounts) {
-    if (count > bestCount) {
-      bestCount = count;
-      mostBookedRoomId = id;
-    }
-  }
-  const hasConfirmedBookings = mostBookedRoomId !== null;
-  if (!mostBookedRoomId && rooms.length > 0) {
-    mostBookedRoomId = rooms[0].id;
-  }
-
-  const localized = host
-    ? await localizeHomestay(
-        { homestay, rooms, roomOptions: roomOptionsList, reviews, seasonalPrices, specialPrices, guestPricing: guestPricingList, host },
-        locale,
-      )
-    : { homestay, rooms, roomOptions: roomOptionsList, reviews, seasonalPrices, specialPrices, guestPricing: guestPricingList, host };
-
-  return {
-    homestay: {
-      ...localized.homestay,
-      description: sanitizeRichText(localized.homestay.description),
-      check_in_info: sanitizeRichText(localized.homestay.check_in_info),
-      policies: sanitizeRichText(localized.homestay.policies),
-      host: localized.host!,
-    } as Homestay & { host: Host },
-    rooms: localized.rooms.map((room) => ({
-      ...room,
-      description: sanitizeRichText(room.description),
-    })),
-    blockedDates,
-    bookedRanges,
-    seasonalPrices: localized.seasonalPrices,
-    specialPrices: localized.specialPrices,
-    roomOptions: localized.roomOptions,
-    guestPricing: localized.guestPricing,
-    reviews: localized.reviews,
-    averageRating,
-    categoryAverages,
-    reviewCount: reviewCount || 0,
-    totalBookings: totalBookingsCount || 0,
-    lastBookingDate: (lastBookingRow as { created_at: string } | null)?.created_at || null,
-    bookingDisabled,
-    mostBookedRoomId,
-    hasConfirmedBookings,
-    // From the Thai labels the host's icon picks are keyed by — before translation rewrites them.
-    amenityIcons: resolveIconKeys(homestay.amenities ?? [], homestay.amenity_icons, "amenity"),
-    prohibitionIcons: resolveIconKeys(homestay.prohibitions ?? [], homestay.prohibition_icons, "rule"),
-  };
-});
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
   const { slug } = await params;
-  const locale = await readLocale();
-  const data = await getHomestayData(slug, locale);
-
-  if (!data) {
-    return {
-      title: "Not Found",
-      robots: { index: false, follow: false },
-    };
-  }
-
-  const { homestay } = data;
-  const titleAbsolute = `${[homestay.name, homestay.location].filter(Boolean).join(" — ")} | ${SITE_NAME}`;
-  const rawDescription = richTextToPlainText(homestay.description) || homestay.tagline || homestay.name;
-  const description =
-    rawDescription.length > 155 ? `${rawDescription.slice(0, 155).trim()}…` : rawDescription;
-  const ogDescription = homestay.tagline || description;
-  const canonicalPath = `/${slug}`;
-
-  return {
-    title: { absolute: titleAbsolute },
-    description,
-    alternates: buildAlternates(canonicalPath),
-    openGraph: {
-      title: homestay.name,
-      description: ogDescription,
-      url: canonicalPath,
-      type: "website",
-      siteName: SITE_NAME,
-    },
-    twitter: {
-      card: "summary_large_image",
-      title: homestay.name,
-      description: ogDescription,
-    },
-    robots: {
-      index: true,
-      follow: true,
-      googleBot: { index: true, follow: true, "max-image-preview": "large" },
-    },
-  };
+  const data = await getHomestayData(slug, await readLocale());
+  return data ? homestayMetadata(data.homestay, slug) : notFoundMetadata;
 }
 
-export default async function HomestayPage({ params, searchParams }: PageProps) {
+/**
+ * The homestay's landing page: what guests read before they book. Booking
+ * itself happens on /[slug]/book.
+ */
+export default async function HomestayLandingPage({ params, searchParams }: PageProps) {
   const { slug } = await params;
-  const { promo: promoParam } = await searchParams;
+  const { promo } = await searchParams;
+  // Promo links (dashboard, recommenders) skip the landing: that guest came to book.
+  if (promo !== undefined) redirect(bookingPath(slug, promo));
+
   const locale = await readLocale();
   const data = await getHomestayData(slug, locale);
 
@@ -293,34 +63,24 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
     notFound();
   }
 
-  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, specialPrices, roomOptions, guestPricing, reviews, averageRating, categoryAverages, reviewCount, totalBookings, lastBookingDate, bookingDisabled, mostBookedRoomId, hasConfirmedBookings, amenityIcons, prohibitionIcons } = data;
-
-  const initialPromo =
-    promoParam && homestay.promo_codes_enabled
-      ? await getPromoLinkInfo(homestay.id, promoParam)
-      : null;
+  const { homestay, rooms, seasonalPrices, reviews, averageRating, categoryAverages, reviewCount, totalBookings, lastBookingDate, amenityIcons, prohibitionIcons, bookingDisabled } = data;
 
   const activeRooms = rooms.filter((r) => r.is_active);
-  const inactiveRooms = rooms.filter((r) => !r.is_active);
-
-  // Shared cart catalog — powers the sticky date bar, room-card "Add to cart",
-  // the cart modal, and the booking panel from one source of truth.
-  const cartCatalog = {
-    rooms: activeRooms,
-    seasonalPrices,
-    specialPrices,
-    roomOptions,
-    guestPricing,
-    blockedDates,
-    bookedRanges,
-  };
-
-  const popularRoomId = hasConfirmedBookings && mostBookedRoomId && activeRooms.some((r) => r.id === mostBookedRoomId) ? mostBookedRoomId : null;
-  const popularRoomIds = popularRoomId ? new Set<string>([popularRoomId]) : EMPTY_POPULAR_ROOM_IDS;
-  const sortedActiveRooms = popularRoomId
-    ? [...activeRooms.filter((r) => r.id === popularRoomId), ...activeRooms.filter((r) => r.id !== popularRoomId)]
-    : activeRooms;
-  const sortedRooms = [...sortedActiveRooms, ...inactiveRooms];
+  // The "from" price counts only seasons that have not ended: an ended one can't be booked.
+  const fromPrice = lowestNightlyPrice(activeRooms, upcomingSeasons(seasonalPrices, billingTodayStr()));
+  const bookHref = bookingPath(homestay.slug);
+  const photos = galleryPhotos(homestay.gallery || [], activeRooms.map((r) => r.images ?? []));
+  // Every house, bookable ones first as on the booking page; only the fields the cards show.
+  const landingRooms: LandingRoom[] = [...activeRooms, ...rooms.filter((r) => !r.is_active)].map((r) => ({
+    id: r.id,
+    name: r.name,
+    // Sanitized by getHomestayData; an editor left empty ("<p></p>") has no text and counts as none.
+    description: richTextToPlainText(r.description) ? r.description : null,
+    price_per_night: r.price_per_night,
+    max_guests: r.max_guests,
+    images: r.images ?? [],
+    is_active: r.is_active,
+  }));
 
   const pageUrl = `${SITE_URL}/${homestay.slug}`;
   const roomPrices = activeRooms
@@ -391,11 +151,6 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
     { label: homestay.name },
   ];
 
-  // The booking form is a client component: its props land in the page source,
-  // so it gets the homestay without the host row, and only the host fields it reads.
-  const { host, ...homestayForClient } = homestay;
-  const bookingHost = toBookingHost(host);
-
   const faqItems = (homestay.faq || []).filter(
     (f) => f.question?.trim() && f.answer?.trim(),
   );
@@ -411,112 +166,104 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
       }
     : null;
 
+  const ta = await getTranslations("about");
+  const tg = await getTranslations("gallery");
+  const tr = await getTranslations("reviews");
+  const tf = await getTranslations("faq");
+  const trm = await getTranslations("rooms");
+  // Header links, in page order, only to the sections that render: each one hides itself when empty.
+  const navItems = [
+    ...(photos.length > 0 ? [{ href: "#gallery", label: tg("title") }] : []),
+    { href: "#about", label: ta("title") },
+    ...(homestay.amenities?.length ? [{ href: "#amenities", label: ta("amenities") }] : []),
+    ...(landingRooms.length > 0 ? [{ href: "#rooms", label: trm("title") }] : []),
+    ...(reviewCount > 0 ? [{ href: "#reviews", label: tr("title") }] : []),
+    ...(faqItems.length > 0 ? [{ href: "#faq", label: tf("title") }] : []),
+  ];
+
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-earth-50">
       <JsonLd data={lodgingLd} id="ld-lodging" />
       {faqLd && <JsonLd data={faqLd} id="ld-faq" />}
-      <BookingCartProvider catalog={cartCatalog} homestayId={homestay.id}>
-      <DemandTracker homestayId={homestay.id} />
+      <PageViewTracker homestayId={homestay.id} />
       <BookingHeader
         homestayName={homestay.name}
         logoUrl={homestay.logo_url}
         slug={homestay.slug}
         homestayId={homestay.id}
-        // Hidden when the host turned drafts off, and when bookings are
-        // blocked at all — restoring into a dead form helps nobody.
-        resumeEnabled={(homestay.host.booking_draft_hours ?? 0) > 0 && !bookingDisabled}
+        bookHref={bookHref}
+        bookingDisabled={bookingDisabled}
+        navItems={navItems}
       />
+      {/* Fixed to the bottom on phones; this early in the page so screen readers meet it before the footer. */}
+      <LandingBookBar bookHref={bookHref} fromPrice={fromPrice} bookingDisabled={bookingDisabled} />
 
-      <main className="pb-28 md:pb-0">
+      <RespectReducedMotion>
+      {/* Resets the counter that numbers each SectionMark. */}
+      <main className="[counter-reset:landing-section]">
         <Breadcrumbs items={breadcrumbItems} visuallyHidden />
-        <HeroSection
+        <LandingHero
           name={homestay.name}
           tagline={homestay.tagline}
           heroImageUrl={homestay.hero_image_url}
+          location={homestay.location}
           isVerified={homestay.host.is_verified}
           averageRating={averageRating}
           reviewCount={reviewCount}
-          cancellationDays={homestay.host.cancellation_days}
-          // location={homestay.location}
+          fromPrice={fromPrice}
+          discoverHref={photos.length > 0 ? "#gallery" : "#about"}
+          bookingDisabled={bookingDisabled}
         />
 
-        <DesktopDateSearch bookingDisabled={bookingDisabled} />
-
-        <AvailabilityCalendarSection homestayId={homestay.id} />
-
-        <GallerySection images={homestay.gallery} name={homestay.name} />
-
-        <div className="bg-earth-50">
-          <HostLocationSection
-            hostName={homestay.host.name}
-            hostPhone={homestay.host.phone}
-            hostAvatarUrl={homestay.host.avatar_url}
-            isVerified={homestay.host.is_verified}
-            hostCreatedAt={homestay.host.created_at}
-            totalBookings={totalBookings}
-            lastBookingDate={lastBookingDate}
-            location={homestay.location}
-            mapEmbedUrl={homestay.map_embed_url}
-          />
-        </div>
-
-        <RoomsSection rooms={sortedRooms} seasonalPrices={seasonalPrices} specialPrices={specialPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} popularRoomIds={popularRoomIds} />
-
-        {/* Booking (inline) */}
-        <div className="bg-earth-50">
-          <BookingSection
-            homestay={homestayForClient}
-            rooms={activeRooms}
-            blockedDates={blockedDates}
-            bookedRanges={bookedRanges}
-            host={bookingHost}
-            seasonalPrices={seasonalPrices}
-            specialPrices={specialPrices}
-            roomOptions={roomOptions}
-            guestPricing={guestPricing}
-            bookingDisabled={bookingDisabled}
-            initialPromo={initialPromo}
-          />
-        </div>
+        {/* What guests decide on comes first: photos, the place, its houses, reviews. Then host, map and the fine print. */}
+        <GallerySection images={photos} name={homestay.name} />
 
         <AboutSection
           description={homestay.description}
           amenities={homestay.amenities}
           maxGuests={homestay.max_guests}
-          location={homestay.location}
           prohibitions={homestay.prohibitions}
           amenityIcons={amenityIcons}
           prohibitionIcons={prohibitionIcons}
         />
 
-        <div className="bg-earth-50">
-          <CheckInInfoSection content={homestay.check_in_info} />
-          <PoliciesSection content={homestay.policies} />
-          <FaqSection items={homestay.faq} />
-        </div>
+        <LandingRooms rooms={landingRooms} />
 
-        {/* Reviews */}
-        <section className="py-16 md:py-24">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6">
-            <ReviewsDisplay
-              reviews={reviews}
-              averageRating={averageRating}
-              totalCount={reviewCount}
-              categoryAverages={categoryAverages}
-              homestayId={homestay.id}
-              homestaySlug={homestay.slug}
-            />
-          </div>
-        </section>
+        {/* Results only: writing a review starts from the booking page's menu. */}
+        {reviewCount > 0 && (
+          <section id="reviews" className="scroll-mt-20 py-14 md:py-28">
+            <div className="mx-auto max-w-6xl px-4 sm:px-6">
+              <SectionMark />
+              <ReviewsDisplay
+                reviews={reviews}
+                averageRating={averageRating}
+                totalCount={reviewCount}
+                categoryAverages={categoryAverages}
+                homestayId={homestay.id}
+              />
+            </div>
+          </section>
+        )}
 
-        <FinalCtaSection />
+        <HostLocationSection
+          hostName={homestay.host.name}
+          hostPhone={homestay.host.phone}
+          hostAvatarUrl={homestay.host.avatar_url}
+          isVerified={homestay.host.is_verified}
+          hostCreatedAt={homestay.host.created_at}
+          totalBookings={totalBookings}
+          lastBookingDate={lastBookingDate}
+          location={homestay.location}
+          mapEmbedUrl={homestay.map_embed_url}
+        />
+
+        <CheckInInfoSection content={homestay.check_in_info} />
+        <PoliciesSection content={homestay.policies} />
+        <FaqSection items={homestay.faq} />
+
+        <LandingCta bookHref={bookHref} bookingDisabled={bookingDisabled} />
       </main>
-
-      <MobileBookingBar
-        rooms={rooms}
-        bookingDisabled={bookingDisabled}
-      />
-      </BookingCartProvider>
+      </RespectReducedMotion>
 
       <BookingFooter
         homestayName={homestay.name}
@@ -531,6 +278,8 @@ export default async function HomestayPage({ params, searchParams }: PageProps) 
           line_id: homestay.line_id,
         }}
       />
+      {/* Room under the fixed Book bar at the very bottom, in the footer's color. */}
+      <div aria-hidden className="h-[calc(5rem+env(safe-area-inset-bottom))] bg-earth-900 md:hidden" />
     </div>
   );
 }

@@ -2,6 +2,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   calculateTotalPrice,
   getPriceRange,
+  lowestNightlyPrice,
   type SeasonEntry,
   type SpecialPriceEntry,
 } from "@/lib/calculate-price";
@@ -380,5 +381,30 @@ describe("getPriceRange", () => {
         specialPrices: [special({ surcharge: 5000, is_active: false })],
       }),
     ).toEqual({ min: 1000, max: 1000 });
+  });
+});
+
+describe("lowestNightlyPrice", () => {
+  const room = (id: string, price_per_night: number) => ({ id, price_per_night });
+
+  it("is the cheapest base price when no house has seasons", () => {
+    expect(lowestNightlyPrice([room("a", 1500), room("b", 900)], [])).toBe(900);
+  });
+
+  it("counts a seasonal price below the base, as the house card does", () => {
+    expect(
+      lowestNightlyPrice([room("a", 1500)], [{ ...season({ price_per_night: 1100 }), room_id: "a" }]),
+    ).toBe(1100);
+  });
+
+  it("does not let one house's season lower another house's floor", () => {
+    expect(
+      lowestNightlyPrice([room("a", 1500)], [{ ...season({ price_per_night: 500 }), room_id: "b" }]),
+    ).toBe(1500);
+  });
+
+  it("is null when no house has a price", () => {
+    expect(lowestNightlyPrice([], [])).toBeNull();
+    expect(lowestNightlyPrice([room("a", 0)], [])).toBeNull();
   });
 });

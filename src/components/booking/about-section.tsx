@@ -1,10 +1,8 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 
 import { useTranslations } from "next-intl";
-import { motion } from "motion/react";
-import { HTMLContent } from "@/components/ui/html-content";
 import {
   Dialog,
   DialogContent,
@@ -12,27 +10,37 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { ExpandableText } from "@/components/booking/expandable-text";
 import { ListIcon } from "@/components/booking/list-icon";
+import { SectionHeading, SectionMark } from "@/components/booking/section-mark";
 import { autoIconKey, type ListKind } from "@/lib/list-icons";
 
-const VISIBLE_ITEMS = 4;
+/** Rows before "show all": the desktop grid holds 12, the phone column 6, so it stays short there. */
+const VISIBLE_ITEMS = 12;
+const PHONE_ITEMS = 6;
 
 /**
  * `icons` are resolved from the original Thai labels on the server. In English
  * the labels are a translation that is not guaranteed to keep the array's
  * length, so a mismatched list re-picks icons from the words it shows.
+ * With a `limit` (the in-page list), rows past PHONE_ITEMS show from sm up only.
  */
 function ListRows({ labels, icons, kind, limit }: { labels: string[]; icons?: string[]; kind: ListKind; limit?: number }) {
   const aligned = icons?.length === labels.length;
   return (
     <>
       {labels.slice(0, limit).map((label, i) => (
-        <div key={label} className="flex items-center gap-2 text-sm text-earth-700">
-          <ListIcon
-            name={(aligned && icons[i]) || autoIconKey(label, kind)}
-            kind={kind}
-            className="h-4 w-4 shrink-0 text-brand"
-          />
+        <div
+          key={label}
+          className={`flex items-center gap-3 text-sm text-earth-700 ${limit && i >= PHONE_ITEMS ? "hidden sm:flex" : ""}`}
+        >
+          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-earth-300">
+            <ListIcon
+              name={(aligned && icons[i]) || autoIconKey(label, kind)}
+              kind={kind}
+              className="h-4 w-4 text-brand"
+            />
+          </span>
           <span>{label}</span>
         </div>
       ))}
@@ -40,11 +48,27 @@ function ListRows({ labels, icons, kind, limit }: { labels: string[]; icons?: st
   );
 }
 
+/** "Show all" past what the list shows: from the 7th row on phones, from the 13th on wider screens. */
+function ShowAllButton({ count, onClick }: { count: number; onClick: () => void }) {
+  const t = useTranslations("about");
+  if (count <= PHONE_ITEMS) return null;
+  return (
+    <div className={`mt-6 text-center ${count > VISIBLE_ITEMS ? "" : "sm:hidden"}`}>
+      <button
+        type="button"
+        className="inline-flex min-h-11 items-center text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600"
+        onClick={onClick}
+      >
+        {t("showAll", { count })}
+      </button>
+    </div>
+  );
+}
+
 interface AboutSectionProps {
   description: string;
   amenities: string[];
   maxGuests: number;
-  location: string;
   prohibitions?: string[];
   amenityIcons?: string[];
   prohibitionIcons?: string[];
@@ -54,126 +78,56 @@ export function AboutSection({
   description,
   amenities,
   maxGuests,
-  location,
   prohibitions = [],
   amenityIcons,
   prohibitionIcons,
 }: AboutSectionProps) {
   const t = useTranslations("about");
-  const [descModal, setDescModal] = useState(false);
   const [amenitiesModal, setAmenitiesModal] = useState(false);
   const [rulesModal, setRulesModal] = useState(false);
-  const descRef = useRef<HTMLDivElement>(null);
-  const [descOverflows, setDescOverflows] = useState(false);
-
-  useEffect(() => {
-    const el = descRef.current;
-    if (el) {
-      setDescOverflows(el.scrollHeight > el.clientHeight);
-    }
-  }, [description]);
 
   return (
-    <section className="py-14 md:py-20">
-      <div className="mx-auto max-w-4xl px-4 sm:px-6">
-        {/* Description */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-        >
-          <div className="overflow-hidden pt-2 -mt-2">
-            <motion.h2
-              initial={{ y: "100%" }}
-              whileInView={{ y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
-              className="text-2xl md:text-3xl font-serif text-earth-900 tracking-tight"
-            >
-              {t("title")}
-            </motion.h2>
-          </div>
-
-          {/* Description card with accent bar */}
-          <div className="relative mt-3 flex gap-0 overflow-hidden rounded-xl">
-            <div ref={descRef} className="line-clamp-6 sm:line-clamp-10">
-              <HTMLContent content={description} className="py-4 leading-relaxed text-earth-600" />
-            </div>
-            {descOverflows && (
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white via-white/80 to-transparent" />
+    <section id="about" className="scroll-mt-20 py-14 md:py-28">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        {/* Description: heading on the left, text on the right */}
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-12 md:gap-12">
+          <div className="md:col-span-4">
+            <SectionMark />
+            <SectionHeading>{t("title")}</SectionHeading>
+            {maxGuests > 0 && (
+              <p className="mt-4 text-sm text-earth-600">{t("upToGuests", { count: maxGuests })}</p>
             )}
           </div>
-          {descOverflows && (
-            <button
-              type="button"
-              className="mt-2 text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600"
-              onClick={() => setDescModal(true)}
-            >
-              {t("readMore")}
-            </button>
-          )}
-        </motion.div>
 
-        {/* Amenities & House Rules */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.15 }}
-          className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2"
-        >
-          <div>
-            <h3 className="text-lg font-serif text-earth-800">{t("amenities")}</h3>
-            <div className="mt-3 space-y-2">
+          <ExpandableText html={description} clampClassName="line-clamp-8 md:line-clamp-12" className="md:col-span-8" />
+        </div>
+
+        {/* Amenities */}
+        {amenities.length > 0 && (
+          <div id="amenities" className="scroll-mt-20 mt-14 md:mt-28">
+            <h3 className="text-center font-serif text-2xl text-earth-900 md:text-3xl">{t("amenities")}</h3>
+            <div className="mx-auto mt-10 grid max-w-4xl grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
               <ListRows labels={amenities} icons={amenityIcons} kind="amenity" limit={VISIBLE_ITEMS} />
             </div>
-            {amenities.length > VISIBLE_ITEMS && (
-              <button
-                type="button"
-                className="mt-2 text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600"
-                onClick={() => setAmenitiesModal(true)}
-              >
-                {t("readMore")}
-              </button>
-            )}
+            <ShowAllButton count={amenities.length} onClick={() => setAmenitiesModal(true)} />
           </div>
+        )}
 
-          {prohibitions.length > 0 && (
-            <div>
-              <h3 className="text-lg font-serif text-earth-800">{t("rules")}</h3>
-              <div className="mt-3 space-y-2">
-                <ListRows labels={prohibitions} icons={prohibitionIcons} kind="rule" limit={VISIBLE_ITEMS} />
-              </div>
-              {prohibitions.length > VISIBLE_ITEMS && (
-                <button
-                  type="button"
-                  className="mt-2 text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600"
-                  onClick={() => setRulesModal(true)}
-                >
-                  {t("readMore")}
-                </button>
-              )}
+        {/* House rules */}
+        {prohibitions.length > 0 && (
+          <div className="mt-12 md:mt-20">
+            <h3 className="text-center font-serif text-2xl text-earth-900 md:text-3xl">{t("rules")}</h3>
+            <div className="mx-auto mt-10 grid max-w-4xl grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
+              <ListRows labels={prohibitions} icons={prohibitionIcons} kind="rule" limit={VISIBLE_ITEMS} />
             </div>
-          )}
-        </motion.div>
-
+            <ShowAllButton count={prohibitions.length} onClick={() => setRulesModal(true)} />
+          </div>
+        )}
       </div>
-
-      {/* Description Modal */}
-      <Dialog open={descModal} onOpenChange={setDescModal}>
-        <DialogContent className="sm:max-w-2xl overflow-y-auto max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>{t("title")}</DialogTitle>
-            <DialogDescription className="sr-only">{t("title")}</DialogDescription>
-          </DialogHeader>
-          <HTMLContent content={description} className="leading-relaxed text-earth-600" />
-        </DialogContent>
-      </Dialog>
 
       {/* Amenities Modal */}
       <Dialog open={amenitiesModal} onOpenChange={setAmenitiesModal}>
-        <DialogContent className="sm:max-w-md overflow-y-auto max-h-[90vh]">
+        <DialogContent className="sm:max-w-md overflow-y-auto max-h-[85svh]">
           <DialogHeader>
             <DialogTitle>{t("amenities")}</DialogTitle>
             <DialogDescription className="sr-only">{t("amenities")}</DialogDescription>
@@ -186,7 +140,7 @@ export function AboutSection({
 
       {/* House Rules Modal */}
       <Dialog open={rulesModal} onOpenChange={setRulesModal}>
-        <DialogContent className="sm:max-w-md overflow-y-auto max-h-[90vh]">
+        <DialogContent className="sm:max-w-md overflow-y-auto max-h-[85svh]">
           <DialogHeader>
             <DialogTitle>{t("rules")}</DialogTitle>
             <DialogDescription className="sr-only">{t("rules")}</DialogDescription>

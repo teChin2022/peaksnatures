@@ -2,7 +2,8 @@
 
 import React from "react";
 import Image from "next/image";
-import { MapPin, ShieldCheck, Star, BadgeCheck, CalendarX } from "lucide-react";
+import Link from "next/link";
+import { MapPin, ShieldCheck, Star, BadgeCheck, CalendarX, ArrowRight } from "lucide-react";
 import { motion, useScroll, useTransform } from "motion/react";
 import { useTranslations } from "next-intl";
 
@@ -16,6 +17,8 @@ interface HeroSectionProps {
   reviewCount?: number;
   /** Host's guest-cancellation window; 0 means guests cannot cancel. */
   cancellationDays?: number;
+  /** The homestay's landing page, linked as "view property details". */
+  detailsHref?: string;
 }
 
 export function HeroSection({
@@ -27,15 +30,17 @@ export function HeroSection({
   averageRating = 0,
   reviewCount = 0,
   cancellationDays = 0,
+  detailsHref,
 }: HeroSectionProps) {
   const t = useTranslations("hero");
   const tb = useTranslations("booking");
+  const tl = useTranslations("landing");
   const { scrollY } = useScroll();
   const imageY = useTransform(scrollY, [0, 500], [0, 80]);
   const contentOpacity = useTransform(scrollY, [0, 400], [1, 0]);
 
   return (
-    <section className="relative h-[70svh] md:h-auto md:aspect-[16/9] md:max-h-[85vh] md:min-h-[520px] w-full overflow-hidden hero-mist">
+    <section className="relative h-[42svh] min-h-[320px] md:h-[50vh] md:min-h-[400px] w-full overflow-hidden hero-mist">
       {/* Parallax image */}
       <motion.div style={{ y: imageY }} className="absolute inset-0">
         {heroImageUrl && (
@@ -141,6 +146,15 @@ export function HeroSection({
             transition={{ duration: 0.6, delay: 0.4 }}
             className="mt-3 h-0.5 w-12 origin-left rounded-full bg-white/40"
           />
+          {detailsHref && (
+            <Link
+              href={detailsHref}
+              className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-white/90 underline decoration-white/40 underline-offset-4 hover:text-white hover:decoration-white sm:text-sm"
+            >
+              {tl("viewDetails")}
+              <ArrowRight size={14} />
+            </Link>
+          )}
         </div>
       </motion.div>
     </section>

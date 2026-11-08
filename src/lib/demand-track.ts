@@ -1,5 +1,6 @@
 /**
- * Client-side beacon for anonymous demand events on the public /[slug] page.
+ * Client-side beacon for anonymous demand events on the public homestay pages
+ * (/[slug] and /[slug]/book).
  *
  * Fire-and-forget by contract: every path here swallows its own errors. The
  * booking flow is the revenue path — tracking may fail, the booking may not.

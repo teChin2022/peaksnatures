@@ -1,7 +1,5 @@
 "use client";
 
-import { motion } from "motion/react";
-import { HelpCircle } from "lucide-react";
 import { useTranslations } from "next-intl";
 
 import {
@@ -10,6 +8,7 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
+import { SectionHeading, SectionMark } from "@/components/booking/section-mark";
 
 interface FaqItem {
   question: string;
@@ -23,30 +22,20 @@ interface FaqSectionProps {
 export function FaqSection({ items }: FaqSectionProps) {
   const t = useTranslations("faq");
 
-  const visible = (items || []).filter(
-    (item) => item.question.trim().length > 0 || item.answer.trim().length > 0
-  );
+  // Both halves, the rule the page's nav link and FAQPage JSON-LD count by.
+  const visible = (items || []).filter((item) => item.question?.trim() && item.answer?.trim());
 
   if (visible.length === 0) return null;
 
   return (
-    <section className="py-14 md:py-20">
-      <div className="mx-auto max-w-4xl px-4 sm:px-6">
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-        >
-          <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-earth-100">
-              <HelpCircle className="h-4 w-4 text-earth-700" />
-            </div>
-            <h2 className="text-2xl md:text-3xl font-serif text-earth-900 tracking-tight">
-              {t("title")}
-            </h2>
+    <section id="faq" className="scroll-mt-20 py-14 md:py-28">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <div className="grid grid-cols-1 gap-6 md:grid-cols-12 md:gap-12">
+          <div className="md:col-span-4">
+            <SectionMark />
+            <SectionHeading>{t("title")}</SectionHeading>
           </div>
-          <Accordion type="single" collapsible className="mt-5 w-full border-t border-earth-200">
+          <Accordion type="single" collapsible className="w-full border-t border-earth-200 md:col-span-8">
             {visible.map((item, i) => (
               <AccordionItem key={i} value={`faq-${i}`}>
                 <AccordionTrigger>{item.question}</AccordionTrigger>
@@ -55,7 +44,7 @@ export function FaqSection({ items }: FaqSectionProps) {
               </AccordionItem>
             ))}
           </Accordion>
-        </motion.div>
+        </div>
       </div>
     </section>
   );

@@ -1,5 +1,6 @@
 /**
- * Catalog of the anonymous guest events recorded on the public /[slug] page.
+ * Catalog of the anonymous guest events recorded on the public homestay pages
+ * (/[slug] and /[slug]/book).
  *
  * Single source of truth for three consumers that must never drift: the client
  * tracker (src/lib/demand-track.ts), the ingest route's zod schema

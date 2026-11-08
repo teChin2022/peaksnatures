@@ -1,8 +1,7 @@
 "use client";
 
-import { useState, useCallback, useRef, useEffect } from "react";
-import Link from "next/link";
-import { Star, MessageSquare, Loader2, Sparkles, ThumbsUp, Minus, ThumbsDown, Quote, PenLine, ChevronLeft, ChevronRight, X } from "lucide-react";
+import { useState, useCallback, useRef } from "react";
+import { Star, MessageSquare, Loader2, Sparkles, ThumbsUp, Minus, ThumbsDown, Quote, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { useSwipe } from "@/hooks/use-swipe";
 import { Button } from "@/components/ui/button";
@@ -14,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { createClient } from "@/lib/supabase/client";
 import { StarRating } from "@/components/reviews/star-rating";
+import { SectionHeading } from "@/components/booking/section-mark";
 import { ProvinceLabel } from "@/components/reviews/province-label";
 import { fmtDateStr } from "@/lib/format-date";
 // import { RATING_CATEGORIES } from "@/lib/review-constants";
@@ -69,7 +69,7 @@ function RatingBar({ value, label }: { value: number; label: string }) {
   const pct = value > 0 ? (value / 5) * 100 : 0;
   return (
     <div className="flex items-center gap-2">
-      <span className="w-24 shrink-0 truncate text-[11px] text-earth-500" title={label}>{label}</span>
+      <span className="w-24 shrink-0 truncate text-xs text-earth-600" title={label}>{label}</span>
       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-earth-100">
         {pct > 0 && (
           <div
@@ -78,9 +78,7 @@ function RatingBar({ value, label }: { value: number; label: string }) {
           />
         )}
       </div>
-      <span className="w-3 text-right text-[11px] font-medium text-earth-500">
-        {value > 0 ? value : "—"}
-      </span>
+      <span className="w-4 text-right text-xs font-medium text-earth-600">{value}</span>
     </div>
   );
 }
@@ -91,9 +89,9 @@ interface ReviewsDisplayProps {
   totalCount: number;
   categoryAverages: Record<string, number>;
   homestayId: string;
-  homestaySlug: string;
 }
 
+/** A Radix dialog of its own, so it layers over the review dialog it can be opened from. */
 function PhotoLightbox({
   photos,
   index,
@@ -103,6 +101,9 @@ function PhotoLightbox({
   index: number;
   onClose: () => void;
 }) {
+  const t = useTranslations("reviews");
+  const tr = useTranslations("rooms");
+  const tc = useTranslations("common");
   const [current, setCurrent] = useState(index);
   const prev = useCallback(() => setCurrent((i) => (i > 0 ? i - 1 : photos.length - 1)), [photos.length]);
   const next = useCallback(() => setCurrent((i) => (i < photos.length - 1 ? i + 1 : 0)), [photos.length]);
@@ -110,69 +111,161 @@ function PhotoLightbox({
   const [el, setEl] = useState<HTMLDivElement | null>(null);
   useSwipe(el, { onSwipeLeft: next, onSwipeRight: prev });
 
-  useEffect(() => {
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") onClose();
-      if (e.key === "ArrowLeft") prev();
-      if (e.key === "ArrowRight") next();
-    }
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [onClose, prev, next]);
-
   return (
-    <div
-      ref={setEl}
-      className="fixed inset-0 z-[100] flex items-center justify-center bg-black/70 backdrop-blur-2xl p-4"
-      style={{ touchAction: "none" }}
-      onClick={(e) => { if (e.target === e.currentTarget) onClose(); }}
-    >
-      <Button
-        variant="ghost"
-        size="icon"
-        className="absolute right-4 top-4 z-10 rounded-full text-white hover:bg-white/20"
-        onClick={onClose}
+    <Dialog open onOpenChange={(open) => !open && onClose()}>
+      <DialogContent
+        ref={setEl}
+        showCloseButton={false}
+        aria-describedby={undefined}
+        overlayClassName="bg-black/70 backdrop-blur-2xl"
+        className="inset-0 top-0 left-0 flex h-full w-full max-w-none translate-x-0 translate-y-0 items-center justify-center rounded-none border-0 bg-transparent p-4 shadow-none sm:max-w-none"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+        onKeyDown={(e) => {
+          if (e.key === "ArrowLeft") prev();
+          if (e.key === "ArrowRight") next();
+        }}
       >
-        <X className="h-6 w-6" />
-      </Button>
-
-      {photos.length > 1 && (
+        <DialogTitle className="sr-only">{t("title")}</DialogTitle>
         <Button
           variant="ghost"
           size="icon"
-          className="absolute left-2 z-10 rounded-full text-white hover:bg-white/20 sm:left-4"
-          onClick={prev}
+          aria-label={tc("close")}
+          className="absolute right-4 top-4 z-10 size-11 rounded-full text-white hover:bg-white/20"
+          onClick={onClose}
         >
-          <ChevronLeft className="h-8 w-8" />
+          <X className="h-6 w-6" />
         </Button>
-      )}
 
-      <div className="flex h-[80vh] w-[90vw] max-w-4xl items-center justify-center">
-        <img
-          key={photos[current]}
-          src={photos[current]}
-          alt={`Guest review photo ${current + 1} of ${photos.length}`}
-          className="max-h-[80vh] max-w-full h-auto w-auto rounded-2xl object-contain"
-        />
-      </div>
-
-      {photos.length > 1 && (
-        <>
+        {photos.length > 1 && (
           <Button
             variant="ghost"
             size="icon"
-            className="absolute right-2 z-10 rounded-full text-white hover:bg-white/20 sm:right-4"
-            onClick={next}
+            aria-label={tr("prevPhoto")}
+            className="absolute left-2 z-10 size-11 rounded-full text-white hover:bg-white/20 sm:left-4"
+            onClick={prev}
           >
-            <ChevronRight className="h-8 w-8" />
+            <ChevronLeft className="h-8 w-8" />
           </Button>
+        )}
 
-          <div className="absolute bottom-6 rounded-full bg-black/50 px-4 py-1.5 text-sm font-medium text-white/90 backdrop-blur-sm">
-            {current + 1} / {photos.length}
-          </div>
-        </>
-      )}
+        <div className="flex h-[80svh] w-[90vw] max-w-4xl items-center justify-center">
+          <img
+            key={photos[current]}
+            src={photos[current]}
+            alt={`Guest review photo ${current + 1} of ${photos.length}`}
+            className="max-h-[80svh] max-w-full h-auto w-auto rounded-2xl object-contain"
+          />
+        </div>
+
+        {photos.length > 1 && (
+          <>
+            <Button
+              variant="ghost"
+              size="icon"
+              aria-label={tr("nextPhoto")}
+              className="absolute right-2 z-10 size-11 rounded-full text-white hover:bg-white/20 sm:right-4"
+              onClick={next}
+            >
+              <ChevronRight className="h-8 w-8" />
+            </Button>
+
+            <div className="absolute bottom-6 rounded-full bg-black/50 px-4 py-1.5 text-sm font-medium text-white/90 backdrop-blur-sm">
+              {current + 1} / {photos.length}
+            </div>
+          </>
+        )}
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/** Avatar, name, where from and when, and the overall score. */
+function ReviewHeader({ review, locale }: { review: ReviewWithProvince; locale: string }) {
+  return (
+    <div className="flex items-start gap-3">
+      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${getAvatarColor(review.guest_name)}`}>
+        {getInitials(review.guest_name)}
+      </div>
+      <div className="min-w-0 flex-1">
+        <span className="text-sm font-semibold text-earth-900 truncate block">{review.guest_name}</span>
+        {/* Wraps as whole pieces: in the phone swipe row a long province pushed the date onto three lines. */}
+        <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5">
+          <ProvinceLabel province={review.bookings?.guest_province} locale={locale} />
+          <span className="whitespace-nowrap text-xs text-earth-600">
+            {fmtDateStr(review.created_at.split("T")[0], "d MMM yyyy", locale)}
+          </span>
+        </div>
+      </div>
+      <div className="flex items-center gap-1 rounded-full bg-[#2F5D50] px-2.5 py-1 shrink-0">
+        <Star className="h-3 w-3" style={{ fill: "white", color: "white" }} />
+        <span className="text-xs font-bold text-white">{review.rating}</span>
+      </div>
     </div>
+  );
+}
+
+/** Impression tags and the stay highlight, when the guest picked any. */
+function ReviewExtras({ review, t }: { review: ReviewWithProvince; t: ReturnType<typeof useTranslations> }) {
+  return (
+    <>
+      {review.impression_tags && review.impression_tags.length > 0 && (
+        <div className="mt-2.5 flex flex-wrap gap-1">
+          {review.impression_tags.map((tag) => (
+            <span key={tag} className="inline-flex items-center gap-1 rounded-full border border-[#2F5D50]/10 bg-[#2F5D50]/5 px-2 py-0.5 text-xs font-medium text-[#2F5D50]">
+              <Sparkles className="h-3 w-3" />
+              {TAG_I18N[tag] ? t(TAG_I18N[tag]) : tag}
+            </span>
+          ))}
+        </div>
+      )}
+
+      {/* No italic: most highlights are Thai, which has no italic face. */}
+      {review.stay_highlight && (
+        <div className="mt-2.5 rounded-lg bg-amber-50/60 px-3 py-2">
+          <span className="inline-flex items-start gap-1.5 text-xs text-amber-800 leading-relaxed">
+            <Quote className="mt-0.5 h-3 w-3 shrink-0 text-amber-400" />
+            {review.stay_highlight}
+          </span>
+        </div>
+      )}
+    </>
+  );
+}
+
+/** Only what the guest filled in: the categories they rated, and their would-return answer. */
+function ReviewRatings({ review, t }: { review: ReviewWithProvince; t: ReturnType<typeof useTranslations> }) {
+  const rated = [
+    { key: "environment", val: review.rating_environment },
+    { key: "cleanliness", val: review.rating_cleanliness },
+    { key: "service", val: review.rating_service },
+    { key: "value", val: review.rating_value },
+  ].filter((c): c is { key: string; val: number } => c.val != null);
+  const wouldReturn = review.would_return ? WOULD_RETURN_CONFIG[review.would_return] : undefined;
+  if (rated.length === 0 && !wouldReturn) return null;
+  const Icon = wouldReturn?.icon;
+
+  return (
+    <>
+      <div className="my-3 h-px bg-gradient-to-r from-earth-100 via-earth-200 to-earth-100" />
+      {rated.length > 0 && (
+        <div className="space-y-1.5">
+          {rated.map((c) => (
+            <RatingBar key={c.key} value={c.val} label={t(CATEGORY_I18N[c.key].label)} />
+          ))}
+        </div>
+      )}
+      {wouldReturn && Icon && (
+        <div className="mt-2 flex items-center justify-between gap-2 text-xs">
+          <span className="text-earth-600">{t("wouldReturnDisplay")}</span>
+          <span className={`inline-flex items-center gap-1 font-medium ${wouldReturn.color}`}>
+            <Icon className="h-3 w-3" />
+            {t(wouldReturn.label as "wouldReturnYes")}
+          </span>
+        </div>
+      )}
+    </>
   );
 }
 
@@ -190,68 +283,14 @@ function ReviewCard({
   onPhotoClick: (photos: string[], index: number) => void;
 }) {
   const needsClamp = !!review.comment && review.comment.length > 150;
-  const province = review.bookings?.guest_province;
-  const initials = getInitials(review.guest_name);
-  const avatarColor = getAvatarColor(review.guest_name);
-  const ALL_CATS = [
-    { key: "environment", val: review.rating_environment },
-    { key: "cleanliness", val: review.rating_cleanliness },
-    { key: "service", val: review.rating_service },
-    { key: "value", val: review.rating_value },
-  ];
 
   return (
     <div className="group flex flex-col rounded-2xl border border-earth-100 bg-white p-5 h-full transition-all hover:shadow-lg hover:shadow-gray-100/80">
-      {/* Header: avatar + name + score pill */}
-      <div className="flex items-start gap-3">
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarColor}`}>
-          {initials}
-        </div>
-        <div className="min-w-0 flex-1">
-          <span className="text-sm font-semibold text-earth-900 truncate block">{review.guest_name}</span>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <ProvinceLabel province={province} locale={locale} />
-            <span className="text-[11px] text-earth-300">
-              {fmtDateStr(review.created_at.split("T")[0], "d MMM yyyy", locale)}
-            </span>
-          </div>
-        </div>
-        <div className="flex items-center gap-1 rounded-full bg-[#2F5D50] px-2.5 py-1 shrink-0">
-          <Star className="h-3 w-3" style={{ fill: "white", color: "white" }} />
-          <span className="text-xs font-bold text-white">{review.rating}</span>
-        </div>
-      </div>
+      <ReviewHeader review={review} locale={locale} />
 
-      {/* Category rating bars */}
-      <div className="mt-3 space-y-1.5">
-        {ALL_CATS.map((c) => (
-          <RatingBar key={c.key} value={c.val ?? 0} label={t(CATEGORY_I18N[c.key].label)} />
-        ))}
-      </div>
-
-      {/* Would return */}
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <span className="text-[11px] text-earth-500">{t("wouldReturnLabel")}</span>
-        {review.would_return && WOULD_RETURN_CONFIG[review.would_return] ? (() => {
-          const cfg = WOULD_RETURN_CONFIG[review.would_return!];
-          const Icon = cfg.icon;
-          return (
-            <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${cfg.color}`}>
-              <Icon className="h-3 w-3" />
-              {t(cfg.label as "wouldReturnYes")}
-            </span>
-          );
-        })() : (
-          <span className="text-[11px] text-earth-300">—</span>
-        )}
-      </div>
-
-      {/* Divider */}
-      <div className="my-3 h-px bg-gradient-to-r from-earth-100 via-earth-200 to-earth-100" />
-
-      {/* Comment */}
+      {/* The guest's words first; the scores support them. */}
       {review.comment && (
-        <p className="text-[13px] leading-relaxed text-earth-600 line-clamp-3">
+        <p className="mt-3 text-sm leading-relaxed text-earth-600 line-clamp-3">
           {review.comment}
         </p>
       )}
@@ -267,32 +306,13 @@ function ReviewCard({
         </div>
       )}
 
-      {/* Tags */}
-      {review.impression_tags && review.impression_tags.length > 0 && (
-        <div className="mt-2.5 flex flex-wrap gap-1">
-          {review.impression_tags.map((tag) => (
-            <span key={tag} className="inline-flex items-center gap-0.5 rounded-full border border-[#2F5D50]/10 bg-[#2F5D50]/5 px-2 py-0.5 text-[10px] font-medium text-[#2F5D50]">
-              <Sparkles className="h-2 w-2" />
-              {TAG_I18N[tag] ? t(TAG_I18N[tag]) : tag}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Stay highlight */}
-      {review.stay_highlight && (
-        <div className="mt-2.5 rounded-lg bg-amber-50/60 px-3 py-2">
-          <span className="inline-flex items-start gap-1.5 text-[11px] text-amber-800/70 italic leading-relaxed">
-            <Quote className="mt-0.5 h-3 w-3 shrink-0 text-amber-400" />
-            {review.stay_highlight}
-          </span>
-        </div>
-      )}
+      <ReviewExtras review={review} t={t} />
+      <ReviewRatings review={review} t={t} />
 
       {/* Read more */}
       {needsClamp && (
-        <div className="mt-auto pt-3">
-          <button type="button" onClick={() => onReadMore(review)} className="text-xs font-medium text-[#2F5D50] hover:text-[#264A40] transition-colors">
+        <div className="mt-auto pt-1">
+          <button type="button" onClick={() => onReadMore(review)} className="inline-flex min-h-11 items-center text-xs font-medium text-[#2F5D50] hover:text-[#264A40] transition-colors">
             {t("readMore")} &rarr;
           </button>
         </div>
@@ -302,68 +322,13 @@ function ReviewCard({
 }
 
 function ModalReviewCard({ review, locale, t, onPhotoClick }: { review: ReviewWithProvince; locale: string; t: ReturnType<typeof useTranslations>; onPhotoClick: (photos: string[], index: number) => void }) {
-  const province = review.bookings?.guest_province;
-  const initials = getInitials(review.guest_name);
-  const avatarColor = getAvatarColor(review.guest_name);
-  const ALL_CATS = [
-    { key: "environment", val: review.rating_environment },
-    { key: "cleanliness", val: review.rating_cleanliness },
-    { key: "service", val: review.rating_service },
-    { key: "value", val: review.rating_value },
-  ];
-
   return (
     <div className="rounded-2xl border border-earth-100 bg-white p-5">
-      {/* Header */}
-      <div className="flex items-start gap-3">
-        <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${avatarColor}`}>
-          {initials}
-        </div>
-        <div className="min-w-0 flex-1">
-          <span className="text-sm font-semibold text-earth-900 truncate block">{review.guest_name}</span>
-          <div className="flex items-center gap-1.5 mt-0.5">
-            <ProvinceLabel province={province} locale={locale} />
-            <span className="text-[11px] text-earth-300">
-              {fmtDateStr(review.created_at.split("T")[0], "d MMM yyyy", locale)}
-            </span>
-          </div>
-        </div>
-        <div className="flex items-center gap-1 rounded-full bg-[#2F5D50] px-2.5 py-1 shrink-0">
-          <Star className="h-3 w-3" style={{ fill: "white", color: "white" }} />
-          <span className="text-xs font-bold text-white">{review.rating}</span>
-        </div>
-      </div>
-
-      {/* Category rating bars */}
-      <div className="mt-3 space-y-1.5">
-        {ALL_CATS.map((c) => (
-          <RatingBar key={c.key} value={c.val ?? 0} label={t(CATEGORY_I18N[c.key].label)} />
-        ))}
-      </div>
-
-      {/* Would return */}
-      <div className="mt-2 flex items-center justify-between gap-2">
-        <span className="text-[11px] text-earth-500">{t("wouldReturnLabel")}</span>
-        {review.would_return && WOULD_RETURN_CONFIG[review.would_return] ? (() => {
-          const cfg = WOULD_RETURN_CONFIG[review.would_return!];
-          const Icon = cfg.icon;
-          return (
-            <span className={`inline-flex items-center gap-1 text-[11px] font-medium ${cfg.color}`}>
-              <Icon className="h-3 w-3" />
-              {t(cfg.label as "wouldReturnYes")}
-            </span>
-          );
-        })() : (
-          <span className="text-[11px] text-earth-300">—</span>
-        )}
-      </div>
-
-      {/* Divider */}
-      <div className="my-3 h-px bg-gradient-to-r from-earth-100 via-earth-200 to-earth-100" />
+      <ReviewHeader review={review} locale={locale} />
 
       {/* Comment — full text */}
       {review.comment && (
-        <p className="text-[13px] leading-relaxed text-earth-600 whitespace-pre-wrap">{review.comment}</p>
+        <p className="mt-3 text-sm leading-relaxed text-earth-600 whitespace-pre-wrap">{review.comment}</p>
       )}
 
       {/* Photos — larger */}
@@ -377,27 +342,8 @@ function ModalReviewCard({ review, locale, t, onPhotoClick }: { review: ReviewWi
         </div>
       )}
 
-      {/* Tags */}
-      {review.impression_tags && review.impression_tags.length > 0 && (
-        <div className="mt-2.5 flex flex-wrap gap-1">
-          {review.impression_tags.map((tag) => (
-            <span key={tag} className="inline-flex items-center gap-0.5 rounded-full border border-[#2F5D50]/10 bg-[#2F5D50]/5 px-2 py-0.5 text-[10px] font-medium text-[#2F5D50]">
-              <Sparkles className="h-2 w-2" />
-              {TAG_I18N[tag] ? t(TAG_I18N[tag]) : tag}
-            </span>
-          ))}
-        </div>
-      )}
-
-      {/* Stay highlight */}
-      {review.stay_highlight && (
-        <div className="mt-2.5 rounded-lg bg-amber-50/60 px-3 py-2">
-          <span className="inline-flex items-start gap-1.5 text-[11px] text-amber-800/70 italic leading-relaxed">
-            <Quote className="mt-0.5 h-3 w-3 shrink-0 text-amber-400" />
-            {review.stay_highlight}
-          </span>
-        </div>
-      )}
+      <ReviewExtras review={review} t={t} />
+      <ReviewRatings review={review} t={t} />
     </div>
   );
 }
@@ -408,7 +354,6 @@ export function ReviewsDisplay({
   totalCount,
   categoryAverages: _categoryAverages,
   homestayId,
-  homestaySlug,
 }: ReviewsDisplayProps) {
   const t = useTranslations("reviews");
   const locale = useLocale();
@@ -460,38 +405,19 @@ export function ReviewsDisplay({
     <>
       <div className="space-y-4">
         {/* Header */}
-        <div className="flex items-center justify-between">
-          <div>
-            <div>
-              <h3 className="text-2xl md:text-3xl font-serif text-earth-900 tracking-tight">{t("title")}</h3>
-              {totalCount > 0 ? (
-                <div className="flex items-center gap-2">
-                  <StarRating rating={Math.round(averageRating)} size={14} />
-                  <span className="text-sm font-medium text-earth-900">{averageRating}</span>
-                  <span className="text-sm text-earth-500">
-                    ({totalCount} {totalCount === 1 ? t("review") : t("reviewPlural")})
-                  </span>
-                </div>
-              ) : (
-                <p className="text-sm text-earth-500">{t("noReviews")}</p>
-              )}
+        <div>
+          <SectionHeading>{t("title")}</SectionHeading>
+          {totalCount > 0 ? (
+            <div className="flex items-center gap-2">
+              <StarRating rating={Math.round(averageRating)} size={14} />
+              <span className="text-sm font-medium text-earth-900">{averageRating}</span>
+              <span className="text-sm text-earth-600">
+                ({totalCount} {totalCount === 1 ? t("review") : t("reviewPlural")})
+              </span>
             </div>
-          </div>
-          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2">
-            {hasMore && (
-              <Button variant="outline" size="sm" onClick={openModal}>
-                {t("viewAll")}
-              </Button>
-            )}
-            {totalCount > 0 && (
-              <Link href={`/${homestaySlug}/reviews`}>
-                <Button variant="outline" size="sm" className="gap-1 w-full">
-                  <PenLine className="h-3.5 w-3.5" />
-                  {t("writeReview")}
-                </Button>
-              </Link>
-            )}
-          </div>
+          ) : (
+            <p className="text-sm text-earth-600">{t("noReviews")}</p>
+          )}
         </div>
 
         {/* Category averages */}
@@ -511,12 +437,23 @@ export function ReviewsDisplay({
           </div>
         )} */}
 
-        {/* Review grid */}
+        {/* Phones: one card wide with the next one peeking, swiped sideways. The grid from sm up. */}
         {totalCount > 0 && (
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
+          <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-3">
             {gridReviews.map((review) => (
-              <ReviewCard key={review.id} review={review} locale={locale} t={t} onReadMore={setSelectedReview} onPhotoClick={openLightbox} />
+              <div key={review.id} className="w-[85%] shrink-0 snap-start sm:w-auto">
+                <ReviewCard review={review} locale={locale} t={t} onReadMore={setSelectedReview} onPhotoClick={openLightbox} />
+              </div>
             ))}
+          </div>
+        )}
+
+        {/* Under the cards, full width on phones: beside the heading it squeezed the title. */}
+        {hasMore && (
+          <div className="text-center">
+            <Button variant="outline" className="h-11 w-full rounded-full sm:w-auto" onClick={openModal}>
+              {t("seeAllReviews", { count: totalCount })}
+            </Button>
           </div>
         )}
 
@@ -525,24 +462,18 @@ export function ReviewsDisplay({
           <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-earth-200 bg-earth-50/50 py-10 text-center">
             <MessageSquare className="h-8 w-8 text-earth-300" />
             <p className="mt-2 text-sm text-earth-400">{t("noReviewsYet")}</p>
-            <Link href={`/${homestaySlug}/reviews`} className="mt-3">
-              <Button variant="outline" size="sm" className="gap-1">
-                <PenLine className="h-3.5 w-3.5" />
-                {t("writeReview")}
-              </Button>
-            </Link>
           </div>
         )}
       </div>
 
       {/* View All Modal */}
       <Dialog open={modalOpen} onOpenChange={setModalOpen}>
-        <DialogContent className="sm:max-w-3xl max-h-[85vh] flex flex-col">
+        <DialogContent className="sm:max-w-3xl max-h-[85svh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
               <Star className="h-5 w-5 text-earth-600" />
               {t("viewAllTitle")}
-              <span className="text-sm font-normal text-earth-500">
+              <span className="text-sm font-normal text-earth-600">
                 ({modalTotal} {modalTotal === 1 ? t("review") : t("reviewPlural")})
               </span>
             </DialogTitle>
@@ -560,7 +491,7 @@ export function ReviewsDisplay({
                   ))}
                 </div>
                 <div className="flex flex-col items-center gap-2 pt-4">
-                  <p className="text-xs text-earth-500">
+                  <p className="text-xs text-earth-600">
                     {t("showingCount", { count: modalReviews.length, total: modalTotal })}
                   </p>
                   {hasMoreInModal && (
@@ -581,7 +512,9 @@ export function ReviewsDisplay({
 
       {/* Read More — single review detail */}
       <Dialog open={!!selectedReview} onOpenChange={(o) => { if (!o) setSelectedReview(null); }}>
-        <DialogContent className="sm:max-w-md">
+        {/* svh scroll cap: a long review with photos ran past the bottom of a phone screen. */}
+        <DialogContent className="sm:max-w-md max-h-[85svh] overflow-y-auto" aria-describedby={undefined}>
+          <DialogTitle className="sr-only">{selectedReview?.guest_name}</DialogTitle>
           {selectedReview && (
             <ModalReviewCard review={selectedReview} locale={locale} t={t} onPhotoClick={openLightbox} />
           )}

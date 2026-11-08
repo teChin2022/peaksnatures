@@ -1,70 +1,39 @@
 "use client";
 
-import { useState, useCallback, useEffect, useRef } from "react";
+import { useState, useCallback } from "react";
 import { useSwipe } from "@/hooks/use-swipe";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { motion } from "motion/react";
 import { Button } from "@/components/ui/button";
+import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
+import { SectionHeading, SectionMark } from "@/components/booking/section-mark";
+import { bentoSpans } from "@/lib/gallery-layout";
 
 const BLUR_DATA_URL =
   "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI4MDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2UyZThmMCIvPjwvc3ZnPg==";
+
+/** One round of the bento pattern; "show all photos" opens the rest. */
+const MAX_TILES = 7;
+/** Phones show one wide tile and two halves: the gallery opens the page, so it stays short there. */
+const MOBILE_TILES = 3;
+// Desktop rows: wide + one, three, one + wide. Phones: one full width, then two halves.
+const DESKTOP_PATTERN = [2, 1, 1, 1, 1, 1, 2];
+const MOBILE_PATTERN = [2, 1, 1];
+// Whole class names, so Tailwind generates every span the layout can produce.
+const MOBILE_SPAN: Record<number, string> = { 1: "col-span-1", 2: "col-span-2" };
+const DESKTOP_SPAN: Record<number, string> = { 1: "md:col-span-1", 2: "md:col-span-2", 3: "md:col-span-3" };
 
 interface GallerySectionProps {
   images: string[];
   name: string;
 }
 
-function GalleryImage({
-  src,
-  alt,
-  sizes,
-  eager,
-  onClick,
-}: {
-  src: string;
-  alt: string;
-  sizes: string;
-  eager?: boolean;
-  onClick: () => void;
-}) {
-  const [loaded, setLoaded] = useState(false);
-  const imgRef = useRef<HTMLImageElement | null>(null);
-
-  useEffect(() => {
-    if (imgRef.current?.complete && imgRef.current.naturalWidth > 0) {
-      setLoaded(true);
-    }
-  }, [src]);
-
-  return (
-    <button onClick={onClick} className="group relative h-full w-full overflow-hidden rounded-xl">
-      <Image
-        ref={imgRef}
-        src={src}
-        alt={alt}
-        fill
-        sizes={sizes}
-        loading={eager ? "eager" : "lazy"}
-        placeholder="blur"
-        blurDataURL={BLUR_DATA_URL}
-        className={`h-full w-full object-cover group-hover:scale-105 ${
-          loaded ? "opacity-100 transition-transform duration-500" : "opacity-0"
-        }`}
-        onLoad={() => setLoaded(true)}
-      />
-      {!loaded && (
-        <div className="absolute inset-0 animate-pulse bg-earth-200" />
-      )}
-      <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
-    </button>
-  );
-}
-
 export function GallerySection({ images, name }: GallerySectionProps) {
   const [lightboxIndex, setLightboxIndex] = useState<number | null>(null);
   const t = useTranslations("gallery");
+  const tr = useTranslations("rooms");
+  const tc = useTranslations("common");
 
   const closeLightbox = useCallback(() => setLightboxIndex(null), []);
   const prevImage = useCallback(
@@ -79,161 +48,141 @@ export function GallerySection({ images, name }: GallerySectionProps) {
   const [lightboxEl, setLightboxEl] = useState<HTMLDivElement | null>(null);
   useSwipe(lightboxEl, { onSwipeLeft: nextImage, onSwipeRight: prevImage });
 
-  useEffect(() => {
-    if (lightboxIndex === null) return;
-    function handleKey(e: KeyboardEvent) {
-      if (e.key === "Escape") closeLightbox();
-      if (e.key === "ArrowLeft") prevImage();
-      if (e.key === "ArrowRight") nextImage();
-    }
-    window.addEventListener("keydown", handleKey);
-    return () => window.removeEventListener("keydown", handleKey);
-  }, [lightboxIndex, closeLightbox, prevImage, nextImage]);
-
   if (!images.length) return null;
 
-  const hasEnoughForSpecialLayout = images.length >= 5;
-  const displayImages = hasEnoughForSpecialLayout ? images.slice(0, 5) : images;
+  const shown = images.slice(0, MAX_TILES);
+  const mobileSpans = bentoSpans(shown.length, 2, MOBILE_PATTERN);
+  const desktopSpans = bentoSpans(shown.length, 3, DESKTOP_PATTERN);
+  const photoAlt = (i: number) => t("photoAlt", { name, number: i + 1 });
 
   return (
     <>
-      <section className="py-16 md:py-20">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6">
-          <div className="overflow-hidden pt-2 -mt-2 mb-6">
-            <motion.h2
-              initial={{ y: "100%" }}
-              whileInView={{ y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
-              className="text-2xl md:text-3xl font-serif text-earth-900 tracking-tight"
-            >
-              {t("title")}
-            </motion.h2>
+      <section id="gallery" className="scroll-mt-20 py-14 md:py-28">
+        <div className="mx-auto max-w-6xl px-4 sm:px-6">
+          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-10">
+            <div>
+              <SectionMark />
+              <SectionHeading>{t("title")}</SectionHeading>
+            </div>
+            <p className="max-w-xs text-sm leading-relaxed text-earth-600 md:text-right">{t("subtitle")}</p>
           </div>
 
-          {hasEnoughForSpecialLayout ? (
-            <motion.div
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8, delay: 0.1 }}
-            >
-              <div className="grid grid-cols-2 gap-2 md:grid-cols-4 md:grid-rows-2">
-                {/* Main large image */}
-                <div className="col-span-2 row-span-2 aspect-[4/3] md:aspect-auto">
-                  <GalleryImage
-                    src={displayImages[0]}
-                    alt={`${name} photo 1`}
-                    sizes="(max-width: 768px) 100vw, 50vw"
-                    eager
-                    onClick={() => setLightboxIndex(0)}
-                  />
-                </div>
-
-                {/* 4 smaller images */}
-                {displayImages.slice(1, 5).map((img, i) => (
-                  <div key={i + 1} className="aspect-[4/3] overflow-hidden rounded-xl">
-                    <GalleryImage
-                      src={img}
-                      alt={`${name} photo ${i + 2}`}
-                      sizes="(max-width: 768px) 50vw, 25vw"
-                      eager={i < 1}
-                      onClick={() => setLightboxIndex(i + 1)}
-                    />
-                  </div>
-                ))}
-              </div>
-            </motion.div>
-          ) : (
-            <motion.div
-              initial={{ opacity: 0 }}
-              whileInView={{ opacity: 1 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.8, delay: 0.1 }}
-            >
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                {images.map((img, i) => (
-                  <div key={i} className="aspect-[4/3] overflow-hidden rounded-xl">
-                    <GalleryImage
-                      src={img}
-                      alt={`${name} photo ${i + 1}`}
-                      sizes="(max-width: 640px) 50vw, 25vw"
-                      eager={i === 0}
-                      onClick={() => setLightboxIndex(i)}
-                    />
-                  </div>
-                ))}
-              </div>
-            </motion.div>
+          <div className="grid auto-rows-[11rem] grid-cols-2 gap-1.5 sm:auto-rows-[15rem] md:auto-rows-[20rem] md:grid-cols-3 lg:auto-rows-[25rem]">
+            {shown.map((img, i) => (
+              <button
+                key={i}
+                type="button"
+                onClick={() => setLightboxIndex(i)}
+                className={`group relative overflow-hidden rounded-xl bg-earth-200 ${MOBILE_SPAN[mobileSpans[i]]} ${DESKTOP_SPAN[desktopSpans[i]]} ${
+                  i >= MOBILE_TILES ? "hidden md:block" : ""
+                }`}
+              >
+                {/* Visible as soon as it loads: no fade-in that waits for JavaScript. */}
+                <Image
+                  src={img}
+                  alt={photoAlt(i)}
+                  fill
+                  sizes={`(max-width: 768px) ${mobileSpans[i] * 50}vw, ${desktopSpans[i] * 33}vw`}
+                  placeholder="blur"
+                  blurDataURL={BLUR_DATA_URL}
+                  className="object-cover transition-transform duration-500 group-hover:scale-105"
+                />
+                <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
+              </button>
+            ))}
+          </div>
+          {images.length > MOBILE_TILES && (
+            // Phones offer the rest from the fourth photo on; wider screens once there are more than the grid holds.
+            <div className={`mt-6 text-center ${images.length > MAX_TILES ? "" : "md:hidden"}`}>
+              <Button type="button" variant="outline" className="h-11 rounded-full" onClick={() => setLightboxIndex(0)}>
+                {t("showAll")} ({images.length})
+              </Button>
+            </div>
           )}
         </div>
       </section>
 
-      {/* Lightbox */}
-      {lightboxIndex !== null && (
-        <div
+      {/* A Radix dialog: focus, Escape, scroll lock and stacking come with it. */}
+      <Dialog open={lightboxIndex !== null} onOpenChange={(open) => !open && closeLightbox()}>
+        <DialogContent
           ref={setLightboxEl}
-          className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-2xl p-4 touch-action-none"
-          style={{ touchAction: "none" }}
-          onClick={(e) => { if (e.target === e.currentTarget) closeLightbox(); }}
+          showCloseButton={false}
+          overlayClassName="bg-black/60 backdrop-blur-2xl"
+          className="inset-0 top-0 left-0 flex h-full w-full max-w-none translate-x-0 translate-y-0 items-center justify-center rounded-none border-0 bg-transparent p-4 shadow-none sm:max-w-none"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) closeLightbox();
+          }}
+          onKeyDown={(e) => {
+            if (e.key === "ArrowLeft") prevImage();
+            if (e.key === "ArrowRight") nextImage();
+          }}
         >
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-4 top-4 z-10 rounded-full text-white hover:bg-white/20"
-            onClick={closeLightbox}
-          >
-            <X className="h-6 w-6" />
-          </Button>
+          <DialogTitle className="sr-only">{t("title")}</DialogTitle>
+          <DialogDescription className="sr-only">{name}</DialogDescription>
+          {lightboxIndex !== null && (
+            <>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={tc("close")}
+                className="absolute right-4 top-4 z-10 size-11 rounded-full text-white hover:bg-white/20"
+                onClick={closeLightbox}
+              >
+                <X className="h-6 w-6" />
+              </Button>
 
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute left-2 z-10 rounded-full text-white hover:bg-white/20 sm:left-4"
-            onClick={prevImage}
-          >
-            <ChevronLeft className="h-8 w-8" />
-          </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={tr("prevPhoto")}
+                className="absolute left-2 z-10 size-11 rounded-full text-white hover:bg-white/20 sm:left-4"
+                onClick={prevImage}
+              >
+                <ChevronLeft className="h-8 w-8" />
+              </Button>
 
-          <div className="flex h-[85vh] w-[90vw] max-w-5xl items-center justify-center">
-            <Image
-              key={images[lightboxIndex]}
-              src={images[lightboxIndex]}
-              alt={`${name} photo ${lightboxIndex + 1}`}
-              width={1920}
-              height={1080}
-              sizes="90vw"
-              priority
-              className="max-h-[85vh] max-w-full h-auto w-auto rounded-2xl"
-            />
-          </div>
+              <div className="flex h-[85svh] w-[90vw] max-w-5xl items-center justify-center">
+                <Image
+                  key={images[lightboxIndex]}
+                  src={images[lightboxIndex]}
+                  alt={photoAlt(lightboxIndex)}
+                  width={1920}
+                  height={1080}
+                  sizes="90vw"
+                  priority
+                  className="max-h-[85svh] max-w-full h-auto w-auto rounded-2xl"
+                />
+              </div>
 
-          {/* Preload adjacent images */}
-          {images.length > 1 && (
-            <div className="hidden">
-              {lightboxIndex > 0 && (
-                <Image src={images[lightboxIndex - 1]} alt="" width={32} height={32} />
+              {/* Preload adjacent images */}
+              {images.length > 1 && (
+                <div className="hidden">
+                  {lightboxIndex > 0 && (
+                    <Image src={images[lightboxIndex - 1]} alt="" width={32} height={32} />
+                  )}
+                  {lightboxIndex < images.length - 1 && (
+                    <Image src={images[lightboxIndex + 1]} alt="" width={32} height={32} />
+                  )}
+                </div>
               )}
-              {lightboxIndex < images.length - 1 && (
-                <Image src={images[lightboxIndex + 1]} alt="" width={32} height={32} />
-              )}
-            </div>
+
+              <Button
+                variant="ghost"
+                size="icon"
+                aria-label={tr("nextPhoto")}
+                className="absolute right-2 z-10 size-11 rounded-full text-white hover:bg-white/20 sm:right-4"
+                onClick={nextImage}
+              >
+                <ChevronRight className="h-8 w-8" />
+              </Button>
+
+              <div className="absolute bottom-6 rounded-full bg-black/50 px-4 py-1.5 text-sm font-medium text-white/90 backdrop-blur-sm">
+                {lightboxIndex + 1} / {images.length}
+              </div>
+            </>
           )}
-
-          <Button
-            variant="ghost"
-            size="icon"
-            className="absolute right-2 z-10 rounded-full text-white hover:bg-white/20 sm:right-4"
-            onClick={nextImage}
-          >
-            <ChevronRight className="h-8 w-8" />
-          </Button>
-
-          <div className="absolute bottom-6 rounded-full bg-black/50 px-4 py-1.5 text-sm font-medium text-white/90 backdrop-blur-sm">
-            {lightboxIndex + 1} / {images.length}
-          </div>
-        </div>
-      )}
+        </DialogContent>
+      </Dialog>
     </>
   );
 }

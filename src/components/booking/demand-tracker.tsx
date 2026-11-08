@@ -5,10 +5,8 @@ import { format } from "date-fns";
 import { useLocale } from "next-intl";
 import { useBookingCart } from "@/components/booking/booking-cart-context";
 import { DemandEvent } from "@/lib/demand-events";
-import { trackDemand, trackDemandOnce } from "@/lib/demand-track";
-
-/** Long enough to shed most crawler and prefetch loads without losing real guests. */
-const PAGE_VIEW_DWELL_MS = 2000;
+import { trackDemand } from "@/lib/demand-track";
+import { PageViewTracker } from "@/components/booking/page-view-tracker";
 
 /**
  * How long the sold-out verdict waits for availability to settle.
@@ -21,10 +19,10 @@ const PAGE_VIEW_DWELL_MS = 2000;
 const SOLD_OUT_SETTLE_MS = 600;
 
 /**
- * Renders nothing. Emits the three demand events that need no edits to any
- * existing booking component:
+ * Renders nothing but PageViewTracker. Emits the three demand events that need
+ * no edits to any existing booking component:
  *
- *   page_view          — on mount, after a short dwell
+ *   page_view          — through PageViewTracker, which the landing renders too
  *   dates_selected     — whenever a complete check-in/check-out is picked
  *   dates_unavailable  — same moment, when no house can serve that range
  *
@@ -46,17 +44,6 @@ export function DemandTracker({ homestayId }: { homestayId: string }) {
   // the second one unrevisitable once the first had fired.
   const lastSelectedRef = useRef<string | null>(null);
   const lastSoldOutRef = useRef<string | null>(null);
-
-  useEffect(() => {
-    const timer = setTimeout(() => {
-      trackDemandOnce(`page_view:${homestayId}`, {
-        homestayId,
-        eventType: DemandEvent.PAGE_VIEW,
-        locale,
-      });
-    }, PAGE_VIEW_DWELL_MS);
-    return () => clearTimeout(timer);
-  }, [homestayId, locale]);
 
   useEffect(() => {
     if (!dateRange?.from || !dateRange?.to || nights <= 0) return;
@@ -100,5 +87,5 @@ export function DemandTracker({ homestayId }: { homestayId: string }) {
     return () => clearTimeout(timer);
   }, [dateRange, nights, catalog.rooms, isRoomAvailableForRange, homestayId, locale]);
 
-  return null;
+  return <PageViewTracker homestayId={homestayId} />;
 }

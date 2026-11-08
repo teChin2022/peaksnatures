@@ -1,6 +1,6 @@
 import Image from "next/image";
 import { MapPin, Phone } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { lineUrl } from "@/lib/utils";
 
 interface SocialLinks {
@@ -52,7 +52,7 @@ function LineIcon({ className }: { className?: string }) {
 }
 
 const SOCIAL_ICON_CLASS =
-  "inline-flex h-8 w-8 items-center justify-center rounded-full bg-earth-800/60 text-earth-400 transition-all duration-200 hover:bg-brand hover:text-white hover:scale-110";
+  "inline-flex h-11 w-11 items-center justify-center rounded-full bg-earth-800/60 text-earth-400 transition-all duration-200 hover:bg-brand hover:text-white hover:scale-110";
 
 export function BookingFooter({
   homestayName,
@@ -64,6 +64,8 @@ export function BookingFooter({
 }: BookingFooterProps) {
   const t = useTranslations("bookingFooter");
   const tc = useTranslations("common");
+  // Spaced capitals for Latin only: letter-spacing breaks Thai vowel and tone marks.
+  const latin = useLocale() === "en";
 
   const hasSocials = socialLinks && (
     socialLinks.facebook_url || socialLinks.instagram_url ||
@@ -93,7 +95,7 @@ export function BookingFooter({
                 <h3 className="font-semibold text-earth-50 text-base tracking-wide">
                   {homestayName}
                 </h3>
-                <p className="mt-0.5 text-xs text-earth-500">{t("hostedBy", { name: hostName })}</p>
+                <p className="mt-0.5 text-xs text-earth-300">{t("hostedBy", { name: hostName })}</p>
               </div>
             </div>
 
@@ -108,7 +110,7 @@ export function BookingFooter({
                     className={SOCIAL_ICON_CLASS}
                     aria-label="Facebook"
                   >
-                    <FacebookIcon className="h-3.5 w-3.5" />
+                    <FacebookIcon className="h-4 w-4" />
                   </a>
                 )}
                 {socialLinks.instagram_url && (
@@ -119,7 +121,7 @@ export function BookingFooter({
                     className={SOCIAL_ICON_CLASS}
                     aria-label="Instagram"
                   >
-                    <InstagramIcon className="h-3.5 w-3.5" />
+                    <InstagramIcon className="h-4 w-4" />
                   </a>
                 )}
                 {socialLinks.tiktok_url && (
@@ -130,7 +132,7 @@ export function BookingFooter({
                     className={SOCIAL_ICON_CLASS}
                     aria-label="TikTok"
                   >
-                    <TikTokIcon className="h-3.5 w-3.5" />
+                    <TikTokIcon className="h-4 w-4" />
                   </a>
                 )}
                 {socialLinks.line_id && (
@@ -141,7 +143,7 @@ export function BookingFooter({
                     className={SOCIAL_ICON_CLASS}
                     aria-label="LINE"
                   >
-                    <LineIcon className="h-3.5 w-3.5" />
+                    <LineIcon className="h-4 w-4" />
                   </a>
                 )}
               </div>
@@ -150,7 +152,7 @@ export function BookingFooter({
 
           {/* Contact */}
           <div className="flex flex-col items-center gap-2.5 sm:items-start">
-            <p className="text-[11px] font-semibold uppercase tracking-[0.15em] text-earth-500">{t("contact")}</p>
+            <p className={`text-[11px] font-semibold text-earth-300 ${latin ? "uppercase tracking-[0.15em]" : ""}`}>{t("contact")}</p>
             <p className="flex items-start gap-2 text-sm text-earth-300">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-earth-500" />
               <span>{location}</span>
@@ -158,7 +160,7 @@ export function BookingFooter({
             {hostPhone && (
               <a
                 href={`tel:${hostPhone}`}
-                className="flex items-center gap-2 text-sm text-earth-300 transition-colors hover:text-white"
+                className="flex min-h-11 items-center gap-2 text-sm text-earth-300 transition-colors hover:text-white"
               >
                 <Phone className="h-4 w-4 shrink-0 text-earth-500" />
                 {/* 0812345678 → 081-234-5678; any other shape is shown as entered */}
@@ -173,7 +175,7 @@ export function BookingFooter({
 
         {/* Bottom bar: copyright + legal */}
         <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-between">
-          <p className="text-xs text-earth-600">
+          <p className="text-xs text-earth-300">
             {`\u00A9 ${new Date().getFullYear()} ${tc("copyright")}`}
           </p>
           <div className="flex items-center gap-3">
@@ -181,7 +183,7 @@ export function BookingFooter({
               href="/legal#privacy"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-earth-500 hover:text-earth-300 transition-colors"
+              className="inline-flex min-h-11 items-center text-xs text-earth-300 hover:text-white transition-colors"
             >
               {tc("privacy")}
             </a>
@@ -190,7 +192,7 @@ export function BookingFooter({
               href="/legal#terms"
               target="_blank"
               rel="noopener noreferrer"
-              className="text-xs text-earth-500 hover:text-earth-300 transition-colors"
+              className="inline-flex min-h-11 items-center text-xs text-earth-300 hover:text-white transition-colors"
             >
               {tc("terms")}
             </a>
