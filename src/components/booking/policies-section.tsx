@@ -21,14 +21,15 @@ export function PoliciesSection({ content }: PoliciesSectionProps) {
   if (isEmptyRichText(content)) return null;
 
   return (
-    <section id="policies" className="scroll-mt-20 py-14 md:py-28">
+    <section id="policies" className="scroll-mt-20 py-14 md:py-20 lg:py-28">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        {/* Heading 5/12 on tablets: at 4/12 the serif heading splits Thai words. */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-12 md:gap-12">
-          <div className="md:col-span-4">
+          <div className="md:col-span-5 lg:col-span-4">
             <SectionMark />
             <SectionHeading>{t("title")}</SectionHeading>
           </div>
-          <ExpandableText html={content as string} clampClassName="line-clamp-6 sm:line-clamp-10" className="md:col-span-8" />
+          <ExpandableText html={content as string} clampClassName="line-clamp-6 sm:line-clamp-10" className="md:col-span-7 lg:col-span-8" />
         </div>
       </div>
     </section>

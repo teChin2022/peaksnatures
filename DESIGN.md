@@ -80,6 +80,7 @@ spacing:
   "8": "32px"
   "12": "48px"
   "14": "56px"
+  "20": "80px"
   "28": "112px"
 components:
   button-primary:
@@ -305,8 +306,11 @@ Tailwind v4 defaults; nothing in `globals.css` overrides them.
   A container is never wider than its viewport minus the gutter: at 1280px a
   `max-w-7xl` container needs its gutter or content touches the edge.
 - **Rhythm:** a 4px base (`--spacing: 0.25rem`). Guest sections breathe at
-  56px on phones (`py-14`) and 112px from `md` (`md:py-28`); dark bands use
-  96 → 128px. Dashboard pages pad 16 / 24 / 32px (`p-4 sm:p-6 lg:p-8`).
+  56px on phones (`py-14`), 80px on tablets (`md:py-20`) and 112px from `lg`
+  (`lg:py-28`); dark bands use 96 → 128px. Dashboard pages pad 16 / 24 / 32px
+  (`p-4 sm:p-6 lg:p-8`).
+- **Section heading column:** the `/[slug]` heading-beside-text sections split
+  5/7 on tablets and 4/8 from `lg`; at 4/12 a 36px Thai heading splits mid-word.
 - **Phones:** the `/[slug]` hero fills the screen (`100svh`, settled). The
   sticky booking bar sits above the home indicator
   (`pb-[env(safe-area-inset-bottom)]`). Horizontal swipe rows keep the page

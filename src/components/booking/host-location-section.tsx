@@ -44,7 +44,7 @@ function Stat({
   return (
     <div>
       <p className={`font-serif leading-none text-earth-900 ${small ? "text-2xl md:text-3xl" : "text-4xl md:text-5xl"}`}>{value}</p>
-      {label && <p className="mt-3 flex items-center gap-2 text-sm text-earth-600">{label}</p>}
+      {label && <p className="mt-3 flex items-center justify-center gap-2 text-sm text-earth-600 md:justify-start">{label}</p>}
     </div>
   );
 }
@@ -80,14 +80,16 @@ export function HostLocationSection({
 
   return (
     <>
-      <section id="host" className="scroll-mt-20 py-14 md:py-28">
+      <section id="host" className="scroll-mt-20 py-14 md:py-20 lg:py-28">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <SectionMark />
           <SectionHeading>{tl("meetHost")}</SectionHeading>
 
-          <div className="mt-10 grid grid-cols-1 gap-10 md:grid-cols-12 md:items-center">
-            {/* Who the host is. Verification is shown when earned, never flagged when missing (as in the hero). */}
-            <div className="flex flex-col items-start gap-5 md:col-span-5 md:flex-row md:items-center">
+          {/* Side by side from lg only: at tablet width (md) the 5/7 split squeezed the name onto two lines and broke the date. */}
+          <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-center">
+            {/* Who the host is. Verification is shown when earned, never flagged when missing (as in the hero).
+                Phones center it like a contact card under the section's left-aligned heading; from md the avatar sits beside the name. */}
+            <div className="flex flex-col items-center gap-5 text-center md:flex-row md:items-center md:text-left lg:col-span-5">
               <div className="relative shrink-0">
                 <div className="h-24 w-24 overflow-hidden rounded-full bg-earth-100 ring-2 ring-earth-200 md:h-28 md:w-28">
                   {hostAvatarUrl ? (
@@ -121,7 +123,7 @@ export function HostLocationSection({
                   </span>
                 )}
                 {(hostPhone || lineId) && (
-                  <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
+                  <div className="mt-2 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 md:justify-start">
                     {hostPhone && (
                       <a href={`tel:${hostPhone}`} className={CONTACT_LINK}>
                         <Phone className="h-3.5 w-3.5" />
@@ -134,7 +136,7 @@ export function HostLocationSection({
                         href={lineUrl(lineId)}
                         target="_blank"
                         rel="noopener noreferrer"
-                        className="inline-flex h-11 items-center gap-2 rounded-full border border-earth-200 bg-white px-5 text-sm font-semibold text-earth-800 transition-colors hover:bg-earth-100 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                        className="inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-earth-200 bg-white px-5 text-sm font-semibold text-earth-800 transition-colors hover:bg-earth-100 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                       >
                         <LineIcon className="h-4 w-4" />
                         {t("chatOnLine")}
@@ -145,8 +147,10 @@ export function HostLocationSection({
               </div>
             </div>
 
-            {/* Track record. Zero bookings and an old or missing last booking are left out rather than shown as gaps. */}
-            <div className="grid grid-cols-1 items-end gap-x-6 gap-y-8 border-t border-earth-200 pt-8 md:col-span-7 md:grid-cols-3 md:border-l md:border-t-0 md:pl-10 md:pt-0">
+            {/* Track record. Zero bookings and an old or missing last booking are left out rather than shown as gaps.
+                Phones: one centered row, inset so it never touches the gutters, wrapping 2 + 1 when it must.
+                Tablets (md): three columns under the host. From lg: three columns beside the host, behind a vertical rule. */}
+            <div className="flex flex-wrap items-end justify-center gap-x-10 gap-y-6 border-t border-earth-200 px-4 pt-8 text-center md:grid md:grid-cols-3 md:gap-x-6 md:gap-y-8 md:px-0 md:text-left lg:col-span-7 lg:border-l lg:border-t-0 lg:pl-10 lg:pt-0">
               {totalMonths === 0 ? (
                 <Stat value={t("monthsHosting", { count: 0 })} small />
               ) : (
@@ -176,7 +180,7 @@ export function HostLocationSection({
       </section>
 
       {mapEmbedUrl && (
-        <section id="location" className="scroll-mt-20 py-14 md:py-28">
+        <section id="location" className="scroll-mt-20 py-14 md:py-20 lg:py-28">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <SectionMark />
             <SectionHeading>{ta("location")}</SectionHeading>

@@ -151,7 +151,8 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
             !bookingDisabled && (
               <Link
                 href={bookHref}
-                className="hidden md:inline-flex items-center rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-hover outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                // 44px: from md this is the only Book button on screen, and tablets are touch devices.
+                className="hidden md:inline-flex h-11 items-center rounded-full bg-brand px-5 text-sm font-semibold text-white transition-colors hover:bg-brand-hover outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
               >
                 {tb("bookHouse")}
               </Link>

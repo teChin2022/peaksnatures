@@ -40,7 +40,7 @@ export function LandingRooms({ rooms, bookHref, bookingDisabled = false }: Landi
   if (rooms.length === 0) return null;
 
   return (
-    <section id="rooms" className="scroll-mt-20 py-14 md:py-28">
+    <section id="rooms" className="scroll-mt-20 py-14 md:py-20 lg:py-28">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionMark />
         <SectionHeading>{t("title")}</SectionHeading>

@@ -13,8 +13,8 @@ export default function HomestayLandingLoading() {
 
       {/* About skeleton */}
       <div className="mx-auto grid max-w-6xl grid-cols-1 gap-6 px-4 py-20 sm:px-6 md:grid-cols-12 md:gap-12">
-        <Skeleton className="h-9 w-48 md:col-span-4" />
-        <div className="space-y-3 md:col-span-8">
+        <Skeleton className="h-9 w-48 md:col-span-5 lg:col-span-4" />
+        <div className="space-y-3 md:col-span-7 lg:col-span-8">
           <Skeleton className="h-4 w-full" />
           <Skeleton className="h-4 w-11/12" />
           <Skeleton className="h-4 w-full" />

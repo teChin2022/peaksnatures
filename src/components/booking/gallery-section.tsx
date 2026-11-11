@@ -58,7 +58,7 @@ export function GallerySection({ images, name }: GallerySectionProps) {
 
   return (
     <>
-      <section id="gallery" className="scroll-mt-20 py-14 md:py-28">
+      <section id="gallery" className="scroll-mt-20 py-14 md:py-20 lg:py-28">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-10">
             <div>

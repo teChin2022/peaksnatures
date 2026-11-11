@@ -87,11 +87,11 @@ export function AboutSection({
   const [rulesModal, setRulesModal] = useState(false);
 
   return (
-    <section id="about" className="scroll-mt-20 py-14 md:py-28">
+    <section id="about" className="scroll-mt-20 py-14 md:py-20 lg:py-28">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        {/* Description: heading on the left, text on the right */}
+        {/* Description: heading on the left, text on the right. 5/12 on tablets: at 4/12 the serif heading splits Thai words. */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-12 md:gap-12">
-          <div className="md:col-span-4">
+          <div className="md:col-span-5 lg:col-span-4">
             <SectionMark />
             <SectionHeading>{t("title")}</SectionHeading>
             {maxGuests > 0 && (
@@ -99,12 +99,12 @@ export function AboutSection({
             )}
           </div>
 
-          <ExpandableText html={description} clampClassName="line-clamp-8 md:line-clamp-12" className="md:col-span-8" />
+          <ExpandableText html={description} clampClassName="line-clamp-8 md:line-clamp-12" className="md:col-span-7 lg:col-span-8" />
         </div>
 
         {/* Amenities */}
         {amenities.length > 0 && (
-          <div id="amenities" className="scroll-mt-20 mt-14 md:mt-28">
+          <div id="amenities" className="scroll-mt-20 mt-14 md:mt-20 lg:mt-28">
             <h3 className="text-center font-serif text-2xl text-earth-900 md:text-3xl">{t("amenities")}</h3>
             <div className="mx-auto mt-10 grid max-w-4xl grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
               <ListRows labels={amenities} icons={amenityIcons} kind="amenity" limit={VISIBLE_ITEMS} />

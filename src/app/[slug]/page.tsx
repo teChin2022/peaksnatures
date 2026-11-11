@@ -238,7 +238,7 @@ export default async function HomestayLandingPage({ params, searchParams }: Page
 
         {/* Results only: writing a review starts from the booking page's menu. */}
         {reviewCount > 0 && (
-          <section id="reviews" className="scroll-mt-20 py-14 md:py-28">
+          <section id="reviews" className="scroll-mt-20 py-14 md:py-20 lg:py-28">
             <div className="mx-auto max-w-6xl px-4 sm:px-6">
               <SectionMark />
               <ReviewsDisplay
