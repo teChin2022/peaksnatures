@@ -149,7 +149,7 @@ export function HeroSection({
           {detailsHref && (
             <Link
               href={detailsHref}
-              className="mt-3 inline-flex items-center gap-1 text-xs font-medium text-white/90 underline decoration-white/40 underline-offset-4 hover:text-white hover:decoration-white sm:text-sm"
+              className="-mt-0.5 -mb-3.5 inline-flex items-center gap-1 py-3.5 text-xs font-medium text-white/90 underline decoration-white/40 underline-offset-4 hover:text-white hover:decoration-white sm:text-sm"
             >
               {tl("viewDetails")}
               <ArrowRight size={14} />

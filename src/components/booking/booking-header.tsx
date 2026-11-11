@@ -111,7 +111,7 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-        <Link href={`/${slug}`} className={`flex items-center gap-3 min-w-0 rounded-full ${focusRing}`}>
+        <Link href={`/${slug}`} className={`flex items-center gap-3 min-w-0 rounded-full py-2 -my-2 ${focusRing}`}>
           {logoUrl ? (
             <Image
               src={logoUrl}

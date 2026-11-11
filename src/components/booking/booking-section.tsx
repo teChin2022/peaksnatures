@@ -156,6 +156,7 @@ export function BookingSection({
   const [step, setStep] = useState<BookingStep>("dates");
   const [showConfirmedModal, setShowConfirmedModal] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
+  const cardRef = useRef<HTMLDivElement>(null);
   // Cart + shared dates live in the BookingCartProvider, so the sticky date bar,
   // room-card "Add to cart", the cart modal, and this panel all share one cart.
   const cart = useBookingCart();
@@ -377,6 +378,17 @@ export function BookingSection({
   useEffect(() => {
     document.dispatchEvent(new CustomEvent("booking-step", { detail: { step } }));
   }, [step]);
+
+  // Tell MobileBookingBar when this card is on screen above it, so the fixed bar
+  // doesn't cover the step-1 button. The margins trim the header and the bar.
+  useEffect(() => {
+    const el = cardRef.current;
+    if (!el) return;
+    const send = (inView: boolean) => document.dispatchEvent(new CustomEvent("booking-card-view", { detail: { inView } }));
+    const io = new IntersectionObserver(([entry]) => send(entry.isIntersecting), { rootMargin: "-72px 0px -88px 0px" });
+    io.observe(el);
+    return () => { io.disconnect(); send(false); };
+  }, []);
 
   // Broadcast cart size so MobileBookingBar can show a count badge.
   useEffect(() => {
@@ -1321,6 +1333,7 @@ export function BookingSection({
               whileInView={{ opacity: 1, scale: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, ease: [0.25, 0.1, 0, 1] }}
+              ref={cardRef}
               id="booking-card"
               className="order-2 scroll-mt-24 bg-white rounded-3xl shadow-xl border border-earth-100 p-5 lg:order-2 lg:p-8 relative flex flex-col lg:sticky lg:top-32"
             >
@@ -1477,7 +1490,7 @@ export function BookingSection({
 
                           {/* PDPA */}
                           <label className="flex items-start gap-2 cursor-pointer">
-                            <input type="checkbox" checked={pdpaConsent} onChange={(e) => setPdpaConsent(e.target.checked)} className="mt-1 h-4 w-4 rounded border-earth-300 text-earth-900 focus:ring-earth-900" />
+                            <input type="checkbox" checked={pdpaConsent} onChange={(e) => setPdpaConsent(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 rounded border-earth-300 text-earth-900 focus:ring-earth-900" />
                             <span className="text-xs text-earth-600">
                               {t.rich("pdpaConsent", {
                                 privacy: (chunks) => <a href="/legal#privacy" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-earth-900">{chunks}</a>,
@@ -1498,7 +1511,7 @@ export function BookingSection({
                       ) : showOptions ? (
                         <motion.div key="dates-options" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.25 }} className="space-y-4">
                           <div className="flex items-center gap-3">
-                            <button onClick={() => setShowOptions(false)} aria-label={tc("back")} className="p-2 rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
+                            <button onClick={() => setShowOptions(false)} aria-label={tc("back")} className="-ml-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
                             <h3 className="text-xl font-bold text-earth-900">{t("options")}</h3>
                           </div>
                           <p className="text-sm text-earth-500">{t("optionsDesc")}</p>
@@ -1556,7 +1569,7 @@ export function BookingSection({
                       {!showConfirmModal ? (
                         <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-5">
                           <div className="flex items-center gap-3">
-                            <button onClick={() => setStep("dates")} aria-label={tc("back")} className="p-2 rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
+                            <button onClick={() => setStep("dates")} aria-label={tc("back")} className="-ml-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
                             <h3 className="text-xl font-bold text-earth-900">{t("guestInfo")}</h3>
                           </div>
 
@@ -1668,7 +1681,7 @@ export function BookingSection({
                       ) : (
                         <motion.div key="confirm" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
                           <div className="flex items-center gap-3">
-                            <button onClick={() => setShowConfirmModal(false)} aria-label={tc("back")} className="p-2 rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
+                            <button onClick={() => setShowConfirmModal(false)} aria-label={tc("back")} className="-ml-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
                             <h3 className="text-xl font-bold text-earth-900">{t("confirmTitle")}</h3>
                           </div>
                           <p className="text-sm text-earth-500">{t("confirmDesc")}</p>
@@ -1785,10 +1798,10 @@ export function BookingSection({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         {paymentPhase === "qr" && (
-                          <button onClick={() => { releaseHold(); setStep("details"); setPaymentPhase("qr"); }} aria-label={tc("back")} className="p-2 rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
+                          <button onClick={() => { releaseHold(); setStep("details"); setPaymentPhase("qr"); }} aria-label={tc("back")} className="-ml-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
                         )}
                         {paymentPhase === "upload" && (
-                          <button onClick={() => setPaymentPhase("qr")} aria-label={tc("back")} className="p-2 rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
+                          <button onClick={() => setPaymentPhase("qr")} aria-label={tc("back")} className="-ml-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
                         )}
                         <h3 className="text-xl font-bold text-earth-900">{t("paymentTitle")}</h3>
                       </div>

@@ -427,18 +427,19 @@ function SingleRoomHero({
           </>
         )}
 
-        {/* Dot indicators — top of image, identical on mobile and desktop. The button's
-            padding grows the tap target; the matching negative margins cancel it out of
-            layout, so the dots keep the tight gap-1.5 pitch. */}
+        {/* Dot indicators — top of image, identical on mobile and desktop. Each button is
+            24px wide (padding around a 6px dot), the WCAG 2.5.8 minimum, and the row has
+            no gap so neighbouring targets don't overlap. Vertical padding is cancelled
+            out of layout. */}
         {multi && (
-          <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-center gap-1.5 pt-3 pb-6 bg-gradient-to-b from-black/20 to-transparent">
+          <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-center pt-3 pb-6 bg-gradient-to-b from-black/20 to-transparent">
             {images.map((_, i) => (
               <button
                 key={i}
                 type="button"
                 aria-label={t("goToPhoto", { number: i + 1 })}
                 onClick={(e) => { e.stopPropagation(); setIndex(i); }}
-                className="px-1 -mx-1 py-2 -my-2"
+                className="px-[9px] py-[9px] -my-[9px]"
               >
                 <span
                   className={`block h-1.5 rounded-full transition-all ${i === index ? "bg-white w-3" : "bg-white/50 w-1.5 pointer-fine:hover:bg-white/80"}`}

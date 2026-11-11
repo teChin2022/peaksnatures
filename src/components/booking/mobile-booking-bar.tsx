@@ -17,6 +17,7 @@ import { useIsMobile } from "@/lib/use-is-mobile";
 import { fmtDate } from "@/lib/format-date";
 import { useBookingCartOptional } from "@/components/booking/booking-cart-context";
 import { BookingCalendarDialog } from "@/components/booking/booking-calendar-dialog";
+import { isBookingBarVisible } from "@/components/booking/bar-visibility";
 import { CartLineList } from "@/components/booking/cart-line-list";
 import type { Room } from "@/types/database";
 
@@ -47,6 +48,7 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
   const cart = useBookingCartOptional();
   const [visible, setVisible] = useState(false);
   const [bookingStep, setBookingStep] = useState<BookingStep>("dates");
+  const [cardInView, setCardInView] = useState(false);
   const [sheetOpen, setSheetOpen] = useState(false);
   const [calendarOpen, setCalendarOpen] = useState(false);
 
@@ -68,6 +70,13 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
     return () => document.removeEventListener("booking-step", handler);
   }, []);
 
+  // BookingSection reports when its card is on screen above the bar.
+  useEffect(() => {
+    const handler = (e: Event) => setCardInView((e as CustomEvent<{ inView: boolean }>).detail.inView);
+    document.addEventListener("booking-card-view", handler);
+    return () => document.removeEventListener("booking-card-view", handler);
+  }, []);
+
   // Editing a line happens in the room config dialog (opened by RoomsSection);
   // close the sheet so the two modal layers don't overlap.
   useEffect(() => {
@@ -78,7 +87,8 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
   }, [sheetOpen]);
 
   // The bar is the primary date picker on mobile, so it stays visible from page
-  // load. Only hide it during the checkout steps and once the footer scrolls in.
+  // load. Only hide it during the checkout steps, while the booking card is on
+  // screen, and once the footer scrolls in.
   useEffect(() => {
     if (!isMobile) return;
 
@@ -86,7 +96,7 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
     let footerInView = false;
 
     const updateVisibility = () => {
-      setVisible(!footerInView && bookingStep === "dates");
+      setVisible(isBookingBarVisible({ footerInView, step: bookingStep, cardInView }));
     };
 
     const footerObserver = new IntersectionObserver(
@@ -101,7 +111,7 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
     updateVisibility();
 
     return () => footerObserver.disconnect();
-  }, [isMobile, bookingStep]);
+  }, [isMobile, bookingStep, cardInView]);
 
   // Picking dates nudges the guest down to the rooms so they can add one.
   const scrollToRooms = () => {
@@ -205,7 +215,7 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
 
       {/* Cart review sheet (mobile) — all room details */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
-        <SheetContent side="bottom" className="max-h-[85vh] gap-0 rounded-t-2xl p-0 md:hidden">
+        <SheetContent side="bottom" className="max-h-[85vh] gap-0 rounded-t-2xl p-0 md:hidden [&>button]:-m-3.5 [&>button]:rounded-full [&>button]:p-3.5">
           <SheetHeader className="border-b border-earth-100 pr-12">
             <SheetTitle>{tb("reviewCart")}</SheetTitle>
             {dateRange?.from && dateRange?.to && (
