@@ -25,6 +25,10 @@ const MOBILE_PATTERN = [2, 1, 1];
 const MOBILE_SPAN: Record<number, string> = { 1: "col-span-1", 2: "col-span-2" };
 const DESKTOP_SPAN: Record<number, string> = { 1: "md:col-span-1", 2: "md:col-span-2", 3: "md:col-span-3" };
 
+/** Glide the strip to the new thumbnail, unless the visitor asked for less motion. */
+const thumbScroll = (): ScrollBehavior =>
+  window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
+
 interface GallerySectionProps {
   images: string[];
   name: string;
@@ -169,10 +173,12 @@ export function GallerySection({ images, name }: GallerySectionProps) {
                         aria-current={i === lightboxIndex}
                         onClick={() => setLightboxIndex(i)}
                         ref={(el) => {
-                          if (i === lightboxIndex) el?.scrollIntoView?.({ inline: "center", block: "nearest" });
+                          if (i === lightboxIndex)
+                            el?.scrollIntoView?.({ inline: "center", block: "nearest", behavior: thumbScroll() });
                         }}
-                        className={`relative h-12 w-16 shrink-0 overflow-hidden rounded-md outline-none focus-visible:ring-2 focus-visible:ring-white sm:h-14 sm:w-20 ${
-                          i === lightboxIndex ? "ring-2 ring-white" : "opacity-70 hover:opacity-100"
+                        // The ring, opacity and size ease between thumbnails as the photo changes; reduced motion swaps them instantly.
+                        className={`relative h-12 w-16 shrink-0 overflow-hidden rounded-md outline-none ring-2 transition-[opacity,transform,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] focus-visible:ring-white motion-reduce:transition-none sm:h-14 sm:w-20 ${
+                          i === lightboxIndex ? "scale-100 ring-white" : "scale-90 opacity-70 ring-transparent hover:opacity-100"
                         }`}
                       >
                         <Image src={img} alt="" fill sizes="80px" className="object-cover" />
