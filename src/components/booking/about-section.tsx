@@ -99,7 +99,7 @@ export function AboutSection({
             )}
           </div>
 
-          <ExpandableText html={description} clampClassName="line-clamp-8 md:line-clamp-12" className="md:col-span-7 lg:col-span-8" />
+          <ExpandableText html={description} clampClassName="line-clamp-8 md:line-clamp-12" className="md:col-span-7 lg:col-span-8" fadeClassName="from-white via-white/80" />
         </div>
 
         {/* Amenities */}

@@ -78,4 +78,21 @@ describe("ExpandableText", () => {
     expect(clamped()).toBe(true);
     expect(toggle()?.textContent).toBe("readMore");
   });
+
+  it("fades into the section's own background", () => {
+    layout(200, 96);
+    expect(container.querySelector(".from-earth-50")).not.toBeNull();
+    act(() =>
+      root.render(
+        createElement(ExpandableText, {
+          html: "<p>x</p>",
+          clampClassName: "line-clamp-4",
+          fadeClassName: "from-white via-white/80",
+        }),
+      ),
+    );
+    layout(200, 96);
+    expect(container.querySelector(".from-white")).not.toBeNull();
+    expect(container.querySelector(".from-earth-50")).toBeNull();
+  });
 });

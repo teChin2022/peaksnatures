@@ -29,7 +29,7 @@ export function PoliciesSection({ content }: PoliciesSectionProps) {
             <SectionMark />
             <SectionHeading>{t("title")}</SectionHeading>
           </div>
-          <ExpandableText html={content as string} clampClassName="line-clamp-6 sm:line-clamp-10" className="md:col-span-7 lg:col-span-8" />
+          <ExpandableText html={content as string} clampClassName="line-clamp-6 sm:line-clamp-10" className="md:col-span-7 lg:col-span-8" fadeClassName="from-earth-100 via-earth-100/80" />
         </div>
       </div>
     </section>

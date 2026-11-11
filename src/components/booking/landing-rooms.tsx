@@ -93,7 +93,7 @@ export function LandingRooms({ rooms, bookHref, bookingDisabled = false }: Landi
                   {ta("upToGuests", { count: room.max_guests })}
                 </p>
                 {room.description && (
-                  <ExpandableText html={room.description} clampClassName="line-clamp-3 lg:line-clamp-6" className="mt-4" />
+                  <ExpandableText html={room.description} clampClassName="line-clamp-3 lg:line-clamp-6" className="mt-4" fadeClassName="from-earth-100 via-earth-100/80" />
                 )}
                 <div className="mt-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-t border-earth-200 pt-4">
                   <div>
@@ -107,10 +107,10 @@ export function LandingRooms({ rooms, bookHref, bookingDisabled = false }: Landi
                     </p>
                   </div>
                   {room.is_active && !bookingDisabled && (
-                    // DESIGN.md button-secondary; Bark Light border (earth-500) because Sand fails 3:1 on a control edge.
+                    // DESIGN.md button-primary: Forest, the one voice for action.
                     <Link
                       href={bookHref}
-                      className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-earth-500 bg-white px-5 text-sm font-semibold text-earth-800 outline-none transition-colors hover:bg-earth-50 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                      className="inline-flex min-h-11 items-center gap-1.5 rounded-full bg-brand px-5 text-sm font-semibold text-white outline-none transition-colors hover:bg-brand-hover focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                     >
                       {th("checkAvailability")}
                       <ArrowRight className="h-4 w-4" />

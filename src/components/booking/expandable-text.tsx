@@ -10,13 +10,15 @@ interface ExpandableTextProps {
   /** Whole line-clamp classes, e.g. "line-clamp-4 lg:line-clamp-6", so Tailwind generates them. */
   clampClassName: string;
   className?: string;
+  /** Whole gradient classes matching the section's background, so the fade is invisible. */
+  fadeClassName?: string;
 }
 
 /**
  * Rich text cut to a few lines. "Read more" opens the rest in place and
  * "Show less" closes it, so a guest on a phone keeps their place on the page.
  */
-export function ExpandableText({ html, clampClassName, className = "" }: ExpandableTextProps) {
+export function ExpandableText({ html, clampClassName, className = "", fadeClassName = "from-earth-50 via-earth-50/80" }: ExpandableTextProps) {
   const t = useTranslations("common");
   const ref = useRef<HTMLDivElement>(null);
   const [overflows, setOverflows] = useState(false);
@@ -39,7 +41,7 @@ export function ExpandableText({ html, clampClassName, className = "" }: Expanda
           <HTMLContent content={html} className="leading-relaxed text-earth-600" />
         </div>
         {overflows && !expanded && (
-          <div className="pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-earth-50 via-earth-50/80 to-transparent" />
+          <div className={`pointer-events-none absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t ${fadeClassName} to-transparent`} />
         )}
       </div>
       {overflows && (
