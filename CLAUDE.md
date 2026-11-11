@@ -277,6 +277,149 @@ remaining risks. Say plainly what you did **not** change and why.
 - Never silence errors with `any`, `@ts-ignore`, or `eslint-disable` just to
   make things pass.
 
+## UI/UX design engineering
+
+The booking platform is live. UI work improves visual quality, UX,
+accessibility and frontend consistency, and never rebuilds the app. The goal: a
+premium, modern hospitality platform that keeps the reliability of the
+production booking system.
+
+### Role and skills
+
+Work as a senior product design and engineering team: design director (visual
+direction), UI/UX designer (usability, information architecture), design-system
+engineer (tokens, reusable components), frontend engineer (production React),
+motion designer (meaningful animation and interaction), accessibility
+specialist.
+
+Use only the skills a task needs, never all of them:
+
+- `impeccable`: primary design direction, critique and quality control
+  (`/impeccable critique`, `/impeccable audit`, `/impeccable polish`, …). Reads
+  `PRODUCT.md` and `DESIGN.md`.
+- `ui-ux-pro-max`: design-system, visual-pattern, typography and UX guidelines.
+- `frontend-design`: distinctive implementation when building a new interface.
+- `emil-design-eng`: animation and interaction quality. `review-animations`
+  reviews motion strictly; `improve-animations` audits it across the codebase.
+- `better-ui`: detailed visual refinement (radius, shadows, icons, motion
+  values).
+
+### Design philosophy
+
+Nature Luxury / Modern Hospitality: premium but approachable; modern, elegant,
+minimal; a warm natural palette; editorial typography; high-quality real nature
+photography; generous whitespace; clear visual hierarchy; consistent spacing
+and alignment; subtle, purposeful motion; an excellent mobile experience.
+
+Avoid: generic AI-generated SaaS looks; excessive gradients, rounded cards,
+shadows or glassmorphism; excessive animation; low-contrast text; black buttons
+on light backgrounds as the default treatment; decoration that gets in the way
+of use.
+
+Proposed palette, a starting point only: Warm Ivory `#F5F1E8`, Sand `#D8C9AE`,
+Sage `#8C9A78`, Forest `#495B49`, Charcoal `#39372F`. Reconcile it with the
+existing brand tokens before applying any of it.
+
+### Production constraints
+
+- Never rebuild the booking platform. Never change business logic unless
+  explicitly asked.
+- Preserve: database schema, Supabase tables and relationships, Supabase auth,
+  RLS policies, the booking workflow, payment verification, the PromptPay and
+  bank-transfer flow, availability and hold (room-locking) logic, host and
+  admin permissions, commission and pricing calculations, API contracts, tenant
+  routing and multi-tenant behavior.
+- Don't: replace Supabase or the booking engine, rewrite auth, change the
+  database for a visual improvement, remove functionality, put mock data into
+  production, copy a purchased template over the project, or install UI
+  libraries a task doesn't need (new packages still need my approval).
+- Keep visual components separate from business logic. Reuse existing
+  components, hooks, APIs and data structures.
+
+### Workflow
+
+- **A. Discovery.** Before changing anything, inspect the project structure,
+  Next.js and React versions, Tailwind setup, component library, global styles
+  and tokens, routes and layouts, reusable components, booking components and
+  their dependencies, the frontend/backend boundary, and the tests and build
+  commands. Don't assume the architecture. No application code changes in this
+  phase.
+- **B. Audit.** Visual hierarchy, typography, color consistency, spacing,
+  component consistency, responsive behavior, accessibility, navigation,
+  booking usability, loading, empty and error states, interaction feedback.
+  Use `/impeccable audit` and `/impeccable critique` where they fit. Rate each
+  finding Critical / High / Medium / Low (Impeccable's P0–P3) and give the fix
+  with its expected impact.
+- **C. Design system.** Color tokens, type scale, spacing scale, radius,
+  shadows, buttons, inputs, cards, navigation, modals, dropdowns, calendars,
+  breakpoints, interaction states. Reuse existing components. Documented in
+  `DESIGN.md`.
+- **D. Implementation.** One page at a time: inspect the implementation,
+  understand what it does, define the visual change, find reusable components,
+  implement, keep behavior identical, test desktop and mobile, review the
+  result. Never redesign the whole platform in one go.
+- **E. QA.** Desktop, tablet and mobile layouts; keyboard navigation and focus
+  states; accessibility; loading and error states; booking, payment, auth and
+  tenant isolation still work. Run lint, typecheck, tests and a production
+  build where available (see 3. Testing: never claim a test passed without
+  running it).
+
+### Motion
+
+Animate only when it helps use or understanding. Short durations, natural
+easing, subtle hover feedback; page transitions and scroll reveals only where
+they carry meaning. No heavy parallax, no movement for its own sake, nothing
+that delays booking, shifts layout or costs mobile performance. Always respect
+`prefers-reduced-motion`.
+
+### Per surface
+
+Guest, host and admin share one design language, each at the density it needs.
+
+- **Guest site:** high-quality photography, clear property information, an
+  attractive booking experience, easy date selection, clear pricing, a simple
+  checkout, trust and transparency.
+- **Booking calendar:** clear availability, easy date navigation, works on
+  phones, clear selected dates, visible pricing; keep the availability logic.
+- **Checkout and payment:** minimal steps, a clear booking summary, transparent
+  payment instructions, clear payment status, error prevention; keep the
+  verification logic.
+- **Host dashboard:** operational efficiency: booking, house and availability
+  management, revenue visibility, clear navigation.
+- **Admin:** analytics, booking performance, host management, revenue and
+  commission reporting, operational monitoring.
+
+### Execution
+
+Work incrementally. Before changing files, explain the plan, the affected
+components and the regression risks. After, list the modified files, the visual
+improvements, the tests actually run, and what is still unresolved. If a change
+could affect booking, payment, auth, the database or tenant isolation, stop and
+get my explicit approval first.
+
+**In this repo:**
+
+- Design docs: `PRODUCT.md` and `DESIGN.md` at the root (Impeccable reads both;
+  DESIGN.md tokens are normative), `docs/design-direction.md` (direction,
+  proposed palette, and settled UI decisions: ask before changing one),
+  `docs/ui-audit.md`, `docs/ui-improvement-roadmap.md`.
+- Tokens are CSS-first in `src/app/globals.css` (`@theme inline`); there is no
+  `tailwind.config`. The real palette is `brand` (#2F5D50) and `earth-*`.
+  shadcn's `--primary` is still near-black, so a `<Button>` without a variant
+  renders black.
+- `motion` ignores the OS reduced-motion setting unless the tree is wrapped in
+  `RespectReducedMotion` (`src/components/respect-reduced-motion.tsx`; today
+  only `/[slug]` is). CSS keyframes need their own
+  `@media (prefers-reduced-motion: reduce)` rule.
+- Visual checks (no Playwright yet): `chrome --headless --screenshot` shows only
+  the `100svh` hero, so drive Chrome over CDP at 375, 768 and 1280 px. Block
+  `*/api/demand*` and stub `navigator.sendBeacon` (page views write demand
+  events to whatever DB `.env.local` uses), set a `cookie_consent=declined`
+  cookie, and never submit checkout step 2: it writes holds and a draft.
+- The Impeccable hook (`.claude/settings.local.json`) runs its detector after
+  every Edit/Write and at the end of a turn. `/impeccable hooks off` disables
+  it.
+
 ## Project reference
 
 ### Layout
