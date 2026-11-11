@@ -14,6 +14,7 @@ import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingFooter } from "@/components/booking/booking-footer";
 import { FinalCtaSection } from "@/components/booking/final-cta-section";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
+import { RespectReducedMotion } from "@/components/respect-reduced-motion";
 import { SITE_NAME, buildAlternates } from "@/lib/seo";
 import { toBookingHost } from "@/lib/public-host";
 import { getHomestayData, getPromoLinkInfo, homestayMetadata, notFoundMetadata, readLocale } from "../data";
@@ -111,6 +112,7 @@ export default async function HomestayBookingPage({ params, searchParams }: Page
 
   return (
     <div className="min-h-screen bg-white">
+      <RespectReducedMotion>
       <BookingCartProvider catalog={cartCatalog} homestayId={homestay.id}>
       <DemandTracker homestayId={homestay.id} />
       <BookingHeader
@@ -181,6 +183,7 @@ export default async function HomestayBookingPage({ params, searchParams }: Page
           line_id: homestay.line_id,
         }}
       />
+      </RespectReducedMotion>
     </div>
   );
 }

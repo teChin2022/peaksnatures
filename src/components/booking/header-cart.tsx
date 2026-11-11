@@ -42,7 +42,7 @@ export function HeaderCart({ scrolled }: { scrolled: boolean }) {
   const handleContinue = () => {
     setOpen(false);
     setTimeout(
-      () => document.getElementById("booking-section")?.scrollIntoView({ behavior: "smooth", block: "center" }),
+      () => document.getElementById("booking-card")?.scrollIntoView({ behavior: "smooth", block: "start" }),
       150,
     );
   };

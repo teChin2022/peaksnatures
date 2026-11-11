@@ -20,7 +20,7 @@ import {
   Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope,
   Calendar as CalendarIcon, CreditCard, Upload, CheckCircle2, Loader2,
   ImageIcon, X, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle,
-  Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, Sparkles, FileText, Lock, MousePointerClick, ListPlus, Gift, HelpCircle, BedDouble,
+  Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, ListPlus, Gift, HelpCircle, BedDouble,
 } from "lucide-react";
 import { toast } from "sonner";
 import { billingTodayStr } from "@/lib/billing-dates";
@@ -33,7 +33,7 @@ import { composeLineGuestLabel } from "@/lib/guest-pricing";
 import { isValidEmail, isValidPhone, sanitizePhoneInput } from "@/lib/utils";
 import { getFullyBookedForRoom } from "@/lib/booking-dates";
 import { getDepositForMonth } from "@/lib/get-deposit";
-import { THAI_PROVINCES, getProvinceLabel } from "@/lib/provinces";
+import { sortProvincesForLocale, getProvinceLabel } from "@/lib/provinces";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { prepareSlip } from "@/lib/prepare-slip";
 import { DemandEvent } from "@/lib/demand-events";
@@ -1154,6 +1154,7 @@ export function BookingSection({
   };
 
   const steps: BookingStep[] = ["dates", "details", "payment"];
+  const stepLabels: Record<BookingStep, string> = { dates: t("stepDates"), details: t("stepDetails"), payment: t("stepPayment") };
   const currentStepIndex = steps.indexOf(step);
 
   // --- Guard against losing in-progress booking data on browser Back ---
@@ -1305,51 +1306,13 @@ export function BookingSection({
             </div>
           )}
           <div className={`grid gap-10 lg:grid-cols-2 lg:gap-12 xl:gap-16 items-start ${bookingDisabled ? "pointer-events-none opacity-50 select-none" : ""}`}>
-            {/* ── Left Column: Heading & Trust Badges (shown first on mobile, left on desktop) ── */}
+            {/* ── Left Column: Heading & how it works (shown first on mobile, left on desktop) ── */}
             <div className="order-1 flex flex-col justify-center lg:order-1">
               <h2 className="font-serif text-4xl font-normal text-earth-900 leading-tight lg:text-5xl tracking-tight">
                 {t("sectionHeading")}{" "}
-                <span className="italic text-brand">{t("sectionHeadingAccent")}</span>
+                <span className="text-brand">{t("sectionHeadingAccent")}</span>
               </h2>
-              <p className="mt-4 text-base text-earth-500 leading-[1.8] max-w-md">{t("sectionDesc")}</p>
-              <div className="mt-8 space-y-4">
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50">
-                    <Sparkles className="h-4.5 w-4.5 text-brand" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-earth-900">{t("trustResponse")}</p>
-                    <p className="text-xs text-earth-500">{t("trustResponseDesc")}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50">
-                    <FileText className="h-4.5 w-4.5 text-brand" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-earth-900">{t("trustData")}</p>
-                    <p className="text-xs text-earth-500">{t("trustDataDesc")}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50">
-                    <Lock className="h-4.5 w-4.5 text-brand" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-earth-900">{t("trustSecure")}</p>
-                    <p className="text-xs text-earth-500">{t("trustSecureDesc")}</p>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-brand-50">
-                    <MousePointerClick className="h-4.5 w-4.5 text-brand" />
-                  </div>
-                  <div>
-                    <p className="text-sm font-semibold text-earth-900">{t("trustStep")}</p>
-                    <p className="text-xs text-earth-500">{t("trustStepDesc")}</p>
-                  </div>
-                </div>
-              </div>
+              <p className="mt-4 text-base text-earth-600 leading-[1.8] max-w-md">{t("howItWorks")}</p>
             </div>
 
             {/* ── Right Column: Booking Form Card ── */}
@@ -1358,7 +1321,8 @@ export function BookingSection({
               whileInView={{ opacity: 1, scale: 1, y: 0 }}
               viewport={{ once: true }}
               transition={{ duration: 0.6, ease: [0.25, 0.1, 0, 1] }}
-              className="order-2 bg-white rounded-3xl shadow-xl border border-earth-100 p-5 lg:order-2 lg:p-8 relative flex flex-col lg:sticky lg:top-32"
+              id="booking-card"
+              className="order-2 scroll-mt-24 bg-white rounded-3xl shadow-xl border border-earth-100 p-5 lg:order-2 lg:p-8 relative flex flex-col lg:sticky lg:top-32"
             >
             {initialPromo && promoInput.trim().toUpperCase() === initialPromo.code.toUpperCase() && (
               <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-brand-100 bg-brand-50 p-3.5">
@@ -1393,12 +1357,14 @@ export function BookingSection({
                   return (
                     <div key={s} className={`flex items-center ${i < steps.length - 1 ? 'flex-1' : ''}`}>
                       <div
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-[10px] font-bold transition-colors ${
-                          isActive || isCompleted ? 'bg-brand text-white' : 'bg-earth-100 text-earth-400'
+                        aria-current={isActive ? "step" : undefined}
+                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors ${
+                          isActive || isCompleted ? 'bg-brand text-white' : 'bg-earth-100 text-earth-700'
                         }`}
                       >
                         {isCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
                       </div>
+                      {isActive && <span className="ml-2 whitespace-nowrap text-sm font-semibold text-earth-900">{stepLabels[s]}</span>}
                       {i < steps.length - 1 && (
                         <div className={`mx-1 h-px flex-1 ${currentStepIndex > i ? 'bg-earth-900' : 'bg-earth-200'}`} />
                       )}
@@ -1527,12 +1493,12 @@ export function BookingSection({
                           >
                             {t("continueDetails")} <ArrowRight size={18} />
                           </button>
-                          <p className="text-center text-[11px] text-earth-400">{t("subtitle")}</p>
+                          <p className="text-center text-xs text-earth-600">{cartLines.length > 0 && !pdpaConsent ? t("consentRequired") : t("subtitle")}</p>
                         </motion.div>
                       ) : showOptions ? (
                         <motion.div key="dates-options" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.25 }} className="space-y-4">
                           <div className="flex items-center gap-3">
-                            <button onClick={() => setShowOptions(false)} className="p-2 rounded-full hover:bg-earth-100 text-earth-400"><ArrowLeft size={18} /></button>
+                            <button onClick={() => setShowOptions(false)} aria-label={tc("back")} className="p-2 rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
                             <h3 className="text-xl font-bold text-earth-900">{t("options")}</h3>
                           </div>
                           <p className="text-sm text-earth-500">{t("optionsDesc")}</p>
@@ -1590,63 +1556,63 @@ export function BookingSection({
                       {!showConfirmModal ? (
                         <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-5">
                           <div className="flex items-center gap-3">
-                            <button onClick={() => setStep("dates")} className="p-2 rounded-full hover:bg-earth-100 text-earth-400"><ArrowLeft size={18} /></button>
+                            <button onClick={() => setStep("dates")} aria-label={tc("back")} className="p-2 rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
                             <h3 className="text-xl font-bold text-earth-900">{t("guestInfo")}</h3>
                           </div>
 
                           <div className="space-y-4">
                             <div className="space-y-1.5">
-                              <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("fullName")} <span className="text-red-500">*</span></label>
+                              <label htmlFor="bk-name" className="text-sm font-semibold text-earth-700">{t("fullName")} <span className="text-red-500">*</span></label>
                               <div className="relative">
                                 <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-400" size={16} />
-                                <Input ref={nameInputRef} value={guestName} aria-invalid={!!errors.name} onChange={(e) => { setGuestName(e.target.value); if (errors.name) setErrors((p) => ({ ...p, name: undefined })); }} placeholder={t("fullNamePlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 ${errors.name ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"}`} />
+                                <Input ref={nameInputRef} autoComplete="name" value={guestName} id="bk-name" aria-required="true" aria-invalid={!!errors.name} aria-describedby={errors.name ? "bk-name-error" : undefined} onChange={(e) => { setGuestName(e.target.value); if (errors.name) setErrors((p) => ({ ...p, name: undefined })); }} placeholder={t("fullNamePlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2 ${errors.name ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-500 hover:!border-earth-700"}`} />
                               </div>
-                              {errors.name && <p role="alert" className="text-xs font-medium text-red-600">{errors.name}</p>}
+                              {errors.name && <p id="bk-name-error" role="alert" className="text-xs font-medium text-red-600">{errors.name}</p>}
                             </div>
 
                             <div className="space-y-1.5">
-                              <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("email")} <span className="text-red-500">*</span></label>
+                              <label htmlFor="bk-email" className="text-sm font-semibold text-earth-700">{t("email")} <span className="text-red-500">*</span></label>
                               <div className="relative">
                                 <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-400" size={16} />
-                                <Input ref={emailInputRef} type="email" value={guestEmail} aria-invalid={!!errors.email} onChange={(e) => { setGuestEmail(e.target.value); if (errors.email) setErrors((p) => ({ ...p, email: undefined })); }} placeholder={t("emailPlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 ${errors.email ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"}`} />
+                                <Input ref={emailInputRef} type="email" autoComplete="email" value={guestEmail} id="bk-email" aria-required="true" aria-invalid={!!errors.email} aria-describedby={errors.email ? "bk-email-error" : undefined} onChange={(e) => { setGuestEmail(e.target.value); if (errors.email) setErrors((p) => ({ ...p, email: undefined })); }} placeholder={t("emailPlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2 ${errors.email ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-500 hover:!border-earth-700"}`} />
                               </div>
-                              {errors.email && <p role="alert" className="text-xs font-medium text-red-600">{errors.email}</p>}
+                              {errors.email && <p id="bk-email-error" role="alert" className="text-xs font-medium text-red-600">{errors.email}</p>}
                             </div>
 
                             <div className="space-y-1.5">
-                              <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("phone")} <span className="text-red-500">*</span></label>
+                              <label htmlFor="bk-phone" className="text-sm font-semibold text-earth-700">{t("phone")} <span className="text-red-500">*</span></label>
                               <div className="relative">
                                 <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-400" size={16} />
-                                <Input ref={phoneInputRef} type="tel" inputMode="numeric" maxLength={10} value={guestPhone} aria-invalid={!!errors.phone} onChange={(e) => { setGuestPhone(sanitizePhoneInput(e.target.value)); if (errors.phone) setErrors((p) => ({ ...p, phone: undefined })); }} placeholder={t("phonePlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 ${errors.phone ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"}`} />
+                                <Input ref={phoneInputRef} type="tel" autoComplete="tel" inputMode="numeric" maxLength={10} value={guestPhone} id="bk-phone" aria-required="true" aria-invalid={!!errors.phone} aria-describedby={errors.phone ? "bk-phone-error" : undefined} onChange={(e) => { setGuestPhone(sanitizePhoneInput(e.target.value)); if (errors.phone) setErrors((p) => ({ ...p, phone: undefined })); }} placeholder={t("phonePlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2 ${errors.phone ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-500 hover:!border-earth-700"}`} />
                               </div>
-                              {errors.phone && <p role="alert" className="text-xs font-medium text-red-600">{errors.phone}</p>}
+                              {errors.phone && <p id="bk-phone-error" role="alert" className="text-xs font-medium text-red-600">{errors.phone}</p>}
                             </div>
 
                             <div className="space-y-1.5" ref={provinceFieldRef}>
-                              <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("province")} <span className="text-red-500">*</span></label>
+                              <label htmlFor="bk-province" className="text-sm font-semibold text-earth-700">{t("province")} <span className="text-red-500">*</span></label>
                               <Select value={guestProvince} onValueChange={(v) => { setGuestProvince(v); if (errors.province) setErrors((p) => ({ ...p, province: undefined })); }}>
-                                <SelectTrigger aria-invalid={!!errors.province} className={`!w-full p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 ${errors.province ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"}`}>
+                                <SelectTrigger id="bk-province" aria-required="true" aria-invalid={!!errors.province} aria-describedby={errors.province ? "bk-province-error" : undefined} className={`!w-full p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2 ${errors.province ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-500 hover:!border-earth-700"}`}>
                                   <SelectValue placeholder={t("provincePlaceholder")} />
                                 </SelectTrigger>
                                 <SelectContent className="max-h-60 z-70">
-                                  {THAI_PROVINCES.map((p) => (
+                                  {sortProvincesForLocale(locale).map((p) => (
                                     <SelectItem key={p.value} value={p.value}>
                                       {locale === "th" ? p.labelTh : p.labelEn}
                                     </SelectItem>
                                   ))}
                                 </SelectContent>
                               </Select>
-                              {errors.province && <p role="alert" className="text-xs font-medium text-red-600">{errors.province}</p>}
+                              {errors.province && <p id="bk-province-error" role="alert" className="text-xs font-medium text-red-600">{errors.province}</p>}
                             </div>
 
                             <div className="space-y-1.5">
-                              <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("notes")}</label>
-                              <Textarea value={guestNote} onChange={(e) => setGuestNote(e.target.value)} placeholder={t("notesPlaceholder")} className="p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400" rows={2} />
+                              <label htmlFor="bk-note" className="text-sm font-semibold text-earth-700">{t("notes")}</label>
+                              <Textarea id="bk-note" value={guestNote} onChange={(e) => setGuestNote(e.target.value)} placeholder={t("notesPlaceholder")} className="p-3.5 !h-auto rounded-xl !border !border-earth-500 !bg-white hover:!border-earth-700 transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2" rows={2} />
                             </div>
 
                             {homestay.promo_codes_enabled && (
                               <div className="space-y-1.5">
-                                <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("promoLabel")}</label>
+                                <label htmlFor="bk-promo" className="text-sm font-semibold text-earth-700">{t("promoLabel")}</label>
                                 {appliedPromo ? (
                                   <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 p-3">
                                     <div className="flex items-center gap-2 text-sm">
@@ -1667,10 +1633,11 @@ export function BookingSection({
                                 ) : (
                                   <div className="flex gap-2">
                                     <Input
+                                      id="bk-promo"
                                       value={promoInput}
                                       onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
                                       placeholder={t("promoPlaceholder")}
-                                      className="flex-1 !p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-mono uppercase text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400"
+                                      className="flex-1 !p-3.5 !h-auto rounded-xl !border !border-earth-500 !bg-white hover:!border-earth-700 transition-all text-base md:text-sm font-mono uppercase text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2"
                                     />
                                     <button
                                       type="button"
@@ -1701,7 +1668,7 @@ export function BookingSection({
                       ) : (
                         <motion.div key="confirm" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
                           <div className="flex items-center gap-3">
-                            <button onClick={() => setShowConfirmModal(false)} className="p-2 rounded-full hover:bg-earth-100 text-earth-400"><ArrowLeft size={18} /></button>
+                            <button onClick={() => setShowConfirmModal(false)} aria-label={tc("back")} className="p-2 rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
                             <h3 className="text-xl font-bold text-earth-900">{t("confirmTitle")}</h3>
                           </div>
                           <p className="text-sm text-earth-500">{t("confirmDesc")}</p>
@@ -1818,10 +1785,10 @@ export function BookingSection({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         {paymentPhase === "qr" && (
-                          <button onClick={() => { releaseHold(); setStep("details"); setPaymentPhase("qr"); }} className="p-2 rounded-full hover:bg-earth-100 text-earth-400"><ArrowLeft size={18} /></button>
+                          <button onClick={() => { releaseHold(); setStep("details"); setPaymentPhase("qr"); }} aria-label={tc("back")} className="p-2 rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
                         )}
                         {paymentPhase === "upload" && (
-                          <button onClick={() => setPaymentPhase("qr")} className="p-2 rounded-full hover:bg-earth-100 text-earth-400"><ArrowLeft size={18} /></button>
+                          <button onClick={() => setPaymentPhase("qr")} aria-label={tc("back")} className="p-2 rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
                         )}
                         <h3 className="text-xl font-bold text-earth-900">{t("paymentTitle")}</h3>
                       </div>

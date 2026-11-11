@@ -90,3 +90,10 @@ export function getProvinceLabel(value: string, locale: string = "th"): string {
   if (!province) return value;
   return locale === "th" ? province.labelTh : province.labelEn;
 }
+
+/** The select's option order: Thai readers find a province by its Thai initial, so sort by labelTh. Other locales keep the romanised order. */
+export function sortProvincesForLocale(locale: string): Province[] {
+  return locale === "th"
+    ? [...THAI_PROVINCES].sort((a, b) => a.labelTh.localeCompare(b.labelTh, "th"))
+    : THAI_PROVINCES;
+}

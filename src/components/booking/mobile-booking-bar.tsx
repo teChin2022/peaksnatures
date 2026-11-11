@@ -113,7 +113,7 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
 
   const handleContinue = () => {
     setSheetOpen(false);
-    document.getElementById("booking-section")?.scrollIntoView({ behavior: "smooth", block: "center" });
+    document.getElementById("booking-card")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
   const handleBrowseRooms = () => {

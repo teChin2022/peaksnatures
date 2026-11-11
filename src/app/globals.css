@@ -255,6 +255,13 @@
   opacity: 0.25;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .hero-mist::before,
+  .hero-mist::after {
+    animation: none;
+  }
+}
+
 /* Cart badge pulse — shared by the mobile sticky bar and the desktop header cart.
    Runs while the cart holds houses so the guest keeps noticing it. Gentle on
    purpose; it never stops while non-empty.
