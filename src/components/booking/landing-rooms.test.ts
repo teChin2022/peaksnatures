@@ -73,4 +73,11 @@ describe("LandingRooms", () => {
     render([ROOM], true);
     expect(bookLinks()).toHaveLength(0);
   });
+
+  it("says how paying works under the heading, but not while bookings are off", () => {
+    render([ROOM]);
+    expect(container.textContent).toContain("paymentNote");
+    render([ROOM], true);
+    expect(container.textContent).not.toContain("paymentNote");
+  });
 });

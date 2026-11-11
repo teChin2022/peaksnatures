@@ -1,5 +1,6 @@
 "use client";
 
+import { Fragment } from "react";
 import Image from "next/image";
 import Link from "next/link";
 import { ArrowRight, Users } from "lucide-react";
@@ -43,6 +44,18 @@ export function LandingRooms({ rooms, bookHref, bookingDisabled = false }: Landi
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <SectionMark />
         <SectionHeading>{t("title")}</SectionHeading>
+        {/* How paying works, before a guest picks a house; no deposit claim: deposits change by month. */}
+        {!bookingDisabled && (
+          <p className="mt-4 max-w-xl text-sm leading-relaxed text-earth-600">
+            {/* Breaks only at the copy's spaces, so a Thai phrase never splits across lines. */}
+            {t("paymentNote").split(" ").map((phrase, i) => (
+              <Fragment key={i}>
+                {i > 0 && " "}
+                <span className="inline-block">{phrase}</span>
+              </Fragment>
+            ))}
+          </p>
+        )}
 
         <div className="mt-10 grid gap-10 md:gap-16">
           {rooms.map((room, i) => (

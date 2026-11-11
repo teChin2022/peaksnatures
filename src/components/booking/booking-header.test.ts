@@ -30,12 +30,17 @@ afterEach(() => {
   container.remove();
 });
 
-const render = (props: { bookHref?: string; bookingDisabled?: boolean } = {}) =>
+const render = (
+  props: { bookHref?: string; bookingDisabled?: boolean; navItems?: { href: string; label: string; menuOnly?: boolean }[] } = {},
+) =>
   act(() =>
     root.render(
       createElement(BookingHeader, { homestayName: "Baan", slug: "baan", homestayId: "homestay-1", ...props }),
     ),
   );
+// The phone menu's trigger (common.menu on the landing); the sheet renders in a portal.
+const openMenu = () => act(() => (container.querySelector('button[aria-label="menu"]') as HTMLButtonElement).click());
+const menu = () => document.querySelector('[role="dialog"]');
 
 describe("BookingHeader", () => {
   it("starts in its scrolled style when the page opens part-way down", () => {
@@ -57,5 +62,32 @@ describe("BookingHeader", () => {
   it("drops the landing's Book button while the host can't take bookings", () => {
     render({ bookHref: "/baan/book", bookingDisabled: true });
     expect(container.querySelector('a[href="/baan/book"]')).toBeNull();
+  });
+
+  it("offers Book inside the landing's phone menu, which covers the sticky Book bar", () => {
+    render({ bookHref: "/baan/book" });
+    openMenu();
+    expect(menu()!.querySelector('a[href="/baan/book"]')?.textContent).toBe("bookHouse");
+  });
+
+  it("leaves Book out of the phone menu while the host can't take bookings", () => {
+    render({ bookHref: "/baan/book", bookingDisabled: true });
+    openMenu();
+    expect(menu()).not.toBeNull();
+    expect(menu()!.querySelector('a[href="/baan/book"]')).toBeNull();
+  });
+
+  it("lists menu-only sections in the phone menu but not in the header's inline links", () => {
+    render({
+      bookHref: "/baan/book",
+      navItems: [
+        { href: "#about", label: "about" },
+        { href: "#policies", label: "policies", menuOnly: true },
+      ],
+    });
+    expect(container.querySelector('nav a[href="#about"]')).not.toBeNull();
+    expect(container.querySelector('nav a[href="#policies"]')).toBeNull();
+    openMenu();
+    expect(menu()!.querySelector('a[href="#policies"]')).not.toBeNull();
   });
 });

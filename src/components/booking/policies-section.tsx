@@ -21,7 +21,7 @@ export function PoliciesSection({ content }: PoliciesSectionProps) {
   if (isEmptyRichText(content)) return null;
 
   return (
-    <section className="py-14 md:py-28">
+    <section id="policies" className="scroll-mt-20 py-14 md:py-28">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="grid grid-cols-1 gap-6 md:grid-cols-12 md:gap-12">
           <div className="md:col-span-4">

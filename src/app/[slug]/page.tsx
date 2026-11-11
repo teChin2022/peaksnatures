@@ -173,13 +173,17 @@ export default async function HomestayLandingPage({ params, searchParams }: Page
   const tr = await getTranslations("reviews");
   const tf = await getTranslations("faq");
   const trm = await getTranslations("rooms");
+  const tp = await getTranslations("policies");
   // Header links, in page order, only to the sections that render: each one hides itself when empty.
+  // Location and policies, what guests check before paying, go in the phone menu only: the xl header row is full.
   const navItems = [
     ...(photos.length > 0 ? [{ href: "#gallery", label: tg("title") }] : []),
     { href: "#about", label: ta("title") },
     ...(homestay.amenities?.length ? [{ href: "#amenities", label: ta("amenities") }] : []),
     ...(landingRooms.length > 0 ? [{ href: "#rooms", label: trm("title") }] : []),
     ...(reviewCount > 0 ? [{ href: "#reviews", label: tr("title") }] : []),
+    ...(homestay.map_embed_url ? [{ href: "#location", label: ta("location"), menuOnly: true }] : []),
+    ...(richTextToPlainText(homestay.policies) ? [{ href: "#policies", label: tp("title"), menuOnly: true }] : []),
     ...(faqItems.length > 0 ? [{ href: "#faq", label: tf("title") }] : []),
   ];
 

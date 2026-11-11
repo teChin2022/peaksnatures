@@ -33,8 +33,8 @@ interface BookingHeaderProps {
   bookHref?: string;
   /** Landing mode: the host can't take bookings, so the Book button is left out. */
   bookingDisabled?: boolean;
-  /** Landing section links: inline from xl, in the full-screen menu below it. */
-  navItems?: { href: string; label: string }[];
+  /** Landing section links: inline from xl, in the full-screen menu below it. menuOnly: the menu only (the xl row has no room). */
+  navItems?: { href: string; label: string; menuOnly?: boolean }[];
 }
 
 // Solid once the hero's top is scrolled past. Read from the page itself, so a
@@ -133,7 +133,7 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
         </Link>
         {inlineNav && (
           <div className="hidden xl:flex items-center gap-7">
-            {navItems.map((item) => (
+            {navItems.filter((item) => !item.menuOnly).map((item) => (
               <a
                 key={item.href}
                 href={item.href}
@@ -237,6 +237,8 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
         items={menuItems}
         secondaryItems={menuSecondaryItems}
         onCloseAutoFocus={keepFocusForResume}
+        // The open menu covers the landing's sticky Book bar, so it offers Book itself.
+        action={bookHref && !bookingDisabled ? { label: tb("bookHouse"), href: bookHref } : undefined}
       />
     </nav>
   );

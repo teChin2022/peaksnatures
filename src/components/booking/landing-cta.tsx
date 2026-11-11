@@ -61,7 +61,7 @@ export async function LandingBookBar({
   const subLine = "text-xs font-medium leading-tight text-white/85";
 
   return (
-    <div className="fixed inset-x-0 bottom-0 z-40 border-t border-earth-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
+    <div data-bottom-bar className="fixed inset-x-0 bottom-0 z-40 border-t border-earth-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
       <div className="px-3 py-2.5">
         {bookingDisabled ? (
           // Dimmed, not a link, as the booking page's bar is while bookings are off.

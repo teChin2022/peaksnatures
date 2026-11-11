@@ -131,6 +131,8 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
       <AnimatePresence>
         {visible && (
           <motion.div
+            // The cookie notice sits above any element marked so (cookie-consent.tsx).
+            data-bottom-bar
             initial={reduceMotion ? { opacity: 0 } : { y: "100%" }}
             animate={reduceMotion ? { opacity: 1 } : { y: 0 }}
             exit={reduceMotion ? { opacity: 0 } : { y: "100%" }}

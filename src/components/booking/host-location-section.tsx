@@ -121,16 +121,22 @@ export function HostLocationSection({
                   </span>
                 )}
                 {(hostPhone || lineId) && (
-                  <div className="mt-1 flex flex-wrap items-center gap-x-5">
+                  <div className="mt-2 flex flex-wrap items-center gap-x-5 gap-y-2">
                     {hostPhone && (
                       <a href={`tel:${hostPhone}`} className={CONTACT_LINK}>
                         <Phone className="h-3.5 w-3.5" />
                         {hostPhone}
                       </a>
                     )}
+                    {/* Thai guests ask on LINE first, so it is a button (DESIGN.md secondary), not a grey link. */}
                     {lineId && (
-                      <a href={lineUrl(lineId)} target="_blank" rel="noopener noreferrer" className={CONTACT_LINK}>
-                        <LineIcon className="h-3.5 w-3.5" />
+                      <a
+                        href={lineUrl(lineId)}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="inline-flex h-11 items-center gap-2 rounded-full border border-earth-200 bg-white px-5 text-sm font-semibold text-earth-800 transition-colors hover:bg-earth-100 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                      >
+                        <LineIcon className="h-4 w-4" />
                         {t("chatOnLine")}
                       </a>
                     )}

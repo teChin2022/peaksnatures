@@ -1,7 +1,7 @@
 "use client";
 
 import Link from "next/link";
-import { X } from "lucide-react";
+import { ArrowRight, X } from "lucide-react";
 import { useLocale, useTranslations } from "next-intl";
 import { Sheet, SheetClose, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 
@@ -23,6 +23,8 @@ interface FullScreenMenuProps {
   secondaryItems?: MenuItem[];
   /** Radix's focus return as the menu closes; preventDefault it when handing off to a dialog. */
   onCloseAutoFocus?: (event: Event) => void;
+  /** One Forest button under the list, e.g. the landing's Book: the open menu covers the page's own bar. */
+  action?: { label: string; href: string };
 }
 
 /**
@@ -30,7 +32,7 @@ interface FullScreenMenuProps {
  * list. Latin labels get spaced capitals; Thai stays unspaced, because
  * letter-spacing breaks its vowel and tone marks.
  */
-export function FullScreenMenu({ open, onOpenChange, title, items, secondaryItems = [], onCloseAutoFocus }: FullScreenMenuProps) {
+export function FullScreenMenu({ open, onOpenChange, title, items, secondaryItems = [], onCloseAutoFocus, action }: FullScreenMenuProps) {
   const t = useTranslations("bookingMenu");
   const latin = useLocale() === "en";
 
@@ -81,30 +83,45 @@ export function FullScreenMenu({ open, onOpenChange, title, items, secondaryItem
         side="top"
         showCloseButton={false}
         onCloseAutoFocus={onCloseAutoFocus}
-        className="h-[100svh] items-center justify-center border-none bg-earth-50 px-6"
+        className="h-[100svh] border-none bg-earth-50"
       >
         <SheetTitle className="sr-only">{title}</SheetTitle>
         <SheetDescription className="sr-only">{title}</SheetDescription>
         <SheetClose
           aria-label={t("close")}
-          className="absolute right-4 top-5 inline-flex h-11 w-11 items-center justify-center rounded-full text-earth-900 transition-colors hover:bg-earth-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+          className="absolute right-4 top-5 z-10 inline-flex h-11 w-11 items-center justify-center rounded-full text-earth-900 transition-colors hover:bg-earth-100 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
         >
           <X size={22} />
         </SheetClose>
-        {/* 44px rows; the gap is trimmed so the spacing between labels looks as before. */}
-        <div className="flex flex-col items-center gap-5 text-center">
-          {items.map((item) =>
-            renderItem(
-              item,
-              `inline-flex min-h-11 items-center font-semibold text-earth-900 transition-colors hover:text-brand ${latin ? "text-sm uppercase tracking-[0.25em]" : "text-lg"}`,
-            ),
-          )}
-        </div>
-        {secondaryItems.length > 0 && (
-          <div className="mt-14 flex flex-col items-center gap-1 text-center text-sm text-earth-600">
-            {secondaryItems.map((item) => renderItem(item, "inline-flex min-h-11 items-center transition-colors hover:text-earth-900"))}
+        {/* Centered while it fits; on a short phone it scrolls from the top instead of clipping, and the close button stays put. */}
+        <div className="flex min-h-0 w-full flex-1 flex-col overflow-y-auto px-6">
+          <div className="my-auto flex flex-col items-center py-16">
+            {/* 44px rows; the gap is trimmed so the spacing between labels looks as before. */}
+            <div className="flex flex-col items-center gap-5 text-center">
+              {items.map((item) =>
+                renderItem(
+                  item,
+                  `inline-flex min-h-11 items-center font-semibold text-earth-900 transition-colors hover:text-brand ${latin ? "text-sm uppercase tracking-[0.25em]" : "text-lg"}`,
+                ),
+              )}
+            </div>
+            {action && (
+              <Link
+                href={action.href}
+                onClick={() => onOpenChange(false)}
+                className="mt-10 inline-flex h-12 items-center gap-2 rounded-full bg-brand px-8 text-base font-semibold text-white transition-colors hover:bg-brand-hover outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+              >
+                {action.label}
+                <ArrowRight className="h-4 w-4" />
+              </Link>
+            )}
+            {secondaryItems.length > 0 && (
+              <div className="mt-14 flex flex-col items-center gap-1 text-center text-sm text-earth-600">
+                {secondaryItems.map((item) => renderItem(item, "inline-flex min-h-11 items-center transition-colors hover:text-earth-900"))}
+              </div>
+            )}
           </div>
-        )}
+        </div>
       </SheetContent>
     </Sheet>
   );

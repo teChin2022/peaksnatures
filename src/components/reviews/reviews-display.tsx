@@ -11,7 +11,6 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { createClient } from "@/lib/supabase/client";
 import { StarRating } from "@/components/reviews/star-rating";
 import { SectionHeading } from "@/components/booking/section-mark";
 import { ProvinceLabel } from "@/components/reviews/province-label";
@@ -370,23 +369,23 @@ export function ReviewsDisplay({
 
   const fetchMoreModal = useCallback(async (reset: boolean) => {
     setModalLoading(true);
-    const supabase = createClient();
     const from = reset ? 0 : modalOffsetRef.current;
-    const to = from + MODAL_PAGE_SIZE - 1;
-
-    const { data, count } = await supabase
-      .from("reviews")
-      .select("*, bookings(guest_province)", { count: "exact" })
-      .eq("homestay_id", homestayId)
-      .order("created_at", { ascending: false })
-      .range(from, to);
-
-    const rows = (data as unknown as ReviewWithProvince[]) || [];
-    if (reset) setModalReviews(rows);
-    else setModalReviews((prev) => [...prev, ...rows]);
-    modalOffsetRef.current = (reset ? 0 : modalOffsetRef.current) + rows.length;
-    if (count !== null) setModalTotal(count);
-    setModalLoading(false);
+    try {
+      // The server route reads each guest's province; the browser client can't (RLS on bookings).
+      const res = await fetch(
+        `/api/reviews?homestay_id=${encodeURIComponent(homestayId)}&page=${Math.floor(from / MODAL_PAGE_SIZE) + 1}&limit=${MODAL_PAGE_SIZE}`,
+      );
+      const body: { reviews?: ReviewWithProvince[]; totalCount?: number } = res.ok ? await res.json() : {};
+      const rows = body.reviews ?? [];
+      if (reset) setModalReviews(rows);
+      else setModalReviews((prev) => [...prev, ...rows]);
+      modalOffsetRef.current = from + rows.length;
+      if (typeof body.totalCount === "number") setModalTotal(body.totalCount);
+    } catch {
+      // Offline or the route failed: keep what the modal already shows; "load more" stays usable.
+    } finally {
+      setModalLoading(false);
+    }
   }, [homestayId]);
 
   const openModal = useCallback(() => {

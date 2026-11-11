@@ -292,17 +292,9 @@ engineer (tokens, reusable components), frontend engineer (production React),
 motion designer (meaningful animation and interaction), accessibility
 specialist.
 
-Use only the skills a task needs, never all of them:
-
-- `impeccable`: primary design direction, critique and quality control
-  (`/impeccable critique`, `/impeccable audit`, `/impeccable polish`, …). Reads
-  `PRODUCT.md` and `DESIGN.md`.
-- `ui-ux-pro-max`: design-system, visual-pattern, typography and UX guidelines.
-- `frontend-design`: distinctive implementation when building a new interface.
-- `emil-design-eng`: animation and interaction quality. `review-animations`
-  reviews motion strictly; `improve-animations` audits it across the codebase.
-- `better-ui`: detailed visual refinement (radius, shadows, icons, motion
-  values).
+Start every UI task with the `peaksnature-ui` skill. It picks the one
+specialist a task needs (usually `impeccable`) and says which of their
+instructions do not apply in this repo.
 
 ### Design philosophy
 

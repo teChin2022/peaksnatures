@@ -4,10 +4,9 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { ReviewsDisplay } from "@/components/reviews/reviews-display";
 import type { Review } from "@/types/database";
+import { getProvinceLabel } from "@/lib/provinces";
 
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key, useLocale: () => "en" }));
-// "View all" pages through the browser client; these tests never open it.
-vi.mock("@/lib/supabase/client", () => ({ createClient: vi.fn() }));
 
 // Tells React this is a test renderer, so act() flushes effects without warning.
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -94,6 +93,23 @@ const press = (key: string) =>
   act(() => {
     (document.activeElement ?? document.body).dispatchEvent(new KeyboardEvent("keydown", { key, bubbles: true }));
   });
+
+describe("ReviewsDisplay all-reviews modal", () => {
+  it("shows each guest's province, paged from /api/reviews (the browser client can't read bookings)", async () => {
+    const fetchMock = vi.fn().mockResolvedValue({
+      ok: true,
+      json: async () => ({ reviews: [review({ id: "m1", bookings: { guest_province: "เชียงใหม่" } })], totalCount: 7 }),
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    // Seven reviews: one more than the grid shows, so "see all" appears.
+    render(Array.from({ length: 7 }, (_, i) => review({ id: `g${i}` })));
+
+    await act(async () => [...container.querySelectorAll("button")].find((b) => b.textContent === "seeAllReviews")!.click());
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/reviews?homestay_id=homestay-1&page=1&limit=20");
+    expect(dialogs()[0].textContent).toContain(getProvinceLabel("เชียงใหม่", "en"));
+  });
+});
 
 describe("ReviewsDisplay photo viewer", () => {
   it("layers over the review it was opened from, and Escape closes only the viewer", () => {
