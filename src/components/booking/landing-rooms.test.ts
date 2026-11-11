@@ -80,4 +80,13 @@ describe("LandingRooms", () => {
     render([ROOM], true);
     expect(container.textContent).not.toContain("paymentNote");
   });
+
+  it("keeps the price and the link to /book in one row, with lining figures", () => {
+    render([ROOM]);
+    const link = bookLinks()[0];
+    const row = link.parentElement!;
+    expect(row.textContent).toContain("฿1,500");
+    const price = [...row.querySelectorAll("span")].find((el) => el.textContent === "฿1,500")!;
+    expect(price.getAttribute("style")).toContain("lnum");
+  });
 });

@@ -59,15 +59,12 @@ export function LandingRooms({ rooms, bookHref, bookingDisabled = false }: Landi
 
         <div className="mt-10 grid gap-10 md:gap-16">
           {rooms.map((room, i) => (
-            // Photo beside the details at every width (the owner's choice, 2026-11-05), sides alternating. Phones give the photo
-            // the narrower column at the details' height; from md it is a 4:3 half. Without a photo the frame stays from md so
+            // Phones stack the photo (3:2) over the details (the owner's choice, 2026-11-11, so prices line up down the page).
+            // From md the photo is a 4:3 half beside the details, sides alternating. Without a photo the frame stays from md so
             // the sides keep alternating, and on phones the details take the whole row.
-            <article
-              key={room.id}
-              className={`grid gap-4 sm:gap-6 md:grid-cols-2 md:items-center md:gap-12 ${i % 2 === 1 ? "grid-cols-[3fr_2fr]" : "grid-cols-[2fr_3fr]"}`}
-            >
+            <article key={room.id} className="grid gap-4 sm:gap-6 md:grid-cols-2 md:items-center md:gap-12">
               <div
-                className={`relative min-h-40 overflow-hidden rounded-xl bg-earth-200 md:aspect-[4/3] md:min-h-0 ${i % 2 === 1 ? "order-last" : ""} ${
+                className={`relative aspect-[3/2] overflow-hidden rounded-xl bg-earth-200 md:aspect-[4/3] ${i % 2 === 1 ? "md:order-last" : ""} ${
                   room.images[0] ? "" : "hidden md:block"
                 }`}
               >
@@ -76,13 +73,13 @@ export function LandingRooms({ rooms, bookHref, bookingDisabled = false }: Landi
                     src={room.images[0]}
                     alt={room.name}
                     fill
-                    sizes="(min-width: 768px) 50vw, 40vw"
+                    sizes="(min-width: 768px) 50vw, 100vw"
                     // A closed house dims its photo only, so its text stays readable.
                     className={`object-cover ${room.is_active ? "" : "opacity-60 grayscale"}`}
                   />
                 )}
               </div>
-              <div className={`min-w-0 ${room.images[0] ? "" : "col-span-2 md:col-span-1"}`}>
+              <div className="min-w-0">
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <h3 className="font-serif text-2xl text-earth-900">{room.name}</h3>
                   {!room.is_active && (
@@ -96,24 +93,30 @@ export function LandingRooms({ rooms, bookHref, bookingDisabled = false }: Landi
                   {ta("upToGuests", { count: room.max_guests })}
                 </p>
                 {room.description && (
-                  <ExpandableText html={room.description} clampClassName="line-clamp-4 lg:line-clamp-6" className="mt-4" />
+                  <ExpandableText html={room.description} clampClassName="line-clamp-3 lg:line-clamp-6" className="mt-4" />
                 )}
-                <div className="mt-4 flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1 border-y border-earth-200 py-4">
-                  <span className="text-sm text-earth-600">{t("basePrice")}</span>
-                  <p className="whitespace-nowrap tabular-nums">
-                    <span className="font-serif text-3xl text-earth-900">฿{room.price_per_night.toLocaleString()}</span>
-                    <span className="ml-1 text-sm text-earth-600">{tc("perNight")}</span>
-                  </p>
+                <div className="mt-4 flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-t border-earth-200 pt-4">
+                  <div>
+                    <p className="text-sm text-earth-600">{t("basePrice")}</p>
+                    <p className="whitespace-nowrap">
+                      {/* Lining figures: the serif's old-style ones read "฿100" as "฿1OO". Set here, not with .tabular-nums, which resets the feature list. */}
+                      <span className="font-serif text-3xl text-earth-900" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>
+                        ฿{room.price_per_night.toLocaleString()}
+                      </span>
+                      <span className="ml-1 text-sm text-earth-600">{tc("perNight")}</span>
+                    </p>
+                  </div>
+                  {room.is_active && !bookingDisabled && (
+                    // DESIGN.md button-secondary; Bark Light border (earth-500) because Sand fails 3:1 on a control edge.
+                    <Link
+                      href={bookHref}
+                      className="inline-flex min-h-11 items-center gap-1.5 rounded-full border border-earth-500 bg-white px-5 text-sm font-semibold text-earth-800 outline-none transition-colors hover:bg-earth-50 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                    >
+                      {th("checkAvailability")}
+                      <ArrowRight className="h-4 w-4" />
+                    </Link>
+                  )}
                 </div>
-                {room.is_active && !bookingDisabled && (
-                  <Link
-                    href={bookHref}
-                    className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-sm text-sm font-semibold text-brand underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-                  >
-                    {th("checkAvailability")}
-                    <ArrowRight className="h-4 w-4" />
-                  </Link>
-                )}
               </div>
             </article>
           ))}

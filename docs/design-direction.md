@@ -220,7 +220,9 @@ From earlier sessions with the owner:
   - Blocked hosts show the unavailable notice.
   - Phones: 3 gallery tiles, then "Show all"; reviews in a swipe row; read
     more expands in place.
-  - House rows alternate photo and details at every width.
+  - House rows stack on phones (3:2 photo over the details) and alternate
+    photo and details from `md` (owner's pick 2026-11-11, reversing the
+    2026-11-05 side-by-side phone layout).
 - **Mobile sticky booking bar:** one Forest CTA that carries the dates on a
   second line, plus a cart tile. No separate date field.
 - **House-card "เลือกบ้านพักนี้":** disabled until both check-in and
