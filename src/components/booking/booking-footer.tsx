@@ -43,7 +43,8 @@ function TikTokIcon({ className }: { className?: string }) {
   );
 }
 
-function LineIcon({ className }: { className?: string }) {
+/** LINE's mark; the landing's host card uses it too. */
+export function LineIcon({ className }: { className?: string }) {
   return (
     <svg className={className} viewBox="0 0 24 24" fill="currentColor">
       <path d="M19.365 9.864c.35 0 .633.282.633.633 0 .35-.283.633-.633.633H17.91v1.456h1.455c.35 0 .633.283.633.633 0 .35-.283.633-.633.633h-2.089a.634.634 0 01-.633-.633V8.543c0-.35.283-.633.633-.633h2.089c.35 0 .633.283.633.633 0 .35-.283.633-.633.633H17.91v.688h1.455zm-4.625 3.355a.634.634 0 01-.633.633.634.634 0 01-.541-.306l-2.004-2.727v2.4a.634.634 0 01-.633.633.634.634 0 01-.633-.633V8.543a.634.634 0 01.633-.633c.222 0 .42.116.541.306l2.004 2.727v-2.4a.634.634 0 01.633-.633c.35 0 .633.283.633.633v4.676zm-5.975.633a.634.634 0 01-.633-.633V8.543a.634.634 0 011.266 0v4.676c0 .35-.283.633-.633.633zm-2.013 0H4.663a.634.634 0 01-.633-.633V8.543c0-.35.283-.633.633-.633.35 0 .633.283.633.633v4.043h1.456c.35 0 .633.283.633.633 0 .35-.283.633-.633.633zM24 10.314C24 4.943 18.615.572 12 .572S0 4.943 0 10.314c0 4.811 4.27 8.842 10.035 9.608.391.082.923.258 1.058.59.12.301.079.77.038 1.074l-.164 1.02c-.045.301-.24 1.186 1.049.645 1.291-.539 6.916-4.078 9.436-6.975C23.176 14.393 24 12.458 24 10.314z" />
@@ -51,8 +52,10 @@ function LineIcon({ className }: { className?: string }) {
   );
 }
 
+// Focus ring in the light variant: the footer is the dark Charcoal band.
+const FOCUS_RING = "outline-none focus-visible:ring-2 focus-visible:ring-earth-50 focus-visible:ring-offset-2 focus-visible:ring-offset-earth-900";
 const SOCIAL_ICON_CLASS =
-  "inline-flex h-11 w-11 items-center justify-center rounded-full bg-earth-800/60 text-earth-400 transition-all duration-200 hover:bg-brand hover:text-white hover:scale-110";
+  `inline-flex h-11 w-11 items-center justify-center rounded-full bg-earth-800/60 text-earth-400 transition-all duration-200 hover:bg-brand hover:text-white hover:scale-110 ${FOCUS_RING}`;
 
 export function BookingFooter({
   homestayName,
@@ -92,7 +95,7 @@ export function BookingFooter({
                 />
               )}
               <div className="text-left">
-                <h3 className="font-semibold text-earth-50 text-base tracking-wide">
+                <h3 className={`font-semibold text-earth-50 text-base ${latin ? "tracking-wide" : ""}`}>
                   {homestayName}
                 </h3>
                 <p className="mt-0.5 text-xs text-earth-300">{t("hostedBy", { name: hostName })}</p>
@@ -152,7 +155,7 @@ export function BookingFooter({
 
           {/* Contact */}
           <div className="flex flex-col items-center gap-2.5 sm:items-start">
-            <p className={`text-[11px] font-semibold text-earth-300 ${latin ? "uppercase tracking-[0.15em]" : ""}`}>{t("contact")}</p>
+            <p className={`text-xs font-semibold text-earth-300 ${latin ? "uppercase tracking-[0.15em]" : ""}`}>{t("contact")}</p>
             <p className="flex items-start gap-2 text-sm text-earth-300">
               <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-earth-500" />
               <span>{location}</span>
@@ -160,7 +163,7 @@ export function BookingFooter({
             {hostPhone && (
               <a
                 href={`tel:${hostPhone}`}
-                className="flex min-h-11 items-center gap-2 text-sm text-earth-300 transition-colors hover:text-white"
+                className={`flex min-h-11 items-center gap-2 rounded-sm text-sm text-earth-300 transition-colors hover:text-white ${FOCUS_RING}`}
               >
                 <Phone className="h-4 w-4 shrink-0 text-earth-500" />
                 {/* 0812345678 → 081-234-5678; any other shape is shown as entered */}
@@ -183,7 +186,7 @@ export function BookingFooter({
               href="/legal#privacy"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center text-xs text-earth-300 hover:text-white transition-colors"
+              className={`inline-flex min-h-11 items-center rounded-sm text-xs text-earth-300 hover:text-white transition-colors ${FOCUS_RING}`}
             >
               {tc("privacy")}
             </a>
@@ -192,7 +195,7 @@ export function BookingFooter({
               href="/legal#terms"
               target="_blank"
               rel="noopener noreferrer"
-              className="inline-flex min-h-11 items-center text-xs text-earth-300 hover:text-white transition-colors"
+              className={`inline-flex min-h-11 items-center rounded-sm text-xs text-earth-300 hover:text-white transition-colors ${FOCUS_RING}`}
             >
               {tc("terms")}
             </a>

@@ -38,7 +38,7 @@ export function FaqSection({ items }: FaqSectionProps) {
           <Accordion type="single" collapsible className="w-full border-t border-earth-200 md:col-span-8">
             {visible.map((item, i) => (
               <AccordionItem key={i} value={`faq-${i}`}>
-                <AccordionTrigger>{item.question}</AccordionTrigger>
+                <AccordionTrigger className="rounded-sm outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">{item.question}</AccordionTrigger>
                 {/* forceMount keeps closed answers in the HTML for crawlers that don't run JS */}
                 <AccordionContent forceMount>{item.answer}</AccordionContent>
               </AccordionItem>

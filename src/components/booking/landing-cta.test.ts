@@ -49,6 +49,12 @@ describe("LandingCta", () => {
     expect(html).toContain("title");
   });
 
+  it("names the action as the header and sticky bar do, and says how booking works", async () => {
+    const html = await band();
+    expect(html).toContain("bookHouse");
+    expect(html).toContain("intro");
+  });
+
   it("shows the booking page's notice in place of the button while bookings are off", async () => {
     const html = await band(true);
     expect(html).not.toContain("href=");

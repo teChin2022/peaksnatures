@@ -5,13 +5,16 @@ import Image from "next/image";
 import { ShieldCheck, Phone, BadgeCheck } from "lucide-react";
 
 import { useTranslations, useLocale } from "next-intl";
-import { getInitials } from "@/lib/utils";
+import { getInitials, lineUrl } from "@/lib/utils";
 import { fmtDateStr } from "@/lib/format-date";
+import { LineIcon } from "@/components/booking/booking-footer";
 import { SectionHeading, SectionMark } from "@/components/booking/section-mark";
 
 interface HostLocationSectionProps {
   hostName: string;
   hostPhone: string | null;
+  /** The homestay's LINE ID or link; Thai guests ask there first. */
+  lineId?: string | null;
   hostAvatarUrl: string | null;
   isVerified: boolean;
   hostCreatedAt: string;
@@ -24,6 +27,9 @@ interface HostLocationSectionProps {
 const DAY_MS = 24 * 60 * 60 * 1000;
 /** Older than this, "last booking" reads as a quiet listing rather than a lively one, so it is left out. */
 const RECENT_BOOKING_DAYS = 30;
+
+const CONTACT_LINK =
+  "inline-flex min-h-11 items-center gap-1.5 rounded-sm text-sm text-earth-600 transition-colors hover:text-brand outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2";
 
 /** One figure of the host's track record: a large value over a small label. */
 function Stat({
@@ -50,6 +56,7 @@ function Stat({
 export function HostLocationSection({
   hostName,
   hostPhone,
+  lineId,
   hostAvatarUrl,
   isVerified,
   hostCreatedAt,
@@ -86,7 +93,7 @@ export function HostLocationSection({
                   {hostAvatarUrl ? (
                     <Image src={hostAvatarUrl} alt={hostName} width={112} height={112} className="h-full w-full object-cover" />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-earth-200 font-serif text-3xl text-earth-500">
+                    <div className="flex h-full w-full items-center justify-center bg-earth-200 font-serif text-3xl text-earth-600">
                       {getInitials(hostName)}
                     </div>
                   )}
@@ -113,14 +120,21 @@ export function HostLocationSection({
                     {t("verifiedHost")}
                   </span>
                 )}
-                {hostPhone && (
-                  <a
-                    href={`tel:${hostPhone}`}
-                    className="mt-1 flex min-h-11 w-fit items-center gap-1.5 text-sm text-earth-600 transition-colors hover:text-brand"
-                  >
-                    <Phone className="h-3.5 w-3.5" />
-                    {hostPhone}
-                  </a>
+                {(hostPhone || lineId) && (
+                  <div className="mt-1 flex flex-wrap items-center gap-x-5">
+                    {hostPhone && (
+                      <a href={`tel:${hostPhone}`} className={CONTACT_LINK}>
+                        <Phone className="h-3.5 w-3.5" />
+                        {hostPhone}
+                      </a>
+                    )}
+                    {lineId && (
+                      <a href={lineUrl(lineId)} target="_blank" rel="noopener noreferrer" className={CONTACT_LINK}>
+                        <LineIcon className="h-3.5 w-3.5" />
+                        {t("chatOnLine")}
+                      </a>
+                    )}
+                  </div>
                 )}
               </div>
             </div>

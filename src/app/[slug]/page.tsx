@@ -66,6 +66,8 @@ export default async function HomestayLandingPage({ params, searchParams }: Page
   const { homestay, rooms, seasonalPrices, reviews, averageRating, categoryAverages, reviewCount, totalBookings, lastBookingDate, amenityIcons, prohibitionIcons, bookingDisabled } = data;
 
   const activeRooms = rooms.filter((r) => r.is_active);
+  // No open house means nothing to book: the landing shows the booking-off notice instead of Book links. /book is unchanged.
+  const canBook = !bookingDisabled && activeRooms.length > 0;
   // The "from" price counts only seasons that have not ended: an ended one can't be booked.
   const fromPrice = lowestNightlyPrice(activeRooms, upcomingSeasons(seasonalPrices, billingTodayStr()));
   const bookHref = bookingPath(homestay.slug);
@@ -192,11 +194,11 @@ export default async function HomestayLandingPage({ params, searchParams }: Page
         slug={homestay.slug}
         homestayId={homestay.id}
         bookHref={bookHref}
-        bookingDisabled={bookingDisabled}
+        bookingDisabled={!canBook}
         navItems={navItems}
       />
       {/* Fixed to the bottom on phones; this early in the page so screen readers meet it before the footer. */}
-      <LandingBookBar bookHref={bookHref} fromPrice={fromPrice} bookingDisabled={bookingDisabled} />
+      <LandingBookBar bookHref={bookHref} fromPrice={fromPrice} bookingDisabled={!canBook} />
 
       <RespectReducedMotion>
       {/* Resets the counter that numbers each SectionMark. */}
@@ -212,7 +214,8 @@ export default async function HomestayLandingPage({ params, searchParams }: Page
           reviewCount={reviewCount}
           fromPrice={fromPrice}
           discoverHref={photos.length > 0 ? "#gallery" : "#about"}
-          bookingDisabled={bookingDisabled}
+          bookingDisabled={!canBook}
+          cancellationDays={homestay.host.cancellation_days}
         />
 
         {/* What guests decide on comes first: photos, the place, its houses, reviews. Then host, map and the fine print. */}
@@ -227,7 +230,7 @@ export default async function HomestayLandingPage({ params, searchParams }: Page
           prohibitionIcons={prohibitionIcons}
         />
 
-        <LandingRooms rooms={landingRooms} />
+        <LandingRooms rooms={landingRooms} bookHref={bookHref} bookingDisabled={!canBook} />
 
         {/* Results only: writing a review starts from the booking page's menu. */}
         {reviewCount > 0 && (
@@ -248,6 +251,7 @@ export default async function HomestayLandingPage({ params, searchParams }: Page
         <HostLocationSection
           hostName={homestay.host.name}
           hostPhone={homestay.host.phone}
+          lineId={homestay.line_id}
           hostAvatarUrl={homestay.host.avatar_url}
           isVerified={homestay.host.is_verified}
           hostCreatedAt={homestay.host.created_at}
@@ -261,7 +265,7 @@ export default async function HomestayLandingPage({ params, searchParams }: Page
         <PoliciesSection content={homestay.policies} />
         <FaqSection items={homestay.faq} />
 
-        <LandingCta bookHref={bookHref} bookingDisabled={bookingDisabled} />
+        <LandingCta bookHref={bookHref} bookingDisabled={!canBook} />
       </main>
       </RespectReducedMotion>
 

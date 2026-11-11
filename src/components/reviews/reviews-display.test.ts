@@ -20,7 +20,6 @@ const review = (over: Partial<ReviewWithProvince> = {}): ReviewWithProvince => (
   booking_id: "booking-1",
   guest_name: "Somchai Jaidee",
   rating: 5,
-  // Over 150 characters, so the card offers "read more".
   comment: "Woke up to a sea of mist. ".repeat(10),
   topic: null,
   rating_environment: null,
@@ -39,10 +38,32 @@ const review = (over: Partial<ReviewWithProvince> = {}): ReviewWithProvince => (
   ...over,
 });
 
+// happy-dom does no layout: a test sets the comment's sizes and fires the observer itself.
+let fireResize = () => {};
+class FakeResizeObserver {
+  callback: ResizeObserverCallback;
+  constructor(callback: ResizeObserverCallback) {
+    this.callback = callback;
+  }
+  observe() {
+    fireResize = () => this.callback([], this as unknown as ResizeObserver);
+  }
+  disconnect() {
+    fireResize = () => {};
+  }
+}
+
+function layout(scrollHeight: number, clientHeight: number) {
+  vi.spyOn(Element.prototype, "scrollHeight", "get").mockReturnValue(scrollHeight);
+  vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(clientHeight);
+  act(() => fireResize());
+}
+
 let container: HTMLDivElement;
 let root: Root;
 
 beforeEach(() => {
+  vi.stubGlobal("ResizeObserver", FakeResizeObserver);
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -51,6 +72,8 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  vi.unstubAllGlobals();
+  vi.restoreAllMocks();
 });
 
 const render = (reviews: ReviewWithProvince[]) =>
@@ -65,6 +88,7 @@ const render = (reviews: ReviewWithProvince[]) =>
       }),
     ),
   );
+const readMoreButton = () => [...container.querySelectorAll("button")].find((b) => b.textContent?.startsWith("readMore"));
 const dialogs = () => [...document.querySelectorAll('[role="dialog"]')];
 const press = (key: string) =>
   act(() => {
@@ -74,8 +98,8 @@ const press = (key: string) =>
 describe("ReviewsDisplay photo viewer", () => {
   it("layers over the review it was opened from, and Escape closes only the viewer", () => {
     render([review({ photos: ["/p1.jpg", "/p2.jpg"] })]);
-    const readMore = [...container.querySelectorAll("button")].find((b) => b.textContent?.startsWith("readMore"));
-    act(() => readMore!.click());
+    layout(91, 68);
+    act(() => readMoreButton()!.click());
     act(() => dialogs()[0].querySelector("button img")!.closest("button")!.click());
 
     expect(dialogs()).toHaveLength(2);
@@ -87,6 +111,20 @@ describe("ReviewsDisplay photo viewer", () => {
 });
 
 describe("ReviewsDisplay cards", () => {
+  // "Read more" once needed over 150 characters, but three lines hold about 100 Thai characters on a phone
+  // card: a 120-character review was cut with no way to read the rest.
+  it("offer read more whenever the comment is cut, however short", () => {
+    render([review({ comment: "ตื่นมาเจอทะเลหมอก อากาศเย็นสบาย ".repeat(4) })]);
+    layout(91, 68);
+    expect(readMoreButton()).toBeDefined();
+  });
+
+  it("offer no read more when the whole comment fits", () => {
+    render([review()]);
+    layout(68, 68);
+    expect(readMoreButton()).toBeUndefined();
+  });
+
   it("leave out the rating bars and the would-return line when the guest left them blank", () => {
     render([review()]);
     expect(container.textContent).not.toContain("categoryEnvironment");

@@ -42,7 +42,11 @@ describe("BookingHeader", () => {
     // A reload mid-page or a /baan#reviews link: no scroll event comes after mounting.
     vi.spyOn(window, "scrollY", "get").mockReturnValue(600);
     render({ bookHref: "/baan/book" });
-    expect(container.querySelector("nav")!.className).toContain("glass-nav");
+    const nav = container.querySelector("nav")!.className;
+    // Solid white with a Sand border once scrolled: the old glass let content show through.
+    expect(nav).toContain("bg-white");
+    expect(nav).toContain("border-earth-200");
+    expect(nav).not.toContain("glass-nav");
   });
 
   it("links the landing's Book button to the booking page", () => {

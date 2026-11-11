@@ -1,7 +1,8 @@
 "use client";
 
 import Image from "next/image";
-import { Users } from "lucide-react";
+import Link from "next/link";
+import { ArrowRight, Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import { SectionHeading, SectionMark } from "@/components/booking/section-mark";
 import { ExpandableText } from "@/components/booking/expandable-text";
@@ -21,14 +22,19 @@ export interface LandingRoom {
 interface LandingRoomsProps {
   /** Bookable houses first, then closed ones, as on the booking page. */
   rooms: LandingRoom[];
+  /** The booking page. /book picks dates first and can't preselect a house, so the link says "check availability". */
+  bookHref: string;
+  /** The host can't take bookings: the houses show without a link. */
+  bookingDisabled?: boolean;
 }
 
 /** Every house with its normal price. Booking itself happens on /book. */
-export function LandingRooms({ rooms }: LandingRoomsProps) {
+export function LandingRooms({ rooms, bookHref, bookingDisabled = false }: LandingRoomsProps) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
   const ta = useTranslations("about");
   const tav = useTranslations("availability");
+  const th = useTranslations("hero");
 
   if (rooms.length === 0) return null;
 
@@ -40,10 +46,15 @@ export function LandingRooms({ rooms }: LandingRoomsProps) {
 
         <div className="mt-10 grid gap-10 md:gap-16">
           {rooms.map((room, i) => (
-            <article key={room.id} className="grid gap-5 md:grid-cols-2 md:items-center md:gap-12">
-              {/* Phones stack the photo over the details. From md the 2nd, 4th… house puts its photo on the right, and the frame stays without a photo so the sides keep alternating. */}
+            // Photo beside the details at every width (the owner's choice, 2026-11-05), sides alternating. Phones give the photo
+            // the narrower column at the details' height; from md it is a 4:3 half. Without a photo the frame stays from md so
+            // the sides keep alternating, and on phones the details take the whole row.
+            <article
+              key={room.id}
+              className={`grid gap-4 sm:gap-6 md:grid-cols-2 md:items-center md:gap-12 ${i % 2 === 1 ? "grid-cols-[3fr_2fr]" : "grid-cols-[2fr_3fr]"}`}
+            >
               <div
-                className={`relative aspect-[4/3] overflow-hidden rounded-xl bg-earth-200 ${i % 2 === 1 ? "md:order-last" : ""} ${
+                className={`relative min-h-40 overflow-hidden rounded-xl bg-earth-200 md:aspect-[4/3] md:min-h-0 ${i % 2 === 1 ? "order-last" : ""} ${
                   room.images[0] ? "" : "hidden md:block"
                 }`}
               >
@@ -52,13 +63,13 @@ export function LandingRooms({ rooms }: LandingRoomsProps) {
                     src={room.images[0]}
                     alt={room.name}
                     fill
-                    sizes="(min-width: 768px) 50vw, 100vw"
+                    sizes="(min-width: 768px) 50vw, 40vw"
                     // A closed house dims its photo only, so its text stays readable.
                     className={`object-cover ${room.is_active ? "" : "opacity-60 grayscale"}`}
                   />
                 )}
               </div>
-              <div>
+              <div className={`min-w-0 ${room.images[0] ? "" : "col-span-2 md:col-span-1"}`}>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                   <h3 className="font-serif text-2xl text-earth-900">{room.name}</h3>
                   {!room.is_active && (
@@ -81,6 +92,15 @@ export function LandingRooms({ rooms }: LandingRoomsProps) {
                     <span className="ml-1 text-sm text-earth-600">{tc("perNight")}</span>
                   </p>
                 </div>
+                {room.is_active && !bookingDisabled && (
+                  <Link
+                    href={bookHref}
+                    className="mt-2 inline-flex min-h-11 items-center gap-1.5 rounded-sm text-sm font-semibold text-brand underline-offset-4 outline-none hover:underline focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                  >
+                    {th("checkAvailability")}
+                    <ArrowRight className="h-4 w-4" />
+                  </Link>
+                )}
               </div>
             </article>
           ))}

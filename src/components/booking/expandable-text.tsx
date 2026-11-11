@@ -46,7 +46,7 @@ export function ExpandableText({ html, clampClassName, className = "" }: Expanda
         <button
           type="button"
           aria-expanded={expanded}
-          className="mt-1 inline-flex min-h-11 items-center text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600"
+          className="mt-1 inline-flex min-h-11 items-center rounded-sm text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
           onClick={() => setExpanded((open) => !open)}
         >
           {expanded ? t("showLess") : t("readMore")}

@@ -12,10 +12,14 @@ beforeEach(() => {
   intl.locale = "th";
 });
 
-const hero = async (bookingDisabled?: boolean) =>
+const hero = async ({
+  bookingDisabled,
+  cancellationDays,
+  name = "บ้านริมธาร",
+}: { bookingDisabled?: boolean; cancellationDays?: number; name?: string } = {}) =>
   renderToStaticMarkup(
     await LandingHero({
-      name: "บ้านริมธาร",
+      name,
       tagline: "ตื่นมากับทะเลหมอก",
       heroImageUrl: null,
       location: "เชียงใหม่",
@@ -25,13 +29,32 @@ const hero = async (bookingDisabled?: boolean) =>
       fromPrice: 1500,
       discoverHref: "#gallery",
       bookingDisabled,
+      cancellationDays,
     }),
   );
 
 describe("LandingHero", () => {
   it("says up front when the host can't take bookings", async () => {
     expect(await hero()).not.toContain("unavailableTitle");
-    expect(await hero(true)).toContain("unavailableTitle");
+    expect(await hero({ bookingDisabled: true })).toContain("unavailableTitle");
+  });
+
+  it("promises instant confirmation, and free cancellation only when the host set days", async () => {
+    expect(await hero()).toContain("instantConfirm");
+    expect(await hero()).not.toContain("cancellationPolicyNote");
+    expect(await hero({ cancellationDays: 0 })).not.toContain("cancellationPolicyNote");
+    expect(await hero({ cancellationDays: 7 })).toContain("cancellationPolicyNote");
+  });
+
+  it("makes no booking promise while the host can't take bookings", async () => {
+    const html = await hero({ bookingDisabled: true, cancellationDays: 7 });
+    expect(html).not.toContain("instantConfirm");
+    expect(html).not.toContain("cancellationPolicyNote");
+  });
+
+  it("keeps each word of the name whole, so a Thai name wraps at its spaces", async () => {
+    const html = await hero({ name: "อิงค์เขาแคมป์ปิ้ง ม่อนเงาะ" });
+    expect(html).toContain('<span class="inline-block max-w-full">อิงค์เขาแคมป์ปิ้ง</span> <span class="inline-block max-w-full">ม่อนเงาะ</span>');
   });
 
   it("scrolls on to the section it is given", async () => {

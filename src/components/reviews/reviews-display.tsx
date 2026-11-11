@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback, useRef } from "react";
+import { useState, useCallback, useEffect, useRef } from "react";
 import { Star, MessageSquare, Loader2, Sparkles, ThumbsUp, Minus, ThumbsDown, Quote, ChevronLeft, ChevronRight, X } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { useSwipe } from "@/hooks/use-swipe";
@@ -41,25 +41,10 @@ const TAG_I18N: Record<string, string> = {
 };
 
 const WOULD_RETURN_CONFIG: Record<string, { icon: typeof ThumbsUp; color: string; label: string }> = {
-  yes: { icon: ThumbsUp, color: "text-green-600", label: "wouldReturnYes" },
-  maybe: { icon: Minus, color: "text-amber-500", label: "wouldReturnMaybe" },
-  no: { icon: ThumbsDown, color: "text-earth-400", label: "wouldReturnNo" },
+  yes: { icon: ThumbsUp, color: "text-brand", label: "wouldReturnYes" },
+  maybe: { icon: Minus, color: "text-earth-600", label: "wouldReturnMaybe" },
+  no: { icon: ThumbsDown, color: "text-earth-600", label: "wouldReturnNo" },
 };
-
-const AVATAR_COLORS = [
-  "bg-emerald-50 text-emerald-700",
-  "bg-amber-50 text-amber-700",
-  "bg-sky-50 text-sky-700",
-  "bg-rose-50 text-rose-700",
-  "bg-violet-50 text-violet-700",
-  "bg-teal-50 text-teal-700",
-];
-
-function getAvatarColor(name: string) {
-  let hash = 0;
-  for (let i = 0; i < name.length; i++) hash = name.charCodeAt(i) + ((hash << 5) - hash);
-  return AVATAR_COLORS[Math.abs(hash) % AVATAR_COLORS.length];
-}
 
 function getInitials(name: string) {
   return name.split(" ").map((w) => w[0]).join("").slice(0, 2).toUpperCase();
@@ -73,7 +58,7 @@ function RatingBar({ value, label }: { value: number; label: string }) {
       <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-earth-100">
         {pct > 0 && (
           <div
-            className="h-full rounded-full bg-gradient-to-r from-[#2F5D50] to-[#3d7a6a]"
+            className="h-full rounded-full bg-brand"
             style={{ width: `${pct}%` }}
           />
         )}
@@ -185,7 +170,7 @@ function PhotoLightbox({
 function ReviewHeader({ review, locale }: { review: ReviewWithProvince; locale: string }) {
   return (
     <div className="flex items-start gap-3">
-      <div className={`flex h-10 w-10 shrink-0 items-center justify-center rounded-full text-xs font-bold ${getAvatarColor(review.guest_name)}`}>
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-earth-100 text-xs font-bold text-earth-700">
         {getInitials(review.guest_name)}
       </div>
       <div className="min-w-0 flex-1">
@@ -198,7 +183,7 @@ function ReviewHeader({ review, locale }: { review: ReviewWithProvince; locale: 
           </span>
         </div>
       </div>
-      <div className="flex items-center gap-1 rounded-full bg-[#2F5D50] px-2.5 py-1 shrink-0">
+      <div className="flex items-center gap-1 rounded-full bg-brand px-2.5 py-1 shrink-0">
         <Star className="h-3 w-3" style={{ fill: "white", color: "white" }} />
         <span className="text-xs font-bold text-white">{review.rating}</span>
       </div>
@@ -213,7 +198,7 @@ function ReviewExtras({ review, t }: { review: ReviewWithProvince; t: ReturnType
       {review.impression_tags && review.impression_tags.length > 0 && (
         <div className="mt-2.5 flex flex-wrap gap-1">
           {review.impression_tags.map((tag) => (
-            <span key={tag} className="inline-flex items-center gap-1 rounded-full border border-[#2F5D50]/10 bg-[#2F5D50]/5 px-2 py-0.5 text-xs font-medium text-[#2F5D50]">
+            <span key={tag} className="inline-flex items-center gap-1 rounded-full border border-brand/10 bg-brand/5 px-2 py-0.5 text-xs font-medium text-brand">
               <Sparkles className="h-3 w-3" />
               {TAG_I18N[tag] ? t(TAG_I18N[tag]) : tag}
             </span>
@@ -223,9 +208,9 @@ function ReviewExtras({ review, t }: { review: ReviewWithProvince; t: ReturnType
 
       {/* No italic: most highlights are Thai, which has no italic face. */}
       {review.stay_highlight && (
-        <div className="mt-2.5 rounded-lg bg-amber-50/60 px-3 py-2">
-          <span className="inline-flex items-start gap-1.5 text-xs text-amber-800 leading-relaxed">
-            <Quote className="mt-0.5 h-3 w-3 shrink-0 text-amber-400" />
+        <div className="mt-2.5 rounded-lg bg-earth-100 px-3 py-2">
+          <span className="inline-flex items-start gap-1.5 text-sm text-earth-700 leading-relaxed">
+            <Quote className="mt-1 h-3 w-3 shrink-0 text-earth-500" />
             {review.stay_highlight}
           </span>
         </div>
@@ -248,7 +233,7 @@ function ReviewRatings({ review, t }: { review: ReviewWithProvince; t: ReturnTyp
 
   return (
     <>
-      <div className="my-3 h-px bg-gradient-to-r from-earth-100 via-earth-200 to-earth-100" />
+      <div className="my-3 h-px bg-earth-200" />
       {rated.length > 0 && (
         <div className="space-y-1.5">
           {rated.map((c) => (
@@ -282,15 +267,24 @@ function ReviewCard({
   onReadMore: (review: ReviewWithProvince) => void;
   onPhotoClick: (photos: string[], index: number) => void;
 }) {
-  const needsClamp = !!review.comment && review.comment.length > 150;
+  // Measured, not counted: how much of a comment three lines hold depends on the script and the card's width.
+  const commentRef = useRef<HTMLParagraphElement>(null);
+  const [commentCut, setCommentCut] = useState(false);
+  useEffect(() => {
+    const el = commentRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver(() => setCommentCut(el.scrollHeight > el.clientHeight));
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, [review.comment]);
 
   return (
-    <div className="group flex flex-col rounded-2xl border border-earth-100 bg-white p-5 h-full transition-all hover:shadow-lg hover:shadow-gray-100/80">
+    <div className="flex flex-col rounded-2xl border border-earth-100 bg-white p-5 h-full">
       <ReviewHeader review={review} locale={locale} />
 
       {/* The guest's words first; the scores support them. */}
       {review.comment && (
-        <p className="mt-3 text-sm leading-relaxed text-earth-600 line-clamp-3">
+        <p ref={commentRef} className="mt-3 text-sm leading-relaxed text-earth-600 line-clamp-3">
           {review.comment}
         </p>
       )}
@@ -299,7 +293,7 @@ function ReviewCard({
       {review.photos && review.photos.length > 0 && (
         <div className="mt-3 flex gap-1.5 overflow-x-auto">
           {review.photos.map((url, i) => (
-            <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-earth-100 transition-transform hover:scale-105">
+            <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-earth-100 transition-transform hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">
               <img src={url} alt={`Photo ${i + 1} from ${review.guest_name}'s review`} className="h-full w-full object-cover" />
             </button>
           ))}
@@ -310,9 +304,9 @@ function ReviewCard({
       <ReviewRatings review={review} t={t} />
 
       {/* Read more */}
-      {needsClamp && (
+      {commentCut && (
         <div className="mt-auto pt-1">
-          <button type="button" onClick={() => onReadMore(review)} className="inline-flex min-h-11 items-center text-xs font-medium text-[#2F5D50] hover:text-[#264A40] transition-colors">
+          <button type="button" onClick={() => onReadMore(review)} className="inline-flex min-h-11 items-center rounded-sm text-xs font-medium text-brand hover:text-brand-hover transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">
             {t("readMore")} &rarr;
           </button>
         </div>
@@ -335,7 +329,7 @@ function ModalReviewCard({ review, locale, t, onPhotoClick }: { review: ReviewWi
       {review.photos && review.photos.length > 0 && (
         <div className="mt-3 flex gap-2 overflow-x-auto">
           {review.photos.map((url, i) => (
-            <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-earth-100 transition-transform hover:scale-105">
+            <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-earth-100 transition-transform hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">
               <img src={url} alt={`Photo ${i + 1} from ${review.guest_name}'s review`} className="h-full w-full object-cover" />
             </button>
           ))}
@@ -451,7 +445,7 @@ export function ReviewsDisplay({
         {/* Under the cards, full width on phones: beside the heading it squeezed the title. */}
         {hasMore && (
           <div className="text-center">
-            <Button variant="outline" className="h-11 w-full rounded-full sm:w-auto" onClick={openModal}>
+            <Button variant="outline" className="h-11 w-full rounded-full border-earth-200 text-earth-800 shadow-none sm:w-auto focus-visible:border-earth-200 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2" onClick={openModal}>
               {t("seeAllReviews", { count: totalCount })}
             </Button>
           </div>

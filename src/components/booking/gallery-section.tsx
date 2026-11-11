@@ -10,8 +10,9 @@ import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/compone
 import { SectionHeading, SectionMark } from "@/components/booking/section-mark";
 import { bentoSpans } from "@/lib/gallery-layout";
 
+// A flat Sand (earth-200) frame while a photo loads.
 const BLUR_DATA_URL =
-  "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI4MDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2UyZThmMCIvPjwvc3ZnPg==";
+  "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI4MDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2UwZDVjOCIvPjwvc3ZnPg==";
 
 /** One round of the bento pattern; "show all photos" opens the rest. */
 const MAX_TILES = 7;
@@ -73,7 +74,7 @@ export function GallerySection({ images, name }: GallerySectionProps) {
                 key={i}
                 type="button"
                 onClick={() => setLightboxIndex(i)}
-                className={`group relative overflow-hidden rounded-xl bg-earth-200 ${MOBILE_SPAN[mobileSpans[i]]} ${DESKTOP_SPAN[desktopSpans[i]]} ${
+                className={`group relative overflow-hidden rounded-xl bg-earth-200 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${MOBILE_SPAN[mobileSpans[i]]} ${DESKTOP_SPAN[desktopSpans[i]]} ${
                   i >= MOBILE_TILES ? "hidden md:block" : ""
                 }`}
               >
@@ -94,7 +95,13 @@ export function GallerySection({ images, name }: GallerySectionProps) {
           {images.length > MOBILE_TILES && (
             // Phones offer the rest from the fourth photo on; wider screens once there are more than the grid holds.
             <div className={`mt-6 text-center ${images.length > MAX_TILES ? "" : "md:hidden"}`}>
-              <Button type="button" variant="outline" className="h-11 rounded-full" onClick={() => setLightboxIndex(0)}>
+              <Button
+                type="button"
+                variant="outline"
+                // DESIGN.md secondary: Sand border, Teak Deep label, no shadow; Forest focus ring.
+                className="h-11 rounded-full border-earth-200 text-earth-800 shadow-none focus-visible:border-earth-200 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+                onClick={() => setLightboxIndex(0)}
+              >
                 {t("showAll")} ({images.length})
               </Button>
             </div>

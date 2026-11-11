@@ -42,8 +42,9 @@ export function LanguageSwitcherIcon({ scrolled }: Props) {
     });
   };
 
-  const buttonClass = `inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-white/10 transition-colors cursor-pointer text-lg leading-none ${
-    scrolled ? "text-[#111111]" : "text-white"
+  // Focus: Forest on the solid header, white over the hero photo.
+  const buttonClass = `inline-flex h-11 w-11 items-center justify-center rounded-full transition-colors cursor-pointer text-lg leading-none outline-none focus-visible:ring-2 ${
+    scrolled ? "text-earth-900 hover:bg-earth-100 focus-visible:ring-brand focus-visible:ring-offset-2" : "text-white hover:bg-white/10 focus-visible:ring-white"
   } ${isPending ? "opacity-60" : ""}`;
 
   if (!mounted) {

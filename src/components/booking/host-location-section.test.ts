@@ -32,6 +32,7 @@ const render = (props: Partial<ComponentProps<typeof HostLocationSection>>) =>
       createElement(HostLocationSection, {
         hostName: "Somchai Jaidee",
         hostPhone: null,
+        lineId: null,
         hostAvatarUrl: null,
         isVerified: true,
         hostCreatedAt: "2024-01-01T00:00:00Z",
@@ -45,6 +46,19 @@ const render = (props: Partial<ComponentProps<typeof HostLocationSection>>) =>
   );
 
 describe("HostLocationSection trust signals", () => {
+  it("offers the host's LINE beside the phone, opening outside the page", () => {
+    render({ hostPhone: "0812345678", lineId: "@baan" });
+    const line = container.querySelector<HTMLAnchorElement>('a[href="https://line.me/R/ti/p/%40baan"]');
+    expect(line?.textContent).toContain("chatOnLine");
+    expect(line?.target).toBe("_blank");
+    expect(line?.rel).toBe("noopener noreferrer");
+  });
+
+  it("shows no LINE link when the host has no LINE ID", () => {
+    render({ hostPhone: "0812345678" });
+    expect(container.querySelector('a[href^="https://line.me"]')).toBeNull();
+  });
+
   it("shows the verified badge for a verified host", () => {
     render({ isVerified: true });
     expect(container.textContent).toContain("verifiedHost");

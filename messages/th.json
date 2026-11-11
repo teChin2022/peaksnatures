@@ -24,7 +24,8 @@
     "monthsHosting": "{count, plural, =0 {เริ่มเป็นโฮสต์} =1 {เดือนที่เป็นโฮสต์} other {เดือนที่เป็นโฮสต์}}",
     "totalRooms": "{count, plural, =1 {บ้านพัก} other {บ้านพัก}}",
     "totalBookings": "{count, plural, =0 {ยังไม่มีการจอง} =1 {การจอง} other {การจอง}}",
-    "lastBooking": "การจองล่าสุด"
+    "lastBooking": "การจองล่าสุด",
+    "chatOnLine": "แชทผ่าน LINE"
   },
   "common": {
     "brand": "Peaksnature",

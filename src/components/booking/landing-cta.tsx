@@ -9,6 +9,7 @@ import { getLocale, getTranslations } from "next-intl/server";
 export async function LandingCta({ bookHref, bookingDisabled = false }: { bookHref: string; bookingDisabled?: boolean }) {
   const t = await getTranslations("finalCta");
   const tb = await getTranslations("booking");
+  const tt = await getTranslations("bookingTutorial");
 
   return (
     <section className="bg-earth-900 py-24 text-center md:py-32">
@@ -16,15 +17,17 @@ export async function LandingCta({ bookHref, bookingDisabled = false }: { bookHr
         <h2 className="font-serif text-3xl leading-snug text-earth-50 md:text-5xl">
           {bookingDisabled ? tb("unavailableTitle") : t("title")}
         </h2>
-        <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-earth-200">
-          {bookingDisabled ? tb("unavailableDesc") : t("subtitle")}
+        {/* How booking works, as /book's tutorial puts it: the reassurance a guest wants before the click. */}
+        <p className="mx-auto mt-5 max-w-xl text-base leading-relaxed text-balance text-earth-200">
+          {bookingDisabled ? tb("unavailableDesc") : tt("intro")}
         </p>
         {!bookingDisabled && (
           <Link
             href={bookHref}
             className="mt-10 inline-flex h-12 items-center gap-2 rounded-full bg-brand px-8 text-base font-semibold text-white transition-colors hover:bg-brand-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-white/60"
           >
-            {t("button")}
+            {/* The header and the sticky bar say the same. */}
+            {tb("bookHouse")}
             <ArrowRight className="h-4 w-4" />
           </Link>
         )}
@@ -55,7 +58,7 @@ export async function LandingBookBar({
 
   const pill = "flex min-h-12 flex-col items-center justify-center gap-0.5 rounded-2xl bg-brand px-4 py-2 text-white";
   const label = <span className={`text-sm font-bold ${latin ? "uppercase tracking-widest" : ""}`}>{tb("bookHouse")}</span>;
-  const subLine = "text-[11px] font-medium leading-tight text-white/85";
+  const subLine = "text-xs font-medium leading-tight text-white/85";
 
   return (
     <div className="fixed inset-x-0 bottom-0 z-40 border-t border-earth-200 bg-white pb-[env(safe-area-inset-bottom)] md:hidden">
@@ -67,7 +70,7 @@ export async function LandingBookBar({
             <span className={subLine}>{tb("unavailableTitle")}</span>
           </div>
         ) : (
-          <Link href={bookHref} className={`${pill} focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40`}>
+          <Link href={bookHref} className={`${pill} outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2`}>
             {label}
             {fromPrice !== null && (
               <span className={subLine}>

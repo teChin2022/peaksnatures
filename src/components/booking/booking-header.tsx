@@ -65,6 +65,10 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
   const tc = useTranslations("common");
   const tl = useTranslations("landing");
   const tr = useTranslations("reviews");
+  // Forest on the solid header, white over the hero photo.
+  const focusRing = scrolled
+    ? "outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+    : "outline-none focus-visible:ring-2 focus-visible:ring-white";
 
   const openResume = () => {
     openingResumeRef.current = true;
@@ -101,12 +105,13 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
 
   return (
     <nav
-      className={`fixed top-0 left-0 right-0 z-50 transition-all duration-500 ${
-        scrolled ? "glass-nav py-3 shadow-sm" : "bg-transparent py-6"
+      // Solid once scrolled (DESIGN.md: no glass, no shadow); the 1px border is there in both states so only its colour changes.
+      className={`fixed top-0 left-0 right-0 z-50 border-b transition-colors duration-300 ${
+        scrolled ? "border-earth-200 bg-white py-3" : "border-transparent bg-transparent py-6"
       }`}
     >
       <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex items-center justify-between">
-        <Link href={`/${slug}`} className="flex items-center gap-3 min-w-0">
+        <Link href={`/${slug}`} className={`flex items-center gap-3 min-w-0 rounded-full ${focusRing}`}>
           {logoUrl ? (
             <Image
               src={logoUrl}
@@ -119,7 +124,7 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
             <div />
           )}
           <span
-            className={`truncate text-sm font-semibold transition-all duration-500 ${
+            className={`truncate text-sm font-semibold transition-[opacity,translate,color] duration-300 ${
               scrolled ? "text-earth-900 opacity-100 translate-y-0" : "text-white opacity-0 -translate-y-2 pointer-events-none"
             }`}
           >
@@ -132,8 +137,8 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
               <a
                 key={item.href}
                 href={item.href}
-                className={`text-sm font-medium transition-colors ${
-                  scrolled ? "text-earth-700 hover:text-earth-900" : "text-white/85 hover:text-white"
+                className={`rounded-sm text-sm font-medium transition-colors ${focusRing} ${
+                  scrolled ? "text-earth-700 hover:text-earth-900" : "text-white underline-offset-4 hover:underline"
                 }`}
               >
                 {item.label}
@@ -146,7 +151,7 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
             !bookingDisabled && (
               <Link
                 href={bookHref}
-                className="hidden md:inline-flex items-center rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                className="hidden md:inline-flex items-center rounded-full bg-brand px-5 py-2 text-sm font-semibold text-white transition-colors hover:bg-brand-hover outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
               >
                 {tb("bookHouse")}
               </Link>
@@ -160,8 +165,8 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
             // On the landing this menu holds the section links, not booking tools.
             aria-label={bookHref ? tc("menu") : t("aria")}
             onClick={() => setMenuOpen(true)}
-            className={`${inlineNav ? "xl:hidden" : "lg:hidden"} inline-flex h-11 w-11 items-center justify-center rounded-full hover:bg-white/10 transition-colors cursor-pointer ${
-              scrolled ? "text-[#111111]" : "text-white"
+            className={`${inlineNav ? "xl:hidden" : "lg:hidden"} inline-flex h-11 w-11 items-center justify-center rounded-full transition-colors cursor-pointer ${focusRing} ${
+              scrolled ? "text-earth-900 hover:bg-earth-100" : "text-white hover:bg-white/10"
             }`}
           >
             <Menu size={20} />
@@ -171,8 +176,8 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
               <button
                 type="button"
                 aria-label={t("aria")}
-                className={`hidden ${inlineNav ? "xl:inline-flex" : "lg:inline-flex"} h-11 w-11 items-center justify-center rounded-full hover:bg-white/10 transition-colors cursor-pointer ${
-                  scrolled ? "text-[#111111]" : "text-white"
+                className={`hidden ${inlineNav ? "xl:inline-flex" : "lg:inline-flex"} h-11 w-11 items-center justify-center rounded-full transition-colors cursor-pointer ${focusRing} ${
+                  scrolled ? "text-earth-900 hover:bg-earth-100" : "text-white hover:bg-white/10"
                 }`}
               >
                 <Menu size={20} />

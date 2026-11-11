@@ -54,6 +54,8 @@ export function Breadcrumbs({ items, className, visuallyHidden }: BreadcrumbsPro
                 {item.href && !isLast ? (
                   <Link
                     href={item.href}
+                    // Hidden visually, so a Tab stop here would show no focus; crawlers and screen readers still read it.
+                    tabIndex={visuallyHidden ? -1 : undefined}
                     className="transition-colors hover:text-brand hover:underline"
                   >
                     {item.label}
