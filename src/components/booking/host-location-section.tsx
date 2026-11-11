@@ -30,15 +30,13 @@ function Stat({
   value,
   label,
   small = false,
-  className = "",
 }: {
   value: React.ReactNode;
   label?: React.ReactNode;
   small?: boolean;
-  className?: string;
 }) {
   return (
-    <div className={className}>
+    <div>
       <p className={`font-serif leading-none text-earth-900 ${small ? "text-2xl md:text-3xl" : "text-4xl md:text-5xl"}`}>{value}</p>
       {label && <p className="mt-3 flex items-center gap-2 text-sm text-earth-600">{label}</p>}
     </div>
@@ -82,7 +80,7 @@ export function HostLocationSection({
 
           <div className="mt-10 grid grid-cols-1 gap-10 md:grid-cols-12 md:items-center">
             {/* Who the host is. Verification is shown when earned, never flagged when missing (as in the hero). */}
-            <div className="flex items-center gap-5 md:col-span-5">
+            <div className="flex flex-col items-start gap-5 md:col-span-5 md:flex-row md:items-center">
               <div className="relative shrink-0">
                 <div className="h-24 w-24 overflow-hidden rounded-full bg-earth-100 ring-2 ring-earth-200 md:h-28 md:w-28">
                   {hostAvatarUrl ? (
@@ -128,7 +126,7 @@ export function HostLocationSection({
             </div>
 
             {/* Track record. Zero bookings and an old or missing last booking are left out rather than shown as gaps. */}
-            <div className="grid grid-cols-2 items-end gap-x-6 gap-y-8 border-t border-earth-200 pt-8 md:col-span-7 md:grid-cols-3 md:border-l md:border-t-0 md:pl-10 md:pt-0">
+            <div className="grid grid-cols-1 items-end gap-x-6 gap-y-8 border-t border-earth-200 pt-8 md:col-span-7 md:grid-cols-3 md:border-l md:border-t-0 md:pl-10 md:pt-0">
               {totalMonths === 0 ? (
                 <Stat value={t("monthsHosting", { count: 0 })} small />
               ) : (
@@ -143,7 +141,6 @@ export function HostLocationSection({
               {recentBookingDate && (
                 <Stat
                   small
-                  className="col-span-2 md:col-span-1"
                   value={fmtDateStr(recentBookingDate, "d MMM yyyy", locale)}
                   label={
                     <>
