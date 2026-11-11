@@ -173,7 +173,6 @@ export default async function HomestayBookingPage({ params, searchParams }: Page
         homestayName={homestay.name}
         logoUrl={homestay.logo_url}
         location={homestay.location}
-        hostName={homestay.host.name}
         hostPhone={homestay.host.phone}
         socialLinks={{
           facebook_url: homestay.facebook_url,

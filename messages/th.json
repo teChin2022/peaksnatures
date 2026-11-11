@@ -1500,7 +1500,6 @@
     }
   },
   "bookingFooter": {
-    "hostedBy": "ดูแลโดย {name}",
     "contact": "ติดต่อ",
     "poweredBy": "ขับเคลื่อนโดย"
   },

@@ -54,4 +54,15 @@ describe("GallerySection photo viewer", () => {
     const showAll = [...container.querySelectorAll("button")].find((b) => b.textContent?.startsWith("showAll"));
     expect(showAll?.textContent).toBe("showAll (5)");
   });
+
+  it("shows a thumbnail strip in the viewer and jumps to the tapped photo", () => {
+    render(photos(3));
+    act(() => container.querySelector("button")!.click());
+    const thumbs = [...viewer()!.querySelectorAll("button[aria-current]")] as HTMLButtonElement[];
+    expect(thumbs).toHaveLength(3);
+    expect(thumbs[0].getAttribute("aria-current")).toBe("true");
+
+    act(() => thumbs[2].click());
+    expect(viewer()!.textContent).toContain("3 / 3");
+  });
 });

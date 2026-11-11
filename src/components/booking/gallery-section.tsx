@@ -142,13 +142,13 @@ export function GallerySection({ images, name }: GallerySectionProps) {
                 variant="ghost"
                 size="icon"
                 aria-label={tr("prevPhoto")}
-                className="absolute left-2 z-10 size-11 rounded-full text-white hover:bg-white/20 sm:left-4"
+                className="absolute left-2 z-10 size-12 rounded-full bg-white/20 text-white hover:bg-white/30 sm:left-4"
                 onClick={prevImage}
               >
                 <ChevronLeft className="h-8 w-8" />
               </Button>
 
-              <div className="flex h-[85svh] w-[90vw] max-w-5xl items-center justify-center">
+              <div className="relative flex max-h-[80svh] max-w-[90vw] overflow-hidden rounded-2xl">
                 <Image
                   key={images[lightboxIndex]}
                   src={images[lightboxIndex]}
@@ -157,8 +157,29 @@ export function GallerySection({ images, name }: GallerySectionProps) {
                   height={1080}
                   sizes="90vw"
                   priority
-                  className="max-h-[85svh] max-w-full h-auto w-auto rounded-2xl"
+                  className="max-h-[80svh] max-w-full h-auto w-auto"
                 />
+                {images.length > 1 && (
+                  <div className="absolute inset-x-0 bottom-0 flex gap-2 overflow-x-auto p-3 [scrollbar-width:none]">
+                    {images.map((img, i) => (
+                      <button
+                        key={i}
+                        type="button"
+                        aria-label={photoAlt(i)}
+                        aria-current={i === lightboxIndex}
+                        onClick={() => setLightboxIndex(i)}
+                        ref={(el) => {
+                          if (i === lightboxIndex) el?.scrollIntoView?.({ inline: "center", block: "nearest" });
+                        }}
+                        className={`relative h-12 w-16 shrink-0 overflow-hidden rounded-md outline-none focus-visible:ring-2 focus-visible:ring-white sm:h-14 sm:w-20 ${
+                          i === lightboxIndex ? "ring-2 ring-white" : "opacity-70 hover:opacity-100"
+                        }`}
+                      >
+                        <Image src={img} alt="" fill sizes="80px" className="object-cover" />
+                      </button>
+                    ))}
+                  </div>
+                )}
               </div>
 
               {/* Preload adjacent images */}
@@ -177,13 +198,13 @@ export function GallerySection({ images, name }: GallerySectionProps) {
                 variant="ghost"
                 size="icon"
                 aria-label={tr("nextPhoto")}
-                className="absolute right-2 z-10 size-11 rounded-full text-white hover:bg-white/20 sm:right-4"
+                className="absolute right-2 z-10 size-12 rounded-full bg-white/20 text-white hover:bg-white/30 sm:right-4"
                 onClick={nextImage}
               >
                 <ChevronRight className="h-8 w-8" />
               </Button>
 
-              <div className="absolute bottom-6 rounded-full bg-black/50 px-4 py-1.5 text-sm font-medium text-white/90 backdrop-blur-sm">
+              <div className="absolute bottom-4 text-sm font-medium text-white/80">
                 {lightboxIndex + 1} / {images.length}
               </div>
             </>

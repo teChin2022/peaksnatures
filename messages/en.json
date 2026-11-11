@@ -1500,7 +1500,6 @@
     }
   },
   "bookingFooter": {
-    "hostedBy": "Hosted by {name}",
     "contact": "Contact",
     "poweredBy": "Powered by"
   },

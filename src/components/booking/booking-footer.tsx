@@ -14,7 +14,6 @@ interface BookingFooterProps {
   homestayName: string;
   logoUrl?: string | null;
   location: string;
-  hostName: string;
   hostPhone?: string | null;
   socialLinks?: SocialLinks;
 }
@@ -61,7 +60,6 @@ export function BookingFooter({
   homestayName,
   logoUrl,
   location,
-  hostName,
   hostPhone,
   socialLinks,
 }: BookingFooterProps) {
@@ -98,7 +96,6 @@ export function BookingFooter({
                 <h3 className={`font-semibold text-earth-50 text-base ${latin ? "tracking-wide" : ""}`}>
                   {homestayName}
                 </h3>
-                <p className="mt-0.5 text-xs text-earth-300">{t("hostedBy", { name: hostName })}</p>
               </div>
             </div>
 
