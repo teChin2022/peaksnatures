@@ -80,7 +80,7 @@ export function HostLocationSection({
 
   return (
     <>
-      <section id="host" className="scroll-mt-20 py-14 md:py-20 lg:py-28">
+      <section id="host" className="bg-white scroll-mt-20 py-14 md:py-20 lg:py-28">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
           <SectionMark />
           <SectionHeading>{tl("meetHost")}</SectionHeading>
@@ -180,7 +180,7 @@ export function HostLocationSection({
       </section>
 
       {mapEmbedUrl && (
-        <section id="location" className="scroll-mt-20 py-14 md:py-20 lg:py-28">
+        <section id="location" className="bg-white scroll-mt-20 py-14 md:py-20 lg:py-28">
           <div className="mx-auto max-w-6xl px-4 sm:px-6">
             <SectionMark />
             <SectionHeading>{ta("location")}</SectionHeading>

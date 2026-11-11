@@ -87,7 +87,7 @@ export function AboutSection({
   const [rulesModal, setRulesModal] = useState(false);
 
   return (
-    <section id="about" className="scroll-mt-20 py-14 md:py-20 lg:py-28">
+    <section id="about" className="bg-white scroll-mt-20 py-14 md:py-20 lg:py-28">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         {/* Description: heading on the left, text on the right. 5/12 on tablets: at 4/12 the serif heading splits Thai words. */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-12 md:gap-12">

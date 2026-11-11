@@ -54,7 +54,7 @@ function RatingBar({ value, label }: { value: number; label: string }) {
   return (
     <div className="flex items-center gap-2">
       <span className="w-24 shrink-0 truncate text-xs text-earth-600" title={label}>{label}</span>
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-earth-100">
+      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-brand-100">
         {pct > 0 && (
           <div
             className="h-full rounded-full bg-brand"
@@ -420,7 +420,7 @@ export function ReviewsDisplay({
               const avg = categoryAverages[cat.key] || 0;
               if (avg === 0) return null;
               return (
-                <div key={cat.key} className="flex items-center gap-1.5 rounded-lg bg-earth-50 px-3 py-1.5">
+                <div key={cat.key} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5">
                   <span className="text-sm font-semibold text-earth-900">{avg}</span>
                   <Star className="h-3 w-3" style={{ fill: "#2F5D50", color: "#2F5D50" }} />
                   <span className="text-xs text-earth-500">{t(CATEGORY_I18N[cat.key].label)}</span>

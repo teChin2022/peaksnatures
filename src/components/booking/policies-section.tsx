@@ -21,7 +21,7 @@ export function PoliciesSection({ content }: PoliciesSectionProps) {
   if (isEmptyRichText(content)) return null;
 
   return (
-    <section id="policies" className="scroll-mt-20 py-14 md:py-20 lg:py-28">
+    <section id="policies" className="bg-earth-100 scroll-mt-20 py-14 md:py-20 lg:py-28">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
         {/* Heading 5/12 on tablets: at 4/12 the serif heading splits Thai words. */}
         <div className="grid grid-cols-1 gap-6 md:grid-cols-12 md:gap-12">
