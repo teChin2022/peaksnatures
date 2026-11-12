@@ -33,6 +33,7 @@ import { composeLineGuestLabel } from "@/lib/guest-pricing";
 import { isValidEmail, isValidPhone, sanitizePhoneInput } from "@/lib/utils";
 import { getFullyBookedForRoom } from "@/lib/booking-dates";
 import { getDepositForMonth } from "@/lib/get-deposit";
+import { HoldCountdown } from "@/components/booking/hold-countdown";
 import { sortProvincesForLocale, getProvinceLabel } from "@/lib/provinces";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { prepareSlip } from "@/lib/prepare-slip";
@@ -78,31 +79,6 @@ function getCookie(name: string): string | null {
 function setCookie(name: string, value: string, days: number) {
   const expires = new Date(Date.now() + days * 864e5).toUTCString();
   document.cookie = `${name}=${encodeURIComponent(value)};expires=${expires};path=/;SameSite=Lax`;
-}
-
-function HoldCountdown({ expiresAt, onExpire }: { expiresAt: number | null; onExpire: () => void }) {
-  const [timeLeft, setTimeLeft] = useState(0);
-  useEffect(() => {
-    if (!expiresAt) { setTimeLeft(0); return; }
-    const tick = () => {
-      const remaining = Math.max(0, Math.floor((expiresAt - Date.now()) / 1000));
-      setTimeLeft(remaining);
-      if (remaining <= 0) { clearInterval(id); onExpire(); }
-    };
-    tick();
-    const id = setInterval(tick, 1000);
-    return () => clearInterval(id);
-  }, [expiresAt, onExpire]);
-
-  if (timeLeft <= 0) return null;
-  return (
-    <div className="flex items-center gap-1.5 rounded-full px-3 py-1 text-xs font-medium"
-      style={{ backgroundColor: timeLeft <= 60 ? '#fef2f2' : '#f3f4f6', color: timeLeft <= 60 ? '#dc2626' : '#111827' }}
-    >
-      <Clock className="h-3.5 w-3.5" />
-      {Math.floor(timeLeft / 60)}:{String(timeLeft % 60).padStart(2, '0')}
-    </div>
-  );
 }
 
 const AMENITY_ICONS: Record<string, React.ElementType> = {
@@ -516,6 +492,8 @@ export function BookingSection({
   }, [host, dateRange?.from, cartLines.length]);
 
   const depositAvailable = resolvedDeposit > 0 && resolvedDeposit < totalPrice;
+  // Same test the QR card uses to decide between the bank details and the PromptPay QR.
+  const payByBank = host.payment_display === "bank" && !!host.bank_name && !!host.bank_account_number && !!host.bank_account_name;
 
   const paymentAmount = useMemo(() => {
     if (paymentOption === "deposit" && depositAvailable) {
@@ -1815,13 +1793,13 @@ export function BookingSection({
                           className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "full" ? "border-brand bg-brand-50" : "border-earth-100 hover:border-earth-300"}`}>
                           <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "full" ? "bg-brand text-white" : "bg-earth-100 text-earth-400"}`}><CreditCard size={18} /></div>
                           <p className="font-bold text-earth-900">{t("payFull")}</p>
-                          <p className="text-xs text-earth-500">฿{totalPrice.toLocaleString()}</p>
+                          <p className="text-sm text-earth-700">฿{totalPrice.toLocaleString()}</p>
                         </button>
                         <button type="button" onClick={() => setPaymentOption("deposit")}
                           className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "deposit" ? "border-brand bg-brand-50" : "border-earth-100 hover:border-earth-300"}`}>
                           <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "deposit" ? "bg-brand text-white" : "bg-earth-100 text-earth-400"}`}><CreditCard size={18} /></div>
                           <p className="font-bold text-earth-900">{t("payDeposit")}</p>
-                          <p className="text-xs text-earth-500">฿{resolvedDeposit.toLocaleString()}</p>
+                          <p className="text-sm text-earth-700">฿{resolvedDeposit.toLocaleString()}</p>
                         </button>
                       </div>
                     )}
@@ -1830,45 +1808,52 @@ export function BookingSection({
                       {/* QR / Bank Transfer Phase */}
                       {paymentPhase === "qr" && (
                         <motion.div key="qr" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-4">
+                          {/* Step 1 (save the QR) only makes sense on a phone; hidden items don't take a number. */}
+                          <ol className="list-decimal space-y-1 rounded-2xl bg-earth-50 py-3 pl-9 pr-4 text-sm text-earth-700 marker:font-semibold">
+                            {!payByBank && <li className="md:hidden">{t("payStep1")}</li>}
+                            {!payByBank && <li>{t("payStep2")}</li>}
+                            <li>{t("payStep3")}</li>
+                            <li>{t("payStep4")}</li>
+                          </ol>
                           <div className="flex flex-col items-center p-5 bg-earth-50 rounded-2xl border border-earth-100">
                             {host.payment_display === "bank" && host.bank_name && host.bank_account_number && host.bank_account_name ? (
                               <>
-                                <p className="text-sm text-earth-500 mb-3">{t("bankTransferTitle")}</p>
+                                <p className="text-sm text-earth-600 mb-3">{t("bankTransferTitle")}</p>
                                 <div className="w-full space-y-2 bg-white rounded-xl p-4 border border-earth-100">
                                   <div className="flex justify-between text-sm">
-                                    <span className="text-earth-500">{t("bankTransferTitle")}</span>
+                                    <span className="text-earth-600">{t("bankTransferTitle")}</span>
                                     <span className="font-medium text-earth-900">{host.bank_name}</span>
                                   </div>
                                   <Separator />
                                   <div className="flex justify-between text-sm">
-                                    <span className="text-earth-500">{t("bankAccountNo")}</span>
+                                    <span className="text-earth-600">{t("bankAccountNo")}</span>
                                     <span className="font-mono font-medium text-earth-900">{host.bank_account_number}</span>
                                   </div>
                                   <Separator />
                                   <div className="flex justify-between text-sm">
-                                    <span className="text-earth-500">{t("bankAccountHolderName")}</span>
+                                    <span className="text-earth-600">{t("bankAccountHolderName")}</span>
                                     <span className="font-medium text-earth-900">{host.bank_account_name}</span>
                                   </div>
                                 </div>
                               </>
                             ) : (
                               <>
-                                <p className="text-sm text-earth-500 mb-3">{t("scanQr")}</p>
+                                <p className="text-sm text-earth-600 mb-3">{t("scanQr")}</p>
                                 <div ref={qrContainerRef} className="bg-white p-3 rounded-2xl shadow-sm">
                                   <QRCodeSVG value={generatePayload(host.promptpay_id, { amount: paymentAmount })} size={160} level="M" />
                                 </div>
-                                <button type="button" onClick={handleSaveQr} className="mt-3 flex items-center gap-1.5 rounded-full bg-white px-4 py-1.5 text-xs font-medium text-earth-700 border border-earth-200 hover:bg-earth-50">
+                                <button type="button" onClick={handleSaveQr} className="mt-3 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full border border-earth-200 bg-white px-4 py-1.5 text-sm font-medium text-earth-700 hover:bg-earth-50 md:min-h-0 md:w-auto md:text-xs">
                                   <Download className="h-3.5 w-3.5" />{t("saveQrImage")}
                                 </button>
                               </>
                             )}
                             <p className="mt-3 text-2xl font-bold text-earth-900">฿{paymentAmount.toLocaleString()}</p>
                             {paymentOption === "deposit" && depositAvailable && (
-                              <p className="mt-1 text-xs text-amber-600">{t("balanceDue")}: ฿{(totalPrice - paymentAmount).toLocaleString()} — {t("payOnArrival")}</p>
+                              <p className="mt-1 text-sm text-amber-800">{t("balanceDue")}: ฿{(totalPrice - paymentAmount).toLocaleString()} — {t("payOnArrival")}</p>
                             )}
                             <p className="mt-1 text-sm font-medium text-earth-700">{host.name}</p>
                             {host.payment_display !== "bank" && (
-                              <p className="text-xs text-earth-400">{t("promptpayId")}: {host.promptpay_id}</p>
+                              <p className="text-sm text-earth-600">{t("promptpayId")}: {host.promptpay_id}</p>
                             )}
                           </div>
 
@@ -1893,10 +1878,10 @@ export function BookingSection({
                             {showWelcomeBack && <div className="mb-3 rounded-xl bg-earth-100 px-4 py-2.5 text-sm font-medium text-earth-900">{t("welcomeBack")}</div>}
                             <Upload className="mx-auto h-8 w-8 text-earth-300" />
                             <h4 className="mt-2 text-base font-bold text-earth-900">{t("waitingForSlip")}</h4>
-                            <p className="mt-1 text-xs text-earth-500">{t("waitingForSlipDesc")}</p>
+                            <p className="mt-1 text-xs text-earth-600">{t("waitingForSlipDesc")}</p>
                             <p className="mt-2 text-lg font-bold text-earth-900">฿{paymentAmount.toLocaleString()}</p>
                             {paymentOption === "deposit" && depositAvailable && (
-                              <p className="mt-1 text-xs text-amber-600">{t("balanceDue")}: ฿{(totalPrice - paymentAmount).toLocaleString()} — {t("payOnArrival")}</p>
+                              <p className="mt-1 text-sm text-amber-800">{t("balanceDue")}: ฿{(totalPrice - paymentAmount).toLocaleString()} — {t("payOnArrival")}</p>
                             )}
                           </div>
 
@@ -1907,7 +1892,7 @@ export function BookingSection({
                                   <CheckCircle2 className="mr-1.5 inline h-4 w-4" />{t("slipReceived")}
                                 </div>
                               )}
-                              <p className="mb-2 text-center text-xs font-medium text-earth-500">{t("slipPreview")}</p>
+                              <p className="mb-2 text-center text-xs font-medium text-earth-600">{t("slipPreview")}</p>
                               <div className="relative mx-auto w-fit">
                                 <img src={slipPreview} alt={t("slipPreview")} className="mx-auto max-h-52 rounded-xl object-contain" />
                                 <button type="button" aria-label={t("removeSlip")} onClick={handleRemoveSlip} className="absolute right-1.5 top-1.5 flex h-9 w-9 items-center justify-center rounded-full bg-red-500 text-white shadow-md hover:bg-red-600"><X className="h-4 w-4" /></button>
@@ -1925,22 +1910,22 @@ export function BookingSection({
                                 <div className="rounded-xl bg-earth-100 p-2.5"><ImageIcon className="h-5 w-5 text-earth-500" /></div>
                                 <div>
                                   <p className="text-sm font-medium text-earth-700">{t("chooseFromGallery")}</p>
-                                  <p className="text-xs text-earth-400">{t("clickUpload")}</p>
+                                  <p className="text-xs text-earth-600">{t("clickUpload")}</p>
                                 </div>
                               </button>
                               {!isMobile && (
                                 <>
                                   <div className="relative flex items-center gap-3 py-1">
                                     <div className="flex-1 border-t border-earth-200" />
-                                    <span className="text-xs font-medium text-earth-400">{t("orUploadFromPhone")}</span>
+                                    <span className="text-xs font-medium text-earth-600">{t("orUploadFromPhone")}</span>
                                     <div className="flex-1 border-t border-earth-200" />
                                   </div>
                                   <div className="rounded-2xl border bg-earth-50 p-4 text-center">
-                                    <p className="mb-3 text-xs text-earth-500">{t("scanToUpload")}</p>
+                                    <p className="mb-3 text-xs text-earth-600">{t("scanToUpload")}</p>
                                     <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-xl border bg-white p-2">
                                       <QRCodeSVG value={`${typeof window !== "undefined" ? window.location.origin : ""}/upload-slip/${uploadSessionId}`} size={100} level="M" />
                                     </div>
-                                    <div className="mt-3 flex items-center justify-center gap-2 text-xs text-earth-400">
+                                    <div className="mt-3 flex items-center justify-center gap-2 text-xs text-earth-600">
                                       <Loader2 className="h-3 w-3 animate-spin" />{t("waitingForPhoneUpload")}
                                     </div>
                                   </div>
@@ -1948,7 +1933,7 @@ export function BookingSection({
                               )}
                             </div>
                           )}
-                          <p className="text-xs text-earth-400 text-center">{t("slipVerify")}</p>
+                          <p className="text-sm text-earth-600 text-center">{t("slipVerify")}</p>
 
                           <button onClick={handleSubmitBooking} disabled={isSubmitting || !slipFile}
                             className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
@@ -1981,7 +1966,7 @@ export function BookingSection({
         <DialogContent className="sm:max-w-md">
           <div className="flex flex-col items-center text-center py-4">
             <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${slipVerified ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"}`}>
-              <CheckCircle2 size={36} />
+              {slipVerified ? <CheckCircle2 size={36} /> : <Clock size={36} />}
             </div>
             <DialogHeader className="space-y-1">
               <DialogTitle className="text-2xl font-bold text-earth-900 text-center">
@@ -2003,11 +1988,11 @@ export function BookingSection({
 
             <div className="bg-earth-50 p-5 rounded-2xl w-full text-left space-y-2.5 text-sm mt-2">
               <div className="flex justify-between">
-                <span className="text-earth-400">{t("homestay")}</span>
+                <span className="text-earth-600">{t("homestay")}</span>
                 <span className="font-bold text-earth-900">{homestay.name}</span>
               </div>
               <div className="space-y-1.5">
-                <span className="text-earth-400">{t("yourCart")} ({cartLines.length})</span>
+                <span className="text-earth-600">{t("yourCart")} ({cartLines.length})</span>
                 {cartLines.map((line) => {
                   const room = rooms.find((r) => r.id === line.roomId);
                   return (
@@ -2019,29 +2004,29 @@ export function BookingSection({
                 })}
               </div>
               <div className="flex justify-between">
-                <span className="text-earth-400">{t("dates")}</span>
+                <span className="text-earth-600">{t("dates")}</span>
                 <span className="font-bold text-earth-900">
                   {dateRange?.from && fmtDate(dateRange.from, "MMM d", locale)} — {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy", locale)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-earth-400">{t("guestInfo")}</span>
+                <span className="text-earth-600">{t("guestInfo")}</span>
                 <span className="font-bold text-earth-900">{guestName}</span>
               </div>
               <Separator />
               <div className="flex justify-between">
-                <span className="text-earth-400">{tc("total")}</span>
+                <span className="text-earth-600">{tc("total")}</span>
                 <span className="text-lg font-bold text-earth-900">฿{totalPrice.toLocaleString()}</span>
               </div>
               {paymentOption === "deposit" && depositAvailable && (
                 <>
                   <div className="flex justify-between text-xs">
-                    <span className="text-earth-400">{t("amountPaid")}</span>
+                    <span className="text-earth-600">{t("amountPaid")}</span>
                     <span className="text-earth-900">฿{paymentAmount.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-xs">
-                    <span className="text-amber-600">{t("balanceDue")}</span>
-                    <span className="text-amber-600">฿{(totalPrice - paymentAmount).toLocaleString()}</span>
+                    <span className="text-amber-800">{t("balanceDue")}</span>
+                    <span className="text-amber-800">฿{(totalPrice - paymentAmount).toLocaleString()}</span>
                   </div>
                 </>
               )}
