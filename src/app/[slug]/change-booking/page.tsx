@@ -24,18 +24,18 @@ const getHomestayWithHost = cache(async function getHomestayWithHost(slug: strin
   const supabase = createServiceRoleClient();
   const { data: homestayRow } = await supabase
     .from("homestays")
-    .select("id, name, slug, logo_url, hero_image_url, host_id")
+    .select("id, name, slug, logo_url, hero_image_url, host_id, facebook_url")
     .eq("slug", slug)
     .eq("is_active", true)
     .single();
   if (!homestayRow) return null;
-  const homestay = homestayRow as unknown as Pick<Homestay, "id" | "name" | "slug" | "logo_url" | "hero_image_url" | "host_id">;
+  const homestay = homestayRow as unknown as Pick<Homestay, "id" | "name" | "slug" | "logo_url" | "hero_image_url" | "host_id" | "facebook_url">;
   const { data: hostRow } = await supabase
     .from("hosts")
-    .select("name, promptpay_id, cancellation_days, payment_display, bank_name, bank_account_number, bank_account_name")
+    .select("name, phone, promptpay_id, cancellation_days, payment_display, bank_name, bank_account_number, bank_account_name")
     .eq("id", homestay.host_id)
     .single();
-  return { homestay, host: hostRow as unknown as Pick<Host, "name" | "promptpay_id" | "cancellation_days" | "payment_display" | "bank_name" | "bank_account_number" | "bank_account_name"> | null };
+  return { homestay, host: hostRow as unknown as Pick<Host, "name" | "phone" | "promptpay_id" | "cancellation_days" | "payment_display" | "bank_name" | "bank_account_number" | "bank_account_name"> | null };
 });
 
 export async function generateMetadata({ params }: PageProps): Promise<Metadata> {
@@ -127,6 +127,8 @@ export default async function ChangeBookingPage({ params }: PageProps) {
             bankName={localizedHost?.bank_name}
             bankAccountNumber={localizedHost?.bank_account_number}
             bankAccountName={localizedHost?.bank_account_name}
+            facebookUrl={homestay.facebook_url}
+            hostPhone={localizedHost?.phone}
           />
         </div>
       </main>

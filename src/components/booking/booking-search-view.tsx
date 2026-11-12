@@ -30,6 +30,7 @@ import { toast } from "sonner";
 import { fmtDate, fmtDateStr } from "@/lib/format-date";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { ReviewForm } from "@/components/reviews/review-form";
+import { DateChangeSentDialog, type DateChangeSent } from "@/components/booking/date-change-sent-dialog";
 import generatePayload from "promptpay-qr";
 import { QRCodeSVG } from "qrcode.react";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
@@ -87,9 +88,11 @@ interface BookingSearchViewProps {
   bankName?: string | null;
   bankAccountNumber?: string | null;
   bankAccountName?: string | null;
+  facebookUrl?: string | null;
+  hostPhone?: string | null;
 }
 
-export function BookingSearchView({ mode, homestayId, promptpayId, cancellationDays: propCancellationDays, paymentDisplay, bankName, bankAccountNumber, bankAccountName }: BookingSearchViewProps) {
+export function BookingSearchView({ mode, homestayId, promptpayId, cancellationDays: propCancellationDays, paymentDisplay, bankName, bankAccountNumber, bankAccountName, facebookUrl, hostPhone }: BookingSearchViewProps) {
   const t = useTranslations("bookingSearch");
   const tr = useTranslations("reviews");
   const locale = useLocale();
@@ -133,6 +136,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
   const dcQrRef = useRef<HTMLDivElement>(null);
   const [dcUnavailableModal, setDcUnavailableModal] = useState<"unavailable" | "blocked" | null>(null);
   const dcUnavailableBookingRef = useRef<SearchResult | null>(null);
+  const [dcSent, setDcSent] = useState<DateChangeSent | null>(null);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileError, setTurnstileError] = useState(false);
   const turnstileRef = useRef<TurnstileInstance>(null);
@@ -472,7 +476,13 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
         return;
       }
 
-      toast.success(t("dateChangeSuccess"));
+      setDcSent({
+        checkIn: fmtDate(dateRange.from, "d MMM yyyy", locale),
+        checkOut: fmtDate(dateRange.to, "d MMM yyyy", locale),
+        roomName: dcSelectedRoomId && dcSelectedRoomId !== booking.room_id
+          ? (dcRooms.find((r) => r.id === dcSelectedRoomId)?.name ?? null)
+          : null,
+      });
       setResults((prev) =>
         prev.map((b) =>
           b.id === booking.id
@@ -1505,6 +1515,8 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
           </DialogFooter>
         </DialogContent>
       </Dialog>
+
+      <DateChangeSentDialog sent={dcSent} onClose={() => setDcSent(null)} facebookUrl={facebookUrl} hostPhone={hostPhone} />
 
       {reviewingBookingId && (
         <ReviewForm

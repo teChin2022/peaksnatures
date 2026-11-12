@@ -13,9 +13,12 @@ import { hostContactLink } from "@/lib/quick-booking";
 export function HostContactLinks({
   facebookUrl,
   hostPhone,
+  messengerLabel,
 }: {
   facebookUrl: string | null | undefined;
   hostPhone: string | null | undefined;
+  /** Replaces the default "send your slip" wording on the Messenger button. */
+  messengerLabel?: string;
 }) {
   const t = useTranslations("booking");
   const contact = hostContactLink(facebookUrl);
@@ -38,7 +41,7 @@ export function HostContactLinks({
           className={`inline-flex min-h-11 items-center justify-center gap-2 rounded-full bg-brand px-6 text-sm font-bold text-white transition-colors hover:bg-brand-hover ${focus}`}
         >
           <MessageCircle size={18} aria-hidden="true" />
-          {contact.kind === "messenger" ? t("hostContactMessenger") : t("hostContactPage")}
+          {contact.kind === "messenger" ? (messengerLabel ?? t("hostContactMessenger")) : t("hostContactPage")}
         </a>
       )}
       {phone && (
