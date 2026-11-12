@@ -69,7 +69,7 @@ function Calendar({
         years_dropdown: "",
         weekdays: "flex",
         weekday:
-          "flex-1 text-[0.7rem] font-semibold uppercase tracking-widest text-earth-400 text-center py-2 select-none",
+          "flex-1 text-xs font-medium text-earth-600 text-center py-2 select-none",
         week: "flex w-full",
         weeks: "",
         week_number_header: "select-none w-9",

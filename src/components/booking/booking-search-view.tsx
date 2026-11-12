@@ -68,12 +68,12 @@ interface SearchResult {
 }
 
 const statusConfig: Record<string, { color: string; icon: React.ElementType }> = {
-  pending: { color: "bg-yellow-100 text-yellow-700", icon: Clock },
-  verified: { color: "bg-blue-100 text-blue-700", icon: CheckCircle2 },
-  confirmed: { color: "bg-green-100 text-green-700", icon: CheckCircle2 },
-  rejected: { color: "bg-red-100 text-red-700", icon: XCircle },
-  cancelled: { color: "bg-earth-100 text-earth-500", icon: XCircle },
-  completed: { color: "bg-purple-100 text-purple-700", icon: CheckCircle2 },
+  pending: { color: "bg-amber-50 text-amber-700", icon: Clock },
+  verified: { color: "bg-brand-50 text-brand", icon: CheckCircle2 },
+  confirmed: { color: "bg-brand-50 text-brand", icon: CheckCircle2 },
+  rejected: { color: "bg-destructive/10 text-destructive", icon: XCircle },
+  cancelled: { color: "bg-destructive/10 text-destructive", icon: XCircle },
+  completed: { color: "bg-earth-100 text-earth-700", icon: CheckCircle2 },
 };
 
 export type BookingSearchViewMode = "check-in-out" | "change-booking";
@@ -134,6 +134,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
   const [dcRooms, setDcRooms] = useState<{ id: string; name: string }[]>([]);
   const [dcSelectedRoomId, setDcSelectedRoomId] = useState<string | null>(null);
   const dcQrRef = useRef<HTMLDivElement>(null);
+  const dcSummaryRef = useRef<HTMLDivElement>(null);
   const [dcUnavailableModal, setDcUnavailableModal] = useState<"unavailable" | "blocked" | null>(null);
   const dcUnavailableBookingRef = useRef<SearchResult | null>(null);
   const [dcSent, setDcSent] = useState<DateChangeSent | null>(null);
@@ -175,6 +176,16 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
     }
     return dateChangePriceInfo.full_outstanding;
   }, [dateChangePriceInfo, dcPaymentOption]);
+
+  // Price info arrives only when the server asks for an extra payment; the
+  // summary renders below the fold on a phone, so bring it into view.
+  useEffect(() => {
+    const el = dcSummaryRef.current;
+    if (!dateChangePriceInfo || !el) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+    el.focus({ preventScroll: true });
+  }, [dateChangePriceInfo]);
 
   const handleCheckin = async (bookingId: string, guestEmail: string, action: "checkin" | "checkout") => {
     setCheckingIn(bookingId);
@@ -656,6 +667,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
               onKeyDown={handleKeyDown}
               disabled={!turnstilePassed}
               className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400 disabled:opacity-60 disabled:cursor-not-allowed"
+              aria-label={t("placeholder")}
               autoFocus
             />
           </div>
@@ -663,7 +675,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
             type="button"
             onClick={handleSearch}
             disabled={loading || !query.trim() || !turnstilePassed}
-            className="bg-brand text-white px-6 py-3.5 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed shrink-0"
+            className="inline-flex h-12 items-center justify-center bg-brand text-white px-6 rounded-full font-semibold text-sm hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("search")}
           </button>
@@ -707,11 +719,11 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
             return (
               <div
                 key={booking.id}
-                className="rounded-lg border bg-earth-50 overflow-hidden"
+                className="rounded-2xl border border-earth-200 bg-white overflow-hidden"
               >
                 <AnimatePresence mode="wait" initial={false}>
                   {!showCalendarPane ? (
-                    <motion.div key="details" exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.2 }} className="p-3 space-y-1.5">
+                    <motion.div key="details" exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.2 }} className="p-4 space-y-2">
                       <div className="flex items-center justify-between">
                         <span className="font-medium text-earth-900 text-sm">
                           {booking.guest_name}
@@ -721,14 +733,14 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                           {t(`status.${booking.status}`)}
                         </Badge>
                       </div>
-                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-earth-500">
+                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-earth-600">
                         <span className="flex items-center gap-1">
                           <CalendarDays className="h-3 w-3" />
                           {fmtDateStr(booking.check_in, "d MMM yyyy", locale)} → {fmtDateStr(booking.check_out, "d MMM yyyy", locale)}
                         </span>
                         <span>{booking.room_name}</span>
                         {booking.group_id && (
-                          <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700">
+                          <span className="rounded-full bg-earth-200 px-2.5 py-0.5 text-xs font-medium text-earth-700">
                             {t("groupBookingBadge")}
                           </span>
                         )}
@@ -736,7 +748,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                           ฿{booking.total_price.toLocaleString()}
                         </span>
                         {booking.selected_options && booking.selected_options.length > 0 && (
-                          <span className="text-earth-500">
+                          <span className="text-earth-600">
                             {t("options")}: {booking.selected_options.map((o: { name: string }) => o.name).join(", ")}
                           </span>
                         )}
@@ -746,12 +758,12 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                           </span>
                         )}
                         {(booking.amount_paid || 0) < booking.total_price && (
-                          <span className="font-medium text-amber-600">
+                          <span className="font-medium text-amber-700">
                             {t("remainingBalance")}: ฿{(booking.total_price - (booking.amount_paid || 0)).toLocaleString()}
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-earth-400 break-all">
+                      <p className="text-xs text-earth-600 break-all">
                         ID: {booking.id}
                       </p>
 
@@ -832,19 +844,19 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                           )}
 
                           {booking.pending_date_change && (
-                            <div className="rounded-lg border border-blue-200 bg-blue-50 p-2.5">
-                              <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700 mb-1">
+                            <div className="rounded-xl border border-amber-200 bg-amber-50 p-3">
+                              <div className="flex items-center gap-1.5 text-xs font-semibold text-amber-800 mb-1">
                                 <Clock className="h-3.5 w-3.5" />
                                 {t("dateChangePending")}
                               </div>
-                              <p className="text-xs text-blue-600">
+                              <p className="text-xs text-amber-800">
                                 {t("dateChangePendingDesc", {
                                   checkIn: fmtDateStr(booking.pending_date_change.new_check_in, "d MMM yyyy", locale),
                                   checkOut: fmtDateStr(booking.pending_date_change.new_check_out, "d MMM yyyy", locale),
                                 })}
                               </p>
                               {booking.pending_date_change.new_room_id && booking.pending_date_change.new_room_id !== booking.room_id && (
-                                <p className="text-xs text-blue-600">
+                                <p className="text-xs text-amber-800">
                                   {t("dateChangePendingRoom", {
                                     oldRoom: booking.room_name,
                                     newRoom: booking.pending_date_change.new_room_name || "—",
@@ -856,9 +868,8 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
 
                           {showChangeBookingActions && !booking.pending_date_change && (
                             <Button
-                              size="sm"
                               variant="outline"
-                              className="w-full text-earth-600 border-earth-200 hover:bg-earth-50 rounded-xl"
+                              className="h-11 w-full rounded-full border-earth-200 text-earth-800 hover:bg-earth-50"
                               onClick={() => {
                                 setChangingDatesId(booking.id);
                                 setDcSelectedRoomId(booking.room_id);
@@ -871,6 +882,10 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                             </Button>
                           )}
                         </div>
+                      )}
+
+                      {showChangeBookingActions && !(booking.status === "confirmed" && !booking.checked_in_at) && (
+                        <p className="mt-2 border-t border-earth-200 pt-3 text-xs text-earth-600">{t("dcNotChangeable")}</p>
                       )}
 
                       {/* Confirmed + checked in + not checked out */}
@@ -1095,22 +1110,23 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                       )}
                     </motion.div>
                   ) : (
-                    <motion.div key="calendar" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.25 }} className="p-3 space-y-2">
-                      <div className="flex items-center gap-3 mb-1">
-                        <button onClick={resetDateChangeState} className="p-1.5 rounded-full hover:bg-earth-200 text-earth-400 transition-colors"><ArrowLeft size={16} /></button>
+                    <motion.div key="calendar" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.25 }} className="p-4 space-y-3">
+                      <div className="flex items-center gap-2">
+                        <button type="button" onClick={resetDateChangeState} aria-label={t("cancelDateChange")} className="-ml-2 inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-full text-earth-700 transition-colors hover:bg-earth-100 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"><ArrowLeft size={18} aria-hidden="true" /></button>
                         <div className="flex-1 min-w-0">
-                          <p className="text-xs font-medium text-earth-700">{t("changeDatesDesc")}</p>
-                          <p className="text-[11px] text-earth-400 truncate">
+                          <p className="text-sm font-medium text-earth-900">{t("changeDatesDesc")}</p>
+                          <p className="text-xs text-earth-600 truncate">
                             {booking.room_name} · {fmtDateStr(booking.check_in, "d MMM", locale)} → {fmtDateStr(booking.check_out, "d MMM", locale)} · ฿{booking.total_price.toLocaleString()}
                           </p>
                         </div>
                       </div>
 
                       {dcRooms.length > 1 && (
-                        <div className="px-1">
-                          <label className="text-[11px] font-medium text-earth-500 mb-1 block">{t("selectRoom")}</label>
+                        <div>
+                          <label htmlFor={`dc-house-${booking.id}`} className="mb-1.5 block text-xs font-medium text-earth-700">{t("selectRoom")}</label>
                           <select
-                            className="w-full rounded-md border border-earth-200 bg-white px-2.5 py-1.5 text-xs text-earth-700 focus:outline-none focus:ring-1 focus:ring-gray-300"
+                            id={`dc-house-${booking.id}`}
+                            className="h-11 w-full rounded-xl border border-earth-500 bg-white px-3 text-base text-earth-900 sm:text-sm focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                             value={dcSelectedRoomId || ""}
                             onChange={(e) => {
                               const newRoomId = e.target.value;
@@ -1135,7 +1151,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                       )}
 
                       {dcLoadingAvailability && (
-                        <div className="flex items-center justify-center gap-2 py-4 text-xs text-earth-500">
+                        <div className="flex items-center justify-center gap-2 py-4 text-xs text-earth-600">
                           <Loader2 className="h-3.5 w-3.5 animate-spin" />
                         </div>
                       )}
@@ -1172,7 +1188,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                           } : undefined}
                           disabled={[{ before: new Date() }, isDcDayDisabled]}
                           numberOfMonths={1}
-                          className="rounded-md border bg-white"
+                          className="bg-white"
                         />
                       </div>
 
@@ -1196,15 +1212,15 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
 
                       {dateRange?.from && dateRange?.to && (
                         <div className="space-y-2">
-                          <div className="grid grid-cols-2 gap-2 text-xs">
-                            <div className="rounded bg-white p-2 border">
-                              <span className="text-earth-500">{t("currentDates")}</span>
-                              <p className="font-medium text-earth-700">
+                          <div className="grid grid-cols-2 gap-2 text-sm">
+                            <div className="rounded-xl bg-earth-50 p-3">
+                              <span className="text-xs text-earth-600">{t("currentDates")}</span>
+                              <p className="font-medium text-earth-800">
                                 {fmtDateStr(booking.check_in, "d MMM", locale)} → {fmtDateStr(booking.check_out, "d MMM", locale)}
                               </p>
                             </div>
-                            <div className="rounded bg-white p-2 border">
-                              <span className="text-earth-500">{t("newDates")}</span>
+                            <div className="rounded-xl bg-earth-50 p-3">
+                              <span className="text-xs text-earth-600">{t("newDates")}</span>
                               <p className="font-medium text-earth-900">
                                 {fmtDate(dateRange.from, "d MMM", locale)} → {fmtDate(dateRange.to, "d MMM", locale)}
                               </p>
@@ -1213,37 +1229,37 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
 
                           {dateChangePriceInfo && (
                             <div className="space-y-2">
-                              <div className="rounded bg-white p-2 border text-xs space-y-1">
+                              <div ref={dcSummaryRef} tabIndex={-1} aria-label={t("dcPriceSummary")} className="scroll-mt-20 rounded-xl bg-earth-50 p-3 text-sm tabular-nums space-y-1.5 focus-visible:outline-2 focus-visible:outline-brand">
                                 <div className="flex justify-between">
-                                  <span className="text-earth-500">{t("originalPrice")}</span>
+                                  <span className="text-earth-600">{t("originalPrice")}</span>
                                   <span>฿{booking.total_price.toLocaleString()}</span>
                                 </div>
                                 <div className="flex justify-between">
-                                  <span className="text-earth-500">{t("newPrice")}</span>
+                                  <span className="text-earth-600">{t("newPrice")}</span>
                                   <span className="font-medium">฿{dateChangePriceInfo.new_total_price.toLocaleString()}</span>
                                 </div>
                                 {dateChangePriceInfo.price_difference !== 0 && (
                                   <div className="flex justify-between font-medium">
-                                    <span className="text-earth-500">{t("priceDifference")}</span>
-                                    <span className={dateChangePriceInfo.price_difference > 0 ? "text-red-600" : "text-green-600"}>
+                                    <span className="text-earth-600">{t("priceDifference")}</span>
+                                    <span className="text-earth-900">
                                       {dateChangePriceInfo.price_difference > 0 ? "+" : ""}฿{dateChangePriceInfo.price_difference.toLocaleString()}
                                     </span>
                                   </div>
                                 )}
-                                <div className="border-t border-gray-100 pt-1 mt-1">
+                                <div className="mt-1.5 space-y-1.5 border-t border-earth-200 pt-1.5">
                                   <div className="flex justify-between">
-                                    <span className="text-earth-500">{t("amountPaid")}</span>
+                                    <span className="text-earth-600">{t("amountPaid")}</span>
                                     <span>฿{dateChangePriceInfo.amount_paid.toLocaleString()}</span>
                                   </div>
                                   {dcEffectiveAdditional > 0 && (
-                                    <div className="flex justify-between font-medium text-red-600">
+                                    <div className="flex justify-between text-base font-semibold text-earth-900">
                                       <span>{t("additionalPaymentShort")}</span>
                                       <span>฿{dcEffectiveAdditional.toLocaleString()}</span>
                                     </div>
                                   )}
                                   {Math.max(0, dateChangePriceInfo.new_total_price - dateChangePriceInfo.amount_paid - dcEffectiveAdditional) > 0 && (
                                     <div className="flex justify-between font-medium">
-                                      <span className="text-earth-500">{t("remainingBalance")}</span>
+                                      <span className="text-earth-600">{t("dcBalanceAtCheckin")}</span>
                                       <span>฿{Math.max(0, dateChangePriceInfo.new_total_price - dateChangePriceInfo.amount_paid - dcEffectiveAdditional).toLocaleString()}</span>
                                     </div>
                                   )}
@@ -1251,76 +1267,45 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                               </div>
                               {dateChangePriceInfo.deposit_available && dcEffectiveAdditional > 0 && (
                                 <div className="space-y-1.5">
-                                  <p className="text-[11px] font-medium text-earth-600">{t("dcPaymentOptionTitle")}</p>
+                                  <p className="text-xs font-medium text-earth-700">{t("dcPaymentOptionTitle")}</p>
                                   <div className="grid grid-cols-2 gap-2">
                                     <button type="button" onClick={() => { setDcPaymentOption("deposit"); setDateChangeSlipFile(null); setDateChangeSlipPreview(null); setDcPhoneSlipReceived(false); }}
-                                      className={`rounded-lg border-2 p-2 text-left text-xs transition-all ${dcPaymentOption === "deposit" ? "border-brand bg-brand/5" : "border-gray-100 hover:border-gray-300"}`}>
+                                      className={`rounded-xl border p-3 text-left text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${dcPaymentOption === "deposit" ? "border-brand bg-brand-50" : "border-earth-200 hover:border-earth-300"}`}>
                                       <p className="font-bold text-earth-900">{t("paymentDeposit")}</p>
-                                      <p className="font-semibold text-[11px] text-earth-700">฿{Math.max(0, dateChangePriceInfo.new_deposit - dateChangePriceInfo.amount_paid).toLocaleString()}</p>
-                                      <p className="text-[10px] text-earth-400 mt-0.5">{t("dcDepositDesc", { balance: Math.max(0, dateChangePriceInfo.new_total_price - dateChangePriceInfo.amount_paid - Math.max(0, dateChangePriceInfo.new_deposit - dateChangePriceInfo.amount_paid)).toLocaleString() })}</p>
+                                      <p className="font-semibold tabular-nums text-earth-800">฿{Math.max(0, dateChangePriceInfo.new_deposit - dateChangePriceInfo.amount_paid).toLocaleString()}</p>
+                                      <p className="mt-0.5 text-xs text-earth-600">{t("dcDepositDesc", { balance: Math.max(0, dateChangePriceInfo.new_total_price - dateChangePriceInfo.amount_paid - Math.max(0, dateChangePriceInfo.new_deposit - dateChangePriceInfo.amount_paid)).toLocaleString() })}</p>
                                     </button>
                                     <button type="button" onClick={() => { setDcPaymentOption("full"); setDateChangeSlipFile(null); setDateChangeSlipPreview(null); setDcPhoneSlipReceived(false); }}
-                                      className={`rounded-lg border-2 p-2 text-left text-xs transition-all ${dcPaymentOption === "full" ? "border-brand bg-brand/5" : "border-gray-100 hover:border-gray-300"}`}>
+                                      className={`rounded-xl border p-3 text-left text-sm transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand ${dcPaymentOption === "full" ? "border-brand bg-brand-50" : "border-earth-200 hover:border-earth-300"}`}>
                                       <p className="font-bold text-earth-900">{t("paymentFull")}</p>
-                                      <p className="font-semibold text-[11px] text-earth-700">฿{dateChangePriceInfo.full_outstanding.toLocaleString()}</p>
-                                      <p className="text-[10px] text-earth-400 mt-0.5">{t("dcFullDesc")}</p>
+                                      <p className="font-semibold tabular-nums text-earth-800">฿{dateChangePriceInfo.full_outstanding.toLocaleString()}</p>
+                                      <p className="mt-0.5 text-xs text-earth-600">{t("dcFullDesc")}</p>
                                     </button>
                                   </div>
                                 </div>
                               )}
-                              {dcEffectiveAdditional > 0 && (
-                                <div className="rounded-lg border border-blue-100 bg-blue-50 p-2">
-                                  <p className="text-[11px] text-blue-700">
-                                    {dateChangePriceInfo.deposit_available && dcPaymentOption === "deposit"
-                                      ? t("dcDepositNote", {
-                                          deposit: dateChangePriceInfo.new_deposit.toLocaleString(),
-                                          paid: dateChangePriceInfo.amount_paid.toLocaleString(),
-                                          due: dcEffectiveAdditional.toLocaleString(),
-                                          balance: Math.max(0, dateChangePriceInfo.new_total_price - dateChangePriceInfo.amount_paid - dcEffectiveAdditional).toLocaleString(),
-                                        })
-                                      : t("dcFullNote", {
-                                          total: dateChangePriceInfo.new_total_price.toLocaleString(),
-                                          paid: dateChangePriceInfo.amount_paid.toLocaleString(),
-                                          due: dcEffectiveAdditional.toLocaleString(),
-                                        })
-                                    }
-                                  </p>
-                                </div>
-                              )}
                               {dcEffectiveAdditional === 0 && dateChangePriceInfo.price_difference >= 0 && (
-                                <div className="rounded-lg border border-green-100 bg-green-50 p-2">
-                                  <p className="text-[11px] text-green-700">{t("dcNoPaymentNeeded")}</p>
+                                <div className="rounded-xl bg-brand-50 p-3">
+                                  <p className="text-xs text-brand">{t("dcNoPaymentNeeded")}</p>
                                 </div>
                               )}
                             </div>
                           )}
 
-                          {dateChangePriceInfo && dcEffectiveAdditional === 0 && dateChangePriceInfo.price_difference < 0 && !noRefundConfirmed && (
-                            <div className="rounded-lg border border-amber-200 bg-amber-50 p-2.5">
-                              <div className="flex items-start gap-2">
-                                <AlertTriangle className="h-4 w-4 text-amber-600 mt-0.5 shrink-0" />
-                                <div className="space-y-2">
-                                  <p className="text-xs text-amber-700">
-                                    {t("noRefundWarning", { amount: Math.abs(dateChangePriceInfo.price_difference).toLocaleString() })}
-                                  </p>
-                                  <Button
-                                    size="sm"
-                                    className="w-full bg-amber-600 text-white hover:bg-amber-700"
-                                    onClick={() => setNoRefundConfirmed(true)}
-                                  >
-                                    <CheckCircle2 className="mr-1.5 h-3.5 w-3.5" />
-                                    {t("submitDateChange")}
-                                  </Button>
-                                </div>
-                              </div>
-                            </div>
+                          {dateChangePriceInfo && dcEffectiveAdditional === 0 && dateChangePriceInfo.price_difference < 0 && (
+                            <label className="flex cursor-pointer items-start gap-3 rounded-xl border border-amber-200 bg-amber-50 p-3 text-sm text-amber-800">
+                              <input
+                                type="checkbox"
+                                checked={noRefundConfirmed}
+                                onChange={(e) => setNoRefundConfirmed(e.target.checked)}
+                                className="mt-0.5 h-5 w-5 shrink-0 accent-brand"
+                              />
+                              <span>{t("noRefundWarning", { amount: Math.abs(dateChangePriceInfo.price_difference).toLocaleString() })}</span>
+                            </label>
                           )}
 
                           {dateChangePriceInfo && dcEffectiveAdditional > 0 && promptpayId && (
                             <div className="space-y-2">
-                              <p className="text-xs font-medium text-red-600">
-                                {t("additionalPayment", { amount: dcEffectiveAdditional.toLocaleString() })}
-                              </p>
                               <input
                                 ref={dateChangeFileRef}
                                 type="file"
@@ -1371,26 +1356,26 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                                 <>
                                   <div className="flex flex-col items-center gap-2">
                                     {paymentDisplay === "bank" && bankName && bankAccountNumber && bankAccountName ? (
-                                      <div className="w-full rounded-lg border bg-white p-3 space-y-1.5">
-                                        <div className="flex justify-between text-xs">
-                                          <span className="text-earth-500">{t("bankTransferTitle")}</span>
+                                      <div className="w-full rounded-xl bg-earth-50 p-3 space-y-1.5">
+                                        <div className="flex justify-between text-sm">
+                                          <span className="text-earth-600">{t("bankTransferTitle")}</span>
                                           <span className="font-medium text-earth-900">{bankName}</span>
                                         </div>
-                                        <div className="flex justify-between text-xs">
-                                          <span className="text-earth-500">{t("bankAccountNo")}</span>
+                                        <div className="flex justify-between text-sm">
+                                          <span className="text-earth-600">{t("bankAccountNo")}</span>
                                           <span className="font-mono font-medium text-earth-900">{bankAccountNumber}</span>
                                         </div>
-                                        <div className="flex justify-between text-xs">
-                                          <span className="text-earth-500">{t("bankAccountHolderName")}</span>
+                                        <div className="flex justify-between text-sm">
+                                          <span className="text-earth-600">{t("bankAccountHolderName")}</span>
                                           <span className="font-medium text-earth-900">{bankAccountName}</span>
                                         </div>
                                       </div>
                                     ) : (
                                       <>
-                                        <div ref={dcQrRef} className="rounded-lg border bg-white p-2">
+                                        <div ref={dcQrRef} className="rounded-xl border border-earth-200 bg-white p-3">
                                           <QRCodeSVG
                                             value={generatePayload(promptpayId, { amount: dcEffectiveAdditional })}
-                                            size={100}
+                                            size={160}
                                             level="M"
                                           />
                                         </div>
@@ -1420,18 +1405,17 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                                               };
                                               img.src = "data:image/svg+xml;base64," + btoa(unescape(encodeURIComponent(svgData)));
                                             }}
-                                            className="flex items-center gap-1.5 rounded-full bg-white px-3 py-1 text-[11px] font-medium text-earth-700 border border-earth-200 hover:bg-earth-50"
+                                            className="inline-flex h-11 items-center gap-1.5 rounded-full border border-earth-200 bg-white px-4 text-sm font-medium text-earth-800 hover:bg-earth-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
                                           >
-                                            <Download className="h-3 w-3" />{t("saveQrImage")}
+                                            <Download className="h-4 w-4" aria-hidden="true" />{t("saveQrImage")}
                                           </button>
                                         )}
                                       </>
                                     )}
                                   </div>
                                   <Button
-                                    size="sm"
                                     variant="outline"
-                                    className="w-full"
+                                    className="h-11 w-full rounded-full border-earth-200"
                                     onClick={() => dateChangeFileRef.current?.click()}
                                   >
                                     <Upload className="mr-1.5 h-3.5 w-3.5" />
@@ -1441,16 +1425,16 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                                     <>
                                       <div className="relative flex items-center gap-3 py-1">
                                         <div className="flex-1 border-t border-earth-200" />
-                                        <span className="text-[10px] font-medium text-earth-400">{t("orUploadFromPhone")}</span>
+                                        <span className="text-xs font-medium text-earth-600">{t("orUploadFromPhone")}</span>
                                         <div className="flex-1 border-t border-earth-200" />
                                       </div>
-                                      <div className="rounded-lg border bg-white p-3 text-center">
-                                        <p className="mb-2 text-[10px] text-earth-500">{t("scanToUpload")}</p>
+                                      <div className="rounded-xl bg-earth-50 p-3 text-center">
+                                        <p className="mb-2 text-xs text-earth-600">{t("scanToUpload")}</p>
                                         <div className="mx-auto flex h-24 w-24 items-center justify-center rounded-lg border bg-white p-1">
                                           <QRCodeSVG value={`${typeof window !== "undefined" ? window.location.origin : ""}/upload-slip/${dcUploadSessionId}`} size={80} level="M" />
                                         </div>
-                                        <div className="mt-2 flex items-center justify-center gap-1.5 text-[10px] text-earth-400">
-                                          <Loader2 className="h-2.5 w-2.5 animate-spin" />{t("waitingForPhoneUpload")}
+                                        <div className="mt-2 flex items-center justify-center gap-1.5 text-xs text-earth-600">
+                                          <Loader2 className="h-3 w-3 animate-spin" aria-hidden="true" />{t("waitingForPhoneUpload")}
                                         </div>
                                       </div>
                                     </>
@@ -1460,19 +1444,17 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                             </div>
                           )}
 
-                          <div className="flex gap-2">
+                          <div className="flex flex-col-reverse gap-2 sm:flex-row">
                             <Button
-                              size="sm"
                               variant="outline"
-                              className="flex-1"
+                              className="h-11 flex-1 rounded-full border-earth-200"
                               onClick={resetDateChangeState}
                               disabled={submittingDateChange}
                             >
                               {t("cancelDateChange")}
                             </Button>
                             <Button
-                              size="sm"
-                              className="flex-1 bg-brand text-white hover:bg-brand-hover"
+                              className="h-11 flex-1 rounded-full bg-brand text-white hover:bg-brand-hover"
                               onClick={() => handleDateChangeSubmit(booking)}
                               disabled={submittingDateChange || !isDcRangeValid || (dateChangePriceInfo !== null && dcEffectiveAdditional > 0 && !dateChangeSlipFile && !dcPhoneSlipReceived) || (dateChangePriceInfo !== null && dcEffectiveAdditional === 0 && dateChangePriceInfo.price_difference < 0 && !noRefundConfirmed)}
                             >
@@ -1481,7 +1463,9 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                               ) : (
                                 <ArrowRightLeft className="mr-1.5 h-3.5 w-3.5" />
                               )}
-                              {t("submitDateChange")}
+                              {dateChangePriceInfo && dcEffectiveAdditional > 0
+                                ? t("dcConfirmPaySubmit", { amount: dcEffectiveAdditional.toLocaleString() })
+                                : t("submitDateChange")}
                             </Button>
                           </div>
                         </div>

@@ -1,8 +1,8 @@
 import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { test, type Page, type TestInfo } from "@playwright/test";
-import { expectNoUnexpectedWrites, reachPayment, requireSlug, startSession, type Session } from "./support";
+import { expect, test, type Page, type TestInfo } from "@playwright/test";
+import { T, chooseNewStay, expectNoUnexpectedWrites, findBooking, reachPayment, requireSlug, startSession, stubChangeBooking, type Session } from "./support";
 
 /**
  * Evidence for a UI review (peaksnature-ui Mode A), not a regression test.
@@ -109,5 +109,47 @@ test("booking page, payment step", async ({ page, context }, testInfo) => {
     if (width) await page.setViewportSize({ width, height: 800 });
     await reachPayment(page, slug);
     await capture(page, testInfo, "payment", slug);
+  }
+});
+
+/** /{slug}/change-booking with a stubbed booking: the result, the form, extra payment, and the sent dialog. */
+test("change-booking page", async ({ page, context }, testInfo) => {
+  const slug = requireSlug();
+  const t = T.bookingSearch;
+  session = await startSession(page, context);
+  await stubChangeBooking(page);
+  for (const width of widthsFor(testInfo)) {
+    if (width) await page.setViewportSize({ width, height: 800 });
+    session.respond("POST /api/bookings/change-dates", {
+      status: 402,
+      body: { error: "PAYMENT_REQUIRED", price_difference: 1500, additional_payment: 1500, new_total_price: 4500, amount_paid: 3000, deposit_available: false, new_deposit: 0, full_outstanding: 1500 },
+    });
+
+    await findBooking(page, slug);
+    await capture(page, testInfo, "change-result", slug);
+
+    await page.getByRole("button", { name: t.changeDates }).click();
+    await chooseNewStay(page);
+    await expect(page.getByRole("button", { name: t.submitDateChange })).toBeEnabled();
+    await page.waitForTimeout(400);
+    await capture(page, testInfo, "change-form", slug);
+
+    await page.getByRole("button", { name: t.submitDateChange }).click();
+    await expect(page.getByText(t.additionalPaymentShort).first()).toBeVisible();
+    await capture(page, testInfo, "change-payment", slug);
+
+    // Same form, a request that needs no extra payment: the sent dialog.
+    session.respond("POST /api/bookings/change-dates", {
+      status: 201,
+      body: { success: true, request: { id: "dcr-e2e" }, price_difference: 0, new_total_price: 3000 },
+    });
+    await findBooking(page, slug);
+    await page.getByRole("button", { name: t.changeDates }).click();
+    await chooseNewStay(page);
+    await page.getByRole("button", { name: t.submitDateChange }).click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("heading", { name: t.dcSentTitle })).toBeVisible();
+    await dialog.evaluate((el) => Promise.allSettled(el.ownerDocument.getAnimations().map((a) => a.finished)));
+    await capture(page, testInfo, "change-sent", slug);
   }
 });

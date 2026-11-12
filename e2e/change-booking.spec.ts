@@ -1,25 +1,17 @@
 import { expect, test, type Page } from "@playwright/test";
-import { T, expectNoUnexpectedWrites, requireSlug, startSession, type Session } from "./support";
+import { CHANGE, T, chooseNewStay, expectNoUnexpectedWrites, findBooking, requireSlug, startSession, stubChangeBooking, stubbedBooking, type Session } from "./support";
 
 /**
  * A guest asks to change their house or dates on /{slug}/change-booking. The
  * homestay page itself is real; the booking the search finds, the houses, the
- * availability and the change request are stubbed, so nothing is read from or
- * written to a real booking. The host's Facebook link and phone are written
- * into the page's own payload, so the contact buttons are tested whatever the
- * real host has set.
+ * availability and the change request are stubbed (support.ts), so nothing is
+ * read from or written to a real booking. The host's Facebook link and phone
+ * are written into the page's own payload, so the contact buttons are tested
+ * whatever the real host has set.
  */
 
 const t = T.bookingSearch;
-const FACEBOOK = "https://www.facebook.com/e2e.homestay";
-const PHONE = "0812345678";
-const BOOKING_ID = "b0000000-0000-4000-8000-00000000e2e0";
-const HOUSES = [
-  { id: "house-a", name: "บ้านริมธาร" },
-  { id: "house-b", name: "บ้านบนเนิน" },
-];
-
-const isoDaysAhead = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+const { phone: PHONE, bookingId: BOOKING_ID, houses: HOUSES } = CHANGE;
 
 let session: Session;
 
@@ -27,83 +19,12 @@ test.afterEach(() => {
   if (session) expectNoUnexpectedWrites(session);
 });
 
-/** Writes `value` over a string-or-null prop in the server-rendered payload. */
-function rewriteProp(html: string, prop: string, value: string) {
-  let replaced = 0;
-  const out = html.replace(new RegExp(`(${prop}(\\\\*)"\\s*:\\s*)(?:null|\\\\*"[^"\\\\]*\\\\*")`, "g"), (_m, head: string, esc: string) => {
-    replaced += 1;
-    return `${head}${esc}"${value}${esc}"`;
-  });
-  expect(replaced, `${prop} was not found in the page payload; has the Next.js payload format changed?`).toBeGreaterThan(0);
-  return out;
-}
-
 async function openChangeForm(page: Page, context: Parameters<typeof startSession>[1]) {
   const slug = requireSlug();
   session = await startSession(page, context);
-
-  await page.route(/\/change-booking(\?.*)?$/, async (route) => {
-    if (route.request().resourceType() !== "document") return route.fallback();
-    const response = await route.fetch();
-    let html = await response.text();
-    html = rewriteProp(html, "facebookUrl", FACEBOOK);
-    html = rewriteProp(html, "hostPhone", PHONE);
-    return route.fulfill({ response, body: html });
-  });
-  await page.route("**/api/bookings/search*", (route) =>
-    route.fulfill({
-      contentType: "application/json",
-      body: JSON.stringify({
-        bookings: [
-          {
-            id: BOOKING_ID, guest_name: "ทดสอบ ระบบ", guest_email: "e2e@example.com", guest_phone: "0898765432",
-            check_in: isoDaysAhead(40), check_out: isoDaysAhead(42), num_guests: 2, total_price: 3000, amount_paid: 3000,
-            payment_type: "full", status: "confirmed", room_id: HOUSES[0].id, group_id: null, room_name: HOUSES[0].name,
-            checked_in_at: null, checked_out_at: null, created_at: new Date().toISOString(), selected_options: null,
-            has_review: false, pending_date_change: null,
-          },
-        ],
-      }),
-    }),
-  );
-  await page.route("**/api/bookings/availability*", (route) =>
-    route.fulfill({ contentType: "application/json", body: JSON.stringify({ bookedRanges: [] }) }),
-  );
-  // The form reads houses and blocked nights straight from Supabase.
-  await page.route(/\/rest\/v1\/rooms\?/, (route) =>
-    route.fulfill({
-      contentType: "application/json",
-      body: JSON.stringify(route.request().url().includes("quantity") ? { quantity: 1 } : HOUSES),
-    }),
-  );
-  await page.route(/\/rest\/v1\/blocked_dates\?/, (route) => route.fulfill({ contentType: "application/json", body: "[]" }));
-  await page.route("**/api/bookings/change-dates", (route) => {
-    session.calls.push({ method: "POST", path: "/api/bookings/change-dates", body: route.request().postDataJSON() });
-    return route.fulfill({
-      status: 201,
-      contentType: "application/json",
-      body: JSON.stringify({ success: true, request: { id: "dcr-e2e" }, price_difference: 0, new_total_price: 3000 }),
-    });
-  });
-
-  await page.goto(`/${slug}/change-booking`);
-  const search = page.getByPlaceholder(t.placeholder);
-  await expect(search).toBeEnabled();
-  await search.fill(BOOKING_ID.slice(0, 8));
-  await page.getByRole("button", { name: t.search, exact: true }).click();
-
-  const open = page.getByRole("button", { name: t.changeDates });
-  await expect(open).toHaveText(T.bookingSearch.changeDates);
-  await open.click();
-}
-
-/** Picks a two-night stay next month, where every day is in the future. */
-async function chooseNewStay(page: Page) {
-  await page.locator("nav button").last().click();
-  const days = page.locator("button[data-day]:not([disabled])");
-  await expect(days.nth(10)).toBeVisible();
-  await days.nth(8).click();
-  await days.nth(10).click();
+  await stubChangeBooking(page);
+  await findBooking(page, slug);
+  await page.getByRole("button", { name: t.changeDates }).click();
 }
 
 async function submit(page: Page) {
@@ -155,12 +76,61 @@ test("after a date change, a dialog asks the guest to message or call the host",
 
 test("after a house change, the dialog names the new house", async ({ page, context }) => {
   await openChangeForm(page, context);
-  // The house <select> has no accessible name, so it is found by its options.
-  await page.locator("select").filter({ has: page.locator(`option[value="${HOUSES[1].id}"]`) }).selectOption(HOUSES[1].id);
+  await page.getByLabel(t.selectRoom).selectOption(HOUSES[1].id);
   await chooseNewStay(page);
   await submit(page);
 
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText(t.dcSentRoom.replace("{room}", HOUSES[1].name))).toBeVisible();
   expect(changePosts()[0].body).toMatchObject({ booking_id: BOOKING_ID, new_room_id: HOUSES[1].id });
+});
+
+test("the page's controls have names a screen reader can read", async ({ page, context }) => {
+  await openChangeForm(page, context);
+  await expect(page.getByRole("link", { name: T.reviewsPage.backToHomestay })).toBeVisible();
+  await expect(page.getByLabel(t.selectRoom)).toBeVisible();
+  const back = page.getByRole("button", { name: t.cancelDateChange }).first();
+  const box = (await back.boundingBox())!;
+  expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
+  await back.click();
+  await expect(page.getByRole("button", { name: t.changeDates })).toBeVisible();
+});
+
+test("when the change costs more, the price summary comes into view and the button names the payment", async ({ page, context }) => {
+  await openChangeForm(page, context);
+  session.respond("POST /api/bookings/change-dates", {
+    status: 402,
+    body: { error: "PAYMENT_REQUIRED", price_difference: 1500, additional_payment: 1500, new_total_price: 4500, amount_paid: 3000, deposit_available: false, new_deposit: 0, full_outstanding: 1500 },
+  });
+  await chooseNewStay(page);
+  await page.getByRole("button", { name: t.submitDateChange }).click();
+
+  const summary = page.getByLabel(t.dcPriceSummary);
+  // Scrolled up into the top third of the screen (as far as the page allows),
+  // not left where it rendered, below the slip upload.
+  const third = page.viewportSize()!.height / 3;
+  await expect.poll(async () => (await summary.boundingBox())?.y ?? -1).toBeGreaterThanOrEqual(0);
+  await expect.poll(async () => (await summary.boundingBox())?.y ?? 9999).toBeLessThan(third);
+  await expect(summary.getByText(t.additionalPaymentShort)).toBeVisible();
+  // The amount due is stated once in the summary, not again in notes under it.
+  await expect(page.getByText("฿1,500", { exact: true })).toHaveCount(1);
+  const pay = page.getByRole("button", { name: t.dcConfirmPaySubmit.replace("{amount}", "1,500") });
+  await expect(pay).toBeVisible();
+  // No slip yet: the request cannot be sent.
+  await expect(pay).toBeDisabled();
+  expect(changePosts()).toHaveLength(1);
+});
+
+test("a booking that cannot be changed says why", async ({ page, context }) => {
+  const slug = requireSlug();
+  session = await startSession(page, context);
+  await stubChangeBooking(page);
+  await page.route("**/api/bookings/search*", (route) =>
+    route.fulfill({ contentType: "application/json", body: JSON.stringify({ bookings: [stubbedBooking({ status: "pending" })] }) }),
+  );
+  await page.goto(`/${slug}/change-booking`);
+  await page.getByPlaceholder(t.placeholder).fill(BOOKING_ID.slice(0, 8));
+  await page.getByRole("button", { name: t.search, exact: true }).click();
+  await expect(page.getByText(t.dcNotChangeable)).toBeVisible();
+  await expect(page.getByRole("button", { name: t.changeDates })).toHaveCount(0);
 });

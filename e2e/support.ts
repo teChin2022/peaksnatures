@@ -150,6 +150,9 @@ export async function startSession(
       ? stub(route, () => ({ status: 201, body: { booking: { id: CREATED_ID } } }))
       : route.fallback(),
   );
+  await page.route("**/api/bookings/change-dates", (route) =>
+    stub(route, () => ({ status: 201, body: { success: true, request: { id: "dcr-e2e" }, price_difference: 0, new_total_price: 3000 } })),
+  );
   await page.route("**/api/bookings/group", (route) =>
     stub(route, () => ({ status: 201, body: { group: { id: CREATED_ID }, bookings: [{ id: "member-e2e" }] } })),
   );
@@ -250,3 +253,83 @@ export function expectNoUnexpectedWrites(session: Session) {
 
 export const bookingPosts = (session: Session) =>
   session.calls.filter((c) => c.method === "POST" && (c.path === "/api/bookings" || c.path === "/api/bookings/group"));
+
+/* ---------- /{slug}/change-booking ---------- */
+
+export const CHANGE = {
+  facebook: "https://www.facebook.com/e2e.homestay",
+  phone: "0812345678",
+  bookingId: "b0000000-0000-4000-8000-00000000e2e0",
+  houses: [
+    { id: "house-a", name: "บ้านริมธาร" },
+    { id: "house-b", name: "บ้านบนเนิน" },
+  ],
+};
+
+const isoDaysAhead = (days: number) => new Date(Date.now() + days * 86_400_000).toISOString().slice(0, 10);
+
+/** Writes `value` over a string-or-null prop in the server-rendered payload. */
+function rewriteProp(html: string, prop: string, value: string) {
+  let replaced = 0;
+  const out = html.replace(new RegExp(`(${prop}(\\\\*)"\\s*:\\s*)(?:null|\\\\*"[^"\\\\]*\\\\*")`, "g"), (_m, head: string, esc: string) => {
+    replaced += 1;
+    return `${head}${esc}"${value}${esc}"`;
+  });
+  expect(replaced, `${prop} was not found in the page payload; has the Next.js payload format changed?`).toBeGreaterThan(0);
+  return out;
+}
+
+/** The booking the change-booking search finds: confirmed, paid in full, 40 days out. */
+export function stubbedBooking(overrides: Record<string, unknown> = {}) {
+  return {
+    id: CHANGE.bookingId, guest_name: "ทดสอบ ระบบ", guest_email: "e2e@example.com", guest_phone: "0898765432",
+    check_in: isoDaysAhead(40), check_out: isoDaysAhead(42), num_guests: 2, total_price: 3000, amount_paid: 3000,
+    payment_type: "full", status: "confirmed", room_id: CHANGE.houses[0].id, group_id: null, room_name: CHANGE.houses[0].name,
+    checked_in_at: null, checked_out_at: null, created_at: new Date().toISOString(), selected_options: null,
+    has_review: false, pending_date_change: null,
+    ...overrides,
+  };
+}
+
+/**
+ * Stubs what the change-booking page reads about one booking: the search
+ * result, the houses, availability and blocked nights. The host's Facebook
+ * link and phone are written into the page's own payload. Call after
+ * startSession, which stubs the change request itself.
+ */
+export async function stubChangeBooking(page: Page) {
+  await page.route(/\/change-booking(\?.*)?$/, async (route) => {
+    if (route.request().resourceType() !== "document") return route.fallback();
+    const response = await route.fetch();
+    let html = await response.text();
+    html = rewriteProp(html, "facebookUrl", CHANGE.facebook);
+    html = rewriteProp(html, "hostPhone", CHANGE.phone);
+    return route.fulfill({ response, body: html });
+  });
+  await page.route("**/api/bookings/search*", (route) => json(route, { bookings: [stubbedBooking()] }));
+  await page.route("**/api/bookings/availability*", (route) => json(route, { bookedRanges: [] }));
+  // The form reads houses and blocked nights straight from Supabase.
+  await page.route(/\/rest\/v1\/rooms\?/, (route) =>
+    json(route, route.request().url().includes("quantity") ? { quantity: 1 } : CHANGE.houses),
+  );
+  await page.route(/\/rest\/v1\/blocked_dates\?/, (route) => json(route, []));
+}
+
+/** Opens /{slug}/change-booking and finds the stubbed booking. */
+export async function findBooking(page: Page, slug: string) {
+  await page.goto(`/${slug}/change-booking`);
+  const search = page.getByPlaceholder(T.bookingSearch.placeholder);
+  await expect(search).toBeEnabled();
+  await search.fill(CHANGE.bookingId.slice(0, 8));
+  await page.getByRole("button", { name: T.bookingSearch.search, exact: true }).click();
+  await expect(page.getByRole("button", { name: T.bookingSearch.changeDates })).toBeVisible();
+}
+
+/** Picks a two-night stay next month, where every day is in the future. */
+export async function chooseNewStay(page: Page) {
+  await page.locator("nav button").last().click();
+  const days = page.locator("button[data-day]:not([disabled])");
+  await expect(days.nth(10)).toBeVisible();
+  await days.nth(8).click();
+  await days.nth(10).click();
+}
