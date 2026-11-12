@@ -70,6 +70,14 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
     return () => document.removeEventListener("booking-step", handler);
   }, []);
 
+  // "ดูรายการจอง" on the add-to-cart toast opens the sheet (phones only; desktop has the header cart).
+  useEffect(() => {
+    if (!isMobile) return;
+    const open = () => setSheetOpen(true);
+    document.addEventListener("open-cart", open);
+    return () => document.removeEventListener("open-cart", open);
+  }, [isMobile]);
+
   // BookingSection reports when its card is on screen above the bar.
   useEffect(() => {
     const handler = (e: Event) => setCardInView((e as CustomEvent<{ inView: boolean }>).detail.inView);

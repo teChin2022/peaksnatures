@@ -5,6 +5,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/u
 import { Button } from "@/components/ui/button";
 import { Minus, Plus, Users, ListPlus } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
+import { toast } from "sonner";
 import type { Room } from "@/types/database";
 import { composeTierLabel, hasDefaultPriceTier, resolveGuestPricing } from "@/lib/guest-pricing";
 import { calculateTotalPrice } from "@/lib/calculate-price";
@@ -114,6 +115,10 @@ export function RoomConfigDialog({
       for (let i = 0; i < qty; i++) {
         addLine({ lineId: crypto.randomUUID(), ...fields });
       }
+      // The card barely changes, so confirm the add and offer the cart (listened to by MobileBookingBar and HeaderCart).
+      toast.success(t("addedToast", { name: room.name }), {
+        action: { label: t("viewCart"), onClick: () => document.dispatchEvent(new CustomEvent("open-cart")) },
+      });
     }
     onClose();
   };

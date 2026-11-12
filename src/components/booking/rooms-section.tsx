@@ -10,7 +10,8 @@ import type { Room, RoomSeasonalPrice, RoomSpecialPrice, BlockedDate } from "@/t
 
 type BookingStep = "dates" | "details" | "payment";
 import { Badge } from "@/components/ui/badge";
-import { Users, CalendarSearch, ChevronLeft, ChevronRight, X, Sparkles, Wrench, ShoppingCart } from "lucide-react";
+import { Users, CalendarSearch, ChevronLeft, ChevronRight, X, Sparkles, Wrench, ShoppingCart, Check } from "lucide-react";
+import { roomCtaState } from "@/components/booking/room-cta-state";
 import { fmtDateStr } from "@/lib/format-date";
 
 import { useTranslations, useLocale } from "next-intl";
@@ -240,12 +241,14 @@ function SingleRoomHero({
   onCalendar,
   onDesc,
   onAddToCart,
+  onEdit,
   cartEnabled,
   bookingLocked,
   isPopular,
   unavailableForDates,
   datesChosen,
   remaining = 0,
+  inCart = 0,
 }: {
   room: Room;
   seasonalPrices: RoomSeasonalPrice[];
@@ -254,6 +257,8 @@ function SingleRoomHero({
   onCalendar: () => void;
   onDesc: () => void;
   onAddToCart: () => void;
+  /** Opens the room's cart line for editing (used once every free unit is in the cart). */
+  onEdit: () => void;
   cartEnabled: boolean;
   bookingLocked: boolean;
   isPopular?: boolean;
@@ -261,6 +266,8 @@ function SingleRoomHero({
   datesChosen?: boolean;
   /** Units still bookable for the chosen dates; only meaningful once dates are chosen. */
   remaining?: number;
+  /** Units of this house already in the cart. */
+  inCart?: number;
 }) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
@@ -310,6 +317,7 @@ function SingleRoomHero({
 
   const { min, max } = getPriceRange({ basePricePerNight: room.price_per_night, seasons: seasonalPrices, specialPrices });
   const hasRange = min !== max;
+  const ctaState = roomCtaState({ datesChosen: !!datesChosen, inCart, remaining });
 
   if (!room.is_active) {
     const cover = images[0];
@@ -475,6 +483,12 @@ function SingleRoomHero({
                   <Users className="h-3.5 w-3.5" />
                   {tc("guests")} {room.max_guests}
                 </span>
+                {inCart > 0 && (
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 font-semibold text-brand">
+                    <Check className="h-3.5 w-3.5" />
+                    {t("selectedCount", { count: inCart })}
+                  </span>
+                )}
                 {datesChosen && remaining > 0 && (
                   <span className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-1 text-white/90 backdrop-blur-sm">
                     {t("available", { count: remaining })}
@@ -495,20 +509,32 @@ function SingleRoomHero({
             {/* Right: CTA buttons — desktop only (inside overlay) */}
             <div className="hidden shrink-0 flex-col items-stretch gap-2 sm:flex">
               {cartEnabled && (
-                <Button
-                  disabled={bookingLocked || unavailableForDates || !datesChosen}
-                  className="rounded-full bg-brand text-white px-6 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={(e) => { e.stopPropagation(); onAddToCart(); }}
-                >
-                  {unavailableForDates ? (
-                    t("unavailableForDates")
-                  ) : (
-                    <>
-                      <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
-                      {t("selectThisRoom")}
-                    </>
+                <>
+                  <Button
+                    disabled={bookingLocked || unavailableForDates || ctaState === "pick-dates"}
+                    className={ctaState === "edit"
+                      ? "rounded-full bg-white/90 text-brand px-6 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-white border border-white/50 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      : "rounded-full bg-brand text-white px-6 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"}
+                    onClick={(e) => { e.stopPropagation(); if (ctaState === "edit") onEdit(); else onAddToCart(); }}
+                  >
+                    {unavailableForDates ? (
+                      t("unavailableForDates")
+                    ) : ctaState === "edit" ? (
+                      <>
+                        <Check className="mr-1.5 h-3.5 w-3.5" />
+                        {t("inCartEdit")}
+                      </>
+                    ) : (
+                      <>
+                        <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
+                        {t("selectThisRoom")}
+                      </>
+                    )}
+                  </Button>
+                  {ctaState === "pick-dates" && !bookingLocked && (
+                    <p className="text-center text-xs text-white/90">{t("pickDatesFirst")}</p>
                   )}
-                </Button>
+                </>
               )}
               <button
                 type="button"
@@ -526,20 +552,32 @@ function SingleRoomHero({
       {/* Mobile CTA — outside image */}
       <div className="mt-3 mb-15 flex w-full flex-col gap-2 sm:hidden">
         {cartEnabled && (
-          <Button
-            disabled={bookingLocked || unavailableForDates || !datesChosen}
-            className="w-full rounded-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase shadow-lg hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={() => onAddToCart()}
-          >
-            {unavailableForDates ? (
-              t("unavailableForDates")
-            ) : (
-              <>
-                <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
-                {t("selectThisRoom")}
-              </>
+          <>
+            <Button
+              disabled={bookingLocked || unavailableForDates || ctaState === "pick-dates"}
+              className={ctaState === "edit"
+                ? "w-full rounded-full border border-brand bg-brand-50 text-brand px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase shadow-lg hover:bg-brand-100 disabled:opacity-50 disabled:cursor-not-allowed"
+                : "w-full rounded-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase shadow-lg hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"}
+              onClick={() => (ctaState === "edit" ? onEdit() : onAddToCart())}
+            >
+              {unavailableForDates ? (
+                t("unavailableForDates")
+              ) : ctaState === "edit" ? (
+                <>
+                  <Check className="mr-1.5 h-3.5 w-3.5" />
+                  {t("inCartEdit")}
+                </>
+              ) : (
+                <>
+                  <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
+                  {t("selectThisRoom")}
+                </>
+              )}
+            </Button>
+            {ctaState === "pick-dates" && !bookingLocked && (
+              <p className="text-center text-xs text-earth-600">{t("pickDatesFirst")}</p>
             )}
-          </Button>
+          </>
         )}
         <button
           type="button"
@@ -566,6 +604,11 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
   const locale = useLocale();
   const cart = useBookingCartOptional();
   const [config, setConfig] = useState<{ room: Room; editingLine?: CartLine } | null>(null);
+
+  const handleEditInCart = (room: Room) => {
+    const line = cart?.lines.find((l) => l.roomId === room.id);
+    if (line) setConfig({ room, editingLine: line });
+  };
 
   const handleAddToCart = (room: Room) => {
     if (!cart) return;
@@ -637,12 +680,14 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
             onCalendar={() => setCalendarRoomId(room.id)}
             onDesc={() => setDescRoomId(room.id)}
             onAddToCart={() => handleAddToCart(room)}
+            onEdit={() => handleEditInCart(room)}
             cartEnabled={!!cart}
             bookingLocked={bookingLocked}
             isPopular={popularRoomIds.has(room.id)}
             unavailableForDates={false}
             datesChosen={datesChosen}
             remaining={cart?.remainingForRoom(room)}
+            inCart={cart?.countForRoom(room.id) ?? 0}
           />
         ))}
         {datesChosen && visibleRooms.length === 0 && (

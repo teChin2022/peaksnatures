@@ -28,6 +28,13 @@ export function HeaderCart({ scrolled }: { scrolled: boolean }) {
   const dateRange = cart?.dateRange;
   const hasCart = cartCount > 0;
 
+  // "ดูรายการจอง" on the add-to-cart toast opens this dialog (md and up; phones have the sticky bar's sheet).
+  useEffect(() => {
+    const openCart = () => { if (window.matchMedia("(min-width: 768px)").matches) setOpen(true); };
+    document.addEventListener("open-cart", openCart);
+    return () => document.removeEventListener("open-cart", openCart);
+  }, []);
+
   // Editing a line reopens the room config dialog (RoomsSection dispatches
   // `edit-line`); close this review so the two dialog layers don't overlap.
   useEffect(() => {
