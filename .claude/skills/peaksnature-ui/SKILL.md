@@ -55,6 +55,8 @@ Load one primary skill. Add a second only for a gap you can name.
 
 - Before re-auditing a page, read its findings in docs/ui-audit.md and
   `.impeccable/critique/`.
+- Mode A on a guest page (`/[slug]`, `/[slug]/book`) starts with the
+  Playwright capture below; both Impeccable assessments work from its output.
 - emil-design-eng and improve-animations answer a bare invocation with a
   greeting and wait: pass the target and the question as args.
 - If a request fits two modes, ask one question.
@@ -78,6 +80,35 @@ Load one primary skill. Add a second only for a gap you can name.
 - Visual checks, including Impeccable's "look at the rendered result": use the
   CDP method in CLAUDE.md. Never submit checkout step 2: it writes holds and a
   draft.
+
+## Review capture (Playwright + Impeccable)
+
+For guest pages, run once per review instead of hand-driving Chrome:
+
+```bash
+UI_REVIEW=1 E2E_SLUG=<slug> npx playwright test ui-review
+```
+
+`e2e/ui-review.spec.ts` opens each state through `startSession` (no DB
+writes, consent declined, demand blocked), saves a full-page screenshot at
+375 (touch), 768 and 1280 px, and runs `impeccable detect --cdp` against the
+same live page. Output: `.impeccable/review/ui-review-<stamp>/<state>-<width>.png`
+and `.detect.json`. States: `landing`, `book`, `payment` (reached via
+`reachPayment`, holds and draft stubbed). Add a state there rather than
+scripting CDP by hand.
+
+- Assessment A reads the PNGs (Read tool) plus source. Assessment B uses the
+  `.detect.json` files as its detector and browser evidence; it does not
+  rerun `detect` or open its own tab. Both read files, so they stay isolated
+  and work in plan mode.
+- Skip the live-server `[Human]` overlay; say so in Run Notes. The owner can
+  watch with `--headed`, or open the trace in `test-results/`.
+- A `{ "error": ... }` file means the detector did not run for that state:
+  report it, don't read it as clean.
+- The run fails only on an unstubbed write. Never loosen `startSession` to
+  get past one.
+- Host dashboard and admin are not covered (login, no write guard): use the
+  CDP method there and say the capture did not run.
 
 ## Finish
 
