@@ -1,5 +1,8 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
+import { NextResponse } from "next/server";
 import { POST } from "./route";
+import { EventType } from "@/lib/history-log";
+import { buildBookingRequest, type BookingSlipFields } from "@/lib/booking-request";
 import { createSupabaseMock, type QueryResponse, type SupabaseMockOptions } from "../../../../test/helpers/supabase";
 import { makeRequest, readJson } from "../../../../test/helpers/request";
 import { makePromoCode } from "../../../../test/fixtures/db";
@@ -13,10 +16,18 @@ const h = vi.hoisted(() => ({
   hostBlockStateFrom: vi.fn(),
   isHostBlocked: vi.fn(),
   sendBookingConfirmationEmail: vi.fn(),
+  sendQuickBookingEmail: vi.fn(),
+  sendHostSmsNotification: vi.fn(),
+  sendHostLineNotification: vi.fn(),
+  buildNewBookingMessage: vi.fn(),
   dispatchHostNotification: vi.fn(),
   sendRecommenderPromoUsedNotification: vi.fn(),
+  rateLimitCheck: vi.fn(),
+  verifyTurnstileToken: vi.fn(),
 }));
 
+vi.mock("@/lib/rate-limit", () => ({ createRateLimiter: () => ({ check: h.rateLimitCheck }) }));
+vi.mock("@/lib/turnstile", () => ({ verifyTurnstileToken: h.verifyTurnstileToken }));
 vi.mock("@/lib/supabase/server", () => ({ createServiceRoleClient: h.createServiceRoleClient }));
 vi.mock("next/cache", () => ({ revalidateTag: h.revalidateTag }));
 vi.mock("next/server", async (importOriginal) => ({
@@ -37,10 +48,11 @@ vi.mock("@/lib/billing", () => ({
 vi.mock("@/lib/plan-expiry", () => ({ isHostBlocked: h.isHostBlocked }));
 vi.mock("@/lib/notifications", () => ({
   sendBookingConfirmationEmail: h.sendBookingConfirmationEmail,
-  sendHostLineNotification: vi.fn(),
-  sendHostSmsNotification: vi.fn(),
+  sendQuickBookingEmail: h.sendQuickBookingEmail,
+  sendHostLineNotification: h.sendHostLineNotification,
+  sendHostSmsNotification: h.sendHostSmsNotification,
   dispatchHostNotification: h.dispatchHostNotification,
-  buildNewBookingMessage: vi.fn(() => "message"),
+  buildNewBookingMessage: h.buildNewBookingMessage,
   sendRecommenderPromoUsedNotification: h.sendRecommenderPromoUsedNotification,
 }));
 
@@ -130,6 +142,10 @@ beforeEach(() => {
   vi.spyOn(console, "warn").mockImplementation(() => {});
   h.afterCallbacks.length = 0;
   h.sendBookingConfirmationEmail.mockResolvedValue(undefined);
+  h.sendQuickBookingEmail.mockResolvedValue(undefined);
+  h.sendHostSmsNotification.mockResolvedValue({ success: true });
+  h.sendHostLineNotification.mockResolvedValue({ success: true });
+  h.buildNewBookingMessage.mockReturnValue("message");
   // Invoke the channel callbacks the route hands over, so the closures that
   // build the SMS, LINE and email bodies actually run.
   h.dispatchHostNotification.mockImplementation(
@@ -150,6 +166,8 @@ beforeEach(() => {
   h.logEvent.mockResolvedValue(undefined);
   h.hostBlockStateFrom.mockResolvedValue({ plan_type: "commission", plan_free_expires_at: null });
   h.isHostBlocked.mockReturnValue(false);
+  h.rateLimitCheck.mockResolvedValue(null);
+  h.verifyTurnstileToken.mockResolvedValue("pass");
   mockClient();
 });
 
@@ -211,6 +229,7 @@ describe("POST /api/bookings", () => {
       ["zero guests", { num_guests: 0 }],
       ["a negative price", { total_price: -1 }],
       ["a missing slip hash", { slip_hash: "" }],
+      ["no slip hash at all on a normal booking", { slip_hash: undefined }],
       ["an unknown payment type", { payment_type: "invoice" }],
     ])("refuses %s", async (_label, over) => {
       const { status, body: result } = await readJson(await post(body(over)));
@@ -768,6 +787,364 @@ describe("POST /api/bookings", () => {
       await expect(readJson(await post(noRoom()))).resolves.toEqual({
         status: 500,
         body: { error: "Failed to create booking" },
+      });
+    });
+  });
+
+  describe("guest quick booking", () => {
+    const HOST_BASE = {
+      plan_type: "commission",
+      plan_free_expires_at: null,
+      wallet_balance: 5000,
+      wallet_credit_limit: 0,
+      wallet_negative_since: null,
+      deposit_amount: 0,
+      deposit_by_month: null,
+    };
+    const CREATED = {
+      id: BOOKING_ID,
+      total_price: 2000,
+      homestay: { id: HOMESTAY_ID, name: "Retreat", host: { id: "host-1", name: "Somchai" } },
+      room: { id: ROOM_ID, name: "Pine House" },
+    };
+
+    /** A quick request carries no slip: the guest sends it to the host in chat. */
+    const quickBody = (over: Record<string, unknown> = {}) => body({ quick: true, slip_hash: undefined, ...over });
+
+    /** A host on `mode`; `lookup` is what the waiting-bookings check reads back. */
+    const quickClient = (mode: string | undefined, lookup: QueryResponse = { data: [] }, hostOver = {}) =>
+      mockClient({
+        tables: tables({
+          homestays: { data: homestayRow({ hosts: { ...HOST_BASE, guest_booking_mode: mode, ...hostOver } }) },
+          // the waiting-bookings lookup, the read-back after create, the notification lookup
+          bookings: [lookup, { data: CREATED }, { data: CREATED }],
+        }),
+      });
+
+    const PENDING_RPC = {
+      p_status: "pending",
+      p_easyslip_verified: false,
+      p_payment_slip_hash: null,
+      p_slip_trans_ref: null,
+      p_payment_slip_url: null,
+      p_easyslip_response: null,
+    };
+
+    describe("which flow the host has opened", () => {
+      it("refuses a quick booking for a host on the normal flow", async () => {
+        const supabase = quickClient("normal");
+        await expect(readJson(await post(quickBody()))).resolves.toEqual({
+          status: 403,
+          body: { error: "Quick booking is not available for this homestay", code: "QUICK_NOT_ENABLED" },
+        });
+        expect(supabase.rpc).not.toHaveBeenCalled();
+      });
+
+      it("treats a host row without the column as normal", async () => {
+        const supabase = quickClient(undefined);
+        const { status, body: result } = await readJson(await post(quickBody()));
+        expect(status).toBe(403);
+        expect(result).toMatchObject({ code: "QUICK_NOT_ENABLED" });
+        expect(supabase.rpc).not.toHaveBeenCalled();
+      });
+
+      it("refuses a quick booking when the host row cannot be read", async () => {
+        mockClient({ tables: tables({ homestays: { data: null } }) });
+        const { status, body: result } = await readJson(await post(quickBody()));
+        expect(status).toBe(403);
+        expect(result).toMatchObject({ code: "QUICK_NOT_ENABLED" });
+      });
+
+      it("refuses a normal booking for a host on quick only, even by direct POST", async () => {
+        const supabase = quickClient("quick");
+        await expect(readJson(await post(body()))).resolves.toEqual({
+          status: 403,
+          body: { error: "This homestay takes quick bookings only", code: "NORMAL_NOT_ENABLED" },
+        });
+        expect(supabase.rpc).not.toHaveBeenCalled();
+        expect(h.deductCommission).not.toHaveBeenCalled();
+      });
+
+      it("still takes a normal booking from a host on both", async () => {
+        const supabase = quickClient("both");
+        expect((await post(body())).status).toBe(201);
+        expect(supabase.rpc).toHaveBeenCalledWith(
+          "create_booking_atomic",
+          expect.objectContaining({ p_status: "confirmed", p_easyslip_verified: true }),
+        );
+      });
+
+      it("reads the mode in the same homestay query, not a second one", async () => {
+        const supabase = quickClient("quick");
+        await post(quickBody());
+        expect(supabase.builderFor("homestays").select).toHaveBeenCalledWith(
+          expect.stringContaining("guest_booking_mode"),
+        );
+        expect(supabase.calls.filter((c) => c.table === "homestays")).toHaveLength(1);
+      });
+    });
+
+    describe("a quick booking", () => {
+      it("is created pending, with no slip on file and no commission charged", async () => {
+        const supabase = quickClient("quick");
+        const { status, body: result } = await readJson(await post(quickBody()));
+
+        expect(status).toBe(201);
+        expect(result).toMatchObject({ booking: { id: BOOKING_ID } });
+        expect(supabase.rpc).toHaveBeenCalledWith(
+          "create_booking_atomic",
+          expect.objectContaining({ ...PENDING_RPC, p_total_price: 2000, p_amount_paid: 2000 }),
+        );
+        expect(h.deductCommission).not.toHaveBeenCalled();
+      });
+
+      it("works for a host on both", async () => {
+        const supabase = quickClient("both");
+        expect((await post(quickBody())).status).toBe(201);
+        expect(supabase.rpc).toHaveBeenCalledWith("create_booking_atomic", expect.objectContaining(PENDING_RPC));
+      });
+
+      it("ignores any verification or slip the client sends with it", async () => {
+        const supabase = quickClient("quick");
+        await post(
+          quickBody({
+            easyslip_verified: true,
+            slip_hash: "a".repeat(64),
+            slip_trans_ref: "T123",
+            payment_slip_url: "pending/x/slip.jpg",
+            easyslip_response: { ok: true },
+          }),
+        );
+        expect(supabase.rpc).toHaveBeenCalledWith("create_booking_atomic", expect.objectContaining(PENDING_RPC));
+        expect(h.deductCommission).not.toHaveBeenCalled();
+      });
+
+      it("is still priced on the server, not by the client", async () => {
+        const supabase = quickClient("quick");
+        await post(quickBody({ total_price: 1 }));
+        expect(supabase.rpc).toHaveBeenCalledWith(
+          "create_booking_atomic",
+          expect.objectContaining({ p_total_price: 2000 }),
+        );
+      });
+
+      it("charges the host's deposit when the guest chose one", async () => {
+        const supabase = quickClient("quick", { data: [] }, { deposit_amount: 500 });
+        await post(quickBody({ payment_type: "deposit", amount_paid: 1 }));
+        expect(supabase.rpc).toHaveBeenCalledWith(
+          "create_booking_atomic",
+          expect.objectContaining({ ...PENDING_RPC, p_payment_type: "deposit", p_amount_paid: 500 }),
+        );
+      });
+
+      it("busts the availability cache but not the stats cache", async () => {
+        quickClient("quick");
+        await post(quickBody());
+        expect(h.revalidateTag).toHaveBeenCalledWith(`booking-availability:${HOMESTAY_ID}`, "max");
+        expect(h.revalidateTag).not.toHaveBeenCalledWith("admin-stats", "max");
+      });
+
+      it("is logged as created and flagged quick", async () => {
+        quickClient("quick");
+        await post(quickBody());
+        await runAfter();
+        expect(h.logEvent).toHaveBeenCalledWith(
+          expect.objectContaining({
+            eventType: EventType.BOOKING_CREATED,
+            data: expect.objectContaining({ quick: true }),
+          }),
+        );
+      });
+
+      it("leaves a normal booking's log entry unflagged", async () => {
+        await post(body());
+        await runAfter();
+        const logged = h.logEvent.mock.calls[0][0] as { data: Record<string, unknown> };
+        expect(logged.data).not.toHaveProperty("quick");
+      });
+    });
+
+    describe("the request the booking form builds", () => {
+      /** The form's own payload builder, through JSON like the real fetch. */
+      const fromForm = (slip: BookingSlipFields, over: Partial<Parameters<typeof buildBookingRequest>[0]> = {}) => {
+        const request = buildBookingRequest({
+          homestayId: HOMESTAY_ID,
+          guest: { name: "Nok Suwan", email: "guest@example.com", phone: "0898765432", province: "", note: "" },
+          checkIn: "2026-01-12",
+          checkOut: "2026-01-14",
+          lines: [{ roomId: ROOM_ID, numGuests: 2, tierIds: [], optionIds: [] }],
+          lineGross: () => 2000,
+          optionsForLine: () => [],
+          totalPrice: 2000,
+          paymentType: "full",
+          paymentAmount: 2000,
+          sessionId: "session-1",
+          locale: "th",
+          slip,
+          ...over,
+        });
+        expect(request.url).toBe("/api/bookings");
+        return JSON.parse(JSON.stringify(request.body));
+      };
+
+      it("is accepted as a quick booking: pending, no slip, no commission", async () => {
+        const supabase = quickClient("quick");
+        const res = await post(fromForm({ easyslip_verified: false, quick: true, turnstile_token: "tok" }));
+
+        expect(res.status).toBe(201);
+        expect(h.verifyTurnstileToken).toHaveBeenCalledWith("tok");
+        expect(supabase.rpc).toHaveBeenCalledWith("create_booking_atomic", expect.objectContaining(PENDING_RPC));
+        expect(h.deductCommission).not.toHaveBeenCalled();
+      });
+
+      it("is accepted as a quick booking when Turnstile could not run (no token sent)", async () => {
+        h.verifyTurnstileToken.mockResolvedValue("skip");
+        quickClient("both");
+        expect((await post(fromForm({ easyslip_verified: false, quick: true }))).status).toBe(201);
+      });
+
+      it("is accepted as a verified normal booking, unchanged", async () => {
+        const supabase = quickClient("normal");
+        const res = await post(
+          fromForm({ slip_hash: "a".repeat(64), slip_trans_ref: "TR1", payment_slip_url: null, easyslip_response: null, easyslip_verified: true }),
+        );
+
+        expect(res.status).toBe(201);
+        expect(supabase.rpc).toHaveBeenCalledWith(
+          "create_booking_atomic",
+          expect.objectContaining({ p_status: "confirmed", p_easyslip_verified: true, p_payment_slip_hash: "a".repeat(64) }),
+        );
+      });
+    });
+
+    describe("who is told, and what", () => {
+      it("sends the guest the quick-booking email, not the pending one", async () => {
+        quickClient("quick");
+        await post(quickBody());
+        await runAfter();
+
+        expect(h.sendQuickBookingEmail).toHaveBeenCalledTimes(1);
+        expect(h.sendQuickBookingEmail).toHaveBeenCalledWith(
+          expect.objectContaining({ booking: expect.objectContaining({ id: BOOKING_ID }) }),
+          "th",
+        );
+        expect(h.sendBookingConfirmationEmail).not.toHaveBeenCalled();
+      });
+
+      it("tells the host in quick wording over their chosen channel, with a quick subject", async () => {
+        quickClient("quick");
+        await post(quickBody());
+        await runAfter();
+
+        expect(h.sendHostSmsNotification).toHaveBeenCalledWith(expect.anything(), "quick");
+        expect(h.sendHostLineNotification).toHaveBeenCalledWith(expect.anything(), "quick");
+        expect(h.buildNewBookingMessage).toHaveBeenCalledWith(expect.anything(), "quick");
+        expect(h.dispatchHostNotification).toHaveBeenCalledWith(
+          expect.anything(),
+          expect.any(Function),
+          expect.any(Function),
+          expect.stringContaining("จองด่วน"),
+          expect.any(Function),
+        );
+      });
+
+      it("keeps the confirmation email and wording for a verified normal booking", async () => {
+        await post(body());
+        await runAfter();
+
+        expect(h.sendBookingConfirmationEmail).toHaveBeenCalledWith(expect.anything(), "th", "confirmed");
+        expect(h.sendQuickBookingEmail).not.toHaveBeenCalled();
+        expect(h.sendHostSmsNotification).toHaveBeenCalledWith(expect.anything(), "confirmed");
+      });
+
+      it("keeps the pending email and flagged wording for a slip that failed verification", async () => {
+        await post(body({ easyslip_verified: false }));
+        await runAfter();
+
+        expect(h.sendBookingConfirmationEmail).toHaveBeenCalledWith(expect.anything(), "th", "pending");
+        expect(h.sendQuickBookingEmail).not.toHaveBeenCalled();
+        expect(h.sendHostSmsNotification).toHaveBeenCalledWith(expect.anything(), "flagged");
+      });
+    });
+
+    describe("abuse limits", () => {
+      it("answers 429 from the rate limiter before touching the database", async () => {
+        h.rateLimitCheck.mockResolvedValue(NextResponse.json({ error: "Too many requests." }, { status: 429 }));
+        const supabase = quickClient("quick");
+
+        expect((await post(quickBody())).status).toBe(429);
+        expect(supabase.from).not.toHaveBeenCalled();
+        expect(supabase.rpc).not.toHaveBeenCalled();
+      });
+
+      it("does not meter normal bookings", async () => {
+        await post(body());
+        expect(h.rateLimitCheck).not.toHaveBeenCalled();
+      });
+
+      it("refuses a token Cloudflare rejects", async () => {
+        h.verifyTurnstileToken.mockResolvedValue("fail");
+        const supabase = quickClient("quick");
+
+        await expect(readJson(await post(quickBody({ turnstile_token: "tok" })))).resolves.toEqual({
+          status: 403,
+          body: { error: "Verification failed", code: "TURNSTILE_FAILED" },
+        });
+        expect(h.verifyTurnstileToken).toHaveBeenCalledWith("tok");
+        expect(supabase.rpc).not.toHaveBeenCalled();
+      });
+
+      it("fails open when Turnstile could not be checked", async () => {
+        h.verifyTurnstileToken.mockResolvedValue("skip");
+        quickClient("quick");
+        expect((await post(quickBody())).status).toBe(201);
+      });
+
+      it("refuses a phone that already has two quick bookings waiting", async () => {
+        const supabase = quickClient("quick", {
+          data: [
+            { id: "b1", group_id: null },
+            { id: "b2", group_id: null },
+          ],
+        });
+
+        await expect(readJson(await post(quickBody()))).resolves.toEqual({
+          status: 429,
+          body: {
+            error: "You already have quick bookings waiting for the host to confirm",
+            code: "TOO_MANY_PENDING",
+          },
+        });
+        expect(supabase.rpc).not.toHaveBeenCalled();
+      });
+
+      it("allows a third when one of the two is a cart (a cart counts once)", async () => {
+        quickClient("quick", {
+          data: [
+            { id: "m1", group_id: "g1" },
+            { id: "m2", group_id: "g1" },
+            { id: "m3", group_id: "g1" },
+          ],
+        });
+        expect((await post(quickBody())).status).toBe(201);
+      });
+
+      it("counts only this phone's unpaid, slip-less guest bookings at this homestay", async () => {
+        const supabase = quickClient("quick");
+        await post(quickBody());
+
+        const lookup = supabase.builderFor("bookings", 0);
+        expect(lookup.eq).toHaveBeenCalledWith("homestay_id", HOMESTAY_ID);
+        expect(lookup.eq).toHaveBeenCalledWith("guest_phone", "0898765432");
+        expect(lookup.eq).toHaveBeenCalledWith("status", "pending");
+        expect(lookup.eq).toHaveBeenCalledWith("easyslip_verified", false);
+        expect(lookup.eq).toHaveBeenCalledWith("booking_source", "guest");
+        expect(lookup.is).toHaveBeenCalledWith("payment_slip_hash", null);
+      });
+
+      it("fails open when the waiting-bookings lookup errors", async () => {
+        quickClient("quick", { error: { message: "boom" } });
+        expect((await post(quickBody())).status).toBe(201);
       });
     });
   });

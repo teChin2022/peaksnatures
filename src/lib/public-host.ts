@@ -18,6 +18,10 @@ export const BOOKING_HOST_FIELDS = [
   "deposit_by_month",
   "cancellation_days",
   "booking_draft_hours",
+  "guest_booking_mode",
+  // Already public in the page footer (hostPhone); the quick-booking contact
+  // block falls back to it when a homestay has no usable Facebook link.
+  "phone",
 ] as const satisfies readonly (keyof Host)[];
 
 export type BookingHost = Pick<Host, (typeof BOOKING_HOST_FIELDS)[number]>;

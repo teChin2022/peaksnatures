@@ -6,6 +6,9 @@ export type Json =
   | { [key: string]: Json | undefined }
   | Json[];
 
+/** hosts.guest_booking_mode — see migration 075. */
+export type GuestBookingMode = "normal" | "quick" | "both";
+
 export type BookingStatus =
   | "pending"
   | "verified"
@@ -56,6 +59,7 @@ export interface Database {
           fixed_rate_term_ends_at: string | null;
           plan_pending_term_months: number | null;
           booking_draft_hours: number;
+          guest_booking_mode: GuestBookingMode;
           created_at: string;
           created_by: string;
           updated_at: string;
@@ -99,6 +103,7 @@ export interface Database {
           fixed_rate_term_ends_at?: string | null;
           plan_pending_term_months?: number | null;
           booking_draft_hours?: number;
+          guest_booking_mode?: GuestBookingMode;
           created_at?: string;
           created_by?: string;
           updated_at?: string;
@@ -142,6 +147,7 @@ export interface Database {
           fixed_rate_term_ends_at?: string | null;
           plan_pending_term_months?: number | null;
           booking_draft_hours?: number;
+          guest_booking_mode?: GuestBookingMode;
           created_at?: string;
           created_by?: string;
           updated_at?: string;

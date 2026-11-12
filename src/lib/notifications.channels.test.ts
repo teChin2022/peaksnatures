@@ -10,6 +10,8 @@ import {
   sendGroupBookingConfirmationEmail,
   sendGroupHostLineNotification,
   sendGroupHostSmsNotification,
+  sendGroupQuickBookingEmail,
+  sendQuickBookingEmail,
   sendHostApprovalEmail,
   sendHostCancellationLineNotification,
   sendHostLineNotification,
@@ -172,6 +174,174 @@ describeGuestEmail(
   () => sendGroupBookingConfirmationEmail(groupDetails()),
   "guest@example.com",
 );
+describeGuestEmail("sendQuickBookingEmail", () => sendQuickBookingEmail(details()), "guest@example.com");
+describeGuestEmail(
+  "sendGroupQuickBookingEmail",
+  () => sendGroupQuickBookingEmail(groupDetails()),
+  "guest@example.com",
+);
+
+describe("guest quick booking email", () => {
+  const sent = () => resendSend.mock.calls[0][0] as { subject: string; html: string };
+  const withHomestay = (over: Parameters<typeof makeHomestay>[0], booking: Partial<Booking> = {}, host?: Host) => ({
+    ...details(booking, host),
+    homestay: makeHomestay(over),
+  });
+
+  it("tells the guest it is received and awaiting the host, never that it is confirmed", async () => {
+    await sendQuickBookingEmail(details(), "th");
+    const { subject, html } = sent();
+
+    expect(subject).toContain("รอเจ้าของที่พักยืนยัน");
+    expect(html).toContain("ได้รับการจองแล้ว — รอเจ้าของที่พักยืนยัน");
+    expect(html).not.toContain("ได้รับการยืนยันแล้ว");
+    expect(html).not.toContain("สลิปการชำระเงินไม่สามารถตรวจสอบอัตโนมัติได้");
+  });
+
+  it("shows the code the guest quotes in chat, the same one the host message prints", async () => {
+    await sendQuickBookingEmail(details({ id: "3f2a9c1e-0000-4000-8000-123456789abc" }), "th");
+    expect(sent().html).toContain("3f2a9c1e");
+  });
+
+  it("asks for the full amount as a transfer, not as paid", async () => {
+    await sendQuickBookingEmail(details({ total_price: 2000 }), "th");
+    const { html } = sent();
+    expect(html).toContain("ยอดที่ต้องโอน");
+    expect(html).toContain("฿2,000");
+    expect(html).not.toContain("ยอดที่ชำระ");
+    expect(html).not.toContain("ยอดค้างชำระ");
+  });
+
+  it("asks for the deposit and shows the balance for a deposit booking", async () => {
+    await sendQuickBookingEmail(details({ payment_type: "deposit", amount_paid: 500, total_price: 2000 }), "th");
+    const { html } = sent();
+    expect(html).toMatch(/ยอดที่ต้องโอน[\s\S]*฿500/);
+    expect(html).toMatch(/ยอดค้างชำระ[\s\S]*฿1,500/);
+  });
+
+  it("shows the discount and prices the house before it", async () => {
+    await sendQuickBookingEmail(details({ total_price: 1800, amount_paid: 1800, discount_amount: 200 }), "th");
+    const { html } = sent();
+    expect(html).toContain("−฿200");
+    expect(html).toContain("฿2,000"); // the house row, before the discount
+    expect(html).toContain("฿1,800"); // the total
+  });
+
+  describe("how the guest reaches the host", () => {
+    it("links Messenger when the homestay has a Facebook page username", async () => {
+      await sendQuickBookingEmail(withHomestay({ facebook_url: "https://www.facebook.com/ingkhoacamp" }), "th");
+      const { html } = sent();
+      expect(html).toContain('href="https://m.me/ingkhoacamp"');
+      expect(html).toContain("ส่งสลิปทาง Messenger");
+    });
+
+    it("links the Facebook page when it is not a clean username", async () => {
+      await sendQuickBookingEmail(
+        withHomestay({ facebook_url: "https://www.facebook.com/pages/Ing-Khoa/123456789" }),
+        "th",
+      );
+      const { html } = sent();
+      expect(html).toContain('href="https://www.facebook.com/pages/Ing-Khoa/123456789"');
+      expect(html).toContain("เปิดเพจ Facebook");
+      expect(html).not.toContain("m.me");
+    });
+
+    it("also gives the host's phone number", async () => {
+      await sendQuickBookingEmail(withHomestay({ facebook_url: "https://www.facebook.com/ingkhoacamp" }), "th");
+      expect(sent().html).toContain("0812345678");
+    });
+
+    it("falls back to the host's phone when there is no usable Facebook link", async () => {
+      await sendQuickBookingEmail(withHomestay({ facebook_url: "https://www.instagram.com/ingkhoacamp" }), "th");
+      const { html } = sent();
+      expect(html).not.toContain("m.me");
+      expect(html).not.toContain("instagram.com");
+      expect(html).toContain("หรือโทรหาเจ้าของที่พัก");
+      expect(html).toContain("0812345678");
+    });
+
+    it("says the host will call when there is neither a link nor a phone", async () => {
+      await sendQuickBookingEmail(withHomestay({ facebook_url: null }, {}, lineHost({ phone: null })), "th");
+      expect(sent().html).toContain("เจ้าของที่พักจะติดต่อกลับทางเบอร์โทรที่คุณให้ไว้");
+    });
+  });
+
+  it("escapes what the guest typed instead of putting it in the HTML", async () => {
+    await sendQuickBookingEmail(details({ guest_name: "<script>alert(1)</script>" }), "th");
+    const { html } = sent();
+    expect(html).not.toContain("<script>");
+    expect(html).toContain("&lt;script&gt;");
+  });
+
+  it("writes it in English on request, and translates the homestay details", async () => {
+    localizeStrings.mockResolvedValue({ homestayName: "Doi Inthanon Retreat (EN)", roomName: "Pine House (EN)" });
+    await sendQuickBookingEmail(details(), "en");
+    const { subject, html } = sent();
+
+    expect(subject).toBe("Booking Received — Awaiting Host Confirmation — Doi Inthanon Retreat (EN)");
+    expect(html).toContain("Booking code");
+    expect(html).toContain("Amount to transfer");
+    expect(html).toContain("Pine House (EN)");
+    expect(localizeStrings).toHaveBeenCalledWith("email:homestay:homestay-1", expect.any(Object), "en");
+  });
+
+  it("does not call the translator for a Thai email", async () => {
+    await sendQuickBookingEmail(details(), "th");
+    expect(localizeStrings).not.toHaveBeenCalled();
+  });
+
+  it("sends from the configured address, with stray quotes and spaces cleaned out", async () => {
+    vi.stubEnv("RESEND_FROM_EMAIL", '"Peaksnature <no-reply@peaks nature.com>"');
+    await sendQuickBookingEmail(details(), "th");
+    expect(resendSend).toHaveBeenCalledWith(
+      expect.objectContaining({ from: "Peaksnature <no-reply@peaksnature.com>" }),
+    );
+  });
+
+  describe("for a cart", () => {
+    it("lists every house under one code and one total", async () => {
+      const cart = groupDetails();
+      await sendGroupQuickBookingEmail(cart, "th");
+      const { subject, html } = sent();
+
+      expect(subject).toContain("รอเจ้าของที่พักยืนยัน");
+      expect(html).toContain("Pine House");
+      expect(html).toContain("Oak House");
+      expect(html).toContain(cart.group.id.slice(0, 8));
+      expect(html).toContain("บ้านพัก (2)");
+      expect(html).toContain("฿4,000");
+      expect(html).not.toContain("ยอดค้างชำระ");
+    });
+
+    it("asks for the deposit across the houses and shows the balance", async () => {
+      const cart = groupDetails({
+        items: [
+          { booking: makeBooking({ id: "b-1", total_price: 2000, amount_paid: 500, payment_type: "deposit" }), room: makeRoom({ name: "Pine House" }) },
+          { booking: makeBooking({ id: "b-2", total_price: 2000, amount_paid: 500, payment_type: "deposit" }), room: makeRoom({ id: "room-2", name: "Oak House" }) },
+        ],
+      });
+      await sendGroupQuickBookingEmail(cart, "th");
+      const { html } = sent();
+      expect(html).toMatch(/ยอดที่ต้องโอน[\s\S]*฿1,000/);
+      expect(html).toMatch(/ยอดค้างชำระ[\s\S]*฿3,000/);
+    });
+
+    it("links Messenger for the cart too", async () => {
+      await sendGroupQuickBookingEmail(
+        { ...groupDetails(), homestay: makeHomestay({ facebook_url: "https://www.facebook.com/ingkhoacamp" }) },
+        "th",
+      );
+      expect(sent().html).toContain('href="https://m.me/ingkhoacamp"');
+    });
+
+    it("translates the cart's names only for English", async () => {
+      await sendGroupQuickBookingEmail(groupDetails(), "th");
+      expect(localizeStrings).not.toHaveBeenCalled();
+      await sendGroupQuickBookingEmail(groupDetails(), "en");
+      expect(localizeStrings).toHaveBeenCalledTimes(1);
+    });
+  });
+});
 
 describe("guest email content", () => {
   it("writes a Thai email by default and an English one on request", async () => {
@@ -326,6 +496,19 @@ describe("LINE host notifications", () => {
     const text = JSON.parse(fetchMock.mock.calls[0][1].body as string).messages[0].text;
     expect(text).toContain("รอตรวจสอบ");
   });
+
+  it("tells the host a quick booking awaits their check, in the LINE message", async () => {
+    await sendHostLineNotification(details(), "quick");
+    const text = JSON.parse(fetchMock.mock.calls[0][1].body as string).messages[0].text;
+    expect(text).toContain("จองด่วน — รอตรวจสลิป");
+    expect(text).not.toContain("ยืนยันสลิปไม่สำเร็จ");
+  });
+
+  it("tells the host a quick cart awaits their check, in the LINE message", async () => {
+    await sendGroupHostLineNotification(groupDetails(), "quick");
+    const text = JSON.parse(fetchMock.mock.calls[0][1].body as string).messages[0].text;
+    expect(text).toContain("จองด่วน (2 หลัง) — รอตรวจสลิป");
+  });
 });
 
 describe("buildGroupBookingMessage", () => {
@@ -340,6 +523,34 @@ describe("buildGroupBookingMessage", () => {
 
   it("flags an unverified cart", () => {
     expect(buildGroupBookingMessage(groupDetails(), "flagged")).toContain("รอตรวจสอบ");
+  });
+
+  describe("a quick cart", () => {
+    it("says it awaits the host and points to the chat, never that the slip failed or was paid", () => {
+      const message = buildGroupBookingMessage(groupDetails(), "quick");
+      expect(message).toContain("🕒 จองด่วน (2 หลัง) — รอตรวจสลิป");
+      expect(message).toContain("Messenger");
+      expect(message).not.toContain("ยืนยันสลิปไม่สำเร็จ");
+      expect(message).not.toContain("ชำระเงินแล้ว");
+    });
+
+    it("asks for the whole amount as one transfer", () => {
+      const message = buildGroupBookingMessage(
+        groupDetails({ group: makeBookingGroup({ payment_type: "full", total_price: 4000 }) }),
+        "quick",
+      );
+      expect(message).toContain("ยอดที่ต้องโอน: ฿4,000");
+    });
+
+    it("shows the deposit to transfer and the balance for a deposit cart", () => {
+      const message = buildGroupBookingMessage(
+        groupDetails({ group: makeBookingGroup({ payment_type: "deposit", amount_paid: 1000, total_price: 4000 }) }),
+        "quick",
+      );
+      expect(message).toContain("ยอดที่ต้องโอน: ฿1,000 (มัดจำ)");
+      expect(message).toContain("ยอดค้าง: ฿3,000");
+      expect(message).not.toContain("ยอดที่ชำระ");
+    });
   });
 
   it("shows the outstanding balance for a deposit cart", () => {
@@ -368,6 +579,14 @@ describe("group host SMS and dispatch", () => {
   it("marks an unverified cart as awaiting review", async () => {
     await sendGroupHostSmsNotification(groupDetails(), "flagged");
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).message).toContain("รอตรวจสอบ");
+  });
+
+  it("leads a quick cart's SMS with the quick marker", async () => {
+    await sendGroupHostSmsNotification(groupDetails(), "quick");
+    const message = JSON.parse(fetchMock.mock.calls[0][1].body as string).message;
+    expect(message).toMatch(/^จองด่วน /);
+    expect(message).not.toContain("จองใหม่");
+    expect(message.length).toBeLessThanOrEqual(70);
   });
 
   it("does not send without a host phone number", async () => {

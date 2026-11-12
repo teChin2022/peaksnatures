@@ -14,6 +14,7 @@ npm run lint          # Run ESLint
 npm run test          # Run the Vitest suite once
 npm run test:watch    # Vitest in watch mode
 npm run test:coverage # Run with V8 coverage; reports only, never fails
+npm run test:e2e      # Playwright browser tests of the guest booking flow (e2e/); needs E2E_SLUG
 ```
 
 - Type-check with `npx tsc --noEmit`: `npm run build` fails locally on an empty
@@ -63,8 +64,11 @@ Any behavior change requires writing or updating tests:
 - RLS policies and DB functions: pgTAP tests in `supabase/tests`. **Not set up
   yet** (no local Supabase stack): write the per-role SQL checks for me to run,
   and say a pgTAP test is owed.
-- Critical user flows: Playwright E2E. **Not set up yet**: name the E2E test
-  that is owed, and ask before installing Playwright.
+- Critical user flows: Playwright E2E (`e2e/`, set up). A change to the guest
+  booking flow adds or updates a spec in `e2e/booking-flow.spec.ts`, and a
+  component the flow depends on keeps a Vitest DOM test next to it. Other
+  flows (auth, host dashboard) have no spec yet: name the E2E test that is
+  owed.
 - Bug fixes: write a failing test first, then make it pass.
 
 After every change, run typecheck, lint, and the relevant tests, and report the
@@ -94,6 +98,26 @@ Exceptions: comment-only changes, copy text, and documentation.
   restore. Pin the exact input that failed, not a nearby one.
 - Logic that is hard to test inside a route handler moves to its own module
   (see `src/app/api/cron/billing/dates.ts`).
+
+**In this repo** (Playwright, `@playwright/test`):
+
+- Run with `E2E_SLUG=<slug of a homestay with a free house> npm run test:e2e`.
+  It starts `npm run dev` unless `E2E_BASE_URL` points at a deployed preview,
+  uses the Chrome installed on the machine (`channel: "chrome"`, no browser
+  download), and runs a 375 px `phone` and a 1280 px `desktop` project. Vitest
+  does not pick `e2e/` up.
+- The page is read from the DB `.env.local` points to; tests never write.
+  `startSession` (`e2e/support.ts`) aborts every API write it does not stub and
+  the test then fails. Do not loosen that guard to make a test pass.
+- `startSession({ mode })` rewrites `guest_booking_mode` inside the page's own
+  HTML payload, so a host's quick/both flow is tested without setting up or
+  touching a host row. A fake script stands in for Cloudflare Turnstile, which
+  gives an automated browser no token. If Next changes its payload format the
+  rewrite fails loudly instead of silently testing the wrong mode.
+- Copy comes from `messages/th.json`, so a wording change does not break specs.
+- Prove an E2E test bites the same way as a unit test: break the code, see the
+  spec fail, restore. Do not add packages for it (for example an axe plugin)
+  without asking.
 
 ### 4. Impact analysis
 
@@ -403,11 +427,16 @@ get my explicit approval first.
   `RespectReducedMotion` (`src/components/respect-reduced-motion.tsx`; today
   only `/[slug]` is). CSS keyframes need their own
   `@media (prefers-reduced-motion: reduce)` rule.
-- Visual checks (no Playwright yet): `chrome --headless --screenshot` shows only
-  the `100svh` hero, so drive Chrome over CDP at 375, 768 and 1280 px. Block
-  `*/api/demand*` and stub `navigator.sendBeacon` (page views write demand
-  events to whatever DB `.env.local` uses), set a `cookie_consent=declined`
-  cookie, and never submit checkout step 2: it writes holds and a draft.
+- Visual checks: `chrome --headless --screenshot` shows only the `100svh`
+  hero, so use Playwright or drive Chrome over CDP at 375, 768 and 1280 px.
+  Page views write demand events to whatever DB `.env.local` uses, and
+  checkout step 2 writes holds and a draft. `startSession` in `e2e/support.ts`
+  makes the booking flow safe to walk through: it blocks `*/api/demand*`,
+  stubs `navigator.sendBeacon`, sets `cookie_consent=declined`, stubs the hold,
+  draft, slip and booking routes and aborts any other API write. Outside that
+  helper, do those by hand and never submit checkout step 2. Look at real
+  screenshots for UI changes: a dialog taller than a phone passed every DOM
+  test and was only caught this way.
 - The Impeccable hook (`.claude/settings.local.json`) runs its detector after
   every Edit/Write and at the end of a turn. `/impeccable hooks off` disables
   it.

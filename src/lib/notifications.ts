@@ -5,6 +5,14 @@ import { getProvinceLabel } from "@/lib/provinces";
 import { cartMoney } from "@/lib/booking-carts";
 import { localizeStrings } from "@/lib/translation/localize-strings";
 import type { SupportedLocale } from "@/lib/translation/types";
+import { bookingCode, hostContactLink } from "@/lib/quick-booking";
+
+/**
+ * What a new-booking host notification says about payment: `confirmed` (slip
+ * verified), `flagged` (EasySlip could not verify the slip) or `quick` (a guest
+ * quick booking: nothing was sent, the host checks the transfer by hand).
+ */
+export type HostNotificationType = "confirmed" | "flagged" | "quick";
 
 interface BookingDetails {
   booking: Booking;
@@ -477,7 +485,7 @@ async function withRetry(
 
 export async function sendHostSmsNotification(
   details: BookingDetails,
-  type: "confirmed" | "flagged" = "confirmed"
+  type: HostNotificationType = "confirmed"
 ): Promise<{ success: boolean; error?: unknown }> {
   const phone = details.host.phone;
   if (!phone) {
@@ -490,7 +498,10 @@ export async function sendHostSmsNotification(
   );
   const guest = booking.guest_name.slice(0, 15);
   const roomName = (room?.name || "Standard").slice(0, 12);
-  const status = type === "confirmed" ? "ยืนยันแล้ว" : "รอตรวจสอบ";
+  const status = type === "confirmed" ? "ยืนยันแล้ว" : type === "quick" ? "รอตรวจสลิป" : "รอตรวจสอบ";
+  // The quick marker leads: truncateForSms cuts the END, and a quick booking
+  // must never read like an auto-confirmed one.
+  const label = type === "quick" ? "จองด่วน" : "จองใหม่";
 
   const isDeposit = booking.payment_type === "deposit";
   const priceLabel = isDeposit
@@ -498,7 +509,7 @@ export async function sendHostSmsNotification(
     : ` ฿${booking.total_price.toLocaleString()}`;
 
   const message = truncateForSms(
-    `จองใหม่ ${guest} ${roomName} ${formatSmsDate(booking.check_in)} ${nights}คืน ${priceLabel} ${status}`
+    `${label} ${guest} ${roomName} ${formatSmsDate(booking.check_in)} ${nights}คืน ${priceLabel} ${status}`
   );
 
   return sendSms(phone, message);
@@ -710,7 +721,7 @@ export async function notifyHostAlert(
 
 export function buildNewBookingMessage(
   details: BookingDetails,
-  type: "confirmed" | "flagged" = "confirmed"
+  type: HostNotificationType = "confirmed"
 ): string {
   const { booking, homestay, room } = details;
   const checkIn = new Date(booking.check_in);
@@ -719,11 +730,19 @@ export function buildNewBookingMessage(
 
   const header = type === "confirmed"
     ? `🎉 การจองใหม่ — ยืนยันแล้ว!`
-    : `⚠️ การจองใหม่ — รอตรวจสอบ`;
+    : type === "quick"
+      ? `🕒 จองด่วน — รอตรวจสลิป`
+      : `⚠️ การจองใหม่ — รอตรวจสอบ`;
 
   const paymentStatus = type === "confirmed"
     ? `✅ ชำระเงินแล้ว (ยืนยันอัตโนมัติ)`
-    : `❌ ยืนยันสลิปไม่สำเร็จ — กรุณาตรวจสอบใน Dashboard`;
+    : type === "quick"
+      ? `⏳ ยังไม่มีสลิปในระบบ — ตรวจยอดและสลิปในแชท Messenger แล้วกดยืนยันใน Dashboard`
+      : `❌ ยืนยันสลิปไม่สำเร็จ — กรุณาตรวจสอบใน Dashboard`;
+
+  // A quick booking carries the amount the guest was asked to transfer, not one
+  // that has been checked, so it must not read "paid".
+  const paidLabel = type === "quick" ? "ยอดที่ต้องโอน" : "ยอดที่ชำระ";
 
   return [
     header,
@@ -759,8 +778,10 @@ export function buildNewBookingMessage(
       ? [`   (฿${room.price_per_night.toLocaleString()} × ${nights} คืน)`]
       : []),
     ...((booking as Record<string, unknown>).payment_type === "deposit" ? [
-      `   💳 ยอดที่ชำระ: ฿${((booking as Record<string, unknown>).amount_paid as number || 0).toLocaleString()} (มัดจำ)`,
+      `   💳 ${paidLabel}: ฿${((booking as Record<string, unknown>).amount_paid as number || 0).toLocaleString()} (มัดจำ)`,
       `   ⏳ ยอดค้าง: ฿${(booking.total_price - ((booking as Record<string, unknown>).amount_paid as number || 0)).toLocaleString()} (ชำระเมื่อเข้าพัก)`,
+    ] : type === "quick" ? [
+      `   💳 ยอดที่ต้องโอน: ฿${booking.total_price.toLocaleString()}`,
     ] : []),
     `   ${paymentStatus}`,
     ``,
@@ -944,7 +965,7 @@ export async function sendHostCancellationLineNotification(
 
 export async function sendHostLineNotification(
   details: BookingDetails,
-  type: "confirmed" | "flagged" = "confirmed"
+  type: HostNotificationType = "confirmed"
 ) {
   const channelToken = details.host.line_channel_access_token;
   const lineUserId = details.host.line_user_id;
@@ -1472,17 +1493,24 @@ function groupNights(b: Booking): number {
 /** LINE message for a multi-room cart — clone of buildNewBookingMessage, looping rooms. */
 export function buildGroupBookingMessage(
   details: GroupBookingDetails,
-  type: "confirmed" | "flagged" = "confirmed",
+  type: HostNotificationType = "confirmed",
 ): string {
   const { group, homestay, items } = details;
 
   const header = type === "confirmed"
     ? `🎉 การจองใหม่ (${items.length} หลัง) — ยืนยันแล้ว!`
-    : `⚠️ การจองใหม่ (${items.length} หลัง) — รอตรวจสอบ`;
+    : type === "quick"
+      ? `🕒 จองด่วน (${items.length} หลัง) — รอตรวจสลิป`
+      : `⚠️ การจองใหม่ (${items.length} หลัง) — รอตรวจสอบ`;
 
   const paymentStatus = type === "confirmed"
     ? `✅ ชำระเงินแล้ว (ยืนยันอัตโนมัติ)`
-    : `❌ ยืนยันสลิปไม่สำเร็จ — กรุณาตรวจสอบใน Dashboard`;
+    : type === "quick"
+      ? `⏳ ยังไม่มีสลิปในระบบ — ตรวจยอดและสลิปในแชท Messenger แล้วกดยืนยันใน Dashboard`
+      : `❌ ยืนยันสลิปไม่สำเร็จ — กรุณาตรวจสอบใน Dashboard`;
+
+  // The amount the guest was asked to transfer, not one that has been checked.
+  const paidLabel = type === "quick" ? "ยอดที่ต้องโอน" : "ยอดที่ชำระ";
 
   const roomLines = items
     .map((it, idx) => {
@@ -1500,10 +1528,12 @@ export function buildGroupBookingMessage(
 
   const depositLines = group.payment_type === "deposit"
     ? [
-        `   💳 ยอดที่ชำระ: ฿${(group.amount_paid || 0).toLocaleString()} (มัดจำ)`,
+        `   💳 ${paidLabel}: ฿${(group.amount_paid || 0).toLocaleString()} (มัดจำ)`,
         `   ⏳ ยอดค้าง: ฿${(group.total_price - (group.amount_paid || 0)).toLocaleString()} (ชำระเมื่อเข้าพัก)`,
       ]
-    : [];
+    : type === "quick"
+      ? [`   💳 ยอดที่ต้องโอน: ฿${group.total_price.toLocaleString()}`]
+      : [];
 
   return [
     header,
@@ -1536,7 +1566,7 @@ export function buildGroupBookingMessage(
 /** Host SMS for a cart — short: room count, combined total. Clone of sendHostSmsNotification. */
 export async function sendGroupHostSmsNotification(
   details: GroupBookingDetails,
-  type: "confirmed" | "flagged" = "confirmed",
+  type: HostNotificationType = "confirmed",
 ): Promise<{ success: boolean; error?: unknown }> {
   const phone = details.host.phone;
   if (!phone) {
@@ -1547,14 +1577,16 @@ export async function sendGroupHostSmsNotification(
   const first = items[0]?.booking;
   const nights = first ? groupNights(first) : 0;
   const guest = group.guest_name.slice(0, 15);
-  const status = type === "confirmed" ? "ยืนยันแล้ว" : "รอตรวจสอบ";
+  const status = type === "confirmed" ? "ยืนยันแล้ว" : type === "quick" ? "รอตรวจสลิป" : "รอตรวจสอบ";
+  // The quick marker leads: truncateForSms cuts the END.
+  const label = type === "quick" ? "จองด่วน" : "จองใหม่";
   const isDeposit = group.payment_type === "deposit";
   const priceLabel = isDeposit
     ? `มัดจำ ฿${(group.amount_paid || 0).toLocaleString()}`
     : `รวม ฿${group.total_price.toLocaleString()}`;
 
   const message = truncateForSms(
-    `จองใหม่ ${guest} ${items.length} หลัง ${first ? formatSmsDate(first.check_in) : ""} ${nights}คืน ${priceLabel} ${status}`,
+    `${label} ${guest} ${items.length} หลัง ${first ? formatSmsDate(first.check_in) : ""} ${nights}คืน ${priceLabel} ${status}`,
   );
 
   return sendSms(phone, message);
@@ -1563,7 +1595,7 @@ export async function sendGroupHostSmsNotification(
 /** Host LINE push for a cart. Clone of sendHostLineNotification using the group builder. */
 export async function sendGroupHostLineNotification(
   details: GroupBookingDetails,
-  type: "confirmed" | "flagged" = "confirmed",
+  type: HostNotificationType = "confirmed",
 ): Promise<{ success: boolean; error?: unknown }> {
   const channelToken = details.host.line_channel_access_token;
   const lineUserId = details.host.line_user_id;
@@ -1819,6 +1851,265 @@ export async function sendGroupBookingConfirmationEmail(
     return { success: true, data };
   } catch (error) {
     console.error("[Email] Group exception:", error);
+    return { success: false, error };
+  }
+}
+
+// ============================================================
+// GUEST QUICK BOOKING EMAIL
+// ============================================================
+//
+// Sent instead of the confirmed/pending emails when a guest quick booking is
+// created (lib/quick-booking.ts). Nothing has been paid or verified, so it says
+// what the guest still has to do: transfer, then send the slip to the host in
+// chat quoting the booking code. One template serves a single house and a cart.
+
+interface QuickEmailHouse {
+  name: string;
+  /** "12 ม.ค. 2569 → 14 ม.ค. 2569 · 2 คืน · 2 ท่าน" */
+  stay: string;
+  extrasHtml: string;
+  /** Before any promo discount, so the rows add up to the subtotal. */
+  price: number;
+}
+
+interface QuickEmailInput {
+  isTh: boolean;
+  homestayName: string;
+  homestayLocation: string;
+  guestName: string;
+  code: string;
+  houses: QuickEmailHouse[];
+  discount: number;
+  total: number;
+  toTransfer: number;
+  balanceDue: number;
+  facebookUrl: string | null;
+  hostPhone: string | null;
+}
+
+function buildQuickBookingEmail(i: QuickEmailInput): { subject: string; html: string } {
+  const { isTh } = i;
+  const name = escapeHtml(i.homestayName);
+  const baht = (n: number) => `฿${n.toLocaleString()}`;
+  const labelStyle = `padding: 10px 12px 10px 0; color: #6b7280; font-size: 13px; vertical-align: top; line-height: 1.4;`;
+  const valueStyle = `padding: 10px 0; color: #111827; font-size: 14px; vertical-align: top; line-height: 1.5;`;
+
+  const subject = isTh
+    ? `ได้รับการจองแล้ว — รอเจ้าของที่พักยืนยัน — ${i.homestayName}`
+    : `Booking Received — Awaiting Host Confirmation — ${i.homestayName}`;
+
+  const contact = hostContactLink(i.facebookUrl);
+  const phone = i.hostPhone?.trim() || null;
+  const contactLabel = !contact
+    ? ""
+    : contact.kind === "messenger"
+      ? (isTh ? "ส่งสลิปทาง Messenger" : "Send your slip on Messenger")
+      : (isTh ? "เปิดเพจ Facebook ของเจ้าของที่พัก" : "Open the host's Facebook page");
+  const contactHtml = [
+    contact
+      ? `<p style="margin: 0 0 12px;"><a href="${escapeHtml(contact.href)}" style="display: inline-block; background: #111827; color: #ffffff; padding: 12px 20px; border-radius: 8px; text-decoration: none; font-weight: 600; font-size: 14px;">${contactLabel}</a></p>`
+      : "",
+    phone
+      ? `<p style="margin: 0 0 12px; font-size: 14px; color: #374151;">${isTh ? "หรือโทรหาเจ้าของที่พัก" : "Or call the host"}: <strong>${escapeHtml(phone)}</strong></p>`
+      : "",
+    !contact && !phone
+      ? `<p style="margin: 0 0 12px; font-size: 14px; color: #374151;">${isTh ? "เจ้าของที่พักจะติดต่อกลับทางเบอร์โทรที่คุณให้ไว้" : "The host will contact you on the phone number you gave."}</p>`
+      : "",
+  ].join("");
+
+  const houseRows = i.houses
+    .map(
+      (h) => `
+          <tr>
+            <td style="${valueStyle}">
+              <div style="font-weight: 600; color: #111827;">${escapeHtml(h.name)}</div>
+              <div style="color: #6b7280; font-size: 12px; margin-top: 2px;">${h.stay}</div>
+              ${h.extrasHtml ? `<div style="margin-top: 6px;">${h.extrasHtml}</div>` : ""}
+            </td>
+            <td style="${valueStyle} text-align: right; font-weight: 600;">${baht(h.price)}</td>
+          </tr>`,
+    )
+    .join("");
+
+  const discountRow = i.discount > 0
+    ? `<tr><td style="${labelStyle} color: #047857;">${isTh ? "ส่วนลด" : "Discount"}</td><td style="${valueStyle} text-align: right; color: #047857; font-weight: 600;">−${baht(i.discount)}</td></tr>`
+    : "";
+  const balanceRow = i.balanceDue > 0
+    ? `<tr><td style="${labelStyle}">${isTh ? "ยอดค้างชำระ" : "Balance Due"}</td><td style="${valueStyle} text-align: right; font-weight: 600;">${baht(i.balanceDue)} <span style="color: #6b7280; font-size: 12px;">(${isTh ? "ชำระเมื่อเข้าพัก" : "pay on arrival"})</span></td></tr>`
+    : "";
+
+  const steps = isTh
+    ? [
+        "โอนเงินตามยอดที่ระบุด้านบน (หากยังไม่ได้โอน)",
+        `ส่งสลิปการโอนให้เจ้าของที่พักทางแชท พร้อมแจ้งรหัสจอง <strong>${escapeHtml(i.code)}</strong> และชื่อของคุณ`,
+        "เจ้าของที่พักตรวจสอบแล้วจะยืนยันการจองให้ และคุณจะได้รับอีเมลยืนยันอีกครั้ง",
+      ]
+    : [
+        "Transfer the amount shown above (if you have not already).",
+        `Send your transfer slip to the host in chat, quoting booking code <strong>${escapeHtml(i.code)}</strong> and your name.`,
+        "Once the host has checked the transfer they will confirm your booking, and you will get another email.",
+      ];
+
+  const html = `
+    <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+      <div style="background: #f59e0b; padding: 32px 24px;">
+        <h1 style="color: #ffffff; margin: 0; font-size: 22px; font-weight: 700;">${isTh ? "ได้รับการจองแล้ว — รอเจ้าของที่พักยืนยัน" : "Booking Received — Awaiting Host Confirmation"}</h1>
+      </div>
+      <div style="padding: 32px 24px;">
+        <p style="font-size: 16px; color: #111827; margin: 0 0 16px;">${isTh ? `เรียน คุณ${escapeHtml(i.guestName)}` : `Dear ${escapeHtml(i.guestName)}`},</p>
+        <p style="font-size: 14px; color: #374151; margin: 0 0 24px; line-height: 1.6;">${isTh ? `เราได้รับการจองของคุณที่ ${name} แล้ว การจองจะได้รับการยืนยันเมื่อเจ้าของที่พักตรวจสอบการโอนเงินของคุณเรียบร้อย` : `We have received your booking at ${name}. It is confirmed once the host has checked your transfer.`}</p>
+        <div style="background: #fffbeb; border: 1px solid #fcd34d; border-radius: 8px; padding: 16px 24px; margin-bottom: 24px; text-align: center;">
+          <div style="color: #92400e; font-size: 13px;">${isTh ? "รหัสจอง" : "Booking code"}</div>
+          <div style="font-family: 'SF Mono', Menlo, Consolas, monospace; font-size: 28px; font-weight: 700; letter-spacing: 2px; color: #111827; margin-top: 4px;">${escapeHtml(i.code)}</div>
+        </div>
+        <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px 24px; margin-bottom: 24px;">
+          <h2 style="color: #111827; font-size: 16px; font-weight: 700; margin: 0 0 8px;">${isTh ? `บ้านพัก (${i.houses.length})` : `Houses (${i.houses.length})`}</h2>
+          <table style="width: 100%; border-collapse: collapse;">
+            ${houseRows}
+            ${discountRow}
+            <tr><td style="padding: 16px 12px 0 0; color: #6b7280; font-size: 14px; border-top: 1px solid #e5e7eb;">${isTh ? "ยอดรวม" : "Total"}</td><td style="padding: 16px 0 0; color: #111827; font-size: 18px; font-weight: 700; text-align: right; border-top: 1px solid #e5e7eb;">${baht(i.total)}</td></tr>
+            <tr><td style="${labelStyle}">${isTh ? "ยอดที่ต้องโอน" : "Amount to transfer"}</td><td style="${valueStyle} text-align: right; font-weight: 700;">${baht(i.toTransfer)}</td></tr>
+            ${balanceRow}
+          </table>
+        </div>
+        <h2 style="color: #111827; font-size: 16px; font-weight: 700; margin: 0 0 8px;">${isTh ? "สิ่งที่ต้องทำต่อไป" : "What to do next"}</h2>
+        <ol style="margin: 0 0 24px; padding-left: 20px; font-size: 14px; color: #374151; line-height: 1.7;">
+          ${steps.map((s) => `<li>${s}</li>`).join("")}
+        </ol>
+        ${contactHtml}
+        <div style="background: #f9fafb; border: 1px solid #e5e7eb; border-radius: 8px; padding: 20px; margin: 24px 0;">
+          <p style="color: #111827; font-size: 14px; margin: 0 0 4px; font-weight: 600;">${name}</p>
+          <p style="color: #6b7280; font-size: 14px; margin: 0;">${escapeHtml(i.homestayLocation)}</p>
+        </div>
+        <p style="font-size: 12px; color: #9ca3af; margin: 4px 0 0;">Peaksnature — Nature Places in Thailand</p>
+      </div>
+    </div>`;
+
+  return { subject, html };
+}
+
+/** Resend key and From address, or null when email is not configured (demo mode). */
+function guestEmailConfig(): { apiKey: string; fromEmail: string } | null {
+  const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
+  if (!apiKey) return null;
+  const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
+  const fromEmail = cleaned
+    ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
+    : "Peaksnature <onboarding@resend.dev>";
+  return { apiKey, fromEmail };
+}
+
+async function sendQuickEmail(
+  config: { apiKey: string; fromEmail: string },
+  to: string,
+  email: { subject: string; html: string },
+) {
+  const { Resend } = await import("resend");
+  const { data, error } = await new Resend(config.apiKey).emails.send({
+    from: config.fromEmail,
+    to,
+    subject: email.subject,
+    html: email.html,
+  });
+  if (error) {
+    console.error("[Email] Resend API error (quick booking):", JSON.stringify(error));
+    return { success: false, error };
+  }
+  return { success: true, data };
+}
+
+/** Guest email for a one-house quick booking. */
+export async function sendQuickBookingEmail(details: BookingDetails, locale: string = "th") {
+  const config = guestEmailConfig();
+  if (!config) return { success: true, demo: true };
+
+  try {
+    const { booking, homestay, room, host } = details;
+    const isTh = locale === "th";
+    const nights = bookingNights(booking.check_in, booking.check_out);
+    const options = Array.isArray(booking.selected_options) ? (booking.selected_options as SelectedOptionForEmail[]) : [];
+    const localized = await localizeGuestEmailContent(homestay, room?.name ?? null, options, locale);
+
+    const discount = booking.discount_amount ?? 0;
+    const toTransfer = booking.payment_type === "deposit" ? booking.amount_paid || 0 : booking.total_price;
+    const guestsLabel = `${booking.num_guests} ${isTh ? "ท่าน" : "guests"}${booking.guest_pricing_label ? ` (${booking.guest_pricing_label})` : ""}`;
+
+    return await sendQuickEmail(
+      config,
+      booking.guest_email,
+      buildQuickBookingEmail({
+        isTh,
+        homestayName: localized.homestayName,
+        homestayLocation: localized.homestayLocation,
+        guestName: booking.guest_name,
+        code: bookingCode(booking.id),
+        houses: [
+          {
+            name: localized.roomName || "Standard",
+            stay: `${formatBookingDate(booking.check_in, locale)} → ${formatBookingDate(booking.check_out, locale)} · ${nights} ${isTh ? "คืน" : "nights"} · ${escapeHtml(guestsLabel)}`,
+            extrasHtml: localized.selectedOptions.length > 0 ? renderSelectedOptionsHtmlList(localized.selectedOptions, nights, isTh) : "",
+            price: booking.total_price + discount,
+          },
+        ],
+        discount,
+        total: booking.total_price,
+        toTransfer,
+        balanceDue: Math.max(0, booking.total_price - toTransfer),
+        facebookUrl: homestay.facebook_url,
+        hostPhone: host.phone,
+      }),
+    );
+  } catch (error) {
+    console.error("[Email] Quick booking exception:", error);
+    return { success: false, error };
+  }
+}
+
+/** Guest email for a quick booking of several houses at once. */
+export async function sendGroupQuickBookingEmail(details: GroupBookingDetails, locale: string = "th") {
+  const config = guestEmailConfig();
+  if (!config) return { success: true, demo: true };
+
+  try {
+    const { group, homestay, host, items } = details;
+    const isTh = locale === "th";
+    const money = cartMoney(items.map((it) => it.booking));
+    const localized = await localizeGroupEmailContent(homestay, items, locale);
+    // From the house rows, like the other cart emails: the group row can go stale.
+    const toTransfer = money.deposit ? money.paid : money.total;
+
+    return await sendQuickEmail(
+      config,
+      group.guest_email,
+      buildQuickBookingEmail({
+        isTh,
+        homestayName: localized.homestayName,
+        homestayLocation: localized.homestayLocation,
+        guestName: group.guest_name,
+        code: bookingCode(group.id),
+        houses: items.map((it, i) => {
+          const b = it.booking;
+          const nights = bookingNights(b.check_in, b.check_out);
+          const guestsLabel = `${b.num_guests} ${isTh ? "ท่าน" : "guests"}${b.guest_pricing_label ? ` (${b.guest_pricing_label})` : ""}`;
+          const r = localized.rooms[i];
+          return {
+            name: r.name || "Standard",
+            stay: `${formatBookingDate(b.check_in, locale)} → ${formatBookingDate(b.check_out, locale)} · ${nights} ${isTh ? "คืน" : "nights"} · ${escapeHtml(guestsLabel)}`,
+            extrasHtml: r.options.length > 0 ? renderSelectedOptionsHtmlList(r.options, nights, isTh) : "",
+            price: b.total_price + (b.discount_amount ?? 0),
+          };
+        }),
+        discount: money.discount,
+        total: money.total,
+        toTransfer,
+        balanceDue: Math.max(0, money.total - toTransfer),
+        facebookUrl: homestay.facebook_url,
+        hostPhone: host.phone,
+      }),
+    );
+  } catch (error) {
+    console.error("[Email] Group quick booking exception:", error);
     return { success: false, error };
   }
 }

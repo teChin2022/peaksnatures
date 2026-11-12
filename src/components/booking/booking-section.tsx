@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useMemo, useEffect, useRef, useCallback } from "react";
+import dynamic from "next/dynamic";
 import { format, differenceInDays, eachDayOfInterval, subDays, parseISO } from "date-fns";
 import { fmtDate } from "@/lib/format-date";
 import { motion, AnimatePresence, useInView, useReducedMotion } from "motion/react";
@@ -55,6 +56,13 @@ import { BookingTutorialDialog } from "@/components/booking/booking-tutorial-dia
 import { LeaveBookingDialog } from "@/components/booking/leave-booking-dialog";
 import { useBookingCart } from "@/components/booking/booking-cart-context";
 import { CartLineList } from "@/components/booking/cart-line-list";
+import { HostContactLinks } from "@/components/booking/host-contact-links";
+import { QuickBookingNotice } from "@/components/booking/quick-booking-notice";
+import { allowsNormal, allowsQuick, bookingCode, guestBookingModeOf } from "@/lib/quick-booking";
+import { buildBookingRequest, type BookingSlipFields } from "@/lib/booking-request";
+
+// Only a host who takes quick bookings needs it, so the other guests never load it.
+const Turnstile = dynamic(() => import("@marsidev/react-turnstile").then((m) => m.Turnstile), { ssr: false });
 
 interface BookedRange {
   room_id: string | null;
@@ -111,6 +119,10 @@ interface BookingSectionProps {
 
 type BookingStep = "dates" | "details" | "payment";
 
+// How long the quick-booking button waits for Turnstile before going ahead
+// without a token (the server treats a missing token as a pass, too).
+const TURNSTILE_PATIENCE_MS = 8000;
+
 export function BookingSection({
   homestay,
   rooms,
@@ -129,6 +141,9 @@ export function BookingSection({
   const tt = useTranslations("bookingTutorial");
   const tr = useTranslations("resumeBooking");
   const resumeEnabled = (host.booking_draft_hours ?? 0) > 0;
+  const hostMode = guestBookingModeOf(host);
+  const normalEnabled = allowsNormal(hostMode);
+  const quickEnabled = allowsQuick(hostMode);
   const [step, setStep] = useState<BookingStep>("dates");
   const [showConfirmedModal, setShowConfirmedModal] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
@@ -147,7 +162,7 @@ export function BookingSection({
   const [guestPhone, setGuestPhone] = useState("");
   const [guestProvince, setGuestProvince] = useState("");
   const [guestNote, setGuestNote] = useState("");
-  const [errors, setErrors] = useState<{ name?: string; email?: string; phone?: string; province?: string }>({});
+  const [errors, setErrors] = useState<{ name?: string; email?: string; phone?: string }>({});
   const locale = useLocale();
   const isMobile = useIsMobile();
   const provinceLabel = (v: string) => getProvinceLabel(v, locale);
@@ -164,6 +179,17 @@ export function BookingSection({
   const [holdId, setHoldId] = useState<string | null>(null);
   const [holdExpiresAt, setHoldExpiresAt] = useState<number | null>(null);
   const [showHeldModal, setShowHeldModal] = useState(false);
+  // Guest quick booking: the booking was placed without a slip, and a hold that
+  // runs out after the guest may already have transferred.
+  const [quickPlaced, setQuickPlaced] = useState(false);
+  const [showQuickExpired, setShowQuickExpired] = useState(false);
+  const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
+  const [turnstileError, setTurnstileError] = useState(false);
+  const [turnstileNonce, setTurnstileNonce] = useState(0);
+  const turnstileSiteKey = process.env.NEXT_PUBLIC_TURNSTILE_SITE_KEY;
+  // Fails open, like every other Turnstile call site: Cloudflare being
+  // unreachable must never stop a guest from booking.
+  const turnstilePassed = !turnstileSiteKey || !!turnstileToken || turnstileError;
   const [showConfirmModal, setShowConfirmModal] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [showOptions, setShowOptions] = useState(false);
@@ -180,7 +206,6 @@ export function BookingSection({
   const nameInputRef = useRef<HTMLInputElement>(null);
   const emailInputRef = useRef<HTMLInputElement>(null);
   const phoneInputRef = useRef<HTMLInputElement>(null);
-  const provinceFieldRef = useRef<HTMLDivElement>(null);
   const qrContainerRef = useRef<HTMLDivElement>(null);
 
   // "How to book?" help pill: pulse once when the form first scrolls into view,
@@ -647,22 +672,22 @@ export function BookingSection({
     setTimeout(() => nameInputRef.current?.focus(), 100);
   };
 
-  const validateGuestForm = useCallback((): { name?: string; email?: string; phone?: string; province?: string } => {
-    const e: { name?: string; email?: string; phone?: string; province?: string } = {};
+  // The province is optional: it feeds the host's guest-origin chart and nothing
+  // the stay needs, so it is not asked for as a condition of booking.
+  const validateGuestForm = useCallback((): { name?: string; email?: string; phone?: string } => {
+    const e: { name?: string; email?: string; phone?: string } = {};
     if (!guestName.trim()) e.name = t("fieldRequired");
     if (!guestEmail.trim()) e.email = t("fieldRequired");
     else if (!isValidEmail(guestEmail)) e.email = t("errorInvalidEmail");
     if (!guestPhone.trim()) e.phone = t("fieldRequired");
     else if (!isValidPhone(guestPhone)) e.phone = t("errorInvalidPhone");
-    if (!guestProvince) e.province = t("fieldRequired");
     return e;
-  }, [guestName, guestEmail, guestPhone, guestProvince, t]);
+  }, [guestName, guestEmail, guestPhone, t]);
 
-  const focusFirstError = useCallback((e: { name?: string; email?: string; phone?: string; province?: string }) => {
+  const focusFirstError = useCallback((e: { name?: string; email?: string; phone?: string }) => {
     if (e.name) nameInputRef.current?.focus();
     else if (e.email) emailInputRef.current?.focus();
     else if (e.phone) phoneInputRef.current?.focus();
-    else if (e.province) provinceFieldRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
   }, []);
 
   const handleProceedToPayment = async () => {
@@ -893,6 +918,8 @@ export function BookingSection({
     setStep("dates");
     setPaymentPhase("qr");
     handleRemoveSlip();
+    // They may have transferred already: give them the host to ask.
+    if (quickEnabled) setShowQuickExpired(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
@@ -909,6 +936,103 @@ export function BookingSection({
   };
 
   const [slipVerified, setSlipVerified] = useState(false);
+
+  // A quick booking the server turned down for a reason the guest can act on.
+  // True once the guest has been told why, so the caller stops quietly.
+  const explainQuickRefusal = async (res: Response): Promise<boolean> => {
+    const { code } = (await res.json().catch(() => ({}))) as { code?: string };
+    if (code === "TOO_MANY_PENDING") toast.error(t("errorQuickPendingLimit"));
+    else if (code === "QUICK_NOT_ENABLED" || code === "NORMAL_NOT_ENABLED") toast.error(t("errorBookingModeChanged"));
+    else if (code === "TURNSTILE_FAILED") toast.error(t("errorVerification"));
+    else if (res.status === 429) toast.error(t("errorTooManyRequests"));
+    else return false;
+    return true;
+  };
+
+  // Creates the booking(s) for the cart: one house goes to /api/bookings, several
+  // to /api/bookings/group. `slip` is what the server is told about payment.
+  // True when the booking was created.
+  const createBookingFromCart = async (slip: BookingSlipFields): Promise<boolean> => {
+    if (!dateRange?.from || !dateRange?.to) return false;
+    const checkIn = format(dateRange.from, "yyyy-MM-dd");
+    const checkOut = format(dateRange.to, "yyyy-MM-dd");
+    const optionsForLine = (optionIds: string[]) =>
+      optionIds.map((id) => {
+        const opt = roomOptions.find((o) => o.id === id);
+        const price = opt?.pricing_type === "per_time" ? (opt?.price || 0) : (opt?.price || 0) * nights;
+        return { id, name: opt?.name || "", price };
+      });
+
+    const handleCreateConflict = () => {
+      toast.error(t("errorDatesUnavailable"));
+      fetch(`/api/bookings/availability?homestay_id=${homestay.id}`)
+        .then((res) => res.json())
+        .then((data) => { if (data.bookedRanges) setLiveBookedRanges(data.bookedRanges); })
+        .catch(() => {});
+      setStep("dates");
+      setIsSubmitting(false);
+    };
+
+    // 3. Create the booking(s) — 1 room → single endpoint, ≥2 rooms → group endpoint.
+    const request = buildBookingRequest({
+      homestayId: homestay.id,
+      guest: { name: guestName, email: guestEmail, phone: guestPhone, province: guestProvince, note: guestNote },
+      checkIn,
+      checkOut,
+      lines: cartLines,
+      lineGross: computeLineGross,
+      optionsForLine,
+      totalPrice,
+      paymentType: paymentOption,
+      paymentAmount,
+      promoCodeId: appliedPromo?.id,
+      sessionId: uploadSessionId,
+      locale,
+      slip,
+    });
+    const res = await fetch(request.url, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(request.body),
+    });
+    if (!res.ok) {
+      if (res.status === 409) { handleCreateConflict(); return false; }
+      if (slip.quick && (await explainQuickRefusal(res))) return false;
+      throw new Error("Failed to create booking");
+    }
+    const created = await res.json();
+    const createdId: string | null =
+      request.url === "/api/bookings" ? created.booking.id : created.group?.id || created.bookings?.[0]?.id || null;
+
+    setBookingId(createdId);
+    setSlipVerified(slip.easyslip_verified);
+    setQuickPlaced(!!slip.quick);
+    trackDemand({
+      homestayId: homestay.id,
+      eventType: DemandEvent.BOOKING_SUBMITTED,
+      checkIn: format(dateRange.from, "yyyy-MM-dd"),
+      checkOut: format(dateRange.to, "yyyy-MM-dd"),
+      nights,
+      locale,
+      ...(slip.quick ? { data: { quick: true } } : {}),
+    });
+    // Hold is cleaned up server-side by create_booking_atomic; clear local state
+    releaseHold();
+    setHoldId(null);
+    setHoldExpiresAt(null);
+
+    // No second upload here. This used to re-send the whole slip to
+    // /api/slip-upload/{uploadSessionId} as a "backup", but nothing ever read
+    // it: sessions/{id}/slip is consumed only by the cross-device polling
+    // loop BEFORE submission, and the booking stores the pending/{uuid} path
+    // that /api/verify-slip already wrote. It cost the guest a second
+    // full-file upload on mobile data and left an orphan object that nothing
+    // deletes.
+
+    setShowConfirmedModal(true);
+    // toast.success(t("successSubmitted"));
+    return true;
+  };
 
   const handleSubmitBooking = async () => {
     if (!slipFile) {
@@ -1014,132 +1138,50 @@ export function BookingSection({
           verifyData.message || "no message",
         );
       }
-      const checkIn = format(dateRange.from, "yyyy-MM-dd");
-      const checkOut = format(dateRange.to, "yyyy-MM-dd");
-      const optionsForLine = (optionIds: string[]) =>
-        optionIds.map((id) => {
-          const opt = roomOptions.find((o) => o.id === id);
-          const price = opt?.pricing_type === "per_time" ? (opt?.price || 0) : (opt?.price || 0) * nights;
-          return { id, name: opt?.name || "", price };
-        });
-
-      const handleCreateConflict = () => {
-        toast.error(t("errorDatesUnavailable"));
-        fetch(`/api/bookings/availability?homestay_id=${homestay.id}`)
-          .then((res) => res.json())
-          .then((data) => { if (data.bookedRanges) setLiveBookedRanges(data.bookedRanges); })
-          .catch(() => {});
-        setStep("dates");
-        setIsSubmitting(false);
-      };
-
-      // 3. Create the booking(s) — 1 room → single endpoint, ≥2 rooms → group endpoint.
-      let createdId: string | null = null;
-      if (cartLines.length === 1) {
-        const line = cartLines[0];
-        const bookingRes = await fetch("/api/bookings", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            homestay_id: homestay.id,
-            room_id: line.roomId,
-            guest_name: guestName,
-            guest_email: guestEmail,
-            guest_phone: guestPhone,
-            guest_province: guestProvince || undefined,
-            notes: guestNote || undefined,
-            check_in: checkIn,
-            check_out: checkOut,
-            num_guests: line.numGuests,
-            guest_pricing_ids: line.tierIds.length > 0 ? line.tierIds : undefined,
-            total_price: totalPrice,
-            payment_type: paymentOption,
-            amount_paid: paymentAmount,
-            slip_hash: verifyData.slip_hash,
-            slip_trans_ref: verifyData.slip_trans_ref || null,
-            payment_slip_url: verifyData.payment_slip_url || null,
-            easyslip_response: verifyData.easyslip_response || null,
-            easyslip_verified: isSlipVerified,
-            session_id: uploadSessionId,
-            locale,
-            selected_options: optionsForLine(line.optionIds),
-            promo_code_id: appliedPromo?.id || undefined,
-          }),
-        });
-        if (!bookingRes.ok) {
-          if (bookingRes.status === 409) { handleCreateConflict(); return; }
-          throw new Error("Failed to create booking");
-        }
-        const { booking } = await bookingRes.json();
-        createdId = booking.id;
-      } else {
-        const groupRes = await fetch("/api/bookings/group", {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            homestay_id: homestay.id,
-            guest_name: guestName,
-            guest_email: guestEmail,
-            guest_phone: guestPhone,
-            guest_province: guestProvince || undefined,
-            notes: guestNote || undefined,
-            locale,
-            payment_type: paymentOption,
-            promo_code_id: appliedPromo?.id || undefined,
-            session_id: uploadSessionId,
-            slip_hash: verifyData.slip_hash,
-            slip_trans_ref: verifyData.slip_trans_ref || null,
-            payment_slip_url: verifyData.payment_slip_url || null,
-            easyslip_response: verifyData.easyslip_response || null,
-            easyslip_verified: isSlipVerified,
-            items: cartLines.map((line) => ({
-              room_id: line.roomId,
-              check_in: checkIn,
-              check_out: checkOut,
-              num_guests: line.numGuests,
-              guest_pricing_ids: line.tierIds.length > 0 ? line.tierIds : undefined,
-              selected_options: optionsForLine(line.optionIds),
-              total_price: computeLineGross(line),
-            })),
-          }),
-        });
-        if (!groupRes.ok) {
-          if (groupRes.status === 409) { handleCreateConflict(); return; }
-          throw new Error("Failed to create booking");
-        }
-        const data = await groupRes.json();
-        createdId = data.group?.id || data.bookings?.[0]?.id || null;
-      }
-
-      setBookingId(createdId);
-      setSlipVerified(isSlipVerified);
-      trackDemand({
-        homestayId: homestay.id,
-        eventType: DemandEvent.BOOKING_SUBMITTED,
-        checkIn: format(dateRange.from, "yyyy-MM-dd"),
-        checkOut: format(dateRange.to, "yyyy-MM-dd"),
-        nights,
-        locale,
+      await createBookingFromCart({
+        slip_hash: verifyData.slip_hash,
+        slip_trans_ref: verifyData.slip_trans_ref || null,
+        payment_slip_url: verifyData.payment_slip_url || null,
+        easyslip_response: verifyData.easyslip_response || null,
+        easyslip_verified: isSlipVerified,
       });
-      // Hold is cleaned up server-side by create_booking_atomic; clear local state
-      releaseHold();
-      setHoldId(null);
-      setHoldExpiresAt(null);
-
-      // No second upload here. This used to re-send the whole slip to
-      // /api/slip-upload/{uploadSessionId} as a "backup", but nothing ever read
-      // it: sessions/{id}/slip is consumed only by the cross-device polling
-      // loop BEFORE submission, and the booking stores the pending/{uuid} path
-      // that /api/verify-slip already wrote. It cost the guest a second
-      // full-file upload on mobile data and left an orphan object that nothing
-      // deletes.
-
-      setShowConfirmedModal(true);
-      // toast.success(t("successSubmitted"));
     } catch {
       toast.error(t("errorGeneric"));
     } finally {
       setIsSubmitting(false);
+    }
+  };
+
+  // A widget that never loads (script blocked, no network to Cloudflare) raises
+  // no error event, so without this the button would stay disabled for good.
+  // Cloudflare being out must never stop a guest from booking.
+  useEffect(() => {
+    if (!quickEnabled || !turnstileSiteKey || step !== "payment" || turnstilePassed) return;
+    const timer = setTimeout(() => setTurnstileError(true), TURNSTILE_PATIENCE_MS);
+    return () => clearTimeout(timer);
+  }, [quickEnabled, turnstileSiteKey, step, turnstilePassed, turnstileNonce]);
+
+  // Guest quick booking: no slip, the host checks the transfer by hand. The
+  // Turnstile token is single use, so a try that did not create a booking asks
+  // for a fresh one.
+  const handleSubmitQuick = async () => {
+    if (!dateRange?.from || !dateRange?.to) return;
+    setIsSubmitting(true);
+    let created = false;
+    try {
+      created = await createBookingFromCart({
+        easyslip_verified: false,
+        quick: true,
+        ...(turnstileToken ? { turnstile_token: turnstileToken } : {}),
+      });
+    } catch {
+      toast.error(t("errorGeneric"));
+    } finally {
+      setIsSubmitting(false);
+      if (!created) {
+        setTurnstileToken(null);
+        setTurnstileNonce((n) => n + 1);
+      }
     }
   };
 
@@ -1230,6 +1272,7 @@ export function BookingSection({
     setPaymentPhase("qr");
     setPaymentOption("full");
     setSlipVerified(false);
+    setQuickPlaced(false);
     setDateRange(undefined);
     setSelectedRoomId("");
     setNumGuests("2");
@@ -1579,10 +1622,10 @@ export function BookingSection({
                               {errors.phone && <p id="bk-phone-error" role="alert" className="text-xs font-medium text-red-600">{errors.phone}</p>}
                             </div>
 
-                            <div className="space-y-1.5" ref={provinceFieldRef}>
-                              <label htmlFor="bk-province" className="text-sm font-semibold text-earth-700">{t("province")} <span className="text-red-500">*</span></label>
-                              <Select value={guestProvince} onValueChange={(v) => { setGuestProvince(v); if (errors.province) setErrors((p) => ({ ...p, province: undefined })); }}>
-                                <SelectTrigger id="bk-province" aria-required="true" aria-invalid={!!errors.province} aria-describedby={errors.province ? "bk-province-error" : undefined} className={`!w-full p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2 ${errors.province ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-500 hover:!border-earth-700"}`}>
+                            <div className="space-y-1.5">
+                              <label htmlFor="bk-province" className="text-sm font-semibold text-earth-700">{t("province")}</label>
+                              <Select value={guestProvince} onValueChange={setGuestProvince}>
+                                <SelectTrigger id="bk-province" className="!w-full p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2 !border-earth-500 hover:!border-earth-700">
                                   <SelectValue placeholder={t("provincePlaceholder")} />
                                 </SelectTrigger>
                                 <SelectContent className="max-h-60 z-70">
@@ -1593,7 +1636,6 @@ export function BookingSection({
                                   ))}
                                 </SelectContent>
                               </Select>
-                              {errors.province && <p id="bk-province-error" role="alert" className="text-xs font-medium text-red-600">{errors.province}</p>}
                             </div>
 
                             <div className="space-y-1.5">
@@ -1813,7 +1855,7 @@ export function BookingSection({
                             {!payByBank && <li className="md:hidden">{t("payStep1")}</li>}
                             {!payByBank && <li>{t("payStep2")}</li>}
                             <li>{t("payStep3")}</li>
-                            <li>{t("payStep4")}</li>
+                            <li>{normalEnabled ? t("payStep4") : t("quickPayStep4")}</li>
                           </ol>
                           <div className="flex flex-col items-center p-5 bg-earth-50 rounded-2xl border border-earth-100">
                             {host.payment_display === "bank" && host.bank_name && host.bank_account_number && host.bank_account_name ? (
@@ -1864,10 +1906,41 @@ export function BookingSection({
                             {t(resumeEnabled ? "doNotClosePageResume" : "doNotClosePage")}
                           </div>
 
-                          <button onClick={() => setPaymentPhase("upload")}
-                            className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
-                            <CheckCircle2 className="h-4 w-4" />{t("iveTransferred")}
-                          </button>
+                          {quickEnabled && turnstileSiteKey && !turnstilePassed && (
+                            <div className="flex justify-center">
+                              <Turnstile
+                                key={turnstileNonce}
+                                siteKey={turnstileSiteKey}
+                                onSuccess={(token) => setTurnstileToken(token)}
+                                onExpire={() => setTurnstileToken(null)}
+                                onError={() => {
+                                  setTurnstileToken(null);
+                                  setTurnstileError(true);
+                                }}
+                                options={{ theme: "light", appearance: "interaction-only" }}
+                              />
+                            </div>
+                          )}
+
+                          {normalEnabled ? (
+                            <button onClick={() => setPaymentPhase("upload")}
+                              className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
+                              <CheckCircle2 className="h-4 w-4" />{t("iveTransferred")}
+                            </button>
+                          ) : (
+                            <button onClick={handleSubmitQuick} disabled={isSubmitting || !turnstilePassed}
+                              className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                              {t("quickSubmit")}
+                            </button>
+                          )}
+
+                          {normalEnabled && quickEnabled && (
+                            <button type="button" onClick={handleSubmitQuick} disabled={isSubmitting || !turnstilePassed}
+                              className="flex min-h-11 w-full items-center justify-center rounded-full border border-earth-200 bg-white px-6 py-2.5 text-center text-sm font-medium text-earth-800 transition-colors hover:bg-earth-50 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+                              {t("quickSubmitAlt")}
+                            </button>
+                          )}
                         </motion.div>
                       )}
 
@@ -1963,20 +2036,28 @@ export function BookingSection({
 
       {/* ═══ Confirmed Booking Modal ═══ */}
       <Dialog open={showConfirmedModal} onOpenChange={(o) => { if (!o) { resetBooking(); } }}>
-        <DialogContent className="sm:max-w-md">
+        <DialogContent className="sm:max-w-md max-h-[90dvh] overflow-y-auto">
           <div className="flex flex-col items-center text-center py-4">
             <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${slipVerified ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"}`}>
               {slipVerified ? <CheckCircle2 size={36} /> : <Clock size={36} />}
             </div>
             <DialogHeader className="space-y-1">
               <DialogTitle className="text-2xl font-bold text-earth-900 text-center">
-                {slipVerified ? t("confirmedTitle") : t("confirmedTitlePending")}
+                {slipVerified ? t("confirmedTitle") : quickPlaced ? t("quickPlacedTitle") : t("confirmedTitlePending")}
               </DialogTitle>
               <DialogDescription className="text-sm text-earth-500 text-center">
-                {slipVerified ? t("confirmedText") : t("confirmedTextPending")}
+                {slipVerified ? t("confirmedText") : quickPlaced ? t("quickPlacedText") : t("confirmedTextPending")}
               </DialogDescription>
             </DialogHeader>
-            {bookingId && (
+            {quickPlaced && bookingId && (
+              <QuickBookingNotice
+                code={bookingCode(bookingId)}
+                amountToTransfer={paymentAmount}
+                facebookUrl={homestay.facebook_url}
+                hostPhone={host.phone}
+              />
+            )}
+            {bookingId && !quickPlaced && (
               <Badge className="mt-3 bg-earth-100 text-earth-900" variant="secondary">
                 {t("bookingId")}: {bookingId}
               </Badge>
@@ -2021,7 +2102,7 @@ export function BookingSection({
               {paymentOption === "deposit" && depositAvailable && (
                 <>
                   <div className="flex justify-between text-xs">
-                    <span className="text-earth-600">{t("amountPaid")}</span>
+                    <span className="text-earth-600">{quickPlaced ? t("amountToTransfer") : t("amountPaid")}</span>
                     <span className="text-earth-900">฿{paymentAmount.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-xs">
@@ -2058,6 +2139,23 @@ export function BookingSection({
           </DialogHeader>
           <DialogFooter>
             <Button className="w-full bg-brand text-white hover:bg-brand-hover" onClick={handleHeldModalClose}>{t("chooseDifferentDates")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* The hold ran out in a flow where the guest may already have transferred */}
+      <Dialog open={showQuickExpired} onOpenChange={setShowQuickExpired}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
+              <Clock className="h-6 w-6 text-amber-600" />
+            </div>
+            <DialogTitle className="text-center">{t("quickExpiredTitle")}</DialogTitle>
+            <DialogDescription className="text-center">{t("quickExpiredDesc")}</DialogDescription>
+          </DialogHeader>
+          <HostContactLinks facebookUrl={homestay.facebook_url} hostPhone={host.phone} />
+          <DialogFooter>
+            <Button className="w-full bg-brand text-white hover:bg-brand-hover" onClick={() => setShowQuickExpired(false)}>{t("confirmedClose")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

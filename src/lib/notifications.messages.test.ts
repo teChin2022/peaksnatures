@@ -68,6 +68,42 @@ describe("buildNewBookingMessage", () => {
     expect(message).toContain("❌ ยืนยันสลิปไม่สำเร็จ");
   });
 
+  describe("a guest quick booking", () => {
+    it("says it is awaiting the host and points to the chat, never that the slip failed or was paid", () => {
+      const message = buildNewBookingMessage(details(), "quick");
+
+      expect(message).toContain("🕒 จองด่วน — รอตรวจสลิป");
+      expect(message).toContain("Messenger");
+      expect(message).not.toContain("ยืนยันสลิปไม่สำเร็จ");
+      expect(message).not.toContain("ชำระเงินแล้ว");
+      expect(message).not.toContain("ยืนยันแล้ว");
+    });
+
+    it("asks for the full amount as a transfer, not as paid", () => {
+      const message = buildNewBookingMessage(details({ total_price: 2000 }), "quick");
+      expect(message).toContain("ยอดที่ต้องโอน: ฿2,000");
+    });
+
+    it("shows the deposit to transfer and the balance for a deposit booking", () => {
+      const message = buildNewBookingMessage(
+        details({ payment_type: "deposit", amount_paid: 500, total_price: 2000 }),
+        "quick",
+      );
+      expect(message).toContain("ยอดที่ต้องโอน: ฿500 (มัดจำ)");
+      expect(message).toContain("ยอดค้าง: ฿1,500");
+      expect(message).not.toContain("ยอดที่ชำระ");
+    });
+
+    it("still says paid for a verified deposit booking", () => {
+      const message = buildNewBookingMessage(
+        details({ payment_type: "deposit", amount_paid: 500, total_price: 2000 }),
+        "confirmed",
+      );
+      expect(message).toContain("ยอดที่ชำระ: ฿500 (มัดจำ)");
+      expect(message).not.toContain("ยอดที่ต้องโอน");
+    });
+  });
+
   it("names the guest's province when they gave one", () => {
     expect(buildNewBookingMessage(details({ guest_province: "chiang_mai" }))).toContain("จังหวัด: เชียงใหม่");
     expect(buildNewBookingMessage(details())).not.toContain("จังหวัด:");

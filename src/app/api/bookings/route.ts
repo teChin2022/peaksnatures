@@ -4,7 +4,7 @@ import { revalidateTag } from "next/cache";
 import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { deleteBookingDraft } from "@/lib/booking-draft-server";
-import { sendBookingConfirmationEmail, sendHostLineNotification, sendHostSmsNotification, dispatchHostNotification, buildNewBookingMessage, sendRecommenderPromoUsedNotification } from "@/lib/notifications";
+import { sendBookingConfirmationEmail, sendQuickBookingEmail, sendHostLineNotification, sendHostSmsNotification, dispatchHostNotification, buildNewBookingMessage, sendRecommenderPromoUsedNotification, type HostNotificationType } from "@/lib/notifications";
 import type { Booking, Homestay, Host, PromoCode, Room, RoomSeasonalPrice, RoomSpecialPrice } from "@/types/database";
 import { calculateTotalPrice } from "@/lib/calculate-price";
 import {
@@ -18,6 +18,7 @@ import { logEvent, EventType } from "@/lib/history-log";
 import { deductCommission, hostBlockStateFrom, HOST_BLOCK_COLUMNS, type HostBlockRow } from "@/lib/billing";
 import { isHostBlocked } from "@/lib/plan-expiry";
 import { computeCommissionAmount, computePromoDiscount, evaluatePromoCode } from "@/lib/promo-codes";
+import { guardGuestBookingMode, quickBookingRateLimit } from "./guest-quick";
 
 const bookingSchema = z.object({
   homestay_id: z.string().uuid(),
@@ -31,8 +32,9 @@ const bookingSchema = z.object({
   num_guests: z.number().int().min(1),
   total_price: z.number().int().min(0),
   guest_pricing_ids: z.array(z.string().uuid()).max(20).optional(),
-  // Slip verification data (required — slip must be verified before booking)
-  slip_hash: z.string().min(1, "Slip hash is required"),
+  // Slip verification data. Required unless this is a guest quick booking
+  // (`quick`), where the host checks payment by hand and no slip is sent.
+  slip_hash: z.string().min(1, "Slip hash is required").optional(),
   slip_trans_ref: z.string().nullable().optional(),
   payment_slip_url: z.string().nullable().optional(),
   easyslip_response: z.unknown().optional(),
@@ -51,9 +53,17 @@ const bookingSchema = z.object({
     pricing_type: z.enum(["per_night", "per_time"]).optional(),
   })).optional().default([]),
   promo_code_id: z.string().uuid().optional(),
+  // Guest quick booking: needs a host on `quick` or `both`. The server then
+  // ignores every slip field and `easyslip_verified` sent with it.
+  quick: z.boolean().optional(),
+  turnstile_token: z.string().optional(),
+}).superRefine((d, ctx) => {
+  if (!d.quick && !d.slip_hash) {
+    ctx.addIssue({ code: "custom", path: ["slip_hash"], message: "Slip hash is required" });
+  }
 });
 
-async function sendNotifications(bookingId: string, supabase: ReturnType<typeof createServiceRoleClient>, locale: string = "th", isVerified: boolean = true) {
+async function sendNotifications(bookingId: string, supabase: ReturnType<typeof createServiceRoleClient>, locale: string = "th", isVerified: boolean = true, quick: boolean = false) {
   try {
     const { data: row, error: rowErr } = await supabase
       .from("bookings")
@@ -84,13 +94,18 @@ async function sendNotifications(bookingId: string, supabase: ReturnType<typeof 
       room: (room as Room) || undefined,
     };
 
-    const emailType = isVerified ? "confirmed" : "pending";
-    const hostNotifType = isVerified ? "confirmed" : "flagged";
+    // A quick booking has no slip to talk about: its own guest email (what to
+    // transfer, where to send the slip) and its own host wording.
+    const hostNotifType: HostNotificationType = quick ? "quick" : isVerified ? "confirmed" : "flagged";
 
-    await sendBookingConfirmationEmail(details, locale, emailType);
+    if (quick) {
+      await sendQuickBookingEmail(details, locale);
+    } else {
+      await sendBookingConfirmationEmail(details, locale, isVerified ? "confirmed" : "pending");
+    }
 
     // Host notification: dispatch with retry + email fallback
-    const statusLabel = hostNotifType === "confirmed" ? "ยืนยันแล้ว" : "รอตรวจสอบ";
+    const statusLabel = hostNotifType === "confirmed" ? "ยืนยันแล้ว" : hostNotifType === "quick" ? "จองด่วน รอตรวจสลิป" : "รอตรวจสอบ";
     await dispatchHostNotification(
       details,
       () => sendHostSmsNotification(details, hostNotifType),
@@ -116,6 +131,11 @@ export async function POST(req: NextRequest) {
     }
 
     const data = parsed.data;
+    const quick = data.quick === true;
+    if (quick) {
+      const limited = await quickBookingRateLimit.check(req);
+      if (limited) return limited;
+    }
     const supabase = createServiceRoleClient();
 
     // Guest-composition pricing snapshot — set during price verification, persisted post-insert.
@@ -131,7 +151,7 @@ export async function POST(req: NextRequest) {
     const { data: homestayRow } = await supabase
       .from("homestays")
       .select(
-        `host_id, promo_codes_enabled, hosts(${HOST_BLOCK_COLUMNS}, deposit_amount, deposit_by_month)`,
+        `host_id, promo_codes_enabled, hosts(${HOST_BLOCK_COLUMNS}, deposit_amount, deposit_by_month, guest_booking_mode)`,
       )
       .eq("id", data.homestay_id)
       .single();
@@ -143,6 +163,7 @@ export async function POST(req: NextRequest) {
         | (HostBlockRow & {
             deposit_amount: number;
             deposit_by_month: Record<string, number> | null;
+            guest_booking_mode: string | null;
           })
         | null;
     } | null;
@@ -157,6 +178,26 @@ export async function POST(req: NextRequest) {
           { status: 403 }
         );
       }
+    }
+
+    // Which way this host takes bookings, decided here and not by the client.
+    const modeError = await guardGuestBookingMode({
+      supabase,
+      homestayId: data.homestay_id,
+      hostMode: homestayCtx?.hosts?.guest_booking_mode,
+      quick,
+      guestPhone: data.guest_phone,
+      turnstileToken: data.turnstile_token,
+    });
+    if (modeError) return modeError;
+    if (quick) {
+      // Nothing was verified, whatever the client says: pending, no slip on
+      // file, no commission until the host confirms.
+      data.easyslip_verified = false;
+      data.slip_hash = undefined;
+      data.slip_trans_ref = null;
+      data.payment_slip_url = null;
+      data.easyslip_response = undefined;
     }
 
     // Server-side price verification: never trust client-supplied total_price
@@ -337,7 +378,7 @@ export async function POST(req: NextRequest) {
           p_total_price: data.total_price,
           p_status: data.easyslip_verified ? "confirmed" : "pending",
           p_easyslip_verified: data.easyslip_verified,
-          p_payment_slip_hash: data.slip_hash,
+          p_payment_slip_hash: data.slip_hash ?? null,
           p_slip_trans_ref: data.slip_trans_ref || null,
           p_payment_slip_url: data.payment_slip_url || null,
           p_easyslip_response: data.easyslip_response || null,
@@ -436,10 +477,10 @@ export async function POST(req: NextRequest) {
           eventType: data.easyslip_verified ? EventType.BOOKING_CONFIRMED : EventType.BOOKING_CREATED,
           actorType: "guest",
           actorId: null,
-          data: { guest_name: data.guest_name, check_in: data.check_in, check_out: data.check_out, total_price: data.total_price, room_id: data.room_id, payment_type: data.payment_type, promo_code_id: data.promo_code_id || null },
+          data: { guest_name: data.guest_name, check_in: data.check_in, check_out: data.check_out, total_price: data.total_price, room_id: data.room_id, payment_type: data.payment_type, promo_code_id: data.promo_code_id || null, ...(quick ? { quick: true } : {}) },
           req,
         });
-        await sendNotifications(bookingId as string, supabase, data.locale || "th", data.easyslip_verified);
+        await sendNotifications(bookingId as string, supabase, data.locale || "th", data.easyslip_verified, quick);
         if (promoState && data.easyslip_verified) {
           await sendRecommenderPromoUsedNotification({
             promo: promoState.promo,
@@ -475,7 +516,7 @@ export async function POST(req: NextRequest) {
         discount_amount: promoState?.discount || 0,
         status: data.easyslip_verified ? "confirmed" : "pending",
         easyslip_verified: data.easyslip_verified,
-        payment_slip_hash: data.slip_hash,
+        payment_slip_hash: data.slip_hash ?? null,
         slip_trans_ref: data.slip_trans_ref || null,
         payment_slip_url: data.payment_slip_url || null,
         easyslip_response: data.easyslip_response || null,
@@ -512,7 +553,7 @@ export async function POST(req: NextRequest) {
         data: { guest_name: data.guest_name, check_in: data.check_in, check_out: data.check_out, total_price: data.total_price, payment_type: data.payment_type },
         req,
       });
-      await sendNotifications((booking as unknown as Booking).id, supabase, data.locale || "th", data.easyslip_verified);
+      await sendNotifications((booking as unknown as Booking).id, supabase, data.locale || "th", data.easyslip_verified, quick);
       await deleteBookingDraft(supabase, data.homestay_id, data.guest_phone, data.guest_email);
     });
 

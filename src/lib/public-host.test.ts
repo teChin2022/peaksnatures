@@ -21,6 +21,7 @@ const host = {
   bank_account_number: "123-4-56789-0",
   bank_account_name: "Somchai J.",
   booking_draft_hours: 24,
+  guest_booking_mode: "quick",
   wallet_balance: 5000,
   commission_pct_override: 5,
   plan_type: "commission",
@@ -54,5 +55,9 @@ describe("toBookingHost", () => {
       cancellation_days: 14,
       booking_draft_hours: 24,
     });
+  });
+
+  it("passes the guest booking mode and the phone the quick-booking contact block needs", () => {
+    expect(toBookingHost(host)).toMatchObject({ guest_booking_mode: "quick", phone: "0812345678" });
   });
 });
