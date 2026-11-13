@@ -73,7 +73,9 @@ test.describe("a host on the normal flow", () => {
     await open(page, context, "normal");
     await reachPayment(page, slug);
 
-    await expect(page.getByRole("button", { name: T.booking.iveTransferred })).toBeVisible();
+    // The slip upload is on the payment page itself, with no "I have transferred" screen first.
+    await expect(page.getByRole("button", { name: T.booking.submitBooking })).toBeVisible();
+    await expect(page.getByRole("button", { name: T.booking.iveTransferred })).toHaveCount(0);
     await expect(page.getByRole("button", { name: T.booking.quickSubmit })).toHaveCount(0);
     await expect(page.getByRole("button", { name: T.booking.quickSubmitAlt })).toHaveCount(0);
     await expect(page.getByText(T.booking.howItWorks, { exact: true })).toBeVisible();
@@ -84,7 +86,6 @@ test.describe("a host on the normal flow", () => {
     await open(page, context, "normal");
     await reachPayment(page, slug);
 
-    await page.getByRole("button", { name: T.booking.iveTransferred }).click();
     await page.locator('input[type="file"]').setInputFiles({ name: "slip.png", mimeType: "image/png", buffer: SLIP_PNG });
     await expect(page.getByRole("button", { name: T.booking.submitBooking })).toBeEnabled();
     await page.getByRole("button", { name: T.booking.submitBooking }).click();
@@ -143,7 +144,10 @@ test.describe("a host on quick booking only", () => {
     const slug = requireSlug();
     await open(page, context, "quick");
     await reachPayment(page, slug);
-    const widgetUsed = await page.evaluate(() => Boolean((window as { __turnstileRendered?: boolean }).__turnstileRendered));
+    // The widget is loaded on demand, so give it a moment to render before deciding there is none.
+    const widgetUsed = await page
+      .waitForFunction(() => Boolean((window as { __turnstileRendered?: boolean }).__turnstileRendered), null, { timeout: 5_000 })
+      .then(() => true, () => false);
     test.skip(!widgetUsed, "NEXT_PUBLIC_TURNSTILE_SITE_KEY is not set here, so there is no challenge to pass");
 
     await page.getByRole("button", { name: T.booking.quickSubmit }).click();
@@ -190,12 +194,13 @@ test.describe("a host on quick booking only", () => {
     await expect(page.getByRole("button", { name: T.booking.quickSubmit })).toBeEnabled();
   });
 
-  test("shows a contact dialog when the hold runs out, in case the guest already transferred", async ({ page, context }) => {
+  test("shows the expired page with the host's contact when the hold runs out, in case the guest already transferred", async ({ page, context }) => {
     const slug = requireSlug();
     await open(page, context, "quick", { holdMs: 5000 });
     await reachPayment(page, slug);
 
     await expect(page.getByRole("dialog").getByText(T.booking.quickExpiredTitle)).toBeVisible({ timeout: 15_000 });
+    await expect(page.getByRole("dialog").getByText(T.booking.holdExpiredReleased)).toBeVisible();
   });
 });
 
@@ -205,7 +210,7 @@ test.describe("a host on both", () => {
     await open(page, context, "both");
     await reachPayment(page, slug);
 
-    await expect(page.getByRole("button", { name: T.booking.iveTransferred })).toBeVisible();
+    await expect(page.getByRole("button", { name: T.booking.submitBooking })).toBeVisible();
     await expect(page.getByRole("button", { name: T.booking.quickSubmitAlt })).toBeVisible();
   });
 
@@ -262,7 +267,7 @@ test.describe("on a phone", () => {
     await expect(page.getByRole("dialog").getByText(T.booking.quickPlacedTitle)).toBeVisible();
     expect(await overflow()).toBeLessThanOrEqual(0);
 
-    // The confirmation is long on a phone: it must stay inside the screen and scroll,
+    // The done page is long on a phone: it must stay inside the screen and scroll,
     // or its title and its buttons end up out of reach.
     const dialog = page.getByRole("dialog");
     const box = (await dialog.boundingBox())!;
@@ -272,7 +277,7 @@ test.describe("on a phone", () => {
     expect(box.y + box.height).toBeLessThanOrEqual(812);
 
     await expect(dialog.getByText(T.booking.quickPlacedTitle)).toBeInViewport();
-    const close = dialog.getByRole("button", { name: T.booking.confirmedClose, exact: true });
+    const close = dialog.getByRole("button", { name: T.booking.backToHomestay, exact: true });
     await close.scrollIntoViewIfNeeded();
     await expect(close).toBeInViewport();
   });
@@ -298,7 +303,7 @@ test.describe("the checkout overlay", () => {
   const expectAbove = async (dialog: Locator, page: Page) =>
     expect(await zIndex(dialog)).toBeGreaterThan(await zIndex(overlay(page)));
 
-  test("covers the screen for details and payment, and the booked dialog opens on top of it", async ({ page, context }) => {
+  test("covers the screen under the site header for details and payment, and ends on the done page", async ({ page, context }) => {
     const slug = requireSlug();
     await open(page, context, "normal");
     // Choosing a province on the way needs the dropdown above the overlay: a covered option can't be clicked.
@@ -307,16 +312,18 @@ test.describe("the checkout overlay", () => {
     await expect(overlay(page)).toBeVisible();
     const box = await overlay(page).boundingBox();
     const viewport = page.viewportSize()!;
-    expect(box).toMatchObject({ x: 0, y: 0, width: viewport.width, height: viewport.height });
+    // Full width and down to the bottom; its top is the site header's bottom edge.
+    const header = (await page.locator("nav").first().boundingBox())!;
+    expect(box!.x).toBe(0);
+    expect(box!.width).toBe(viewport.width);
+    expect(Math.abs(box!.y - (header.y + header.height))).toBeLessThanOrEqual(1);
+    expect(box!.y + box!.height).toBe(viewport.height);
 
-    await page.getByRole("button", { name: T.booking.iveTransferred }).click();
     await page.locator('input[type="file"]').setInputFiles({ name: "slip.png", mimeType: "image/png", buffer: SLIP_PNG });
     await page.getByRole("button", { name: T.booking.submitBooking }).click();
 
-    const booked = page.getByRole("dialog").filter({ hasText: T.booking.confirmedTitle });
-    await expect(booked).toBeVisible();
-    await expectAbove(booked, page);
-    await booked.getByRole("button", { name: T.booking.confirmedClose }).click();
+    await expect(overlay(page).getByText(T.booking.confirmedTitle)).toBeVisible();
+    await overlay(page).getByRole("button", { name: T.booking.backToHomestay }).click();
     await expect(page.locator('[data-checkout="closed"]')).toBeAttached();
   });
 
@@ -333,6 +340,6 @@ test.describe("the checkout overlay", () => {
 
     await expect(leave).toBeHidden();
     await expect(overlay(page)).toBeVisible();
-    await expect(page.getByRole("button", { name: T.booking.iveTransferred })).toBeVisible();
+    await expect(page.getByRole("button", { name: T.booking.submitBooking })).toBeVisible();
   });
 });

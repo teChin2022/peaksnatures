@@ -245,7 +245,8 @@ async function reachPayment(details: Partial<Details> = {}) {
   await fillDetails(details);
   await click(buttonByText("continuePayment"));
   await click(buttonByText("confirmProceed"));
-  await waitForText("paymentTitle");
+  // The payment page leads with the amount to transfer.
+  await waitForText("amountToTransfer");
 }
 
 const bookingPosts = () => calls.filter((c) => c.method === "POST" && /^\/api\/bookings(\/group)?$/.test(c.url));
@@ -332,7 +333,9 @@ describe("BookingSection payment step", () => {
     await renderForm("normal");
     await reachPayment();
 
-    expect(buttonByText("iveTransferred")).toBeTruthy();
+    // The slip upload sits on the payment page itself: no "I have transferred" screen in between.
+    expect(buttonByText("submitBooking")).toBeTruthy();
+    expect(document.body.querySelector('input[type="file"]')).toBeTruthy();
     expect(buttonByText("quickSubmit")).toBeUndefined();
     expect(text()).toContain("payStep4");
     expect(text()).not.toContain("quickPayStep4");
@@ -344,7 +347,8 @@ describe("BookingSection payment step", () => {
     await reachPayment();
 
     expect(buttonByText("quickSubmit")).toBeTruthy();
-    expect(buttonByText("iveTransferred")).toBeUndefined();
+    expect(buttonByText("submitBooking")).toBeUndefined();
+    expect(text()).not.toContain("waitingForSlip");
     expect(text()).toContain("quickPayStep4");
     // Says up front that no slip is uploaded here and that it goes to the host in chat.
     expect(text()).toContain("quickNoSlipTitle");
@@ -355,7 +359,7 @@ describe("BookingSection payment step", () => {
     await renderForm("both");
     await reachPayment();
 
-    expect(buttonByText("iveTransferred")).toBeTruthy();
+    expect(buttonByText("submitBooking")).toBeTruthy();
     expect(buttonByText("quickSubmitAlt")).toBeTruthy();
     expect(buttonByText("quickSubmit")?.textContent).toBe("quickSubmitAlt");
     expect(text()).not.toContain("quickNoSlipTitle");
@@ -566,7 +570,6 @@ describe("Turnstile for a quick booking", () => {
 // ── The normal flow, unchanged ──────────────────────────────────────────────
 describe("the slip-verified booking, after the creation code was shared with quick", () => {
   async function uploadAndSubmit() {
-    await click(buttonByText("iveTransferred"));
     await waitForText("waitingForSlip");
 
     const input = document.body.querySelector<HTMLInputElement>('input[type="file"]')!;
@@ -629,15 +632,18 @@ describe("the slip-verified booking, after the creation code was shared with qui
 });
 
 // ── The hold running out ────────────────────────────────────────────────────
+// Every host mode gets the same expired page: the houses are released, and a guest who
+// may already have transferred is pointed at the host.
 describe("when the 10-minute hold runs out on the payment step", () => {
-  it("tells a guest of a quick-capable host to contact the host in case they already transferred", async () => {
+  it("shows the expired page with the host's contact to a quick host's guest", async () => {
     holdMs = 1500;
     await renderForm("quick");
     await reachPayment();
 
     await waitForText("quickExpiredTitle", 5000);
+    expect(text()).toContain("holdExpiredReleased");
     expect(document.body.querySelector('a[href="https://m.me/ingkhoacamp"]')).toBeTruthy();
-    expect(h.toastError).toHaveBeenCalledWith("holdExpired");
+    expect(buttonByText("quickSubmit")).toBeUndefined();
   });
 
   it("does the same for a host on both", async () => {
@@ -647,13 +653,49 @@ describe("when the 10-minute hold runs out on the payment step", () => {
     await waitForText("quickExpiredTitle", 5000);
   });
 
-  it("only returns to the dates, as before, for a host on the normal flow", async () => {
+  it("does the same on the normal flow, where a guest may also have transferred already", async () => {
     holdMs = 1500;
     await renderForm("normal");
     await reachPayment();
 
-    await vi.waitFor(() => expect(h.toastError).toHaveBeenCalledWith("holdExpired"), { timeout: 5000 });
-    expect(text()).not.toContain("quickExpiredTitle");
+    await waitForText("quickExpiredTitle", 5000);
+    expect(buttonByText("submitBooking")).toBeUndefined();
+  });
+
+  it("starts over from the dates", async () => {
+    holdMs = 1500;
+    await renderForm("normal");
+    await reachPayment();
+    await waitForText("quickExpiredTitle", 5000);
+
+    await click(buttonByText("chooseDifferentDates"));
+    expect(document.body.querySelector("[data-checkout]")?.getAttribute("data-checkout")).toBe("closed");
+  });
+});
+
+// ── The review page ─────────────────────────────────────────────────────────
+describe("the review page, between the guest's details and the hold", () => {
+  it("shows the house, the guest and the price, and holds nothing until the guest confirms", async () => {
+    await renderForm("normal");
+    await toDetails();
+    await fillDetails();
+    await click(buttonByText("continuePayment"));
+
+    expect(text()).toContain("confirmTitle");
+    expect(text()).toContain(ROOM_A.name);
+    expect(text()).toContain("Nok Suwan");
+    expect(text()).toContain("priceBreakdown");
+    expect(calls.some((c) => c.url === "/api/bookings/hold")).toBe(false);
+  });
+
+  it("goes back to the form to edit the details", async () => {
+    await renderForm("normal");
+    await toDetails();
+    await fillDetails();
+    await click(buttonByText("continuePayment"));
+    await click(buttonByText("confirmEdit"));
+
+    expect(document.body.querySelector("#bk-name")).toBeTruthy();
   });
 });
 
@@ -694,6 +736,18 @@ describe("checkout overlay (steps 2–3)", () => {
     await renderForm("normal");
     await reachPayment();
     expect(shell().dataset.checkout).toBe("open");
-    expect(buttonByText("iveTransferred")).toBeTruthy();
+    expect(buttonByText("submitBooking")).toBeTruthy();
+  });
+
+  it("shows the done page in the overlay once the booking is placed, and closes back to the page", async () => {
+    await renderForm("quick");
+    await reachPayment();
+    await click(buttonByText("quickSubmit"));
+    await waitForText("quickPlacedTitle");
+    expect(shell().dataset.checkout).toBe("open");
+    expect(text()).toContain("doneNextSteps");
+
+    await click(buttonByText("backToHomestay"));
+    expect(shell().dataset.checkout).toBe("closed");
   });
 });

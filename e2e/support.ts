@@ -209,7 +209,9 @@ export async function reachPayment(page: Page, slug: string, options: { houses?:
 
   await page.getByRole("button", { name: T.booking.continuePayment }).click();
   await page.getByRole("button", { name: T.booking.confirmProceed }).click();
-  await expect(page.getByRole("heading", { name: T.booking.paymentTitle })).toBeVisible();
+  // The payment page's heading is for screen readers; the amount to transfer is its headline.
+  await expect(page.getByRole("heading", { name: T.booking.stepPayment, exact: true })).toBeAttached();
+  await expect(page.getByText(T.booking.amountToTransfer).first()).toBeVisible();
 }
 
 /** Picks two consecutive free nights some days ahead, trying later pairs when a house is not free for them. */

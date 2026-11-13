@@ -4,6 +4,7 @@ import { useState, useMemo, useEffect, useRef, useCallback } from "react";
 import dynamic from "next/dynamic";
 import { format, differenceInDays, eachDayOfInterval, subDays, parseISO } from "date-fns";
 import { fmtDate } from "@/lib/format-date";
+import NextImage from "next/image";
 import { motion, AnimatePresence, useInView, useReducedMotion } from "motion/react";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
@@ -15,14 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Separator } from "@/components/ui/separator";
-import { Badge } from "@/components/ui/badge";
-import {
-  Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope,
-  Calendar as CalendarIcon, CreditCard, Upload, CheckCircle2, Loader2,
-  ImageIcon, X, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle,
-  Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, ListPlus, Gift, HelpCircle, BedDouble, MessageCircle,
-} from "lucide-react";
+import { Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope, Calendar as CalendarIcon, CheckCircle2, Loader2, ImageIcon, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle, Download, Shield, Minus, Plus, ShieldUser, ListPlus, Gift, HelpCircle, BedDouble, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { billingTodayStr } from "@/lib/billing-dates";
 import { reconcileDraftWithCatalog, type ResumeDraftDetail } from "@/lib/booking-draft";
@@ -123,6 +117,19 @@ type BookingStep = "dates" | "details" | "payment";
 // without a token (the server treats a missing token as a pass, too).
 const TURNSTILE_PATIENCE_MS = 8000;
 
+// Checkout overlay (steps 2–3, Mist Ridge prototype): white cards on mist, one style set.
+const CO_CARD = "rounded-[20px] bg-white p-5 md:p-7";
+const CO_H2 = "font-serif text-2xl leading-snug text-ink md:text-[28px]";
+const CO_H3 = "text-[17px] font-medium text-ink";
+const CO_LEAD = "mt-1.5 text-[15px] leading-relaxed text-ink-2";
+const CO_LABEL = "text-[13px] font-medium text-ink-2";
+const CO_INPUT =
+  "!h-12 rounded-xl !border !border-line-strong !bg-white px-4 text-base text-ink !shadow-none transition-colors hover:!border-ink-2 focus-visible:!ring-2 focus-visible:!ring-pine focus-visible:!ring-offset-2 md:text-[15px]";
+const CO_INPUT_ERR = "!border-red-500 hover:!border-red-500";
+const CO_PRIMARY =
+  "flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-pine px-8 text-[15px] font-medium text-white transition-colors hover:bg-pine-hover disabled:cursor-not-allowed disabled:opacity-50";
+const CO_MONEY_LG = "font-serif text-2xl text-ink lining-nums tabular-nums";
+
 export function BookingSection({
   homestay,
   rooms,
@@ -173,7 +180,11 @@ export function BookingSection({
   const [holdProgress, setHoldProgress] = useState<{ done: number; total: number } | null>(null);
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
-  const [paymentPhase, setPaymentPhase] = useState<"qr" | "upload">("qr");
+  // The hold ran out on the payment page: the overlay shows the expired page until the guest starts over.
+  const [holdExpired, setHoldExpired] = useState(false);
+  // A slip is with /api/verify-slip: the overlay shows the "checking your slip" card.
+  const [verifyingSlip, setVerifyingSlip] = useState(false);
+  const uploadCardRef = useRef<HTMLElement>(null);
   const [paymentOption, setPaymentOption] = useState<"full" | "deposit">("full");
   const [showWelcomeBack, setShowWelcomeBack] = useState(false);
   const [uploadSessionId, setUploadSessionId] = useState(() => crypto.randomUUID());
@@ -183,7 +194,6 @@ export function BookingSection({
   // Guest quick booking: the booking was placed without a slip, and a hold that
   // runs out after the guest may already have transferred.
   const [quickPlaced, setQuickPlaced] = useState(false);
-  const [showQuickExpired, setShowQuickExpired] = useState(false);
   const [turnstileToken, setTurnstileToken] = useState<string | null>(null);
   const [turnstileError, setTurnstileError] = useState(false);
   const [turnstileNonce, setTurnstileNonce] = useState(0);
@@ -246,23 +256,24 @@ export function BookingSection({
   };
   const [bookingId, setBookingId] = useState<string | null>(null);
 
-  // Detect when user returns from banking app (Page Visibility API)
+  // Back from the banking app (Page Visibility API): the payment page is one page now, so bring
+  // its slip upload card into view and greet them there.
   const handleVisibilityChange = useCallback(() => {
-    if (document.visibilityState === "visible" && step === "payment" && paymentPhase === "qr" && !slipFile) {
-      setPaymentPhase("upload");
+    if (document.visibilityState === "visible" && step === "payment" && normalEnabled && !slipFile && !holdExpired) {
+      uploadCardRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
       setShowWelcomeBack(true);
       setTimeout(() => setShowWelcomeBack(false), 4000);
     }
-  }, [step, paymentPhase, slipFile]);
+  }, [step, normalEnabled, slipFile, holdExpired]);
 
   useEffect(() => {
     document.addEventListener("visibilitychange", handleVisibilityChange);
     return () => document.removeEventListener("visibilitychange", handleVisibilityChange);
   }, [handleVisibilityChange]);
 
-  // Poll for cross-device slip upload when in upload phase
+  // Poll for a cross-device slip upload while the payment page is waiting for a slip
   useEffect(() => {
-    if (step === "payment" && paymentPhase === "upload" && !slipFile && !phoneSlipReceived) {
+    if (step === "payment" && normalEnabled && !holdExpired && !showConfirmedModal && !slipFile && !phoneSlipReceived) {
       pollingRef.current = setInterval(async () => {
         try {
           const res = await fetch(`/api/slip-upload/${uploadSessionId}`);
@@ -296,7 +307,7 @@ export function BookingSection({
         pollingRef.current = null;
       }
     };
-  }, [step, paymentPhase, slipFile, phoneSlipReceived, uploadSessionId, homestay.id, locale]);
+  }, [step, normalEnabled, holdExpired, showConfirmedModal, slipFile, phoneSlipReceived, uploadSessionId, homestay.id, locale]);
 
   // Listen for "book-room" custom event dispatched from RoomsSection
   useEffect(() => {
@@ -404,10 +415,10 @@ export function BookingSection({
       for (const el of inerted) el.inert = false;
     };
   }, [checkoutOpen]);
-  // Each step starts at the top of the overlay.
+  // Each page of the overlay (details, review, payment, done, expired) starts at its top.
   useEffect(() => {
     if (checkoutOpen) checkoutShellRef.current?.scrollTo({ top: 0 });
-  }, [step, checkoutOpen]);
+  }, [step, checkoutOpen, showConfirmModal, showConfirmedModal, holdExpired]);
 
   // Broadcast the current step so MobileBookingBar can hide itself past step 1
   useEffect(() => {
@@ -702,6 +713,8 @@ export function BookingSection({
       return;
     }
     trackStep("dates");
+    // Always start at the form: a review left open by an earlier, abandoned try must not come back.
+    setShowConfirmModal(false);
     setStep("details");
     setTimeout(() => nameInputRef.current?.focus(), 100);
   };
@@ -944,18 +957,22 @@ export function BookingSection({
     setHoldExpiresAt(null);
   }, [holdId, uploadSessionId]);
 
-  // Hold expiry callback — passed to <HoldCountdown onExpire />
+  // Hold expiry callback — passed to <HoldCountdown onExpire />. The overlay switches to the
+  // expired page, which tells every guest to contact the host if they already transferred.
   const handleHoldExpired = useCallback(() => {
     releaseHold();
-    toast.error(t("holdExpired"));
-    setDateRange(undefined);
-    setStep("dates");
-    setPaymentPhase("qr");
     handleRemoveSlip();
-    // They may have transferred already: give them the host to ask.
-    if (quickEnabled) setShowQuickExpired(true);
+    setHoldExpired(true);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // "Choose new dates" on the expired page: back to step 1 with the picker open.
+  const handleStartOver = () => {
+    setHoldExpired(false);
+    setDateRange(undefined);
+    setStep("dates");
+    setTimeout(() => setCalendarOpen(true), 150);
+  };
 
   const handleHeldModalClose = () => {
     setShowHeldModal(false);
@@ -1077,6 +1094,7 @@ export function BookingSection({
     if (!dateRange?.from || !dateRange?.to) return;
 
     setIsSubmitting(true);
+    setVerifyingSlip(true);
 
     try {
       // 1. Prepare the slip file
@@ -1183,6 +1201,7 @@ export function BookingSection({
       toast.error(t("errorGeneric"));
     } finally {
       setIsSubmitting(false);
+      setVerifyingSlip(false);
     }
   };
 
@@ -1301,9 +1320,68 @@ export function BookingSection({
       : `฿${selectedRoom.price_per_night.toLocaleString()}`
     : "";
 
+  // Where the checkout overlay is, for its header: the back button and the four named steps.
+  const checkoutView = showConfirmedModal ? "done" : holdExpired ? "expired" : step === "payment" ? "pay" : showConfirmModal ? "review" : "details";
+  const checkoutStepIndex = { details: 0, review: 1, pay: 2, expired: 2, done: 3 }[checkoutView];
+  const checkoutBack =
+    checkoutView === "details"
+      ? () => setStep("dates")
+      : checkoutView === "review"
+        ? () => setShowConfirmModal(false)
+        : checkoutView === "pay"
+          ? () => { releaseHold(); setStep("details"); setShowConfirmModal(true); }
+          : null;
+  const nightsLabel = `${nights} ${nights > 1 ? tc("nights") : tc("night")}`;
+
+  /** The stay (check-in → check-out) and every house in the cart, for the review and done pages. */
+  const renderStaySummary = () => (
+    <div className="space-y-4">
+      {dateRange?.from && dateRange?.to && (
+        <div className="grid grid-cols-[1fr_auto_1fr] items-center gap-3 rounded-2xl bg-mist p-4">
+          {([[homestay.check_in_time ? t("checkInTime", { time: homestay.check_in_time }) : t("checkInLabel"), dateRange.from], [homestay.check_out_time ? t("checkOutTime", { time: homestay.check_out_time }) : t("checkOutLabel"), dateRange.to]] as const).map(([label, d], i) => (
+            <div key={i} className={i === 1 ? "order-3 text-right" : ""}>
+              {/* A no-break space keeps "14:00 น." together when the label wraps on a phone. */}
+              <p className="text-[13px] text-ink-2">{label.replace(/ (?=น\.)/, "\u00a0")}</p>
+              <p className={`mt-0.5 flex items-baseline gap-1.5 ${i === 1 ? "justify-end" : ""}`}>
+                <span className="font-serif text-3xl leading-none text-ink lining-nums">{fmtDate(d, "d", locale)}</span>
+                <span className="text-[15px] text-ink">{fmtDate(d, "MMM", locale)}</span>
+              </p>
+              <p className="mt-0.5 text-[13px] text-ink-2">{fmtDate(d, "EEEE", locale)}</p>
+            </div>
+          ))}
+          <p className="order-2 text-center text-[13px] text-ink-2">
+            {nightsLabel}
+            <br />→
+          </p>
+        </div>
+      )}
+      <ul className="divide-y divide-line">
+        {cartLines.map((line) => {
+          const room = rooms.find((r) => r.id === line.roomId);
+          const guestLabel = composeLineGuestLabel(guestPricing.filter((g) => g.room_id === line.roomId), line.tierIds, line.numGuests, tc("guests"), locale);
+          return (
+            <li key={line.lineId} className="flex items-start gap-3.5 py-3.5 first:pt-0 last:pb-0">
+              <div className="relative h-16 w-20 shrink-0 overflow-hidden rounded-xl bg-mist-2">
+                {room?.images?.[0] && <NextImage src={room.images[0]} alt="" fill sizes="80px" className="object-cover" />}
+              </div>
+              <div className="min-w-0 flex-1">
+                <p className="truncate font-medium text-ink">{room?.name}</p>
+                <p className="text-[13px] text-ink-2">
+                  {guestLabel}
+                  {line.optionIds.length > 0 ? ` · ${t("optionsSelected", { count: line.optionIds.length })}` : ""}
+                </p>
+                <p className="mt-1 font-serif text-lg text-ink lining-nums tabular-nums">฿{computeLineGross(line).toLocaleString()}</p>
+              </div>
+            </li>
+          );
+        })}
+      </ul>
+    </div>
+  );
+
   const resetBooking = () => {
     setStep("dates");
-    setPaymentPhase("qr");
+    setHoldExpired(false);
     setPaymentOption("full");
     setSlipVerified(false);
     setQuickPlaced(false);
@@ -1330,24 +1408,20 @@ export function BookingSection({
 
   return (
     <>
-      {/* Securing-rooms overlay — the step 2 → 3 transition holds each room via a
-          sequential API call, which is several seconds for a multi-room cart.
-          Without this the panel just sat silent. Scoped to the hold phase only
-          (step "details"); step 3's slip verification has its own button spinner. */}
-      {isSubmitting && step === "details" && (
+      {/* Securing the houses (step 2 → 3: one hold request per house, several seconds for a big
+          cart) or checking the slip: a full card over the checkout, under the site header like it. */}
+      {((isSubmitting && step === "details") || verifyingSlip) && (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-pine-deep/40 px-4 backdrop-blur-sm"
+          className="fixed inset-x-0 top-[69px] bottom-0 z-[80] flex items-start justify-center bg-mist/95 px-4 pt-24"
           role="status"
           aria-live="polite"
           aria-busy="true"
         >
-          <div className="w-full max-w-sm rounded-3xl bg-white p-8 text-center shadow-2xl">
-            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-pine-mist">
-              <Loader2 className="h-7 w-7 animate-spin text-pine" />
-            </div>
-            <h3 className="font-serif text-xl text-ink">{t("securingRoomsTitle")}</h3>
-            <p className="mt-2 text-sm leading-relaxed text-ink-3">{t("securingRoomsDesc")}</p>
-            {holdProgress && holdProgress.total > 1 && (
+          <div className="w-full max-w-md rounded-[24px] bg-white p-8 text-center">
+            <span aria-hidden className="mx-auto mb-5 block h-12 w-12 animate-spin rounded-full border-[3px] border-pine-mist border-t-pine motion-reduce:animate-none" />
+            <h3 className="font-serif text-2xl text-ink">{verifyingSlip ? t("verifyingSlipTitle") : t("securingRoomsTitle")}</h3>
+            <p className="mt-2 text-[15px] leading-relaxed text-ink-2">{verifyingSlip ? t("verifyingSlipDesc") : t("securingRoomsDesc")}</p>
+            {!verifyingSlip && holdProgress && holdProgress.total > 1 && (
               <div className="mt-5">
                 <div className="h-1.5 w-full overflow-hidden rounded-full bg-mist-2">
                   <div
@@ -1355,7 +1429,7 @@ export function BookingSection({
                     style={{ width: `${Math.round((holdProgress.done / holdProgress.total) * 100)}%` }}
                   />
                 </div>
-                <p className="mt-2 text-xs font-medium text-ink-3">
+                <p className="mt-2 text-[13px] text-ink-2">
                   {t("securingRoomsProgress", { done: holdProgress.done, total: holdProgress.total })}
                 </p>
               </div>
@@ -1388,10 +1462,46 @@ export function BookingSection({
               tabIndex={checkoutOpen ? -1 : undefined}
               className={
                 checkoutOpen
-                  ? "fixed inset-0 z-[45] overflow-x-hidden overflow-y-auto overscroll-contain bg-mist px-4 pt-[88px] pb-[calc(2.5rem+env(safe-area-inset-bottom))] outline-none animate-in fade-in slide-in-from-bottom-4 duration-300 motion-reduce:animate-none sm:px-6"
+                  ? "fixed inset-x-0 top-[69px] bottom-0 z-[45] overflow-x-hidden overflow-y-auto overscroll-contain bg-mist outline-none animate-in fade-in slide-in-from-bottom-4 duration-300 motion-reduce:animate-none"
                   : "mt-6"
               }
             >
+            {/* The checkout's own header: back, the stay, the hold timer, and where the guest is. */}
+            {checkoutOpen && (
+              <div className="sticky top-0 z-10 border-b border-line bg-white">
+                <div className="mx-auto flex min-h-16 max-w-3xl items-center gap-2 px-2 sm:px-4">
+                  {checkoutBack ? (
+                    <button type="button" onClick={checkoutBack} aria-label={tc("back")} className="flex size-11 shrink-0 items-center justify-center rounded-full text-ink transition-colors hover:bg-mist focus-visible:outline-2 focus-visible:outline-pine">
+                      <ArrowLeft size={20} />
+                    </button>
+                  ) : (
+                    <span aria-hidden className="size-11 shrink-0" />
+                  )}
+                  <div className="min-w-0 flex-1 py-2">
+                    <p className="leading-tight font-medium text-ink">{t("bookHouse")}</p>
+                    <p className="truncate text-[13px] text-ink-2">
+                      {homestay.name}
+                      {dateRange?.from && dateRange?.to ? ` · ${fmtDate(dateRange.from, "d MMM", locale)} – ${fmtDate(dateRange.to, "d MMM", locale)} · ${nightsLabel}` : ""}
+                    </p>
+                  </div>
+                  {step === "payment" && !showConfirmedModal && !holdExpired && (
+                    <HoldCountdown expiresAt={holdExpiresAt} onExpire={handleHoldExpired} />
+                  )}
+                </div>
+                <ol className="mx-auto flex max-w-3xl gap-1.5 px-4 pb-3 sm:px-6">
+                  {[t("guestInfo"), t("stepReview"), t("stepPayment"), t("stepDone")].map((label, i) => (
+                    <li
+                      key={label}
+                      aria-current={i === checkoutStepIndex ? "step" : undefined}
+                      className={`flex-1 border-t-[3px] pt-1.5 text-xs ${i < checkoutStepIndex ? "border-pine text-ink-2" : i === checkoutStepIndex ? "border-pine font-medium text-ink" : "border-line text-ink-3"}`}
+                    >
+                      {label}
+                    </li>
+                  ))}
+                </ol>
+              </div>
+            )}
+            <div className={checkoutOpen ? "px-4 pt-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))] sm:px-6" : ""}>
             <motion.div
               initial={{ opacity: 0, scale: 0.96, y: 20 }}
               whileInView={{ opacity: 1, scale: 1, y: 0 }}
@@ -1399,9 +1509,9 @@ export function BookingSection({
               transition={{ duration: 0.6, ease: [0.25, 0.1, 0, 1] }}
               ref={cardRef}
               id="booking-card"
-              className={`relative flex scroll-mt-24 flex-col rounded-[24px] bg-white p-5 md:p-8 ${checkoutOpen ? "mx-auto w-full max-w-3xl" : ""}`}
+              className={checkoutOpen ? "relative mx-auto flex w-full max-w-3xl scroll-mt-24 flex-col" : "relative flex scroll-mt-24 flex-col rounded-[24px] bg-white p-5 md:p-8"}
             >
-            {initialPromo && promoInput.trim().toUpperCase() === initialPromo.code.toUpperCase() && (
+            {!checkoutOpen && initialPromo && promoInput.trim().toUpperCase() === initialPromo.code.toUpperCase() && (
               <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-pine-mist bg-pine-mist p-3.5">
                 <Gift className="mt-0.5 h-4 w-4 shrink-0 text-pine" />
                 <div className="text-sm leading-snug text-ink">
@@ -1424,8 +1534,8 @@ export function BookingSection({
               </div>
             )}
 
-            {/* Step indicator + How-to-book help (one row) */}
-            <div className="mb-6 flex items-center gap-3">
+            {/* Step indicator + How-to-book help (one row); the overlay has its own header */}
+            <div className={`mb-6 flex items-center gap-3 ${checkoutOpen ? "hidden" : ""}`}>
               {/* Step indicator (compact) */}
               <div className="flex flex-1 items-center gap-1">
                 {steps.map((s, i) => {
@@ -1636,454 +1746,462 @@ export function BookingSection({
                   </motion.div>
                 )}
 
-                {/* ═══ Step 2: Guest Details ═══ */}
-                {step === "details" && (
-                  <motion.div key="step-details" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
-                    <AnimatePresence mode="wait">
-                      {!showConfirmModal ? (
-                        <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-5">
-                          <div className="flex items-center gap-3">
-                            <button onClick={() => setStep("dates")} aria-label={tc("back")} className="-ml-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-mist-2 text-ink-2"><ArrowLeft size={18} /></button>
-                            <h3 className="text-xl font-bold text-ink">{t("guestInfo")}</h3>
-                          </div>
+                {/* ═══ Step 2: Guest details (the checkout overlay's first page) ═══ */}
+                {step === "details" && !showConfirmModal && (
+                  <motion.div key="step-details" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+                    <section className={CO_CARD}>
+                      <h2 className={CO_H2}>{t("guestInfo")}</h2>
+                      <p className={CO_LEAD}>{t("detailsLead")}</p>
+                      <div className="mt-6 grid gap-x-4 gap-y-5 md:grid-cols-2">
+                        <div className="space-y-1.5 md:col-span-2">
+                          <label htmlFor="bk-name" className={CO_LABEL}>{t("fullName")} <span className="text-red-500">*</span></label>
+                          <Input ref={nameInputRef} autoComplete="name" value={guestName} id="bk-name" aria-required="true" aria-invalid={!!errors.name} aria-describedby={errors.name ? "bk-name-error" : undefined} onChange={(e) => { setGuestName(e.target.value); if (errors.name) setErrors((p) => ({ ...p, name: undefined })); }} placeholder={t("fullNamePlaceholder")} className={`${CO_INPUT} ${errors.name ? CO_INPUT_ERR : ""}`} />
+                          {errors.name && <p id="bk-name-error" role="alert" className="text-[13px] font-medium text-red-700">{errors.name}</p>}
+                        </div>
 
-                          <div className="space-y-4">
-                            <div className="space-y-1.5">
-                              <label htmlFor="bk-name" className="text-sm font-semibold text-ink-2">{t("fullName")} <span className="text-red-500">*</span></label>
-                              <div className="relative">
-                                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" size={16} />
-                                <Input ref={nameInputRef} autoComplete="name" value={guestName} id="bk-name" aria-required="true" aria-invalid={!!errors.name} aria-describedby={errors.name ? "bk-name-error" : undefined} onChange={(e) => { setGuestName(e.target.value); if (errors.name) setErrors((p) => ({ ...p, name: undefined })); }} placeholder={t("fullNamePlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-base md:text-sm font-medium text-ink !shadow-none focus-visible:!ring-2 focus-visible:!ring-pine focus-visible:!ring-offset-2 ${errors.name ? "!border-red-400 focus-visible:!border-red-400" : "!border-line-strong hover:!border-ink-2"}`} />
+                        <div className="space-y-1.5">
+                          <label htmlFor="bk-phone" className={CO_LABEL}>{t("phone")} <span className="text-red-500">*</span></label>
+                          <Input ref={phoneInputRef} type="tel" autoComplete="tel" inputMode="numeric" maxLength={10} value={guestPhone} id="bk-phone" aria-required="true" aria-invalid={!!errors.phone} aria-describedby={errors.phone ? "bk-phone-error" : undefined} onChange={(e) => { setGuestPhone(sanitizePhoneInput(e.target.value)); if (errors.phone) setErrors((p) => ({ ...p, phone: undefined })); }} placeholder={t("phonePlaceholder")} className={`${CO_INPUT} ${errors.phone ? CO_INPUT_ERR : ""}`} />
+                          {errors.phone && <p id="bk-phone-error" role="alert" className="text-[13px] font-medium text-red-700">{errors.phone}</p>}
+                        </div>
+
+                        <div className="space-y-1.5">
+                          <label htmlFor="bk-email" className={CO_LABEL}>{t("email")} <span className="text-red-500">*</span></label>
+                          <Input ref={emailInputRef} type="email" autoComplete="email" value={guestEmail} id="bk-email" aria-required="true" aria-invalid={!!errors.email} aria-describedby={errors.email ? "bk-email-error" : undefined} onChange={(e) => { setGuestEmail(e.target.value); if (errors.email) setErrors((p) => ({ ...p, email: undefined })); }} placeholder={t("emailPlaceholder")} className={`${CO_INPUT} ${errors.email ? CO_INPUT_ERR : ""}`} />
+                          {errors.email && <p id="bk-email-error" role="alert" className="text-[13px] font-medium text-red-700">{errors.email}</p>}
+                        </div>
+
+                        <div className="space-y-1.5 md:col-span-2">
+                          <label htmlFor="bk-province" className={CO_LABEL}>{t("province")}</label>
+                          <Select value={guestProvince} onValueChange={setGuestProvince}>
+                            <SelectTrigger id="bk-province" className={`${CO_INPUT} !w-full justify-between`}>
+                              <SelectValue placeholder={t("provincePlaceholder")} />
+                            </SelectTrigger>
+                            <SelectContent className="max-h-60 z-70">
+                              {sortProvincesForLocale(locale).map((p) => (
+                                <SelectItem key={p.value} value={p.value}>
+                                  {locale === "th" ? p.labelTh : p.labelEn}
+                                </SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+
+                        <div className="space-y-1.5 md:col-span-2">
+                          <label htmlFor="bk-note" className={CO_LABEL}>{t("notes")}</label>
+                          <Textarea id="bk-note" value={guestNote} onChange={(e) => setGuestNote(e.target.value)} placeholder={t("notesPlaceholder")} className="min-h-24 rounded-xl !border !border-line-strong !bg-white px-4 py-3 text-base text-ink !shadow-none transition-colors hover:!border-ink-2 focus-visible:!ring-2 focus-visible:!ring-pine focus-visible:!ring-offset-2 md:text-[15px]" rows={3} />
+                        </div>
+
+                        {homestay.promo_codes_enabled && (
+                          <div className="space-y-1.5 md:col-span-2">
+                            <label htmlFor="bk-promo" className={CO_LABEL}>{t("promoLabel")}</label>
+                            {appliedPromo ? (
+                              <div className="flex items-center justify-between gap-3 rounded-xl bg-pine-mist px-4 py-3">
+                                <div className="flex items-center gap-2 text-[15px] text-pine-deep">
+                                  <CheckCircle2 className="h-4 w-4 shrink-0" />
+                                  <span className="font-mono font-semibold">{appliedPromo.code}</span>
+                                  {promoDiscount > 0 && <span>−฿{promoDiscount.toLocaleString()}</span>}
+                                </div>
+                                <button type="button" onClick={handleRemovePromo} className="min-h-11 text-sm font-medium text-pine underline underline-offset-4 hover:text-pine-hover">
+                                  {t("promoRemove")}
+                                </button>
                               </div>
-                              {errors.name && <p id="bk-name-error" role="alert" className="text-xs font-medium text-red-600">{errors.name}</p>}
-                            </div>
-
-                            <div className="space-y-1.5">
-                              <label htmlFor="bk-email" className="text-sm font-semibold text-ink-2">{t("email")} <span className="text-red-500">*</span></label>
-                              <div className="relative">
-                                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" size={16} />
-                                <Input ref={emailInputRef} type="email" autoComplete="email" value={guestEmail} id="bk-email" aria-required="true" aria-invalid={!!errors.email} aria-describedby={errors.email ? "bk-email-error" : undefined} onChange={(e) => { setGuestEmail(e.target.value); if (errors.email) setErrors((p) => ({ ...p, email: undefined })); }} placeholder={t("emailPlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-base md:text-sm font-medium text-ink !shadow-none focus-visible:!ring-2 focus-visible:!ring-pine focus-visible:!ring-offset-2 ${errors.email ? "!border-red-400 focus-visible:!border-red-400" : "!border-line-strong hover:!border-ink-2"}`} />
-                              </div>
-                              {errors.email && <p id="bk-email-error" role="alert" className="text-xs font-medium text-red-600">{errors.email}</p>}
-                            </div>
-
-                            <div className="space-y-1.5">
-                              <label htmlFor="bk-phone" className="text-sm font-semibold text-ink-2">{t("phone")} <span className="text-red-500">*</span></label>
-                              <div className="relative">
-                                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" size={16} />
-                                <Input ref={phoneInputRef} type="tel" autoComplete="tel" inputMode="numeric" maxLength={10} value={guestPhone} id="bk-phone" aria-required="true" aria-invalid={!!errors.phone} aria-describedby={errors.phone ? "bk-phone-error" : undefined} onChange={(e) => { setGuestPhone(sanitizePhoneInput(e.target.value)); if (errors.phone) setErrors((p) => ({ ...p, phone: undefined })); }} placeholder={t("phonePlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-base md:text-sm font-medium text-ink !shadow-none focus-visible:!ring-2 focus-visible:!ring-pine focus-visible:!ring-offset-2 ${errors.phone ? "!border-red-400 focus-visible:!border-red-400" : "!border-line-strong hover:!border-ink-2"}`} />
-                              </div>
-                              {errors.phone && <p id="bk-phone-error" role="alert" className="text-xs font-medium text-red-600">{errors.phone}</p>}
-                            </div>
-
-                            <div className="space-y-1.5">
-                              <label htmlFor="bk-province" className="text-sm font-semibold text-ink-2">{t("province")}</label>
-                              <Select value={guestProvince} onValueChange={setGuestProvince}>
-                                <SelectTrigger id="bk-province" className="!w-full p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-base md:text-sm font-medium text-ink !shadow-none focus-visible:!ring-2 focus-visible:!ring-pine focus-visible:!ring-offset-2 !border-line-strong hover:!border-ink-2">
-                                  <SelectValue placeholder={t("provincePlaceholder")} />
-                                </SelectTrigger>
-                                <SelectContent className="max-h-60 z-70">
-                                  {sortProvincesForLocale(locale).map((p) => (
-                                    <SelectItem key={p.value} value={p.value}>
-                                      {locale === "th" ? p.labelTh : p.labelEn}
-                                    </SelectItem>
-                                  ))}
-                                </SelectContent>
-                              </Select>
-                            </div>
-
-                            <div className="space-y-1.5">
-                              <label htmlFor="bk-note" className="text-sm font-semibold text-ink-2">{t("notes")}</label>
-                              <Textarea id="bk-note" value={guestNote} onChange={(e) => setGuestNote(e.target.value)} placeholder={t("notesPlaceholder")} className="p-3.5 !h-auto rounded-xl !border !border-line-strong !bg-white hover:!border-ink-2 transition-all text-base md:text-sm font-medium text-ink !shadow-none focus-visible:!ring-2 focus-visible:!ring-pine focus-visible:!ring-offset-2" rows={2} />
-                            </div>
-
-                            {homestay.promo_codes_enabled && (
-                              <div className="space-y-1.5">
-                                <label htmlFor="bk-promo" className="text-sm font-semibold text-ink-2">{t("promoLabel")}</label>
-                                {appliedPromo ? (
-                                  <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 p-3">
-                                    <div className="flex items-center gap-2 text-sm">
-                                      <CheckCircle2 className="h-4 w-4 text-emerald-600" />
-                                      <span className="font-mono font-semibold text-emerald-800">{appliedPromo.code}</span>
-                                      {promoDiscount > 0 && (
-                                        <span className="text-emerald-700">−฿{promoDiscount.toLocaleString()}</span>
-                                      )}
-                                    </div>
-                                    <button
-                                      type="button"
-                                      onClick={handleRemovePromo}
-                                      className="text-xs font-medium text-emerald-700 hover:text-emerald-900 underline"
-                                    >
-                                      {t("promoRemove")}
-                                    </button>
-                                  </div>
-                                ) : (
-                                  <div className="flex gap-2">
-                                    <Input
-                                      id="bk-promo"
-                                      value={promoInput}
-                                      onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
-                                      placeholder={t("promoPlaceholder")}
-                                      className="flex-1 !p-3.5 !h-auto rounded-xl !border !border-line-strong !bg-white hover:!border-ink-2 transition-all text-base md:text-sm font-mono uppercase text-ink !shadow-none focus-visible:!ring-2 focus-visible:!ring-pine focus-visible:!ring-offset-2"
-                                    />
-                                    <button
-                                      type="button"
-                                      disabled={promoApplying || !promoInput.trim() || subtotalPrice <= 0}
-                                      onClick={() => handleApplyPromo()}
-                                      className="rounded-xl border border-pine bg-pine px-4 text-sm font-semibold text-white transition-colors hover:bg-pine-hover disabled:opacity-40"
-                                    >
-                                      {promoApplying ? <Loader2 className="h-4 w-4 animate-spin" /> : t("promoApply")}
-                                    </button>
-                                  </div>
-                                )}
+                            ) : (
+                              <div className="flex gap-2">
+                                <Input
+                                  id="bk-promo"
+                                  value={promoInput}
+                                  onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
+                                  placeholder={t("promoPlaceholder")}
+                                  className={`${CO_INPUT} flex-1 font-mono uppercase`}
+                                />
+                                <button
+                                  type="button"
+                                  disabled={promoApplying || !promoInput.trim() || subtotalPrice <= 0}
+                                  onClick={() => handleApplyPromo()}
+                                  className="min-h-12 shrink-0 rounded-full border border-line-strong bg-white px-5 text-[15px] font-medium text-ink transition-colors hover:bg-mist disabled:opacity-40"
+                                >
+                                  {promoApplying ? <Loader2 className="h-4 w-4 animate-spin" /> : t("promoApply")}
+                                </button>
                               </div>
                             )}
                           </div>
+                        )}
+                      </div>
+                    </section>
 
-                          <button
-                            onClick={() => {
-                              const formErrors = validateGuestForm();
-                              setErrors(formErrors);
-                              if (Object.keys(formErrors).length > 0) { focusFirstError(formErrors); return; }
-                              setShowConfirmModal(true);
-                            }}
-                            className="w-full bg-pine text-white px-10 py-4 rounded-full font-bold text-sm hover:bg-pine-hover transition-all flex items-center justify-center gap-2"
-                          >
-                            {t("continuePayment")} <ArrowRight size={18} />
-                          </button>
-                        </motion.div>
-                      ) : (
-                        <motion.div key="confirm" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
-                          <div className="flex items-center gap-3">
-                            <button onClick={() => setShowConfirmModal(false)} aria-label={tc("back")} className="-ml-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-mist-2 text-ink-2"><ArrowLeft size={18} /></button>
-                            <h3 className="text-xl font-bold text-ink">{t("confirmTitle")}</h3>
-                          </div>
-                          <p className="text-sm text-ink-3">{t("confirmDesc")}</p>
-                          <div className="space-y-3 rounded-xl bg-mist p-4 text-sm">
-                            <div className="flex justify-between">
-                              <span className="text-ink-3">{t("dates")}</span>
-                              <span className="font-medium text-ink">
-                                {dateRange?.from && fmtDate(dateRange.from, "MMM d", locale)} — {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy", locale)}
-                              </span>
-                            </div>
-                            {(homestay.check_in_time || homestay.check_out_time) && (
-                              <div className="flex justify-between text-xs">
-                                <span className="text-ink-3">{homestay.check_in_time && t("checkInTime", { time: homestay.check_in_time })}</span>
-                                <span className="text-ink-3">{homestay.check_out_time && t("checkOutTime", { time: homestay.check_out_time })}</span>
-                              </div>
-                            )}
-                            {/* Rooms in cart (shared dates) */}
-                            <div className="space-y-2">
-                              <span className="text-ink-3">{t("yourCart")} ({cartLines.length})</span>
-                              {cartLines.map((line) => {
-                                const room = rooms.find((r) => r.id === line.roomId);
-                                const guestLabel = composeLineGuestLabel(
-                                  guestPricing.filter((g) => g.room_id === line.roomId),
-                                  line.tierIds,
-                                  line.numGuests,
-                                  tc("guests"),
-                                  locale,
-                                );
-                                const gross = computeLineGross(line);
-                                return (
-                                  <div key={line.lineId} className="rounded-lg bg-white border border-line p-2.5">
-                                    <div className="flex justify-between">
-                                      <span className="font-medium text-ink">{room?.name}</span>
-                                      <span className="font-medium text-ink">฿{gross.toLocaleString()}</span>
-                                    </div>
-                                    <div className="text-xs text-ink-3">
-                                      {guestLabel}
-                                      {line.optionIds.length > 0 ? ` · ${t("optionsSelected", { count: line.optionIds.length })}` : ""}
-                                    </div>
-                                  </div>
-                                );
-                              })}
-                            </div>
-                            <Separator />
-                            <div className="flex justify-between">
-                              <span className="text-ink-3">{t("fullName")}</span>
-                              <span className="font-medium text-ink">{guestName}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-ink-3">{t("email")}</span>
-                              <span className="font-medium text-ink">{guestEmail}</span>
-                            </div>
-                            <div className="flex justify-between">
-                              <span className="text-ink-3">{t("phone")}</span>
-                              <span className="font-medium text-ink">{guestPhone}</span>
-                            </div>
-                            {guestProvince && (
-                              <div className="flex justify-between">
-                                <span className="text-ink-3">{t("province")}</span>
-                                <span className="font-medium text-ink">{provinceLabel(guestProvince)}</span>
-                              </div>
-                            )}
-                            {guestNote && (
-                              <div className="flex justify-between">
-                                <span className="text-ink-3">{t("notes")}</span>
-                                <span className="font-medium text-ink text-right max-w-[200px]">{guestNote}</span>
-                              </div>
-                            )}
-                            <Separator />
-                            {appliedPromo && promoDiscount > 0 && (
-                              <div className="flex justify-between text-sm text-emerald-700">
-                                <span>{t("promoLabel")} ({appliedPromo.code})</span>
-                                <span>−฿{promoDiscount.toLocaleString()}</span>
-                              </div>
-                            )}
-                            <div className="flex justify-between">
-                              <span className="font-semibold text-ink">{tc("total")}</span>
-                              <span className="text-lg font-bold text-ink">฿{totalPrice.toLocaleString()}</span>
-                            </div>
-                            {depositAvailable && (
-                              <div className="flex justify-between text-xs text-ink-3">
-                                <span>{t("payDeposit")}: ฿{resolvedDeposit.toLocaleString()}</span>
-                                <span>{t("payFull")}: ฿{totalPrice.toLocaleString()}</span>
-                              </div>
-                            )}
-                            {freeCancelUntil && (
-                              <p className="text-xs text-emerald-700">{t("freeCancellationUntil", { date: freeCancelUntil })}</p>
-                            )}
-                          </div>
-                          <div className="flex flex-col sm:flex-row gap-3">
-                            <button
-                              onClick={() => setShowConfirmModal(false)}
-                              className="flex-1 py-3 rounded-2xl font-bold text-sm border border-line text-ink-2 hover:bg-mist transition-all"
-                            >
-                              {t("confirmEdit")}
-                            </button>
-                            <button
-                              disabled={isSubmitting}
-                              onClick={() => { setShowConfirmModal(false); handleProceedToPayment(); }}
-                              className="flex-1 bg-pine text-white px-10 py-4 rounded-full font-bold text-sm hover:bg-pine-hover transition-all flex items-center justify-center gap-2 disabled:opacity-50"
-                            >
-                              {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("confirmProceed")}</>) : <>{t("confirmProceed")} <ArrowRight size={18} /></>}
-                            </button>
-                          </div>
-                        </motion.div>
-                      )}
-                    </AnimatePresence>
+                    <button
+                      onClick={() => {
+                        const formErrors = validateGuestForm();
+                        setErrors(formErrors);
+                        if (Object.keys(formErrors).length > 0) { focusFirstError(formErrors); return; }
+                        setShowConfirmModal(true);
+                      }}
+                      className={CO_PRIMARY}
+                    >
+                      {t("continuePayment")} <ArrowRight size={18} />
+                    </button>
                   </motion.div>
                 )}
 
-                {/* ═══ Step 3: Payment ═══ */}
-                {step === "payment" && (
-                  <motion.div key="step-payment" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
-                    <div className="flex items-center justify-between">
-                      <div className="flex items-center gap-3">
-                        {paymentPhase === "qr" && (
-                          <button onClick={() => { releaseHold(); setStep("details"); setPaymentPhase("qr"); }} aria-label={tc("back")} className="-ml-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-mist-2 text-ink-2"><ArrowLeft size={18} /></button>
-                        )}
-                        {paymentPhase === "upload" && (
-                          <button onClick={() => setPaymentPhase("qr")} aria-label={tc("back")} className="-ml-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-mist-2 text-ink-2"><ArrowLeft size={18} /></button>
-                        )}
-                        <h3 className="text-xl font-bold text-ink">{t("paymentTitle")}</h3>
-                      </div>
-                      <HoldCountdown expiresAt={step === "payment" ? holdExpiresAt : null} onExpire={handleHoldExpired} />
-                    </div>
+                {/* ═══ Review: the whole booking, the way to pay, then the hold ═══ */}
+                {step === "details" && showConfirmModal && (
+                  <motion.div key="step-review" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+                    <section className={CO_CARD}>
+                      <h2 className={CO_H2}>{t("confirmTitle")}</h2>
+                      <p className={CO_LEAD}>{t("confirmDesc")}</p>
+                      <div className="mt-5">{renderStaySummary()}</div>
+                    </section>
 
-                    {/* Deposit vs Full */}
-                    {depositAvailable && paymentPhase === "qr" && (
-                      <div className="grid grid-cols-2 gap-3">
-                        <button type="button" onClick={() => setPaymentOption("full")}
-                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "full" ? "border-pine bg-pine-mist" : "border-line hover:border-line-strong"}`}>
-                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "full" ? "bg-pine text-white" : "bg-mist-2 text-ink-3"}`}><CreditCard size={18} /></div>
-                          <p className="font-bold text-ink">{t("payFull")}</p>
-                          <p className="text-sm text-ink-2">฿{totalPrice.toLocaleString()}</p>
-                        </button>
-                        <button type="button" onClick={() => setPaymentOption("deposit")}
-                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "deposit" ? "border-pine bg-pine-mist" : "border-line hover:border-line-strong"}`}>
-                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "deposit" ? "bg-pine text-white" : "bg-mist-2 text-ink-3"}`}><CreditCard size={18} /></div>
-                          <p className="font-bold text-ink">{t("payDeposit")}</p>
-                          <p className="text-sm text-ink-2">฿{resolvedDeposit.toLocaleString()}</p>
-                        </button>
-                      </div>
-                    )}
-
-                    <AnimatePresence mode="wait">
-                      {/* QR / Bank Transfer Phase */}
-                      {paymentPhase === "qr" && (
-                        <motion.div key="qr" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-4">
-                          {/* Step 1 (save the QR) only makes sense on a phone; hidden items don't take a number. */}
-                          <ol className="list-decimal space-y-1 rounded-2xl bg-mist py-3 pl-9 pr-4 text-sm text-ink-2 marker:font-semibold">
-                            {!payByBank && <li className="md:hidden">{t("payStep1")}</li>}
-                            {!payByBank && <li>{t("payStep2")}</li>}
-                            <li>{t("payStep3")}</li>
-                            <li>{normalEnabled ? t("payStep4") : t("quickPayStep4")}</li>
-                          </ol>
-                          <div className="flex flex-col items-center p-5 bg-mist rounded-2xl border border-line">
-                            {host.payment_display === "bank" && host.bank_name && host.bank_account_number && host.bank_account_name ? (
-                              <>
-                                <p className="text-sm text-ink-2 mb-3">{t("bankTransferTitle")}</p>
-                                <div className="w-full space-y-2 bg-white rounded-xl p-4 border border-line">
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-ink-2">{t("bankTransferTitle")}</span>
-                                    <span className="font-medium text-ink">{host.bank_name}</span>
-                                  </div>
-                                  <Separator />
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-ink-2">{t("bankAccountNo")}</span>
-                                    <span className="font-mono font-medium text-ink">{host.bank_account_number}</span>
-                                  </div>
-                                  <Separator />
-                                  <div className="flex justify-between text-sm">
-                                    <span className="text-ink-2">{t("bankAccountHolderName")}</span>
-                                    <span className="font-medium text-ink">{host.bank_account_name}</span>
-                                  </div>
-                                </div>
-                              </>
-                            ) : (
-                              <>
-                                <p className="text-sm text-ink-2 mb-3">{t("scanQr")}</p>
-                                <div ref={qrContainerRef} className="bg-white p-3 rounded-2xl shadow-sm">
-                                  <QRCodeSVG value={generatePayload(host.promptpay_id, { amount: paymentAmount })} size={160} level="M" />
-                                </div>
-                                <button type="button" onClick={handleSaveQr} className="mt-3 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full border border-line bg-white px-4 py-1.5 text-sm font-medium text-ink-2 hover:bg-mist md:min-h-0 md:w-auto md:text-xs">
-                                  <Download className="h-3.5 w-3.5" />{t("saveQrImage")}
-                                </button>
-                              </>
-                            )}
-                            <p className="mt-3 text-2xl font-bold text-ink">฿{paymentAmount.toLocaleString()}</p>
-                            {paymentOption === "deposit" && depositAvailable && (
-                              <p className="mt-1 text-sm text-amber-800">{t("balanceDue")}: ฿{(totalPrice - paymentAmount).toLocaleString()} — {t("payOnArrival")}</p>
-                            )}
-                            <p className="mt-1 text-sm font-medium text-ink-2">{host.name}</p>
-                            {host.payment_display !== "bank" && (
-                              <p className="text-sm text-ink-2">{t("promptpayId")}: {host.promptpay_id}</p>
-                            )}
+                    <section className={CO_CARD}>
+                      <h3 className={CO_H3}>{t("guestInfo")}</h3>
+                      <dl className="mt-3 divide-y divide-line text-[15px]">
+                        {[
+                          [t("fullName"), guestName],
+                          [t("phone"), guestPhone],
+                          [t("email"), guestEmail],
+                          ...(guestProvince ? [[t("province"), provinceLabel(guestProvince)]] : []),
+                          ...(guestNote ? [[t("notes"), guestNote]] : []),
+                        ].map(([label, value]) => (
+                          <div key={label} className="flex justify-between gap-4 py-2.5">
+                            <dt className="shrink-0 text-ink-2">{label}</dt>
+                            <dd className="min-w-0 break-words text-right text-ink">{value}</dd>
                           </div>
+                        ))}
+                      </dl>
+                      <button type="button" onClick={() => setShowConfirmModal(false)} className="mt-2 min-h-11 text-[15px] font-medium text-pine underline underline-offset-4 hover:text-pine-hover">
+                        {t("confirmEdit")}
+                      </button>
+                    </section>
 
-                          {!normalEnabled && (
-                            <div className="flex gap-3 rounded-2xl bg-pine-mist p-4 text-sm text-pine-deep" data-testid="quick-no-slip-notice">
-                              <MessageCircle className="mt-0.5 h-5 w-5 shrink-0 text-pine" aria-hidden="true" />
-                              <div className="space-y-1">
-                                <p className="font-semibold">{t("quickNoSlipTitle")}</p>
-                                <p className="leading-relaxed">{t("quickNoSlipDesc")}</p>
-                              </div>
-                            </div>
-                          )}
-
-                          <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">
-                            {/* Only promise the resume route when this host
-                                actually keeps drafts; otherwise the menu item
-                                the copy points at is not rendered. */}
-                            {t(resumeEnabled ? "doNotClosePageResume" : "doNotClosePage")}
+                    <section className={CO_CARD}>
+                      <h3 className={CO_H3}>{t("priceBreakdown")}</h3>
+                      <div className="mt-3 space-y-2 text-[15px]">
+                        <div className="flex justify-between gap-4 text-ink-2">
+                          <span>{t("staySubtotal")}</span>
+                          <span className="text-ink">฿{subtotalPrice.toLocaleString()}</span>
+                        </div>
+                        {appliedPromo && promoDiscount > 0 && (
+                          <div className="flex justify-between gap-4 text-emerald-700">
+                            <span>{t("promoLabel")} ({appliedPromo.code})</span>
+                            <span>−฿{promoDiscount.toLocaleString()}</span>
                           </div>
+                        )}
+                        <div className="flex items-baseline justify-between gap-4 border-t border-line pt-3 font-medium text-ink">
+                          <span>{tc("total")}</span>
+                          <span className={CO_MONEY_LG}>฿{totalPrice.toLocaleString()}</span>
+                        </div>
+                      </div>
+                    </section>
 
-                          {quickEnabled && turnstileSiteKey && !turnstilePassed && (
-                            <div className="flex justify-center">
-                              <Turnstile
-                                key={turnstileNonce}
-                                siteKey={turnstileSiteKey}
-                                onSuccess={(token) => setTurnstileToken(token)}
-                                onExpire={() => setTurnstileToken(null)}
-                                onError={() => {
-                                  setTurnstileToken(null);
-                                  setTurnstileError(true);
-                                }}
-                                options={{ theme: "light", appearance: "interaction-only" }}
-                              />
-                            </div>
-                          )}
-
-                          {normalEnabled ? (
-                            <button onClick={() => setPaymentPhase("upload")}
-                              className="w-full bg-pine text-white px-10 py-4 rounded-full font-bold text-sm hover:bg-pine-hover transition-all flex items-center justify-center gap-2">
-                              <CheckCircle2 className="h-4 w-4" />{t("iveTransferred")}
+                    <section className={CO_CARD}>
+                      <h3 id="co-pay-choice" className={CO_H3}>{t("choosePayment")}</h3>
+                      {depositAvailable ? (
+                        <div role="radiogroup" aria-labelledby="co-pay-choice" className="mt-3 grid gap-2.5">
+                          {([
+                            ["full", t("payFull"), totalPrice, t("payFullNote")],
+                            ["deposit", t("payDeposit"), resolvedDeposit, t("payDepositNote", { amount: (totalPrice - resolvedDeposit).toLocaleString() })],
+                          ] as const).map(([value, label, amount, note]) => (
+                            <button
+                              key={value}
+                              type="button"
+                              role="radio"
+                              aria-checked={paymentOption === value}
+                              onClick={() => setPaymentOption(value)}
+                              className={`flex min-h-16 w-full items-center gap-3 rounded-2xl border px-4 py-3 text-left transition-colors ${paymentOption === value ? "border-pine bg-pine-mist" : "border-line hover:border-line-strong"}`}
+                            >
+                              <span aria-hidden className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-full border-2 ${paymentOption === value ? "border-pine" : "border-line-strong"}`}>
+                                {paymentOption === value && <span className="h-2.5 w-2.5 rounded-full bg-pine" />}
+                              </span>
+                              <span className="min-w-0 flex-1">
+                                <span className="block font-medium text-ink">{label}</span>
+                                <span className="block text-[13px] text-ink-2">{note}</span>
+                              </span>
+                              <span className="font-serif text-xl text-ink" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>฿{amount.toLocaleString()}</span>
                             </button>
-                          ) : (
-                            <button onClick={handleSubmitQuick} disabled={isSubmitting || !turnstilePassed}
-                              className="w-full bg-pine text-white px-10 py-4 rounded-full font-bold text-sm hover:bg-pine-hover transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
-                              {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
-                              {t("quickSubmit")}
-                            </button>
-                          )}
-
-                          {normalEnabled && quickEnabled && (
-                            <button type="button" onClick={handleSubmitQuick} disabled={isSubmitting || !turnstilePassed}
-                              className="flex min-h-11 w-full items-center justify-center rounded-full border border-line bg-white px-6 py-2.5 text-center text-sm font-medium text-ink transition-colors hover:bg-mist disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine">
-                              {t("quickSubmitAlt")}
-                            </button>
-                          )}
-                        </motion.div>
+                          ))}
+                        </div>
+                      ) : (
+                        <p className="mt-3 flex items-baseline justify-between gap-4 text-[15px] text-ink-2">
+                          {t("payFull")} <span className={CO_MONEY_LG}>฿{totalPrice.toLocaleString()}</span>
+                        </p>
                       )}
+                      {freeCancelUntil && (
+                        <p className="mt-3 text-[13px] text-emerald-700">{t("freeCancellationUntil", { date: freeCancelUntil })}</p>
+                      )}
+                      <button disabled={isSubmitting} onClick={() => handleProceedToPayment()} className={`${CO_PRIMARY} mt-5`}>
+                        {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
+                        {t("confirmProceed")} ฿{paymentAmount.toLocaleString()}
+                      </button>
+                    </section>
+                  </motion.div>
+                )}
 
-                      {/* Upload Phase */}
-                      {paymentPhase === "upload" && (
-                        <motion.div key="upload" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-4">
-                          <div className="text-center">
-                            {showWelcomeBack && <div className="mb-3 rounded-xl bg-mist-2 px-4 py-2.5 text-sm font-medium text-ink">{t("welcomeBack")}</div>}
-                            <Upload className="mx-auto h-8 w-8 text-line-strong" />
-                            <h4 className="mt-2 text-base font-bold text-ink">{t("waitingForSlip")}</h4>
-                            <p className="mt-1 text-xs text-ink-2">{t("waitingForSlipDesc")}</p>
-                            <p className="mt-2 text-lg font-bold text-ink">฿{paymentAmount.toLocaleString()}</p>
-                            {paymentOption === "deposit" && depositAvailable && (
-                              <p className="mt-1 text-sm text-amber-800">{t("balanceDue")}: ฿{(totalPrice - paymentAmount).toLocaleString()} — {t("payOnArrival")}</p>
-                            )}
-                          </div>
+                {/* ═══ Payment: amount, how to pay, then the slip — one page ═══ */}
+                {step === "payment" && !showConfirmedModal && !holdExpired && (
+                  <motion.div key="step-payment" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+                    {/* The page's heading for screen readers; the amount is its visual headline. */}
+                    <h2 className="sr-only">{t("stepPayment")}</h2>
+                    <section className={CO_CARD}>
+                      <div className="border-b border-line pb-5 text-center">
+                        <p className="text-[13px] text-ink-2">
+                          {t("amountToTransfer")}
+                          {paymentOption === "deposit" && depositAvailable ? ` (${t("payDeposit")})` : ""}
+                        </p>
+                        <p className="mt-1 font-serif text-5xl leading-tight text-ink" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>
+                          ฿{paymentAmount.toLocaleString()}
+                        </p>
+                        {paymentOption === "deposit" && depositAvailable && (
+                          <p className="mt-1 text-[13px] text-amber-800">{t("payDepositNote", { amount: (totalPrice - paymentAmount).toLocaleString() })}</p>
+                        )}
+                      </div>
 
-                          {slipPreview ? (
-                            <div className="rounded-2xl border bg-mist p-3">
-                              {phoneSlipReceived && (
-                                <div className="mb-3 rounded-xl bg-mist-2 px-3 py-2 text-center text-sm font-medium text-ink">
-                                  <CheckCircle2 className="mr-1.5 inline h-4 w-4" />{t("slipReceived")}
-                                </div>
-                              )}
-                              <p className="mb-2 text-center text-xs font-medium text-ink-2">{t("slipPreview")}</p>
-                              <div className="relative mx-auto w-fit">
-                                <img src={slipPreview} alt={t("slipPreview")} className="mx-auto max-h-52 rounded-xl object-contain" />
-                                <button type="button" aria-label={t("removeSlip")} onClick={handleRemoveSlip} className="absolute right-1.5 top-1.5 flex h-9 w-9 items-center justify-center rounded-full bg-red-500 text-white shadow-md hover:bg-red-600"><X className="h-4 w-4" /></button>
+                      <div className="mt-6 grid gap-5 md:grid-cols-[1fr_260px] md:items-start">
+                        {/* Step 1 (save the QR) only makes sense on a phone; hidden items don't take a number. */}
+                        <ol className="space-y-3 text-[15px] text-ink [counter-reset:how]">
+                          {[
+                            ...(payByBank ? [] : [{ text: t("payStep1"), phoneOnly: true }, { text: t("payStep2") }]),
+                            { text: t("payStep3") },
+                            { text: normalEnabled ? t("payStep4") : t("quickPayStep4") },
+                          ].map(({ text, phoneOnly }) => (
+                            <li
+                              key={text}
+                              className={`items-start gap-3 [counter-increment:how] before:flex before:h-8 before:w-8 before:shrink-0 before:items-center before:justify-center before:rounded-full before:border before:border-ink before:font-serif before:text-sm before:content-[counter(how)] ${phoneOnly ? "flex md:hidden" : "flex"}`}
+                            >
+                              <span className="pt-1">{text}</span>
+                            </li>
+                          ))}
+                        </ol>
+                        <div>
+                          {payByBank ? (
+                            <>
+                              <p className="mb-2 text-[15px] text-ink-2">{t("bankTransferDesc")}</p>
+                              <dl className="divide-y divide-line rounded-2xl border border-line bg-white px-4 text-[15px]">
+                                <div className="flex justify-between gap-3 py-3"><dt className="text-ink-2">{t("bankTransferTitle")}</dt><dd className="text-right font-medium text-ink">{host.bank_name}</dd></div>
+                                <div className="flex justify-between gap-3 py-3"><dt className="text-ink-2">{t("bankAccountNo")}</dt><dd className="font-mono font-medium text-ink">{host.bank_account_number}</dd></div>
+                                <div className="flex justify-between gap-3 py-3"><dt className="text-ink-2">{t("bankAccountHolderName")}</dt><dd className="text-right font-medium text-ink">{host.bank_account_name}</dd></div>
+                              </dl>
+                            </>
+                          ) : (
+                            <>
+                            <p className="mb-2 text-center text-[13px] text-ink-2">{t("scanQr")}</p>
+                            <div className="rounded-2xl border border-line bg-white p-4 text-center">
+                              <span lang="en" className="inline-flex rounded-full bg-[#113566] px-3 py-1 text-[13px] font-semibold text-white">PromptPay</span>
+                              <div ref={qrContainerRef} className="mx-auto mt-2 w-fit rounded-xl bg-white p-2">
+                                <QRCodeSVG value={generatePayload(host.promptpay_id, { amount: paymentAmount })} size={180} level="M" />
                               </div>
-                              <div className="mt-3 flex justify-center">
-                                <Button type="button" variant="outline" size="sm" onClick={() => galleryInputRef.current?.click()} className="rounded-full">
-                                  <ImageIcon className="mr-1.5 h-3.5 w-3.5" />{t("changeSlip")}
-                                </Button>
+                              <p className="mt-2 text-[13px] text-ink-2">{host.name}<br />{t("promptpayId")}: {host.promptpay_id}</p>
+                              <button type="button" onClick={handleSaveQr} className="mt-3 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full border border-line-strong bg-white px-4 text-sm font-medium text-ink hover:bg-mist">
+                                <Download className="h-4 w-4" />{t("saveQrImage")}
+                              </button>
+                            </div>
+                            </>
+                          )}
+                        </div>
+                      </div>
+
+                      {!normalEnabled && (
+                        <div className="mt-5 flex gap-3 rounded-2xl bg-pine-mist p-4 text-[15px] text-pine-deep" data-testid="quick-no-slip-notice">
+                          <MessageCircle className="mt-0.5 h-5 w-5 shrink-0 text-pine" aria-hidden="true" />
+                          <div className="space-y-1">
+                            <p className="font-medium">{t("quickNoSlipTitle")}</p>
+                            <p className="leading-relaxed">{t("quickNoSlipDesc")}</p>
+                          </div>
+                        </div>
+                      )}
+                    </section>
+
+                    {normalEnabled && (
+                      <section ref={uploadCardRef} className={`${CO_CARD} scroll-mt-40`}>
+                        <h3 className={CO_H3}>{t("waitingForSlip")}</h3>
+                        {showWelcomeBack && <p className="mt-3 rounded-xl bg-pine-mist px-4 py-2.5 text-[15px] text-pine-deep">{t("welcomeBack")}</p>}
+                        <div className="mt-4">
+                          {slipPreview ? (
+                            <div className="space-y-3">
+                              {phoneSlipReceived && (
+                                <p role="status" className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2.5 text-[15px] font-medium text-emerald-800">
+                                  <CheckCircle2 className="h-4 w-4 shrink-0" />{t("slipReceived")}
+                                </p>
+                              )}
+                              <div className="flex items-center gap-4 rounded-2xl border border-line p-3">
+                                <img src={slipPreview} alt={t("slipPreview")} className="h-32 w-24 shrink-0 rounded-lg bg-mist object-cover" />
+                                <div className="min-w-0">
+                                  <p className="font-medium text-ink">{t("slipPreview")}</p>
+                                  <p className="mt-0.5 text-[13px] text-ink-2">{t("slipVerify")}</p>
+                                  <div className="mt-2 flex flex-wrap gap-x-4">
+                                    <button type="button" onClick={() => galleryInputRef.current?.click()} className="min-h-11 text-[15px] font-medium text-pine underline underline-offset-4 hover:text-pine-hover">{t("changeSlip")}</button>
+                                    <button type="button" onClick={handleRemoveSlip} className="min-h-11 text-[15px] font-medium text-red-700 underline underline-offset-4">{t("removeSlip")}</button>
+                                  </div>
+                                </div>
                               </div>
                             </div>
                           ) : (
-                            <div className="space-y-3">
+                            <>
                               <button type="button" onClick={() => galleryInputRef.current?.click()}
-                                className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-line-strong p-4 text-left transition-colors hover:border-line-strong hover:bg-mist">
-                                <div className="rounded-xl bg-mist-2 p-2.5"><ImageIcon className="h-5 w-5 text-ink-3" /></div>
-                                <div>
-                                  <p className="text-sm font-medium text-ink-2">{t("chooseFromGallery")}</p>
-                                  <p className="text-xs text-ink-2">{t("clickUpload")}</p>
-                                </div>
+                                className="flex w-full flex-col items-center gap-1 rounded-2xl border-[1.5px] border-dashed border-line-strong bg-mist px-4 py-7 text-center transition-colors hover:border-pine hover:bg-pine-mist">
+                                <ImageIcon className="mb-1 h-6 w-6 text-pine" />
+                                <span className="font-medium text-ink">{t("chooseFromGallery")}</span>
+                                <span className="text-[13px] text-ink-2">{t("clickUpload")} · {t("slipVerify")}</span>
                               </button>
                               {!isMobile && (
-                                <>
-                                  <div className="relative flex items-center gap-3 py-1">
-                                    <div className="flex-1 border-t border-line" />
-                                    <span className="text-xs font-medium text-ink-2">{t("orUploadFromPhone")}</span>
-                                    <div className="flex-1 border-t border-line" />
+                                <div className="mt-5">
+                                  <div className="flex items-center gap-3 text-[13px] text-ink-2">
+                                    <span className="h-px flex-1 bg-line" />{t("orUploadFromPhone")}<span className="h-px flex-1 bg-line" />
                                   </div>
-                                  <div className="rounded-2xl border bg-mist p-4 text-center">
-                                    <p className="mb-3 text-xs text-ink-2">{t("scanToUpload")}</p>
-                                    <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-xl border bg-white p-2">
+                                  <div className="mt-4 flex items-center gap-5 rounded-2xl bg-mist p-4">
+                                    <div className="shrink-0 rounded-xl border border-line bg-white p-2">
                                       <QRCodeSVG value={`${typeof window !== "undefined" ? window.location.origin : ""}/upload-slip/${uploadSessionId}`} size={100} level="M" />
                                     </div>
-                                    <div className="mt-3 flex items-center justify-center gap-2 text-xs text-ink-2">
-                                      <Loader2 className="h-3 w-3 animate-spin" />{t("waitingForPhoneUpload")}
+                                    <div>
+                                      <p className="font-medium text-ink">{t("scanToUpload")}</p>
+                                      <p className="mt-2 flex items-center gap-2 text-[13px] text-ink-2"><Loader2 className="h-3.5 w-3.5 animate-spin" />{t("waitingForPhoneUpload")}</p>
                                     </div>
                                   </div>
-                                </>
+                                </div>
                               )}
-                            </div>
+                            </>
                           )}
-                          <p className="text-sm text-ink-2 text-center">{t("slipVerify")}</p>
+                        </div>
+                        <button onClick={handleSubmitBooking} disabled={isSubmitting || !slipFile} className={`${CO_PRIMARY} mt-5`}>
+                          {isSubmitting && verifyingSlip ? (<><Loader2 className="h-4 w-4 animate-spin" />{t("verifying")}</>) : t("submitBooking")}
+                        </button>
+                      </section>
+                    )}
 
-                          <button onClick={handleSubmitBooking} disabled={isSubmitting || !slipFile}
-                            className="w-full bg-pine text-white px-10 py-4 rounded-full font-bold text-sm hover:bg-pine-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed">
-                            {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin inline" />{t("verifying")}</>) : t("submitBooking")}
+                    {quickEnabled && (
+                      <section className={CO_CARD}>
+                        {turnstileSiteKey && !turnstilePassed && (
+                          <div className="mb-4 flex justify-center">
+                            <Turnstile
+                              key={turnstileNonce}
+                              siteKey={turnstileSiteKey}
+                              onSuccess={(token) => setTurnstileToken(token)}
+                              onExpire={() => setTurnstileToken(null)}
+                              onError={() => {
+                                setTurnstileToken(null);
+                                setTurnstileError(true);
+                              }}
+                              options={{ theme: "light", appearance: "interaction-only" }}
+                            />
+                          </div>
+                        )}
+                        {normalEnabled ? (
+                          <button type="button" onClick={handleSubmitQuick} disabled={isSubmitting || !turnstilePassed}
+                            className="flex min-h-12 w-full items-center justify-center rounded-full border border-line-strong bg-white px-6 py-2.5 text-center text-[15px] font-medium text-ink transition-colors hover:bg-mist disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine">
+                            {t("quickSubmitAlt")}
                           </button>
-                        </motion.div>
+                        ) : (
+                          <button onClick={handleSubmitQuick} disabled={isSubmitting || !turnstilePassed} className={CO_PRIMARY}>
+                            {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
+                            {t("quickSubmit")}
+                          </button>
+                        )}
+                      </section>
+                    )}
+
+                    {/* Only promise the resume route when this host actually keeps drafts; otherwise the menu item the copy points at is not rendered. */}
+                    <p className="px-2 text-center text-[13px] leading-relaxed text-ink-2">{t(resumeEnabled ? "doNotClosePageResume" : "doNotClosePage")}</p>
+                  </motion.div>
+                )}
+
+                {/* ═══ Done: the booking was placed ═══ */}
+                {step === "payment" && showConfirmedModal && (
+                  <motion.div key="step-done" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }} className="space-y-4">
+                    <section className={`${CO_CARD} text-center`}>
+                      <div className={`mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full ${slipVerified ? "bg-pine text-white" : "bg-amber-100 text-amber-800"}`} aria-hidden>
+                        {slipVerified ? <CheckCircle2 size={32} /> : <Clock size={32} />}
+                      </div>
+                      <h2 className={CO_H2}>{slipVerified ? t("confirmedTitle") : quickPlaced ? t("quickPlacedTitle") : t("confirmedTitlePending")}</h2>
+                      <p className={`${CO_LEAD} mx-auto max-w-md`}>{slipVerified ? t("confirmedText") : quickPlaced ? t("quickPlacedText") : t("confirmedTextPending")}</p>
+                      {quickPlaced && bookingId && (
+                        <QuickBookingNotice
+                          code={bookingCode(bookingId)}
+                          amountToTransfer={paymentAmount}
+                          facebookUrl={homestay.facebook_url}
+                          hostPhone={host.phone}
+                        />
                       )}
-                    </AnimatePresence>
+                      {bookingId && !quickPlaced && (
+                        <div className="mt-5">
+                          <p className="text-[13px] text-ink-2">{t("bookingId")}</p>
+                          {/* The first 8 characters: what the guest's email and the host's message quote. */}
+                          <p className="mt-1.5 inline-block rounded-xl border border-line-strong px-5 py-2 font-serif text-2xl tracking-[0.08em] text-ink uppercase lining-nums">{bookingCode(bookingId)}</p>
+                        </div>
+                      )}
+                      <p className="mt-4 text-[13px] text-ink-2">
+                        {t("checkEmailForDetails")} <span className="font-medium break-all text-ink">{guestEmail}</span>
+                      </p>
+                    </section>
+
+                    <section className={CO_CARD}>
+                      {renderStaySummary()}
+                      <div className="mt-4 space-y-2 border-t border-line pt-4 text-[15px]">
+                        <div className="flex items-baseline justify-between gap-4 text-ink">
+                          <span>{tc("total")}</span>
+                          <span className={CO_MONEY_LG}>฿{totalPrice.toLocaleString()}</span>
+                        </div>
+                        {paymentOption === "deposit" && depositAvailable && (
+                          <>
+                            <div className="flex justify-between gap-4 text-ink-2">
+                              <span>{quickPlaced ? t("amountToTransfer") : t("amountPaid")}</span>
+                              <span className="text-ink">฿{paymentAmount.toLocaleString()}</span>
+                            </div>
+                            <div className="flex justify-between gap-4 text-amber-800">
+                              <span>{t("balanceDue")}</span>
+                              <span>฿{(totalPrice - paymentAmount).toLocaleString()}</span>
+                            </div>
+                          </>
+                        )}
+                      </div>
+                    </section>
+
+                    <section className={CO_CARD}>
+                      <h3 className={CO_H3}>{t("doneNextSteps")}</h3>
+                      <ol className="mt-3 list-decimal space-y-2 pl-5 text-[15px] text-ink-2 marker:text-ink">
+                        <li>{t("doneStepCode")}</li>
+                        {homestay.check_in_time && <li>{t("checkInTime", { time: homestay.check_in_time })}</li>}
+                        {paymentOption === "deposit" && depositAvailable && (
+                          <li>{t("payDepositNote", { amount: (totalPrice - paymentAmount).toLocaleString() })}</li>
+                        )}
+                      </ol>
+                    </section>
+
+                    <div className="grid gap-2.5">
+                      <button type="button" onClick={() => { resetBooking(); window.scrollTo({ top: 0, behavior: reduceMotion ? "auto" : "smooth" }); }} className={CO_PRIMARY}>
+                        {t("backToHomestay")}
+                      </button>
+                      <button type="button" onClick={() => { resetBooking(); setTimeout(() => document.getElementById("rooms-section")?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" }), 50); }}
+                        className="flex min-h-12 w-full items-center justify-center rounded-full border border-line-strong bg-white px-6 text-[15px] font-medium text-ink transition-colors hover:bg-mist">
+                        {t("bookAnother")}
+                      </button>
+                    </div>
+                  </motion.div>
+                )}
+
+                {/* ═══ The hold ran out on the payment page ═══ */}
+                {step === "payment" && holdExpired && !showConfirmedModal && (
+                  <motion.div key="step-expired" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0 }}>
+                    <section className={`${CO_CARD} text-center`}>
+                      <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-full bg-amber-100 text-amber-800" aria-hidden>
+                        <Clock size={32} />
+                      </div>
+                      <h2 className={CO_H2}>{t("quickExpiredTitle")}</h2>
+                      <p className={CO_LEAD}>{t("holdExpiredReleased")}</p>
+                      <p className="mt-5 rounded-xl bg-amber-50 px-4 py-3 text-left text-[15px] leading-relaxed text-amber-900">{t("quickExpiredDesc")}</p>
+                      <div className="mt-4 text-left">
+                        <HostContactLinks facebookUrl={homestay.facebook_url} hostPhone={host.phone} />
+                      </div>
+                      <button type="button" onClick={handleStartOver} className={`${CO_PRIMARY} mt-5`}>
+                        {t("chooseDifferentDates")}
+                      </button>
+                    </section>
                   </motion.div>
                 )}
 
               </AnimatePresence>
             </div>
             </motion.div>{/* end form card */}
+            </div>{/* end checkout padding */}
             </div>{/* end checkout shell */}
           </div>{/* end grid */}
         </div>{/* end max-w container */}
@@ -2098,99 +2216,6 @@ export function BookingSection({
         onDone={() => document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" })}
       />
 
-      {/* ═══ Confirmed Booking Modal ═══ */}
-      <Dialog open={showConfirmedModal} onOpenChange={(o) => { if (!o) { resetBooking(); } }}>
-        <DialogContent className="sm:max-w-md max-h-[90dvh] overflow-y-auto">
-          <div className="flex flex-col items-center text-center py-4">
-            <div className={`w-16 h-16 rounded-full flex items-center justify-center mb-4 ${slipVerified ? "bg-emerald-100 text-emerald-600" : "bg-amber-100 text-amber-600"}`}>
-              {slipVerified ? <CheckCircle2 size={36} /> : <Clock size={36} />}
-            </div>
-            <DialogHeader className="space-y-1">
-              <DialogTitle className="text-2xl font-bold text-ink text-center">
-                {slipVerified ? t("confirmedTitle") : quickPlaced ? t("quickPlacedTitle") : t("confirmedTitlePending")}
-              </DialogTitle>
-              <DialogDescription className="text-sm text-ink-3 text-center">
-                {slipVerified ? t("confirmedText") : quickPlaced ? t("quickPlacedText") : t("confirmedTextPending")}
-              </DialogDescription>
-            </DialogHeader>
-            {quickPlaced && bookingId && (
-              <QuickBookingNotice
-                code={bookingCode(bookingId)}
-                amountToTransfer={paymentAmount}
-                facebookUrl={homestay.facebook_url}
-                hostPhone={host.phone}
-              />
-            )}
-            {bookingId && !quickPlaced && (
-              <Badge className="mt-3 bg-mist-2 text-ink" variant="secondary">
-                {t("bookingId")}: {bookingId}
-              </Badge>
-            )}
-            <div className="mt-3 mb-4 flex flex-col items-center gap-0.5 text-sm text-ink-3">
-              <span className="flex items-center gap-1.5"><Mail size={14} className="shrink-0" />{t("checkEmailForDetails")}</span>
-              <span className="font-medium text-ink break-all">{guestEmail}</span>
-            </div>
-
-            <div className="bg-mist p-5 rounded-2xl w-full text-left space-y-2.5 text-sm mt-2">
-              <div className="flex justify-between">
-                <span className="text-ink-2">{t("homestay")}</span>
-                <span className="font-bold text-ink">{homestay.name}</span>
-              </div>
-              <div className="space-y-1.5">
-                <span className="text-ink-2">{t("yourCart")} ({cartLines.length})</span>
-                {cartLines.map((line) => {
-                  const room = rooms.find((r) => r.id === line.roomId);
-                  return (
-                    <div key={line.lineId} className="flex justify-between">
-                      <span className="font-medium text-ink">{room?.name}</span>
-                      <span className="font-medium text-ink">฿{computeLineGross(line).toLocaleString()}</span>
-                    </div>
-                  );
-                })}
-              </div>
-              <div className="flex justify-between">
-                <span className="text-ink-2">{t("dates")}</span>
-                <span className="font-bold text-ink">
-                  {dateRange?.from && fmtDate(dateRange.from, "MMM d", locale)} — {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy", locale)}
-                </span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-ink-2">{t("guestInfo")}</span>
-                <span className="font-bold text-ink">{guestName}</span>
-              </div>
-              <Separator />
-              <div className="flex justify-between">
-                <span className="text-ink-2">{tc("total")}</span>
-                <span className="text-lg font-bold text-ink">฿{totalPrice.toLocaleString()}</span>
-              </div>
-              {paymentOption === "deposit" && depositAvailable && (
-                <>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-ink-2">{quickPlaced ? t("amountToTransfer") : t("amountPaid")}</span>
-                    <span className="text-ink">฿{paymentAmount.toLocaleString()}</span>
-                  </div>
-                  <div className="flex justify-between text-xs">
-                    <span className="text-amber-800">{t("balanceDue")}</span>
-                    <span className="text-amber-800">฿{(totalPrice - paymentAmount).toLocaleString()}</span>
-                  </div>
-                </>
-              )}
-            </div>
-
-            <div className="flex gap-3 w-full mt-5">
-              <button onClick={() => { resetBooking(); }}
-                className="flex-1 bg-pine text-white px-6 py-3 rounded-full font-bold text-sm hover:bg-pine-hover transition-all">
-                {t("bookAnother")}
-              </button>
-              <button onClick={() => { setShowConfirmedModal(false); resetBooking(); }}
-                className="flex-1 py-3 rounded-full font-bold text-sm border border-line text-ink-2 hover:bg-mist transition-all">
-                {t("confirmedClose")}
-              </button>
-            </div>
-          </div>
-        </DialogContent>
-      </Dialog>
-
       {/* Dates Held Modal */}
       <Dialog open={showHeldModal} onOpenChange={(o) => { if (!o) handleHeldModalClose(); }}>
         <DialogContent showCloseButton={false} className="z-70" overlayClassName="z-70">
@@ -2203,23 +2228,6 @@ export function BookingSection({
           </DialogHeader>
           <DialogFooter>
             <Button className="w-full bg-pine text-white hover:bg-pine-hover" onClick={handleHeldModalClose}>{t("chooseDifferentDates")}</Button>
-          </DialogFooter>
-        </DialogContent>
-      </Dialog>
-
-      {/* The hold ran out in a flow where the guest may already have transferred */}
-      <Dialog open={showQuickExpired} onOpenChange={setShowQuickExpired}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100">
-              <Clock className="h-6 w-6 text-amber-600" />
-            </div>
-            <DialogTitle className="text-center">{t("quickExpiredTitle")}</DialogTitle>
-            <DialogDescription className="text-center">{t("quickExpiredDesc")}</DialogDescription>
-          </DialogHeader>
-          <HostContactLinks facebookUrl={homestay.facebook_url} hostPhone={host.phone} />
-          <DialogFooter>
-            <Button className="w-full bg-pine text-white hover:bg-pine-hover" onClick={() => setShowQuickExpired(false)}>{t("confirmedClose")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
