@@ -2,7 +2,8 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { RoomLightbox } from "@/components/booking/rooms-section";
+import { RoomLightbox, SingleRoomHero } from "@/components/booking/rooms-section";
+import type { Room } from "@/types/database";
 
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key, useLocale: () => "th" }));
 
@@ -14,6 +15,8 @@ let container: HTMLDivElement;
 let root: Root;
 
 beforeEach(() => {
+  // motion's whileInView needs one; happy-dom has none.
+  vi.stubGlobal("IntersectionObserver", class { observe() {} unobserve() {} disconnect() {} });
   container = document.createElement("div");
   document.body.append(container);
   root = createRoot(container);
@@ -22,6 +25,7 @@ beforeEach(() => {
 afterEach(() => {
   act(() => root.unmount());
   container.remove();
+  vi.unstubAllGlobals();
 });
 
 const render = (images: string[]) =>
@@ -44,5 +48,81 @@ describe("RoomLightbox thumbnails", () => {
   it("shows no strip for a single photo", () => {
     render(photos(1));
     expect(thumbs()).toHaveLength(0);
+  });
+});
+
+const room = (over: Partial<Room> = {}) =>
+  ({ id: "r1", name: "Baan Mok", description: null, price_per_night: 1500, max_guests: 2, quantity: 2, images: photos(3), is_active: true, ...over }) as Room;
+
+function card(props: Partial<Parameters<typeof SingleRoomHero>[0]> = {}) {
+  const calls = { add: 0, edit: 0, calendar: 0 };
+  act(() =>
+    root.render(
+      createElement(SingleRoomHero, {
+        room: room(),
+        seasonalPrices: [],
+        specialPrices: [],
+        onLightbox: () => {},
+        onCalendar: () => calls.calendar++,
+        onDesc: () => {},
+        onAddToCart: () => calls.add++,
+        onEdit: () => calls.edit++,
+        cartEnabled: true,
+        bookingLocked: false,
+        ...props,
+      }),
+    ),
+  );
+  return calls;
+}
+const buttonsNamed = (text: string) => [...container.querySelectorAll("button")].filter((b) => b.textContent?.includes(text));
+
+describe("SingleRoomHero house card", () => {
+  it("renders one main button, disabled with a hint until both dates are chosen", () => {
+    card({ datesChosen: false });
+    expect(buttonsNamed("selectThisRoom")).toHaveLength(1);
+    expect(buttonsNamed("selectThisRoom")[0].disabled).toBe(true);
+    expect(container.textContent).toContain("pickDatesFirst");
+  });
+
+  it("adds the house once dates are chosen", () => {
+    const calls = card({ datesChosen: true, remaining: 2 });
+    const [main] = buttonsNamed("selectThisRoom");
+    expect(main.disabled).toBe(false);
+    expect(container.textContent).not.toContain("pickDatesFirst");
+    act(() => main.click());
+    expect(calls.add).toBe(1);
+  });
+
+  it("switches to editing, outlines the card and counts the house once every free unit is in the cart", () => {
+    const calls = card({ datesChosen: true, remaining: 0, inCart: 2 });
+    expect(buttonsNamed("selectThisRoom")).toHaveLength(0);
+    act(() => buttonsNamed("inCartEdit")[0].click());
+    expect(calls.edit).toBe(1);
+    expect(container.textContent).toContain("selectedCount");
+    expect(container.querySelector("[data-room-id]")?.className).toContain("ring-pine");
+  });
+
+  it("stays locked while the guest is past the dates step", () => {
+    card({ datesChosen: true, remaining: 2, bookingLocked: true });
+    expect(buttonsNamed("selectThisRoom")[0].disabled).toBe(true);
+  });
+
+  it("opens availability and prices, and jumps to a tapped thumbnail", () => {
+    const calls = card();
+    act(() => buttonsNamed("viewCalendar")[0].click());
+    expect(calls.calendar).toBe(1);
+    expect(container.textContent).toContain("1 / 3");
+    const thumbs = [...container.querySelectorAll<HTMLButtonElement>("button[aria-current]")];
+    expect(thumbs).toHaveLength(3);
+    act(() => thumbs[2].click());
+    expect(container.textContent).toContain("3 / 3");
+  });
+
+  it("shows a closed house without any booking action", () => {
+    card({ room: room({ is_active: false }), datesChosen: true, remaining: 2 });
+    expect(container.textContent).toContain("temporarilyClosed");
+    expect(buttonsNamed("selectThisRoom")).toHaveLength(0);
+    expect(buttonsNamed("viewCalendar")).toHaveLength(0);
   });
 });

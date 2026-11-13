@@ -12,7 +12,7 @@ import { BookingCartProvider } from "@/components/booking/booking-cart-context";
 import { DemandTracker } from "@/components/booking/demand-tracker";
 import { BookingHeader } from "@/components/booking/booking-header";
 import { BookingFooter } from "@/components/booking/booking-footer";
-import { FinalCtaSection } from "@/components/booking/final-cta-section";
+import { BeforeYouStaySection } from "@/components/booking/before-you-stay-section";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { RespectReducedMotion } from "@/components/respect-reduced-motion";
 import { SITE_NAME, buildAlternates } from "@/lib/seo";
@@ -21,6 +21,7 @@ import { getHomestayData, getPromoLinkInfo, homestayMetadata, notFoundMetadata, 
 
 const BookingSection = dynamic(() => import("@/components/booking/booking-section").then((m) => m.BookingSection));
 const MobileBookingBar = dynamic(() => import("@/components/booking/mobile-booking-bar").then((m) => m.MobileBookingBar));
+const DesktopBookingDock = dynamic(() => import("@/components/booking/desktop-booking-dock").then((m) => m.DesktopBookingDock));
 
 
 export const revalidate = 30;
@@ -152,13 +153,18 @@ export default async function HomestayBookingPage({ params, searchParams }: Page
           />
         </div>
 
-        <FinalCtaSection />
+        <BeforeYouStaySection
+          checkInTime={homestay.check_in_time}
+          checkOutTime={homestay.check_out_time}
+          cancellationDays={homestay.host.cancellation_days ?? 0}
+        />
       </main>
 
       <MobileBookingBar
         rooms={rooms}
         bookingDisabled={bookingDisabled}
       />
+      <DesktopBookingDock bookingDisabled={bookingDisabled} />
       </BookingCartProvider>
 
       <BookingFooter

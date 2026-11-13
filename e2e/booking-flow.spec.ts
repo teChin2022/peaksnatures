@@ -1,4 +1,4 @@
-import { expect, test, type Page } from "@playwright/test";
+import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   CREATED_ID,
   T,
@@ -185,7 +185,8 @@ test.describe("a host on quick booking only", () => {
     await page.getByRole("button", { name: T.booking.quickSubmit }).click();
 
     await expect(page.getByText(T.booking.errorQuickPendingLimit)).toBeVisible();
-    await expect(page.getByRole("dialog")).toHaveCount(0);
+    // No dialog opened over the checkout (which is itself a dialog, data-checkout).
+    await expect(page.locator('[role="dialog"]:not([data-checkout])')).toHaveCount(0);
     await expect(page.getByRole("button", { name: T.booking.quickSubmit })).toBeEnabled();
   });
 
@@ -286,5 +287,52 @@ test.describe("a host who changed the mode while the page was open", () => {
     await page.getByRole("button", { name: T.booking.quickSubmit }).click();
 
     await expect(page.getByText(T.booking.errorBookingModeChanged)).toBeVisible();
+  });
+});
+
+test.describe("the checkout overlay", () => {
+  const overlay = (page: Page) => page.locator('[data-checkout="open"]');
+  // An open Radix dialog turns pointer events off on <body>, so a click goes through a covering
+  // overlay and proves nothing. Both sit in the page's root stacking context, so z-index decides.
+  const zIndex = (l: Locator) => l.evaluate((el) => Number(getComputedStyle(el).zIndex));
+  const expectAbove = async (dialog: Locator, page: Page) =>
+    expect(await zIndex(dialog)).toBeGreaterThan(await zIndex(overlay(page)));
+
+  test("covers the screen for details and payment, and the booked dialog opens on top of it", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    // Choosing a province on the way needs the dropdown above the overlay: a covered option can't be clicked.
+    await reachPayment(page, slug);
+
+    await expect(overlay(page)).toBeVisible();
+    const box = await overlay(page).boundingBox();
+    const viewport = page.viewportSize()!;
+    expect(box).toMatchObject({ x: 0, y: 0, width: viewport.width, height: viewport.height });
+
+    await page.getByRole("button", { name: T.booking.iveTransferred }).click();
+    await page.locator('input[type="file"]').setInputFiles({ name: "slip.png", mimeType: "image/png", buffer: SLIP_PNG });
+    await page.getByRole("button", { name: T.booking.submitBooking }).click();
+
+    const booked = page.getByRole("dialog").filter({ hasText: T.booking.confirmedTitle });
+    await expect(booked).toBeVisible();
+    await expectAbove(booked, page);
+    await booked.getByRole("button", { name: T.booking.confirmedClose }).click();
+    await expect(page.locator('[data-checkout="closed"]')).toBeAttached();
+  });
+
+  test("asks before leaving on Back, over the overlay, and staying keeps the checkout open", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await reachPayment(page, slug);
+
+    await page.goBack();
+    const leave = page.getByRole("dialog").filter({ hasText: T.booking.leaveTitle });
+    await expect(leave).toBeVisible();
+    await expectAbove(leave, page);
+    await leave.getByRole("button", { name: T.booking.leaveStay }).click();
+
+    await expect(leave).toBeHidden();
+    await expect(overlay(page)).toBeVisible();
+    await expect(page.getByRole("button", { name: T.booking.iveTransferred })).toBeVisible();
   });
 });

@@ -148,6 +148,7 @@ export function BookingSection({
   const [showConfirmedModal, setShowConfirmedModal] = useState(false);
   const sectionRef = useRef<HTMLElement>(null);
   const cardRef = useRef<HTMLDivElement>(null);
+  const checkoutShellRef = useRef<HTMLDivElement>(null);
   // Cart + shared dates live in the BookingCartProvider, so the sticky date bar,
   // room-card "Add to cart", the cart modal, and this panel all share one cart.
   const cart = useBookingCart();
@@ -374,6 +375,39 @@ export function BookingSection({
     return () => document.removeEventListener("resume-draft", handler);
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  // Steps 2–3 run full screen, under the site header (z-45: every dialog the steps open sits at
+  // z-50 or above, so none can open behind it). While open, the page behind is locked and taken
+  // out of the tab order; the same card element moves, so no form state, hold or timer remounts.
+  const checkoutOpen = step !== "dates";
+  useEffect(() => {
+    const shell = checkoutShellRef.current;
+    if (!checkoutOpen || !shell) return;
+    const root = document.documentElement;
+    const previousOverflow = root.style.overflow;
+    root.style.overflow = "hidden";
+    // Everything in <main> beside the card's own ancestors; outside a <main> nothing is touched.
+    const main = shell.closest("main");
+    const inerted: HTMLElement[] = [];
+    for (let el: HTMLElement = shell; main && el.parentElement && el !== main; el = el.parentElement) {
+      for (const sibling of Array.from(el.parentElement.children)) {
+        if (sibling !== el && sibling instanceof HTMLElement && !sibling.inert) {
+          sibling.inert = true;
+          inerted.push(sibling);
+        }
+      }
+      if (el.parentElement === main) break;
+    }
+    shell.focus({ preventScroll: true });
+    return () => {
+      root.style.overflow = previousOverflow;
+      for (const el of inerted) el.inert = false;
+    };
+  }, [checkoutOpen]);
+  // Each step starts at the top of the overlay.
+  useEffect(() => {
+    if (checkoutOpen) checkoutShellRef.current?.scrollTo({ top: 0 });
+  }, [step, checkoutOpen]);
 
   // Broadcast the current step so MobileBookingBar can hide itself past step 1
   useEffect(() => {
@@ -1338,17 +1372,26 @@ export function BookingSection({
               <p className="text-sm text-amber-600 mt-1">{t("unavailableDesc")}</p>
             </div>
           )}
-          <div className={`grid gap-10 lg:grid-cols-2 lg:gap-12 xl:gap-16 items-start ${bookingDisabled ? "pointer-events-none opacity-50 select-none" : ""}`}>
-            {/* ── Left Column: Heading & how it works (shown first on mobile, left on desktop) ── */}
-            <div className="order-1 flex flex-col justify-center lg:order-1">
-              <h2 className="font-serif text-4xl font-normal text-ink leading-tight lg:text-5xl tracking-tight">
-                {t("sectionHeading")}{" "}
-                <span className="text-pine">{t("sectionHeadingAccent")}</span>
-              </h2>
-              <p className="mt-4 text-base text-ink-2 leading-[1.8] max-w-md">{t(normalEnabled ? "howItWorks" : "howItWorksQuick")}</p>
+          <div className={`mx-auto max-w-5xl ${bookingDisabled ? "pointer-events-none opacity-50 select-none" : ""}`}>
+            {/* ── Heading & how it works, above the card ── */}
+            <div>
+              <h2 className="font-serif text-3xl font-normal leading-tight text-ink md:text-4xl">{t("yourBooking")}</h2>
+              <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-2">{t(normalEnabled ? "howItWorks" : "howItWorksQuick")}</p>
             </div>
 
-            {/* ── Right Column: Booking Form Card ── */}
+            {/* ── Booking card: full width on the page for step 1; steps 2–3 open it full screen ── */}
+            <div
+              ref={checkoutShellRef}
+              data-checkout={checkoutOpen ? "open" : "closed"}
+              role={checkoutOpen ? "dialog" : undefined}
+              aria-label={checkoutOpen ? t("yourBooking") : undefined}
+              tabIndex={checkoutOpen ? -1 : undefined}
+              className={
+                checkoutOpen
+                  ? "fixed inset-0 z-[45] overflow-x-hidden overflow-y-auto overscroll-contain bg-mist px-4 pt-[88px] pb-[calc(2.5rem+env(safe-area-inset-bottom))] outline-none animate-in fade-in slide-in-from-bottom-4 duration-300 motion-reduce:animate-none sm:px-6"
+                  : "mt-6"
+              }
+            >
             <motion.div
               initial={{ opacity: 0, scale: 0.96, y: 20 }}
               whileInView={{ opacity: 1, scale: 1, y: 0 }}
@@ -1356,7 +1399,7 @@ export function BookingSection({
               transition={{ duration: 0.6, ease: [0.25, 0.1, 0, 1] }}
               ref={cardRef}
               id="booking-card"
-              className="order-2 scroll-mt-24 bg-white rounded-3xl shadow-xl border border-line p-5 lg:order-2 lg:p-8 relative flex flex-col lg:sticky lg:top-32"
+              className={`relative flex scroll-mt-24 flex-col rounded-[24px] bg-white p-5 md:p-8 ${checkoutOpen ? "mx-auto w-full max-w-3xl" : ""}`}
             >
             {initialPromo && promoInput.trim().toUpperCase() === initialPromo.code.toUpperCase() && (
               <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-pine-mist bg-pine-mist p-3.5">
@@ -1424,14 +1467,15 @@ export function BookingSection({
             {/* Hidden file inputs */}
             <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)} />
 
-            <div className="min-h-[480px] lg:max-h-[700px] lg:overflow-y-auto lg:pr-1">
+            <div className="min-h-[300px]">
               <AnimatePresence mode="wait">
                 {/* ═══ Step 1: Dates ═══ */}
                 {step === "dates" && (
                   <motion.div key="step-dates" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                     <AnimatePresence mode="wait">
                       {!showOptions ? (
-                        <motion.div key="dates-form" initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.25 }} className="space-y-5">
+                        <motion.div key="dates-form" initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.25 }} className="grid gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:items-start lg:gap-8">
+                          <div className="min-w-0 space-y-5">
                           {/* ── Dates — mirrors the sticky bar, and opens the same picker ── */}
                           <label className="text-[13px] font-semibold text-ink-3">{t("selectDates")}</label>
                           <button
@@ -1492,22 +1536,30 @@ export function BookingSection({
                                   </button>
                                 </div>
                               ) : (
-                                <div className="space-y-2">
-                                  <CartLineList />
-                                  {appliedPromo && promoDiscount > 0 && (
-                                    <div className="flex justify-between text-sm text-emerald-700 px-1">
-                                      <span>{t("promoLabel")} ({appliedPromo.code})</span>
-                                      <span>−฿{promoDiscount.toLocaleString()}</span>
-                                    </div>
-                                  )}
-                                  <div className="flex justify-between text-base font-bold text-ink px-1 pt-1">
-                                    <span>{tc("total")}</span>
-                                    <span>฿{totalPrice.toLocaleString()}</span>
-                                  </div>
-                                </div>
+                                <CartLineList />
                               )}
                             </div>
                           </div>
+                          </div>
+
+                          {/* ── Summary: the total, consent and the way on; beside the houses from lg ── */}
+                          <div className="space-y-4 rounded-2xl bg-mist p-5 lg:sticky lg:top-24">
+                          {cartLines.length > 0 && (
+                            <div className="space-y-2 border-b border-line pb-4">
+                              {appliedPromo && promoDiscount > 0 && (
+                                <div className="flex justify-between text-sm text-emerald-700">
+                                  <span>{t("promoLabel")} ({appliedPromo.code})</span>
+                                  <span>−฿{promoDiscount.toLocaleString()}</span>
+                                </div>
+                              )}
+                              <div className="flex items-baseline justify-between gap-3 text-ink">
+                                <span className="text-[15px] font-medium">{tc("total")}</span>
+                                <span className="font-serif text-3xl leading-tight" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>
+                                  ฿{totalPrice.toLocaleString()}
+                                </span>
+                              </div>
+                            </div>
+                          )}
 
                           {/* PDPA */}
                           <label className="flex items-start gap-2 cursor-pointer">
@@ -1523,11 +1575,12 @@ export function BookingSection({
                           <button
                             onClick={handleProceedToDetails}
                             disabled={cartLines.length === 0 || !pdpaConsent}
-                            className="w-full bg-pine text-white px-10 py-4 rounded-full font-bold text-sm hover:bg-pine-hover transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-pine px-8 text-[15px] font-medium text-white transition-colors hover:bg-pine-hover disabled:cursor-not-allowed disabled:opacity-50"
                           >
                             {t("continueDetails")} <ArrowRight size={18} />
                           </button>
                           <p className="text-center text-xs text-ink-2">{cartLines.length > 0 && !pdpaConsent ? t("consentRequired") : t("subtitle")}</p>
+                          </div>
                         </motion.div>
                       ) : showOptions ? (
                         <motion.div key="dates-options" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.25 }} className="space-y-4">
@@ -2031,6 +2084,7 @@ export function BookingSection({
               </AnimatePresence>
             </div>
             </motion.div>{/* end form card */}
+            </div>{/* end checkout shell */}
           </div>{/* end grid */}
         </div>{/* end max-w container */}
       </section>

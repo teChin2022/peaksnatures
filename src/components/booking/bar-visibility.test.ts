@@ -1,7 +1,7 @@
 import { describe, expect, it } from "vitest";
 import { isBookingBarVisible } from "@/components/booking/bar-visibility";
 
-const base = { footerInView: false, step: "dates", cardInView: false } as const;
+const base = { footerInView: false, step: "dates", cardInView: false, panelInView: false } as const;
 
 describe("isBookingBarVisible", () => {
   it("shows the bar while browsing dates and houses", () => {
@@ -21,5 +21,10 @@ describe("isBookingBarVisible", () => {
   // sat on top of the step-1 "continue" button.
   it("hides it while the booking card is on screen", () => {
     expect(isBookingBarVisible({ ...base, cardInView: true })).toBe(false);
+  });
+
+  // The date panel under the hero offers the same dates and button: two at once read as a glitch.
+  it("hides it while the date panel is on screen", () => {
+    expect(isBookingBarVisible({ ...base, panelInView: true })).toBe(false);
   });
 });

@@ -656,3 +656,44 @@ describe("when the 10-minute hold runs out on the payment step", () => {
     expect(text()).not.toContain("quickExpiredTitle");
   });
 });
+
+describe("checkout overlay (steps 2–3)", () => {
+  const shell = () => document.body.querySelector<HTMLElement>("[data-checkout]")!;
+
+  it("opens the guest details full screen and closes back to the page on Back", async () => {
+    await renderForm("normal");
+    expect(shell().dataset.checkout).toBe("closed");
+    await toDetails();
+    expect(shell().dataset.checkout).toBe("open");
+    expect(shell().className).toContain("fixed");
+    expect(shell().getAttribute("role")).toBe("dialog");
+    expect(document.documentElement.style.overflow).toBe("hidden");
+    expect(document.activeElement).toBe(shell());
+
+    await click(document.body.querySelector('[data-checkout] button[aria-label="back"]'));
+    expect(shell().dataset.checkout).toBe("closed");
+    expect(document.documentElement.style.overflow).toBe("");
+  });
+
+  it("takes the rest of the page out of the tab order while open, and gives it back on close", async () => {
+    // The real page: the booking section inside <main>, beside the houses.
+    const main = document.createElement("main");
+    const behind = document.createElement("section");
+    document.body.append(main);
+    main.append(behind, container);
+    await renderForm("normal");
+    await toDetails();
+    expect(behind.inert).toBe(true);
+    expect(shell().inert).toBe(false);
+
+    await click(document.body.querySelector('[data-checkout] button[aria-label="back"]'));
+    expect(behind.inert).toBe(false);
+  });
+
+  it("stays open through the payment step", async () => {
+    await renderForm("normal");
+    await reachPayment();
+    expect(shell().dataset.checkout).toBe("open");
+    expect(buttonByText("iveTransferred")).toBeTruthy();
+  });
+});

@@ -520,7 +520,14 @@
     "trustSecureDesc": "We handle your information with care",
     "trustStep": "Quick & Easy Booking",
     "trustStepDesc": "Pick your dates, choose a house, and book instantly",
-    "confirmedClose": "Close"
+    "confirmedClose": "Close",
+    "stayLength": "Length of stay",
+    "seeAvailableHouses": "See available houses",
+    "chooseStayDates": "Choose your dates",
+    "beforeYouStay": "Before you stay",
+    "stayTimes": "Check-in and check-out",
+    "yourBooking": "Your booking",
+    "changeDates": "Change dates"
   },
   "auth": {
     "hostDashboard": "Host Dashboard",

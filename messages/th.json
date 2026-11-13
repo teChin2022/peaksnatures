@@ -520,7 +520,14 @@
     "trustDataDesc": "ข้อมูลของคุณถูกใช้เพื่อการจองเท่านั้น",
     "trustStep": "จองง่ายในไม่กี่ขั้นตอน",
     "trustStepDesc": "เลือกวัน เลือกบ้านพัก แล้วจองได้ทันที",
-    "confirmedClose": "ปิด"
+    "confirmedClose": "ปิด",
+    "stayLength": "ระยะเวลา",
+    "seeAvailableHouses": "ดูบ้านพักที่ว่าง",
+    "chooseStayDates": "เลือกวันเข้าพัก",
+    "beforeYouStay": "ก่อนเข้าพัก",
+    "stayTimes": "เวลาเข้าพัก",
+    "yourBooking": "การจองของคุณ",
+    "changeDates": "เปลี่ยนวัน"
   },
   "auth": {
     "hostDashboard": "แดชบอร์ดเจ้าของที่พัก",
