@@ -2,13 +2,14 @@
 
 import { Fragment } from "react";
 import Image from "next/image";
-import { ShieldCheck, Phone, BadgeCheck } from "lucide-react";
+import { Phone, BadgeCheck, MapPin } from "lucide-react";
 
 import { useTranslations, useLocale } from "next-intl";
 import { getInitials, lineUrl } from "@/lib/utils";
 import { fmtDateStr } from "@/lib/format-date";
 import { LineIcon } from "@/components/booking/booking-footer";
 import { SectionHeading, SectionMark } from "@/components/booking/section-mark";
+import { CountUp } from "@/components/booking/reveal";
 
 interface HostLocationSectionProps {
   hostName: string;
@@ -28,30 +29,19 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 /** Older than this, "last booking" reads as a quiet listing rather than a lively one, so it is left out. */
 const RECENT_BOOKING_DAYS = 30;
 
-const CONTACT_LINK =
-  "inline-flex min-h-11 items-center gap-1.5 rounded-sm text-sm text-earth-600 transition-colors hover:text-brand outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2";
-
-/** One figure of the host's track record: a large value over a small label. */
-function Stat({
-  value,
-  label,
-  small = false,
-}: {
-  value: React.ReactNode;
-  label?: React.ReactNode;
-  small?: boolean;
-}) {
+/** One figure of the host's track record: a large value over a small label, in a column of the stats row. */
+function Stat({ value, label, small = false }: { value: React.ReactNode; label?: React.ReactNode; small?: boolean }) {
   return (
-    <div>
-      <p className={`font-serif leading-none text-earth-900 ${small ? "text-2xl md:text-3xl" : "text-4xl md:text-5xl"}`}>{value}</p>
-      {label && <p className="mt-3 flex items-center justify-center gap-2 text-sm text-earth-600 md:justify-start">{label}</p>}
+    <div className="px-2 [&+&]:border-l [&+&]:border-line">
+      <p className={`font-serif leading-tight text-ink lining-nums ${small ? "text-xl" : "text-3xl"}`}>{value}</p>
+      {label && <p className="mt-1 text-[13px] text-ink-2">{label}</p>}
     </div>
   );
 }
 
 /**
- * The landing's "Meet your host" section, then its location map: two numbered
- * sections, as in the design reference.
+ * The landing's "Meet your host" section: the host's card and, beside it from
+ * lg, the location map (anchor #location for the phone menu).
  */
 export function HostLocationSection({
   hostName,
@@ -79,36 +69,29 @@ export function HostLocationSection({
     lastBookingDate && now - new Date(lastBookingDate).getTime() <= RECENT_BOOKING_DAYS * DAY_MS ? lastBookingDate : null;
 
   return (
-    <>
-      <section id="host" className="bg-white scroll-mt-20 py-14 md:py-20 lg:py-28">
-        <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <SectionMark />
-          <SectionHeading>{tl("meetHost")}</SectionHeading>
+    <section id="host" className="scroll-mt-20 py-14 md:py-20 lg:py-28">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        <SectionMark />
+        <SectionHeading>{tl("meetHost")}</SectionHeading>
 
-          {/* Side by side from lg only: at tablet width (md) the 5/7 split squeezed the name onto two lines and broke the date. */}
-          <div className="mt-10 grid grid-cols-1 gap-10 lg:grid-cols-12 lg:items-center">
-            {/* Who the host is. Verification is shown when earned, never flagged when missing (as in the hero).
-                Phones center it like a contact card under the section's left-aligned heading; from md the avatar sits beside the name. */}
-            <div className="flex flex-col items-center gap-5 text-center md:flex-row md:items-center md:text-left lg:col-span-5">
-              <div className="relative shrink-0">
-                <div className="h-24 w-24 overflow-hidden rounded-full bg-earth-100 ring-2 ring-earth-200 md:h-28 md:w-28">
-                  {hostAvatarUrl ? (
-                    <Image src={hostAvatarUrl} alt={hostName} width={112} height={112} className="h-full w-full object-cover" />
-                  ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-earth-200 font-serif text-3xl text-earth-600">
-                      {getInitials(hostName)}
-                    </div>
-                  )}
-                </div>
-                {isVerified && (
-                  <div className="absolute -bottom-1 -right-1 flex h-8 w-8 items-center justify-center rounded-full bg-brand shadow-md ring-2 ring-earth-50">
-                    <ShieldCheck className="h-4 w-4 text-white" />
+        {/* Side by side from lg only: at tablet width the split squeezed the name onto two lines and broke the date. */}
+        <div className={`mt-8 grid grid-cols-1 gap-5 ${mapEmbedUrl ? "lg:grid-cols-[5fr_7fr]" : "lg:max-w-xl"}`}>
+          {/* Who the host is. Verification is shown when earned, never flagged when missing (as in the hero).
+              Phones center it like a contact card under the section's left-aligned heading; from md the avatar sits beside the name. */}
+          <div className="rounded-[20px] bg-white px-6 py-7 text-center md:text-left">
+            <div className="flex flex-col items-center gap-4 md:flex-row md:gap-5">
+              <div className="h-[88px] w-[88px] shrink-0 overflow-hidden rounded-full bg-pine">
+                {hostAvatarUrl ? (
+                  <Image src={hostAvatarUrl} alt={hostName} width={88} height={88} className="h-full w-full object-cover" />
+                ) : (
+                  <div className="flex h-full w-full items-center justify-center font-serif text-3xl text-white">
+                    {getInitials(hostName)}
                   </div>
                 )}
               </div>
               <div className="min-w-0">
                 {/* Words stay whole, so a Thai name wraps between first and last name, not mid-word. */}
-                <p className="font-serif text-2xl leading-snug text-earth-900">
+                <p className="font-serif text-[26px] leading-snug text-ink">
                   {hostName.split(" ").map((word, i) => (
                     <Fragment key={i}>
                       {i > 0 && " "}
@@ -117,87 +100,83 @@ export function HostLocationSection({
                   ))}
                 </p>
                 {isVerified && (
-                  <span className="mt-2 inline-flex items-center gap-1 rounded-full bg-brand/10 px-2.5 py-1 text-xs font-semibold text-brand ring-1 ring-brand/20">
-                    <BadgeCheck className="h-3.5 w-3.5" />
+                  <span className="mt-1 inline-flex items-center gap-1.5 text-sm font-medium text-pine">
+                    <BadgeCheck className="h-4 w-4" />
                     {t("verifiedHost")}
                   </span>
-                )}
-                {(hostPhone || lineId) && (
-                  <div className="mt-2 flex flex-wrap items-center justify-center gap-x-5 gap-y-2 md:justify-start">
-                    {hostPhone && (
-                      <a href={`tel:${hostPhone}`} className={CONTACT_LINK}>
-                        <Phone className="h-3.5 w-3.5" />
-                        {hostPhone}
-                      </a>
-                    )}
-                    {/* Thai guests ask on LINE first, so it is a button (DESIGN.md secondary), not a grey link. */}
-                    {lineId && (
-                      <a
-                        href={lineUrl(lineId)}
-                        target="_blank"
-                        rel="noopener noreferrer"
-                        className="inline-flex h-11 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-earth-200 bg-white px-5 text-sm font-semibold text-earth-800 transition-colors hover:bg-earth-100 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-                      >
-                        <LineIcon className="h-4 w-4" />
-                        {t("chatOnLine")}
-                      </a>
-                    )}
-                  </div>
                 )}
               </div>
             </div>
 
-            {/* Track record. Zero bookings and an old or missing last booking are left out rather than shown as gaps.
-                Phones: one centered row, inset so it never touches the gutters, wrapping 2 + 1 when it must.
-                Tablets (md): three columns under the host. From lg: three columns beside the host, behind a vertical rule. */}
-            <div className="flex flex-wrap items-end justify-center gap-x-10 gap-y-6 border-t border-earth-200 px-4 pt-8 text-center md:grid md:grid-cols-3 md:gap-x-6 md:gap-y-8 md:px-0 md:text-left lg:col-span-7 lg:border-l lg:border-t-0 lg:pl-10 lg:pt-0">
+            {(hostPhone || lineId) && (
+              <div className="mt-5 flex flex-wrap justify-center gap-2.5 md:justify-start">
+                {hostPhone && (
+                  <a
+                    href={`tel:${hostPhone}`}
+                    className="inline-flex min-h-12 items-center gap-2 whitespace-nowrap rounded-full bg-pine px-6 text-[15px] font-medium text-white transition-colors hover:bg-pine-hover outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
+                  >
+                    <Phone className="h-4 w-4" />
+                    {hostPhone}
+                  </a>
+                )}
+                {/* Thai guests ask on LINE first, so it is a button beside the phone, not a grey link. */}
+                {lineId && (
+                  <a
+                    href={lineUrl(lineId)}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="inline-flex min-h-12 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-line-strong px-6 text-[15px] font-medium text-ink transition-colors hover:bg-mist outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
+                  >
+                    <LineIcon className="h-4 w-4" />
+                    {t("chatOnLine")}
+                  </a>
+                )}
+              </div>
+            )}
+
+            {/* Track record. Zero bookings and an old or missing last booking are left out rather than shown as gaps. */}
+            <div className={`mt-6 grid border-t border-line pt-5 ${totalBookings > 0 ? "grid-cols-2" : "grid-cols-1"}`}>
               {totalMonths === 0 ? (
                 <Stat value={t("monthsHosting", { count: 0 })} small />
               ) : (
                 <Stat
-                  value={isUnderOneYear ? totalMonths : yearsHosting}
+                  value={<CountUp value={isUnderOneYear ? totalMonths : yearsHosting} />}
                   label={isUnderOneYear ? t("monthsHosting", { count: totalMonths }) : t("yearsHosting", { count: yearsHosting })}
                 />
               )}
               {totalBookings > 0 && (
-                <Stat value={totalBookings.toLocaleString()} label={t("totalBookings", { count: totalBookings })} />
-              )}
-              {recentBookingDate && (
-                <Stat
-                  small
-                  value={fmtDateStr(recentBookingDate, "d MMM yyyy", locale)}
-                  label={
-                    <>
-                      <span aria-hidden className="inline-flex h-2 w-2 rounded-full bg-emerald-500" />
-                      {t("lastBooking")}
-                    </>
-                  }
-                />
+                <Stat value={<CountUp value={totalBookings} />} label={t("totalBookings", { count: totalBookings })} />
               )}
             </div>
+            {recentBookingDate && (
+              <p className="mt-4 inline-flex items-center gap-2 text-sm text-ink-2">
+                <span aria-hidden className="inline-flex h-2 w-2 rounded-full bg-[#2E7D5B]" />
+                {t("lastBooking")} {fmtDateStr(recentBookingDate, "d MMM yyyy", locale)}
+              </p>
+            )}
           </div>
-        </div>
-      </section>
 
-      {mapEmbedUrl && (
-        <section id="location" className="bg-white scroll-mt-20 py-14 md:py-20 lg:py-28">
-          <div className="mx-auto max-w-6xl px-4 sm:px-6">
-            <SectionMark />
-            <SectionHeading>{ta("location")}</SectionHeading>
-            <p className="mt-3 text-sm text-earth-600">{location}</p>
-            <div className="mt-8 overflow-hidden rounded-2xl border border-earth-200 bg-white">
+          {mapEmbedUrl && (
+            <div id="location" className="flex scroll-mt-20 flex-col overflow-hidden rounded-[20px] bg-white">
               <iframe
                 src={mapEmbedUrl}
-                className="h-80 w-full md:h-[28rem]"
+                className="h-72 w-full flex-1 md:h-96 lg:h-auto lg:min-h-[320px]"
                 loading="lazy"
                 allowFullScreen
                 referrerPolicy="no-referrer-when-downgrade"
                 title={ta("mapTitle")}
               />
+              <div className="flex items-start gap-3 px-6 py-5">
+                <MapPin className="mt-1 h-[18px] w-[18px] shrink-0 text-pine" aria-hidden />
+                <div className="min-w-0">
+                  <h3 className="font-medium text-ink">{ta("location")}</h3>
+                  <p className="text-[15px] text-ink-2">{location}</p>
+                </div>
+              </div>
             </div>
-          </div>
-        </section>
-      )}
-    </>
+          )}
+        </div>
+      </div>
+    </section>
   );
 }

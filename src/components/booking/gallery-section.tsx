@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useCallback } from "react";
+import { useState, useCallback, type CSSProperties } from "react";
 import { useSwipe } from "@/hooks/use-swipe";
 import Image from "next/image";
 import { ChevronLeft, ChevronRight, X } from "lucide-react";
@@ -8,22 +8,24 @@ import { useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from "@/components/ui/dialog";
 import { SectionHeading, SectionMark } from "@/components/booking/section-mark";
-import { bentoSpans } from "@/lib/gallery-layout";
 
-// A flat Sand (earth-200) frame while a photo loads.
+// A flat Mist 2 frame while a photo loads.
 const BLUR_DATA_URL =
-  "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI4MDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2UwZDVjOCIvPjwvc3ZnPg==";
+  "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI4MDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI0U5RUNFNyIvPjwvc3ZnPg==";
 
-/** One round of the bento pattern; "show all photos" opens the rest. */
-const MAX_TILES = 7;
-/** Phones show one wide tile and two halves: the gallery opens the page, so it stays short there. */
+/** The mosaic holds five photos from md up; "show all photos" opens the rest. */
+const MAX_TILES = 5;
+/** Phones show one wide tile and two squares: the gallery opens the page, so it stays short there. */
 const MOBILE_TILES = 3;
-// Desktop rows: wide + one, three, one + wide. Phones: one full width, then two halves.
-const DESKTOP_PATTERN = [2, 1, 1, 1, 1, 1, 2];
-const MOBILE_PATTERN = [2, 1, 1];
-// Whole class names, so Tailwind generates every span the layout can produce.
-const MOBILE_SPAN: Record<number, string> = { 1: "col-span-1", 2: "col-span-2" };
-const DESKTOP_SPAN: Record<number, string> = { 1: "md:col-span-1", 2: "md:col-span-2", 3: "md:col-span-3" };
+// md+ is a 4-column, 2-row mosaic: the first photo takes a 2x2 block and the rest fill the other half.
+// Whole class names, by photo count, so Tailwind generates every span the layout can produce.
+const DESKTOP_SPANS: Record<number, string[]> = {
+  1: ["md:col-span-4 md:row-span-2"],
+  2: ["md:col-span-2 md:row-span-2", "md:col-span-2 md:row-span-2"],
+  3: ["md:col-span-2 md:row-span-2", "md:col-span-2", "md:col-span-2"],
+  4: ["md:col-span-2 md:row-span-2", "md:col-span-2", "md:col-span-1", "md:col-span-1"],
+  5: ["md:col-span-2 md:row-span-2", "md:col-span-1", "md:col-span-1", "md:col-span-1", "md:col-span-1"],
+};
 
 /** Glide the strip to the new thumbnail, unless the visitor asked for less motion. */
 export const thumbScroll = (): ScrollBehavior =>
@@ -56,60 +58,59 @@ export function GallerySection({ images, name }: GallerySectionProps) {
   if (!images.length) return null;
 
   const shown = images.slice(0, MAX_TILES);
-  const mobileSpans = bentoSpans(shown.length, 2, MOBILE_PATTERN);
-  const desktopSpans = bentoSpans(shown.length, 3, DESKTOP_PATTERN);
+  const desktopSpans = DESKTOP_SPANS[shown.length];
+  // Phones: the first photo (and a lone second one) spans the row at 4:3; the others are squares.
+  const mobileWide = (i: number) => i === 0 || (i === 1 && shown.length === 2);
   const photoAlt = (i: number) => t("photoAlt", { name, number: i + 1 });
 
   return (
     <>
       <section id="gallery" className="scroll-mt-20 py-14 md:py-20 lg:py-28">
         <div className="mx-auto max-w-6xl px-4 sm:px-6">
-          <div className="mb-8 flex flex-col gap-4 md:flex-row md:items-end md:justify-between md:gap-10">
-            <div>
-              <SectionMark />
-              <SectionHeading>{t("title")}</SectionHeading>
-            </div>
-            <p className="max-w-xs text-sm leading-relaxed text-earth-600 md:text-right">{t("subtitle")}</p>
-          </div>
+          <SectionMark />
+          <SectionHeading>{t("title")}</SectionHeading>
+          <p className="mt-3 max-w-[52ch] text-base leading-relaxed text-ink-2">{t("subtitle")}</p>
 
-          <div className="grid auto-rows-[11rem] grid-cols-2 gap-1.5 sm:auto-rows-[15rem] md:auto-rows-[20rem] md:grid-cols-3 lg:auto-rows-[25rem]">
-            {shown.map((img, i) => (
+          <div className="relative mt-8">
+            <div className="grid grid-cols-2 gap-2.5 md:grid-cols-4 md:grid-rows-[15rem_15rem] lg:grid-rows-[17.5rem_17.5rem]">
+              {shown.map((img, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  // Unveils as it scrolls in (RevealScope), one tile after another; the clip follows the tile's 16px corners.
+                  data-reveal-kind="unveil"
+                  style={{ "--unveil-r": "16px", "--unveil-delay": `${i * 90}ms` } as CSSProperties}
+                  onClick={() => setLightboxIndex(i)}
+                  className={`group relative overflow-hidden rounded-2xl bg-mist-2 outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2 focus-visible:ring-offset-mist md:aspect-auto ${
+                    mobileWide(i) ? "col-span-2 aspect-[4/3]" : "aspect-square"
+                  } ${desktopSpans[i]} ${i >= MOBILE_TILES ? "hidden md:block" : ""}`}
+                >
+                  {/* Visible as soon as it loads: no fade-in that waits for JavaScript. */}
+                  <Image
+                    src={img}
+                    alt={photoAlt(i)}
+                    fill
+                    sizes={i === 0 || mobileWide(i) ? "(max-width: 768px) 100vw, 50vw" : "(max-width: 768px) 50vw, 25vw"}
+                    placeholder="blur"
+                    blurDataURL={BLUR_DATA_URL}
+                    className="object-cover transition-transform duration-700 ease-[cubic-bezier(0.23,1,0.32,1)] group-hover:scale-[1.03] motion-reduce:transition-none"
+                  />
+                </button>
+              ))}
+            </div>
+            {images.length > MOBILE_TILES && (
+              // Over the last tile. Phones offer the rest from the fourth photo on; wider screens once there are more than the mosaic holds.
               <button
-                key={i}
                 type="button"
-                onClick={() => setLightboxIndex(i)}
-                className={`group relative overflow-hidden rounded-xl bg-earth-200 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${MOBILE_SPAN[mobileSpans[i]]} ${DESKTOP_SPAN[desktopSpans[i]]} ${
-                  i >= MOBILE_TILES ? "hidden md:block" : ""
+                className={`absolute right-3 bottom-3 inline-flex min-h-11 items-center rounded-full bg-white/95 px-4 text-sm font-medium text-ink outline-none transition-colors hover:bg-white focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2 ${
+                  images.length > MAX_TILES ? "" : "md:hidden"
                 }`}
-              >
-                {/* Visible as soon as it loads: no fade-in that waits for JavaScript. */}
-                <Image
-                  src={img}
-                  alt={photoAlt(i)}
-                  fill
-                  sizes={`(max-width: 768px) ${mobileSpans[i] * 50}vw, ${desktopSpans[i] * 33}vw`}
-                  placeholder="blur"
-                  blurDataURL={BLUR_DATA_URL}
-                  className="object-cover transition-transform duration-500 group-hover:scale-105"
-                />
-                <div className="absolute inset-0 bg-black/0 transition-colors group-hover:bg-black/10" />
-              </button>
-            ))}
-          </div>
-          {images.length > MOBILE_TILES && (
-            // Phones offer the rest from the fourth photo on; wider screens once there are more than the grid holds.
-            <div className={`mt-6 text-center ${images.length > MAX_TILES ? "" : "md:hidden"}`}>
-              <Button
-                type="button"
-                variant="outline"
-                // DESIGN.md secondary: Sand border, Teak Deep label, no shadow; Forest focus ring.
-                className="h-11 rounded-full border-earth-200 text-earth-800 shadow-none focus-visible:border-earth-200 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                 onClick={() => setLightboxIndex(0)}
               >
                 {t("showAll")} ({images.length})
-              </Button>
-            </div>
-          )}
+              </button>
+            )}
+          </div>
         </div>
       </section>
 

@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 
+import { Users } from "lucide-react";
 import { useTranslations } from "next-intl";
 import {
   Dialog,
@@ -15,30 +16,25 @@ import { ListIcon } from "@/components/booking/list-icon";
 import { SectionHeading, SectionMark } from "@/components/booking/section-mark";
 import { autoIconKey, type ListKind } from "@/lib/list-icons";
 
-/** Rows before "show all": the desktop grid holds 12, the phone column 6, so it stays short there. */
-const VISIBLE_ITEMS = 12;
-const PHONE_ITEMS = 6;
+/** Rows before "show all": amenities and rules sit side by side from md, so each stays at six. */
+const VISIBLE_ITEMS = 6;
 
 /**
  * `icons` are resolved from the original Thai labels on the server. In English
  * the labels are a translation that is not guaranteed to keep the array's
  * length, so a mismatched list re-picks icons from the words it shows.
- * With a `limit` (the in-page list), rows past PHONE_ITEMS show from sm up only.
  */
 function ListRows({ labels, icons, kind, limit }: { labels: string[]; icons?: string[]; kind: ListKind; limit?: number }) {
   const aligned = icons?.length === labels.length;
   return (
     <>
       {labels.slice(0, limit).map((label, i) => (
-        <div
-          key={label}
-          className={`flex items-center gap-3 text-sm text-earth-700 ${limit && i >= PHONE_ITEMS ? "hidden sm:flex" : ""}`}
-        >
-          <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-earth-300">
+        <div key={label} className="flex items-center gap-3 text-[15px] text-ink">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white">
             <ListIcon
               name={(aligned && icons[i]) || autoIconKey(label, kind)}
               kind={kind}
-              className="h-4 w-4 text-brand"
+              className={`h-[18px] w-[18px] ${kind === "rule" ? "text-ink-2" : "text-pine"}`}
             />
           </span>
           <span>{label}</span>
@@ -48,15 +44,15 @@ function ListRows({ labels, icons, kind, limit }: { labels: string[]; icons?: st
   );
 }
 
-/** "Show all" past what the list shows: from the 7th row on phones, from the 13th on wider screens. */
+/** "Show all" past what the list shows, from the 7th row. */
 function ShowAllButton({ count, onClick }: { count: number; onClick: () => void }) {
   const t = useTranslations("about");
-  if (count <= PHONE_ITEMS) return null;
+  if (count <= VISIBLE_ITEMS) return null;
   return (
-    <div className={`mt-6 text-center ${count > VISIBLE_ITEMS ? "" : "sm:hidden"}`}>
+    <div className="mt-3">
       <button
         type="button"
-        className="inline-flex min-h-11 items-center rounded-sm text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+        className="inline-flex min-h-11 items-center rounded-sm text-[15px] font-medium text-pine underline underline-offset-4 hover:text-pine-hover outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
         onClick={onClick}
       >
         {t("showAll", { count })}
@@ -87,42 +83,53 @@ export function AboutSection({
   const [rulesModal, setRulesModal] = useState(false);
 
   return (
-    <section id="about" className="bg-white scroll-mt-20 py-14 md:py-20 lg:py-28">
+    <section id="about" className="scroll-mt-20 pb-14 md:pb-20 lg:pb-28">
       <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        {/* Description: heading on the left, text on the right. 5/12 on tablets: at 4/12 the serif heading splits Thai words. */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-12 md:gap-12">
-          <div className="md:col-span-5 lg:col-span-4">
+        {/* Heading on the left, the place on the right from lg. Below lg the heading sits on top: at 4/12 the serif heading splits Thai words. */}
+        <div className="grid grid-cols-1 gap-7 lg:grid-cols-12 lg:gap-14">
+          <div className="lg:col-span-4">
             <SectionMark />
             <SectionHeading>{t("title")}</SectionHeading>
+          </div>
+
+          <div className="min-w-0 lg:col-span-8">
+            <ExpandableText
+              html={description}
+              clampClassName="line-clamp-6 md:line-clamp-8"
+              textClassName="font-serif text-xl leading-[1.6] text-ink md:text-2xl"
+              fadeClassName="from-mist via-mist/80"
+            />
             {maxGuests > 0 && (
-              <p className="mt-4 text-sm text-earth-600">{t("upToGuests", { count: maxGuests })}</p>
+              <p className="mt-5 inline-flex items-center gap-2 rounded-full border border-line bg-white px-4 py-2 text-[15px] text-ink">
+                <Users className="h-[18px] w-[18px] text-pine" aria-hidden />
+                {t("upToGuests", { count: maxGuests })}
+              </p>
+            )}
+
+            {(amenities.length > 0 || prohibitions.length > 0) && (
+              <div className="mt-10 grid gap-8 md:grid-cols-2 md:gap-10">
+                {amenities.length > 0 && (
+                  <div id="amenities" className="scroll-mt-20">
+                    <h3 className="mb-4 font-serif text-2xl text-ink">{t("amenities")}</h3>
+                    <div className="grid grid-cols-2 gap-x-5 gap-y-3">
+                      <ListRows labels={amenities} icons={amenityIcons} kind="amenity" limit={VISIBLE_ITEMS} />
+                    </div>
+                    <ShowAllButton count={amenities.length} onClick={() => setAmenitiesModal(true)} />
+                  </div>
+                )}
+                {prohibitions.length > 0 && (
+                  <div>
+                    <h3 className="mb-4 font-serif text-2xl text-ink">{t("rules")}</h3>
+                    <div className="grid grid-cols-2 gap-x-5 gap-y-3">
+                      <ListRows labels={prohibitions} icons={prohibitionIcons} kind="rule" limit={VISIBLE_ITEMS} />
+                    </div>
+                    <ShowAllButton count={prohibitions.length} onClick={() => setRulesModal(true)} />
+                  </div>
+                )}
+              </div>
             )}
           </div>
-
-          <ExpandableText html={description} clampClassName="line-clamp-8 md:line-clamp-12" className="md:col-span-7 lg:col-span-8" fadeClassName="from-white via-white/80" />
         </div>
-
-        {/* Amenities */}
-        {amenities.length > 0 && (
-          <div id="amenities" className="scroll-mt-20 mt-14 md:mt-20 lg:mt-28">
-            <h3 className="text-center font-serif text-2xl text-earth-900 md:text-3xl">{t("amenities")}</h3>
-            <div className="mx-auto mt-10 grid max-w-4xl grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-              <ListRows labels={amenities} icons={amenityIcons} kind="amenity" limit={VISIBLE_ITEMS} />
-            </div>
-            <ShowAllButton count={amenities.length} onClick={() => setAmenitiesModal(true)} />
-          </div>
-        )}
-
-        {/* House rules */}
-        {prohibitions.length > 0 && (
-          <div className="mt-12 md:mt-20">
-            <h3 className="text-center font-serif text-2xl text-earth-900 md:text-3xl">{t("rules")}</h3>
-            <div className="mx-auto mt-10 grid max-w-4xl grid-cols-1 gap-x-10 gap-y-4 sm:grid-cols-2 lg:grid-cols-3">
-              <ListRows labels={prohibitions} icons={prohibitionIcons} kind="rule" limit={VISIBLE_ITEMS} />
-            </div>
-            <ShowAllButton count={prohibitions.length} onClick={() => setRulesModal(true)} />
-          </div>
-        )}
       </div>
 
       {/* Amenities Modal */}

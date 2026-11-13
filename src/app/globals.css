@@ -28,6 +28,21 @@
   --color-brand-hover: #264A40;
   --color-brand-700: #1E3D34;
   --color-section-alt: #F7F7F5;
+
+  /* Mist Ridge: the guest pages only (/[slug], then /book). Dashboard and admin keep brand/earth. */
+  --color-mist: #F3F4F1;
+  --color-mist-2: #E9ECE7;
+  --color-pine-mist: #E3EAE5;
+  --color-ink: #17201D;
+  --color-ink-2: #4D5752;
+  --color-ink-3: #5A6460;
+  --color-line: #D9DDD6;
+  --color-line-strong: #8A948F;
+  --color-pine: #1F3A33;
+  --color-pine-hover: #2A4B42;
+  --color-pine-deep: #132622;
+  --color-dawn: #B8935A;
+  --color-star: #8A6A2F;
   --color-sidebar-ring: var(--sidebar-ring);
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
@@ -265,6 +280,69 @@
 @media (prefers-reduced-motion: reduce) {
   .scroll-cue-line {
     animation: none;
+  }
+}
+
+/* Landing (/[slug]) motion, settled 2026-11-13. RevealScope (src/components/booking/reveal.tsx)
+   marks below-the-fold elements data-reveal="pending", then "in" once they scroll into view;
+   without JS, on screen at load, or under reduced motion they never leave their final state.
+   unveil: photos lift into view from the bottom, like mist clearing, while the image settles.
+   pop: the rating stars appear one by one. settle: the closing band's photo eases to rest. */
+@keyframes hero-rise {
+  from { transform: translateY(105%); }
+  to { transform: none; }
+}
+
+.hero-rise {
+  animation: hero-rise 1.2s cubic-bezier(0.16, 1, 0.3, 1) 0.25s both;
+}
+
+[data-reveal-kind="unveil"] {
+  clip-path: inset(0 0 0 0 round var(--unveil-r, 0px));
+  transition: clip-path 1.2s cubic-bezier(0.16, 1, 0.3, 1) var(--unveil-delay, 0ms);
+}
+[data-reveal-kind="unveil"][data-reveal="pending"] {
+  clip-path: inset(35% 0 0 0 round var(--unveil-r, 0px));
+}
+/* `scale` stays on its own short transition: the gallery's hover zoom uses it. */
+[data-reveal-kind="unveil"] img {
+  transition: transform 1.6s cubic-bezier(0.16, 1, 0.3, 1) var(--unveil-delay, 0ms), scale 0.7s cubic-bezier(0.23, 1, 0.32, 1);
+}
+[data-reveal-kind="unveil"][data-reveal="pending"] img {
+  transform: scale(1.14);
+}
+
+[data-reveal-kind="pop"] svg {
+  transition: opacity 0.4s cubic-bezier(0.23, 1, 0.32, 1), transform 0.5s cubic-bezier(0.34, 1.56, 0.64, 1);
+  transition-delay: 0.3s;
+}
+[data-reveal-kind="pop"] svg:nth-child(2) { transition-delay: 0.38s; }
+[data-reveal-kind="pop"] svg:nth-child(3) { transition-delay: 0.46s; }
+[data-reveal-kind="pop"] svg:nth-child(4) { transition-delay: 0.54s; }
+[data-reveal-kind="pop"] svg:nth-child(5) { transition-delay: 0.62s; }
+[data-reveal-kind="pop"][data-reveal="pending"] svg {
+  opacity: 0;
+  transform: scale(0.4);
+}
+
+[data-reveal-kind="settle"] img {
+  transition: transform 2.4s cubic-bezier(0.16, 1, 0.3, 1);
+}
+[data-reveal-kind="settle"][data-reveal="pending"] img {
+  transform: scale(1.08);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hero-rise {
+    animation: none;
+  }
+  [data-reveal-kind],
+  [data-reveal-kind] img,
+  [data-reveal-kind] svg {
+    clip-path: none !important;
+    transform: none !important;
+    opacity: 1 !important;
+    transition: none !important;
   }
 }
 

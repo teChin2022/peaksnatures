@@ -214,7 +214,13 @@ From earlier sessions with the owner:
   - Section order: Hero, Gallery, About, Houses, Reviews, Host and Location,
     Check-in, Policies, FAQ, closing band.
   - Motion only on the hero entrance and scroll cue, `SectionMark`, and
-    `SectionHeading`.
+    `SectionHeading`. Widened by the owner 2026-11-13: the hero name rises
+    from a mask and its photo settles; photos (gallery, houses) unveil
+    upward as they scroll in; the rating score and host figures count up;
+    the rating stars pop in; the closing band's photo settles; the house
+    link's arrow nudges on hover. All once, never looping, nothing on text
+    blocks or buttons; off under reduced motion (`RevealScope`, `CountUp`
+    in `src/components/booking/reveal.tsx`, CSS in `globals.css`).
   - The verified badge shows only for verified hosts; "last booking" only
     within 30 days.
   - Blocked hosts show the unavailable notice.
@@ -235,6 +241,14 @@ From earlier sessions with the owner:
   compression at upload.
 - **Carts:** grouped into one card only on `/dashboard/bookings`.
 - **`/admin`:** stays English-only.
+
+- **Guest pages palette (2026-11-13):** Mist Ridge (DESIGN.md "Mist Ridge"),
+  guest pages only. `/[slug]` shipped first: hero name and tagline low and
+  left; gallery a 5-photo mosaic (3 tiles on phones) with "Show all" over the
+  last tile; amenities and rules side by side; houses as white cards; host
+  card and map in one section; check-in and policies side by side from lg;
+  closing band over the host's hero photo; phone bar shows the "from" price
+  beside the Book button. Header menu and language switcher unchanged.
 
 From this session (2026-11-11):
 - North Star "The Quiet Retreat".

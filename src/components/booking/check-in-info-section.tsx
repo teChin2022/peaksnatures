@@ -20,17 +20,13 @@ export function CheckInInfoSection({ content }: CheckInInfoSectionProps) {
 
   if (isEmptyRichText(content)) return null;
 
+  // A column of the page's check-in + policies pair (side by side from lg); the page gives the container.
   return (
-    <section className="py-14 md:py-20 lg:py-28">
-      <div className="mx-auto max-w-6xl px-4 sm:px-6">
-        {/* Heading 5/12 on tablets: at 4/12 the serif heading splits Thai words. */}
-        <div className="grid grid-cols-1 gap-6 md:grid-cols-12 md:gap-12">
-          <div className="md:col-span-5 lg:col-span-4">
-            <SectionMark />
-            <SectionHeading>{t("title")}</SectionHeading>
-          </div>
-          <ExpandableText html={content as string} clampClassName="line-clamp-6 sm:line-clamp-10" className="md:col-span-7 lg:col-span-8" />
-        </div>
+    <section className="min-w-0 scroll-mt-20">
+      <SectionMark />
+      <SectionHeading>{t("title")}</SectionHeading>
+      <div className="mt-7 rounded-[20px] bg-white px-6 py-6 md:px-10 md:py-8">
+        <ExpandableText html={content as string} clampClassName="line-clamp-6 sm:line-clamp-10" fadeClassName="from-white via-white/80" />
       </div>
     </section>
   );

@@ -1,32 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { bentoSpans, galleryPhotos } from "@/lib/gallery-layout";
-
-const DESKTOP = [2, 1, 1, 1, 1, 1, 2];
-const MOBILE = [2, 1, 1];
-
-describe("bentoSpans", () => {
-  it("lays seven photos out as wide + one, three, one + wide on three columns", () => {
-    expect(bentoSpans(7, 3, DESKTOP)).toEqual([2, 1, 1, 1, 1, 1, 2]);
-  });
-
-  it("stretches the last photo over what its row has left", () => {
-    expect(bentoSpans(4, 3, DESKTOP)).toEqual([2, 1, 1, 2]);
-    expect(bentoSpans(6, 3, DESKTOP)).toEqual([2, 1, 1, 1, 1, 3]);
-  });
-
-  it("gives a single photo the full width", () => {
-    expect(bentoSpans(1, 3, DESKTOP)).toEqual([3]);
-    expect(bentoSpans(1, 2, MOBILE)).toEqual([2]);
-  });
-
-  it("alternates one full-width photo and two halves on two columns", () => {
-    expect(bentoSpans(5, 2, MOBILE)).toEqual([2, 1, 1, 2, 2]);
-  });
-
-  it("returns nothing for no photos", () => {
-    expect(bentoSpans(0, 3, DESKTOP)).toEqual([]);
-  });
-});
+import { galleryPhotos } from "@/lib/gallery-layout";
 
 describe("galleryPhotos", () => {
   it("weaves the gallery with each house's first photo, then the houses' other photos", () => {

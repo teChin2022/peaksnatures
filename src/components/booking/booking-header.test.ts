@@ -50,7 +50,7 @@ describe("BookingHeader", () => {
     const nav = container.querySelector("nav")!.className;
     // Solid white with a Sand border once scrolled: the old glass let content show through.
     expect(nav).toContain("bg-white");
-    expect(nav).toContain("border-earth-200");
+    expect(nav).toContain("border-line");
     expect(nav).not.toContain("glass-nav");
   });
 

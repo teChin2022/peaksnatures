@@ -52,9 +52,9 @@ export function LineIcon({ className }: { className?: string }) {
 }
 
 // Focus ring in the light variant: the footer is the dark Charcoal band.
-const FOCUS_RING = "outline-none focus-visible:ring-2 focus-visible:ring-earth-50 focus-visible:ring-offset-2 focus-visible:ring-offset-earth-900";
+const FOCUS_RING = "outline-none focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2 focus-visible:ring-offset-pine-deep";
 const SOCIAL_ICON_CLASS =
-  `inline-flex h-11 w-11 items-center justify-center rounded-full bg-earth-800/60 text-earth-400 transition-all duration-200 hover:bg-brand hover:text-white hover:scale-110 ${FOCUS_RING}`;
+  `inline-flex h-11 w-11 items-center justify-center rounded-full bg-white/10 text-[#D7DED9] transition-colors duration-200 hover:bg-pine hover:text-white ${FOCUS_RING}`;
 
 export function BookingFooter({
   homestayName,
@@ -74,10 +74,8 @@ export function BookingFooter({
   );
 
   return (
-    <footer className="bg-earth-900">
-      <div className="h-px w-full bg-gradient-to-r from-transparent via-earth-600 to-transparent" />
-
-      <div className="mx-auto max-w-7xl px-4 py-10 sm:px-6">
+    <footer className="bg-pine-deep">
+      <div className="mx-auto max-w-6xl px-4 py-12 sm:px-6">
         {/* Brand + socials | Contact — stacked and centred on mobile, side by side from sm */}
         <div className="mb-8 flex flex-col items-center gap-8 text-center sm:flex-row sm:items-start sm:justify-between sm:text-left">
           <div className="flex flex-col items-center gap-4 sm:items-start">
@@ -89,11 +87,11 @@ export function BookingFooter({
                   alt={homestayName}
                   width={40}
                   height={40}
-                  className="h-10 w-10 rounded-full object-cover ring-1 ring-earth-700"
+                  className="h-10 w-10 rounded-full object-cover ring-1 ring-white/15"
                 />
               )}
               <div className="text-left">
-                <h3 className={`font-semibold text-earth-50 text-base ${latin ? "tracking-wide" : ""}`}>
+                <h3 className={`font-serif text-[22px] text-white ${latin ? "tracking-wide" : ""}`}>
                   {homestayName}
                 </h3>
               </div>
@@ -152,17 +150,17 @@ export function BookingFooter({
 
           {/* Contact */}
           <div className="flex flex-col items-center gap-2.5 sm:items-start">
-            <p className={`text-xs font-semibold text-earth-300 ${latin ? "uppercase tracking-[0.15em]" : ""}`}>{t("contact")}</p>
-            <p className="flex items-start gap-2 text-sm text-earth-300">
-              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-earth-500" />
+            <p className={`text-xs font-semibold text-[#B9C4BD] ${latin ? "uppercase tracking-[0.15em]" : ""}`}>{t("contact")}</p>
+            <p className="flex items-start gap-2 text-sm text-[#B9C4BD]">
+              <MapPin className="mt-0.5 h-4 w-4 shrink-0 text-[#8FA096]" />
               <span>{location}</span>
             </p>
             {hostPhone && (
               <a
                 href={`tel:${hostPhone}`}
-                className={`flex min-h-11 items-center gap-2 rounded-sm text-sm text-earth-300 transition-colors hover:text-white ${FOCUS_RING}`}
+                className={`flex min-h-11 items-center gap-2 rounded-sm text-sm text-[#B9C4BD] transition-colors hover:text-white ${FOCUS_RING}`}
               >
-                <Phone className="h-4 w-4 shrink-0 text-earth-500" />
+                <Phone className="h-4 w-4 shrink-0 text-[#8FA096]" />
                 {/* 0812345678 → 081-234-5678; any other shape is shown as entered */}
                 {hostPhone.replace(/^(\d{3})(\d{3})(\d{4})$/, "$1-$2-$3")}
               </a>
@@ -171,11 +169,11 @@ export function BookingFooter({
         </div>
 
         {/* Divider */}
-        <div className="h-px w-full bg-earth-800 mb-5" />
+        <div className="h-px w-full bg-white/15 mb-5" />
 
         {/* Bottom bar: copyright + legal */}
         <div className="flex flex-col items-center gap-2 sm:flex-row sm:justify-between">
-          <p className="text-xs text-earth-300">
+          <p className="text-xs text-[#B9C4BD]">
             {`\u00A9 ${new Date().getFullYear()} ${tc("copyright")}`}
           </p>
           <div className="flex items-center gap-3">
@@ -183,16 +181,16 @@ export function BookingFooter({
               href="/legal#privacy"
               target="_blank"
               rel="noopener noreferrer"
-              className={`inline-flex min-h-11 items-center rounded-sm text-xs text-earth-300 hover:text-white transition-colors ${FOCUS_RING}`}
+              className={`inline-flex min-h-11 items-center rounded-sm text-xs text-[#B9C4BD] hover:text-white transition-colors ${FOCUS_RING}`}
             >
               {tc("privacy")}
             </a>
-            <span className="text-xs text-earth-700">|</span>
+            <span className="text-xs text-white/30">|</span>
             <a
               href="/legal#terms"
               target="_blank"
               rel="noopener noreferrer"
-              className={`inline-flex min-h-11 items-center rounded-sm text-xs text-earth-300 hover:text-white transition-colors ${FOCUS_RING}`}
+              className={`inline-flex min-h-11 items-center rounded-sm text-xs text-[#B9C4BD] hover:text-white transition-colors ${FOCUS_RING}`}
             >
               {tc("terms")}
             </a>

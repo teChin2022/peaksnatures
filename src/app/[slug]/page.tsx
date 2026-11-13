@@ -20,6 +20,7 @@ import { FaqSection } from "@/components/booking/faq-section";
 import { LandingBookBar, LandingCta } from "@/components/booking/landing-cta";
 import { PageViewTracker } from "@/components/booking/page-view-tracker";
 import { SectionMark } from "@/components/booking/section-mark";
+import { RevealScope } from "@/components/booking/reveal";
 import { RespectReducedMotion } from "@/components/respect-reduced-motion";
 import { ReviewsDisplay } from "@/components/reviews/reviews-display";
 import { LandingRooms, type LandingRoom } from "@/components/booking/landing-rooms";
@@ -188,7 +189,7 @@ export default async function HomestayLandingPage({ params, searchParams }: Page
   ];
 
   return (
-    <div className="min-h-screen bg-earth-50">
+    <div className="min-h-screen bg-mist">
       <JsonLd data={lodgingLd} id="ld-lodging" />
       {faqLd && <JsonLd data={faqLd} id="ld-faq" />}
       <PageViewTracker homestayId={homestay.id} />
@@ -207,6 +208,8 @@ export default async function HomestayLandingPage({ params, searchParams }: Page
       <RespectReducedMotion>
       {/* Resets the counter that numbers each SectionMark. */}
       <main className="[counter-reset:landing-section]">
+        {/* Scroll entrances for the photos, stars and closing band below (globals.css "Landing motion"). */}
+        <RevealScope>
         <Breadcrumbs items={breadcrumbItems} visuallyHidden />
         <LandingHero
           name={homestay.name}
@@ -232,7 +235,7 @@ export default async function HomestayLandingPage({ params, searchParams }: Page
 
         {/* Results only: writing a review starts from the booking page's menu. */}
         {reviewCount > 0 && (
-          <section id="reviews" className="bg-brand-50 scroll-mt-20 py-14 md:py-20 lg:py-28">
+          <section id="reviews" className="bg-pine-mist scroll-mt-20 py-14 md:py-20 lg:py-28">
             <div className="mx-auto max-w-6xl px-4 sm:px-6">
               <SectionMark />
               <ReviewsDisplay
@@ -259,11 +262,15 @@ export default async function HomestayLandingPage({ params, searchParams }: Page
           mapEmbedUrl={homestay.map_embed_url}
         />
 
-        <CheckInInfoSection content={homestay.check_in_info} />
-        <PoliciesSection content={homestay.policies} />
+        {/* Check-in and policies side by side from lg; one alone takes the row. Each renders nothing when empty. */}
+        <div className="mx-auto grid max-w-6xl gap-14 px-4 pb-14 empty:hidden sm:px-6 md:pb-20 lg:grid-cols-2 lg:gap-12 lg:pb-28 lg:[&>*:only-child]:col-span-2">
+          <CheckInInfoSection content={homestay.check_in_info} />
+          <PoliciesSection content={homestay.policies} />
+        </div>
         <FaqSection items={homestay.faq} />
 
-        <LandingCta bookHref={bookHref} bookingDisabled={!canBook} />
+        <LandingCta bookHref={bookHref} bookingDisabled={!canBook} imageUrl={homestay.hero_image_url} />
+        </RevealScope>
       </main>
       </RespectReducedMotion>
 
@@ -280,7 +287,7 @@ export default async function HomestayLandingPage({ params, searchParams }: Page
         }}
       />
       {/* Room under the fixed Book bar at the very bottom, in the footer's color. */}
-      <div aria-hidden className="h-[calc(5rem+env(safe-area-inset-bottom))] bg-earth-900 md:hidden" />
+      <div aria-hidden className="h-[calc(5rem+env(safe-area-inset-bottom))] bg-pine-deep md:hidden" />
     </div>
   );
 }

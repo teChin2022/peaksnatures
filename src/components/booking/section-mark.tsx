@@ -16,10 +16,10 @@ export function SectionMark() {
   return (
     <span
       aria-hidden
-      className="flex items-center gap-3 font-sans text-xs tracking-[0.3em] text-earth-400 [counter-increment:landing-section] before:content-[counter(landing-section,decimal-leading-zero)]"
+      className="flex items-center gap-3.5 font-serif text-sm tracking-[0.2em] text-ink-2 lining-nums [counter-increment:landing-section] before:content-[counter(landing-section,decimal-leading-zero)]"
     >
       <motion.span
-        className="h-px w-10 origin-left bg-earth-300"
+        className="h-px w-14 origin-left bg-line-strong"
         initial={{ scaleX: 0 }}
         whileInView={{ scaleX: 1 }}
         viewport={{ once: true }}
@@ -42,7 +42,7 @@ export function SectionHeading({ children }: { children: ReactNode }) {
         whileInView={{ y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.7, ease: EASE_OUT }}
-        className="font-serif text-3xl leading-tight text-earth-900 md:text-4xl"
+        className="font-serif text-3xl leading-[1.22] text-ink md:text-4xl lg:text-5xl"
       >
         {children}
       </motion.h2>

@@ -81,7 +81,7 @@ describe("ExpandableText", () => {
 
   it("fades into the section's own background", () => {
     layout(200, 96);
-    expect(container.querySelector(".from-earth-50")).not.toBeNull();
+    expect(container.querySelector(".from-mist")).not.toBeNull();
     act(() =>
       root.render(
         createElement(ExpandableText, {
@@ -93,6 +93,6 @@ describe("ExpandableText", () => {
     );
     layout(200, 96);
     expect(container.querySelector(".from-white")).not.toBeNull();
-    expect(container.querySelector(".from-earth-50")).toBeNull();
+    expect(container.querySelector(".from-mist")).toBeNull();
   });
 });

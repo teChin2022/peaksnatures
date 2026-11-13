@@ -13,6 +13,7 @@ import {
 } from "@/components/ui/dialog";
 import { StarRating } from "@/components/reviews/star-rating";
 import { SectionHeading } from "@/components/booking/section-mark";
+import { CountUp } from "@/components/booking/reveal";
 import { ProvinceLabel } from "@/components/reviews/province-label";
 import { fmtDateStr } from "@/lib/format-date";
 // import { RATING_CATEGORIES } from "@/lib/review-constants";
@@ -40,9 +41,9 @@ const TAG_I18N: Record<string, string> = {
 };
 
 const WOULD_RETURN_CONFIG: Record<string, { icon: typeof ThumbsUp; color: string; label: string }> = {
-  yes: { icon: ThumbsUp, color: "text-brand", label: "wouldReturnYes" },
-  maybe: { icon: Minus, color: "text-earth-600", label: "wouldReturnMaybe" },
-  no: { icon: ThumbsDown, color: "text-earth-600", label: "wouldReturnNo" },
+  yes: { icon: ThumbsUp, color: "text-pine", label: "wouldReturnYes" },
+  maybe: { icon: Minus, color: "text-ink-2", label: "wouldReturnMaybe" },
+  no: { icon: ThumbsDown, color: "text-ink-2", label: "wouldReturnNo" },
 };
 
 function getInitials(name: string) {
@@ -53,16 +54,16 @@ function RatingBar({ value, label }: { value: number; label: string }) {
   const pct = value > 0 ? (value / 5) * 100 : 0;
   return (
     <div className="flex items-center gap-2">
-      <span className="w-24 shrink-0 truncate text-xs text-earth-600" title={label}>{label}</span>
-      <div className="h-1.5 flex-1 overflow-hidden rounded-full bg-brand-100">
+      <span className="w-24 shrink-0 truncate text-xs text-ink-2" title={label}>{label}</span>
+      <div className="h-1 flex-1 overflow-hidden rounded-full bg-pine/15">
         {pct > 0 && (
           <div
-            className="h-full rounded-full bg-brand"
+            className="h-full rounded-full bg-pine"
             style={{ width: `${pct}%` }}
           />
         )}
       </div>
-      <span className="w-4 text-right text-xs font-medium text-earth-600">{value}</span>
+      <span className="w-4 text-right text-xs font-medium text-ink-2">{value}</span>
     </div>
   );
 }
@@ -169,20 +170,20 @@ function PhotoLightbox({
 function ReviewHeader({ review, locale }: { review: ReviewWithProvince; locale: string }) {
   return (
     <div className="flex items-start gap-3">
-      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-earth-100 text-xs font-bold text-earth-700">
+      <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-pine font-serif text-sm text-white">
         {getInitials(review.guest_name)}
       </div>
       <div className="min-w-0 flex-1">
-        <span className="text-sm font-semibold text-earth-900 truncate block">{review.guest_name}</span>
+        <span className="text-sm font-semibold text-ink truncate block">{review.guest_name}</span>
         {/* Wraps as whole pieces: in the phone swipe row a long province pushed the date onto three lines. */}
         <div className="mt-0.5 flex flex-wrap items-center gap-x-1.5">
           <ProvinceLabel province={review.bookings?.guest_province} locale={locale} />
-          <span className="whitespace-nowrap text-xs text-earth-600">
+          <span className="whitespace-nowrap text-xs text-ink-2">
             {fmtDateStr(review.created_at.split("T")[0], "d MMM yyyy", locale)}
           </span>
         </div>
       </div>
-      <div className="flex items-center gap-1 rounded-full bg-brand px-2.5 py-1 shrink-0">
+      <div className="flex items-center gap-1 rounded-full bg-pine px-2.5 py-1 shrink-0">
         <Star className="h-3 w-3" style={{ fill: "white", color: "white" }} />
         <span className="text-xs font-bold text-white">{review.rating}</span>
       </div>
@@ -197,8 +198,8 @@ function ReviewExtras({ review, t }: { review: ReviewWithProvince; t: ReturnType
       {review.impression_tags && review.impression_tags.length > 0 && (
         <div className="mt-2.5 flex flex-wrap gap-1">
           {review.impression_tags.map((tag) => (
-            <span key={tag} className="inline-flex items-center gap-1 rounded-full border border-brand/10 bg-brand/5 px-2 py-0.5 text-xs font-medium text-brand">
-              <Sparkles className="h-3 w-3" />
+            <span key={tag} className="inline-flex items-center gap-1 rounded-full bg-mist px-3 py-[5px] text-[13px] text-ink-2">
+              <Sparkles className="h-3 w-3 text-pine" />
               {TAG_I18N[tag] ? t(TAG_I18N[tag]) : tag}
             </span>
           ))}
@@ -207,9 +208,9 @@ function ReviewExtras({ review, t }: { review: ReviewWithProvince; t: ReturnType
 
       {/* No italic: most highlights are Thai, which has no italic face. */}
       {review.stay_highlight && (
-        <div className="mt-2.5 rounded-lg bg-earth-100 px-3 py-2">
-          <span className="inline-flex items-start gap-1.5 text-sm text-earth-700 leading-relaxed">
-            <Quote className="mt-1 h-3 w-3 shrink-0 text-earth-500" />
+        <div className="mt-2.5 rounded-xl bg-mist px-3 py-2">
+          <span className="inline-flex items-start gap-1.5 text-sm text-ink-2 leading-relaxed">
+            <Quote className="mt-1 h-3 w-3 shrink-0 text-ink-3" />
             {review.stay_highlight}
           </span>
         </div>
@@ -232,7 +233,7 @@ function ReviewRatings({ review, t }: { review: ReviewWithProvince; t: ReturnTyp
 
   return (
     <>
-      <div className="my-3 h-px bg-earth-200" />
+      <div className="my-3 h-px bg-line" />
       {rated.length > 0 && (
         <div className="space-y-1.5">
           {rated.map((c) => (
@@ -242,7 +243,7 @@ function ReviewRatings({ review, t }: { review: ReviewWithProvince; t: ReturnTyp
       )}
       {wouldReturn && Icon && (
         <div className="mt-2 flex items-center justify-between gap-2 text-xs">
-          <span className="text-earth-600">{t("wouldReturnDisplay")}</span>
+          <span className="text-ink-2">{t("wouldReturnDisplay")}</span>
           <span className={`inline-flex items-center gap-1 font-medium ${wouldReturn.color}`}>
             <Icon className="h-3 w-3" />
             {t(wouldReturn.label as "wouldReturnYes")}
@@ -278,12 +279,12 @@ function ReviewCard({
   }, [review.comment]);
 
   return (
-    <div className="flex flex-col rounded-2xl border border-earth-100 bg-white p-5 h-full">
+    <div className="flex flex-col rounded-[20px] bg-white p-[22px] h-full">
       <ReviewHeader review={review} locale={locale} />
 
       {/* The guest's words first; the scores support them. */}
       {review.comment && (
-        <p ref={commentRef} className="mt-3 text-sm leading-relaxed text-earth-600 line-clamp-3">
+        <p ref={commentRef} className="mt-3 text-sm leading-relaxed text-ink-2 line-clamp-3">
           {review.comment}
         </p>
       )}
@@ -292,7 +293,7 @@ function ReviewCard({
       {review.photos && review.photos.length > 0 && (
         <div className="mt-3 flex gap-1.5 overflow-x-auto">
           {review.photos.map((url, i) => (
-            <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-earth-100 transition-transform hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">
+            <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-14 w-14 shrink-0 overflow-hidden rounded-xl border border-line transition-transform hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2">
               <img src={url} alt={`Photo ${i + 1} from ${review.guest_name}'s review`} className="h-full w-full object-cover" />
             </button>
           ))}
@@ -305,7 +306,7 @@ function ReviewCard({
       {/* Read more */}
       {commentCut && (
         <div className="mt-auto pt-1">
-          <button type="button" onClick={() => onReadMore(review)} className="inline-flex min-h-11 items-center rounded-sm text-xs font-medium text-brand hover:text-brand-hover transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">
+          <button type="button" onClick={() => onReadMore(review)} className="inline-flex min-h-11 items-center rounded-sm text-xs font-medium text-pine hover:text-pine-hover transition-colors outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2">
             {t("readMore")} &rarr;
           </button>
         </div>
@@ -316,19 +317,19 @@ function ReviewCard({
 
 function ModalReviewCard({ review, locale, t, onPhotoClick }: { review: ReviewWithProvince; locale: string; t: ReturnType<typeof useTranslations>; onPhotoClick: (photos: string[], index: number) => void }) {
   return (
-    <div className="rounded-2xl border border-earth-100 bg-white p-5">
+    <div className="rounded-[20px] bg-white p-[22px]">
       <ReviewHeader review={review} locale={locale} />
 
       {/* Comment — full text */}
       {review.comment && (
-        <p className="mt-3 text-sm leading-relaxed text-earth-600 whitespace-pre-wrap">{review.comment}</p>
+        <p className="mt-3 text-sm leading-relaxed text-ink-2 whitespace-pre-wrap">{review.comment}</p>
       )}
 
       {/* Photos — larger */}
       {review.photos && review.photos.length > 0 && (
         <div className="mt-3 flex gap-2 overflow-x-auto">
           {review.photos.map((url, i) => (
-            <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-earth-100 transition-transform hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2">
+            <button key={i} type="button" onClick={() => onPhotoClick(review.photos!, i)} className="h-20 w-20 shrink-0 overflow-hidden rounded-xl border border-line transition-transform hover:scale-105 outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2">
               <img src={url} alt={`Photo ${i + 1} from ${review.guest_name}'s review`} className="h-full w-full object-cover" />
             </button>
           ))}
@@ -396,20 +397,27 @@ export function ReviewsDisplay({
 
   return (
     <>
-      <div className="space-y-4">
-        {/* Header */}
+      <div className="space-y-8">
+        {/* Header: the score large, beside the stars and the count. */}
         <div>
           <SectionHeading>{t("title")}</SectionHeading>
           {totalCount > 0 ? (
-            <div className="flex items-center gap-2">
-              <StarRating rating={Math.round(averageRating)} size={14} />
-              <span className="text-sm font-medium text-earth-900">{averageRating}</span>
-              <span className="text-sm text-earth-600">
-                ({totalCount} {totalCount === 1 ? t("review") : t("reviewPlural")})
+            <div className="mt-6 flex items-end gap-4">
+              <span className="font-serif text-7xl leading-[0.9] text-ink lining-nums md:text-[84px]">
+                <CountUp value={averageRating} />
               </span>
+              <div>
+                {/* The stars appear one by one as the score counts up (RevealScope). */}
+                <div data-reveal-kind="pop">
+                  <StarRating rating={Math.round(averageRating)} size={18} />
+                </div>
+                <p className="mt-1.5 text-sm text-ink-2">
+                  {totalCount} {totalCount === 1 ? t("review") : t("reviewPlural")}
+                </p>
+              </div>
             </div>
           ) : (
-            <p className="text-sm text-earth-600">{t("noReviews")}</p>
+            <p className="text-sm text-ink-2">{t("noReviews")}</p>
           )}
         </div>
 
@@ -421,9 +429,9 @@ export function ReviewsDisplay({
               if (avg === 0) return null;
               return (
                 <div key={cat.key} className="flex items-center gap-1.5 rounded-lg bg-white px-3 py-1.5">
-                  <span className="text-sm font-semibold text-earth-900">{avg}</span>
+                  <span className="text-sm font-semibold text-ink">{avg}</span>
                   <Star className="h-3 w-3" style={{ fill: "#2F5D50", color: "#2F5D50" }} />
-                  <span className="text-xs text-earth-500">{t(CATEGORY_I18N[cat.key].label)}</span>
+                  <span className="text-xs text-ink-3">{t(CATEGORY_I18N[cat.key].label)}</span>
                 </div>
               );
             })}
@@ -432,7 +440,7 @@ export function ReviewsDisplay({
 
         {/* Phones: one card wide with the next one peeking, swiped sideways. The grid from sm up. */}
         {totalCount > 0 && (
-          <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-4 overflow-x-auto px-4 pb-2 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-3">
+          <div className="-mx-4 flex snap-x snap-mandatory scroll-px-4 gap-3.5 overflow-x-auto px-4 pt-1 pb-2.5 scrollbar-hide sm:mx-0 sm:grid sm:grid-cols-2 sm:overflow-visible sm:px-0 sm:pb-0 lg:grid-cols-3">
             {gridReviews.map((review) => (
               <div key={review.id} className="w-[85%] shrink-0 snap-start sm:w-auto">
                 <ReviewCard review={review} locale={locale} t={t} onReadMore={setSelectedReview} onPhotoClick={openLightbox} />
@@ -444,7 +452,7 @@ export function ReviewsDisplay({
         {/* Under the cards, full width on phones: beside the heading it squeezed the title. */}
         {hasMore && (
           <div className="text-center">
-            <Button variant="outline" className="h-11 w-full rounded-full border-earth-200 text-earth-800 shadow-none sm:w-auto focus-visible:border-earth-200 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2" onClick={openModal}>
+            <Button variant="outline" className="h-11 w-full rounded-full min-h-12 border-line-strong bg-transparent px-6 text-ink shadow-none hover:bg-white sm:w-auto focus-visible:border-line-strong focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2" onClick={openModal}>
               {t("seeAllReviews", { count: totalCount })}
             </Button>
           </div>
@@ -452,9 +460,9 @@ export function ReviewsDisplay({
 
         {/* Empty state */}
         {totalCount === 0 && (
-          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-earth-200 bg-earth-50/50 py-10 text-center">
-            <MessageSquare className="h-8 w-8 text-earth-300" />
-            <p className="mt-2 text-sm text-earth-400">{t("noReviewsYet")}</p>
+          <div className="flex flex-col items-center justify-center rounded-xl border border-dashed border-line-strong bg-white/50 py-10 text-center">
+            <MessageSquare className="h-8 w-8 text-line-strong" />
+            <p className="mt-2 text-sm text-ink-3">{t("noReviewsYet")}</p>
           </div>
         )}
       </div>
@@ -464,9 +472,9 @@ export function ReviewsDisplay({
         <DialogContent className="sm:max-w-3xl max-h-[85svh] flex flex-col">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Star className="h-5 w-5 text-earth-600" />
+              <Star className="h-5 w-5 text-ink-2" />
               {t("viewAllTitle")}
-              <span className="text-sm font-normal text-earth-600">
+              <span className="text-sm font-normal text-ink-2">
                 ({modalTotal} {modalTotal === 1 ? t("review") : t("reviewPlural")})
               </span>
             </DialogTitle>
@@ -474,7 +482,7 @@ export function ReviewsDisplay({
           <div className="flex-1 overflow-y-auto pr-1">
             {modalReviews.length === 0 && modalLoading ? (
               <div className="flex items-center justify-center py-16">
-                <Loader2 className="h-6 w-6 animate-spin text-earth-400" />
+                <Loader2 className="h-6 w-6 animate-spin text-ink-3" />
               </div>
             ) : (
               <>
@@ -484,7 +492,7 @@ export function ReviewsDisplay({
                   ))}
                 </div>
                 <div className="flex flex-col items-center gap-2 pt-4">
-                  <p className="text-xs text-earth-600">
+                  <p className="text-xs text-ink-2">
                     {t("showingCount", { count: modalReviews.length, total: modalTotal })}
                   </p>
                   {hasMoreInModal && (

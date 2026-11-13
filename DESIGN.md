@@ -22,6 +22,20 @@ colors:
   destructive: "oklch(0.577 0.245 27.325)"
   amber-50: "oklch(0.987 0.022 95.277)"
   amber-700: "oklch(0.555 0.163 48.998)"
+  # Mist Ridge (guest pages only: /[slug] and /[slug]/book). Dashboard and admin keep brand/earth.
+  mist: "#F3F4F1"
+  mist-2: "#E9ECE7"
+  pine-mist: "#E3EAE5"
+  ink: "#17201D"
+  ink-2: "#4D5752"
+  ink-3: "#5A6460"
+  line: "#D9DDD6"
+  line-strong: "#8A948F"
+  pine: "#1F3A33"
+  pine-hover: "#2A4B42"
+  pine-deep: "#132622"
+  dawn: "#B8935A"
+  star: "#8A6A2F"
 typography:
   display:
     fontFamily: "Playfair Display, Noto Serif Thai, serif"
@@ -193,6 +207,25 @@ surface.
 - **Forest Mist** (`brand-50`, #EEF3F1) and **Forest Pale** (`brand-100`,
   #D4E0DC): selected-row and confirmed-badge fills, the date-range band.
   Forest text on Forest Mist is 6.68:1.
+
+### Mist Ridge (guest pages)
+
+Owner's pick, 2026-11-13, from the `/[slug]` and `/book` prototypes
+(`.impeccable/mocks/proto/`). Applies to the guest pages only; `brand` and
+`earth-*` stay for the host dashboard and admin.
+
+- **Mist** `#F3F4F1` page background; **Paper** white for cards; **Pine Mist**
+  `#E3EAE5` for the reviews band.
+- **Ink** `#17201D` text (15.09:1 on Mist), **Ink 2** `#4D5752` secondary
+  (6.79:1), **Ink 3** `#5A6460` small labels. Never lighter for text.
+- **Pine** `#1F3A33` is the one action colour (white on Pine 12.27:1), hover
+  **Pine Hover**; **Pine Deep** `#132622` for the footer and dark bands.
+- **Line** `#D9DDD6` dividers; **Line Strong** `#8A948F` secondary-button
+  borders and the section-mark rule.
+- **Star** `#8A6A2F` rating stars. **Dawn** `#B8935A` is decorative only.
+- Shapes: cards 20px, tiles 16px, every button a pill. Secondary buttons are
+  a Line Strong outline on transparent; over a photo the primary turns white
+  with Pine Deep text.
 
 ### Neutral
 - **Warm Ivory** (`earth-50`, #faf8f5): the page background on guest
