@@ -1521,7 +1521,8 @@
   "bookingSearch": {
     "searchBooking": "Search Booking",
     "title": "Search Your Booking",
-    "placeholder": "Booking ID, phone number, or email",
+    "searchLabel": "Booking ID, phone number, or email",
+    "placeholder": "e.g. 0812345678",
     "search": "Search",
     "options": "Services",
     "noResults": "No bookings found. Please check your search and try again.",
@@ -1708,7 +1709,6 @@
     "tagGoodWifi": "Good Wi-Fi"
   },
   "reviewsPage": {
-    "pill": "Reviews",
     "title": "Write a Review",
     "subtitle": "Share your experience at {name}",
     "backToHomestay": "Back",

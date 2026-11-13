@@ -43,6 +43,12 @@ async function open(
 const checkInButton = (page: Page) => page.getByRole("button", { name: t.checkIn, exact: true });
 const checkOutButton = (page: Page) => page.getByRole("button", { name: t.checkOut, exact: true });
 
+test("the search field has a visible label tied to it", async ({ page, context }) => {
+  await open(page, context, {});
+  await expect(page.getByText(t.searchLabel, { exact: true })).toBeVisible();
+  await expect(page.getByLabel(t.searchLabel)).toHaveAttribute("placeholder", t.placeholder);
+});
+
 test("the back link has a name on every width", async ({ page, context }) => {
   await open(page, context, {});
   await expect(page.getByRole("link", { name: T.reviewsPage.backToHomestay })).toBeVisible();

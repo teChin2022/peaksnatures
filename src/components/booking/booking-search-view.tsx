@@ -15,6 +15,7 @@ import {
 import { th as thLocale } from "date-fns/locale";
 import { Button } from "@/components/ui/button";
 import { Input } from "@/components/ui/input";
+import { Label } from "@/components/ui/label";
 import { Badge } from "@/components/ui/badge";
 import { Textarea } from "@/components/ui/textarea";
 import {
@@ -707,27 +708,35 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
   return (
     <>
       <div className="space-y-4">
-        <div className="flex gap-2 items-center">
+        {/* Same label, field + button as the reviews lookup (review-submission.tsx): keep the two in step. */}
+        <div>
+        <Label htmlFor="booking-search-query" className="block text-sm font-semibold text-earth-700">
+          {t("searchLabel")}
+        </Label>
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
           <div className="relative flex-1">
-            <Search className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-400" size={16} />
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-500" size={16} aria-hidden="true" />
             <Input
+              id="booking-search-query"
+              enterKeyHint="search"
+              autoComplete="off"
               placeholder={t("placeholder")}
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               onKeyDown={handleKeyDown}
               disabled={!turnstilePassed}
-              className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400 disabled:opacity-60 disabled:cursor-not-allowed"
-              aria-label={t("placeholder")}
+              className="!pl-10 p-3.5 !h-12 rounded-xl !border !border-earth-500 !bg-white hover:!border-earth-700 transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2"
             />
           </div>
           <button
             type="button"
             onClick={handleSearch}
             disabled={loading || !query.trim() || !turnstilePassed}
-            className="inline-flex h-12 items-center justify-center bg-brand text-white px-6 rounded-full font-semibold text-sm hover:bg-brand-hover transition-colors disabled:opacity-50 disabled:cursor-not-allowed shrink-0 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+            className="inline-flex h-12 w-full shrink-0 items-center justify-center rounded-full bg-brand px-6 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:w-auto sm:min-w-28"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("search")}
           </button>
+        </div>
         </div>
         {turnstileSiteKey && !turnstilePassed && (
           <div className="flex justify-center">
@@ -784,17 +793,21 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                           {isCheckedInStay ? t("checkedIn") : t(`status.${booking.status}`)}
                         </Badge>
                       </div>
-                      <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-earth-600">
-                        <span className="flex items-center gap-1">
-                          <CalendarDays className="h-3 w-3" />
+                      {/* Phones: one line each for dates, house and amounts; from sm they share a wrapping row. */}
+                      <div className="flex flex-col gap-1 text-xs text-earth-600 sm:flex-row sm:flex-wrap sm:gap-x-3">
+                        <span className="flex items-center gap-1.5 text-earth-800">
+                          <CalendarDays className="h-3.5 w-3.5 shrink-0" aria-hidden="true" />
                           {fmtDateStr(booking.check_in, "d MMM yyyy", locale)} → {fmtDateStr(booking.check_out, "d MMM yyyy", locale)}
                         </span>
+                        <span className="flex flex-wrap items-center gap-x-3 gap-y-1">
                         <span>{booking.room_name}</span>
                         {booking.group_id && (
                           <span className="rounded-full bg-earth-200 px-2.5 py-0.5 text-xs font-medium text-earth-700">
                             {t("groupBookingBadge")}
                           </span>
                         )}
+                        </span>
+                        <span className="flex flex-wrap items-center gap-x-3 gap-y-1 tabular-nums">
                         <span className="font-medium text-earth-900">
                           ฿{booking.total_price.toLocaleString()}
                         </span>
@@ -813,6 +826,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                             {t("remainingBalance")}: ฿{(booking.total_price - (booking.amount_paid || 0)).toLocaleString()}
                           </span>
                         )}
+                        </span>
                       </div>
                       <p className="text-xs text-earth-600">
                         ID: {booking.id.slice(0, 8)}

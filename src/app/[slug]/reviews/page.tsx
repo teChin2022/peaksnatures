@@ -84,28 +84,27 @@ export default async function ReviewsPage({ params }: PageProps) {
         visuallyHidden
       />
 
-      <header className="sticky top-0 z-30 border-b border-earth-200 bg-earth-50/80 backdrop-blur-sm">
-        <div className="mx-auto flex h-14 max-w-3xl items-center px-4">
+      {/* Header and title match check-in-out and change-booking. */}
+      <header className="sticky top-0 z-30 border-b border-earth-200 bg-earth-50">
+        <div className="mx-auto flex h-14 max-w-2xl items-center px-4">
           <Link
             href={`/${homestay.slug}`}
-            className="flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs text-earth-600 transition-colors hover:bg-earth-100 hover:text-earth-900"
+            aria-label={tp("backToHomestay")}
+            className="-ml-3 inline-flex min-h-11 min-w-11 items-center justify-center gap-1.5 rounded-full px-3 text-sm text-earth-700 transition-colors hover:bg-earth-100 hover:text-earth-900 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
           >
-            <ArrowLeft className="h-3.5 w-3.5" aria-hidden="true" />
+            <ArrowLeft className="h-4 w-4" aria-hidden="true" />
             <span className="hidden sm:inline">{tp("backToHomestay")}</span>
           </Link>
         </div>
       </header>
 
       <main className="flex-1 px-4 py-10 md:py-14">
-        <div className="mx-auto max-w-3xl space-y-10">
+        <div className="mx-auto max-w-2xl space-y-8">
           <header className="text-center">
-            <span className="inline-block rounded-full bg-brand-50 px-3 py-1 text-[11px] font-semibold uppercase tracking-[0.18em] text-brand">
-              {tp("pill")}
-            </span>
-            <h1 className="mt-4 font-serif text-4xl font-normal leading-tight text-earth-900 md:text-5xl">
+            <h1 className="font-serif text-3xl font-normal leading-tight text-earth-900 md:text-4xl">
               {tp("title")}
             </h1>
-            <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-earth-500">
+            <p className="mx-auto mt-3 max-w-md text-sm leading-relaxed text-earth-600">
               {tp("subtitle", { name: homestay.name })}
             </p>
           </header>

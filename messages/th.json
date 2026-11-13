@@ -1521,7 +1521,8 @@
   "bookingSearch": {
     "searchBooking": "ค้นหาการจอง",
     "title": "ค้นหาการจองของคุณ",
-    "placeholder": "รหัสการจอง เบอร์โทร หรืออีเมล",
+    "searchLabel": "รหัสการจอง เบอร์โทร หรืออีเมล",
+    "placeholder": "เช่น 0812345678",
     "search": "ค้นหา",
     "options": "บริการเพิ่มเติม",
     "noResults": "ไม่พบการจอง กรุณาตรวจสอบข้อมูลและลองใหม่อีกครั้ง",
@@ -1708,7 +1709,6 @@
     "tagGoodWifi": "Wi-Fi ดี"
   },
   "reviewsPage": {
-    "pill": "รีวิว",
     "title": "เขียนรีวิว",
     "subtitle": "แชร์ประสบการณ์ของคุณที่ {name}",
     "backToHomestay": "ย้อนกลับ",

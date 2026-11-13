@@ -224,3 +224,24 @@ test("check-in-out page", async ({ page, context }, testInfo) => {
     await capture(page, testInfo, "cio-balance", slug);
   }
 });
+
+/** /{slug}/reviews: the lookup form, then the eligible stay the stubbed lookup returns. */
+test("reviews page", async ({ page, context }, testInfo) => {
+  const slug = requireSlug();
+  const t = T.reviewsPage;
+  session = await startSession(page, context);
+  // The lookup is a read but a POST, so the write guard would abort it unstubbed.
+  await page.route("**/api/reviews/lookup", (route) =>
+    route.fulfill({ contentType: "application/json", body: JSON.stringify({ bookings: [stubbedBooking({ status: "completed" })] }) }),
+  );
+  for (const width of widthsFor(testInfo)) {
+    if (width) await page.setViewportSize({ width, height: 800 });
+    await page.goto(`/${slug}/reviews`);
+    const search = page.getByPlaceholder(t.identifierPlaceholder);
+    await search.fill("0898765432");
+    await capture(page, testInfo, "reviews-lookup", slug);
+    await page.getByRole("button", { name: t.lookupButton }).click();
+    await expect(page.getByText(t.selectBooking)).toBeVisible();
+    await capture(page, testInfo, "reviews-result", slug);
+  }
+});
