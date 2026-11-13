@@ -1,12 +1,15 @@
 import type { Metadata } from "next";
+import { getTranslations } from "next-intl/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { isHostBlocked } from "@/lib/plan-expiry";
 import { fetchPastDueHostIds } from "@/lib/billing";
 import { landingStats } from "@/lib/landing-stats";
+import { compareHomestays } from "@/lib/homestay-order";
 import type { Homestay, Room } from "@/types/database";
 import { LandingNavbar } from "@/components/landing/navbar";
 import { LandingContent } from "@/components/landing/landing-content";
 import { LandingFooter } from "@/components/landing/footer";
+import { RespectReducedMotion } from "@/components/respect-reduced-motion";
 import {
   SITE_NAME,
   SITE_TITLE_DEFAULT,
@@ -40,6 +43,7 @@ export const metadata: Metadata = {
 };
 
 export default async function Home() {
+  const tc = await getTranslations("common");
   const supabase = createServiceRoleClient();
   const { data: homestayRows } = await supabase
     .from("homestays")
@@ -147,20 +151,24 @@ export default async function Home() {
     };
   });
 
-  homestayData.sort((a, b) => {
-    if (a.average_rating > 0 && b.average_rating === 0) return -1;
-    if (a.average_rating === 0 && b.average_rating > 0) return 1;
-    if (a.average_rating > 0 && b.average_rating > 0) return b.average_rating - a.average_rating;
-    return new Date(a.created_at).getTime() - new Date(b.created_at).getTime();
-  });
+  homestayData.sort(compareHomestays);
 
   return (
-    <div className="min-h-screen bg-white font-sans text-gray-900 selection:bg-gray-200">
-      <LandingNavbar />
-      <main>
-        <LandingContent homestays={homestayData} stats={stats} />
-      </main>
-      <LandingFooter />
-    </div>
+    <RespectReducedMotion>
+      <div className="min-h-screen bg-earth-50 font-sans text-earth-900 selection:bg-brand-100">
+        {/* First tab stop: past the header to the content (WCAG 2.4.1). */}
+        <a
+          href="#main"
+          className="sr-only focus:not-sr-only focus:fixed focus:left-4 focus:top-4 focus:z-[70] focus:rounded-full focus:bg-white focus:px-5 focus:py-3 focus:text-sm focus:font-semibold focus:text-earth-900 focus:outline-none focus:ring-2 focus:ring-brand"
+        >
+          {tc("skipToContent")}
+        </a>
+        <LandingNavbar />
+        <main id="main">
+          <LandingContent homestays={homestayData} stats={stats} />
+        </main>
+        <LandingFooter />
+      </div>
+    </RespectReducedMotion>
   );
 }

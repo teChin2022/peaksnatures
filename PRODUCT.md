@@ -87,10 +87,9 @@ Peaksnature is the platform, not the accommodation provider.
   Storage).
 - Real guest reviews; a verified-host badge, shown only for verified hosts;
   platform stats computed from the database (`src/lib/landing-stats.ts`).
-- No real testimonials, press, awards or partner logos exist.
-  `src/components/landing/reviews.tsx` holds invented placeholder testimonials;
-  it is not rendered and must never ship. Do not invent people, quotes,
-  numbers, prices or claims.
+- No real testimonials, press, awards or partner logos exist. The invented
+  placeholder testimonials (`landing/reviews.tsx`) were deleted on 2026-11-13.
+  Do not invent people, quotes, numbers, prices or claims.
 
 ## Product Principles
 

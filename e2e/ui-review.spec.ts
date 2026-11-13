@@ -90,6 +90,33 @@ test("landing page", async ({ page, context }, testInfo) => {
   }
 });
 
+test("platform home", async ({ page, context }, testInfo) => {
+  session = await startSession(page, context);
+  for (const width of widthsFor(testInfo)) {
+    if (width) await page.setViewportSize({ width, height: 800 });
+    // The query string gives `detect --target` a URL part only this tab has.
+    await page.goto("/?ui-review=home");
+    await revealAll(page);
+    await capture(page, testInfo, "home", "ui-review=home");
+  }
+});
+
+test("platform home, search", async ({ page, context }, testInfo) => {
+  session = await startSession(page, context);
+  for (const width of widthsFor(testInfo)) {
+    if (width) await page.setViewportSize({ width, height: 800 });
+    await page.goto("/?ui-review=home-search");
+    await page.waitForTimeout(1200); // let the hero entrance (300ms delay + 700ms) finish
+    // Keyboard path: the focus ring on the box is part of what this state shows.
+    await page.locator("#landing-search").focus();
+    await page.keyboard.type("ไม่มีที่นี่");
+    await page.screenshot({ path: join(OUT, `home-search-focus-${page.viewportSize()?.width}.png`) });
+    await page.keyboard.press("Enter");
+    await page.waitForTimeout(800);
+    await capture(page, testInfo, "home-search-empty", "ui-review=home-search");
+  }
+});
+
 test("booking page, first view", async ({ page, context }, testInfo) => {
   const slug = requireSlug();
   session = await startSession(page, context);

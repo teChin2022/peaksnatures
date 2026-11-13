@@ -1,8 +1,8 @@
 "use client";
 
-import { useState } from "react";
-import { ChevronDown } from "lucide-react";
-import { motion } from "motion/react";
+import { useRef, useState } from "react";
+import { useTranslations } from "next-intl";
+import { ChevronDown, SearchX, Tent } from "lucide-react";
 import { HomestayCard } from "./homestay-card";
 
 const PAGE_SIZE = 50;
@@ -21,7 +21,17 @@ interface HomestayData {
   is_host_verified: boolean;
 }
 
-export function UniqueHomestays({ homestays, locationFilter }: { homestays: HomestayData[]; locationFilter?: string }) {
+export function UniqueHomestays({
+  homestays,
+  locationFilter,
+  onClearFilter,
+}: {
+  homestays: HomestayData[];
+  locationFilter?: string;
+  onClearFilter?: () => void;
+}) {
+  const t = useTranslations("home.list");
+  const headingRef = useRef<HTMLHeadingElement>(null);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [prevFilter, setPrevFilter] = useState(locationFilter);
 
@@ -31,51 +41,61 @@ export function UniqueHomestays({ homestays, locationFilter }: { homestays: Home
     setVisibleCount(PAGE_SIZE);
   }
 
-  const filtered = locationFilter
-    ? homestays.filter((h) => {
-        const q = locationFilter.toLowerCase();
-        return h.name.toLowerCase().includes(q) || h.location.toLowerCase().includes(q);
-      })
+  const q = (locationFilter ?? "").trim();
+  const needle = q.toLowerCase();
+  const filtered = q
+    ? homestays.filter((h) => [h.name, h.location, h.tagline ?? ""].some((v) => v.toLowerCase().includes(needle)))
     : homestays;
+
+  // The clear button disappears with the search, so focus moves to the list heading.
+  const clear = () => {
+    onClearFilter?.();
+    headingRef.current?.focus();
+  };
 
   const displayed = filtered.slice(0, visibleCount);
   const remaining = filtered.length - displayed.length;
+  // With no match the empty panel below says it all; the count line stays only for screen readers.
+  const noMatch = q !== "" && filtered.length === 0;
+  // Two homestays in a 3-column grid left a hole at lg: give them the row, with wider photos.
+  const pair = displayed.length === 2;
 
   return (
-    <section id="unique-homestays" className="py-24 md:py-32 bg-section-alt">
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex flex-col items-center mb-12 gap-6 text-center">
+    <section id="unique-homestays" className="scroll-mt-20 py-14 md:py-20 lg:py-28 bg-earth-50">
+      <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div className="mb-8 md:mb-12">
           <div className="max-w-xl">
-            <span className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400 block mb-4">
-              ที่พักที่คัดสรรแล้ว
-            </span>
-            <div className="overflow-hidden pt-2 -mt-2">
-              <motion.h2
-                initial={{ y: "100%" }}
-                whileInView={{ y: 0 }}
-                viewport={{ once: true }}
-                transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
-                className="text-3xl md:text-5xl lg:text-6xl font-serif text-earth-900 tracking-tight"
+            <h2
+              ref={headingRef}
+              tabIndex={-1}
+              className="text-3xl md:text-4xl lg:text-5xl font-serif text-earth-900 leading-tight outline-none"
+            >
+              {t("title")}
+            </h2>
+          </div>
+          {/* Always mounted, so screen readers announce the count when a search runs. */}
+          <div className={q && !noMatch ? "mt-4 flex flex-wrap items-center gap-x-3 gap-y-1" : "flex"}>
+            <p aria-live="polite" className={noMatch ? "sr-only" : "text-sm text-earth-600"}>
+              {q ? t("results", { count: filtered.length, query: q }) : ""}
+            </p>
+            {q && !noMatch && (
+              <button
+                type="button"
+                onClick={clear}
+                className="rounded-sm text-sm font-semibold text-brand underline underline-offset-4 outline-none hover:text-brand-hover focus-visible:ring-2 focus-visible:ring-brand"
               >
-                โฮมสเตย์กลางธรรมชาติ
-              </motion.h2>
-            </div>
+                {t("clearSearch")}
+              </button>
+            )}
           </div>
         </div>
 
         {displayed.length > 0 ? (
           <>
-            {/* Mobile: horizontal scroll carousel */}
-            <div className="flex overflow-x-auto snap-x snap-mandatory gap-4 pb-4 -mx-4 px-4 scrollbar-hide sm:hidden">
-              {displayed.map((h, idx) => (
-                <motion.div
-                  key={h.slug}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-50px" }}
-                  transition={{ delay: (idx % 3) * 0.08, duration: 0.5, ease: [0.25, 0.1, 0, 1] }}
-                  className="snap-start shrink-0 w-[82vw]"
-                >
+            {/* One list for every width: a vertical stack on phones (owner's pick 2026-11-13, Booking.com-style), a grid from sm. */}
+            <ul className={`grid gap-x-8 gap-y-10 sm:grid-cols-2 ${pair ? "" : "lg:grid-cols-3"}`}>
+              {displayed.map((h) => (
+                <li key={h.slug}>
                   <HomestayCard
                     slug={h.slug}
                     name={h.name}
@@ -88,62 +108,47 @@ export function UniqueHomestays({ homestays, locationFilter }: { homestays: Home
                     reviewCount={h.review_count}
                     averageRating={h.average_rating}
                     isHostVerified={h.is_host_verified}
+                    wide={pair}
                   />
-                </motion.div>
+                </li>
               ))}
-            </div>
-
-            {/* Desktop: grid */}
-            <div className="hidden sm:grid sm:grid-cols-2 lg:grid-cols-3 gap-8">
-              {displayed.map((h, idx) => (
-                <motion.div
-                  key={h.slug}
-                  initial={{ opacity: 0, y: 30 }}
-                  whileInView={{ opacity: 1, y: 0 }}
-                  viewport={{ once: true, margin: "-100px" }}
-                  transition={{ delay: (idx % 3) * 0.1, duration: 0.5, ease: [0.25, 0.1, 0, 1] }}
-                >
-                  <HomestayCard
-                    slug={h.slug}
-                    name={h.name}
-                    location={h.location}
-                    heroImageUrl={h.hero_image_url}
-                    gallery={h.gallery}
-                    minPrice={h.min_price}
-                    maxGuests={h.max_guests}
-                    tagline={h.tagline}
-                    reviewCount={h.review_count}
-                    averageRating={h.average_rating}
-                    isHostVerified={h.is_host_verified}
-                  />
-                </motion.div>
-              ))}
-            </div>
+            </ul>
 
             {remaining > 0 && (
               <div className="mt-12 flex justify-center">
                 <button
                   type="button"
                   onClick={() => setVisibleCount((c) => c + PAGE_SIZE)}
-                  className="group inline-flex items-center gap-2 rounded-full border border-earth-300 bg-white px-10 py-4 text-sm font-bold uppercase tracking-[0.15em] text-earth-900 shadow-sm transition-all hover:border-earth-400 hover:bg-earth-50"
+                  className="group inline-flex items-center gap-2 rounded-full border border-earth-300 bg-white px-10 py-4 text-sm font-bold text-earth-900 transition-colors hover:border-earth-400 hover:bg-earth-100 outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                 >
-                  โหลดเพิ่มเติม
-                  <span className="font-normal normal-case tracking-normal text-earth-500">
-                    (อีก {remaining} แห่ง)
-                  </span>
-                  <ChevronDown size={16} className="transition-transform group-hover:translate-y-0.5" />
+                  {t("loadMore")}
+                  <span className="font-normal text-earth-600">{t("loadMoreCount", { count: remaining })}</span>
+                  <ChevronDown size={16} aria-hidden="true" className="motion-safe:transition-transform motion-safe:group-hover:translate-y-0.5" />
                 </button>
               </div>
             )}
           </>
         ) : (
-          <div className="flex flex-col items-center justify-center rounded-3xl border-2 border-dashed border-earth-200 py-16 text-center">
-            <p className="text-lg font-serif text-earth-500">
-              {locationFilter ? "ไม่พบที่พักที่ตรงกับการค้นหา" : "No homestays listed yet"}
+          // DESIGN.md EmptyState pattern (icon, title, one line, one action) on a Linen panel.
+          <div className="flex flex-col items-center rounded-2xl bg-earth-100 px-6 py-14 text-center">
+            <div className="mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-white">
+              {q ? <SearchX className="h-5 w-5 text-earth-600" aria-hidden="true" /> : <Tent className="h-5 w-5 text-earth-600" aria-hidden="true" />}
+            </div>
+            <p className="font-serif text-xl text-earth-900 break-words [overflow-wrap:anywhere]">
+              {q ? t("noMatchTitle", { query: q }) : t("emptyTitle")}
             </p>
-            <p className="mt-2 text-sm text-earth-400">
-              {locationFilter ? "ลองค้นหาด้วยคำอื่น" : "Check back soon — new properties are being added."}
+            <p className="mt-2 max-w-sm text-sm text-earth-600">
+              {q ? t("noMatchHint") : t("emptyHint")}
             </p>
+            {q && (
+              <button
+                type="button"
+                onClick={clear}
+                className="mt-6 inline-flex min-h-11 items-center rounded-full bg-brand px-6 text-sm font-semibold text-white outline-none transition-colors hover:bg-brand-hover focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 focus-visible:ring-offset-earth-100"
+              >
+                {t("showAll")}
+              </button>
+            )}
           </div>
         )}
       </div>

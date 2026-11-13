@@ -62,8 +62,9 @@ export function FullScreenMenu({ open, onOpenChange, title, items, secondaryItem
           onClick={(e) => {
             e.preventDefault();
             onOpenChange(false);
-            // Scroll once the sheet lets go of the page (as MobileBookingBar does).
-            setTimeout(() => document.querySelector(href)?.scrollIntoView({ behavior: "smooth", block: "start" }), 150);
+            // Scroll once the sheet lets go of the page (as MobileBookingBar does); jump when motion is reduced.
+            const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+            setTimeout(() => document.querySelector(href)?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" }), 150);
           }}
         >
           {item.label}

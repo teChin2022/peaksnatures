@@ -1,94 +1,99 @@
 "use client";
 
-import { useState } from "react";
 import Image from "next/image";
+import { useTranslations } from "next-intl";
 import { MapPin, Search } from "lucide-react";
-import { motion, useScroll, useTransform } from "motion/react";
 
 interface LandingHeroProps {
+  /** The search box text; LandingContent owns it so the results' "clear" can empty it. */
+  query: string;
+  onQueryChange: (query: string) => void;
   onSearch?: (location: string) => void;
 }
 
-const popularDestinations = ["เชียงใหม่", "น่าน", "เลย", "แม่ฮ่องสอน"];
+// Same entrance as the /[slug] hero: CSS, so it runs without JavaScript, and
+// motion-safe: so "Reduce motion" shows the lines at once.
+const RISE =
+  "motion-safe:animate-in motion-safe:fade-in motion-safe:slide-in-from-bottom-4 motion-safe:duration-700 motion-safe:fill-mode-both";
 
-export function LandingHero({ onSearch }: LandingHeroProps) {
-  const [location, setLocation] = useState("");
-  const { scrollY } = useScroll();
-  const imageY = useTransform(scrollY, [0, 500], [0, 150]);
-  const contentOpacity = useTransform(scrollY, [0, 400], [1, 0]);
-
+export function LandingHero({ query, onQueryChange, onSearch }: LandingHeroProps) {
+  const t = useTranslations("home.hero");
   const handleSearch = (searchTerm?: string) => {
-    const term = searchTerm ?? location;
-    if (searchTerm !== undefined) setLocation(term);
+    const term = (searchTerm ?? query).trim();
+    if (searchTerm !== undefined) onQueryChange(term);
     onSearch?.(term);
-    document.getElementById("unique-homestays")?.scrollIntoView({ behavior: "smooth" });
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    document.getElementById("unique-homestays")?.scrollIntoView({ behavior: reduce ? "auto" : "smooth" });
   };
 
   return (
-    <section className="relative h-[100svh] md:h-[85vh] w-full overflow-hidden hero-mist">
-      {/* Parallax image */}
-      <motion.div style={{ y: imageY }} className="absolute inset-0">
-        <Image
-          src="/hero-mountain.jpg"
-          alt="Mountain landscape in northern Thailand"
-          fill
-          priority
-          quality={85}
-          sizes="100vw"
-          className="object-cover"
-        />
-      </motion.div>
-      <div className="absolute inset-0 bg-gradient-to-b from-black/50 via-black/20 via-60% to-[#2F5D50]/40" />
+    <section className="relative h-[70svh] min-h-[540px] md:h-[85vh] w-full overflow-hidden">
+      <div className="absolute inset-0">
+        {/* images.unoptimized (settled) means no generated srcSet, so phones get their own file: the
+            portrait centre object-cover shows there, 800×1200 and 111 KB instead of 2000px and 620 KB.
+            Eager + high priority instead of `priority`, whose preload would fetch the big file on phones too.
+            shortcut: both files are cut from this one photo; re-cut the portrait when the owner's replaces it. */}
+        <picture>
+          <source media="(max-width: 767px)" srcSet="/hero-mountain-portrait.jpg" />
+          <Image
+            src="/hero-mountain.jpg"
+            alt={t("imageAlt")}
+            fill
+            loading="eager"
+            fetchPriority="high"
+            className="object-cover"
+          />
+        </picture>
+      </div>
+      {/* Same scrim as the /[slug] hero: flat black/55 keeps white text at 4.5:1 even over a
+          white patch (DESIGN.md Photo Scrim Rule), whatever photo replaces this one. */}
+      <div className="absolute inset-0 bg-black/55" />
 
-      <motion.div
-        style={{ opacity: contentOpacity }}
-        className="relative h-full max-w-7xl mx-auto px-4 flex flex-col items-center justify-center text-center"
+      <div className="relative h-full max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 flex flex-col items-center justify-center text-center"
       >
-        {/* Heading with blur-to-sharp effect */}
-        <motion.h1
-          initial={{ opacity: 0, y: 40, filter: "blur(10px)" }}
-          animate={{ opacity: 1, y: 0, filter: "blur(0px)" }}
-          transition={{ duration: 1, ease: [0.25, 0.1, 0, 1] }}
-          className="text-3xl sm:text-4xl md:text-6xl lg:text-7xl text-white font-serif mb-4 md:mb-6 leading-tight tracking-tight"
+        <h1
+          className={`${RISE} text-3xl sm:text-4xl md:text-6xl lg:text-7xl text-white text-shadow-lg text-shadow-black/40 font-serif mb-4 md:mb-6 leading-tight`}
         >
-          พักผ่อนท่ามกลางภูเขา
+          {t("title1")}
           <br />
-          <span className="italic">และธรรมชาติ</span>
-        </motion.h1>
+          {t("title2")}
+        </h1>
 
-        <motion.p
-          initial={{ opacity: 0, y: 30 }}
-          animate={{ opacity: 1, y: 0 }}
-          transition={{ duration: 0.8, delay: 0.3 }}
-          className="text-lg md:text-xl text-white/80 font-light mb-8 md:mb-12 max-w-2xl"
+        <p
+          className={`${RISE} motion-safe:delay-150 text-lg md:text-xl text-white text-shadow-lg text-shadow-black/40 mb-8 md:mb-12 max-w-2xl`}
         >
-          ค้นพบโฮมสเตย์ท่ามกลางหมอก ป่า และวิวภูเขาที่สวยงาม
-        </motion.p>
+          {t("subtitle")}
+        </p>
 
         {/* Search bar */}
-        <motion.div
-          initial={{ opacity: 0, y: 60, scale: 0.95 }}
-          animate={{ opacity: 1, y: 0, scale: 1 }}
-          transition={{ delay: 0.6, duration: 0.8, ease: [0.25, 0.1, 0, 1] }}
-          className="w-full max-w-md md:max-w-2xl bg-white/95 backdrop-blur-xl rounded-[2.5rem] md:rounded-full p-1.5 md:p-2 shadow-2xl flex flex-col md:flex-row items-stretch md:items-center relative border border-white/20"
+        <form
+          role="search"
+          onSubmit={(e) => {
+            e.preventDefault();
+            handleSearch();
+          }}
+          // Concentric on phones: the pill button sits 12px in (two p-1.5), so 26px + 12px ≈ this 40px.
+          className={`${RISE} motion-safe:delay-300 w-full max-w-md md:max-w-2xl bg-white rounded-[2.5rem] md:rounded-full p-1.5 md:p-2 shadow-md flex flex-col md:flex-row items-stretch md:items-center relative has-[input:focus-visible]:ring-2 has-[input:focus-visible]:ring-brand transition-none`}
         >
-          <div className="flex-1 px-7 py-4 md:py-3 text-left hover:bg-earth-50/50 transition-colors rounded-t-[2rem] md:rounded-l-full md:rounded-t-none group">
+          <div className="flex-1 px-7 py-4 md:py-3 text-left hover:bg-earth-50/50 transition-colors rounded-t-[2.125rem] md:rounded-l-full md:rounded-t-none group">
             <div className="flex items-center gap-3">
               <MapPin
                 size={16}
-                className="text-earth-400 group-hover:text-earth-800 transition-colors"
+                className="text-earth-600 group-hover:text-earth-800 transition-colors"
               />
               <div className="flex-1">
-                <label className="block text-[12px] font-semibold uppercase tracking-[0.15em] text-earth-400 mb-0.5">
-                  สถานที่
+                <label htmlFor="landing-search" className="block text-xs font-semibold text-earth-600 mb-0.5">
+                  {t("searchLabel")}
                 </label>
                 <input
+                  id="landing-search"
                   type="text"
-                  value={location}
-                  onChange={(e) => setLocation(e.target.value)}
-                  onKeyDown={(e) => e.key === "Enter" && handleSearch()}
-                  placeholder="คุณกำลังจะไปไหน?"
-                  className="w-full text-sm font-semibold text-earth-900 outline-none placeholder:text-earth-300 bg-transparent"
+                  enterKeyHint="search"
+                  autoComplete="off"
+                  value={query}
+                  onChange={(e) => onQueryChange(e.target.value)}
+                  placeholder={t("searchPlaceholder")}
+                  className="w-full text-base font-semibold text-earth-900 outline-none placeholder:font-normal placeholder:text-earth-600 bg-transparent"
                 />
               </div>
             </div>
@@ -96,38 +101,22 @@ export function LandingHero({ onSearch }: LandingHeroProps) {
 
           <div className="p-1.5 md:p-0 md:pr-1.5">
             <button
-              onClick={() => handleSearch()}
-              className="w-full md:w-auto bg-brand text-white px-8 py-4 md:p-5 rounded-2xl md:rounded-full hover:bg-brand-hover transition-all shadow-lg flex items-center justify-center gap-3 group"
+              type="submit"
+              aria-label={t("search")}
+              className="w-full md:w-auto bg-brand text-white px-8 py-4 md:p-5 rounded-full hover:bg-brand-hover transition-colors outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 flex items-center justify-center gap-3 group"
             >
               <Search
                 size={20}
                 className="group-hover:scale-110 transition-transform"
               />
-              <span className="md:hidden font-bold tracking-widest text-sm">
-                ค้นหา
+              <span className="md:hidden font-bold text-sm">
+                {t("search")}
               </span>
             </button>
           </div>
-        </motion.div>
+        </form>
 
-        {/* Popular destination pills */}
-        {/* <motion.div
-          initial={{ opacity: 0 }}
-          animate={{ opacity: 1 }}
-          transition={{ delay: 1, duration: 0.6 }}
-          className="flex flex-wrap justify-center gap-2 mt-6"
-        >
-          {popularDestinations.map((dest) => (
-            <button
-              key={dest}
-              onClick={() => handleSearch(dest)}
-              className="bg-white/15 backdrop-blur-sm text-white text-xs px-4 py-1.5 rounded-full border border-white/10 hover:bg-white/25 transition-colors cursor-pointer"
-            >
-              {dest}
-            </button>
-          ))}
-        </motion.div> */}
-      </motion.div>
+      </div>
     </section>
   );
 }

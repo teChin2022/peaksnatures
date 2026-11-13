@@ -1,6 +1,9 @@
 export interface LandingStat {
   value: string;
-  label: string;
+  /** Message key under `home.stats`; the page renders the label in the visitor's locale. */
+  label: "homestays" | "bookings" | "rating" | "returnRate";
+  /** Fills `{count}` in the label (the rating's review count). */
+  count?: string;
   star?: boolean;
 }
 
@@ -23,16 +26,17 @@ export function landingStats({
   const stats: LandingStat[] = [];
 
   if (homestays >= MIN_HOMESTAYS) {
-    stats.push({ value: fmt(homestays), label: "โฮมสเตย์ที่เปิดให้จอง" });
+    stats.push({ value: fmt(homestays), label: "homestays" });
   }
   if (confirmedBookings >= MIN_BOOKINGS) {
-    stats.push({ value: fmt(confirmedBookings), label: "การจองที่ยืนยันแล้ว" });
+    stats.push({ value: fmt(confirmedBookings), label: "bookings" });
   }
   if (reviews.length >= MIN_REVIEWS) {
     const avg = reviews.reduce((sum, r) => sum + r.rating, 0) / reviews.length;
     stats.push({
       value: (Math.round(avg * 10) / 10).toFixed(1),
-      label: `จาก ${fmt(reviews.length)} รีวิวผู้เข้าพักจริง`,
+      label: "rating",
+      count: fmt(reviews.length),
       star: true,
     });
   }
@@ -42,7 +46,7 @@ export function landingStats({
     const yes = answered.filter((r) => r.would_return === "yes").length;
     stats.push({
       value: `${Math.round((yes / answered.length) * 100)}%`,
-      label: "ของผู้รีวิวอยากกลับมาพักอีก",
+      label: "returnRate",
     });
   }
 

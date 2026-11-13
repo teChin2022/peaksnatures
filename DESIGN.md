@@ -495,6 +495,5 @@ mask padded so Thai marks are not clipped.
 - **Don't** colour booking statuses per screen; use the `StatusBadge` tones.
 - **Don't** add hover lift to cards that are not links.
 - **Don't** use `transition-all`; name the properties.
-- **Don't** invent testimonials, people, numbers or claims
-  (`src/components/landing/reviews.tsx` is placeholder copy and must never
-  ship).
+- **Don't** invent testimonials, people, numbers or claims (the placeholder
+  `landing/reviews.tsx` was deleted on 2026-11-13; don't bring it back).

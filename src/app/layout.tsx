@@ -39,7 +39,7 @@ const notoSerifThai = Noto_Serif_Thai({
 });
 
 export const viewport: Viewport = {
-  themeColor: "#16a34a",
+  themeColor: "#2F5D50",
   width: "device-width",
   initialScale: 1,
 };

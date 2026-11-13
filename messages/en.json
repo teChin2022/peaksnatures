@@ -69,7 +69,8 @@
     "mostPopular": "Most Popular",
     "errorCaptcha": "Please complete the verification check",
     "errorTooManyRequests": "Too many requests. Please try again in a moment.",
-    "confirmRemoveImage": "Remove this image?"
+    "confirmRemoveImage": "Remove this image?",
+    "skipToContent": "Skip to main content"
   },
   "home": {
     "badge": "Nature Places in Thailand",
@@ -83,11 +84,11 @@
     "featureRiverDesc": "Relax by gentle flowing rivers",
     "featureForest": "Forest Hideaways",
     "featureForestDesc": "Immerse yourself in ancient forests",
-    "featured": "Featured Residences",
+    "featured": "Homestays in nature",
     "featuredSub": "Hand-picked nature retreats across Thailand",
     "upTo": "Up to",
     "reviews": "reviews",
-    "whyTitle": "Why Peaksnature?",
+    "whyTitle": "Book directly with the host",
     "whyText": "We connect travelers with authentic nature places run by local hosts across Thailand. Every property is hand-selected for its natural beauty, hospitality, and unique character. Book easily with PromptPay.",
     "policyTitle": "Privacy Policy",
     "policyIntro": "Your privacy matters to us. Here's how we handle your data:",
@@ -122,7 +123,83 @@
     "contactFormSending": "Sending...",
     "contactFormSuccess": "Message sent successfully! We'll get back to you soon.",
     "contactFormError": "Failed to send message. Please try again.",
-    "errorInvalidEmail": "Please enter a valid email address"
+    "errorInvalidEmail": "Please enter a valid email address",
+    "hero": {
+      "title1": "Rest among the mountains",
+      "title2": "and nature",
+      "subtitle": "Discover homestays among mist, forest and beautiful mountain views",
+      "imageAlt": "Snowy peaks above a river valley and pine forest",
+      "searchLabel": "Place",
+      "searchPlaceholder": "Where are you going?",
+      "search": "Search"
+    },
+    "list": {
+      "title": "Homestays in nature",
+      "results": "{count, plural, one {# place} other {# places}} for “{query}”",
+      "clearSearch": "Clear search",
+      "noMatchTitle": "No homestays match “{query}”",
+      "noMatchHint": "Try a homestay name, province or district",
+      "showAll": "Show all homestays",
+      "emptyTitle": "No homestays are open for booking yet",
+      "emptyHint": "Check back soon",
+      "loadMore": "Load more",
+      "loadMoreCount": "({count} more)"
+    },
+    "card": {
+      "from": "From",
+      "perNight": "/ night",
+      "closed": "Not taking bookings right now",
+      "noImage": "No photo yet",
+      "verifiedHost": "Verified host",
+      "ratingAria": "Rated {rating} from {count, plural, one {# review} other {# reviews}}"
+    },
+    "stats": {
+      "homestays": "homestays open for booking",
+      "bookings": "confirmed bookings",
+      "rating": "from {count} real guest reviews",
+      "returnRate": "of reviewers would stay again"
+    },
+    "why": {
+      "title1": "Book directly with ",
+      "title2": "the host",
+      "intro": "Peaksnature is a platform where homestay owners run their own booking page. You book and pay the host directly.",
+      "payTitle": "Pay straight into the host's account",
+      "payDesc": "Pay by PromptPay or to the host's bank account, with no middleman",
+      "priceTitle": "Availability and prices from the host",
+      "priceDesc": "See which houses are free and the prices the host sets, before you book",
+      "reviewsTitle": "Reviews from real guests",
+      "reviewsDesc": "Only guests who have stayed can write a review, and verified hosts carry a badge"
+    },
+    "hosts": {
+      "audience": "For homestay owners",
+      "title1": "List your ",
+      "title2": "homestay",
+      "title3": "",
+      "subtitle": "Open your homestay to travellers who love nature",
+      "reachTitle": "Reach nature travellers",
+      "reachDesc": "Connect your homestay with travellers looking for a stay in the mountains and nature",
+      "manageTitle": "Manage bookings in one place",
+      "manageDesc": "Houses, prices, stay dates and booking status together, so replying is easier",
+      "riskTitle": "Less risk: check before you accept",
+      "riskDesc": "Review the details before a stay, with checks that help against fake slips and mismatched transfers",
+      "cardTitle1": "Sign up ",
+      "cardTitle2": "free",
+      "cardDesc": "Start free, then choose a commission per booking or a monthly plan",
+      "cta": "Register as a host"
+    },
+    "footer": {
+      "tagline": "Book directly with nature homestays in Thailand",
+      "discover": "Discover",
+      "allHomestays": "All homestays",
+      "connect": "Connect",
+      "contact": "Contact us",
+      "trustSafety": "Trust & Safety",
+      "referrerStats": "Referrer stats",
+      "rights": "All rights reserved",
+      "privacy": "Privacy policy",
+      "terms": "Terms of service",
+      "contactDesc": "Send us a message and we will reply as soon as we can"
+    }
   },
   "gallery": {
     "title": "Atmosphere",
