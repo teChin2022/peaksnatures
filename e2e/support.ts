@@ -115,11 +115,11 @@ export async function startSession(
   await page.route(/\/api\//, guard);
   await page.route(/supabase\.(co|in)\//, guard);
 
-  const stub = async (route: Route, defaults: (request: Request) => { status?: number; body: unknown }) => {
+  const stub = async (route: Route, defaults: (request: Request) => { status?: number; body: unknown }, key?: string) => {
     const request = route.request();
     const path = new URL(request.url()).pathname;
     session.calls.push({ method: request.method(), path, body: bodyOf(request) });
-    const answer = overrides.get(`${request.method()} ${path}`) ?? defaults(request);
+    const answer = overrides.get(key ?? `${request.method()} ${path}`) ?? defaults(request);
     return json(route, answer.body, answer.status ?? 200);
   };
 
@@ -150,9 +150,13 @@ export async function startSession(
       ? stub(route, () => ({ status: 201, body: { booking: { id: CREATED_ID } } }))
       : route.fallback(),
   );
-  await page.route("**/api/bookings/change-dates", (route) =>
-    stub(route, () => ({ status: 201, body: { success: true, request: { id: "dcr-e2e" }, price_difference: 0, new_total_price: 3000 } })),
-  );
+  // A price preview (body.preview) writes nothing; override it as "PREVIEW /api/bookings/change-dates".
+  await page.route("**/api/bookings/change-dates", (route) => {
+    const preview = bodyOf(route.request())?.preview === true;
+    return preview
+      ? stub(route, () => ({ body: CHANGE_PREVIEW_SAME_PRICE }), "PREVIEW /api/bookings/change-dates")
+      : stub(route, () => ({ status: 201, body: { success: true, request: { id: "dcr-e2e" }, price_difference: 0, new_total_price: 3000 } }));
+  });
   await page.route("**/api/bookings/group", (route) =>
     stub(route, () => ({ status: 201, body: { group: { id: CREATED_ID }, bookings: [{ id: "member-e2e" }] } })),
   );
@@ -255,6 +259,12 @@ export const bookingPosts = (session: Session) =>
   session.calls.filter((c) => c.method === "POST" && (c.path === "/api/bookings" || c.path === "/api/bookings/group"));
 
 /* ---------- /{slug}/change-booking ---------- */
+
+/** What the change-dates preview answers when the new stay costs what the booking cost. */
+export const CHANGE_PREVIEW_SAME_PRICE = {
+  preview: true, new_total_price: 3000, old_total_price: 3000, price_difference: 0, additional_payment: 0,
+  amount_paid: 3000, payment_type: "full", deposit_available: false, new_deposit: 0, full_outstanding: 0,
+};
 
 export const CHANGE = {
   facebook: "https://www.facebook.com/e2e.homestay",

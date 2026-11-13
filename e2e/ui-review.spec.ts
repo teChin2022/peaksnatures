@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
-import { T, chooseNewStay, expectNoUnexpectedWrites, findBooking, reachPayment, requireSlug, startSession, stubChangeBooking, type Session } from "./support";
+import { CHANGE_PREVIEW_SAME_PRICE, T, chooseNewStay, expectNoUnexpectedWrites, findBooking, reachPayment, requireSlug, startSession, stubChangeBooking, stubbedBooking, type Session } from "./support";
 
 /**
  * Evidence for a UI review (peaksnature-ui Mode A), not a regression test.
@@ -120,36 +120,70 @@ test("change-booking page", async ({ page, context }, testInfo) => {
   await stubChangeBooking(page);
   for (const width of widthsFor(testInfo)) {
     if (width) await page.setViewportSize({ width, height: 800 });
-    session.respond("POST /api/bookings/change-dates", {
-      status: 402,
-      body: { error: "PAYMENT_REQUIRED", price_difference: 1500, additional_payment: 1500, new_total_price: 4500, amount_paid: 3000, deposit_available: false, new_deposit: 0, full_outstanding: 1500 },
+    session.respond("PREVIEW /api/bookings/change-dates", {
+      body: { preview: true, new_total_price: 4500, old_total_price: 3000, price_difference: 1500, additional_payment: 1500, amount_paid: 3000, payment_type: "full", deposit_available: false, new_deposit: 0, full_outstanding: 1500 },
     });
 
     await findBooking(page, slug);
     await capture(page, testInfo, "change-result", slug);
 
+    // The preview prices a stay that costs ฿1,500 more: the payment section shows at once.
+    await page.getByRole("button", { name: t.changeDates }).click();
+    await chooseNewStay(page);
+    await expect(page.getByText(t.additionalPaymentShort).first()).toBeVisible();
+    await page.waitForTimeout(400);
+    await capture(page, testInfo, "change-payment", slug);
+
+    // A stay at the same price: the form, then the sent dialog.
+    session.respond("PREVIEW /api/bookings/change-dates", { body: CHANGE_PREVIEW_SAME_PRICE });
+    await findBooking(page, slug);
     await page.getByRole("button", { name: t.changeDates }).click();
     await chooseNewStay(page);
     await expect(page.getByRole("button", { name: t.submitDateChange })).toBeEnabled();
     await page.waitForTimeout(400);
     await capture(page, testInfo, "change-form", slug);
-
-    await page.getByRole("button", { name: t.submitDateChange }).click();
-    await expect(page.getByText(t.additionalPaymentShort).first()).toBeVisible();
-    await capture(page, testInfo, "change-payment", slug);
-
-    // Same form, a request that needs no extra payment: the sent dialog.
-    session.respond("POST /api/bookings/change-dates", {
-      status: 201,
-      body: { success: true, request: { id: "dcr-e2e" }, price_difference: 0, new_total_price: 3000 },
-    });
-    await findBooking(page, slug);
-    await page.getByRole("button", { name: t.changeDates }).click();
-    await chooseNewStay(page);
     await page.getByRole("button", { name: t.submitDateChange }).click();
     const dialog = page.getByRole("dialog");
     await expect(dialog.getByRole("heading", { name: t.dcSentTitle })).toBeVisible();
     await dialog.evaluate((el) => Promise.allSettled(el.ownerDocument.getAnimations().map((a) => a.finished)));
     await capture(page, testInfo, "change-sent", slug);
+  }
+});
+
+/** /{slug}/check-in-out with three stubbed bookings: ready to check in, checked in with a balance, completed. */
+test("check-in-out page", async ({ page, context }, testInfo) => {
+  const slug = requireSlug();
+  const t = T.bookingSearch;
+  session = await startSession(page, context);
+  const ago = new Date(Date.now() - 86_400_000).toISOString();
+  await page.route("**/api/bookings/search*", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({
+        bookings: [
+          stubbedBooking(),
+          stubbedBooking({ id: "b0000000-0000-4000-8000-00000000e2e1", check_in: ago.slice(0, 10), payment_type: "deposit", amount_paid: 1000, checked_in_at: ago }),
+          stubbedBooking({ id: "b0000000-0000-4000-8000-00000000e2e2", status: "completed", checked_in_at: ago, checked_out_at: ago }),
+        ],
+      }),
+    }),
+  );
+  for (const width of widthsFor(testInfo)) {
+    if (width) await page.setViewportSize({ width, height: 800 });
+    await page.goto(`/${slug}/check-in-out`);
+    const search = page.getByPlaceholder(t.placeholder);
+    await expect(search).toBeEnabled();
+    await search.fill("0898765432");
+    await page.getByRole("button", { name: t.search, exact: true }).click();
+    await expect(page.getByRole("button", { name: t.checkIn, exact: true })).toBeVisible();
+    await page.waitForTimeout(400);
+    await capture(page, testInfo, "cio-result", slug);
+
+    // Only opens the balance panel; nothing is paid, checked in or out.
+    await page.getByRole("button", { name: /฿2,000/ }).click();
+    const transfer = page.getByRole("button", { name: t.payViaTransfer });
+    if (await transfer.isVisible()) await transfer.click();
+    await page.waitForTimeout(400);
+    await capture(page, testInfo, "cio-balance", slug);
   }
 });

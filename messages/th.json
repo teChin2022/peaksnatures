@@ -1447,6 +1447,16 @@
     "checkOut": "เช็คเอาท์",
     "checkedIn": "เช็คอินแล้ว",
     "checkedOut": "เช็คเอาท์แล้ว",
+    "checkedInAt": "เช็คอินเมื่อ {time}",
+    "checkInFrom": "เช็คอินได้ตั้งแต่ {date}",
+    "checkInConfirmTitle": "ยืนยันเช็คอินที่{house}ตอนนี้?",
+    "checkInConfirm": "ยืนยันเช็คอิน",
+    "checkInNotYet": "ยังไม่เช็คอิน",
+    "alreadyCheckedIn": "การจองนี้เช็คอินไว้แล้ว",
+    "alreadyCheckedOut": "การจองนี้เช็คเอาท์ไว้แล้ว",
+    "checkInOutError": "ทำรายการไม่สำเร็จ กรุณาลองใหม่หรือติดต่อเจ้าของที่พัก",
+    "balanceBeforeCheckout": "ชำระยอดค้างก่อน แล้วจึงเช็คเอาท์ได้",
+    "slipPreview": "ตัวอย่างสลิป",
     "payRemaining": "ชำระส่วนที่เหลือ ฿{amount}",
     "balanceDueCheckout": "กรุณาชำระยอดค้าง ฿{amount} ก่อนเช็คเอาท์",
     "balancePaid": "ชำระยอดค้างเรียบร้อยแล้ว!",
@@ -1529,6 +1539,7 @@
     "dcBlockedTitle": "วันที่ถูกบล็อกโดยเจ้าของที่พัก",
     "dcBlockedDesc": "เจ้าของที่พักได้บล็อกบางวันที่คุณเลือกไว้ ปฏิทินได้อัปเดตใหม่แล้ว กรุณาเลือกวันอื่น",
     "dcChooseDifferentDates": "เลือกวันอื่น",
+    "dcPriceLoading": "กำลังคำนวณราคาใหม่…",
     "dcPriceSummary": "สรุปราคาใหม่",
     "dcBalanceAtCheckin": "ยอดคงเหลือ (ชำระตอนเช็คอิน)",
     "dcConfirmPaySubmit": "ยืนยันการชำระ ฿{amount} และส่งคำขอ",
@@ -2013,7 +2024,6 @@
     "thai": "ไทย"
   },
   "checkInOutPage": {
-    "pill": "เช็คอิน / เช็คเอาท์",
     "title": "เช็คอินหรือเช็คเอาท์",
     "subtitle": "ค้นหาการจองของคุณเพื่อเช็คอินหรือเช็คเอาท์"
   },

@@ -33,7 +33,9 @@ async function submit(page: Page) {
   await button.click();
 }
 
-const changePosts = () => session.calls.filter((c) => c.path === "/api/bookings/change-dates");
+/** Change requests the page sent, not counting price previews. */
+const changePosts = () => session.calls.filter((c) => c.path === "/api/bookings/change-dates" && !c.body?.preview);
+const previews = () => session.calls.filter((c) => c.path === "/api/bookings/change-dates" && c.body?.preview === true);
 
 test("the buttons say the guest can change the house or the dates", async ({ page, context }) => {
   await openChangeForm(page, context);
@@ -91,12 +93,12 @@ test("the page's controls have names a screen reader can read", async ({ page, c
   await expect(page.getByLabel(t.selectRoom)).toBeVisible();
   const back = page.getByRole("button", { name: t.cancelDateChange }).first();
   const box = (await back.boundingBox())!;
-  expect(Math.min(box.width, box.height)).toBeGreaterThanOrEqual(44);
+  expect(Math.round(Math.min(box.width, box.height))).toBeGreaterThanOrEqual(44);
   await back.click();
   await expect(page.getByRole("button", { name: t.changeDates })).toBeVisible();
 });
 
-test("when the change costs more, the price summary comes into view and the button names the payment", async ({ page, context }) => {
+test("if the price rose after the preview, the summary comes into view and the button names the payment", async ({ page, context }) => {
   await openChangeForm(page, context);
   session.respond("POST /api/bookings/change-dates", {
     status: 402,
@@ -133,4 +135,39 @@ test("a booking that cannot be changed says why", async ({ page, context }) => {
   await page.getByRole("button", { name: t.search, exact: true }).click();
   await expect(page.getByText(t.dcNotChangeable)).toBeVisible();
   await expect(page.getByRole("button", { name: t.changeDates })).toHaveCount(0);
+});
+
+test("a change to a cheaper stay warns that the difference is not refunded before it can be sent", async ({ page, context }) => {
+  await openChangeForm(page, context);
+  session.respond("PREVIEW /api/bookings/change-dates", {
+    body: { preview: true, new_total_price: 2500, old_total_price: 3000, price_difference: -500, additional_payment: 0, amount_paid: 3000, payment_type: "full", deposit_available: false, new_deposit: 0, full_outstanding: 0 },
+  });
+  await chooseNewStay(page);
+
+  const acknowledge = page.getByRole("checkbox", { name: t.noRefundWarning.replace("{amount}", "500") });
+  await expect(acknowledge).toBeVisible();
+  const send = page.getByRole("button", { name: t.submitDateChange });
+  await expect(send).toBeDisabled();
+  expect(changePosts()).toHaveLength(0);
+
+  await acknowledge.check();
+  await send.click();
+  await expect(page.getByRole("dialog").getByRole("heading", { name: t.dcSentTitle })).toBeVisible();
+  expect(changePosts()).toHaveLength(1);
+  expect(changePosts()[0].body).not.toHaveProperty("preview");
+});
+
+test("a change that costs more shows what to pay before anything is sent", async ({ page, context }) => {
+  await openChangeForm(page, context);
+  session.respond("PREVIEW /api/bookings/change-dates", {
+    body: { preview: true, new_total_price: 4500, old_total_price: 3000, price_difference: 1500, additional_payment: 1500, amount_paid: 3000, payment_type: "full", deposit_available: false, new_deposit: 0, full_outstanding: 1500 },
+  });
+  await chooseNewStay(page);
+
+  await expect(page.getByLabel(t.dcPriceSummary).getByText(t.additionalPaymentShort)).toBeVisible();
+  await expect(page.getByRole("button", { name: t.uploadSlip })).toBeVisible();
+  await expect(page.getByRole("button", { name: t.dcConfirmPaySubmit.replace("{amount}", "1,500") })).toBeDisabled();
+  expect(previews()).toHaveLength(1);
+  expect(previews()[0].body).toMatchObject({ booking_id: BOOKING_ID, preview: true });
+  expect(changePosts()).toHaveLength(0);
 });

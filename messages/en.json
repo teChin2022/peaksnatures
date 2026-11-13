@@ -1447,6 +1447,16 @@
     "checkOut": "Check Out",
     "checkedIn": "Checked In",
     "checkedOut": "Checked Out",
+    "checkedInAt": "Checked in {time}",
+    "checkInFrom": "Check-in opens on {date}",
+    "checkInConfirmTitle": "Check in to {house} now?",
+    "checkInConfirm": "Confirm check-in",
+    "checkInNotYet": "Not yet",
+    "alreadyCheckedIn": "This booking is already checked in",
+    "alreadyCheckedOut": "This booking is already checked out",
+    "checkInOutError": "That didn't work. Please try again or contact the host.",
+    "balanceBeforeCheckout": "Pay the balance first, then you can check out",
+    "slipPreview": "Slip preview",
     "payRemaining": "Pay Remaining ฿{amount}",
     "balanceDueCheckout": "Please pay the remaining balance of ฿{amount} before checking out.",
     "balancePaid": "Remaining balance paid!",
@@ -1529,6 +1539,7 @@
     "dcBlockedTitle": "Dates Blocked by Host",
     "dcBlockedDesc": "The host has blocked some of the dates you selected. The calendar has been refreshed — please choose different dates.",
     "dcChooseDifferentDates": "Choose Different Dates",
+    "dcPriceLoading": "Working out the new price…",
     "dcPriceSummary": "New price summary",
     "dcBalanceAtCheckin": "Balance (paid at check-in)",
     "dcConfirmPaySubmit": "Confirm ฿{amount} payment and send request",
@@ -2013,7 +2024,6 @@
     "thai": "ไทย"
   },
   "checkInOutPage": {
-    "pill": "Check-in / Check-out",
     "title": "Check In or Out",
     "subtitle": "Find your booking to check in or check out."
   },

@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Search, CalendarDays, Clock, CheckCircle2, XCircle, Loader2, MessageSquare, LogIn, LogOut, Upload, CreditCard, Download, AlertTriangle, ArrowRightLeft, ArrowLeft } from "lucide-react";
+import { Search, CalendarDays, Clock, CheckCircle2, XCircle, Loader2, MessageSquare, LogIn, LogOut, Upload, CreditCard, Download, Banknote, AlertTriangle, ArrowRightLeft, ArrowLeft } from "lucide-react";
 import { motion, AnimatePresence } from "motion/react";
 import { createClient } from "@/lib/supabase/client";
 import { Calendar } from "@/components/ui/calendar";
@@ -28,6 +28,7 @@ import {
 import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
 import { fmtDate, fmtDateStr } from "@/lib/format-date";
+import { billingTodayStr } from "@/lib/billing-dates";
 import { useIsMobile } from "@/lib/use-is-mobile";
 import { ReviewForm } from "@/components/reviews/review-form";
 import { DateChangeSentDialog, type DateChangeSent } from "@/components/booking/date-change-sent-dialog";
@@ -103,6 +104,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
   const [reviewingBookingId, setReviewingBookingId] = useState<string | null>(null);
   const [reviewingGuestEmail, setReviewingGuestEmail] = useState("");
   const [checkingIn, setCheckingIn] = useState<string | null>(null);
+  const [confirmingCheckInId, setConfirmingCheckInId] = useState<string | null>(null);
   const [payingBalanceId, setPayingBalanceId] = useState<string | null>(null);
   const [balancePayMethod, setBalancePayMethod] = useState<"transfer" | "cash" | null>(null);
   const [balanceSlipFile, setBalanceSlipFile] = useState<File | null>(null);
@@ -135,6 +137,11 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
   const [dcSelectedRoomId, setDcSelectedRoomId] = useState<string | null>(null);
   const dcQrRef = useRef<HTMLDivElement>(null);
   const dcSummaryRef = useRef<HTMLDivElement>(null);
+  // The price is previewed as soon as both dates are picked; a newer pick
+  // makes an older answer stale.
+  const [dcPreviewLoading, setDcPreviewLoading] = useState(false);
+  const dcPreviewSeq = useRef(0);
+  const dcScrollToSummary = useRef(false);
   const [dcUnavailableModal, setDcUnavailableModal] = useState<"unavailable" | "blocked" | null>(null);
   const dcUnavailableBookingRef = useRef<SearchResult | null>(null);
   const [dcSent, setDcSent] = useState<DateChangeSent | null>(null);
@@ -177,11 +184,12 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
     return dateChangePriceInfo.full_outstanding;
   }, [dateChangePriceInfo, dcPaymentOption]);
 
-  // Price info arrives only when the server asks for an extra payment; the
-  // summary renders below the fold on a phone, so bring it into view.
+  // When the submit itself is answered with PAYMENT_REQUIRED (the price moved
+  // since the preview), the summary changes below the button: bring it into view.
   useEffect(() => {
     const el = dcSummaryRef.current;
-    if (!dateChangePriceInfo || !el) return;
+    if (!dateChangePriceInfo || !el || !dcScrollToSummary.current) return;
+    dcScrollToSummary.current = false;
     const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
     el.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
     el.focus({ preventScroll: true });
@@ -200,8 +208,12 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
         if (data.error === "BALANCE_DUE") {
           setPayingBalanceId(bookingId);
           toast.error(t("balanceDueCheckout", { amount: data.balance_due.toLocaleString() }));
+        } else if (data.error === "ALREADY_CHECKED_IN") {
+          toast.error(t("alreadyCheckedIn"));
+        } else if (data.error === "ALREADY_CHECKED_OUT") {
+          toast.error(t("alreadyCheckedOut"));
         } else {
-          toast.error(data.message || data.error || t("noResults"));
+          toast.error(t("checkInOutError"));
         }
       } else {
         if (action === "checkin") {
@@ -217,9 +229,10 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
         }
       }
     } catch {
-      toast.error(t("noResults"));
+      toast.error(t("checkInOutError"));
     } finally {
       setCheckingIn(null);
+      setConfirmingCheckInId(null);
     }
   };
 
@@ -276,8 +289,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
       });
 
       if (!payRes.ok) {
-        const payData = await payRes.json();
-        toast.error(payData.error || t("errorPayment"));
+        toast.error(t("errorPayment"));
         setSubmittingBalance(false);
         return;
       }
@@ -315,8 +327,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
       });
 
       if (!payRes.ok) {
-        const payData = await payRes.json();
-        toast.error(payData.error || t("errorPayment"));
+        toast.error(t("errorPayment"));
         return;
       }
 
@@ -363,7 +374,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
         } else if (data.error === "CANCELLATION_DISABLED") {
           toast.error(t("cancelNotAllowed"));
         } else {
-          toast.error(data.message || t("cancelError"));
+          toast.error(t("cancelError"));
         }
         return;
       }
@@ -381,6 +392,8 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
   };
 
   const resetDateChangeState = useCallback(() => {
+    dcPreviewSeq.current += 1;
+    setDcPreviewLoading(false);
     setChangingDatesId(null);
     setDateRange(undefined);
     setDateChangePriceInfo(null);
@@ -469,6 +482,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
 
       if (!res.ok) {
         if (data.error === "PAYMENT_REQUIRED") {
+          dcScrollToSummary.current = true;
           setDateChangePriceInfo({ new_total_price: data.new_total_price, price_difference: data.price_difference, additional_payment: data.additional_payment, amount_paid: data.amount_paid, deposit_available: data.deposit_available || false, new_deposit: data.new_deposit || 0, full_outstanding: data.full_outstanding || 0 });
           setSubmittingDateChange(false);
           return;
@@ -518,6 +532,42 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
       toast.error(t("dateChangeError"));
     } finally {
       setSubmittingDateChange(false);
+    }
+  };
+
+  // Asks the server for the new price without creating the request, so the
+  // guest sees what they will pay, or the no-refund warning, before sending.
+  // If the preview fails the guest can still send: the submit runs every check.
+  const fetchDcPreview = async (booking: SearchResult, from: Date, to: Date) => {
+    const seq = ++dcPreviewSeq.current;
+    setDcPreviewLoading(true);
+    try {
+      const body: Record<string, unknown> = {
+        booking_id: booking.id,
+        new_check_in: format(from, "yyyy-MM-dd"),
+        new_check_out: format(to, "yyyy-MM-dd"),
+        preview: true,
+      };
+      if (dcSelectedRoomId && dcSelectedRoomId !== booking.room_id) body.new_room_id = dcSelectedRoomId;
+      const res = await fetch("/api/bookings/change-dates", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      const data = await res.json();
+      if (seq !== dcPreviewSeq.current) return;
+      if (res.ok && data.preview) {
+        setDateChangePriceInfo({ new_total_price: data.new_total_price, price_difference: data.price_difference, additional_payment: data.additional_payment, amount_paid: data.amount_paid, deposit_available: data.deposit_available || false, new_deposit: data.new_deposit || 0, full_outstanding: data.full_outstanding || 0 });
+      } else if (data.error === "DATES_UNAVAILABLE" || data.error === "DATES_BLOCKED") {
+        dcUnavailableBookingRef.current = booking;
+        setDcUnavailableModal(data.error === "DATES_BLOCKED" ? "blocked" : "unavailable");
+      } else if (data.error === "PENDING_EXISTS") {
+        toast.error(t("pendingExists"));
+      }
+    } catch {
+      // Network failure: leave the price unknown; the submit still checks it.
+    } finally {
+      if (seq === dcPreviewSeq.current) setDcPreviewLoading(false);
     }
   };
 
@@ -668,7 +718,6 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
               disabled={!turnstilePassed}
               className="!pl-10 p-3.5 !h-auto rounded-xl !border !border-earth-200 !bg-white hover:!border-earth-400 transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0 focus-visible:!border-earth-400 disabled:opacity-60 disabled:cursor-not-allowed"
               aria-label={t("placeholder")}
-              autoFocus
             />
           </div>
           <button
@@ -713,6 +762,8 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
           {!loading && results.map((booking) => {
             const config = statusConfig[booking.status] || statusConfig.pending;
             const StatusIcon = config.icon;
+            const isCheckedInStay = booking.status === "confirmed" && !!booking.checked_in_at && !booking.checked_out_at;
+            const balanceDue = booking.total_price - (booking.amount_paid || 0);
             const isChangingThisBooking = changingDatesId === booking.id;
             const showCalendarPane = showChangeBookingActions && isChangingThisBooking;
 
@@ -730,7 +781,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                         </span>
                         <Badge variant="secondary" className={config.color}>
                           <StatusIcon className="mr-1 h-3 w-3" />
-                          {t(`status.${booking.status}`)}
+                          {isCheckedInStay ? t("checkedIn") : t(`status.${booking.status}`)}
                         </Badge>
                       </div>
                       <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-earth-600">
@@ -763,27 +814,66 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                           </span>
                         )}
                       </div>
-                      <p className="text-xs text-earth-600 break-all">
-                        ID: {booking.id}
+                      <p className="text-xs text-earth-600">
+                        ID: {booking.id.slice(0, 8)}
                       </p>
 
                       {/* Confirmed + not checked in */}
                       {booking.status === "confirmed" && !booking.checked_in_at && (
                         <div className="mt-2 pt-2 border-t border-earth-200 space-y-2">
                           {showCheckInOutActions && (
-                            <Button
-                              size="sm"
-                              className="w-full bg-brand text-white hover:bg-brand-hover rounded-xl"
-                              onClick={() => handleCheckin(booking.id, booking.guest_email, "checkin")}
-                              disabled={checkingIn === booking.id}
-                            >
-                              {checkingIn === booking.id ? (
-                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <LogIn className="mr-1.5 h-3.5 w-3.5" />
-                              )}
-                              {t("checkIn")}
-                            </Button>
+                            booking.check_in > billingTodayStr() ? (
+                              // Before the stay the button stays visible but disabled, with the day it opens.
+                              <div className="space-y-1.5">
+                                <Button
+                                  className="h-11 w-full rounded-full bg-brand text-white hover:bg-brand-hover"
+                                  disabled
+                                  aria-describedby={`checkin-from-${booking.id}`}
+                                >
+                                  <LogIn className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                                  {t("checkIn")}
+                                </Button>
+                                <p id={`checkin-from-${booking.id}`} className="text-center text-xs text-earth-600">
+                                  {t("checkInFrom", { date: fmtDateStr(booking.check_in, "d MMM yyyy", locale) })}
+                                </p>
+                              </div>
+                            ) : confirmingCheckInId === booking.id ? (
+                              <div className="space-y-3 rounded-xl bg-earth-50 p-3">
+                                <p className="text-sm font-medium text-earth-900">
+                                  {t("checkInConfirmTitle", { house: booking.room_name })}
+                                </p>
+                                <div className="flex flex-col-reverse gap-2 sm:flex-row">
+                                  <Button
+                                    variant="outline"
+                                    className="h-11 flex-1 rounded-full border-earth-200 bg-white"
+                                    onClick={() => setConfirmingCheckInId(null)}
+                                    disabled={checkingIn === booking.id}
+                                  >
+                                    {t("checkInNotYet")}
+                                  </Button>
+                                  <Button
+                                    className="h-11 flex-1 rounded-full bg-brand text-white hover:bg-brand-hover"
+                                    onClick={() => handleCheckin(booking.id, booking.guest_email, "checkin")}
+                                    disabled={checkingIn === booking.id}
+                                  >
+                                    {checkingIn === booking.id ? (
+                                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />
+                                    ) : (
+                                      <LogIn className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                                    )}
+                                    {t("checkInConfirm")}
+                                  </Button>
+                                </div>
+                              </div>
+                            ) : (
+                              <Button
+                                className="h-11 w-full rounded-full bg-brand text-white hover:bg-brand-hover"
+                                onClick={() => setConfirmingCheckInId(booking.id)}
+                              >
+                                <LogIn className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                                {t("checkIn")}
+                              </Button>
+                            )
                           )}
 
                           {showCheckInOutActions && cancellationDays > 0 && (() => {
@@ -795,36 +885,35 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                             return daysUntil >= cancellationDays;
                           })() && (
                             cancellingId === booking.id ? (
-                              <div className="space-y-2 rounded-lg border border-red-200 bg-red-50 p-2.5">
-                                <p className="text-xs font-medium text-red-700">{t("cancelConfirmDesc")}</p>
+                              <div className="space-y-2 rounded-xl bg-red-50 p-3">
+                                <p className="text-sm font-medium text-red-700">{t("cancelConfirmDesc")}</p>
                                 <Textarea
                                   value={cancelReason}
                                   onChange={(e) => setCancelReason(e.target.value)}
                                   placeholder={t("cancelReasonPlaceholder")}
+                                  aria-label={t("cancelReasonPlaceholder")}
                                   rows={2}
-                                  className="text-sm"
+                                  className="bg-white text-base sm:text-sm"
                                 />
-                                <div className="flex gap-2">
+                                <div className="flex flex-col-reverse gap-2 sm:flex-row">
                                   <Button
-                                    size="sm"
                                     variant="outline"
-                                    className="flex-1"
+                                    className="h-11 flex-1 rounded-full border-earth-200 bg-white"
                                     onClick={() => { setCancellingId(null); setCancelReason(""); }}
                                     disabled={submittingCancel}
                                   >
                                     {t("cancelKeepBooking")}
                                   </Button>
                                   <Button
-                                    size="sm"
                                     variant="destructive"
-                                    className="flex-1"
+                                    className="h-11 flex-1 rounded-full"
                                     onClick={() => handleCancelBooking(booking.id)}
                                     disabled={submittingCancel}
                                   >
                                     {submittingCancel ? (
-                                      <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                      <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />
                                     ) : (
-                                      <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                                      <XCircle className="mr-1.5 h-4 w-4" aria-hidden="true" />
                                     )}
                                     {t("cancelConfirmButton")}
                                   </Button>
@@ -832,12 +921,11 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                               </div>
                             ) : (
                               <Button
-                                size="sm"
                                 variant="outline"
-                                className="w-full text-red-600 border-red-200 hover:bg-red-50 rounded-xl"
+                                className="h-11 w-full rounded-full border-earth-200 text-destructive hover:bg-red-50 hover:text-destructive"
                                 onClick={() => setCancellingId(booking.id)}
                               >
-                                <XCircle className="mr-1.5 h-3.5 w-3.5" />
+                                <XCircle className="mr-1.5 h-4 w-4" aria-hidden="true" />
                                 {t("cancelBooking")}
                               </Button>
                             )
@@ -889,78 +977,74 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                       )}
 
                       {/* Confirmed + checked in + not checked out */}
-                      {showCheckInOutActions && booking.status === "confirmed" && booking.checked_in_at && !booking.checked_out_at && (
-                        <div className="mt-2 pt-2 border-t border-earth-200">
-                          <Badge variant="secondary" className="bg-blue-100 text-blue-700 mb-2">
-                            <CheckCircle2 className="mr-1 h-3 w-3" />
-                            {t("checkedIn")}
-                          </Badge>
+                      {showCheckInOutActions && isCheckedInStay && booking.checked_in_at && (
+                        <div className="mt-2 space-y-3 border-t border-earth-200 pt-3">
+                          <p className="flex items-center gap-1.5 text-sm text-earth-700">
+                            <CheckCircle2 className="h-4 w-4 text-brand" aria-hidden="true" />
+                            {t("checkedInAt", { time: fmtDate(new Date(booking.checked_in_at), "d MMM yyyy HH:mm", locale) })}
+                          </p>
 
-                          {booking.total_price - (booking.amount_paid || 0) > 0 && (
-                            <div className="mb-2 rounded-lg bg-amber-50 border border-amber-200 p-2.5">
-                              <div className="flex items-center gap-1.5 text-xs font-medium text-amber-700 mb-1">
-                                <AlertTriangle className="h-3.5 w-3.5" />
-                                {t("balanceDueCheckout", { amount: (booking.total_price - (booking.amount_paid || 0)).toLocaleString() })}
-                              </div>
+                          {balanceDue > 0 && (
+                            <div className="space-y-3">
+                              <p id={`balance-due-${booking.id}`} className="text-sm font-medium text-earth-900">
+                                {t("balanceBeforeCheckout")}
+                              </p>
 
                               {payingBalanceId === booking.id ? (
-                                <div className="space-y-2 mt-2">
+                                <div className="space-y-3">
                                   {!balancePayMethod && (
-                                    <div className="flex gap-2">
+                                    <div className="flex flex-col gap-2 sm:flex-row">
                                       {promptpayId && (
                                         <Button
-                                          size="sm"
                                           variant="outline"
-                                          className="flex-1"
+                                          className="h-11 flex-1 rounded-full border-earth-200"
                                           onClick={() => setBalancePayMethod("transfer")}
                                         >
-                                          <CreditCard className="mr-1.5 h-3.5 w-3.5" />
+                                          <CreditCard className="mr-1.5 h-4 w-4" aria-hidden="true" />
                                           {t("payViaTransfer")}
                                         </Button>
                                       )}
                                       <Button
-                                        size="sm"
                                         variant="outline"
-                                        className="flex-1"
+                                        className="h-11 flex-1 rounded-full border-earth-200"
                                         onClick={() => setBalancePayMethod("cash")}
                                       >
-                                        <Download className="mr-1.5 h-3.5 w-3.5" />
+                                        <Banknote className="mr-1.5 h-4 w-4" aria-hidden="true" />
                                         {t("payViaCash")}
                                       </Button>
                                     </div>
                                   )}
 
                                   {balancePayMethod === "transfer" && promptpayId && (
-                                    <div className="space-y-2">
+                                    <div className="space-y-3">
                                       {paymentDisplay === "bank" && bankName && bankAccountNumber && bankAccountName ? (
-                                        <div className="rounded-lg border bg-white p-3 space-y-1.5">
-                                          <p className="text-xs text-earth-500 text-center mb-1">{t("bankTransferTitle")}</p>
-                                          <div className="flex justify-between text-xs">
-                                            <span className="text-earth-500">{t("bankTransferTitle")}</span>
+                                        <div className="space-y-1.5 rounded-xl bg-earth-50 p-3">
+                                          <div className="flex justify-between text-sm">
+                                            <span className="text-earth-600">{t("bankTransferTitle")}</span>
                                             <span className="font-medium text-earth-900">{bankName}</span>
                                           </div>
-                                          <div className="flex justify-between text-xs">
-                                            <span className="text-earth-500">{t("bankAccountNo")}</span>
+                                          <div className="flex justify-between text-sm">
+                                            <span className="text-earth-600">{t("bankAccountNo")}</span>
                                             <span className="font-mono font-medium text-earth-900">{bankAccountNumber}</span>
                                           </div>
-                                          <div className="flex justify-between text-xs">
-                                            <span className="text-earth-500">{t("bankAccountHolderName")}</span>
+                                          <div className="flex justify-between text-sm">
+                                            <span className="text-earth-600">{t("bankAccountHolderName")}</span>
                                             <span className="font-medium text-earth-900">{bankAccountName}</span>
                                           </div>
                                         </div>
                                       ) : (
                                         <div className="flex justify-center">
-                                          <div className="rounded-lg border bg-white p-2">
+                                          <div className="rounded-xl border border-earth-200 bg-white p-3">
                                             <QRCodeSVG
-                                              value={generatePayload(promptpayId, { amount: booking.total_price - (booking.amount_paid || 0) })}
-                                              size={120}
+                                              value={generatePayload(promptpayId, { amount: balanceDue })}
+                                              size={160}
                                               level="M"
                                             />
                                           </div>
                                         </div>
                                       )}
-                                      <p className="text-center text-sm font-bold text-earth-900">
-                                        ฿{(booking.total_price - (booking.amount_paid || 0)).toLocaleString()}
+                                      <p className="text-center text-lg font-semibold tabular-nums text-earth-900">
+                                        ฿{balanceDue.toLocaleString()}
                                       </p>
                                       <input
                                         ref={balanceFileRef}
@@ -974,58 +1058,54 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                                         }}
                                       />
                                       {balanceSlipPreview ? (
-                                        <div className="text-center space-y-2">
+                                        <div className="space-y-3 text-center">
                                           {/* eslint-disable-next-line @next/next/no-img-element */}
-                                          <img src={balanceSlipPreview} alt="Slip" className="mx-auto max-h-32 rounded-lg" />
+                                          <img src={balanceSlipPreview} alt={t("slipPreview")} className="mx-auto max-h-40 rounded-lg" />
                                           <div className="flex justify-center gap-2">
                                             <Button
-                                              size="sm"
                                               variant="outline"
-                                              className="text-xs"
+                                              className="h-11 rounded-full border-earth-200"
                                               onClick={() => {
                                                 if (balanceFileRef.current) balanceFileRef.current.value = "";
                                                 balanceFileRef.current?.click();
                                               }}
                                             >
-                                              <ArrowRightLeft className="mr-1 h-3 w-3" />
+                                              <ArrowRightLeft className="mr-1.5 h-4 w-4" aria-hidden="true" />
                                               {t("changeSlip")}
                                             </Button>
                                             <Button
-                                              size="sm"
                                               variant="outline"
-                                              className="text-xs text-red-600 border-red-200 hover:bg-red-50"
+                                              className="h-11 rounded-full border-earth-200 text-destructive hover:bg-red-50 hover:text-destructive"
                                               onClick={() => {
                                                 setBalanceSlipFile(null);
                                                 setBalanceSlipPreview(null);
                                                 if (balanceFileRef.current) balanceFileRef.current.value = "";
                                               }}
                                             >
-                                              <XCircle className="mr-1 h-3 w-3" />
+                                              <XCircle className="mr-1.5 h-4 w-4" aria-hidden="true" />
                                               {t("removeSlip")}
                                             </Button>
                                           </div>
                                           <Button
-                                            size="sm"
-                                            className="w-full bg-brand text-white hover:bg-brand-hover"
+                                            className="h-11 w-full rounded-full bg-brand text-white hover:bg-brand-hover"
                                             onClick={() => handlePayBalance(booking)}
                                             disabled={submittingBalance}
                                           >
                                             {submittingBalance ? (
-                                              <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
+                                              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />
                                             ) : (
-                                              <CreditCard className="mr-1.5 h-3.5 w-3.5" />
+                                              <CreditCard className="mr-1.5 h-4 w-4" aria-hidden="true" />
                                             )}
-                                            {t("payRemaining", { amount: (booking.total_price - (booking.amount_paid || 0)).toLocaleString() })}
+                                            {t("payRemaining", { amount: balanceDue.toLocaleString() })}
                                           </Button>
                                         </div>
                                       ) : (
                                         <Button
-                                          size="sm"
                                           variant="outline"
-                                          className="w-full"
+                                          className="h-11 w-full rounded-full border-earth-200"
                                           onClick={() => balanceFileRef.current?.click()}
                                         >
-                                          <Upload className="mr-1.5 h-3.5 w-3.5" />
+                                          <Upload className="mr-1.5 h-4 w-4" aria-hidden="true" />
                                           {t("uploadSlip")}
                                         </Button>
                                       )}
@@ -1033,54 +1113,47 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                                   )}
 
                                   {balancePayMethod === "cash" && (
-                                    <div className="space-y-2">
-                                      <p className="text-center text-sm font-bold text-earth-900">
-                                        ฿{(booking.total_price - (booking.amount_paid || 0)).toLocaleString()}
-                                      </p>
-                                      <Button
-                                        size="sm"
-                                        className="w-full bg-brand text-white hover:bg-brand-hover"
-                                        onClick={() => handlePayCash(booking)}
-                                        disabled={submittingBalance}
-                                      >
-                                        {submittingBalance ? (
-                                          <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                                        ) : (
-                                          <Download className="mr-1.5 h-3.5 w-3.5" />
-                                        )}
-                                        {t("cashConfirm")} ฿{(booking.total_price - (booking.amount_paid || 0)).toLocaleString()}
-                                      </Button>
-                                    </div>
+                                    <Button
+                                      className="h-11 w-full rounded-full bg-brand text-white hover:bg-brand-hover"
+                                      onClick={() => handlePayCash(booking)}
+                                      disabled={submittingBalance}
+                                    >
+                                      {submittingBalance ? (
+                                        <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />
+                                      ) : (
+                                        <Banknote className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                                      )}
+                                      {t("cashConfirm")} ฿{balanceDue.toLocaleString()}
+                                    </Button>
                                   )}
                                 </div>
                               ) : (
                                 <Button
-                                  size="sm"
-                                  className="w-full bg-brand text-white hover:bg-brand-hover mt-1"
+                                  className="h-11 w-full rounded-full bg-brand text-white hover:bg-brand-hover"
                                   onClick={() => { setPayingBalanceId(booking.id); setBalancePayMethod(null); }}
                                 >
-                                  <CreditCard className="mr-1.5 h-3.5 w-3.5" />
-                                  {t("payRemaining", { amount: (booking.total_price - (booking.amount_paid || 0)).toLocaleString() })}
+                                  <CreditCard className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                                  {t("payRemaining", { amount: balanceDue.toLocaleString() })}
                                 </Button>
                               )}
                             </div>
                           )}
 
-                          {booking.total_price - (booking.amount_paid || 0) <= 0 && (
-                            <Button
-                              size="sm"
-                              className="w-full bg-brand text-white hover:bg-brand-hover"
-                              onClick={() => handleCheckin(booking.id, booking.guest_email, "checkout")}
-                              disabled={checkingIn === booking.id}
-                            >
-                              {checkingIn === booking.id ? (
-                                <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
-                              ) : (
-                                <LogOut className="mr-1.5 h-3.5 w-3.5" />
-                              )}
-                              {t("checkOut")}
-                            </Button>
-                          )}
+                          {/* Shown while a balance is due too, disabled, so the guest sees the step after paying. */}
+                          <Button
+                            variant={balanceDue > 0 ? "outline" : "default"}
+                            className={balanceDue > 0 ? "h-11 w-full rounded-full border-earth-200" : "h-11 w-full rounded-full bg-brand text-white hover:bg-brand-hover"}
+                            onClick={() => handleCheckin(booking.id, booking.guest_email, "checkout")}
+                            disabled={balanceDue > 0 || checkingIn === booking.id}
+                            aria-describedby={balanceDue > 0 ? `balance-due-${booking.id}` : undefined}
+                          >
+                            {checkingIn === booking.id ? (
+                              <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />
+                            ) : (
+                              <LogOut className="mr-1.5 h-4 w-4" aria-hidden="true" />
+                            )}
+                            {t("checkOut")}
+                          </Button>
                         </div>
                       )}
 
@@ -1094,15 +1167,14 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                             </Badge>
                           ) : (
                             <Button
-                              size="sm"
                               variant="outline"
-                              className="w-full text-xs"
+                              className="h-11 w-full rounded-full border-earth-200"
                               onClick={() => {
                                 setReviewingBookingId(booking.id);
                                 setReviewingGuestEmail(booking.guest_email);
                               }}
                             >
-                              <MessageSquare className="mr-1.5 h-3.5 w-3.5" />
+                              <MessageSquare className="mr-1.5 h-4 w-4" aria-hidden="true" />
                               {tr("writeReview")}
                             </Button>
                           )}
@@ -1130,6 +1202,8 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                             value={dcSelectedRoomId || ""}
                             onChange={(e) => {
                               const newRoomId = e.target.value;
+                              dcPreviewSeq.current += 1;
+                              setDcPreviewLoading(false);
                               setDcSelectedRoomId(newRoomId);
                               setDateRange(undefined);
                               setDateChangePriceInfo(null);
@@ -1175,6 +1249,12 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                             setDateChangeSlipPreview(null);
                             setNoRefundConfirmed(false);
                             setDcPhoneSlipReceived(false);
+                            if (!blocker && range?.from && range?.to && range.to > range.from) {
+                              fetchDcPreview(booking, range.from, range.to);
+                            } else {
+                              dcPreviewSeq.current += 1;
+                              setDcPreviewLoading(false);
+                            }
                           }}
                           locale={locale === "th" ? thLocale : undefined}
                           captionLayout="dropdown"
@@ -1227,7 +1307,14 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                             </div>
                           </div>
 
-                          {dateChangePriceInfo && (
+                          {dcPreviewLoading && (
+                            <div role="status" className="flex items-center gap-2 rounded-xl bg-earth-50 p-3 text-xs text-earth-600">
+                              <Loader2 className="h-3.5 w-3.5 animate-spin" aria-hidden="true" />
+                              {t("dcPriceLoading")}
+                            </div>
+                          )}
+
+                          {dateChangePriceInfo && !dcPreviewLoading && (
                             <div className="space-y-2">
                               <div ref={dcSummaryRef} tabIndex={-1} aria-label={t("dcPriceSummary")} className="scroll-mt-20 rounded-xl bg-earth-50 p-3 text-sm tabular-nums space-y-1.5 focus-visible:outline-2 focus-visible:outline-brand">
                                 <div className="flex justify-between">
@@ -1456,7 +1543,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                             <Button
                               className="h-11 flex-1 rounded-full bg-brand text-white hover:bg-brand-hover"
                               onClick={() => handleDateChangeSubmit(booking)}
-                              disabled={submittingDateChange || !isDcRangeValid || (dateChangePriceInfo !== null && dcEffectiveAdditional > 0 && !dateChangeSlipFile && !dcPhoneSlipReceived) || (dateChangePriceInfo !== null && dcEffectiveAdditional === 0 && dateChangePriceInfo.price_difference < 0 && !noRefundConfirmed)}
+                              disabled={submittingDateChange || dcPreviewLoading || !isDcRangeValid || (dateChangePriceInfo !== null && dcEffectiveAdditional > 0 && !dateChangeSlipFile && !dcPhoneSlipReceived) || (dateChangePriceInfo !== null && dcEffectiveAdditional === 0 && dateChangePriceInfo.price_difference < 0 && !noRefundConfirmed)}
                             >
                               {submittingDateChange ? (
                                 <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />
