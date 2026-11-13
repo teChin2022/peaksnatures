@@ -12,7 +12,7 @@ export function holdTone(secondsLeft: number): HoldTone {
 }
 
 const TONE_CLASS: Record<HoldTone, string> = {
-  normal: "bg-earth-100 text-earth-900",
+  normal: "bg-mist-2 text-ink",
   warning: "bg-amber-50 text-amber-800",
   urgent: "bg-red-50 text-red-700",
 };

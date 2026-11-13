@@ -48,8 +48,8 @@ export function LeaveBookingDialog({
     <Dialog open={open} onOpenChange={(o) => { if (!o) onContinue(); }}>
       <DialogContent
         showCloseButton={false}
-        className="z-70 gap-0 overflow-hidden rounded-2xl border-earth-100 p-0 sm:max-w-md"
-        overlayClassName="z-70 bg-earth-900/40 backdrop-blur-[2px]"
+        className="z-70 gap-0 overflow-hidden rounded-2xl border-line p-0 sm:max-w-md"
+        overlayClassName="z-70 bg-pine-deep/40 backdrop-blur-[2px]"
       >
         <div className="flex flex-col items-center px-6 pt-7 pb-6">
           <motion.div
@@ -62,10 +62,10 @@ export function LeaveBookingDialog({
           </motion.div>
 
           <DialogHeader className="items-center">
-            <DialogTitle className="text-center text-xl font-bold text-earth-900">
+            <DialogTitle className="text-center text-xl font-bold text-ink">
               {t("leaveTitle")}
             </DialogTitle>
-            <DialogDescription className="text-center text-sm leading-relaxed text-earth-500">
+            <DialogDescription className="text-center text-sm leading-relaxed text-ink-3">
               {t("leaveBody")}
             </DialogDescription>
           </DialogHeader>
@@ -75,38 +75,38 @@ export function LeaveBookingDialog({
               initial={reduce ? false : { opacity: 0, y: 8 }}
               animate={reduce ? false : { opacity: 1, y: 0 }}
               transition={{ duration: 0.25, ease: "easeOut", delay: reduce ? 0 : 0.06 }}
-              className="mt-5 w-full rounded-xl border border-earth-100 bg-earth-50 p-3.5"
+              className="mt-5 w-full rounded-xl border border-line bg-mist p-3.5"
             >
-              <p className="mb-2 text-[11px] font-semibold uppercase tracking-[0.15em] text-earth-400">
+              <p className="mb-2 text-xs font-semibold text-ink-3">
                 {t("leaveSummaryTitle")}
               </p>
               {roomName && (
                 <div className="flex items-center gap-2.5">
-                  <Home className="h-4 w-4 shrink-0 text-brand" />
-                  <span className="truncate text-sm font-semibold text-earth-900">{roomName}</span>
+                  <Home className="h-4 w-4 shrink-0 text-pine" />
+                  <span className="truncate text-sm font-semibold text-ink">{roomName}</span>
                 </div>
               )}
               {meta && (
                 <div className="mt-1.5 flex items-center gap-2.5">
-                  <CalendarDays className="h-4 w-4 shrink-0 text-brand" />
-                  <span className="text-[13px] font-medium text-earth-600">{meta}</span>
+                  <CalendarDays className="h-4 w-4 shrink-0 text-pine" />
+                  <span className="text-[13px] font-medium text-ink-2">{meta}</span>
                 </div>
               )}
             </motion.div>
           )}
         </div>
 
-        <DialogFooter className="flex-col gap-2 border-t border-earth-100 bg-earth-50/40 px-6 py-4 sm:flex-col">
+        <DialogFooter className="flex-col gap-2 border-t border-line bg-mist/40 px-6 py-4 sm:flex-col">
           <Button
             onClick={onContinue}
-            className="h-12 w-full cursor-pointer rounded-full bg-brand text-[15px] font-bold tracking-wide text-white shadow-sm transition-colors hover:bg-brand-hover"
+            className="h-12 w-full cursor-pointer rounded-full bg-pine text-[15px] font-bold text-white shadow-sm transition-colors hover:bg-pine-hover"
           >
             {t("leaveStay")}
           </Button>
           <Button
             onClick={onLeave}
             variant="ghost"
-            className="h-11 w-full cursor-pointer rounded-full text-sm font-medium text-earth-400 transition-colors hover:bg-earth-100 hover:text-earth-700"
+            className="h-11 w-full cursor-pointer rounded-full text-sm font-medium text-ink-3 transition-colors hover:bg-mist-2 hover:text-ink-2"
           >
             {t("leaveConfirm")}
           </Button>

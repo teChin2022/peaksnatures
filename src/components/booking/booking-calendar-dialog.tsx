@@ -138,7 +138,7 @@ export function BookingCalendarDialog({
 
   const cell = (active: boolean) =>
     `flex-1 rounded-xl border px-3 py-2.5 text-left transition-colors ${
-      active ? "border-brand bg-brand/5" : "border-earth-200 bg-white"
+      active ? "border-pine bg-pine/5" : "border-line bg-white"
     }`;
 
   return (
@@ -151,18 +151,18 @@ export function BookingCalendarDialog({
         {/* Which half is still missing — visible before the guest can get it wrong. */}
         <div className="flex gap-2">
           <div className={cell(awaiting === "in")}>
-            <span className="block text-[11px] font-semibold uppercase tracking-wider text-earth-400">
+            <span className="block text-xs font-semibold text-ink-3">
               {t("checkInLabel")}
             </span>
-            <span className={`block text-sm ${dateRange?.from ? "font-semibold text-earth-900" : "text-earth-400"}`}>
+            <span className={`block text-sm ${dateRange?.from ? "font-semibold text-ink" : "text-ink-3"}`}>
               {dateRange?.from ? fmtDate(dateRange.from, "MMM d, yyyy", locale) : t("addDate")}
             </span>
           </div>
           <div className={cell(awaiting === "out")}>
-            <span className="block text-[11px] font-semibold uppercase tracking-wider text-earth-400">
+            <span className="block text-xs font-semibold text-ink-3">
               {t("checkOutLabel")}
             </span>
-            <span className={`block text-sm ${isComplete ? "font-semibold text-earth-900" : "text-earth-400"}`}>
+            <span className={`block text-sm ${isComplete ? "font-semibold text-ink" : "text-ink-3"}`}>
               {isComplete && dateRange?.to ? fmtDate(dateRange.to, "MMM d, yyyy", locale) : t("addDate")}
             </span>
           </div>
@@ -208,7 +208,7 @@ export function BookingCalendarDialog({
             </div>
           </div>
         ) : isComplete ? (
-          <p className="text-center text-xs text-earth-500">
+          <p className="text-center text-xs text-ink-3">
             {nights} {nights > 1 ? tc("nights") : tc("night")}
           </p>
         ) : showWarning ? (
@@ -224,7 +224,7 @@ export function BookingCalendarDialog({
           </div>
         ) : null}
 
-        <Button className="w-full rounded-full bg-brand px-6 py-3.5 h-auto text-sm font-bold uppercase tracking-widest text-white hover:bg-brand-hover" onClick={handleDone}>
+        <Button className="w-full rounded-full bg-pine px-6 py-3.5 h-auto text-sm font-bold text-white hover:bg-pine-hover" onClick={handleDone}>
           {tc("done")}
         </Button>
       </DialogContent>

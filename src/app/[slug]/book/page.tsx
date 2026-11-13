@@ -111,7 +111,7 @@ export default async function HomestayBookingPage({ params, searchParams }: Page
   const bookingHost = toBookingHost(host);
 
   return (
-    <div className="min-h-screen bg-white">
+    <div className="min-h-screen bg-mist">
       <RespectReducedMotion>
       <BookingCartProvider catalog={cartCatalog} homestayId={homestay.id}>
       <DemandTracker homestayId={homestay.id} />
@@ -136,7 +136,7 @@ export default async function HomestayBookingPage({ params, searchParams }: Page
         <RoomsSection rooms={sortedRooms} seasonalPrices={seasonalPrices} specialPrices={specialPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} popularRoomIds={popularRoomIds} />
 
         {/* Booking (inline) */}
-        <div className="bg-earth-50">
+        <div className="bg-mist">
           <BookingSection
             homestay={homestayForClient}
             rooms={activeRooms}

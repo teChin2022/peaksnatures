@@ -45,15 +45,15 @@ export function CartLineList({
         const gross = computeLineGross(line);
         const isConfirming = confirmRemove === line.lineId;
         return (
-          <div key={line.lineId} className="rounded-xl border border-earth-100 bg-white p-3">
+          <div key={line.lineId} className="rounded-xl border border-line bg-white p-3">
             {isConfirming ? (
               <div className="flex items-center justify-between gap-2">
-                <span className="text-sm text-earth-700">{t("removeRoomConfirm")}</span>
+                <span className="text-sm text-ink-2">{t("removeRoomConfirm")}</span>
                 <div className="flex shrink-0 gap-2">
                   <button
                     type="button"
                     onClick={() => setConfirmRemove(null)}
-                    className="rounded-full border border-earth-200 px-3 py-2.5 text-xs font-medium text-earth-600 hover:bg-earth-50"
+                    className="rounded-full border border-line px-3 py-2.5 text-xs font-medium text-ink-2 hover:bg-mist"
                   >
                     {tc("cancel")}
                   </button>
@@ -69,21 +69,21 @@ export function CartLineList({
             ) : (
               <div className="flex items-center justify-between gap-2">
                 <div className="min-w-0">
-                  <p className="truncate text-sm font-medium text-earth-900">{room?.name}</p>
-                  <p className="text-xs text-earth-400">
+                  <p className="truncate text-sm font-medium text-ink">{room?.name}</p>
+                  <p className="text-xs text-ink-3">
                     {guestLabel}
                     {line.optionIds.length > 0 ? ` · ${t("optionsSelected", { count: line.optionIds.length })}` : ""}
                   </p>
                 </div>
                 <div className="flex shrink-0 items-center gap-0.5">
-                  <span className="mr-1 text-sm font-semibold text-earth-900">฿{gross.toLocaleString()}</span>
+                  <span className="mr-1 text-sm font-semibold text-ink">฿{gross.toLocaleString()}</span>
                   {editable && (
                     <>
                       <button
                         type="button"
                         aria-label={tc("edit")}
                         onClick={() => document.dispatchEvent(new CustomEvent("edit-line", { detail: { lineId: line.lineId } }))}
-                        className="flex h-11 w-11 items-center justify-center rounded-full text-earth-400 transition-colors hover:bg-earth-100 hover:text-earth-700"
+                        className="flex h-11 w-11 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-mist-2 hover:text-ink-2"
                       >
                         <Pencil size={16} />
                       </button>
@@ -91,7 +91,7 @@ export function CartLineList({
                         type="button"
                         aria-label={t("removeRoom")}
                         onClick={() => setConfirmRemove(line.lineId)}
-                        className="flex h-11 w-11 items-center justify-center rounded-full text-earth-400 transition-colors hover:bg-earth-100 hover:text-red-500"
+                        className="flex h-11 w-11 items-center justify-center rounded-full text-ink-3 transition-colors hover:bg-mist-2 hover:text-red-500"
                       >
                         <X size={17} />
                       </button>

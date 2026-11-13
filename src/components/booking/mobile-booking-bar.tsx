@@ -37,7 +37,7 @@ const FOCUS_RING =
 // Shared height + press feedback for both halves of the pill. The pill owns the
 // fill and the rounding; each half only paints its own hover state on top.
 const ZONE =
-  "flex min-h-14 cursor-pointer touch-manipulation items-center justify-center transition-colors hover:bg-brand-hover active:bg-brand-hover disabled:cursor-not-allowed";
+  "flex min-h-14 cursor-pointer touch-manipulation items-center justify-center transition-colors hover:bg-pine-hover active:bg-pine-hover disabled:cursor-not-allowed";
 
 export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBookingBarProps) {
   const t = useTranslations("common");
@@ -155,7 +155,7 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
             animate={reduceMotion ? { opacity: 1 } : { y: 0 }}
             exit={reduceMotion ? { opacity: 0 } : { y: "100%" }}
             transition={reduceMotion ? { duration: 0.15 } : { type: "spring", damping: 25, stiffness: 300 }}
-            className="fixed bottom-0 inset-x-0 z-40 border-t border-earth-200 bg-white/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)] md:hidden"
+            className="fixed bottom-0 inset-x-0 z-40 border-t border-line bg-white/95 backdrop-blur-md pb-[env(safe-area-inset-bottom)] md:hidden"
           >
             {/* One solid pill so the two halves read as a single control — a
                 near-white cart tile beside a heavy brand block looked like a gap
@@ -163,7 +163,7 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
                 rounding and the disabled dimming for both halves. */}
             <div className="px-3 py-2.5">
               <div
-                className={`flex items-stretch overflow-hidden rounded-2xl bg-brand text-white ${
+                className={`flex items-stretch overflow-hidden rounded-2xl bg-pine text-white ${
                   bookingDisabled ? "opacity-40" : ""
                 }`}
               >
@@ -178,11 +178,11 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
                   disabled={bookingDisabled}
                   className={`flex-1 flex-col gap-0.5 px-4 ${ZONE} ${FOCUS_RING}`}
                 >
-                  <span className="text-sm font-bold uppercase tracking-widest">{tb("bookHouse")}</span>
+                  <span className="text-sm font-bold">{tb("bookHouse")}</span>
                   {hasDates && (
                     // 85% white on brand clears AA at this size (5.9:1); any
                     // lighter and the 11px line would fail.
-                    <span className="whitespace-nowrap text-[11px] font-medium leading-tight text-white/85">
+                    <span className="whitespace-nowrap text-xs font-medium leading-tight text-white/85">
                       {fmtDate(dateRange!.from!, "d MMM", locale)} – {fmtDate(dateRange!.to!, "d MMM", locale)} {nights}{" "}
                       {nights > 1 ? t("nights") : t("night")}
                     </span>
@@ -206,7 +206,7 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
                       // Ring matches the pill it sits on, so the badge reads as a
                       // clean cut-out. `cart-badge-pulse` lives in globals.css and
                       // self-disables under prefers-reduced-motion.
-                      <span className="cart-badge-pulse [--cart-badge-ring:var(--color-brand)] absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F83858] px-1 text-[11px] font-bold leading-none text-white ring-2 ring-brand">
+                      <span className="cart-badge-pulse [--cart-badge-ring:var(--color-brand)] absolute -right-2 -top-2 flex h-5 min-w-5 items-center justify-center rounded-full bg-[#F83858] px-1 text-xs font-bold leading-none text-white ring-2 ring-pine">
                         {cartCount}
                       </span>
                     )}
@@ -224,7 +224,7 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
       {/* Cart review sheet (mobile) — all room details */}
       <Sheet open={sheetOpen} onOpenChange={setSheetOpen}>
         <SheetContent side="bottom" className="max-h-[85vh] gap-0 rounded-t-2xl p-0 md:hidden [&>button]:-m-3.5 [&>button]:rounded-full [&>button]:p-3.5">
-          <SheetHeader className="border-b border-earth-100 pr-12">
+          <SheetHeader className="border-b border-line pr-12">
             <SheetTitle>{tb("reviewCart")}</SheetTitle>
             {dateRange?.from && dateRange?.to && (
               <SheetDescription>
@@ -237,10 +237,10 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
             {hasCart ? (
               <CartLineList />
             ) : (
-              <div className="rounded-xl border border-dashed border-earth-300 bg-earth-50 p-6 text-center">
-                <p className="text-sm text-earth-600">{tb("emptyCart")}</p>
+              <div className="rounded-xl border border-dashed border-line-strong bg-mist p-6 text-center">
+                <p className="text-sm text-ink-2">{tb("emptyCart")}</p>
                 <Button
-                  className="mt-4 rounded-full bg-brand text-white hover:bg-brand-hover"
+                  className="mt-4 rounded-full bg-pine text-white hover:bg-pine-hover"
                   onClick={handleBrowseRooms}
                 >
                   {tb("viewRooms")}
@@ -250,12 +250,12 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
           </div>
 
           {hasCart && (
-            <SheetFooter className="border-t border-earth-100">
-              <div className="flex items-center justify-between text-base font-bold text-earth-900">
+            <SheetFooter className="border-t border-line">
+              <div className="flex items-center justify-between text-base font-bold text-ink">
                 <span>{t("total")}</span>
                 <span>฿{subtotal.toLocaleString()}</span>
               </div>
-              <Button className="w-full rounded-full bg-brand px-6 py-3.5 h-auto text-sm font-bold uppercase tracking-widest text-white hover:bg-brand-hover" onClick={handleContinue}>
+              <Button className="w-full rounded-full bg-pine px-6 py-3.5 h-auto text-sm font-bold text-white hover:bg-pine-hover" onClick={handleContinue}>
                 {tb("proceedBooking")} <ArrowRight className="ml-1 h-4 w-4" />
               </Button>
             </SheetFooter>

@@ -1302,26 +1302,26 @@ export function BookingSection({
           (step "details"); step 3's slip verification has its own button spinner. */}
       {isSubmitting && step === "details" && (
         <div
-          className="fixed inset-0 z-[80] flex items-center justify-center bg-earth-900/40 px-4 backdrop-blur-sm"
+          className="fixed inset-0 z-[80] flex items-center justify-center bg-pine-deep/40 px-4 backdrop-blur-sm"
           role="status"
           aria-live="polite"
           aria-busy="true"
         >
           <div className="w-full max-w-sm rounded-3xl bg-white p-8 text-center shadow-2xl">
-            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-brand-50">
-              <Loader2 className="h-7 w-7 animate-spin text-brand" />
+            <div className="mx-auto mb-5 flex h-14 w-14 items-center justify-center rounded-full bg-pine-mist">
+              <Loader2 className="h-7 w-7 animate-spin text-pine" />
             </div>
-            <h3 className="font-serif text-xl text-earth-900">{t("securingRoomsTitle")}</h3>
-            <p className="mt-2 text-sm leading-relaxed text-earth-500">{t("securingRoomsDesc")}</p>
+            <h3 className="font-serif text-xl text-ink">{t("securingRoomsTitle")}</h3>
+            <p className="mt-2 text-sm leading-relaxed text-ink-3">{t("securingRoomsDesc")}</p>
             {holdProgress && holdProgress.total > 1 && (
               <div className="mt-5">
-                <div className="h-1.5 w-full overflow-hidden rounded-full bg-earth-100">
+                <div className="h-1.5 w-full overflow-hidden rounded-full bg-mist-2">
                   <div
-                    className="h-full rounded-full bg-brand transition-all duration-300"
+                    className="h-full rounded-full bg-pine transition-all duration-300"
                     style={{ width: `${Math.round((holdProgress.done / holdProgress.total) * 100)}%` }}
                   />
                 </div>
-                <p className="mt-2 text-xs font-medium text-earth-400">
+                <p className="mt-2 text-xs font-medium text-ink-3">
                   {t("securingRoomsProgress", { done: holdProgress.done, total: holdProgress.total })}
                 </p>
               </div>
@@ -1341,11 +1341,11 @@ export function BookingSection({
           <div className={`grid gap-10 lg:grid-cols-2 lg:gap-12 xl:gap-16 items-start ${bookingDisabled ? "pointer-events-none opacity-50 select-none" : ""}`}>
             {/* ── Left Column: Heading & how it works (shown first on mobile, left on desktop) ── */}
             <div className="order-1 flex flex-col justify-center lg:order-1">
-              <h2 className="font-serif text-4xl font-normal text-earth-900 leading-tight lg:text-5xl tracking-tight">
+              <h2 className="font-serif text-4xl font-normal text-ink leading-tight lg:text-5xl tracking-tight">
                 {t("sectionHeading")}{" "}
-                <span className="text-brand">{t("sectionHeadingAccent")}</span>
+                <span className="text-pine">{t("sectionHeadingAccent")}</span>
               </h2>
-              <p className="mt-4 text-base text-earth-600 leading-[1.8] max-w-md">{t(normalEnabled ? "howItWorks" : "howItWorksQuick")}</p>
+              <p className="mt-4 text-base text-ink-2 leading-[1.8] max-w-md">{t(normalEnabled ? "howItWorks" : "howItWorksQuick")}</p>
             </div>
 
             {/* ── Right Column: Booking Form Card ── */}
@@ -1356,12 +1356,12 @@ export function BookingSection({
               transition={{ duration: 0.6, ease: [0.25, 0.1, 0, 1] }}
               ref={cardRef}
               id="booking-card"
-              className="order-2 scroll-mt-24 bg-white rounded-3xl shadow-xl border border-earth-100 p-5 lg:order-2 lg:p-8 relative flex flex-col lg:sticky lg:top-32"
+              className="order-2 scroll-mt-24 bg-white rounded-3xl shadow-xl border border-line p-5 lg:order-2 lg:p-8 relative flex flex-col lg:sticky lg:top-32"
             >
             {initialPromo && promoInput.trim().toUpperCase() === initialPromo.code.toUpperCase() && (
-              <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-brand-100 bg-brand-50 p-3.5">
-                <Gift className="mt-0.5 h-4 w-4 shrink-0 text-brand" />
-                <div className="text-sm leading-snug text-earth-900">
+              <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-pine-mist bg-pine-mist p-3.5">
+                <Gift className="mt-0.5 h-4 w-4 shrink-0 text-pine" />
+                <div className="text-sm leading-snug text-ink">
                   <span className="font-semibold">
                     {t("promoFromLinkBanner", { code: initialPromo.code })}
                   </span>
@@ -1373,7 +1373,7 @@ export function BookingSection({
                     </span>
                   )}
                   {initialPromo.recommender_name && (
-                    <span className="text-earth-600">
+                    <span className="text-ink-2">
                       {t("promoFromLinkRef", { name: initialPromo.recommender_name })}
                     </span>
                   )}
@@ -1393,14 +1393,14 @@ export function BookingSection({
                       <div
                         aria-current={isActive ? "step" : undefined}
                         className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors ${
-                          isActive || isCompleted ? 'bg-brand text-white' : 'bg-earth-100 text-earth-700'
+                          isActive || isCompleted ? 'bg-pine text-white' : 'bg-mist-2 text-ink-2'
                         }`}
                       >
                         {isCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
                       </div>
-                      {isActive && <span className="ml-2 whitespace-nowrap text-sm font-semibold text-earth-900">{stepLabels[s]}</span>}
+                      {isActive && <span className="ml-2 whitespace-nowrap text-sm font-semibold text-ink">{stepLabels[s]}</span>}
                       {i < steps.length - 1 && (
-                        <div className={`mx-1 h-px flex-1 ${currentStepIndex > i ? 'bg-earth-900' : 'bg-earth-200'}`} />
+                        <div className={`mx-1 h-px flex-1 ${currentStepIndex > i ? 'bg-pine' : 'bg-line'}`} />
                       )}
                     </div>
                   );
@@ -1414,7 +1414,7 @@ export function BookingSection({
                 onClick={() => { setShowTutorial(true); setCookie(TUTORIAL_COOKIE, "1", 365); }}
                 animate={pulseHelp ? { scale: [1, 1.08, 1, 1.08, 1] } : { scale: 1 }}
                 transition={{ duration: 1.2, ease: "easeInOut" }}
-                className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-brand-100 bg-brand-50 px-3 py-2 text-xs font-semibold text-brand transition-colors hover:bg-brand-100"
+                className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-pine-mist bg-pine-mist px-3 py-2 text-xs font-semibold text-pine transition-colors hover:bg-pine-mist"
               >
                 {tt("reopen")}
                 <HelpCircle className="h-3.5 w-3.5" />
@@ -1433,14 +1433,14 @@ export function BookingSection({
                       {!showOptions ? (
                         <motion.div key="dates-form" initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.25 }} className="space-y-5">
                           {/* ── Dates — mirrors the sticky bar, and opens the same picker ── */}
-                          <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">{t("selectDates")}</label>
+                          <label className="text-[13px] font-semibold text-ink-3">{t("selectDates")}</label>
                           <button
                             type="button"
                             onClick={() => setCalendarOpen(true)}
-                            className="w-full flex items-center justify-between p-3.5 rounded-xl border border-earth-200 bg-white text-sm font-medium text-earth-700 cursor-pointer transition-colors hover:border-earth-300 hover:bg-earth-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                            className="w-full flex items-center justify-between p-3.5 rounded-xl border border-line bg-white text-sm font-medium text-ink-2 cursor-pointer transition-colors hover:border-line-strong hover:bg-mist focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine"
                           >
                             <div className="flex items-center gap-2.5">
-                              <CalendarIcon size={16} className="text-earth-400" />
+                              <CalendarIcon size={16} className="text-ink-3" />
                               <span>
                                 {dateRange?.from ? (
                                   <>
@@ -1451,25 +1451,25 @@ export function BookingSection({
                               </span>
                             </div>
                             {nights > 0 && (
-                              <span className="text-earth-400 text-xs">{nights} {nights > 1 ? tc("nights") : tc("night")}</span>
+                              <span className="text-ink-3 text-xs">{nights} {nights > 1 ? tc("nights") : tc("night")}</span>
                             )}
                           </button>
 
                           {/* ── Selected rooms — one panel, three states, fixed position ──
                               Rooms are added from the cards above; this reviews the cart. */}
-                          <div className="space-y-2 pt-3 border-t border-earth-100">
-                            <label className="text-[13px] font-semibold uppercase tracking-[0.15em] text-earth-400">
+                          <div className="space-y-2 pt-3 border-t border-line">
+                            <label className="text-[13px] font-semibold text-ink-3">
                               {t("yourCart")}{cartLines.length > 0 ? ` (${cartLines.length})` : ""}
                             </label>
 
                             <div aria-live="polite">
                               {cartLines.length === 0 ? (
-                                <div className="rounded-2xl border border-earth-100 bg-earth-50 px-5 py-7 text-center">
-                                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white text-earth-400">
+                                <div className="rounded-2xl border border-line bg-mist px-5 py-7 text-center">
+                                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white text-ink-3">
                                     <BedDouble className="h-6 w-6" />
                                   </div>
-                                  <p className="text-sm font-semibold text-earth-900">{t("noRoomSelected")}</p>
-                                  <p className="mt-1 text-xs text-earth-500">
+                                  <p className="text-sm font-semibold text-ink">{t("noRoomSelected")}</p>
+                                  <p className="mt-1 text-xs text-ink-3">
                                     {!dateRange?.from
                                       ? t("noRoomSelectedNoDates")
                                       : nights < 1
@@ -1485,7 +1485,7 @@ export function BookingSection({
                                         ? setCalendarOpen(true)
                                         : document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" })
                                     }
-                                    className="mt-4 inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-full bg-brand px-6 text-sm font-bold text-white transition-colors hover:bg-brand-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
+                                    className="mt-4 inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-full bg-pine px-6 text-sm font-bold text-white transition-colors hover:bg-pine-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine"
                                   >
                                     {emptyCartNeedsDates ? t("selectDates") : t("viewRooms")}
                                     <ArrowRight size={16} />
@@ -1500,7 +1500,7 @@ export function BookingSection({
                                       <span>−฿{promoDiscount.toLocaleString()}</span>
                                     </div>
                                   )}
-                                  <div className="flex justify-between text-base font-bold text-earth-900 px-1 pt-1">
+                                  <div className="flex justify-between text-base font-bold text-ink px-1 pt-1">
                                     <span>{tc("total")}</span>
                                     <span>฿{totalPrice.toLocaleString()}</span>
                                   </div>
@@ -1511,11 +1511,11 @@ export function BookingSection({
 
                           {/* PDPA */}
                           <label className="flex items-start gap-2 cursor-pointer">
-                            <input type="checkbox" checked={pdpaConsent} onChange={(e) => setPdpaConsent(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 rounded border-earth-300 text-earth-900 focus:ring-earth-900" />
-                            <span className="text-xs text-earth-600">
+                            <input type="checkbox" checked={pdpaConsent} onChange={(e) => setPdpaConsent(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 rounded border-line-strong text-ink focus:ring-pine" />
+                            <span className="text-xs text-ink-2">
                               {t.rich("pdpaConsent", {
-                                privacy: (chunks) => <a href="/legal#privacy" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-earth-900">{chunks}</a>,
-                                terms: (chunks) => <a href="/legal#terms" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-earth-900">{chunks}</a>,
+                                privacy: (chunks) => <a href="/legal#privacy" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-ink">{chunks}</a>,
+                                terms: (chunks) => <a href="/legal#terms" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-ink">{chunks}</a>,
                               })}
                             </span>
                           </label>
@@ -1523,19 +1523,19 @@ export function BookingSection({
                           <button
                             onClick={handleProceedToDetails}
                             disabled={cartLines.length === 0 || !pdpaConsent}
-                            className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
+                            className="w-full bg-pine text-white px-10 py-4 rounded-full font-bold text-sm hover:bg-pine-hover transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed"
                           >
                             {t("continueDetails")} <ArrowRight size={18} />
                           </button>
-                          <p className="text-center text-xs text-earth-600">{cartLines.length > 0 && !pdpaConsent ? t("consentRequired") : t("subtitle")}</p>
+                          <p className="text-center text-xs text-ink-2">{cartLines.length > 0 && !pdpaConsent ? t("consentRequired") : t("subtitle")}</p>
                         </motion.div>
                       ) : showOptions ? (
                         <motion.div key="dates-options" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.25 }} className="space-y-4">
                           <div className="flex items-center gap-3">
-                            <button onClick={() => setShowOptions(false)} aria-label={tc("back")} className="-ml-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
-                            <h3 className="text-xl font-bold text-earth-900">{t("options")}</h3>
+                            <button onClick={() => setShowOptions(false)} aria-label={tc("back")} className="-ml-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-mist-2 text-ink-2"><ArrowLeft size={18} /></button>
+                            <h3 className="text-xl font-bold text-ink">{t("options")}</h3>
                           </div>
-                          <p className="text-sm text-earth-500">{t("optionsDesc")}</p>
+                          <p className="text-sm text-ink-3">{t("optionsDesc")}</p>
 
                           <div className="space-y-2">
                             {optionsForRoom.map((option) => {
@@ -1543,7 +1543,7 @@ export function BookingSection({
                               return (
                                 <label
                                   key={option.id}
-                                  className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${isChecked ? "border-brand bg-brand/5" : "border-earth-200 hover:border-earth-300"}`}
+                                  className={`flex items-center gap-3 p-3.5 rounded-xl border cursor-pointer transition-all ${isChecked ? "border-pine bg-pine/5" : "border-line hover:border-line-strong"}`}
                                 >
                                   <input
                                     type="checkbox"
@@ -1553,27 +1553,27 @@ export function BookingSection({
                                         isChecked ? prev.filter((id) => id !== option.id) : [...prev, option.id]
                                       );
                                     }}
-                                    className="h-4 w-4 rounded border-earth-300 text-brand focus:ring-brand"
+                                    className="h-4 w-4 rounded border-line-strong text-pine focus:ring-pine"
                                   />
                                   <div className="flex-1 min-w-0">
-                                    <p className="text-sm font-medium text-earth-900">{option.name}</p>
+                                    <p className="text-sm font-medium text-ink">{option.name}</p>
                                   </div>
-                                  <span className="text-sm font-semibold text-brand whitespace-nowrap">+฿{option.price.toLocaleString()}{option.pricing_type === "per_time" ? tc("perStay") : `/${tc("night")}`}</span>
+                                  <span className="text-sm font-semibold text-pine whitespace-nowrap">+฿{option.price.toLocaleString()}{option.pricing_type === "per_time" ? tc("perStay") : `/${tc("night")}`}</span>
                                 </label>
                               );
                             })}
                           </div>
 
                           {optionsTotal > 0 && (
-                            <div className="rounded-xl bg-earth-50 px-3 py-2 flex justify-between text-sm">
-                              <span className="text-earth-500">{t("optionsTotal")}</span>
-                              <span className="font-bold text-earth-900">+฿{optionsTotal.toLocaleString()}</span>
+                            <div className="rounded-xl bg-mist px-3 py-2 flex justify-between text-sm">
+                              <span className="text-ink-3">{t("optionsTotal")}</span>
+                              <span className="font-bold text-ink">+฿{optionsTotal.toLocaleString()}</span>
                             </div>
                           )}
 
                           <button
                             onClick={() => setShowOptions(false)}
-                            className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                            className="w-full bg-pine text-white px-10 py-4 rounded-full font-bold text-sm hover:bg-pine-hover transition-all flex items-center justify-center gap-2"
                           >
                             {tc("done")}
                           </button>
@@ -1590,42 +1590,42 @@ export function BookingSection({
                       {!showConfirmModal ? (
                         <motion.div key="form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} className="space-y-5">
                           <div className="flex items-center gap-3">
-                            <button onClick={() => setStep("dates")} aria-label={tc("back")} className="-ml-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
-                            <h3 className="text-xl font-bold text-earth-900">{t("guestInfo")}</h3>
+                            <button onClick={() => setStep("dates")} aria-label={tc("back")} className="-ml-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-mist-2 text-ink-2"><ArrowLeft size={18} /></button>
+                            <h3 className="text-xl font-bold text-ink">{t("guestInfo")}</h3>
                           </div>
 
                           <div className="space-y-4">
                             <div className="space-y-1.5">
-                              <label htmlFor="bk-name" className="text-sm font-semibold text-earth-700">{t("fullName")} <span className="text-red-500">*</span></label>
+                              <label htmlFor="bk-name" className="text-sm font-semibold text-ink-2">{t("fullName")} <span className="text-red-500">*</span></label>
                               <div className="relative">
-                                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-400" size={16} />
-                                <Input ref={nameInputRef} autoComplete="name" value={guestName} id="bk-name" aria-required="true" aria-invalid={!!errors.name} aria-describedby={errors.name ? "bk-name-error" : undefined} onChange={(e) => { setGuestName(e.target.value); if (errors.name) setErrors((p) => ({ ...p, name: undefined })); }} placeholder={t("fullNamePlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2 ${errors.name ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-500 hover:!border-earth-700"}`} />
+                                <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" size={16} />
+                                <Input ref={nameInputRef} autoComplete="name" value={guestName} id="bk-name" aria-required="true" aria-invalid={!!errors.name} aria-describedby={errors.name ? "bk-name-error" : undefined} onChange={(e) => { setGuestName(e.target.value); if (errors.name) setErrors((p) => ({ ...p, name: undefined })); }} placeholder={t("fullNamePlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-base md:text-sm font-medium text-ink !shadow-none focus-visible:!ring-2 focus-visible:!ring-pine focus-visible:!ring-offset-2 ${errors.name ? "!border-red-400 focus-visible:!border-red-400" : "!border-line-strong hover:!border-ink-2"}`} />
                               </div>
                               {errors.name && <p id="bk-name-error" role="alert" className="text-xs font-medium text-red-600">{errors.name}</p>}
                             </div>
 
                             <div className="space-y-1.5">
-                              <label htmlFor="bk-email" className="text-sm font-semibold text-earth-700">{t("email")} <span className="text-red-500">*</span></label>
+                              <label htmlFor="bk-email" className="text-sm font-semibold text-ink-2">{t("email")} <span className="text-red-500">*</span></label>
                               <div className="relative">
-                                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-400" size={16} />
-                                <Input ref={emailInputRef} type="email" autoComplete="email" value={guestEmail} id="bk-email" aria-required="true" aria-invalid={!!errors.email} aria-describedby={errors.email ? "bk-email-error" : undefined} onChange={(e) => { setGuestEmail(e.target.value); if (errors.email) setErrors((p) => ({ ...p, email: undefined })); }} placeholder={t("emailPlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2 ${errors.email ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-500 hover:!border-earth-700"}`} />
+                                <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" size={16} />
+                                <Input ref={emailInputRef} type="email" autoComplete="email" value={guestEmail} id="bk-email" aria-required="true" aria-invalid={!!errors.email} aria-describedby={errors.email ? "bk-email-error" : undefined} onChange={(e) => { setGuestEmail(e.target.value); if (errors.email) setErrors((p) => ({ ...p, email: undefined })); }} placeholder={t("emailPlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-base md:text-sm font-medium text-ink !shadow-none focus-visible:!ring-2 focus-visible:!ring-pine focus-visible:!ring-offset-2 ${errors.email ? "!border-red-400 focus-visible:!border-red-400" : "!border-line-strong hover:!border-ink-2"}`} />
                               </div>
                               {errors.email && <p id="bk-email-error" role="alert" className="text-xs font-medium text-red-600">{errors.email}</p>}
                             </div>
 
                             <div className="space-y-1.5">
-                              <label htmlFor="bk-phone" className="text-sm font-semibold text-earth-700">{t("phone")} <span className="text-red-500">*</span></label>
+                              <label htmlFor="bk-phone" className="text-sm font-semibold text-ink-2">{t("phone")} <span className="text-red-500">*</span></label>
                               <div className="relative">
-                                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-400" size={16} />
-                                <Input ref={phoneInputRef} type="tel" autoComplete="tel" inputMode="numeric" maxLength={10} value={guestPhone} id="bk-phone" aria-required="true" aria-invalid={!!errors.phone} aria-describedby={errors.phone ? "bk-phone-error" : undefined} onChange={(e) => { setGuestPhone(sanitizePhoneInput(e.target.value)); if (errors.phone) setErrors((p) => ({ ...p, phone: undefined })); }} placeholder={t("phonePlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2 ${errors.phone ? "!border-red-400 focus-visible:!border-red-400" : "!border-earth-500 hover:!border-earth-700"}`} />
+                                <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-ink-3" size={16} />
+                                <Input ref={phoneInputRef} type="tel" autoComplete="tel" inputMode="numeric" maxLength={10} value={guestPhone} id="bk-phone" aria-required="true" aria-invalid={!!errors.phone} aria-describedby={errors.phone ? "bk-phone-error" : undefined} onChange={(e) => { setGuestPhone(sanitizePhoneInput(e.target.value)); if (errors.phone) setErrors((p) => ({ ...p, phone: undefined })); }} placeholder={t("phonePlaceholder")} className={`!pl-10 p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-base md:text-sm font-medium text-ink !shadow-none focus-visible:!ring-2 focus-visible:!ring-pine focus-visible:!ring-offset-2 ${errors.phone ? "!border-red-400 focus-visible:!border-red-400" : "!border-line-strong hover:!border-ink-2"}`} />
                               </div>
                               {errors.phone && <p id="bk-phone-error" role="alert" className="text-xs font-medium text-red-600">{errors.phone}</p>}
                             </div>
 
                             <div className="space-y-1.5">
-                              <label htmlFor="bk-province" className="text-sm font-semibold text-earth-700">{t("province")}</label>
+                              <label htmlFor="bk-province" className="text-sm font-semibold text-ink-2">{t("province")}</label>
                               <Select value={guestProvince} onValueChange={setGuestProvince}>
-                                <SelectTrigger id="bk-province" className="!w-full p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2 !border-earth-500 hover:!border-earth-700">
+                                <SelectTrigger id="bk-province" className="!w-full p-3.5 !h-auto rounded-xl !border !bg-white transition-all text-base md:text-sm font-medium text-ink !shadow-none focus-visible:!ring-2 focus-visible:!ring-pine focus-visible:!ring-offset-2 !border-line-strong hover:!border-ink-2">
                                   <SelectValue placeholder={t("provincePlaceholder")} />
                                 </SelectTrigger>
                                 <SelectContent className="max-h-60 z-70">
@@ -1639,13 +1639,13 @@ export function BookingSection({
                             </div>
 
                             <div className="space-y-1.5">
-                              <label htmlFor="bk-note" className="text-sm font-semibold text-earth-700">{t("notes")}</label>
-                              <Textarea id="bk-note" value={guestNote} onChange={(e) => setGuestNote(e.target.value)} placeholder={t("notesPlaceholder")} className="p-3.5 !h-auto rounded-xl !border !border-earth-500 !bg-white hover:!border-earth-700 transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2" rows={2} />
+                              <label htmlFor="bk-note" className="text-sm font-semibold text-ink-2">{t("notes")}</label>
+                              <Textarea id="bk-note" value={guestNote} onChange={(e) => setGuestNote(e.target.value)} placeholder={t("notesPlaceholder")} className="p-3.5 !h-auto rounded-xl !border !border-line-strong !bg-white hover:!border-ink-2 transition-all text-base md:text-sm font-medium text-ink !shadow-none focus-visible:!ring-2 focus-visible:!ring-pine focus-visible:!ring-offset-2" rows={2} />
                             </div>
 
                             {homestay.promo_codes_enabled && (
                               <div className="space-y-1.5">
-                                <label htmlFor="bk-promo" className="text-sm font-semibold text-earth-700">{t("promoLabel")}</label>
+                                <label htmlFor="bk-promo" className="text-sm font-semibold text-ink-2">{t("promoLabel")}</label>
                                 {appliedPromo ? (
                                   <div className="flex items-center justify-between rounded-xl border border-emerald-200 bg-emerald-50 p-3">
                                     <div className="flex items-center gap-2 text-sm">
@@ -1670,13 +1670,13 @@ export function BookingSection({
                                       value={promoInput}
                                       onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
                                       placeholder={t("promoPlaceholder")}
-                                      className="flex-1 !p-3.5 !h-auto rounded-xl !border !border-earth-500 !bg-white hover:!border-earth-700 transition-all text-base md:text-sm font-mono uppercase text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2"
+                                      className="flex-1 !p-3.5 !h-auto rounded-xl !border !border-line-strong !bg-white hover:!border-ink-2 transition-all text-base md:text-sm font-mono uppercase text-ink !shadow-none focus-visible:!ring-2 focus-visible:!ring-pine focus-visible:!ring-offset-2"
                                     />
                                     <button
                                       type="button"
                                       disabled={promoApplying || !promoInput.trim() || subtotalPrice <= 0}
                                       onClick={() => handleApplyPromo()}
-                                      className="rounded-xl border border-earth-900 bg-earth-900 px-4 text-sm font-semibold text-white transition-colors hover:bg-earth-800 disabled:opacity-40"
+                                      className="rounded-xl border border-pine bg-pine px-4 text-sm font-semibold text-white transition-colors hover:bg-pine-hover disabled:opacity-40"
                                     >
                                       {promoApplying ? <Loader2 className="h-4 w-4 animate-spin" /> : t("promoApply")}
                                     </button>
@@ -1693,7 +1693,7 @@ export function BookingSection({
                               if (Object.keys(formErrors).length > 0) { focusFirstError(formErrors); return; }
                               setShowConfirmModal(true);
                             }}
-                            className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2"
+                            className="w-full bg-pine text-white px-10 py-4 rounded-full font-bold text-sm hover:bg-pine-hover transition-all flex items-center justify-center gap-2"
                           >
                             {t("continuePayment")} <ArrowRight size={18} />
                           </button>
@@ -1701,26 +1701,26 @@ export function BookingSection({
                       ) : (
                         <motion.div key="confirm" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }} className="space-y-5">
                           <div className="flex items-center gap-3">
-                            <button onClick={() => setShowConfirmModal(false)} aria-label={tc("back")} className="-ml-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
-                            <h3 className="text-xl font-bold text-earth-900">{t("confirmTitle")}</h3>
+                            <button onClick={() => setShowConfirmModal(false)} aria-label={tc("back")} className="-ml-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-mist-2 text-ink-2"><ArrowLeft size={18} /></button>
+                            <h3 className="text-xl font-bold text-ink">{t("confirmTitle")}</h3>
                           </div>
-                          <p className="text-sm text-earth-500">{t("confirmDesc")}</p>
-                          <div className="space-y-3 rounded-xl bg-earth-50 p-4 text-sm">
+                          <p className="text-sm text-ink-3">{t("confirmDesc")}</p>
+                          <div className="space-y-3 rounded-xl bg-mist p-4 text-sm">
                             <div className="flex justify-between">
-                              <span className="text-earth-500">{t("dates")}</span>
-                              <span className="font-medium text-earth-900">
+                              <span className="text-ink-3">{t("dates")}</span>
+                              <span className="font-medium text-ink">
                                 {dateRange?.from && fmtDate(dateRange.from, "MMM d", locale)} — {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy", locale)}
                               </span>
                             </div>
                             {(homestay.check_in_time || homestay.check_out_time) && (
                               <div className="flex justify-between text-xs">
-                                <span className="text-earth-400">{homestay.check_in_time && t("checkInTime", { time: homestay.check_in_time })}</span>
-                                <span className="text-earth-400">{homestay.check_out_time && t("checkOutTime", { time: homestay.check_out_time })}</span>
+                                <span className="text-ink-3">{homestay.check_in_time && t("checkInTime", { time: homestay.check_in_time })}</span>
+                                <span className="text-ink-3">{homestay.check_out_time && t("checkOutTime", { time: homestay.check_out_time })}</span>
                               </div>
                             )}
                             {/* Rooms in cart (shared dates) */}
                             <div className="space-y-2">
-                              <span className="text-earth-500">{t("yourCart")} ({cartLines.length})</span>
+                              <span className="text-ink-3">{t("yourCart")} ({cartLines.length})</span>
                               {cartLines.map((line) => {
                                 const room = rooms.find((r) => r.id === line.roomId);
                                 const guestLabel = composeLineGuestLabel(
@@ -1732,12 +1732,12 @@ export function BookingSection({
                                 );
                                 const gross = computeLineGross(line);
                                 return (
-                                  <div key={line.lineId} className="rounded-lg bg-white border border-earth-100 p-2.5">
+                                  <div key={line.lineId} className="rounded-lg bg-white border border-line p-2.5">
                                     <div className="flex justify-between">
-                                      <span className="font-medium text-earth-900">{room?.name}</span>
-                                      <span className="font-medium text-earth-900">฿{gross.toLocaleString()}</span>
+                                      <span className="font-medium text-ink">{room?.name}</span>
+                                      <span className="font-medium text-ink">฿{gross.toLocaleString()}</span>
                                     </div>
-                                    <div className="text-xs text-earth-400">
+                                    <div className="text-xs text-ink-3">
                                       {guestLabel}
                                       {line.optionIds.length > 0 ? ` · ${t("optionsSelected", { count: line.optionIds.length })}` : ""}
                                     </div>
@@ -1747,27 +1747,27 @@ export function BookingSection({
                             </div>
                             <Separator />
                             <div className="flex justify-between">
-                              <span className="text-earth-500">{t("fullName")}</span>
-                              <span className="font-medium text-earth-900">{guestName}</span>
+                              <span className="text-ink-3">{t("fullName")}</span>
+                              <span className="font-medium text-ink">{guestName}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-earth-500">{t("email")}</span>
-                              <span className="font-medium text-earth-900">{guestEmail}</span>
+                              <span className="text-ink-3">{t("email")}</span>
+                              <span className="font-medium text-ink">{guestEmail}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-earth-500">{t("phone")}</span>
-                              <span className="font-medium text-earth-900">{guestPhone}</span>
+                              <span className="text-ink-3">{t("phone")}</span>
+                              <span className="font-medium text-ink">{guestPhone}</span>
                             </div>
                             {guestProvince && (
                               <div className="flex justify-between">
-                                <span className="text-earth-500">{t("province")}</span>
-                                <span className="font-medium text-earth-900">{provinceLabel(guestProvince)}</span>
+                                <span className="text-ink-3">{t("province")}</span>
+                                <span className="font-medium text-ink">{provinceLabel(guestProvince)}</span>
                               </div>
                             )}
                             {guestNote && (
                               <div className="flex justify-between">
-                                <span className="text-earth-500">{t("notes")}</span>
-                                <span className="font-medium text-earth-900 text-right max-w-[200px]">{guestNote}</span>
+                                <span className="text-ink-3">{t("notes")}</span>
+                                <span className="font-medium text-ink text-right max-w-[200px]">{guestNote}</span>
                               </div>
                             )}
                             <Separator />
@@ -1778,11 +1778,11 @@ export function BookingSection({
                               </div>
                             )}
                             <div className="flex justify-between">
-                              <span className="font-semibold text-earth-900">{tc("total")}</span>
-                              <span className="text-lg font-bold text-earth-900">฿{totalPrice.toLocaleString()}</span>
+                              <span className="font-semibold text-ink">{tc("total")}</span>
+                              <span className="text-lg font-bold text-ink">฿{totalPrice.toLocaleString()}</span>
                             </div>
                             {depositAvailable && (
-                              <div className="flex justify-between text-xs text-earth-400">
+                              <div className="flex justify-between text-xs text-ink-3">
                                 <span>{t("payDeposit")}: ฿{resolvedDeposit.toLocaleString()}</span>
                                 <span>{t("payFull")}: ฿{totalPrice.toLocaleString()}</span>
                               </div>
@@ -1794,14 +1794,14 @@ export function BookingSection({
                           <div className="flex flex-col sm:flex-row gap-3">
                             <button
                               onClick={() => setShowConfirmModal(false)}
-                              className="flex-1 py-3 rounded-2xl font-bold text-sm border border-earth-200 text-earth-700 hover:bg-earth-50 transition-all"
+                              className="flex-1 py-3 rounded-2xl font-bold text-sm border border-line text-ink-2 hover:bg-mist transition-all"
                             >
                               {t("confirmEdit")}
                             </button>
                             <button
                               disabled={isSubmitting}
                               onClick={() => { setShowConfirmModal(false); handleProceedToPayment(); }}
-                              className="flex-1 bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50"
+                              className="flex-1 bg-pine text-white px-10 py-4 rounded-full font-bold text-sm hover:bg-pine-hover transition-all flex items-center justify-center gap-2 disabled:opacity-50"
                             >
                               {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin" />{t("confirmProceed")}</>) : <>{t("confirmProceed")} <ArrowRight size={18} /></>}
                             </button>
@@ -1818,12 +1818,12 @@ export function BookingSection({
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
                         {paymentPhase === "qr" && (
-                          <button onClick={() => { releaseHold(); setStep("details"); setPaymentPhase("qr"); }} aria-label={tc("back")} className="-ml-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
+                          <button onClick={() => { releaseHold(); setStep("details"); setPaymentPhase("qr"); }} aria-label={tc("back")} className="-ml-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-mist-2 text-ink-2"><ArrowLeft size={18} /></button>
                         )}
                         {paymentPhase === "upload" && (
-                          <button onClick={() => setPaymentPhase("qr")} aria-label={tc("back")} className="-ml-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-earth-100 text-earth-700"><ArrowLeft size={18} /></button>
+                          <button onClick={() => setPaymentPhase("qr")} aria-label={tc("back")} className="-ml-1 -mr-2 flex size-11 shrink-0 items-center justify-center rounded-full hover:bg-mist-2 text-ink-2"><ArrowLeft size={18} /></button>
                         )}
-                        <h3 className="text-xl font-bold text-earth-900">{t("paymentTitle")}</h3>
+                        <h3 className="text-xl font-bold text-ink">{t("paymentTitle")}</h3>
                       </div>
                       <HoldCountdown expiresAt={step === "payment" ? holdExpiresAt : null} onExpire={handleHoldExpired} />
                     </div>
@@ -1832,16 +1832,16 @@ export function BookingSection({
                     {depositAvailable && paymentPhase === "qr" && (
                       <div className="grid grid-cols-2 gap-3">
                         <button type="button" onClick={() => setPaymentOption("full")}
-                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "full" ? "border-brand bg-brand-50" : "border-earth-100 hover:border-earth-300"}`}>
-                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "full" ? "bg-brand text-white" : "bg-earth-100 text-earth-400"}`}><CreditCard size={18} /></div>
-                          <p className="font-bold text-earth-900">{t("payFull")}</p>
-                          <p className="text-sm text-earth-700">฿{totalPrice.toLocaleString()}</p>
+                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "full" ? "border-pine bg-pine-mist" : "border-line hover:border-line-strong"}`}>
+                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "full" ? "bg-pine text-white" : "bg-mist-2 text-ink-3"}`}><CreditCard size={18} /></div>
+                          <p className="font-bold text-ink">{t("payFull")}</p>
+                          <p className="text-sm text-ink-2">฿{totalPrice.toLocaleString()}</p>
                         </button>
                         <button type="button" onClick={() => setPaymentOption("deposit")}
-                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "deposit" ? "border-brand bg-brand-50" : "border-earth-100 hover:border-earth-300"}`}>
-                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "deposit" ? "bg-brand text-white" : "bg-earth-100 text-earth-400"}`}><CreditCard size={18} /></div>
-                          <p className="font-bold text-earth-900">{t("payDeposit")}</p>
-                          <p className="text-sm text-earth-700">฿{resolvedDeposit.toLocaleString()}</p>
+                          className={`rounded-2xl border-2 p-3 text-left text-sm transition-all ${paymentOption === "deposit" ? "border-pine bg-pine-mist" : "border-line hover:border-line-strong"}`}>
+                          <div className={`p-2 rounded-xl inline-block mb-1 ${paymentOption === "deposit" ? "bg-pine text-white" : "bg-mist-2 text-ink-3"}`}><CreditCard size={18} /></div>
+                          <p className="font-bold text-ink">{t("payDeposit")}</p>
+                          <p className="text-sm text-ink-2">฿{resolvedDeposit.toLocaleString()}</p>
                         </button>
                       </div>
                     )}
@@ -1851,57 +1851,57 @@ export function BookingSection({
                       {paymentPhase === "qr" && (
                         <motion.div key="qr" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-4">
                           {/* Step 1 (save the QR) only makes sense on a phone; hidden items don't take a number. */}
-                          <ol className="list-decimal space-y-1 rounded-2xl bg-earth-50 py-3 pl-9 pr-4 text-sm text-earth-700 marker:font-semibold">
+                          <ol className="list-decimal space-y-1 rounded-2xl bg-mist py-3 pl-9 pr-4 text-sm text-ink-2 marker:font-semibold">
                             {!payByBank && <li className="md:hidden">{t("payStep1")}</li>}
                             {!payByBank && <li>{t("payStep2")}</li>}
                             <li>{t("payStep3")}</li>
                             <li>{normalEnabled ? t("payStep4") : t("quickPayStep4")}</li>
                           </ol>
-                          <div className="flex flex-col items-center p-5 bg-earth-50 rounded-2xl border border-earth-100">
+                          <div className="flex flex-col items-center p-5 bg-mist rounded-2xl border border-line">
                             {host.payment_display === "bank" && host.bank_name && host.bank_account_number && host.bank_account_name ? (
                               <>
-                                <p className="text-sm text-earth-600 mb-3">{t("bankTransferTitle")}</p>
-                                <div className="w-full space-y-2 bg-white rounded-xl p-4 border border-earth-100">
+                                <p className="text-sm text-ink-2 mb-3">{t("bankTransferTitle")}</p>
+                                <div className="w-full space-y-2 bg-white rounded-xl p-4 border border-line">
                                   <div className="flex justify-between text-sm">
-                                    <span className="text-earth-600">{t("bankTransferTitle")}</span>
-                                    <span className="font-medium text-earth-900">{host.bank_name}</span>
+                                    <span className="text-ink-2">{t("bankTransferTitle")}</span>
+                                    <span className="font-medium text-ink">{host.bank_name}</span>
                                   </div>
                                   <Separator />
                                   <div className="flex justify-between text-sm">
-                                    <span className="text-earth-600">{t("bankAccountNo")}</span>
-                                    <span className="font-mono font-medium text-earth-900">{host.bank_account_number}</span>
+                                    <span className="text-ink-2">{t("bankAccountNo")}</span>
+                                    <span className="font-mono font-medium text-ink">{host.bank_account_number}</span>
                                   </div>
                                   <Separator />
                                   <div className="flex justify-between text-sm">
-                                    <span className="text-earth-600">{t("bankAccountHolderName")}</span>
-                                    <span className="font-medium text-earth-900">{host.bank_account_name}</span>
+                                    <span className="text-ink-2">{t("bankAccountHolderName")}</span>
+                                    <span className="font-medium text-ink">{host.bank_account_name}</span>
                                   </div>
                                 </div>
                               </>
                             ) : (
                               <>
-                                <p className="text-sm text-earth-600 mb-3">{t("scanQr")}</p>
+                                <p className="text-sm text-ink-2 mb-3">{t("scanQr")}</p>
                                 <div ref={qrContainerRef} className="bg-white p-3 rounded-2xl shadow-sm">
                                   <QRCodeSVG value={generatePayload(host.promptpay_id, { amount: paymentAmount })} size={160} level="M" />
                                 </div>
-                                <button type="button" onClick={handleSaveQr} className="mt-3 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full border border-earth-200 bg-white px-4 py-1.5 text-sm font-medium text-earth-700 hover:bg-earth-50 md:min-h-0 md:w-auto md:text-xs">
+                                <button type="button" onClick={handleSaveQr} className="mt-3 flex min-h-11 w-full items-center justify-center gap-1.5 rounded-full border border-line bg-white px-4 py-1.5 text-sm font-medium text-ink-2 hover:bg-mist md:min-h-0 md:w-auto md:text-xs">
                                   <Download className="h-3.5 w-3.5" />{t("saveQrImage")}
                                 </button>
                               </>
                             )}
-                            <p className="mt-3 text-2xl font-bold text-earth-900">฿{paymentAmount.toLocaleString()}</p>
+                            <p className="mt-3 text-2xl font-bold text-ink">฿{paymentAmount.toLocaleString()}</p>
                             {paymentOption === "deposit" && depositAvailable && (
                               <p className="mt-1 text-sm text-amber-800">{t("balanceDue")}: ฿{(totalPrice - paymentAmount).toLocaleString()} — {t("payOnArrival")}</p>
                             )}
-                            <p className="mt-1 text-sm font-medium text-earth-700">{host.name}</p>
+                            <p className="mt-1 text-sm font-medium text-ink-2">{host.name}</p>
                             {host.payment_display !== "bank" && (
-                              <p className="text-sm text-earth-600">{t("promptpayId")}: {host.promptpay_id}</p>
+                              <p className="text-sm text-ink-2">{t("promptpayId")}: {host.promptpay_id}</p>
                             )}
                           </div>
 
                           {!normalEnabled && (
-                            <div className="flex gap-3 rounded-2xl bg-brand-50 p-4 text-sm text-brand-700" data-testid="quick-no-slip-notice">
-                              <MessageCircle className="mt-0.5 h-5 w-5 shrink-0 text-brand" aria-hidden="true" />
+                            <div className="flex gap-3 rounded-2xl bg-pine-mist p-4 text-sm text-pine-deep" data-testid="quick-no-slip-notice">
+                              <MessageCircle className="mt-0.5 h-5 w-5 shrink-0 text-pine" aria-hidden="true" />
                               <div className="space-y-1">
                                 <p className="font-semibold">{t("quickNoSlipTitle")}</p>
                                 <p className="leading-relaxed">{t("quickNoSlipDesc")}</p>
@@ -1934,12 +1934,12 @@ export function BookingSection({
 
                           {normalEnabled ? (
                             <button onClick={() => setPaymentPhase("upload")}
-                              className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2">
+                              className="w-full bg-pine text-white px-10 py-4 rounded-full font-bold text-sm hover:bg-pine-hover transition-all flex items-center justify-center gap-2">
                               <CheckCircle2 className="h-4 w-4" />{t("iveTransferred")}
                             </button>
                           ) : (
                             <button onClick={handleSubmitQuick} disabled={isSubmitting || !turnstilePassed}
-                              className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                              className="w-full bg-pine text-white px-10 py-4 rounded-full font-bold text-sm hover:bg-pine-hover transition-all flex items-center justify-center gap-2 disabled:opacity-50 disabled:cursor-not-allowed">
                               {isSubmitting ? <Loader2 className="h-4 w-4 animate-spin" /> : <CheckCircle2 className="h-4 w-4" />}
                               {t("quickSubmit")}
                             </button>
@@ -1947,7 +1947,7 @@ export function BookingSection({
 
                           {normalEnabled && quickEnabled && (
                             <button type="button" onClick={handleSubmitQuick} disabled={isSubmitting || !turnstilePassed}
-                              className="flex min-h-11 w-full items-center justify-center rounded-full border border-earth-200 bg-white px-6 py-2.5 text-center text-sm font-medium text-earth-800 transition-colors hover:bg-earth-50 disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand">
+                              className="flex min-h-11 w-full items-center justify-center rounded-full border border-line bg-white px-6 py-2.5 text-center text-sm font-medium text-ink transition-colors hover:bg-mist disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine">
                               {t("quickSubmitAlt")}
                             </button>
                           )}
@@ -1958,24 +1958,24 @@ export function BookingSection({
                       {paymentPhase === "upload" && (
                         <motion.div key="upload" initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -8 }} className="space-y-4">
                           <div className="text-center">
-                            {showWelcomeBack && <div className="mb-3 rounded-xl bg-earth-100 px-4 py-2.5 text-sm font-medium text-earth-900">{t("welcomeBack")}</div>}
-                            <Upload className="mx-auto h-8 w-8 text-earth-300" />
-                            <h4 className="mt-2 text-base font-bold text-earth-900">{t("waitingForSlip")}</h4>
-                            <p className="mt-1 text-xs text-earth-600">{t("waitingForSlipDesc")}</p>
-                            <p className="mt-2 text-lg font-bold text-earth-900">฿{paymentAmount.toLocaleString()}</p>
+                            {showWelcomeBack && <div className="mb-3 rounded-xl bg-mist-2 px-4 py-2.5 text-sm font-medium text-ink">{t("welcomeBack")}</div>}
+                            <Upload className="mx-auto h-8 w-8 text-line-strong" />
+                            <h4 className="mt-2 text-base font-bold text-ink">{t("waitingForSlip")}</h4>
+                            <p className="mt-1 text-xs text-ink-2">{t("waitingForSlipDesc")}</p>
+                            <p className="mt-2 text-lg font-bold text-ink">฿{paymentAmount.toLocaleString()}</p>
                             {paymentOption === "deposit" && depositAvailable && (
                               <p className="mt-1 text-sm text-amber-800">{t("balanceDue")}: ฿{(totalPrice - paymentAmount).toLocaleString()} — {t("payOnArrival")}</p>
                             )}
                           </div>
 
                           {slipPreview ? (
-                            <div className="rounded-2xl border bg-earth-50 p-3">
+                            <div className="rounded-2xl border bg-mist p-3">
                               {phoneSlipReceived && (
-                                <div className="mb-3 rounded-xl bg-earth-100 px-3 py-2 text-center text-sm font-medium text-earth-900">
+                                <div className="mb-3 rounded-xl bg-mist-2 px-3 py-2 text-center text-sm font-medium text-ink">
                                   <CheckCircle2 className="mr-1.5 inline h-4 w-4" />{t("slipReceived")}
                                 </div>
                               )}
-                              <p className="mb-2 text-center text-xs font-medium text-earth-600">{t("slipPreview")}</p>
+                              <p className="mb-2 text-center text-xs font-medium text-ink-2">{t("slipPreview")}</p>
                               <div className="relative mx-auto w-fit">
                                 <img src={slipPreview} alt={t("slipPreview")} className="mx-auto max-h-52 rounded-xl object-contain" />
                                 <button type="button" aria-label={t("removeSlip")} onClick={handleRemoveSlip} className="absolute right-1.5 top-1.5 flex h-9 w-9 items-center justify-center rounded-full bg-red-500 text-white shadow-md hover:bg-red-600"><X className="h-4 w-4" /></button>
@@ -1989,26 +1989,26 @@ export function BookingSection({
                           ) : (
                             <div className="space-y-3">
                               <button type="button" onClick={() => galleryInputRef.current?.click()}
-                                className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-earth-300 p-4 text-left transition-colors hover:border-earth-400 hover:bg-earth-50">
-                                <div className="rounded-xl bg-earth-100 p-2.5"><ImageIcon className="h-5 w-5 text-earth-500" /></div>
+                                className="flex w-full items-center gap-4 rounded-2xl border-2 border-dashed border-line-strong p-4 text-left transition-colors hover:border-line-strong hover:bg-mist">
+                                <div className="rounded-xl bg-mist-2 p-2.5"><ImageIcon className="h-5 w-5 text-ink-3" /></div>
                                 <div>
-                                  <p className="text-sm font-medium text-earth-700">{t("chooseFromGallery")}</p>
-                                  <p className="text-xs text-earth-600">{t("clickUpload")}</p>
+                                  <p className="text-sm font-medium text-ink-2">{t("chooseFromGallery")}</p>
+                                  <p className="text-xs text-ink-2">{t("clickUpload")}</p>
                                 </div>
                               </button>
                               {!isMobile && (
                                 <>
                                   <div className="relative flex items-center gap-3 py-1">
-                                    <div className="flex-1 border-t border-earth-200" />
-                                    <span className="text-xs font-medium text-earth-600">{t("orUploadFromPhone")}</span>
-                                    <div className="flex-1 border-t border-earth-200" />
+                                    <div className="flex-1 border-t border-line" />
+                                    <span className="text-xs font-medium text-ink-2">{t("orUploadFromPhone")}</span>
+                                    <div className="flex-1 border-t border-line" />
                                   </div>
-                                  <div className="rounded-2xl border bg-earth-50 p-4 text-center">
-                                    <p className="mb-3 text-xs text-earth-600">{t("scanToUpload")}</p>
+                                  <div className="rounded-2xl border bg-mist p-4 text-center">
+                                    <p className="mb-3 text-xs text-ink-2">{t("scanToUpload")}</p>
                                     <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-xl border bg-white p-2">
                                       <QRCodeSVG value={`${typeof window !== "undefined" ? window.location.origin : ""}/upload-slip/${uploadSessionId}`} size={100} level="M" />
                                     </div>
-                                    <div className="mt-3 flex items-center justify-center gap-2 text-xs text-earth-600">
+                                    <div className="mt-3 flex items-center justify-center gap-2 text-xs text-ink-2">
                                       <Loader2 className="h-3 w-3 animate-spin" />{t("waitingForPhoneUpload")}
                                     </div>
                                   </div>
@@ -2016,10 +2016,10 @@ export function BookingSection({
                               )}
                             </div>
                           )}
-                          <p className="text-sm text-earth-600 text-center">{t("slipVerify")}</p>
+                          <p className="text-sm text-ink-2 text-center">{t("slipVerify")}</p>
 
                           <button onClick={handleSubmitBooking} disabled={isSubmitting || !slipFile}
-                            className="w-full bg-brand text-white px-10 py-4 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl disabled:opacity-50 disabled:cursor-not-allowed">
+                            className="w-full bg-pine text-white px-10 py-4 rounded-full font-bold text-sm hover:bg-pine-hover transition-all disabled:opacity-50 disabled:cursor-not-allowed">
                             {isSubmitting ? (<><Loader2 className="mr-2 h-4 w-4 animate-spin inline" />{t("verifying")}</>) : t("submitBooking")}
                           </button>
                         </motion.div>
@@ -2052,10 +2052,10 @@ export function BookingSection({
               {slipVerified ? <CheckCircle2 size={36} /> : <Clock size={36} />}
             </div>
             <DialogHeader className="space-y-1">
-              <DialogTitle className="text-2xl font-bold text-earth-900 text-center">
+              <DialogTitle className="text-2xl font-bold text-ink text-center">
                 {slipVerified ? t("confirmedTitle") : quickPlaced ? t("quickPlacedTitle") : t("confirmedTitlePending")}
               </DialogTitle>
-              <DialogDescription className="text-sm text-earth-500 text-center">
+              <DialogDescription className="text-sm text-ink-3 text-center">
                 {slipVerified ? t("confirmedText") : quickPlaced ? t("quickPlacedText") : t("confirmedTextPending")}
               </DialogDescription>
             </DialogHeader>
@@ -2068,52 +2068,52 @@ export function BookingSection({
               />
             )}
             {bookingId && !quickPlaced && (
-              <Badge className="mt-3 bg-earth-100 text-earth-900" variant="secondary">
+              <Badge className="mt-3 bg-mist-2 text-ink" variant="secondary">
                 {t("bookingId")}: {bookingId}
               </Badge>
             )}
-            <div className="mt-3 mb-4 flex flex-col items-center gap-0.5 text-sm text-earth-500">
+            <div className="mt-3 mb-4 flex flex-col items-center gap-0.5 text-sm text-ink-3">
               <span className="flex items-center gap-1.5"><Mail size={14} className="shrink-0" />{t("checkEmailForDetails")}</span>
-              <span className="font-medium text-earth-900 break-all">{guestEmail}</span>
+              <span className="font-medium text-ink break-all">{guestEmail}</span>
             </div>
 
-            <div className="bg-earth-50 p-5 rounded-2xl w-full text-left space-y-2.5 text-sm mt-2">
+            <div className="bg-mist p-5 rounded-2xl w-full text-left space-y-2.5 text-sm mt-2">
               <div className="flex justify-between">
-                <span className="text-earth-600">{t("homestay")}</span>
-                <span className="font-bold text-earth-900">{homestay.name}</span>
+                <span className="text-ink-2">{t("homestay")}</span>
+                <span className="font-bold text-ink">{homestay.name}</span>
               </div>
               <div className="space-y-1.5">
-                <span className="text-earth-600">{t("yourCart")} ({cartLines.length})</span>
+                <span className="text-ink-2">{t("yourCart")} ({cartLines.length})</span>
                 {cartLines.map((line) => {
                   const room = rooms.find((r) => r.id === line.roomId);
                   return (
                     <div key={line.lineId} className="flex justify-between">
-                      <span className="font-medium text-earth-900">{room?.name}</span>
-                      <span className="font-medium text-earth-900">฿{computeLineGross(line).toLocaleString()}</span>
+                      <span className="font-medium text-ink">{room?.name}</span>
+                      <span className="font-medium text-ink">฿{computeLineGross(line).toLocaleString()}</span>
                     </div>
                   );
                 })}
               </div>
               <div className="flex justify-between">
-                <span className="text-earth-600">{t("dates")}</span>
-                <span className="font-bold text-earth-900">
+                <span className="text-ink-2">{t("dates")}</span>
+                <span className="font-bold text-ink">
                   {dateRange?.from && fmtDate(dateRange.from, "MMM d", locale)} — {dateRange?.to && fmtDate(dateRange.to, "MMM d, yyyy", locale)}
                 </span>
               </div>
               <div className="flex justify-between">
-                <span className="text-earth-600">{t("guestInfo")}</span>
-                <span className="font-bold text-earth-900">{guestName}</span>
+                <span className="text-ink-2">{t("guestInfo")}</span>
+                <span className="font-bold text-ink">{guestName}</span>
               </div>
               <Separator />
               <div className="flex justify-between">
-                <span className="text-earth-600">{tc("total")}</span>
-                <span className="text-lg font-bold text-earth-900">฿{totalPrice.toLocaleString()}</span>
+                <span className="text-ink-2">{tc("total")}</span>
+                <span className="text-lg font-bold text-ink">฿{totalPrice.toLocaleString()}</span>
               </div>
               {paymentOption === "deposit" && depositAvailable && (
                 <>
                   <div className="flex justify-between text-xs">
-                    <span className="text-earth-600">{quickPlaced ? t("amountToTransfer") : t("amountPaid")}</span>
-                    <span className="text-earth-900">฿{paymentAmount.toLocaleString()}</span>
+                    <span className="text-ink-2">{quickPlaced ? t("amountToTransfer") : t("amountPaid")}</span>
+                    <span className="text-ink">฿{paymentAmount.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between text-xs">
                     <span className="text-amber-800">{t("balanceDue")}</span>
@@ -2125,11 +2125,11 @@ export function BookingSection({
 
             <div className="flex gap-3 w-full mt-5">
               <button onClick={() => { resetBooking(); }}
-                className="flex-1 bg-brand text-white px-6 py-3 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl">
+                className="flex-1 bg-pine text-white px-6 py-3 rounded-full font-bold text-sm hover:bg-pine-hover transition-all">
                 {t("bookAnother")}
               </button>
               <button onClick={() => { setShowConfirmedModal(false); resetBooking(); }}
-                className="flex-1 py-3 rounded-full font-bold text-sm border border-earth-200 text-earth-700 hover:bg-earth-50 transition-all">
+                className="flex-1 py-3 rounded-full font-bold text-sm border border-line text-ink-2 hover:bg-mist transition-all">
                 {t("confirmedClose")}
               </button>
             </div>
@@ -2148,7 +2148,7 @@ export function BookingSection({
             <DialogDescription className="text-center">{t("datesHeldDesc")}</DialogDescription>
           </DialogHeader>
           <DialogFooter>
-            <Button className="w-full bg-brand text-white hover:bg-brand-hover" onClick={handleHeldModalClose}>{t("chooseDifferentDates")}</Button>
+            <Button className="w-full bg-pine text-white hover:bg-pine-hover" onClick={handleHeldModalClose}>{t("chooseDifferentDates")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -2165,7 +2165,7 @@ export function BookingSection({
           </DialogHeader>
           <HostContactLinks facebookUrl={homestay.facebook_url} hostPhone={host.phone} />
           <DialogFooter>
-            <Button className="w-full bg-brand text-white hover:bg-brand-hover" onClick={() => setShowQuickExpired(false)}>{t("confirmedClose")}</Button>
+            <Button className="w-full bg-pine text-white hover:bg-pine-hover" onClick={() => setShowQuickExpired(false)}>{t("confirmedClose")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -9,7 +9,7 @@ interface HeroSectionProps {
 /** Photo header of /[slug]/book: the name and tagline, centred and still, so nothing moves while the guest picks dates. */
 export function HeroSection({ name, tagline, heroImageUrl }: HeroSectionProps) {
   return (
-    <section className="relative h-[42svh] min-h-[320px] w-full overflow-hidden bg-earth-900 md:h-[50vh] md:min-h-[400px]">
+    <section className="relative h-[42svh] min-h-[320px] w-full overflow-hidden bg-pine-deep md:h-[50vh] md:min-h-[400px]">
       {heroImageUrl && (
         <Image src={heroImageUrl} alt={name} fill sizes="100vw" priority quality={85} className="object-cover object-center" />
       )}

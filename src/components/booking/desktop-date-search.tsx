@@ -57,12 +57,12 @@ export function DesktopDateSearch({ bookingDisabled = false }: { bookingDisabled
             type="button"
             onClick={() => setCalendarOpen(true)}
             aria-label={tb("selectDates")}
-            className="group flex flex-1 cursor-pointer items-center gap-3 rounded-xl px-4 py-2.5 text-left transition-colors hover:bg-earth-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            className="group flex flex-1 cursor-pointer items-center gap-3 rounded-xl px-4 py-2.5 text-left transition-colors hover:bg-mist focus:outline-none focus-visible:ring-2 focus-visible:ring-pine/40"
           >
-            <CalendarDays size={22} className="shrink-0 text-brand" />
+            <CalendarDays size={22} className="shrink-0 text-pine" />
             <span className="flex min-w-0 flex-col">
-              <span className="text-xs font-semibold text-earth-600">{tb("selectDates")}</span>
-              <span className={`truncate text-sm font-bold ${hasDates ? "text-earth-900" : "text-earth-600"}`}>
+              <span className="text-xs font-semibold text-ink-2">{tb("selectDates")}</span>
+              <span className={`truncate text-sm font-bold ${hasDates ? "text-ink" : "text-ink-2"}`}>
                 {hasDates
                   ? `${fmtDate(dateRange!.from!, "d MMM", locale)} — ${fmtDate(dateRange!.to!, "d MMM", locale)} · ${nights} ${nights > 1 ? tc("nights") : tc("night")}`
                   : `${tb("checkInLabel")} — ${tb("checkOutLabel")}`}
@@ -73,7 +73,7 @@ export function DesktopDateSearch({ bookingDisabled = false }: { bookingDisabled
           <button
             type="button"
             onClick={handleSearch}
-            className="shrink-0 cursor-pointer rounded-xl bg-brand px-10 text-sm font-bold uppercase tracking-widest text-white transition-colors hover:bg-brand-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            className="shrink-0 cursor-pointer rounded-full bg-pine px-10 text-[15px] font-medium text-white transition-colors hover:bg-pine-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-pine/40"
           >
             {t("search")}
           </button>

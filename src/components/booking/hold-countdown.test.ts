@@ -35,7 +35,7 @@ describe("HoldCountdownView", () => {
   });
 
   it("colours the chip by tone with design-system classes, not inline hex", () => {
-    expect(view(300)).toContain("bg-earth-100");
+    expect(view(300)).toContain("bg-mist-2");
     expect(view(90)).toContain("bg-amber-50");
     expect(view(30)).toContain("bg-red-50");
     expect(view(30)).not.toContain("#");

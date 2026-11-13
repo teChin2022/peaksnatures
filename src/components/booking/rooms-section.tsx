@@ -184,12 +184,12 @@ export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, sp
             whileInView={{ y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
-            className="text-2xl md:text-3xl font-serif text-earth-900 tracking-tight"
+            className="text-2xl md:text-3xl font-serif text-ink tracking-tight"
           >
             {t("title")}
           </motion.h2>
         </div>
-        <p className="mt-2 text-sm text-earth-500">
+        <p className="mt-2 text-sm text-ink-3">
           {t("subtitle")}
         </p>
 
@@ -214,17 +214,17 @@ function RoomPriceDisplay({ room, seasonalPrices, specialPrices }: { room: Room;
     <div className="flex items-center gap-1">
       {hasRange ? (
         <>
-          <span className="text-xs text-earth-400 self-end mb-1">{t("fromPrice")}</span>
-          <span className="text-2xl font-bold text-earth-900">
+          <span className="text-xs text-ink-3 self-end mb-1">{t("fromPrice")}</span>
+          <span className="text-2xl font-bold text-ink">
             ฿{min.toLocaleString()}
           </span>
         </>
       ) : (
-        <span className="text-2xl font-bold text-earth-900">
+        <span className="text-2xl font-bold text-ink">
           ฿{room.price_per_night.toLocaleString()}
         </span>
       )}
-      <span className="text-xs text-earth-400 self-end mb-1">{tc("perNight")}</span>
+      <span className="text-xs text-ink-3 self-end mb-1">{tc("perNight")}</span>
     </div>
   );
 }
@@ -244,12 +244,12 @@ function RoomDescriptionWithReadMore({ content, onReadMore }: { content: string;
   return (
     <>
       <div ref={ref} className="line-clamp-5">
-        <HTMLContent content={content} className="mt-2 text-sm leading-relaxed text-earth-500" />
+        <HTMLContent content={content} className="mt-2 text-sm leading-relaxed text-ink-3" />
       </div>
       {overflows && (
         <button
           type="button"
-          className="mt-1 text-left text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600"
+          className="mt-1 text-left text-sm font-medium text-ink underline underline-offset-4 hover:text-ink-2"
           onClick={onReadMore}
         >
           {t("readMore")}
@@ -358,7 +358,7 @@ function SingleRoomHero({
       >
         <div
           aria-disabled="true"
-          className="relative aspect-[4/3] md:aspect-[16/9] lg:aspect-[21/9] overflow-hidden rounded-2xl bg-earth-100"
+          className="relative aspect-[4/3] md:aspect-[16/9] lg:aspect-[21/9] overflow-hidden rounded-2xl bg-mist-2"
         >
           {cover && (
             <Image
@@ -372,11 +372,11 @@ function SingleRoomHero({
             />
           )}
 
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-earth-900/85 via-earth-900/40 to-earth-900/20" />
+          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-pine-deep/85 via-pine-deep/40 to-pine-deep/20" />
 
           <div className="absolute inset-0 z-[2] flex flex-col items-center justify-center gap-4 p-6 text-center">
             <h3 className="text-2xl md:text-3xl font-serif text-white tracking-tight drop-shadow-lg">{room.name}</h3>
-            <div className="inline-flex items-center gap-2 rounded-full bg-earth-900/70 backdrop-blur-md px-4 py-2 text-sm font-medium text-white ring-1 ring-white/20 shadow-lg">
+            <div className="inline-flex items-center gap-2 rounded-full bg-pine-deep/70 backdrop-blur-md px-4 py-2 text-sm font-medium text-white ring-1 ring-white/20 shadow-lg">
               <Wrench className="h-4 w-4" />
               <span>{t("temporarilyClosed")}</span>
             </div>
@@ -398,11 +398,11 @@ function SingleRoomHero({
       {/* Hero image with overlay */}
       <div
         ref={setContainerEl}
-        className="group relative aspect-[4/3] md:aspect-[16/9] lg:aspect-[21/9] overflow-hidden rounded-2xl bg-earth-100"
+        className="group relative aspect-[4/3] md:aspect-[16/9] lg:aspect-[21/9] overflow-hidden rounded-2xl bg-mist-2"
         style={{ touchAction: "pan-y" }}
       >
         {isPopular && (
-          <span className="pointer-events-none absolute left-3 top-3 z-20 inline-flex items-center gap-1 rounded-full bg-amber-500/95 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-white shadow-lg ring-1 ring-black/5">
+          <span className="pointer-events-none absolute left-3 top-3 z-20 inline-flex items-center gap-1 rounded-full bg-[#FCEFC7] px-3 py-1 text-xs font-semibold text-[#7A4D00]">
             <Sparkles className="h-3 w-3" />
             {t("popular")}
           </span>
@@ -501,7 +501,7 @@ function SingleRoomHero({
                   {tc("guests")} {room.max_guests}
                 </span>
                 {inCart > 0 && (
-                  <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 font-semibold text-brand">
+                  <span className="inline-flex items-center gap-1 rounded-full bg-white px-2.5 py-1 font-semibold text-pine">
                     <Check className="h-3.5 w-3.5" />
                     {t("selectedCount", { count: inCart })}
                   </span>
@@ -530,8 +530,8 @@ function SingleRoomHero({
                   <Button
                     disabled={bookingLocked || unavailableForDates || ctaState === "pick-dates"}
                     className={ctaState === "edit"
-                      ? "rounded-full bg-white/90 text-brand px-6 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-white border border-white/50 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                      : "rounded-full bg-brand text-white px-6 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"}
+                      ? "rounded-full bg-white/90 text-pine px-6 py-3.5 h-auto font-bold text-sm hover:bg-white border border-white/50 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
+                      : "rounded-full bg-pine text-white px-6 py-3.5 h-auto font-bold text-sm hover:bg-pine-hover border-0 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"}
                     onClick={(e) => { e.stopPropagation(); if (ctaState === "edit") onEdit(); else onAddToCart(); }}
                   >
                     {unavailableForDates ? (
@@ -555,7 +555,7 @@ function SingleRoomHero({
               )}
               <button
                 type="button"
-                className="flex items-center justify-center gap-1.5 rounded-full bg-white/90 px-5 py-3 border border-white/50 shadow-lg transition-colors text-sm font-bold tracking-widest uppercase text-earth-800 hover:bg-white"
+                className="flex items-center justify-center gap-1.5 rounded-full bg-white/90 px-5 py-3 border border-white/50 shadow-lg transition-colors text-sm font-bold text-ink hover:bg-white"
                 onClick={(e) => { e.stopPropagation(); onCalendar(); }}
               >
                 <CalendarSearch className="h-3.5 w-3.5" />
@@ -573,8 +573,8 @@ function SingleRoomHero({
             <Button
               disabled={bookingLocked || unavailableForDates || ctaState === "pick-dates"}
               className={ctaState === "edit"
-                ? "w-full rounded-full border border-brand bg-brand-50 text-brand px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase shadow-lg hover:bg-brand-100 disabled:opacity-50 disabled:cursor-not-allowed"
-                : "w-full rounded-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase shadow-lg hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"}
+                ? "w-full rounded-full border border-pine bg-pine-mist text-pine px-8 py-3.5 h-auto font-bold text-sm shadow-lg hover:bg-pine-mist disabled:opacity-50 disabled:cursor-not-allowed"
+                : "w-full rounded-full bg-pine text-white px-8 py-3.5 h-auto font-bold text-sm shadow-lg hover:bg-pine-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"}
               onClick={() => (ctaState === "edit" ? onEdit() : onAddToCart())}
             >
               {unavailableForDates ? (
@@ -592,13 +592,13 @@ function SingleRoomHero({
               )}
             </Button>
             {ctaState === "pick-dates" && !bookingLocked && (
-              <p className="text-center text-xs text-earth-600">{t("pickDatesFirst")}</p>
+              <p className="text-center text-xs text-ink-2">{t("pickDatesFirst")}</p>
             )}
           </>
         )}
         <button
           type="button"
-          className="flex w-full items-center justify-center gap-1.5 rounded-full border border-earth-300 bg-white px-5 py-3.5 text-sm font-bold tracking-widest uppercase text-earth-800 shadow-sm transition-colors hover:bg-earth-50"
+          className="flex w-full items-center justify-center gap-1.5 rounded-full border border-line-strong bg-white px-5 py-3.5 text-sm font-bold text-ink shadow-sm transition-colors hover:bg-mist"
           onClick={() => onCalendar()}
         >
           <CalendarSearch className="h-3.5 w-3.5" />
@@ -708,7 +708,7 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
           />
         ))}
         {datesChosen && visibleRooms.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-earth-300 bg-earth-50 p-8 text-center text-sm text-earth-600">
+          <div className="rounded-2xl border border-dashed border-line-strong bg-mist p-8 text-center text-sm text-ink-2">
             {t("noAvailableRooms")}
           </div>
         )}
@@ -745,7 +745,7 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
           {descRoomId && rooms.find((r) => r.id === descRoomId)?.description && (
             <HTMLContent
               content={rooms.find((r) => r.id === descRoomId)!.description!}
-              className="leading-relaxed text-earth-600"
+              className="leading-relaxed text-ink-2"
             />
           )}
         </DialogContent>
@@ -784,46 +784,46 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
             }}
             className="rounded-md border w-full"
           />
-          <div className="flex items-center justify-center gap-4 text-xs text-earth-500">
+          <div className="flex items-center justify-center gap-4 text-xs text-ink-3">
             <span className="flex items-center gap-1.5">
               <span className="inline-block h-3 w-3 rounded-sm bg-red-100 border border-red-200" />
               {t("legendBooked")}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-sm bg-white border border-earth-200" />
+              <span className="inline-block h-3 w-3 rounded-sm bg-white border border-line" />
               {t("legendAvailable")}
             </span>
           </div>
 
           {calendarRoom && (
-            <div className="mt-5 rounded-2xl bg-earth-50 px-5 py-5">
+            <div className="mt-5 rounded-2xl bg-mist px-5 py-5">
               {/* Eyebrow + hairline */}
               <div className="mb-4 flex items-center gap-3">
-                <h4 className="text-[10px] font-semibold uppercase tracking-[0.25em] text-earth-500">
+                <h4 className="text-xs font-semibold text-ink-3">
                   {t("priceDetailsTitle")}
                 </h4>
-                <div className="h-px flex-1 bg-earth-200" />
+                <div className="h-px flex-1 bg-line" />
               </div>
 
               {/* Base price — the anchor */}
               <div className="flex items-baseline justify-between gap-4">
-                <span className="text-sm font-medium text-earth-800">
+                <span className="text-sm font-medium text-ink">
                   {t("basePrice")}
                 </span>
                 <div className="flex items-baseline gap-1 tabular-nums">
-                  <span className="text-2xl font-bold text-earth-900">
+                  <span className="text-2xl font-bold text-ink">
                     ฿{calendarRoom.price_per_night.toLocaleString()}
                   </span>
-                  <span className="text-xs text-earth-500">{tc("perNight")}</span>
+                  <span className="text-xs text-ink-3">{tc("perNight")}</span>
                 </div>
               </div>
 
               {/* Special date rates */}
               {(specialsByRoom[calendarRoom.id] || []).length > 0 && (
-                <div className="mt-5 border-t border-dashed border-earth-300 pt-4">
+                <div className="mt-5 border-t border-dashed border-line-strong pt-4">
                   <div className="mb-3 flex items-center gap-2">
-                    <Sparkles className="h-3 w-3 text-brand" strokeWidth={2.5} />
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-earth-500">
+                    <Sparkles className="h-3 w-3 text-pine" strokeWidth={2.5} />
+                    <span className="text-xs font-semibold text-ink-3">
                       {t("specialRates")}
                     </span>
                   </div>
@@ -831,16 +831,16 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
                     {(specialsByRoom[calendarRoom.id] || []).map((s) => (
                       <li key={s.id} className="flex items-baseline justify-between gap-4">
                         <div className="min-w-0 pr-2">
-                          <div className="truncate text-sm font-medium text-earth-900">{s.name}</div>
-                          <div className="mt-0.5 text-[11px] text-earth-500 tabular-nums">
+                          <div className="truncate text-sm font-medium text-ink">{s.name}</div>
+                          <div className="mt-0.5 text-xs text-ink-3 tabular-nums">
                             {formatSpecialPriceRule(s, locale)}
                           </div>
                         </div>
                         <div className="flex shrink-0 items-baseline gap-1 tabular-nums">
-                          <span className="text-lg font-bold text-brand">
+                          <span className="text-lg font-bold text-pine">
                             +฿{s.surcharge.toLocaleString()}
                           </span>
-                          <span className="text-[10px] text-earth-500">{tc("perNight")}</span>
+                          <span className="text-xs text-ink-3">{tc("perNight")}</span>
                         </div>
                       </li>
                     ))}
@@ -850,10 +850,10 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
 
               {/* Seasonal rates */}
               {(seasonsByRoom[calendarRoom.id] || []).length > 0 && (
-                <div className="mt-5 border-t border-dashed border-earth-300 pt-4">
+                <div className="mt-5 border-t border-dashed border-line-strong pt-4">
                   <div className="mb-3 flex items-center gap-2">
-                    <Sparkles className="h-3 w-3 text-brand" strokeWidth={2.5} />
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-earth-500">
+                    <Sparkles className="h-3 w-3 text-pine" strokeWidth={2.5} />
+                    <span className="text-xs font-semibold text-ink-3">
                       {t("seasonalRates")}
                     </span>
                   </div>
@@ -864,16 +864,16 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
                       .map((s) => (
                         <li key={s.id} className="flex items-baseline justify-between gap-4">
                           <div className="min-w-0 pr-2">
-                            <div className="truncate text-sm font-medium text-earth-900">{s.name}</div>
-                            <div className="mt-0.5 text-[11px] text-earth-500 tabular-nums">
+                            <div className="truncate text-sm font-medium text-ink">{s.name}</div>
+                            <div className="mt-0.5 text-xs text-ink-3 tabular-nums">
                               {fmtDateStr(s.start_date, "d MMM", locale)} – {fmtDateStr(s.end_date, "d MMM yyyy", locale)}
                             </div>
                           </div>
                           <div className="flex shrink-0 items-baseline gap-1 tabular-nums">
-                            <span className="text-lg font-bold text-brand">
+                            <span className="text-lg font-bold text-pine">
                               ฿{s.price_per_night.toLocaleString()}
                             </span>
-                            <span className="text-[10px] text-earth-500">{tc("perNight")}</span>
+                            <span className="text-xs text-ink-3">{tc("perNight")}</span>
                           </div>
                         </li>
                       ))}

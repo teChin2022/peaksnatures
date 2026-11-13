@@ -53,7 +53,7 @@ const getSnapshot = () => true;
 const getServerSnapshot = () => false;
 
 const STATUS_CLASS: Record<DayAvailability, string> = {
-  available: "bg-white text-earth-700 hover:bg-earth-50",
+  available: "bg-white text-ink-2 hover:bg-mist",
   partial: "bg-amber-100 text-amber-800 hover:bg-amber-200",
   full: "bg-red-100 text-red-600 line-through decoration-red-400/60 hover:bg-red-200",
 };
@@ -85,13 +85,13 @@ function makeAvailabilityDay(
         }
         className={cn(
           "relative flex size-10 items-center justify-center rounded-full text-sm font-medium select-none transition-colors md:size-14 md:text-base",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40",
-          isPast && "cursor-not-allowed text-earth-300",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/40",
+          isPast && "cursor-not-allowed text-line-strong",
           status && `cursor-pointer ${STATUS_CLASS[status]}`,
           modifiers.outside && status && "opacity-55",
           // Today is marked by its number alone — bold and brand-green. twMerge
           // drops the status text colour so the green wins on any background.
-          modifiers.today && "font-bold text-brand",
+          modifiers.today && "font-bold text-pine",
           className,
         )}
       >
@@ -119,7 +119,7 @@ function RoomStatusPill({ row }: { row: RoomDayStatus }) {
   let cls: string;
   let label: string;
   if (row.blocked) {
-    cls = "bg-earth-100 text-earth-500 ring-earth-200";
+    cls = "bg-mist-2 text-ink-3 ring-line";
     label = t("roomClosed");
   } else if (row.free === 0) {
     cls = "bg-red-50 text-red-600 ring-red-200";
@@ -170,7 +170,7 @@ function RoomPhotos({ images, name }: { images: string[]; name: string }) {
   return (
     <div
       ref={setContainerEl}
-      className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-earth-100"
+      className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-mist-2"
       style={{ touchAction: "pan-y" }}
     >
       <div
@@ -303,7 +303,7 @@ function RoomDayDetail({
             type="button"
             onClick={onBack}
             aria-label={tc("back")}
-            className="-ml-2 shrink-0 rounded-full p-2 text-earth-500 transition-colors hover:bg-earth-100 hover:text-earth-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            className="-ml-2 shrink-0 rounded-full p-2 text-ink-3 transition-colors hover:bg-mist-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/40"
           >
             <ArrowLeft className="h-4 w-4" />
           </button>
@@ -323,19 +323,19 @@ function RoomDayDetail({
         <RoomPhotos images={room.images} name={room.name} />
 
         <div className="flex items-baseline gap-1.5">
-          <span className="text-2xl font-bold text-earth-900">
+          <span className="text-2xl font-bold text-ink">
             ฿{(night?.price ?? room.price_per_night).toLocaleString()}
           </span>
-          <span className="text-xs text-earth-400">{tc("perNight")}</span>
+          <span className="text-xs text-ink-3">{tc("perNight")}</span>
           {night?.seasonName && (
-            <span className="ml-1 truncate rounded-full bg-brand/10 px-2 py-0.5 text-[11px] font-semibold text-brand">
+            <span className="ml-1 truncate rounded-full bg-pine/10 px-2 py-0.5 text-xs font-semibold text-pine">
               {night.seasonName}
             </span>
           )}
         </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
-          <span className="inline-flex items-center gap-1.5 rounded-full bg-earth-100 px-2.5 py-1 text-earth-700">
+          <span className="inline-flex items-center gap-1.5 rounded-full bg-mist-2 px-2.5 py-1 text-ink-2">
             <Users className="h-3.5 w-3.5" />
             {ta("upToGuests", { count: room.max_guests })}
           </span>
@@ -347,29 +347,29 @@ function RoomDayDetail({
         {/* Base + seasonal rates, same block as the room card's "วันว่าง & ราคา"
             dialog — the headline above prices only the tapped night, so this is
             where a guest sees what the house costs the rest of the year. */}
-        <div className="rounded-2xl bg-earth-50 px-5 py-5">
+        <div className="rounded-2xl bg-mist px-5 py-5">
           <div className="mb-4 flex items-center gap-3">
-            <h4 className="text-[10px] font-semibold uppercase tracking-[0.25em] text-earth-500">
+            <h4 className="text-xs font-semibold text-ink-3">
               {tr("priceDetailsTitle")}
             </h4>
-            <div className="h-px flex-1 bg-earth-200" />
+            <div className="h-px flex-1 bg-line" />
           </div>
 
           <div className="flex items-baseline justify-between gap-4">
-            <span className="text-sm font-medium text-earth-800">{tr("basePrice")}</span>
+            <span className="text-sm font-medium text-ink">{tr("basePrice")}</span>
             <div className="flex items-baseline gap-1 tabular-nums">
-              <span className="text-2xl font-bold text-earth-900">
+              <span className="text-2xl font-bold text-ink">
                 ฿{room.price_per_night.toLocaleString()}
               </span>
-              <span className="text-xs text-earth-500">{tc("perNight")}</span>
+              <span className="text-xs text-ink-3">{tc("perNight")}</span>
             </div>
           </div>
 
           {specialPrices.length > 0 && (
-            <div className="mt-5 border-t border-dashed border-earth-300 pt-4">
+            <div className="mt-5 border-t border-dashed border-line-strong pt-4">
               <div className="mb-3 flex items-center gap-2">
-                <Sparkles className="h-3 w-3 text-brand" strokeWidth={2.5} />
-                <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-earth-500">
+                <Sparkles className="h-3 w-3 text-pine" strokeWidth={2.5} />
+                <span className="text-xs font-semibold text-ink-3">
                   {tr("specialRates")}
                 </span>
               </div>
@@ -377,16 +377,16 @@ function RoomDayDetail({
                 {specialPrices.map((s) => (
                   <li key={s.id} className="flex items-baseline justify-between gap-4">
                     <div className="min-w-0 pr-2">
-                      <div className="truncate text-sm font-medium text-earth-900">{s.name}</div>
-                      <div className="mt-0.5 text-[11px] text-earth-500 tabular-nums">
+                      <div className="truncate text-sm font-medium text-ink">{s.name}</div>
+                      <div className="mt-0.5 text-xs text-ink-3 tabular-nums">
                         {formatSpecialPriceRule(s, locale)}
                       </div>
                     </div>
                     <div className="flex shrink-0 items-baseline gap-1 tabular-nums">
-                      <span className="text-lg font-bold text-brand">
+                      <span className="text-lg font-bold text-pine">
                         +฿{s.surcharge.toLocaleString()}
                       </span>
-                      <span className="text-[10px] text-earth-500">{tc("perNight")}</span>
+                      <span className="text-xs text-ink-3">{tc("perNight")}</span>
                     </div>
                   </li>
                 ))}
@@ -395,10 +395,10 @@ function RoomDayDetail({
           )}
 
           {seasons.length > 0 && (
-            <div className="mt-5 border-t border-dashed border-earth-300 pt-4">
+            <div className="mt-5 border-t border-dashed border-line-strong pt-4">
               <div className="mb-3 flex items-center gap-2">
-                <Sparkles className="h-3 w-3 text-brand" strokeWidth={2.5} />
-                <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-earth-500">
+                <Sparkles className="h-3 w-3 text-pine" strokeWidth={2.5} />
+                <span className="text-xs font-semibold text-ink-3">
                   {tr("seasonalRates")}
                 </span>
               </div>
@@ -406,16 +406,16 @@ function RoomDayDetail({
                 {seasons.map((s) => (
                   <li key={s.id} className="flex items-baseline justify-between gap-4">
                     <div className="min-w-0 pr-2">
-                      <div className="truncate text-sm font-medium text-earth-900">{s.name}</div>
-                      <div className="mt-0.5 text-[11px] text-earth-500 tabular-nums">
+                      <div className="truncate text-sm font-medium text-ink">{s.name}</div>
+                      <div className="mt-0.5 text-xs text-ink-3 tabular-nums">
                         {fmtDateStr(s.start_date, "d MMM", locale)} – {fmtDateStr(s.end_date, "d MMM yyyy", locale)}
                       </div>
                     </div>
                     <div className="flex shrink-0 items-baseline gap-1 tabular-nums">
-                      <span className="text-lg font-bold text-brand">
+                      <span className="text-lg font-bold text-pine">
                         ฿{s.price_per_night.toLocaleString()}
                       </span>
-                      <span className="text-[10px] text-earth-500">{tc("perNight")}</span>
+                      <span className="text-xs text-ink-3">{tc("perNight")}</span>
                     </div>
                   </li>
                 ))}
@@ -425,11 +425,11 @@ function RoomDayDetail({
         </div>
 
         {room.description && (
-          <HTMLContent content={room.description} className="text-sm leading-relaxed text-earth-600" />
+          <HTMLContent content={room.description} className="text-sm leading-relaxed text-ink-2" />
         )}
 
         <Button
-          className="w-full rounded-full bg-brand px-6 py-3.5 h-auto text-sm font-bold uppercase tracking-widest text-white hover:bg-brand-hover"
+          className="w-full rounded-full bg-pine px-6 py-3.5 h-auto text-sm font-bold text-white hover:bg-pine-hover"
           onClick={onBook}
         >
           {t("bookThisHouse")}
@@ -558,14 +558,14 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
             whileInView={{ y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
-            className="text-2xl md:text-3xl font-serif leading-tight text-earth-900 tracking-tight"
+            className="text-2xl md:text-3xl font-serif leading-tight text-ink tracking-tight"
           >
             {t("title")}
           </motion.h2>
         </div>
-        <p className="mt-2 text-sm text-earth-500">{t("subtitle")}</p>
+        <p className="mt-2 text-sm text-ink-3">{t("subtitle")}</p>
 
-        <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-earth-200 bg-white p-3 shadow-sm sm:p-6">
+        <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-line bg-white p-3 shadow-sm sm:p-6">
           {mounted ? (
             <Calendar
               showOutsideDays
@@ -573,7 +573,7 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
               captionLayout="dropdown"
               classNames={{
                 weekday:
-                  "flex-1 text-[0.7rem] md:text-sm font-semibold uppercase tracking-widest text-earth-400 text-center py-2 md:py-3 select-none",
+                  "flex-1 text-[0.7rem] md:text-sm font-semibold text-ink-3 text-center py-2 md:py-3 select-none",
               }}
               defaultMonth={startOfToday()}
               startMonth={startOfToday()}
@@ -594,11 +594,11 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
               className="w-full"
             />
           ) : (
-            <div className="h-[22rem] animate-pulse rounded-xl bg-earth-50 md:h-[26rem]" />
+            <div className="h-[22rem] animate-pulse rounded-xl bg-mist md:h-[26rem]" />
           )}
 
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-earth-100 px-2 pt-3 text-xs text-earth-600">
-            <LegendItem swatch="bg-white ring-earth-300" label={t("legendAvailable")} />
+          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-line px-2 pt-3 text-xs text-ink-2">
+            <LegendItem swatch="bg-white ring-line-strong" label={t("legendAvailable")} />
             <LegendItem swatch="bg-amber-100 ring-amber-300" label={t("legendPartial")} />
             <LegendItem swatch="bg-red-100 ring-red-300" label={t("legendFull")} />
           </div>
@@ -635,11 +635,11 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
                 {breakdown.map((row) => (
                   <li
                     key={row.roomId}
-                    className="flex items-center gap-2 rounded-xl border border-earth-100 bg-earth-50/40 px-3 py-2.5"
+                    className="flex items-center gap-2 rounded-xl border border-line bg-mist/40 px-3 py-2.5"
                   >
                     {/* flex-1 on the name (not justify-between) keeps the link
                         and the pill together as one group on the right. */}
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-earth-800">
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
                       {roomNameById.get(row.roomId)}
                     </span>
                     {/* Only houses with a unit left that night are worth opening
@@ -648,7 +648,7 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
                       <button
                         type="button"
                         onClick={() => setDetailRoomId(row.roomId)}
-                        className="-my-1 shrink-0 whitespace-nowrap px-1 py-2 text-xs text-earth-600 underline underline-offset-2 transition-colors hover:text-earth-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                        className="-my-1 shrink-0 whitespace-nowrap px-1 py-2 text-xs text-ink-2 underline underline-offset-2 transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/40"
                       >
                         {t("viewDetails")}
                       </button>
