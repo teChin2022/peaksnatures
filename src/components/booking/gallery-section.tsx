@@ -26,7 +26,7 @@ const MOBILE_SPAN: Record<number, string> = { 1: "col-span-1", 2: "col-span-2" }
 const DESKTOP_SPAN: Record<number, string> = { 1: "md:col-span-1", 2: "md:col-span-2", 3: "md:col-span-3" };
 
 /** Glide the strip to the new thumbnail, unless the visitor asked for less motion. */
-const thumbScroll = (): ScrollBehavior =>
+export const thumbScroll = (): ScrollBehavior =>
   window.matchMedia?.("(prefers-reduced-motion: reduce)").matches ? "auto" : "smooth";
 
 interface GallerySectionProps {

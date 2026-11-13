@@ -24,6 +24,7 @@ import { getPriceRange } from "@/lib/calculate-price";
 import { formatSpecialPriceRule } from "@/lib/special-price-label";
 import { getFullyBookedForRoom } from "@/lib/booking-dates";
 import { HTMLContent } from "@/components/ui/html-content";
+import { thumbScroll } from "@/components/booking/gallery-section";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
@@ -37,7 +38,8 @@ const BLUR_DATA_URL =
   "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI4MDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2UyZThmMCIvPjwvc3ZnPg==";
 
 
-function RoomLightbox({ images, name, startIndex, onClose }: { images: string[]; name: string; startIndex: number; onClose: () => void }) {
+export function RoomLightbox({ images, name, startIndex, onClose }: { images: string[]; name: string; startIndex: number; onClose: () => void }) {
+  const t = useTranslations("rooms");
   const [index, setIndex] = useState(startIndex);
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   const prevImage = useCallback(() => setIndex((i) => (i > 0 ? i - 1 : images.length - 1)), [images.length]);
@@ -49,7 +51,7 @@ function RoomLightbox({ images, name, startIndex, onClose }: { images: string[];
       <Button
         variant="ghost"
         size="icon"
-        className="absolute right-4 top-4 text-white hover:bg-white/20"
+        className="absolute right-4 top-4 z-10 text-white hover:bg-white/20"
         onClick={onClose}
       >
         <X className="h-6 w-6" />
@@ -58,23 +60,47 @@ function RoomLightbox({ images, name, startIndex, onClose }: { images: string[];
       <Button
         variant="ghost"
         size="icon"
-        className="absolute left-4 text-white hover:bg-white/20"
+        className="absolute left-4 z-10 text-white hover:bg-white/20"
         onClick={prevImage}
       >
         <ChevronLeft className="h-8 w-8" />
       </Button>
 
       <div className="flex h-[85vh] w-[90vw] max-w-5xl items-center justify-center">
-        <Image
-          key={images[index]}
-          src={images[index]}
-          alt={`${name} photo ${index + 1}`}
-          width={1920}
-          height={1080}
-          sizes="90vw"
-          priority
-          className="max-h-[85vh] max-w-full h-auto w-auto rounded-2xl"
-        />
+        <div className="relative flex max-h-[85vh] max-w-full overflow-hidden rounded-2xl">
+          <Image
+            key={images[index]}
+            src={images[index]}
+            alt={`${name} photo ${index + 1}`}
+            width={1920}
+            height={1080}
+            sizes="90vw"
+            priority
+            className="max-h-[85vh] max-w-full h-auto w-auto"
+          />
+          {/* Thumbnail strip, same as the landing gallery's viewer. */}
+          {images.length > 1 && (
+            <div className="absolute inset-x-0 bottom-0 flex gap-2 overflow-x-auto p-3 [scrollbar-width:none]">
+              {images.map((img, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  aria-label={t("goToPhoto", { number: i + 1 })}
+                  aria-current={i === index}
+                  onClick={() => setIndex(i)}
+                  ref={(el) => {
+                    if (i === index) el?.scrollIntoView?.({ inline: "center", block: "nearest", behavior: thumbScroll() });
+                  }}
+                  className={`relative h-12 w-16 shrink-0 overflow-hidden rounded-md outline-none ring-2 transition-[opacity,transform,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] focus-visible:ring-white motion-reduce:transition-none sm:h-14 sm:w-20 ${
+                    i === index ? "scale-100 ring-white" : "scale-90 opacity-70 ring-transparent hover:opacity-100"
+                  }`}
+                >
+                  <Image src={img} alt="" fill sizes="80px" className="object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Preload adjacent images */}
@@ -435,24 +461,15 @@ function SingleRoomHero({
           </>
         )}
 
-        {/* Dot indicators — top of image, identical on mobile and desktop. Each button is
-            24px wide (padding around a 6px dot), the WCAG 2.5.8 minimum, and the row has
-            no gap so neighbouring targets don't overlap. Vertical padding is cancelled
-            out of layout. */}
+        {/* Dot indicators — top of image, identical on mobile and desktop. Indicators only, so
+            they can sit close together: jumping to a photo is the lightbox thumbnails' job. */}
         {multi && (
-          <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-center pt-3 pb-6 bg-gradient-to-b from-black/20 to-transparent">
+          <div aria-hidden="true" className="pointer-events-none absolute inset-x-0 top-0 z-10 flex items-center justify-center gap-1.5 pt-3 pb-6 bg-gradient-to-b from-black/20 to-transparent">
             {images.map((_, i) => (
-              <button
+              <span
                 key={i}
-                type="button"
-                aria-label={t("goToPhoto", { number: i + 1 })}
-                onClick={(e) => { e.stopPropagation(); setIndex(i); }}
-                className="px-[9px] py-[9px] -my-[9px]"
-              >
-                <span
-                  className={`block h-1.5 rounded-full transition-all ${i === index ? "bg-white w-3" : "bg-white/50 w-1.5 pointer-fine:hover:bg-white/80"}`}
-                />
-              </button>
+                className={`block h-1.5 rounded-full transition-all ${i === index ? "bg-white w-3" : "bg-white/50 w-1.5"}`}
+              />
             ))}
           </div>
         )}
