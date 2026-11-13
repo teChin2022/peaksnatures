@@ -8,7 +8,9 @@ import type { GuestBookingMode } from "@/types/database";
  * the same reason as booking-attachments.ts.
  */
 
-export const GUEST_BOOKING_MODES = ["normal", "quick", "both"] as const satisfies readonly GuestBookingMode[];
+// The choices the host settings page offers. "both" is no longer one of them, but
+// the column and the routes still accept it for a host who saved it earlier.
+export const GUEST_BOOKING_MODES = ["normal", "quick"] as const satisfies readonly GuestBookingMode[];
 
 /**
  * A missing or unknown value is "normal", today's behaviour — e.g. a host row

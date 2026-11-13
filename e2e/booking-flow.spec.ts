@@ -76,6 +76,7 @@ test.describe("a host on the normal flow", () => {
     await expect(page.getByRole("button", { name: T.booking.iveTransferred })).toBeVisible();
     await expect(page.getByRole("button", { name: T.booking.quickSubmit })).toHaveCount(0);
     await expect(page.getByRole("button", { name: T.booking.quickSubmitAlt })).toHaveCount(0);
+    await expect(page.getByText(T.booking.howItWorks, { exact: true })).toBeVisible();
   });
 
   test("verifies the slip, then books with the slip fields and no quick flag", async ({ page, context }) => {
@@ -110,6 +111,10 @@ test.describe("a host on quick booking only", () => {
     await expect(page.getByRole("button", { name: T.booking.quickSubmit })).toBeVisible();
     await expect(page.getByRole("button", { name: T.booking.iveTransferred })).toHaveCount(0);
     await expect(page.getByText(T.booking.quickPayStep4)).toBeVisible();
+    await expect(page.getByText(T.booking.quickNoSlipTitle)).toBeVisible();
+    await expect(page.getByText(T.booking.quickNoSlipDesc)).toBeVisible();
+    await expect(page.getByText(T.booking.howItWorksQuick)).toBeVisible();
+    await expect(page.getByText(T.booking.howItWorks, { exact: true })).toHaveCount(0);
   });
 
   test("places the booking with no slip, and tells the guest what to do next", async ({ page, context }) => {

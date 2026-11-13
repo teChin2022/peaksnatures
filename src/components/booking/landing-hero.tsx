@@ -19,6 +19,8 @@ interface LandingHeroProps {
   bookingDisabled?: boolean;
   /** The host's free-cancellation window in days, as /book shows it; 0 leaves the line out. */
   cancellationDays?: number;
+  /** The host takes quick bookings only: they confirm by hand, so no "instant confirmation". */
+  quickOnly?: boolean;
 }
 
 // The hero's lines rise in one after another; motion-safe: so "Reduce motion" shows them at once.
@@ -38,6 +40,7 @@ export async function LandingHero({
   discoverHref,
   bookingDisabled = false,
   cancellationDays = 0,
+  quickOnly = false,
 }: LandingHeroProps) {
   const t = await getTranslations("landing");
   const th = await getTranslations("hero");
@@ -110,7 +113,7 @@ export async function LandingHero({
           <div className={`mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm ${RISE} motion-safe:delay-600`}>
             <span className="inline-flex items-center gap-1.5">
               <BadgeCheck className="h-4 w-4" />
-              {th("instantConfirm")}
+              {th(quickOnly ? "hostConfirms" : "instantConfirm")}
             </span>
             {cancellationDays > 0 && (
               <span className="inline-flex items-center gap-1.5">

@@ -112,6 +112,16 @@ test("booking page, payment step", async ({ page, context }, testInfo) => {
   }
 });
 
+test("booking page, payment step, quick-booking host", async ({ page, context }, testInfo) => {
+  const slug = requireSlug();
+  session = await startSession(page, context, { mode: "quick" });
+  for (const width of widthsFor(testInfo)) {
+    if (width) await page.setViewportSize({ width, height: 800 });
+    await reachPayment(page, slug);
+    await capture(page, testInfo, "payment-quick", slug);
+  }
+});
+
 /** /{slug}/change-booking with a stubbed booking: the result, the form, extra payment, and the sent dialog. */
 test("change-booking page", async ({ page, context }, testInfo) => {
   const slug = requireSlug();

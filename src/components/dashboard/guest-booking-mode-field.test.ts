@@ -36,12 +36,12 @@ const radios = () => [...container.querySelectorAll<HTMLInputElement>('input[typ
 const notes = () => container.querySelector('[data-testid="quick-mode-notes"]');
 
 describe("GuestBookingModeField", () => {
-  it("offers the three modes as one radio group, with the saved one checked", () => {
-    render({ value: "both" });
+  it("offers only standard and quick as one radio group, with the saved one checked", () => {
+    render({ value: "quick" });
 
-    expect(radios().map((r) => r.value)).toEqual(["normal", "quick", "both"]);
+    expect(radios().map((r) => r.value)).toEqual(["normal", "quick"]);
     expect(new Set(radios().map((r) => r.name)).size).toBe(1);
-    expect(radios().map((r) => r.checked)).toEqual([false, false, true]);
+    expect(radios().map((r) => r.checked)).toEqual([false, true]);
   });
 
   it("names the group, and gives every radio its own label and description", () => {
@@ -52,7 +52,6 @@ describe("GuestBookingModeField", () => {
     expect(labels).toEqual([
       "guestBookingModeNormalguestBookingModeNormalDesc",
       "guestBookingModeQuickguestBookingModeQuickDesc",
-      "guestBookingModeBothguestBookingModeBothDesc",
     ]);
   });
 
@@ -61,9 +60,6 @@ describe("GuestBookingModeField", () => {
 
     act(() => radios()[1].click());
     expect(onChange).toHaveBeenCalledWith("quick");
-
-    act(() => radios()[2].click());
-    expect(onChange).toHaveBeenLastCalledWith("both");
   });
 
   it("is keyboard-reachable: native radios, none removed from the tab order", () => {

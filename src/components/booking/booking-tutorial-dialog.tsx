@@ -16,6 +16,8 @@ import { Button } from "@/components/ui/button";
 interface BookingTutorialDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
+  /** The host takes quick bookings only: step 3 has no slip upload and the host confirms. */
+  quickOnly?: boolean;
 }
 
 const STEPS = [
@@ -24,7 +26,7 @@ const STEPS = [
   { num: 3, icon: CreditCard, titleKey: "step3Title", descKey: "step3Desc", highlight: true },
 ] as const;
 
-export function BookingTutorialDialog({ open, onOpenChange }: BookingTutorialDialogProps) {
+export function BookingTutorialDialog({ open, onOpenChange, quickOnly = false }: BookingTutorialDialogProps) {
   const t = useTranslations("bookingTutorial");
 
   return (
@@ -32,7 +34,7 @@ export function BookingTutorialDialog({ open, onOpenChange }: BookingTutorialDia
       <DialogContent className="sm:max-w-md max-h-[90vh] overflow-y-auto rounded-2xl">
         <DialogHeader>
           <DialogTitle className="text-xl font-bold text-earth-900">{t("title")}</DialogTitle>
-          <DialogDescription className="text-earth-500">{t("intro")}</DialogDescription>
+          <DialogDescription className="text-earth-500">{t(quickOnly ? "introQuick" : "intro")}</DialogDescription>
         </DialogHeader>
 
         <div className="space-y-3 py-1">
@@ -54,10 +56,10 @@ export function BookingTutorialDialog({ open, onOpenChange }: BookingTutorialDia
                 <div className="min-w-0 flex-1">
                   <div className="mb-0.5 flex items-center gap-2">
                     <Icon className="h-4 w-4 shrink-0 text-brand" />
-                    <h3 className="text-sm font-semibold text-earth-900">{t(s.titleKey)}</h3>
+                    <h3 className="text-sm font-semibold text-earth-900">{t(quickOnly && s.num === 3 ? "step3TitleQuick" : s.titleKey)}</h3>
                     {s.highlight && <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />}
                   </div>
-                  <p className="text-[13px] leading-relaxed text-earth-500">{t(s.descKey)}</p>
+                  <p className="text-[13px] leading-relaxed text-earth-500">{t(quickOnly && s.num === 3 ? "step3DescQuick" : s.descKey)}</p>
                 </div>
               </motion.div>
             );

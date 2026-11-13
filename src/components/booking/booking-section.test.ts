@@ -63,7 +63,11 @@ vi.mock("@/components/ui/select", () => ({
 
 // Stand-ins for children that are not under test.
 vi.mock("@/components/booking/booking-calendar-dialog", () => ({ BookingCalendarDialog: () => null }));
-vi.mock("@/components/booking/booking-tutorial-dialog", () => ({ BookingTutorialDialog: () => null }));
+// Stands in for the dialog, but shows which version of the steps it was asked for.
+vi.mock("@/components/booking/booking-tutorial-dialog", () => ({
+  BookingTutorialDialog: ({ quickOnly }: { quickOnly?: boolean }) =>
+    createElement("i", { "data-testid": "tutorial", "data-quick-only": String(!!quickOnly) }),
+}));
 vi.mock("@/components/booking/leave-booking-dialog", () => ({ LeaveBookingDialog: () => null }));
 vi.mock("@/components/booking/cart-line-list", () => ({ CartLineList: () => null }));
 
@@ -300,6 +304,29 @@ describe("the guest details step", () => {
 });
 
 // ── The payment step, per host mode ─────────────────────────────────────────
+describe("how booking works, above the form", () => {
+  const tutorialQuickOnly = () => document.body.querySelector('[data-testid="tutorial"]')?.getAttribute("data-quick-only");
+
+  it("promises the automatic slip check to a host on the normal flow", async () => {
+    await renderForm("normal");
+    expect(text()).toContain("howItWorks");
+    expect(text()).not.toContain("howItWorksQuick");
+    expect(tutorialQuickOnly()).toBe("false");
+  });
+
+  it("tells a guest of a quick-only host to send the slip in chat and wait for the host", async () => {
+    await renderForm("quick");
+    expect(text()).toContain("howItWorksQuick");
+    expect(tutorialQuickOnly()).toBe("true");
+  });
+
+  it("keeps the normal wording for a host still saved on both, whose slip upload still works", async () => {
+    await renderForm("both");
+    expect(text()).not.toContain("howItWorksQuick");
+    expect(tutorialQuickOnly()).toBe("false");
+  });
+});
+
 describe("BookingSection payment step", () => {
   it("offers only the slip upload to a host on the normal flow", async () => {
     await renderForm("normal");
@@ -309,6 +336,7 @@ describe("BookingSection payment step", () => {
     expect(buttonByText("quickSubmit")).toBeUndefined();
     expect(text()).toContain("payStep4");
     expect(text()).not.toContain("quickPayStep4");
+    expect(text()).not.toContain("quickNoSlipTitle");
   });
 
   it("offers only 'I have transferred — place booking' to a host on quick, with no upload step", async () => {
@@ -318,6 +346,9 @@ describe("BookingSection payment step", () => {
     expect(buttonByText("quickSubmit")).toBeTruthy();
     expect(buttonByText("iveTransferred")).toBeUndefined();
     expect(text()).toContain("quickPayStep4");
+    // Says up front that no slip is uploaded here and that it goes to the host in chat.
+    expect(text()).toContain("quickNoSlipTitle");
+    expect(text()).toContain("quickNoSlipDesc");
   });
 
   it("keeps the slip upload first and adds the quick way as a second choice, for a host on both", async () => {
@@ -327,6 +358,7 @@ describe("BookingSection payment step", () => {
     expect(buttonByText("iveTransferred")).toBeTruthy();
     expect(buttonByText("quickSubmitAlt")).toBeTruthy();
     expect(buttonByText("quickSubmit")?.textContent).toBe("quickSubmitAlt");
+    expect(text()).not.toContain("quickNoSlipTitle");
   });
 });
 

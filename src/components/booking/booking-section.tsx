@@ -21,7 +21,7 @@ import {
   Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope,
   Calendar as CalendarIcon, CreditCard, Upload, CheckCircle2, Loader2,
   ImageIcon, X, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle,
-  Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, ListPlus, Gift, HelpCircle, BedDouble,
+  Download, Shield, Minus, Plus, User, ShieldUser, Mail, Phone, ListPlus, Gift, HelpCircle, BedDouble, MessageCircle,
 } from "lucide-react";
 import { toast } from "sonner";
 import { billingTodayStr } from "@/lib/billing-dates";
@@ -1345,7 +1345,7 @@ export function BookingSection({
                 {t("sectionHeading")}{" "}
                 <span className="text-brand">{t("sectionHeadingAccent")}</span>
               </h2>
-              <p className="mt-4 text-base text-earth-600 leading-[1.8] max-w-md">{t("howItWorks")}</p>
+              <p className="mt-4 text-base text-earth-600 leading-[1.8] max-w-md">{t(normalEnabled ? "howItWorks" : "howItWorksQuick")}</p>
             </div>
 
             {/* ── Right Column: Booking Form Card ── */}
@@ -1899,6 +1899,16 @@ export function BookingSection({
                             )}
                           </div>
 
+                          {!normalEnabled && (
+                            <div className="flex gap-3 rounded-2xl bg-brand-50 p-4 text-sm text-brand-700" data-testid="quick-no-slip-notice">
+                              <MessageCircle className="mt-0.5 h-5 w-5 shrink-0 text-brand" aria-hidden="true" />
+                              <div className="space-y-1">
+                                <p className="font-semibold">{t("quickNoSlipTitle")}</p>
+                                <p className="leading-relaxed">{t("quickNoSlipDesc")}</p>
+                              </div>
+                            </div>
+                          )}
+
                           <div className="rounded-2xl border border-amber-200 bg-amber-50 p-3 text-xs leading-relaxed text-amber-800">
                             {/* Only promise the resume route when this host
                                 actually keeps drafts; otherwise the menu item
@@ -2025,7 +2035,7 @@ export function BookingSection({
         </div>{/* end max-w container */}
       </section>
 
-      <BookingTutorialDialog open={showTutorial} onOpenChange={setShowTutorial} />
+      <BookingTutorialDialog open={showTutorial} onOpenChange={setShowTutorial} quickOnly={!normalEnabled} />
 
       {/* Step 1's date field + empty state open the same picker as the sticky bar. */}
       <BookingCalendarDialog

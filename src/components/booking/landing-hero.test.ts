@@ -15,8 +15,9 @@ beforeEach(() => {
 const hero = async ({
   bookingDisabled,
   cancellationDays,
+  quickOnly,
   name = "บ้านริมธาร",
-}: { bookingDisabled?: boolean; cancellationDays?: number; name?: string } = {}) =>
+}: { bookingDisabled?: boolean; cancellationDays?: number; quickOnly?: boolean; name?: string } = {}) =>
   renderToStaticMarkup(
     await LandingHero({
       name,
@@ -30,6 +31,7 @@ const hero = async ({
       discoverHref: "#gallery",
       bookingDisabled,
       cancellationDays,
+      quickOnly,
     }),
   );
 
@@ -44,6 +46,12 @@ describe("LandingHero", () => {
     expect(await hero()).not.toContain("cancellationPolicyNote");
     expect(await hero({ cancellationDays: 0 })).not.toContain("cancellationPolicyNote");
     expect(await hero({ cancellationDays: 7 })).toContain("cancellationPolicyNote");
+  });
+
+  it("promises confirmation by the host, not instant confirmation, when the host takes quick bookings only", async () => {
+    const html = await hero({ quickOnly: true });
+    expect(html).toContain("hostConfirms");
+    expect(html).not.toContain("instantConfirm");
   });
 
   it("makes no booking promise while the host can't take bookings", async () => {

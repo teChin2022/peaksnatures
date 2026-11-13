@@ -19,6 +19,8 @@ interface HeroSectionProps {
   cancellationDays?: number;
   /** The homestay's landing page, linked as "view property details". */
   detailsHref?: string;
+  /** The host takes quick bookings only: they confirm by hand, so no "instant confirmation". */
+  quickOnly?: boolean;
 }
 
 export function HeroSection({
@@ -31,6 +33,7 @@ export function HeroSection({
   reviewCount = 0,
   cancellationDays = 0,
   detailsHref,
+  quickOnly = false,
 }: HeroSectionProps) {
   const t = useTranslations("hero");
   const tb = useTranslations("booking");
@@ -121,7 +124,7 @@ export function HeroSection({
               items.push(
                 <span key="instantConfirm" className="inline-flex items-center gap-1.5">
                   <BadgeCheck size={14} className="text-brand-200" />
-                  {t("instantConfirm")}
+                  {t(quickOnly ? "hostConfirms" : "instantConfirm")}
                 </span>
               );
               if (cancellationDays > 0) {

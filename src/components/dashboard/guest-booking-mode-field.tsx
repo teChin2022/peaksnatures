@@ -8,13 +8,11 @@ import { GUEST_BOOKING_MODES, hostContactLink } from "@/lib/quick-booking";
 const LABEL_KEY = {
   normal: "guestBookingModeNormal",
   quick: "guestBookingModeQuick",
-  both: "guestBookingModeBoth",
 } as const;
 
 const DESC_KEY = {
   normal: "guestBookingModeNormalDesc",
   quick: "guestBookingModeQuickDesc",
-  both: "guestBookingModeBothDesc",
 } as const;
 
 /**

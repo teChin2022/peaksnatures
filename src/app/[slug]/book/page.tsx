@@ -17,6 +17,7 @@ import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { RespectReducedMotion } from "@/components/respect-reduced-motion";
 import { SITE_NAME, buildAlternates } from "@/lib/seo";
 import { toBookingHost } from "@/lib/public-host";
+import { allowsNormal, guestBookingModeOf } from "@/lib/quick-booking";
 import { getHomestayData, getPromoLinkInfo, homestayMetadata, notFoundMetadata, readLocale } from "../data";
 
 const BookingSection = dynamic(() => import("@/components/booking/booking-section").then((m) => m.BookingSection));
@@ -136,6 +137,7 @@ export default async function HomestayBookingPage({ params, searchParams }: Page
           reviewCount={reviewCount}
           cancellationDays={homestay.host.cancellation_days}
           detailsHref={`/${homestay.slug}`}
+          quickOnly={!allowsNormal(guestBookingModeOf(homestay.host))}
           // location={homestay.location}
         />
 

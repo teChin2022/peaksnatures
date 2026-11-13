@@ -174,6 +174,11 @@ export async function startSession(
         return `${a}${mode}${b}`;
       });
       expect(replaced, "the host mode was not found in the page payload; has the Next.js payload format changed?").toBeGreaterThan(0);
+      // The intro line above the form follows the mode and was rendered for the
+      // host's real one. Left as is, React meets a mismatch on hydration and
+      // re-renders the page under the test's first clicks.
+      const intro = mode === "quick" ? T.booking.howItWorksQuick : T.booking.howItWorks;
+      html = html.replace(`>${T.booking.howItWorks}<`, `>${intro}<`).replace(`>${T.booking.howItWorksQuick}<`, `>${intro}<`);
       return route.fulfill({ response, body: html });
     });
   }
