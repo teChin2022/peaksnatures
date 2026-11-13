@@ -220,19 +220,30 @@ test.describe("a host on both", () => {
 });
 
 test.describe("the booking page header", () => {
-  test("stays put while the guest scrolls to the dates, and links back to the homestay", async ({ page, context }) => {
+  test("shows only the name and tagline, centred, and stays put while the guest scrolls to the dates", async ({ page, context }) => {
     const slug = requireSlug();
     await open(page, context, "normal");
     await page.goto(`/${slug}/book`);
 
     const name = page.getByRole("heading", { level: 1 });
     await expect(name).toBeVisible();
+    const hero = page.locator("section").filter({ has: name });
+    // Nothing else in the header: no rating, badges, promise or links.
+    await expect(hero.getByRole("link")).toHaveCount(0);
+    await expect(hero.locator("svg")).toHaveCount(0);
+    // Measure the glyphs, not the h1's box: a left-aligned h1 can still span a centred column.
+    const offCentre = await name.evaluate((el) => {
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const r = range.getBoundingClientRect();
+      return Math.abs(r.left + r.width / 2 - document.documentElement.clientWidth / 2);
+    });
+    expect(offCentre).toBeLessThanOrEqual(4);
+
     // The header used to fade out with the scroll and drift with a parallax photo.
     await page.mouse.wheel(0, 300);
     await page.waitForTimeout(300);
     expect(await name.evaluate((el) => getComputedStyle(el.closest("section > div:last-child")!).opacity)).toBe("1");
-
-    await expect(page.getByRole("link", { name: T.landing.viewDetails })).toHaveAttribute("href", `/${slug}`);
   });
 });
 

@@ -17,7 +17,6 @@ import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { RespectReducedMotion } from "@/components/respect-reduced-motion";
 import { SITE_NAME, buildAlternates } from "@/lib/seo";
 import { toBookingHost } from "@/lib/public-host";
-import { allowsNormal, guestBookingModeOf } from "@/lib/quick-booking";
 import { getHomestayData, getPromoLinkInfo, homestayMetadata, notFoundMetadata, readLocale } from "../data";
 
 const BookingSection = dynamic(() => import("@/components/booking/booking-section").then((m) => m.BookingSection));
@@ -69,7 +68,7 @@ export default async function HomestayBookingPage({ params, searchParams }: Page
     notFound();
   }
 
-  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, specialPrices, roomOptions, guestPricing, averageRating, reviewCount, bookingDisabled, mostBookedRoomId, hasConfirmedBookings } = data;
+  const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, specialPrices, roomOptions, guestPricing, bookingDisabled, mostBookedRoomId, hasConfirmedBookings } = data;
 
   const initialPromo =
     promoParam && homestay.promo_codes_enabled
@@ -128,18 +127,7 @@ export default async function HomestayBookingPage({ params, searchParams }: Page
 
       <main className="pb-28 md:pb-0">
         <Breadcrumbs items={breadcrumbItems} visuallyHidden />
-        <HeroSection
-          name={homestay.name}
-          tagline={homestay.tagline}
-          heroImageUrl={homestay.hero_image_url}
-          isVerified={homestay.host.is_verified}
-          averageRating={averageRating}
-          reviewCount={reviewCount}
-          cancellationDays={homestay.host.cancellation_days}
-          detailsHref={`/${homestay.slug}`}
-          quickOnly={!allowsNormal(guestBookingModeOf(homestay.host))}
-          // location={homestay.location}
-        />
+        <HeroSection name={homestay.name} tagline={homestay.tagline} heroImageUrl={homestay.hero_image_url} />
 
         <DesktopDateSearch bookingDisabled={bookingDisabled} />
 

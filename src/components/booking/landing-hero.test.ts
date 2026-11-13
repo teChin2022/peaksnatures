@@ -12,67 +12,32 @@ beforeEach(() => {
   intl.locale = "th";
 });
 
-const hero = async ({
-  bookingDisabled,
-  cancellationDays,
-  quickOnly,
-  name = "บ้านริมธาร",
-}: { bookingDisabled?: boolean; cancellationDays?: number; quickOnly?: boolean; name?: string } = {}) =>
+const hero = async ({ bookingDisabled, name = "บ้านริมธาร" }: { bookingDisabled?: boolean; name?: string } = {}) =>
   renderToStaticMarkup(
     await LandingHero({
       name,
       tagline: "ตื่นมากับทะเลหมอก",
       heroImageUrl: null,
-      location: "เชียงใหม่",
-      isVerified: true,
-      averageRating: 4.5,
-      reviewCount: 3,
-      fromPrice: 1500,
       discoverHref: "#gallery",
       bookingDisabled,
-      cancellationDays,
-      quickOnly,
     }),
   );
 
+const text = (html: string) => html.replace(/<[^>]+>/g, " ").replace(/\s+/g, " ").trim();
+
 describe("LandingHero", () => {
+  it("says only the homestay's name and tagline, then the cue to scroll", async () => {
+    expect(text(await hero())).toBe("บ้านริมธาร ตื่นมากับทะเลหมอก discover");
+  });
+
   it("says up front when the host can't take bookings", async () => {
     expect(await hero()).not.toContain("unavailableTitle");
     expect(await hero({ bookingDisabled: true })).toContain("unavailableTitle");
   });
 
-  it("promises instant confirmation, and free cancellation only when the host set days", async () => {
-    expect(await hero()).toContain("instantConfirm");
-    expect(await hero()).not.toContain("cancellationPolicyNote");
-    expect(await hero({ cancellationDays: 0 })).not.toContain("cancellationPolicyNote");
-    expect(await hero({ cancellationDays: 7 })).toContain("cancellationPolicyNote");
-  });
-
-  it("promises confirmation by the host, not instant confirmation, when the host takes quick bookings only", async () => {
-    const html = await hero({ quickOnly: true });
-    expect(html).toContain("hostConfirms");
-    expect(html).not.toContain("instantConfirm");
-  });
-
-  it("makes no booking promise while the host can't take bookings", async () => {
-    const html = await hero({ bookingDisabled: true, cancellationDays: 7 });
-    expect(html).not.toContain("instantConfirm");
-    expect(html).not.toContain("cancellationPolicyNote");
-  });
-
   it("keeps each word of the name whole, so a Thai name wraps at its spaces", async () => {
     const html = await hero({ name: "อิงค์เขาแคมป์ปิ้ง ม่อนเงาะ" });
     expect(html).toContain('<span class="inline-block max-w-full">อิงค์เขาแคมป์ปิ้ง</span> <span class="inline-block max-w-full">ม่อนเงาะ</span>');
-  });
-
-  it("keeps one icon, the rating star: the other facts read as words", async () => {
-    const html = await hero({ cancellationDays: 7 });
-    expect(html).toContain("lucide-star");
-    expect(html).not.toMatch(/lucide-(map-pin|shield-check|badge-check|calendar-x)/);
-  });
-
-  it("separates facts on one line with a dot hidden on phones, so a wrapped line never ends on it", async () => {
-    expect(await hero()).toMatch(/<span aria-hidden="true" class="hidden sm:inline[^"]*">·<\/span>/);
   });
 
   it("scrolls on to the section it is given", async () => {

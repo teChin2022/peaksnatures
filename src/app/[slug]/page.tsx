@@ -26,7 +26,6 @@ import { LandingRooms, type LandingRoom } from "@/components/booking/landing-roo
 import { JsonLd } from "@/components/seo/json-ld";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { SITE_NAME, SITE_URL } from "@/lib/seo";
-import { allowsNormal, guestBookingModeOf } from "@/lib/quick-booking";
 import { getHomestayData, homestayMetadata, notFoundMetadata, readLocale } from "./data";
 
 export const revalidate = 30;
@@ -213,15 +212,8 @@ export default async function HomestayLandingPage({ params, searchParams }: Page
           name={homestay.name}
           tagline={homestay.tagline}
           heroImageUrl={homestay.hero_image_url}
-          location={homestay.location}
-          isVerified={homestay.host.is_verified}
-          averageRating={averageRating}
-          reviewCount={reviewCount}
-          fromPrice={fromPrice}
           discoverHref={photos.length > 0 ? "#gallery" : "#about"}
           bookingDisabled={!canBook}
-          cancellationDays={homestay.host.cancellation_days}
-          quickOnly={!allowsNormal(guestBookingModeOf(homestay.host))}
         />
 
         {/* What guests decide on comes first: photos, the place, its houses, reviews. Then host, map and the fine print. */}
