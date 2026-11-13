@@ -65,6 +65,16 @@ describe("LandingHero", () => {
     expect(html).toContain('<span class="inline-block max-w-full">อิงค์เขาแคมป์ปิ้ง</span> <span class="inline-block max-w-full">ม่อนเงาะ</span>');
   });
 
+  it("keeps one icon, the rating star: the other facts read as words", async () => {
+    const html = await hero({ cancellationDays: 7 });
+    expect(html).toContain("lucide-star");
+    expect(html).not.toMatch(/lucide-(map-pin|shield-check|badge-check|calendar-x)/);
+  });
+
+  it("separates facts on one line with a dot hidden on phones, so a wrapped line never ends on it", async () => {
+    expect(await hero()).toMatch(/<span aria-hidden="true" class="hidden sm:inline[^"]*">·<\/span>/);
+  });
+
   it("scrolls on to the section it is given", async () => {
     expect(await hero()).toContain('href="#gallery"');
   });

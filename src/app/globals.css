@@ -219,42 +219,6 @@
   scrollbar-width: none;
 }
 
-/* Hero mist animation */
-@keyframes drift {
-  0% { transform: translateX(-10%); }
-  50% { transform: translateX(10%); }
-  100% { transform: translateX(-10%); }
-}
-
-.hero-mist::before,
-.hero-mist::after {
-  content: "";
-  position: absolute;
-  bottom: 0;
-  left: -10%;
-  right: -10%;
-  height: 30%;
-  pointer-events: none;
-  background: linear-gradient(to top, rgba(255,255,255,0.15) 0%, transparent 100%);
-  opacity: 0.4;
-}
-
-.hero-mist::before {
-  animation: drift 30s ease-in-out infinite;
-}
-
-.hero-mist::after {
-  animation: drift 45s ease-in-out infinite reverse;
-  opacity: 0.25;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .hero-mist::before,
-  .hero-mist::after {
-    animation: none;
-  }
-}
-
 /* Cart badge pulse — shared by the mobile sticky bar and the desktop header cart.
    Runs while the cart holds houses so the guest keeps noticing it. Gentle on
    purpose; it never stops while non-empty.

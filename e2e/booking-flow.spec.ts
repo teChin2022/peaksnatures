@@ -219,6 +219,23 @@ test.describe("a host on both", () => {
   });
 });
 
+test.describe("the booking page header", () => {
+  test("stays put while the guest scrolls to the dates, and links back to the homestay", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.goto(`/${slug}/book`);
+
+    const name = page.getByRole("heading", { level: 1 });
+    await expect(name).toBeVisible();
+    // The header used to fade out with the scroll and drift with a parallax photo.
+    await page.mouse.wheel(0, 300);
+    await page.waitForTimeout(300);
+    expect(await name.evaluate((el) => getComputedStyle(el.closest("section > div:last-child")!).opacity)).toBe("1");
+
+    await expect(page.getByRole("link", { name: T.landing.viewDetails })).toHaveAttribute("href", `/${slug}`);
+  });
+});
+
 test.describe("on a phone", () => {
   test("neither the payment step nor the confirmation overflows the screen sideways", async ({ page, context }, testInfo) => {
     test.skip(testInfo.project.name !== "phone", "phone layout only");

@@ -61,8 +61,8 @@ export function DesktopDateSearch({ bookingDisabled = false }: { bookingDisabled
           >
             <CalendarDays size={22} className="shrink-0 text-brand" />
             <span className="flex min-w-0 flex-col">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-earth-400">{tb("selectDates")}</span>
-              <span className={`truncate text-sm font-bold ${hasDates ? "text-earth-900" : "text-earth-500"}`}>
+              <span className="text-xs font-semibold text-earth-600">{tb("selectDates")}</span>
+              <span className={`truncate text-sm font-bold ${hasDates ? "text-earth-900" : "text-earth-600"}`}>
                 {hasDates
                   ? `${fmtDate(dateRange!.from!, "d MMM", locale)} — ${fmtDate(dateRange!.to!, "d MMM", locale)} · ${nights} ${nights > 1 ? tc("nights") : tc("night")}`
                   : `${tb("checkInLabel")} — ${tb("checkOutLabel")}`}

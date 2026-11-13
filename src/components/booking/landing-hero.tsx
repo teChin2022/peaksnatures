@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import Image from "next/image";
-import { BadgeCheck, CalendarX, Clock, MapPin, ShieldCheck, Star } from "lucide-react";
+import { Clock, Star } from "lucide-react";
+import { HeroDot as Dot } from "@/components/booking/hero-section";
 import { getLocale, getTranslations } from "next-intl/server";
 
 interface LandingHeroProps {
@@ -79,49 +80,53 @@ export async function LandingHero({
           <p className={`mt-5 font-serif text-lg sm:text-2xl ${italic} ${RISE} motion-safe:delay-150`}>{tagline}</p>
         )}
 
-        <div className={`mt-8 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 text-sm ${RISE} motion-safe:delay-300`}>
-          {location && (
-            <span className="inline-flex items-center gap-1.5">
-              <MapPin className="h-4 w-4" />
-              {location}
-            </span>
-          )}
-          {averageRating > 0 && (
-            <span className="inline-flex items-center gap-1.5">
-              <Star className="h-4 w-4 fill-amber-300 text-amber-300" />
-              {averageRating.toFixed(1)}
-              {reviewCount > 0 && <span>({reviewCount})</span>}
-            </span>
-          )}
-          {isVerified && (
-            <span className="inline-flex items-center gap-1.5">
-              <ShieldCheck className="h-4 w-4" />
-              {th("verifiedHost")}
-            </span>
-          )}
-        </div>
-
-        {fromPrice !== null && (
-          <p className={`mt-4 text-sm ${RISE} motion-safe:delay-450`}>
-            {tc("from")} <span className="text-base font-semibold">฿{fromPrice.toLocaleString()}</span>
-            {tc("perNight")}
+        {/* Where and who: one line on wide screens; on phones the facts wrap, so the dots step aside for the gap. */}
+        {(location || averageRating > 0 || isVerified) && (
+          <p className={`mt-7 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm sm:gap-x-2 ${RISE} motion-safe:delay-300`}>
+            {[
+              location && <span key="location">{location}</span>,
+              averageRating > 0 && (
+                <span key="rating" className="inline-flex items-center gap-1.5">
+                  <Star className="h-4 w-4 fill-amber-300 text-amber-300" />
+                  {averageRating.toFixed(1)}
+                  {reviewCount > 0 && <span>({reviewCount})</span>}
+                </span>
+              ),
+              isVerified && <span key="verified">{th("verifiedHost")}</span>,
+            ]
+              .filter(Boolean)
+              .map((fact, i) => (
+                <Fragment key={i}>
+                  {i > 0 && <Dot />}
+                  {fact}
+                </Fragment>
+              ))}
           </p>
         )}
 
-        {/* The booking promise /book's hero makes, under the price it belongs with. */}
-        {!bookingDisabled && (
-          <div className={`mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm ${RISE} motion-safe:delay-600`}>
-            <span className="inline-flex items-center gap-1.5">
-              <BadgeCheck className="h-4 w-4" />
-              {th(quickOnly ? "hostConfirms" : "instantConfirm")}
-            </span>
-            {cancellationDays > 0 && (
-              <span className="inline-flex items-center gap-1.5">
-                <CalendarX className="h-4 w-4" />
-                {tb("cancellationPolicyNote", { days: cancellationDays })}
-              </span>
-            )}
-          </div>
+        {/* The offer: price, then the booking promise /book's hero makes. */}
+        {(fromPrice !== null || !bookingDisabled) && (
+          <p className={`mt-2 flex flex-wrap items-center justify-center gap-x-4 gap-y-1 text-sm sm:gap-x-2 ${RISE} motion-safe:delay-450`}>
+            {[
+              fromPrice !== null && (
+                <span key="price">
+                  {tc("from")} <span className="text-base font-semibold">฿{fromPrice.toLocaleString()}</span>
+                  {tc("perNight")}
+                </span>
+              ),
+              !bookingDisabled && <span key="promise">{th(quickOnly ? "hostConfirms" : "instantConfirm")}</span>,
+              !bookingDisabled && cancellationDays > 0 && (
+                <span key="cancel">{tb("cancellationPolicyNote", { days: cancellationDays })}</span>
+              ),
+            ]
+              .filter(Boolean)
+              .map((fact, i) => (
+                <Fragment key={i}>
+                  {i > 0 && <Dot />}
+                  {fact}
+                </Fragment>
+              ))}
+          </p>
         )}
 
         {bookingDisabled && (
