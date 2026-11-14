@@ -10,7 +10,8 @@ import type { Room, RoomSeasonalPrice, RoomSpecialPrice, BlockedDate } from "@/t
 
 type BookingStep = "dates" | "details" | "payment";
 import { Badge } from "@/components/ui/badge";
-import { Users, CalendarSearch, ChevronLeft, ChevronRight, X, Sparkles, Wrench, ShoppingCart } from "lucide-react";
+import { Users, CalendarSearch, ChevronLeft, ChevronRight, X, Sparkles, Wrench, ShoppingCart, Check } from "lucide-react";
+import { roomCtaState } from "@/components/booking/room-cta-state";
 import { fmtDateStr } from "@/lib/format-date";
 
 import { useTranslations, useLocale } from "next-intl";
@@ -23,6 +24,7 @@ import { getPriceRange } from "@/lib/calculate-price";
 import { formatSpecialPriceRule } from "@/lib/special-price-label";
 import { getFullyBookedForRoom } from "@/lib/booking-dates";
 import { HTMLContent } from "@/components/ui/html-content";
+import { thumbScroll } from "@/components/booking/gallery-section";
 import { Calendar } from "@/components/ui/calendar";
 import {
   Dialog,
@@ -36,7 +38,8 @@ const BLUR_DATA_URL =
   "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI4MDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2UyZThmMCIvPjwvc3ZnPg==";
 
 
-function RoomLightbox({ images, name, startIndex, onClose }: { images: string[]; name: string; startIndex: number; onClose: () => void }) {
+export function RoomLightbox({ images, name, startIndex, onClose }: { images: string[]; name: string; startIndex: number; onClose: () => void }) {
+  const t = useTranslations("rooms");
   const [index, setIndex] = useState(startIndex);
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   const prevImage = useCallback(() => setIndex((i) => (i > 0 ? i - 1 : images.length - 1)), [images.length]);
@@ -48,7 +51,7 @@ function RoomLightbox({ images, name, startIndex, onClose }: { images: string[];
       <Button
         variant="ghost"
         size="icon"
-        className="absolute right-4 top-4 text-white hover:bg-white/20"
+        className="absolute right-4 top-4 z-10 text-white hover:bg-white/20"
         onClick={onClose}
       >
         <X className="h-6 w-6" />
@@ -57,23 +60,47 @@ function RoomLightbox({ images, name, startIndex, onClose }: { images: string[];
       <Button
         variant="ghost"
         size="icon"
-        className="absolute left-4 text-white hover:bg-white/20"
+        className="absolute left-4 z-10 text-white hover:bg-white/20"
         onClick={prevImage}
       >
         <ChevronLeft className="h-8 w-8" />
       </Button>
 
       <div className="flex h-[85vh] w-[90vw] max-w-5xl items-center justify-center">
-        <Image
-          key={images[index]}
-          src={images[index]}
-          alt={`${name} photo ${index + 1}`}
-          width={1920}
-          height={1080}
-          sizes="90vw"
-          priority
-          className="max-h-[85vh] max-w-full h-auto w-auto rounded-2xl"
-        />
+        <div className="relative flex max-h-[85vh] max-w-full overflow-hidden rounded-2xl">
+          <Image
+            key={images[index]}
+            src={images[index]}
+            alt={`${name} photo ${index + 1}`}
+            width={1920}
+            height={1080}
+            sizes="90vw"
+            priority
+            className="max-h-[85vh] max-w-full h-auto w-auto"
+          />
+          {/* Thumbnail strip, same as the landing gallery's viewer. */}
+          {images.length > 1 && (
+            <div className="absolute inset-x-0 bottom-0 flex gap-2 overflow-x-auto p-3 [scrollbar-width:none]">
+              {images.map((img, i) => (
+                <button
+                  key={i}
+                  type="button"
+                  aria-label={t("goToPhoto", { number: i + 1 })}
+                  aria-current={i === index}
+                  onClick={() => setIndex(i)}
+                  ref={(el) => {
+                    if (i === index) el?.scrollIntoView?.({ inline: "center", block: "nearest", behavior: thumbScroll() });
+                  }}
+                  className={`relative h-12 w-16 shrink-0 overflow-hidden rounded-md outline-none ring-2 transition-[opacity,transform,box-shadow] duration-300 ease-[cubic-bezier(0.16,1,0.3,1)] focus-visible:ring-white motion-reduce:transition-none sm:h-14 sm:w-20 ${
+                    i === index ? "scale-100 ring-white" : "scale-90 opacity-70 ring-transparent hover:opacity-100"
+                  }`}
+                >
+                  <Image src={img} alt="" fill sizes="80px" className="object-cover" />
+                </button>
+              ))}
+            </div>
+          )}
+        </div>
       </div>
 
       {/* Preload adjacent images */}
@@ -157,12 +184,12 @@ export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, sp
             whileInView={{ y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
-            className="text-2xl md:text-3xl font-serif text-earth-900 tracking-tight"
+            className="text-2xl md:text-3xl font-serif text-ink tracking-tight"
           >
             {t("title")}
           </motion.h2>
         </div>
-        <p className="mt-2 text-sm text-earth-500">
+        <p className="mt-2 text-sm text-ink-3">
           {t("subtitle")}
         </p>
 
@@ -187,17 +214,17 @@ function RoomPriceDisplay({ room, seasonalPrices, specialPrices }: { room: Room;
     <div className="flex items-center gap-1">
       {hasRange ? (
         <>
-          <span className="text-xs text-earth-400 self-end mb-1">{t("fromPrice")}</span>
-          <span className="text-2xl font-bold text-earth-900">
+          <span className="text-xs text-ink-3 self-end mb-1">{t("fromPrice")}</span>
+          <span className="text-2xl font-bold text-ink">
             ฿{min.toLocaleString()}
           </span>
         </>
       ) : (
-        <span className="text-2xl font-bold text-earth-900">
+        <span className="text-2xl font-bold text-ink">
           ฿{room.price_per_night.toLocaleString()}
         </span>
       )}
-      <span className="text-xs text-earth-400 self-end mb-1">{tc("perNight")}</span>
+      <span className="text-xs text-ink-3 self-end mb-1">{tc("perNight")}</span>
     </div>
   );
 }
@@ -215,24 +242,37 @@ function RoomDescriptionWithReadMore({ content, onReadMore }: { content: string;
   }, [content]);
 
   return (
-    <>
-      <div ref={ref} className="line-clamp-5">
-        <HTMLContent content={content} className="mt-2 text-sm leading-relaxed text-earth-500" />
+    <div>
+      <div ref={ref} className="line-clamp-3">
+        <HTMLContent content={content} className="text-[15px] leading-relaxed text-ink-2" />
       </div>
       {overflows && (
         <button
           type="button"
-          className="mt-1 text-left text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600"
+          className="mt-1 inline-flex min-h-11 items-center rounded-sm text-left text-sm font-medium text-pine underline underline-offset-4 hover:text-pine-hover outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
           onClick={onReadMore}
         >
           {t("readMore")}
         </button>
       )}
-    </>
+    </div>
   );
 }
 
-function SingleRoomHero({
+const CARD_ENTRANCE = {
+  initial: { opacity: 0, y: 30 },
+  whileInView: { opacity: 1, y: 0 },
+  viewport: { once: true },
+  transition: { duration: 0.5, ease: [0.25, 0.1, 0, 1] as const },
+};
+
+/**
+ * One house on /book: a white card with its photos (swipe, arrows, thumbnails,
+ * tap for the lightbox) and, below on phones or beside from md, the name,
+ * description, facts, price and the two actions. The main button's state comes
+ * from roomCtaState and stays disabled until both dates are chosen.
+ */
+export function SingleRoomHero({
   room,
   seasonalPrices,
   specialPrices,
@@ -240,12 +280,14 @@ function SingleRoomHero({
   onCalendar,
   onDesc,
   onAddToCart,
+  onEdit,
   cartEnabled,
   bookingLocked,
   isPopular,
   unavailableForDates,
   datesChosen,
   remaining = 0,
+  inCart = 0,
 }: {
   room: Room;
   seasonalPrices: RoomSeasonalPrice[];
@@ -254,6 +296,8 @@ function SingleRoomHero({
   onCalendar: () => void;
   onDesc: () => void;
   onAddToCart: () => void;
+  /** Opens the room's cart line for editing (used once every free unit is in the cart). */
+  onEdit: () => void;
   cartEnabled: boolean;
   bookingLocked: boolean;
   isPopular?: boolean;
@@ -261,295 +305,225 @@ function SingleRoomHero({
   datesChosen?: boolean;
   /** Units still bookable for the chosen dates; only meaningful once dates are chosen. */
   remaining?: number;
+  /** Units of this house already in the cart. */
+  inCart?: number;
 }) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
+  const ta = useTranslations("about");
   const [index, setIndex] = useState(0);
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   const [seen, setSeen] = useState<Set<number>>(() => new Set([0]));
-  const [overlayHidden, setOverlayHidden] = useState(false);
-  const showTimerRef = useRef<ReturnType<typeof setTimeout> | null>(null);
   const images = room.images;
   const multi = images.length > 1;
 
-  const prev = useCallback(() => {
-    setIndex((i) => {
-      const next = i > 0 ? i - 1 : images.length - 1;
-      setSeen((s) => { const n = new Set(s); n.add(next); if (next > 0) n.add(next - 1); else n.add(images.length - 1); if (next < images.length - 1) n.add(next + 1); else n.add(0); return n; });
-      return next;
-    });
-  }, [images.length]);
-  const next = useCallback(() => {
-    setIndex((i) => {
-      const nxt = i < images.length - 1 ? i + 1 : 0;
-      setSeen((s) => { const n = new Set(s); n.add(nxt); if (nxt > 0) n.add(nxt - 1); else n.add(images.length - 1); if (nxt < images.length - 1) n.add(nxt + 1); else n.add(0); return n; });
-      return nxt;
-    });
-  }, [images.length]);
-
-  const handleSwipeStart = useCallback(() => {
-    if (showTimerRef.current) {
-      clearTimeout(showTimerRef.current);
-      showTimerRef.current = null;
-    }
-    setOverlayHidden(true);
-  }, []);
-  const scheduleShow = useCallback(() => {
-    if (showTimerRef.current) clearTimeout(showTimerRef.current);
-    showTimerRef.current = setTimeout(() => setOverlayHidden(false), 3000);
-  }, []);
-  useEffect(() => () => {
-    if (showTimerRef.current) clearTimeout(showTimerRef.current);
-  }, []);
-  useSwipe(containerEl, {
-    onSwipeLeft: next,
-    onSwipeRight: prev,
-    onSwipeStart: handleSwipeStart,
-    onSwipeEnd: scheduleShow,
-  });
+  // Mounts the shown photo and its neighbours, so a swipe never lands on an empty frame.
+  const goTo = useCallback(
+    (i: number) => {
+      const n = images.length;
+      const at = ((i % n) + n) % n;
+      setIndex(at);
+      setSeen((s) => new Set([...s, at, (at + 1) % n, (at - 1 + n) % n]));
+    },
+    [images.length],
+  );
+  const prev = useCallback(() => goTo(index - 1), [goTo, index]);
+  const next = useCallback(() => goTo(index + 1), [goTo, index]);
+  useSwipe(containerEl, { onSwipeLeft: next, onSwipeRight: prev });
 
   const { min, max } = getPriceRange({ basePricePerNight: room.price_per_night, seasons: seasonalPrices, specialPrices });
   const hasRange = min !== max;
+  const ctaState = roomCtaState({ datesChosen: !!datesChosen, inCart, remaining });
 
   if (!room.is_active) {
     const cover = images[0];
     return (
-      <motion.div
-        data-room-id={room.id}
-        initial={{ opacity: 0, y: 30 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.5, ease: [0.25, 0.1, 0, 1] }}
-        className="mt-6"
-      >
-        <div
-          aria-disabled="true"
-          className="relative aspect-[4/3] md:aspect-[16/9] lg:aspect-[21/9] overflow-hidden rounded-2xl bg-earth-100"
-        >
+      <motion.div data-room-id={room.id} {...CARD_ENTRANCE} aria-disabled="true" className="grid overflow-hidden rounded-[20px] bg-white md:grid-cols-[52%_1fr]">
+        <div className="relative aspect-[4/3] bg-mist-2 md:aspect-auto md:min-h-[280px]">
           {cover && (
-            <Image
-              src={cover}
-              alt={room.name}
-              fill
-              sizes="(max-width: 768px) 100vw, (max-width: 1280px) 90vw, 1280px"
-              placeholder="blur"
-              blurDataURL={BLUR_DATA_URL}
-              className="h-full w-full object-cover grayscale opacity-60"
-            />
+            <Image src={cover} alt={room.name} fill sizes="(max-width: 768px) 100vw, 52vw" placeholder="blur" blurDataURL={BLUR_DATA_URL} className="object-cover opacity-60 grayscale" />
           )}
-
-          <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-earth-900/85 via-earth-900/40 to-earth-900/20" />
-
-          <div className="absolute inset-0 z-[2] flex flex-col items-center justify-center gap-4 p-6 text-center">
-            <h3 className="text-2xl md:text-3xl font-serif text-white tracking-tight drop-shadow-lg">{room.name}</h3>
-            <div className="inline-flex items-center gap-2 rounded-full bg-earth-900/70 backdrop-blur-md px-4 py-2 text-sm font-medium text-white ring-1 ring-white/20 shadow-lg">
-              <Wrench className="h-4 w-4" />
-              <span>{t("temporarilyClosed")}</span>
-            </div>
-          </div>
+        </div>
+        <div className="flex flex-col justify-center gap-3 p-5 md:p-7">
+          <h3 className="font-serif text-2xl text-ink md:text-[28px]">{room.name}</h3>
+          <p className="inline-flex items-center gap-2 text-sm text-ink-2">
+            <Wrench className="h-4 w-4 shrink-0" />
+            {t("temporarilyClosed")}
+          </p>
         </div>
       </motion.div>
     );
   }
 
+  const mainLabel = unavailableForDates ? (
+    t("unavailableForDates")
+  ) : ctaState === "edit" ? (
+    <>
+      <Check className="h-4 w-4" />
+      {t("inCartEdit")}
+    </>
+  ) : (
+    <>
+      <ShoppingCart className="h-4 w-4" />
+      {t("selectThisRoom")}
+    </>
+  );
+
   return (
     <motion.div
       data-room-id={room.id}
-      initial={{ opacity: 0, y: 30 }}
-      whileInView={{ opacity: 1, y: 0 }}
-      viewport={{ once: true }}
-      transition={{ duration: 0.5, ease: [0.25, 0.1, 0, 1] }}
-      className="mt-6"
+      {...CARD_ENTRANCE}
+      // In the cart: a Pine outline, so the guest sees at a glance which houses are chosen.
+      className={`grid overflow-hidden rounded-[20px] bg-white md:grid-cols-[52%_1fr] ${inCart > 0 ? "ring-[1.5px] ring-inset ring-pine" : ""}`}
     >
-      {/* Hero image with overlay */}
-      <div
-        ref={setContainerEl}
-        className="group relative aspect-[4/3] md:aspect-[16/9] lg:aspect-[21/9] overflow-hidden rounded-2xl bg-earth-100"
-        style={{ touchAction: "pan-y" }}
-      >
-        {isPopular && (
-          <span className="pointer-events-none absolute left-3 top-3 z-20 inline-flex items-center gap-1 rounded-full bg-amber-500/95 px-3 py-1 text-[11px] font-semibold uppercase tracking-wide text-white shadow-lg ring-1 ring-black/5">
-            <Sparkles className="h-3 w-3" />
-            {t("popular")}
-          </span>
-        )}
-        {/* Sliding image strip — only nearby images are mounted to reduce DOM/decode cost */}
+      {/* Photos */}
+      <div className="relative min-w-0">
         <div
-          className="absolute inset-0 flex transition-transform duration-500 ease-out will-change-transform"
-          style={{ transform: `translateX(-${index * 100}%)` }}
+          ref={setContainerEl}
+          className="group relative aspect-[4/3] overflow-hidden bg-mist-2 md:aspect-auto md:h-full md:min-h-[380px]"
+          style={{ touchAction: "pan-y" }}
         >
-          {images.map((src, i) => {
-            const shouldMount = seen.has(i) || Math.abs(i - index) <= 1 || (index === 0 && i === images.length - 1) || (index === images.length - 1 && i === 0);
-            return (
-              <div key={src} className="relative h-full w-full shrink-0">
-                {shouldMount && (
-                  <Image
-                    src={src}
-                    alt={`${room.name} photo ${i + 1}`}
-                    fill
-                    sizes="(max-width: 768px) 100vw, (max-width: 1280px) 90vw, 1280px"
-                    priority={i === 0}
-                    placeholder="blur"
-                    blurDataURL={BLUR_DATA_URL}
-                    className="h-full w-full object-cover"
-                  />
-                )}
-              </div>
-            );
-          })}
+          {/* Sliding image strip — only nearby images are mounted to reduce DOM/decode cost */}
+          <div
+            className="absolute inset-0 flex transition-transform duration-500 ease-out will-change-transform motion-reduce:transition-none"
+            style={{ transform: `translateX(-${index * 100}%)` }}
+          >
+            {images.map((src, i) => {
+              const shouldMount = seen.has(i) || Math.abs(i - index) <= 1 || (index === 0 && i === images.length - 1) || (index === images.length - 1 && i === 0);
+              return (
+                <div key={src} className="relative h-full w-full shrink-0">
+                  {shouldMount && (
+                    <Image
+                      src={src}
+                      alt={`${room.name} photo ${i + 1}`}
+                      fill
+                      sizes="(max-width: 768px) 100vw, 52vw"
+                      priority={i === 0}
+                      placeholder="blur"
+                      blurDataURL={BLUR_DATA_URL}
+                      className="h-full w-full object-cover"
+                    />
+                  )}
+                </div>
+              );
+            })}
+          </div>
+
+          {/* Click area for lightbox */}
+          <button type="button" className="absolute inset-0 z-[1] cursor-pointer" onClick={onLightbox} aria-label="View photos" />
+
+          {isPopular && (
+            <span className="pointer-events-none absolute left-3 top-3 z-20 inline-flex items-center gap-1 rounded-full bg-[#FCEFC7] px-3 py-1 text-xs font-semibold text-[#7A4D00]">
+              <Sparkles className="h-3 w-3" />
+              {t("popular")}
+            </span>
+          )}
+
+          {multi && (
+            <>
+              {/* Arrows from md, shown on hover or focus; phones swipe. */}
+              <button
+                type="button"
+                aria-label={t("prevPhoto")}
+                className="absolute left-3 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-ink opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 md:flex outline-none focus-visible:ring-2 focus-visible:ring-white"
+                onClick={(e) => { e.stopPropagation(); prev(); }}
+              >
+                <ChevronLeft className="h-5 w-5" />
+              </button>
+              <button
+                type="button"
+                aria-label={t("nextPhoto")}
+                className="absolute right-3 top-1/2 z-10 hidden h-11 w-11 -translate-y-1/2 items-center justify-center rounded-full bg-white/90 text-ink opacity-0 transition-opacity group-hover:opacity-100 focus-visible:opacity-100 md:flex outline-none focus-visible:ring-2 focus-visible:ring-white"
+                onClick={(e) => { e.stopPropagation(); next(); }}
+              >
+                <ChevronRight className="h-5 w-5" />
+              </button>
+              <span aria-hidden="true" className="pointer-events-none absolute right-3 bottom-3 z-10 rounded-full bg-black/70 px-2.5 py-0.5 text-xs text-white tabular-nums">
+                {index + 1} / {images.length}
+              </span>
+            </>
+          )}
         </div>
 
-        {/* Click area for lightbox */}
-        <button
-          type="button"
-          className="absolute inset-0 z-[1] cursor-pointer"
-          onClick={onLightbox}
-          aria-label="View photos"
-        />
-
-        {/* Carousel arrows — hidden on mobile, fade in on hover (desktop) */}
+        {/* Thumbnails: a row under the photo on phones, over its bottom edge from md. */}
         {multi && (
-          <>
-            <button
-              type="button"
-              className="absolute left-4 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 md:flex hover:bg-black/50"
-              onClick={(e) => { e.stopPropagation(); prev(); }}
-            >
-              <ChevronLeft className="h-5 w-5" />
-            </button>
-            <button
-              type="button"
-              className="absolute right-4 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white backdrop-blur-sm transition-all opacity-0 group-hover:opacity-100 md:flex hover:bg-black/50"
-              onClick={(e) => { e.stopPropagation(); next(); }}
-            >
-              <ChevronRight className="h-5 w-5" />
-            </button>
-          </>
-        )}
-
-        {/* Dot indicators — top of image, identical on mobile and desktop. The button's
-            padding grows the tap target; the matching negative margins cancel it out of
-            layout, so the dots keep the tight gap-1.5 pitch. */}
-        {multi && (
-          <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-center gap-1.5 pt-3 pb-6 bg-gradient-to-b from-black/20 to-transparent">
-            {images.map((_, i) => (
+          <div className="flex gap-1.5 overflow-x-auto px-3 pt-3 [scrollbar-width:none] md:absolute md:bottom-0 md:left-0 md:z-10 md:max-w-[75%] md:p-3">
+            {images.map((src, i) => (
               <button
-                key={i}
+                key={src}
                 type="button"
                 aria-label={t("goToPhoto", { number: i + 1 })}
-                onClick={(e) => { e.stopPropagation(); setIndex(i); }}
-                className="px-1 -mx-1 py-2 -my-2"
+                aria-current={i === index}
+                onClick={() => goTo(i)}
+                className={`relative h-10 w-14 shrink-0 overflow-hidden rounded-lg outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-1 ${
+                  i === index ? "opacity-100 ring-2 ring-pine md:ring-white" : "opacity-60 hover:opacity-100"
+                }`}
               >
-                <span
-                  className={`block h-1.5 rounded-full transition-all ${i === index ? "bg-white w-3" : "bg-white/50 w-1.5 pointer-fine:hover:bg-white/80"}`}
-                />
+                <Image src={src} alt="" fill sizes="56px" className="object-cover" />
               </button>
             ))}
           </div>
         )}
+      </div>
 
-        {/* Bottom gradient overlay */}
-        <div
-          className={`pointer-events-none absolute inset-x-0 bottom-0 h-2/3 bg-gradient-to-t from-black/80 via-black/40 to-transparent transition-opacity duration-300 ease-out md:opacity-100 ${overlayHidden ? "opacity-0" : "opacity-100"}`}
-        />
+      {/* Details. A container, so the two actions sit side by side only when the card itself has room. */}
+      <div className="@container flex min-w-0 flex-col gap-2.5 p-5 md:p-7">
+        <h3 className="font-serif text-2xl leading-snug text-ink md:text-[28px]">{room.name}</h3>
+        {room.description && <RoomDescriptionWithReadMore content={room.description} onReadMore={onDesc} />}
 
-        {/* Overlaid content */}
-        <div
-          className={`absolute inset-x-0 bottom-0 z-[2] flex flex-col gap-3 p-5 md:p-8 transition-all duration-300 ease-out md:opacity-100 md:translate-y-0 md:pointer-events-auto ${overlayHidden ? "opacity-0 translate-y-4 pointer-events-none" : "opacity-100 translate-y-0"}`}
-        >
-          {/* Bottom row: info left, CTA right */}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-end sm:justify-between">
-            {/* Left: name + price + badges */}
-            <div className="min-w-0">
-              <h3 className="text-2xl md:text-3xl font-serif text-white tracking-tight drop-shadow-lg">{room.name}</h3>
-              <div className="mt-1 flex items-baseline gap-1.5">
-                {hasRange && <span className="text-xs text-white/70">{t("fromPrice")}</span>}
-                <span className="text-xl md:text-2xl font-bold text-white drop-shadow-sm">
-                  ฿{(hasRange ? min : room.price_per_night).toLocaleString()}
-                </span>
-                <span className="text-xs text-white/70">{tc("perNight")}</span>
-              </div>
-              <div className="mt-2.5 flex flex-wrap items-center gap-2 text-xs">
-                <span className="inline-flex items-center gap-1.5 rounded-full bg-white/15 px-2.5 py-1 text-white/90 backdrop-blur-sm">
-                  <Users className="h-3.5 w-3.5" />
-                  {tc("guests")} {room.max_guests}
-                </span>
-                {datesChosen && remaining > 0 && (
-                  <span className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-1 text-white/90 backdrop-blur-sm">
-                    {t("available", { count: remaining })}
-                  </span>
-                )}
-                {room.description && (
-                  <button
-                    type="button"
-                    className="inline-flex items-center rounded-full bg-white/15 px-2.5 py-1 text-white/90 backdrop-blur-sm underline underline-offset-2 hover:bg-white/25 transition-colors"
-                    onClick={(e) => { e.stopPropagation(); onDesc(); }}
-                  >
-                    {t("readMore")}
-                  </button>
-                )}
-              </div>
-            </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-2 text-sm text-ink-2">
+          <span className="inline-flex items-center gap-1.5">
+            <Users className="h-4 w-4" />
+            {ta("upToGuests", { count: room.max_guests })}
+          </span>
+          {datesChosen && remaining > 0 && <span>{t("available", { count: remaining })}</span>}
+          {inCart > 0 && (
+            <span className="inline-flex items-center gap-1 rounded-full bg-pine-mist px-2.5 py-1 font-medium text-pine-deep">
+              <Check className="h-3.5 w-3.5" />
+              {t("selectedCount", { count: inCart })}
+            </span>
+          )}
+        </div>
 
-            {/* Right: CTA buttons — desktop only (inside overlay) */}
-            <div className="hidden shrink-0 flex-col items-stretch gap-2 sm:flex">
-              {cartEnabled && (
-                <Button
-                  disabled={bookingLocked || unavailableForDates || !datesChosen}
-                  className="rounded-full bg-brand text-white px-6 py-3.5 h-auto font-bold text-sm tracking-widest uppercase hover:bg-brand-hover border-0 shadow-lg disabled:opacity-50 disabled:cursor-not-allowed"
-                  onClick={(e) => { e.stopPropagation(); onAddToCart(); }}
-                >
-                  {unavailableForDates ? (
-                    t("unavailableForDates")
-                  ) : (
-                    <>
-                      <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
-                      {t("selectThisRoom")}
-                    </>
-                  )}
-                </Button>
-              )}
-              <button
-                type="button"
-                className="flex items-center justify-center gap-1.5 rounded-full bg-white/90 px-5 py-3 border border-white/50 shadow-lg transition-colors text-sm font-bold tracking-widest uppercase text-earth-800 hover:bg-white"
-                onClick={(e) => { e.stopPropagation(); onCalendar(); }}
+        <div className="mt-auto flex flex-col gap-3 border-t border-line pt-4">
+          <p className="whitespace-nowrap">
+            {hasRange && <span className="mr-1.5 text-[13px] text-ink-2">{t("fromPrice")}</span>}
+            {/* Lining figures: the serif's old-style ones read "฿100" as "฿1OO". */}
+            <span className="font-serif text-3xl leading-tight text-ink" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>
+              ฿{(hasRange ? min : room.price_per_night).toLocaleString()}
+            </span>
+            <span className="ml-1 text-[13px] text-ink-2">{tc("perNight")}</span>
+          </p>
+
+          <div className="grid gap-2 @md:grid-cols-2">
+            {cartEnabled && (
+              <Button
+                disabled={bookingLocked || unavailableForDates || ctaState === "pick-dates"}
+                className={`h-auto min-h-12 gap-2 rounded-full px-5 text-[15px] font-medium shadow-none disabled:cursor-not-allowed disabled:opacity-50 @md:order-2 ${
+                  ctaState === "edit"
+                    ? "border border-pine bg-pine-mist text-pine-deep hover:bg-pine-mist/70"
+                    : "border-0 bg-pine text-white hover:bg-pine-hover"
+                }`}
+                onClick={() => (ctaState === "edit" ? onEdit() : onAddToCart())}
               >
-                <CalendarSearch className="h-3.5 w-3.5" />
-                {t("viewCalendar")}
-              </button>
-            </div>
+                {mainLabel}
+              </Button>
+            )}
+            {/* Under the button it explains on phones; under both buttons once they sit side by side. */}
+            {cartEnabled && ctaState === "pick-dates" && !bookingLocked && (
+              <p className="text-center text-xs text-ink-2 @md:order-3 @md:col-span-2">{t("pickDatesFirst")}</p>
+            )}
+            <button
+              type="button"
+              className="flex min-h-12 items-center justify-center gap-2 rounded-full border border-line-strong bg-white px-5 @md:order-1 text-[15px] font-medium text-ink transition-colors hover:bg-mist outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
+              onClick={onCalendar}
+            >
+              <CalendarSearch className="h-4 w-4" />
+              {t("viewCalendar")}
+            </button>
           </div>
         </div>
       </div>
-
-      {/* Mobile CTA — outside image */}
-      <div className="mt-3 mb-15 flex w-full flex-col gap-2 sm:hidden">
-        {cartEnabled && (
-          <Button
-            disabled={bookingLocked || unavailableForDates || !datesChosen}
-            className="w-full rounded-full bg-brand text-white px-8 py-3.5 h-auto font-bold text-sm tracking-widest uppercase shadow-lg hover:bg-brand-hover border-0 disabled:opacity-50 disabled:cursor-not-allowed"
-            onClick={() => onAddToCart()}
-          >
-            {unavailableForDates ? (
-              t("unavailableForDates")
-            ) : (
-              <>
-                <ShoppingCart className="mr-1.5 h-3.5 w-3.5" />
-                {t("selectThisRoom")}
-              </>
-            )}
-          </Button>
-        )}
-        <button
-          type="button"
-          className="flex w-full items-center justify-center gap-1.5 rounded-full border border-earth-300 bg-white px-5 py-3.5 text-sm font-bold tracking-widest uppercase text-earth-800 shadow-sm transition-colors hover:bg-earth-50"
-          onClick={() => onCalendar()}
-        >
-          <CalendarSearch className="h-3.5 w-3.5" />
-          {t("viewCalendar")}
-        </button>
-      </div>
-
     </motion.div>
   );
 }
@@ -565,6 +539,11 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
   const locale = useLocale();
   const cart = useBookingCartOptional();
   const [config, setConfig] = useState<{ room: Room; editingLine?: CartLine } | null>(null);
+
+  const handleEditInCart = (room: Room) => {
+    const line = cart?.lines.find((l) => l.roomId === room.id);
+    if (line) setConfig({ room, editingLine: line });
+  };
 
   const handleAddToCart = (room: Room) => {
     if (!cart) return;
@@ -625,7 +604,7 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
 
   return (
     <>
-      <div className="mt-6 space-y-6">
+      <div className="mt-8 grid gap-5">
         {visibleRooms.map((room) => (
           <SingleRoomHero
             key={room.id}
@@ -636,16 +615,18 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
             onCalendar={() => setCalendarRoomId(room.id)}
             onDesc={() => setDescRoomId(room.id)}
             onAddToCart={() => handleAddToCart(room)}
+            onEdit={() => handleEditInCart(room)}
             cartEnabled={!!cart}
             bookingLocked={bookingLocked}
             isPopular={popularRoomIds.has(room.id)}
             unavailableForDates={false}
             datesChosen={datesChosen}
             remaining={cart?.remainingForRoom(room)}
+            inCart={cart?.countForRoom(room.id) ?? 0}
           />
         ))}
         {datesChosen && visibleRooms.length === 0 && (
-          <div className="rounded-2xl border border-dashed border-earth-300 bg-earth-50 p-8 text-center text-sm text-earth-600">
+          <div className="rounded-2xl border border-dashed border-line-strong bg-mist p-8 text-center text-sm text-ink-2">
             {t("noAvailableRooms")}
           </div>
         )}
@@ -682,7 +663,7 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
           {descRoomId && rooms.find((r) => r.id === descRoomId)?.description && (
             <HTMLContent
               content={rooms.find((r) => r.id === descRoomId)!.description!}
-              className="leading-relaxed text-earth-600"
+              className="leading-relaxed text-ink-2"
             />
           )}
         </DialogContent>
@@ -721,46 +702,46 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
             }}
             className="rounded-md border w-full"
           />
-          <div className="flex items-center justify-center gap-4 text-xs text-earth-500">
+          <div className="flex items-center justify-center gap-4 text-xs text-ink-3">
             <span className="flex items-center gap-1.5">
               <span className="inline-block h-3 w-3 rounded-sm bg-red-100 border border-red-200" />
               {t("legendBooked")}
             </span>
             <span className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-sm bg-white border border-earth-200" />
+              <span className="inline-block h-3 w-3 rounded-sm bg-white border border-line" />
               {t("legendAvailable")}
             </span>
           </div>
 
           {calendarRoom && (
-            <div className="mt-5 rounded-2xl bg-earth-50 px-5 py-5">
+            <div className="mt-5 rounded-2xl bg-mist px-5 py-5">
               {/* Eyebrow + hairline */}
               <div className="mb-4 flex items-center gap-3">
-                <h4 className="text-[10px] font-semibold uppercase tracking-[0.25em] text-earth-500">
+                <h4 className="text-xs font-semibold text-ink-3">
                   {t("priceDetailsTitle")}
                 </h4>
-                <div className="h-px flex-1 bg-earth-200" />
+                <div className="h-px flex-1 bg-line" />
               </div>
 
-              {/* Base price — the anchor */}
+              {/* Base price — the anchor. Labelled just "price" here (owner, 2026-11-14); the house cards keep "standard rate". */}
               <div className="flex items-baseline justify-between gap-4">
-                <span className="text-sm font-medium text-earth-800">
-                  {t("basePrice")}
+                <span className="text-sm font-medium text-ink">
+                  {t("ratePrice")}
                 </span>
                 <div className="flex items-baseline gap-1 tabular-nums">
-                  <span className="text-2xl font-bold text-earth-900">
+                  <span className="text-2xl font-bold text-ink">
                     ฿{calendarRoom.price_per_night.toLocaleString()}
                   </span>
-                  <span className="text-xs text-earth-500">{tc("perNight")}</span>
+                  <span className="text-xs text-ink-3">{tc("perNight")}</span>
                 </div>
               </div>
 
               {/* Special date rates */}
               {(specialsByRoom[calendarRoom.id] || []).length > 0 && (
-                <div className="mt-5 border-t border-dashed border-earth-300 pt-4">
+                <div className="mt-5 border-t border-dashed border-line-strong pt-4">
                   <div className="mb-3 flex items-center gap-2">
-                    <Sparkles className="h-3 w-3 text-brand" strokeWidth={2.5} />
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-earth-500">
+                    <Sparkles className="h-3 w-3 text-pine" strokeWidth={2.5} />
+                    <span className="text-xs font-semibold text-ink-3">
                       {t("specialRates")}
                     </span>
                   </div>
@@ -768,16 +749,16 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
                     {(specialsByRoom[calendarRoom.id] || []).map((s) => (
                       <li key={s.id} className="flex items-baseline justify-between gap-4">
                         <div className="min-w-0 pr-2">
-                          <div className="truncate text-sm font-medium text-earth-900">{s.name}</div>
-                          <div className="mt-0.5 text-[11px] text-earth-500 tabular-nums">
+                          <div className="truncate text-sm font-medium text-ink">{s.name}</div>
+                          <div className="mt-0.5 text-xs text-ink-3 tabular-nums">
                             {formatSpecialPriceRule(s, locale)}
                           </div>
                         </div>
                         <div className="flex shrink-0 items-baseline gap-1 tabular-nums">
-                          <span className="text-lg font-bold text-brand">
+                          <span className="text-lg font-bold text-pine">
                             +฿{s.surcharge.toLocaleString()}
                           </span>
-                          <span className="text-[10px] text-earth-500">{tc("perNight")}</span>
+                          <span className="text-xs text-ink-3">{tc("perNight")}</span>
                         </div>
                       </li>
                     ))}
@@ -787,10 +768,10 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
 
               {/* Seasonal rates */}
               {(seasonsByRoom[calendarRoom.id] || []).length > 0 && (
-                <div className="mt-5 border-t border-dashed border-earth-300 pt-4">
+                <div className="mt-5 border-t border-dashed border-line-strong pt-4">
                   <div className="mb-3 flex items-center gap-2">
-                    <Sparkles className="h-3 w-3 text-brand" strokeWidth={2.5} />
-                    <span className="text-[10px] font-semibold uppercase tracking-[0.25em] text-earth-500">
+                    <Sparkles className="h-3 w-3 text-pine" strokeWidth={2.5} />
+                    <span className="text-xs font-semibold text-ink-3">
                       {t("seasonalRates")}
                     </span>
                   </div>
@@ -801,16 +782,16 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
                       .map((s) => (
                         <li key={s.id} className="flex items-baseline justify-between gap-4">
                           <div className="min-w-0 pr-2">
-                            <div className="truncate text-sm font-medium text-earth-900">{s.name}</div>
-                            <div className="mt-0.5 text-[11px] text-earth-500 tabular-nums">
+                            <div className="truncate text-sm font-medium text-ink">{s.name}</div>
+                            <div className="mt-0.5 text-xs text-ink-3 tabular-nums">
                               {fmtDateStr(s.start_date, "d MMM", locale)} – {fmtDateStr(s.end_date, "d MMM yyyy", locale)}
                             </div>
                           </div>
                           <div className="flex shrink-0 items-baseline gap-1 tabular-nums">
-                            <span className="text-lg font-bold text-brand">
+                            <span className="text-lg font-bold text-pine">
                               ฿{s.price_per_night.toLocaleString()}
                             </span>
-                            <span className="text-[10px] text-earth-500">{tc("perNight")}</span>
+                            <span className="text-xs text-ink-3">{tc("perNight")}</span>
                           </div>
                         </li>
                       ))}

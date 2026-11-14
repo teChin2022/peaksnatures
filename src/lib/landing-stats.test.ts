@@ -14,10 +14,10 @@ describe("landingStats", () => {
     ];
 
     expect(landingStats({ homestays: 36, confirmedBookings: 1240, reviews })).toEqual([
-      { value: "36", label: "โฮมสเตย์ที่เปิดให้จอง" },
-      { value: "1,240", label: "การจองที่ยืนยันแล้ว" },
-      { value: "4.8", label: "จาก 11 รีวิวผู้เข้าพักจริง", star: true },
-      { value: "90%", label: "ของผู้รีวิวอยากกลับมาพักอีก" },
+      { value: "36", label: "homestays" },
+      { value: "1,240", label: "bookings" },
+      { value: "4.8", label: "rating", count: "11", star: true },
+      { value: "90%", label: "returnRate" },
     ]);
   });
 

@@ -45,6 +45,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { logClientEvent } from "@/lib/history-log-client";
 import { AMENITY_PRESETS, RULE_PRESETS, autoIconKey, type ListKind } from "@/lib/list-icons";
 import { LIST_ICONS, ListIcon } from "@/components/booking/list-icon";
+import { GuestBookingModeField } from "@/components/dashboard/guest-booking-mode-field";
+import { guestBookingModeOf } from "@/lib/quick-booking";
+import type { GuestBookingMode } from "@/types/database";
 
 interface HomestayData {
   id: string;
@@ -178,6 +181,7 @@ export default function HomestayPage() {
   const [depositByMonth, setDepositByMonth] = useState<Record<string, number>>({});
   const [cancellationDays, setCancellationDays] = useState(0);
   const [bookingDraftHours, setBookingDraftHours] = useState(1);
+  const [guestBookingMode, setGuestBookingMode] = useState<GuestBookingMode>("normal");
   const heroInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
@@ -193,11 +197,11 @@ export default function HomestayPage() {
 
       const { data: hostRow } = await supabase
         .from("hosts")
-        .select("id, name, deposit_amount, deposit_by_month, cancellation_days, booking_draft_hours")
+        .select("id, name, deposit_amount, deposit_by_month, cancellation_days, booking_draft_hours, guest_booking_mode")
         .eq("user_id", user.id)
         .single();
 
-      const host = hostRow as { id: string; name: string; deposit_amount: number; deposit_by_month: Record<string, number> | null; cancellation_days: number; booking_draft_hours: number | null } | null;
+      const host = hostRow as { id: string; name: string; deposit_amount: number; deposit_by_month: Record<string, number> | null; cancellation_days: number; booking_draft_hours: number | null; guest_booking_mode: string | null } | null;
       if (!host) {
         setLoading(false);
         return;
@@ -211,6 +215,7 @@ export default function HomestayPage() {
       // `??`, not `||`: 0 is a real setting here (feature off), so `||`
       // would silently turn it back into the default on every save.
       setBookingDraftHours(host.booking_draft_hours ?? 1);
+      setGuestBookingMode(guestBookingModeOf(host));
 
       const { data } = await supabase
         .from("homestays")
@@ -586,6 +591,7 @@ export default function HomestayPage() {
           deposit_by_month: Object.keys(depositByMonth).length > 0 ? depositByMonth : null,
           cancellation_days: cancellationDays,
           booking_draft_hours: bookingDraftHours,
+          guest_booking_mode: guestBookingMode,
           updated_by: hostName || userId,
         } as never)
         .eq("id", hostId);
@@ -1230,6 +1236,12 @@ export default function HomestayPage() {
                 <p className="text-xs text-gray-500">{t("resumeDraftHoursHint")}</p>
               </div>
             </div>
+
+            <GuestBookingModeField
+              value={guestBookingMode}
+              onChange={setGuestBookingMode}
+              facebookUrl={facebookUrl}
+            />
           </CardContent>
         </Card>
 

@@ -24,6 +24,7 @@ const getConsentServerSnapshot = () => true;
 
 export function CookieConsent() {
   const t = useTranslations("cookie");
+  const tc = useTranslations("common");
   const consented = useSyncExternalStore(
     subscribeToConsent,
     getConsentSnapshot,
@@ -44,24 +45,30 @@ export function CookieConsent() {
   if (consented || dismissed) return null;
 
   return (
-    <div className="fixed bottom-0 left-0 right-0 z-[9999] animate-in slide-in-from-bottom-4 duration-500">
+    <div
+      // On phones a fixed bottom bar (data-bottom-bar: the Book bars, 5rem tall with the spacer) stays visible below the notice.
+      // Fades in for everyone; the 16px rise only when motion is welcome (300ms, the project's ease-out curve).
+      className="fixed inset-x-0 bottom-0 z-[9999] max-md:[:root:has([data-bottom-bar])_&]:bottom-[calc(5rem+env(safe-area-inset-bottom))] animate-in fade-in duration-300 ease-[cubic-bezier(0.23,1,0.32,1)] motion-safe:slide-in-from-bottom-4"
+    >
       <div className="mx-auto max-w-4xl px-4 pb-4">
-        <div className="relative rounded-2xl border bg-white/95 p-4 shadow-lg backdrop-blur-md sm:flex sm:items-center sm:gap-4 sm:p-5">
+        {/* Floats over the page, so a popover's shadow; flat white with a Sand border, no glass (DESIGN.md). */}
+        <div className="relative rounded-2xl border border-earth-200 bg-white p-4 shadow-md sm:flex sm:items-center sm:gap-4 sm:p-5">
           <button
+            type="button"
             onClick={handleDecline}
-            className="absolute right-3 top-3 rounded-full p-1 text-gray-400 hover:bg-gray-100 hover:text-gray-600 transition-colors sm:hidden"
-            aria-label="Close"
+            className="absolute right-1 top-1 inline-flex size-11 items-center justify-center rounded-full text-earth-600 transition-colors hover:bg-earth-100 hover:text-earth-900 outline-none focus-visible:ring-2 focus-visible:ring-brand sm:hidden"
+            aria-label={tc("close")}
           >
             <X className="h-4 w-4" />
           </button>
 
           <div className="flex items-start gap-3 sm:flex-1">
-            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-amber-100">
-              <Cookie className="h-4.5 w-4.5 text-amber-600" />
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-earth-100">
+              <Cookie className="h-4.5 w-4.5 text-earth-600" />
             </div>
-            <div className="pr-6 sm:pr-0">
-              <p className="text-sm font-medium text-gray-900">{t("title")}</p>
-              <p className="mt-0.5 text-xs text-gray-500 leading-relaxed">
+            <div className="pr-8 sm:pr-0">
+              <p className="text-sm font-semibold text-earth-900">{t("title")}</p>
+              <p className="mt-0.5 text-sm leading-relaxed text-earth-600">
                 {t("message")}
               </p>
             </div>
@@ -70,16 +77,15 @@ export function CookieConsent() {
           <div className="mt-3 flex items-center gap-2 sm:mt-0 sm:shrink-0">
             <Button
               variant="outline"
-              size="sm"
               onClick={handleDecline}
-              className="rounded-full text-xs"
+              // DESIGN.md secondary: Sand border, Teak Deep label, no shadow; Forest focus ring.
+              className="h-11 rounded-full border-earth-200 px-5 text-sm font-semibold text-earth-800 shadow-none focus-visible:border-earth-200 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
             >
               {t("decline")}
             </Button>
             <Button
-              size="sm"
               onClick={handleAccept}
-              className="rounded-full bg-brand text-xs text-white hover:bg-brand-hover"
+              className="h-11 rounded-full bg-brand px-5 text-sm font-semibold text-white hover:bg-brand-hover focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
             >
               {t("accept")}
             </Button>

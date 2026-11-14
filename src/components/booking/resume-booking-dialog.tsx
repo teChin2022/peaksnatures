@@ -34,7 +34,9 @@ interface ResumeBookingDialogProps {
  * The one exception is the date picker it hands a guest whose lookup missed:
  * BookingCalendarDialog calls `useBookingCart()`, which THROWS without a
  * provider. Safe because BookingHeader — this component's only mount point —
- * renders inside BookingCartProvider (src/app/[slug]/page.tsx). Keep it there.
+ * mounts it only with resumeEnabled, which only the booking page
+ * (src/app/[slug]/book/page.tsx) sets, inside BookingCartProvider. The landing
+ * renders BookingHeader without the provider, so it must never set it.
  */
 export function ResumeBookingDialog({ open, onOpenChange, homestayId }: ResumeBookingDialogProps) {
   const t = useTranslations("resumeBooking");
@@ -129,7 +131,7 @@ export function ResumeBookingDialog({ open, onOpenChange, homestayId }: ResumeBo
       <DialogContent className="sm:max-w-md">
         <DialogHeader>
           <DialogTitle className="flex items-center gap-2">
-            <Receipt className="h-5 w-5 text-brand" />
+            <Receipt className="h-5 w-5 text-pine" />
             {t("title")}
           </DialogTitle>
           <DialogDescription>{t("desc")}</DialogDescription>
@@ -137,16 +139,16 @@ export function ResumeBookingDialog({ open, onOpenChange, homestayId }: ResumeBo
 
         {notFound ? (
           <div className="space-y-4 py-2">
-            <div className="rounded-xl border border-earth-200 bg-earth-50 p-4 text-center">
-              <p className="text-sm font-semibold text-earth-900">{t("notFoundTitle")}</p>
-              <p className="mt-1 text-xs text-earth-500">{t("notFoundDesc")}</p>
+            <div className="rounded-xl border border-line bg-mist p-4 text-center">
+              <p className="text-sm font-semibold text-ink">{t("notFoundTitle")}</p>
+              <p className="mt-1 text-xs text-ink-3">{t("notFoundDesc")}</p>
             </div>
             {/* One button, one real choice. Retrying a typo'd phone or email is
                 the X plus the menu again — reopening keeps both fields typed. */}
             <button
               type="button"
               onClick={startNew}
-              className="w-full rounded-full bg-brand px-4 py-3 text-sm font-bold text-white hover:bg-brand-hover transition-colors"
+              className="w-full rounded-full bg-pine px-4 py-3 text-sm font-bold text-white hover:bg-pine-hover transition-colors"
             >
               {t("startNew")}
             </button>
@@ -160,7 +162,7 @@ export function ResumeBookingDialog({ open, onOpenChange, homestayId }: ResumeBo
             }}
           >
             <div className="space-y-1.5">
-              <label htmlFor="resume-phone" className="text-sm font-medium text-earth-700">
+              <label htmlFor="resume-phone" className="text-sm font-medium text-ink-2">
                 {t("phoneLabel")}
               </label>
               <input
@@ -172,12 +174,12 @@ export function ResumeBookingDialog({ open, onOpenChange, homestayId }: ResumeBo
                 value={phone}
                 onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
                 placeholder={t("phonePlaceholder")}
-                className="w-full rounded-xl border border-earth-200 px-4 py-3 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                className="w-full rounded-xl border border-line px-4 py-3 text-sm focus:border-pine focus:outline-none focus:ring-1 focus:ring-pine"
               />
             </div>
 
             <div className="space-y-1.5">
-              <label htmlFor="resume-email" className="text-sm font-medium text-earth-700">
+              <label htmlFor="resume-email" className="text-sm font-medium text-ink-2">
                 {t("emailLabel")}
               </label>
               <input
@@ -187,7 +189,7 @@ export function ResumeBookingDialog({ open, onOpenChange, homestayId }: ResumeBo
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={t("emailPlaceholder")}
-                className="w-full rounded-xl border border-earth-200 px-4 py-3 text-sm focus:border-brand focus:outline-none focus:ring-1 focus:ring-brand"
+                className="w-full rounded-xl border border-line px-4 py-3 text-sm focus:border-pine focus:outline-none focus:ring-1 focus:ring-pine"
               />
             </div>
 
@@ -199,15 +201,15 @@ export function ResumeBookingDialog({ open, onOpenChange, homestayId }: ResumeBo
                 type="checkbox"
                 checked={consent}
                 onChange={(e) => setConsent(e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-earth-300 text-earth-900 focus:ring-earth-900"
+                className="mt-0.5 h-4 w-4 rounded border-line-strong text-ink focus:ring-pine"
               />
-              <span className="text-xs text-earth-600">
+              <span className="text-xs text-ink-2">
                 {t.rich("consent", {
                   privacy: (chunks) => (
-                    <a href="/legal#privacy" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-earth-900">{chunks}</a>
+                    <a href="/legal#privacy" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-ink">{chunks}</a>
                   ),
                   terms: (chunks) => (
-                    <a href="/legal#terms" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-earth-900">{chunks}</a>
+                    <a href="/legal#terms" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-ink">{chunks}</a>
                   ),
                 })}
               </span>
@@ -234,7 +236,7 @@ export function ResumeBookingDialog({ open, onOpenChange, homestayId }: ResumeBo
             <button
               type="submit"
               disabled={loading || !turnstilePassed}
-              className="w-full rounded-full bg-brand px-6 py-3.5 text-sm font-bold uppercase tracking-widest text-white transition-all hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-2"
+              className="w-full rounded-full bg-pine px-6 py-3.5 text-sm font-bold text-white transition-all hover:bg-pine-hover disabled:cursor-not-allowed disabled:opacity-50 flex items-center justify-center gap-2"
             >
               {loading ? (
                 <>

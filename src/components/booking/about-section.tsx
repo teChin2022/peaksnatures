@@ -1,10 +1,9 @@
 "use client";
 
-import { useState, useRef, useEffect } from "react";
+import { useState } from "react";
 
+import { Users } from "lucide-react";
 import { useTranslations } from "next-intl";
-import { motion } from "motion/react";
-import { HTMLContent } from "@/components/ui/html-content";
 import {
   Dialog,
   DialogContent,
@@ -12,10 +11,13 @@ import {
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { ExpandableText } from "@/components/booking/expandable-text";
 import { ListIcon } from "@/components/booking/list-icon";
+import { SectionHeading, SectionMark } from "@/components/booking/section-mark";
 import { autoIconKey, type ListKind } from "@/lib/list-icons";
 
-const VISIBLE_ITEMS = 4;
+/** Rows before "show all": amenities and rules sit side by side from md, so each stays at six. */
+const VISIBLE_ITEMS = 6;
 
 /**
  * `icons` are resolved from the original Thai labels on the server. In English
@@ -27,12 +29,14 @@ function ListRows({ labels, icons, kind, limit }: { labels: string[]; icons?: st
   return (
     <>
       {labels.slice(0, limit).map((label, i) => (
-        <div key={label} className="flex items-center gap-2 text-sm text-earth-700">
-          <ListIcon
-            name={(aligned && icons[i]) || autoIconKey(label, kind)}
-            kind={kind}
-            className="h-4 w-4 shrink-0 text-brand"
-          />
+        <div key={label} className="flex items-center gap-3 text-[15px] text-ink">
+          <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-white">
+            <ListIcon
+              name={(aligned && icons[i]) || autoIconKey(label, kind)}
+              kind={kind}
+              className={`h-[18px] w-[18px] ${kind === "rule" ? "text-ink-2" : "text-pine"}`}
+            />
+          </span>
           <span>{label}</span>
         </div>
       ))}
@@ -40,11 +44,27 @@ function ListRows({ labels, icons, kind, limit }: { labels: string[]; icons?: st
   );
 }
 
+/** "Show all" past what the list shows, from the 7th row. */
+function ShowAllButton({ count, onClick }: { count: number; onClick: () => void }) {
+  const t = useTranslations("about");
+  if (count <= VISIBLE_ITEMS) return null;
+  return (
+    <div className="mt-3">
+      <button
+        type="button"
+        className="inline-flex min-h-11 items-center rounded-sm text-[15px] font-medium text-pine underline underline-offset-4 hover:text-pine-hover outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
+        onClick={onClick}
+      >
+        {t("showAll", { count })}
+      </button>
+    </div>
+  );
+}
+
 interface AboutSectionProps {
   description: string;
   amenities: string[];
   maxGuests: number;
-  location: string;
   prohibitions?: string[];
   amenityIcons?: string[];
   prohibitionIcons?: string[];
@@ -54,126 +74,67 @@ export function AboutSection({
   description,
   amenities,
   maxGuests,
-  location,
   prohibitions = [],
   amenityIcons,
   prohibitionIcons,
 }: AboutSectionProps) {
   const t = useTranslations("about");
-  const [descModal, setDescModal] = useState(false);
   const [amenitiesModal, setAmenitiesModal] = useState(false);
   const [rulesModal, setRulesModal] = useState(false);
-  const descRef = useRef<HTMLDivElement>(null);
-  const [descOverflows, setDescOverflows] = useState(false);
-
-  useEffect(() => {
-    const el = descRef.current;
-    if (el) {
-      setDescOverflows(el.scrollHeight > el.clientHeight);
-    }
-  }, [description]);
 
   return (
-    <section className="py-14 md:py-20">
-      <div className="mx-auto max-w-4xl px-4 sm:px-6">
-        {/* Description */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6 }}
-        >
-          <div className="overflow-hidden pt-2 -mt-2">
-            <motion.h2
-              initial={{ y: "100%" }}
-              whileInView={{ y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
-              className="text-2xl md:text-3xl font-serif text-earth-900 tracking-tight"
-            >
-              {t("title")}
-            </motion.h2>
+    <section id="about" className="scroll-mt-20 pb-14 md:pb-20 lg:pb-28">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
+        {/* Heading on the left, the place on the right from lg. Below lg the heading sits on top: at 4/12 the serif heading splits Thai words. */}
+        <div className="grid grid-cols-1 gap-7 lg:grid-cols-12 lg:gap-14">
+          <div className="lg:col-span-4">
+            <SectionMark />
+            <SectionHeading>{t("title")}</SectionHeading>
           </div>
 
-          {/* Description card with accent bar */}
-          <div className="relative mt-3 flex gap-0 overflow-hidden rounded-xl">
-            <div ref={descRef} className="line-clamp-6 sm:line-clamp-10">
-              <HTMLContent content={description} className="py-4 leading-relaxed text-earth-600" />
-            </div>
-            {descOverflows && (
-              <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-white via-white/80 to-transparent" />
+          <div className="min-w-0 lg:col-span-8">
+            <ExpandableText
+              html={description}
+              clampClassName="line-clamp-6 md:line-clamp-8"
+              textClassName="font-serif text-xl leading-[1.6] text-ink md:text-2xl"
+              fadeClassName="from-mist via-mist/80"
+            />
+            {maxGuests > 0 && (
+              <p className="mt-5 inline-flex items-center gap-2 rounded-full border border-line bg-white px-4 py-2 text-[15px] text-ink">
+                <Users className="h-[18px] w-[18px] text-pine" aria-hidden />
+                {t("upToGuests", { count: maxGuests })}
+              </p>
             )}
-          </div>
-          {descOverflows && (
-            <button
-              type="button"
-              className="mt-2 text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600"
-              onClick={() => setDescModal(true)}
-            >
-              {t("readMore")}
-            </button>
-          )}
-        </motion.div>
 
-        {/* Amenities & House Rules */}
-        <motion.div
-          initial={{ opacity: 0, y: 20 }}
-          whileInView={{ opacity: 1, y: 0 }}
-          viewport={{ once: true }}
-          transition={{ duration: 0.6, delay: 0.15 }}
-          className="mt-8 grid grid-cols-1 gap-8 sm:grid-cols-2"
-        >
-          <div>
-            <h3 className="text-lg font-serif text-earth-800">{t("amenities")}</h3>
-            <div className="mt-3 space-y-2">
-              <ListRows labels={amenities} icons={amenityIcons} kind="amenity" limit={VISIBLE_ITEMS} />
-            </div>
-            {amenities.length > VISIBLE_ITEMS && (
-              <button
-                type="button"
-                className="mt-2 text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600"
-                onClick={() => setAmenitiesModal(true)}
-              >
-                {t("readMore")}
-              </button>
-            )}
-          </div>
-
-          {prohibitions.length > 0 && (
-            <div>
-              <h3 className="text-lg font-serif text-earth-800">{t("rules")}</h3>
-              <div className="mt-3 space-y-2">
-                <ListRows labels={prohibitions} icons={prohibitionIcons} kind="rule" limit={VISIBLE_ITEMS} />
+            {(amenities.length > 0 || prohibitions.length > 0) && (
+              <div className="mt-10 grid gap-8 md:grid-cols-2 md:gap-10">
+                {amenities.length > 0 && (
+                  <div id="amenities" className="scroll-mt-20">
+                    <h3 className="mb-4 font-serif text-2xl text-ink">{t("amenities")}</h3>
+                    <div className="grid grid-cols-2 gap-x-5 gap-y-3">
+                      <ListRows labels={amenities} icons={amenityIcons} kind="amenity" limit={VISIBLE_ITEMS} />
+                    </div>
+                    <ShowAllButton count={amenities.length} onClick={() => setAmenitiesModal(true)} />
+                  </div>
+                )}
+                {prohibitions.length > 0 && (
+                  <div>
+                    <h3 className="mb-4 font-serif text-2xl text-ink">{t("rules")}</h3>
+                    <div className="grid grid-cols-2 gap-x-5 gap-y-3">
+                      <ListRows labels={prohibitions} icons={prohibitionIcons} kind="rule" limit={VISIBLE_ITEMS} />
+                    </div>
+                    <ShowAllButton count={prohibitions.length} onClick={() => setRulesModal(true)} />
+                  </div>
+                )}
               </div>
-              {prohibitions.length > VISIBLE_ITEMS && (
-                <button
-                  type="button"
-                  className="mt-2 text-sm font-medium text-earth-900 underline underline-offset-4 hover:text-earth-600"
-                  onClick={() => setRulesModal(true)}
-                >
-                  {t("readMore")}
-                </button>
-              )}
-            </div>
-          )}
-        </motion.div>
-
+            )}
+          </div>
+        </div>
       </div>
-
-      {/* Description Modal */}
-      <Dialog open={descModal} onOpenChange={setDescModal}>
-        <DialogContent className="sm:max-w-2xl overflow-y-auto max-h-[90vh]">
-          <DialogHeader>
-            <DialogTitle>{t("title")}</DialogTitle>
-            <DialogDescription className="sr-only">{t("title")}</DialogDescription>
-          </DialogHeader>
-          <HTMLContent content={description} className="leading-relaxed text-earth-600" />
-        </DialogContent>
-      </Dialog>
 
       {/* Amenities Modal */}
       <Dialog open={amenitiesModal} onOpenChange={setAmenitiesModal}>
-        <DialogContent className="sm:max-w-md overflow-y-auto max-h-[90vh]">
+        <DialogContent className="sm:max-w-md overflow-y-auto max-h-[85svh]">
           <DialogHeader>
             <DialogTitle>{t("amenities")}</DialogTitle>
             <DialogDescription className="sr-only">{t("amenities")}</DialogDescription>
@@ -186,7 +147,7 @@ export function AboutSection({
 
       {/* House Rules Modal */}
       <Dialog open={rulesModal} onOpenChange={setRulesModal}>
-        <DialogContent className="sm:max-w-md overflow-y-auto max-h-[90vh]">
+        <DialogContent className="sm:max-w-md overflow-y-auto max-h-[85svh]">
           <DialogHeader>
             <DialogTitle>{t("rules")}</DialogTitle>
             <DialogDescription className="sr-only">{t("rules")}</DialogDescription>

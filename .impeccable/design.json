@@ -1,0 +1,169 @@
+{
+  "schemaVersion": 2,
+  "generatedAt": "2026-11-11T12:00:00+07:00",
+  "title": "Design System: Peaksnature",
+  "extensions": {
+    "colorMeta": {
+      "brand": { "role": "primary", "displayName": "Forest", "canonical": "#2F5D50", "tonalRamp": ["#1E3D34", "#264A40", "#2F5D50", "#D4E0DC", "#EEF3F1"] },
+      "brand-hover": { "role": "primary", "displayName": "Forest Hover", "canonical": "#264A40", "tonalRamp": ["#1E3D34", "#264A40", "#2F5D50", "#D4E0DC", "#EEF3F1"] },
+      "brand-700": { "role": "primary", "displayName": "Forest Deep", "canonical": "#1E3D34", "tonalRamp": ["#1E3D34", "#264A40", "#2F5D50", "#D4E0DC", "#EEF3F1"] },
+      "brand-100": { "role": "primary", "displayName": "Forest Pale", "canonical": "#D4E0DC", "tonalRamp": ["#1E3D34", "#264A40", "#2F5D50", "#D4E0DC", "#EEF3F1"] },
+      "brand-50": { "role": "primary", "displayName": "Forest Mist", "canonical": "#EEF3F1", "tonalRamp": ["#1E3D34", "#264A40", "#2F5D50", "#D4E0DC", "#EEF3F1"] },
+      "earth-50": { "role": "neutral", "displayName": "Warm Ivory", "canonical": "#faf8f5", "tonalRamp": ["#3a2e27", "#4a3b32", "#5f4d40", "#75604e", "#8d7560", "#a89279", "#c9b9a6", "#e0d5c8", "#f0ebe4", "#faf8f5"] },
+      "earth-100": { "role": "neutral", "displayName": "Linen", "canonical": "#f0ebe4", "tonalRamp": ["#3a2e27", "#4a3b32", "#5f4d40", "#75604e", "#8d7560", "#a89279", "#c9b9a6", "#e0d5c8", "#f0ebe4", "#faf8f5"] },
+      "earth-200": { "role": "neutral", "displayName": "Sand", "canonical": "#e0d5c8", "tonalRamp": ["#3a2e27", "#4a3b32", "#5f4d40", "#75604e", "#8d7560", "#a89279", "#c9b9a6", "#e0d5c8", "#f0ebe4", "#faf8f5"] },
+      "earth-300": { "role": "neutral", "displayName": "Driftwood", "canonical": "#c9b9a6", "tonalRamp": ["#3a2e27", "#4a3b32", "#5f4d40", "#75604e", "#8d7560", "#a89279", "#c9b9a6", "#e0d5c8", "#f0ebe4", "#faf8f5"] },
+      "earth-400": { "role": "neutral", "displayName": "Clay", "canonical": "#a89279", "tonalRamp": ["#3a2e27", "#4a3b32", "#5f4d40", "#75604e", "#8d7560", "#a89279", "#c9b9a6", "#e0d5c8", "#f0ebe4", "#faf8f5"] },
+      "earth-500": { "role": "neutral", "displayName": "Bark Light", "canonical": "#8d7560", "tonalRamp": ["#3a2e27", "#4a3b32", "#5f4d40", "#75604e", "#8d7560", "#a89279", "#c9b9a6", "#e0d5c8", "#f0ebe4", "#faf8f5"] },
+      "earth-600": { "role": "neutral", "displayName": "Bark", "canonical": "#75604e", "tonalRamp": ["#3a2e27", "#4a3b32", "#5f4d40", "#75604e", "#8d7560", "#a89279", "#c9b9a6", "#e0d5c8", "#f0ebe4", "#faf8f5"] },
+      "earth-700": { "role": "neutral", "displayName": "Teak", "canonical": "#5f4d40", "tonalRamp": ["#3a2e27", "#4a3b32", "#5f4d40", "#75604e", "#8d7560", "#a89279", "#c9b9a6", "#e0d5c8", "#f0ebe4", "#faf8f5"] },
+      "earth-800": { "role": "neutral", "displayName": "Teak Deep", "canonical": "#4a3b32", "tonalRamp": ["#3a2e27", "#4a3b32", "#5f4d40", "#75604e", "#8d7560", "#a89279", "#c9b9a6", "#e0d5c8", "#f0ebe4", "#faf8f5"] },
+      "earth-900": { "role": "neutral", "displayName": "Charcoal", "canonical": "#3a2e27", "tonalRamp": ["#3a2e27", "#4a3b32", "#5f4d40", "#75604e", "#8d7560", "#a89279", "#c9b9a6", "#e0d5c8", "#f0ebe4", "#faf8f5"] },
+      "surface": { "role": "neutral", "displayName": "Surface", "canonical": "#ffffff" },
+      "section-alt": { "role": "neutral", "displayName": "Stone (admin only)", "canonical": "#F7F7F5" },
+      "destructive": { "role": "error", "displayName": "Destructive", "canonical": "oklch(0.577 0.245 27.325)" },
+      "amber-50": { "role": "warning", "displayName": "Pending Wash", "canonical": "oklch(0.987 0.022 95.277)" },
+      "amber-700": { "role": "warning", "displayName": "Pending Ink", "canonical": "oklch(0.555 0.163 48.998)" }
+    },
+    "typographyMeta": {
+      "display": { "displayName": "Display", "purpose": "The homestay or platform name in a hero. Serif: Playfair Display for Latin, Noto Serif Thai for Thai. Never italic for Thai." },
+      "headline": { "displayName": "Headline", "purpose": "Section headings (SectionHeading) and closing bands." },
+      "title": { "displayName": "Title", "purpose": "House names and card titles." },
+      "price": { "displayName": "Price", "purpose": "Nightly prices, tabular figures; 'from' wording whenever the figure is a minimum." },
+      "body": { "displayName": "Body", "purpose": "Running text and every input on phones (16px stops iOS zoom). System sans, so Thai renders in the OS Thai face." },
+      "body-sm": { "displayName": "Body small", "purpose": "Secondary copy, list rows, dashboard text." },
+      "label": { "displayName": "Label", "purpose": "Buttons, form labels, tabs. Uppercase and tracking for Latin only." },
+      "caption": { "displayName": "Caption", "purpose": "Chips, badges, legends, helper lines. 12px is the floor." }
+    },
+    "shadows": [
+      { "name": "popover", "value": "0 4px 6px -1px rgb(0 0 0 / 0.1), 0 2px 4px -2px rgb(0 0 0 / 0.1)", "purpose": "Tailwind shadow-md: dropdowns, selects, popovers (shadcn defaults)." },
+      { "name": "modal", "value": "0 10px 15px -3px rgb(0 0 0 / 0.1), 0 4px 6px -4px rgb(0 0 0 / 0.1)", "purpose": "Tailwind shadow-lg: dialogs and sheets only, over a black/50 overlay." }
+    ],
+    "motion": [
+      { "name": "ease-out-cubic", "value": "cubic-bezier(0.33, 1, 0.68, 1)", "purpose": "In use: SectionMark rule and SectionHeading reveal (src/components/booking/section-mark.tsx)." },
+      { "name": "ease-entrance", "value": "cubic-bezier(0.25, 0.1, 0, 1)", "purpose": "In use: most motion entrances (12 call sites). Candidate to merge into one ease-out token." },
+      { "name": "ease-out-quint", "value": "cubic-bezier(0.23, 1, 0.32, 1)", "purpose": "In use in CSS (.dashboard-card); the improve-animations rubric's recommended UI ease-out." },
+      { "name": "dialog", "value": "200ms", "purpose": "tw-animate-css fade/zoom on shadcn dialogs." },
+      { "name": "sheet", "value": "500ms", "purpose": "shadcn Sheet open; the upper bound for drawers." },
+      { "name": "ui-budget", "value": "300ms", "purpose": "Ceiling for any UI transition; marketing reveals may run longer." }
+    ],
+    "breakpoints": [
+      { "name": "sm", "value": "640px" },
+      { "name": "md", "value": "768px" },
+      { "name": "lg", "value": "1024px" },
+      { "name": "xl", "value": "1280px" },
+      { "name": "2xl", "value": "1536px" }
+    ]
+  },
+  "components": [
+    {
+      "name": "Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Every primary action: Book, Select this house, Done, Continue. Forest pill, 48px.",
+      "html": "<button class=\"ds-btn-primary\">จองบ้านพัก</button>",
+      "css": ".ds-btn-primary { display: inline-flex; align-items: center; justify-content: center; gap: 8px; height: 48px; padding: 0 32px; border: 0; border-radius: 9999px; background: #2F5D50; color: #ffffff; font: 600 14px/1.43 ui-sans-serif, system-ui, sans-serif; cursor: pointer; transition: background-color 150ms ease; } .ds-btn-primary:hover { background: #264A40; } .ds-btn-primary:focus-visible { outline: 2px solid #2F5D50; outline-offset: 2px; } .ds-btn-primary:active { transform: scale(0.97); } .ds-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Second action beside a primary one, e.g. 'Availability & prices'. White pill with a Sand border.",
+      "html": "<button class=\"ds-btn-secondary\">วันว่าง &amp; ราคา</button>",
+      "css": ".ds-btn-secondary { display: inline-flex; align-items: center; justify-content: center; gap: 6px; height: 48px; padding: 0 24px; border: 1px solid #e0d5c8; border-radius: 9999px; background: #ffffff; color: #4a3b32; font: 600 14px/1.43 ui-sans-serif, system-ui, sans-serif; cursor: pointer; transition: background-color 150ms ease, border-color 150ms ease; } .ds-btn-secondary:hover { background: #faf8f5; border-color: #c9b9a6; } .ds-btn-secondary:focus-visible { outline: 2px solid #2F5D50; outline-offset: 2px; }"
+    },
+    {
+      "name": "Text Field",
+      "kind": "input",
+      "refersTo": "input",
+      "description": "Guest details, search, lookup. Label above, tied with for/id; 16px text; solid Forest focus ring.",
+      "html": "<div class=\"ds-field\"><label class=\"ds-field-label\" for=\"ds-name\">ชื่อ-นามสกุล *</label><input class=\"ds-input\" id=\"ds-name\" placeholder=\"เช่น สมชาย ใจดี\" /></div>",
+      "css": ".ds-field { display: grid; gap: 6px; max-width: 360px; } .ds-field-label { color: #5f4d40; font: 600 14px/1.43 ui-sans-serif, system-ui, sans-serif; } .ds-input { height: 48px; padding: 0 14px; border: 1px solid #8d7560; border-radius: 14px; background: #ffffff; color: #3a2e27; font: 400 16px/1.5 ui-sans-serif, system-ui, sans-serif; } .ds-input::placeholder { color: #75604e; } .ds-input:focus-visible { outline: 2px solid #2F5D50; outline-offset: 1px; }"
+    },
+    {
+      "name": "Chip",
+      "kind": "chip",
+      "refersTo": "chip",
+      "description": "Small facts on a house row: capacity, a tier.",
+      "html": "<span class=\"ds-chip\">สูงสุด 4 ท่าน</span>",
+      "css": ".ds-chip { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; background: #e0d5c8; color: #5f4d40; font: 500 12px/1.333 ui-sans-serif, system-ui, sans-serif; }"
+    },
+    {
+      "name": "Status Badge",
+      "kind": "chip",
+      "refersTo": "badge-confirmed",
+      "description": "Booking status, one set of tones everywhere (admin StatusBadge). Confirmed shown; pending uses amber-50/amber-700.",
+      "html": "<span class=\"ds-badge ds-badge-confirmed\">ยืนยันแล้ว</span> <span class=\"ds-badge ds-badge-pending\">รอตรวจสอบ</span>",
+      "css": ".ds-badge { display: inline-flex; align-items: center; padding: 2px 10px; border-radius: 9999px; border: 1px solid transparent; font: 500 12px/1.333 ui-sans-serif, system-ui, sans-serif; } .ds-badge-confirmed { background: #EEF3F1; color: #2F5D50; border-color: rgb(47 93 80 / 0.15); } .ds-badge-pending { background: oklch(0.987 0.022 95.277); color: oklch(0.555 0.163 48.998); border-color: oklch(0.924 0.12 95.746); }"
+    },
+    {
+      "name": "Content Card",
+      "kind": "card",
+      "refersTo": "card",
+      "description": "Booking summary, dashboard panels. Flat: white, 1px Sand border, 18px radius, no shadow.",
+      "html": "<div class=\"ds-card\"><p class=\"ds-card-eyebrow\">บ้านพักที่เลือก (1)</p><p class=\"ds-card-title\">บ้านริมธาร</p><p class=\"ds-card-meta\">ผู้ใหญ่ 2 · 2 คืน</p><p class=\"ds-card-price\">฿2,400</p></div>",
+      "css": ".ds-card { max-width: 360px; padding: 20px; border: 1px solid #e0d5c8; border-radius: 18px; background: #ffffff; } .ds-card-eyebrow { margin: 0 0 8px; color: #75604e; font: 600 14px/1.43 ui-sans-serif, system-ui, sans-serif; } .ds-card-title { margin: 0; color: #3a2e27; font: 400 24px/1.333 'Playfair Display', 'Noto Serif Thai', serif; } .ds-card-meta { margin: 4px 0 12px; color: #75604e; font: 400 14px/1.625 ui-sans-serif, system-ui, sans-serif; } .ds-card-price { margin: 0; padding-top: 12px; border-top: 1px solid #e0d5c8; color: #3a2e27; font: 400 30px/1.2 'Playfair Display', 'Noto Serif Thai', serif; font-variant-numeric: tabular-nums; }"
+    },
+    {
+      "name": "Guest Header (scrolled)",
+      "kind": "nav",
+      "description": "The /[slug] header once the hero has scrolled away: solid white, Sand bottom border, no glass, 44px targets.",
+      "html": "<header class=\"ds-nav\"><span class=\"ds-nav-brand\">อิงค์เขาแคมป์ปิ้ง</span><nav class=\"ds-nav-links\"><a href=\"#\">บ้านพัก</a><a href=\"#\">รีวิว</a></nav><a class=\"ds-nav-cta\" href=\"#\">จองบ้านพัก</a></header>",
+      "css": ".ds-nav { display: flex; align-items: center; gap: 28px; height: 64px; padding: 0 24px; background: #ffffff; border-bottom: 1px solid #e0d5c8; } .ds-nav-brand { flex: 1; color: #3a2e27; font: 600 16px/1.5 ui-sans-serif, system-ui, sans-serif; } .ds-nav-links { display: flex; gap: 24px; } .ds-nav-links a { color: #5f4d40; font: 500 14px/44px ui-sans-serif, system-ui, sans-serif; text-decoration: none; } .ds-nav-links a:hover { color: #2F5D50; } .ds-nav-cta { display: inline-flex; align-items: center; height: 44px; padding: 0 20px; border-radius: 9999px; background: #2F5D50; color: #fff; font: 600 14px/1 ui-sans-serif, system-ui, sans-serif; text-decoration: none; } .ds-nav-cta:focus-visible, .ds-nav-links a:focus-visible { outline: 2px solid #2F5D50; outline-offset: 2px; }"
+    },
+    {
+      "name": "Section Mark and Heading",
+      "kind": "custom",
+      "description": "Signature: the '01 ——' counter in Latin numerals above a serif heading. The numerals carry the tracking so Thai never does.",
+      "html": "<div class=\"ds-section\"><span class=\"ds-mark\">01<span class=\"ds-mark-rule\"></span></span><h2 class=\"ds-heading\">บ้านพัก &amp; ราคา</h2></div>",
+      "css": ".ds-section { display: grid; gap: 8px; } .ds-mark { display: flex; align-items: center; gap: 12px; color: #75604e; font: 400 12px/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.3em; } .ds-mark-rule { display: block; width: 40px; height: 1px; background: #c9b9a6; } .ds-heading { margin: 0; color: #3a2e27; font: 400 36px/1.25 'Playfair Display', 'Noto Serif Thai', serif; }"
+    }
+  ],
+  "narrative": {
+    "northStar": "The Quiet Retreat",
+    "overview": "Peaksnature sells a feeling the guest already has in mind: mist over a valley, a house with nobody else around, a morning that asks nothing of you. The interface earns trust by getting out of the way. Real photographs of real houses lead; warm ivory and sand surfaces hold them; one deep forest green speaks for every action. Names of places and prices are set in a serif, the way a good guesthouse letters its sign. Everything a guest reads or taps is plain, legible and familiar.\n\nThe system is premium but approachable, and conventional on purpose: the owner wants Booking.com-simple structure, done with care, not novel layouts. Ambition shows as restraint and precision. Guest pages are airy; the host dashboard and admin use the same palette and type at a denser, scannable rhythm. Surfaces are flat at rest; depth comes from tonal layers and fine borders, and shadow is reserved for things that float. Motion explains a change or draws a line; it never decorates.\n\nConfirmed rejections (the owner's brief): generic AI-generated SaaS looks, gradients, glassmorphism, unnecessary shadows, excessively rounded cards, black buttons as the default, low-contrast text, decorative motion, and decoration that gets in the way of booking.",
+    "keyCharacteristics": [
+      "Real photography first; the interface recedes.",
+      "One voice for action: Forest green, never black, never a gradient.",
+      "Warm neutrals only (the earth-* scale); text dark enough to read in daylight.",
+      "Serif for place names, headings and prices; system sans for reading and tapping.",
+      "Flat at rest; borders and tonal layers for structure; shadow only when floating.",
+      "Thai-first: no letter-spacing, no faux italics, no text under 12px.",
+      "Phone-first for guests and hosts alike."
+    ],
+    "rules": [
+      { "name": "The One Voice Rule", "body": "Forest is the only colour for primary actions and selection. Never the shadcn default Button (its --primary is near-black #171717), never a gradient, never a second accent for the same job.", "section": "colors" },
+      { "name": "The Readable Earth Rule", "body": "Text on light surfaces is earth-600 or darker. earth-300 and earth-400 are lines and decoration; earth-500 is borders and large text.", "section": "colors" },
+      { "name": "The Photo Scrim Rule", "body": "Text over a photograph sits on a scrim strong enough to give 4.5:1 against the brightest photo a host might upload, not just the demo photo.", "section": "colors" },
+      { "name": "The No-Track Thai Rule", "body": "Letter-spacing and uppercase are Latin-only. Tracking pulls Thai vowels and tone marks away from their consonants. Gate it on the locale or script, as src/components/booking/booking-footer.tsx and src/components/full-screen-menu.tsx already do, and as SectionMark does by keeping its tracked numerals Latin.", "section": "typography" },
+      { "name": "The Upright Thai Rule", "body": "Never italicise Thai. Noto Serif Thai ships no italic, so the browser fakes a slant. Emphasise with Forest colour or weight.", "section": "typography" },
+      { "name": "The 12px Floor", "body": "No text under 12px, Thai or Latin. Thai running text is 14px minimum, 16px in inputs.", "section": "typography" },
+      { "name": "The Flat-at-Rest Rule", "body": "Cards, buttons and inputs carry no shadow at rest. shadow-lg/shadow-xl on a CTA or a summary card, and hover lift on a card that is not a link, are drift.", "section": "elevation" }
+    ],
+    "dos": [
+      "Do use Forest (#2F5D50) for every primary action, selection and focus ring.",
+      "Do set text on light surfaces in earth-600 (#75604e) or darker, and in earth-300 or lighter on Charcoal.",
+      "Do give every input a visible label tied to it with htmlFor, a 1px earth-500 border and a 2px solid Forest focus ring.",
+      "Do keep tap targets at 44 × 44px on phones and never under 24 × 24px.",
+      "Do keep tracking and uppercase to Latin text; reuse the locale gate in booking-footer.tsx.",
+      "Do keep cards flat: white, 1px Sand border, 18px radius.",
+      "Do start content visible. Motion may refine an entrance; it may not hide content until JavaScript runs.",
+      "Do wrap every motion tree in RespectReducedMotion, and give every CSS keyframe a prefers-reduced-motion rule.",
+      "Do keep UI transitions under 300ms and animate only transform and opacity.",
+      "Do show prices with tabular-nums, and \"เริ่มต้น\" (from) whenever the figure is a minimum."
+    ],
+    "donts": [
+      "Don't use the shadcn default Button variant, bg-primary or text-primary: they render near-black (#171717).",
+      "Don't set text in earth-400 (2.98:1) or earth-500 (4.33:1) on light surfaces, or in earth-500 on Charcoal (3.03:1).",
+      "Don't letter-space or italicise Thai (tracking-*, uppercase, italic on Thai strings).",
+      "Don't set text under 12px (text-[9px], text-[10px], text-[11px], text-[0.7rem]).",
+      "Don't use gradients (bg-gradient-to-*), glass (.glass-nav, backdrop-blur on bars) or shadow-lg/shadow-xl on cards and buttons.",
+      "Don't use rounded-3xl on cards, or nest more than one surface inside a card.",
+      "Don't use raw Tailwind greys (gray-*, slate-*) or hard-coded hexes (bg-[#f8f9fa], bg-[#F83858], text-[#111111]); use the earth-* scale.",
+      "Don't colour booking statuses per screen; use the StatusBadge tones.",
+      "Don't add hover lift to cards that are not links.",
+      "Don't use transition-all; name the properties.",
+      "Don't invent testimonials, people, numbers or claims (src/components/landing/reviews.tsx is placeholder copy and must never ship)."
+    ]
+  }
+}

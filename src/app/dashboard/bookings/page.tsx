@@ -24,6 +24,7 @@ import {
   ArrowRightLeft,
   Zap,
   Paperclip,
+  MessageCircle,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -56,6 +57,7 @@ import { getProvinceLabel } from "@/lib/provinces";
 import { QuickBookingDialog } from "@/components/dashboard/quick-booking-dialog";
 import { BookingAttachments } from "@/components/dashboard/booking-attachments";
 import { countAttachmentsByBooking } from "@/lib/booking-attachments";
+import { isQuickPending } from "@/lib/quick-booking";
 import { cartActionTargets, cartMoney, groupIntoCarts, housesDiffer, mergeById } from "@/lib/booking-carts";
 
 interface BookingRow {
@@ -76,6 +78,7 @@ interface BookingRow {
   status: BookingStatus;
   easyslip_verified: boolean;
   payment_slip_url: string | null;
+  payment_slip_hash: string | null;
   guest_province: string | null;
   checked_in_at: string | null;
   checked_out_at: string | null;
@@ -1062,6 +1065,12 @@ export default function BookingsPage() {
                                   ✓ {t("paymentVerified")}
                                 </Badge>
                               ) : null}
+                              {isQuickPending(booking) && (
+                                <Badge variant="secondary" className="bg-amber-50 text-amber-700">
+                                  <MessageCircle className="mr-1 h-3 w-3" />
+                                  {t("quickPendingBadge")}
+                                </Badge>
+                              )}
                               {!perHouse && renderStayBadges(booking)}
                               {/* Cart totals: a cart's deposit is split across its
                                   houses by price, so one house's share means nothing. */}
@@ -1300,6 +1309,11 @@ export default function BookingsPage() {
                       className="mx-auto max-h-80 rounded-lg object-contain"
                     />
                   </div>
+                </div>
+              ) : isQuickPending(detail) ? (
+                <div role="note" className="flex items-start gap-2 rounded-lg bg-amber-50 p-3 text-sm text-amber-800">
+                  <MessageCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  {t("quickPendingHint")}
                 </div>
               ) : (
                 <div className="flex items-center gap-2 rounded-lg border border-dashed border-gray-200 p-4 text-sm text-gray-400">

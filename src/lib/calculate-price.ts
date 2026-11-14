@@ -135,6 +135,27 @@ export function getPriceRange({
   };
 }
 
+/**
+ * The "from ฿X / night" floor across a homestay's houses: the lowest
+ * getPriceRange().min, each house over its own seasons, the same floor its
+ * house card shows. Null when no house has a price.
+ */
+export function lowestNightlyPrice(
+  rooms: { id: string; price_per_night: number }[],
+  seasonalPrices: (SeasonEntry & { room_id: string })[],
+): number | null {
+  const floors = rooms
+    .map((room) =>
+      getPriceRange({
+        basePricePerNight: room.price_per_night,
+        seasons: seasonalPrices.filter((s) => s.room_id === room.id),
+        specialPrices: [],
+      }).min,
+    )
+    .filter((price) => price > 0);
+  return floors.length > 0 ? Math.min(...floors) : null;
+}
+
 function formatDateStr(d: Date): string {
   const y = d.getFullYear();
   const m = String(d.getMonth() + 1).padStart(2, "0");

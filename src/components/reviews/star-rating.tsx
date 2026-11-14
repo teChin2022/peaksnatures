@@ -10,8 +10,9 @@ export function StarRating({ rating, size = 16 }: { rating: number; size?: numbe
           style={{
             width: size,
             height: size,
-            fill: star <= rating ? "#2F5D50" : "transparent",
-            color: star <= rating ? "#2F5D50" : "#d1d5db",
+            // Mist Ridge star: 4.6:1 on Pine Mist; the empty outline is Line Strong.
+            fill: star <= rating ? "#8A6A2F" : "transparent",
+            color: star <= rating ? "#8A6A2F" : "#8A948F",
           }}
         />
       ))}

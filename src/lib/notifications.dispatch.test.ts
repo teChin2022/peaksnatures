@@ -144,6 +144,25 @@ describe("host booking SMS", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).message).toContain("รอตรวจสอบ");
   });
 
+  it("leads with the quick marker and says the slip is awaited, for a quick booking", async () => {
+    await sendHostSmsNotification(details(), "quick");
+    const message = JSON.parse(fetchMock.mock.calls[0][1].body as string).message;
+    expect(message).toMatch(/^จองด่วน /);
+    expect(message).not.toContain("จองใหม่");
+    expect(message).toContain("รอตรวจสลิป");
+    expect(message.length).toBeLessThanOrEqual(70);
+  });
+
+  it("keeps the quick marker even when a long deposit message is cut to one segment", async () => {
+    await sendHostSmsNotification(
+      details({ guest_name: "สมชายสมหญิงนามสกุลยาวมาก", payment_type: "deposit", amount_paid: 12000 }),
+      "quick",
+    );
+    const message = JSON.parse(fetchMock.mock.calls[0][1].body as string).message;
+    expect(message).toMatch(/^จองด่วน /);
+    expect(message.length).toBeLessThanOrEqual(70);
+  });
+
   it("shows the deposit rather than the total for a deposit booking", async () => {
     await sendHostSmsNotification(details({ payment_type: "deposit", amount_paid: 500 }));
     expect(JSON.parse(fetchMock.mock.calls[0][1].body as string).message).toContain("มัดจำ ฿500");

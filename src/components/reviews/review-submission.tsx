@@ -153,45 +153,41 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
   return (
     <div className="space-y-6">
       {/* Lookup form */}
-      <div className="rounded-2xl border border-earth-200 bg-white p-4 shadow-sm md:p-5">
+      <div>
         <Label
           htmlFor="reviews-identifier"
-          className="block text-[12px] font-semibold uppercase tracking-[0.18em] text-earth-500"
+          className="block text-sm font-semibold text-earth-700"
         >
           {t("identifierLabel")}
         </Label>
-        <div className="mt-2 flex w-full items-stretch overflow-hidden rounded-xl border border-earth-200 bg-white shadow-sm transition-colors focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/20 hover:border-earth-400">
-          <Search className="ml-3 mr-1 h-4 w-4 shrink-0 self-center text-earth-400" aria-hidden="true" />
-          <Input
-            id="reviews-identifier"
-            type="search"
-            inputMode="search"
-            enterKeyHint="search"
-            autoComplete="off"
-            placeholder={t("identifierPlaceholder")}
-            value={identifier}
-            onChange={(e) => setIdentifier(e.target.value)}
-            onKeyDown={(e) => e.key === "Enter" && handleLookup()}
-            aria-describedby="reviews-lookup-hint"
-            className="!h-12 min-w-0 flex-1 !border-0 !bg-transparent !px-2 !shadow-none text-base focus-visible:!border-0 focus-visible:!ring-0"
-          />
-          <Button
+        {/* Same field + button as the booking search (booking-search-view.tsx): keep the two in step. */}
+        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
+          <div className="relative flex-1">
+            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-earth-500" aria-hidden="true" />
+            <Input
+              id="reviews-identifier"
+              enterKeyHint="search"
+              autoComplete="off"
+              placeholder={t("identifierPlaceholder")}
+              value={identifier}
+              onChange={(e) => setIdentifier(e.target.value)}
+              onKeyDown={(e) => e.key === "Enter" && handleLookup()}
+              aria-describedby="reviews-lookup-hint"
+              className="!pl-10 p-3.5 !h-12 rounded-xl !border !border-earth-500 !bg-white hover:!border-earth-700 transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2"
+            />
+          </div>
+          <button
+            type="button"
             onClick={handleLookup}
             disabled={!identifier.trim() || loading || (!turnstileVerified && !turnstileToken && !turnstileError)}
-            aria-label={t("lookupButton")}
-            className="h-12 shrink-0 cursor-pointer rounded-none bg-brand px-4 text-white hover:bg-brand-hover md:min-w-[140px] md:px-5"
+            className="inline-flex h-12 w-full shrink-0 items-center justify-center rounded-full bg-brand px-6 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:w-auto sm:min-w-28"
           >
-            {loading ? (
-              <Loader2 className="h-4 w-4 animate-spin md:mr-2" aria-hidden="true" />
-            ) : (
-              <Search className="h-4 w-4 md:mr-2" aria-hidden="true" />
-            )}
-            <span className="hidden md:inline">{loading ? t("lookupLoading") : t("lookupButton")}</span>
-          </Button>
+            {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-label={t("lookupLoading")} /> : t("lookupButton")}
+          </button>
         </div>
         <p
           id="reviews-lookup-hint"
-          className="mt-3 text-xs leading-relaxed text-earth-500"
+          className="mt-2 text-xs leading-relaxed text-earth-600"
         >
           {t("noBookingsHint")}
         </p>
@@ -220,7 +216,7 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
 
       {bookings !== null && bookings.length > 0 && (
         <div className="space-y-3">
-          <h2 className="text-sm font-semibold uppercase tracking-[0.18em] text-earth-500">
+          <h2 className="text-sm font-semibold text-earth-700">
             {t("selectBooking")}
           </h2>
           {bookings.map((booking) => (
@@ -228,13 +224,13 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
               key={booking.id}
               type="button"
               onClick={() => setSelectedBooking(booking)}
-              className="w-full cursor-pointer rounded-2xl border border-earth-200 bg-white p-5 text-left shadow-sm transition-colors hover:border-brand"
+              className="w-full cursor-pointer rounded-2xl border border-earth-200 bg-white p-5 text-left transition-colors hover:border-brand focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand"
             >
               <p className="text-sm font-semibold text-earth-900">{booking.guest_name}</p>
-              <p className="mt-0.5 text-xs text-earth-500">
+              <p className="mt-0.5 text-xs text-earth-600">
                 {t("stayedAt", { room: booking.room_name })}
               </p>
-              <div className="mt-2 flex items-center gap-4 text-xs text-earth-500">
+              <div className="mt-2 flex items-center gap-4 text-xs text-earth-600">
                 <span className="inline-flex items-center gap-1">
                   <CalendarDays className="h-3 w-3 text-earth-400" aria-hidden="true" />
                   {fmtDateStr(booking.check_in, "d MMM", locale)} — {fmtDateStr(booking.check_out, "d MMM", locale)}

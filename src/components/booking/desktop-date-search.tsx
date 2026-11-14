@@ -2,22 +2,20 @@
 
 import { useState } from "react";
 import { motion } from "motion/react";
-import { CalendarDays } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { fmtDate } from "@/lib/format-date";
 import { useBookingCartOptional } from "@/components/booking/booking-cart-context";
 import { BookingCalendarDialog } from "@/components/booking/booking-calendar-dialog";
 
 /**
- * Desktop-only date + search bar that sits on the boundary between the hero and
- * the section below it (Booking.com pattern — the card straddles the image/white
- * edge). Reads/writes the shared cart date range; the date field opens the
- * calendar and "Search" jumps to the (date-filtered) rooms — or opens the
- * calendar first if no dates are chosen yet. Hidden on mobile (the sticky
- * MobileBookingBar carries dates there) and when the host can't take bookings.
+ * The date panel that straddles the bottom of the /book hero: check-in,
+ * check-out and the length of the stay as large fields, and one button. Every
+ * field opens the shared calendar (cart date range); the button jumps to the
+ * date-filtered houses, or opens the calendar first if no dates are chosen.
+ * Shown on every width; the phone's sticky bar keeps its own date CTA. Hidden
+ * when the host can't take bookings or has no house.
  */
 export function DesktopDateSearch({ bookingDisabled = false }: { bookingDisabled?: boolean }) {
-  const t = useTranslations("hero");
   const tb = useTranslations("booking");
   const tc = useTranslations("common");
   const locale = useLocale();
@@ -42,40 +40,66 @@ export function DesktopDateSearch({ bookingDisabled = false }: { bookingDisabled
     document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
+  /** A date as a large day number beside its month and weekday, or the "select a date" prompt. */
+  const dateValue = (d: Date | undefined) =>
+    d ? (
+      <span className="flex items-center gap-2.5">
+        <span className="font-serif text-4xl leading-none text-ink" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>
+          {fmtDate(d, "d", locale)}
+        </span>
+        <span className="text-[13px] leading-tight text-ink-2">
+          {fmtDate(d, "MMMM", locale)}
+          <br />
+          {fmtDate(d, "EEEE", locale)}
+        </span>
+      </span>
+    ) : (
+      <span className="text-base text-ink-3">{tb("selectDates")}</span>
+    );
+
+  const field =
+    "flex min-h-[84px] cursor-pointer flex-col justify-center gap-1.5 rounded-2xl px-4 py-3 text-left transition-colors hover:bg-mist focus:outline-none focus-visible:ring-2 focus-visible:ring-pine";
+
   return (
-    <div className="relative z-20 hidden md:block">
+    // #date-panel: the bottom bars hide while it is on screen (bar-visibility.ts).
+    <div id="date-panel" className="relative z-20">
       <motion.div
         initial={{ opacity: 0, y: 14 }}
         whileInView={{ opacity: 1, y: 0 }}
         viewport={{ once: true }}
         transition={{ duration: 0.5, ease: [0.25, 0.1, 0, 1] }}
-        className="mx-auto -mt-9 max-w-3xl px-4 sm:px-6"
+        className="mx-auto -mt-8 max-w-4xl px-4 sm:px-6 md:-mt-12"
       >
-        <div className="flex items-stretch gap-2 rounded-2xl bg-white p-2 shadow-2xl shadow-black/25 ring-1 ring-black/5">
-          {/* Date field — opens the shared calendar */}
-          <button
-            type="button"
-            onClick={() => setCalendarOpen(true)}
-            aria-label={tb("selectDates")}
-            className="group flex flex-1 cursor-pointer items-center gap-3 rounded-xl px-4 py-2.5 text-left transition-colors hover:bg-earth-50 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
-          >
-            <CalendarDays size={22} className="shrink-0 text-brand" />
-            <span className="flex min-w-0 flex-col">
-              <span className="text-[11px] font-semibold uppercase tracking-wider text-earth-400">{tb("selectDates")}</span>
-              <span className={`truncate text-sm font-bold ${hasDates ? "text-earth-900" : "text-earth-500"}`}>
-                {hasDates
-                  ? `${fmtDate(dateRange!.from!, "d MMM", locale)} — ${fmtDate(dateRange!.to!, "d MMM", locale)} · ${nights} ${nights > 1 ? tc("nights") : tc("night")}`
-                  : `${tb("checkInLabel")} — ${tb("checkOutLabel")}`}
-              </span>
-            </span>
+        <div className="grid grid-cols-2 gap-1 rounded-[20px] bg-white p-2 shadow-[0_18px_40px_-18px_rgba(19,38,34,0.35)] md:grid-cols-[1fr_1fr_0.8fr_auto] md:items-center">
+          <button type="button" onClick={() => setCalendarOpen(true)} aria-label={`${tb("checkInLabel")} — ${tb("selectDates")}`} className={field}>
+            <span className="text-xs font-medium text-ink-2">{tb("checkInLabel")}</span>
+            {dateValue(hasDates ? dateRange!.from : undefined)}
           </button>
-          {/* Search — jumps to the rooms (or opens the calendar if no dates) */}
+          <button type="button" onClick={() => setCalendarOpen(true)} aria-label={`${tb("checkOutLabel")} — ${tb("selectDates")}`} // A straight divider: a border on the rounded field would curve with its corners.
+            className={`${field} relative before:absolute before:inset-y-3 before:left-0 before:w-px before:bg-line`}>
+            <span className="text-xs font-medium text-ink-2">{tb("checkOutLabel")}</span>
+            {dateValue(hasDates ? dateRange!.to : undefined)}
+          </button>
+          {/* Length of stay: its own column from md, a quiet line under the dates on phones. */}
+          <div className="col-span-2 flex items-center justify-between border-t border-line px-4 py-3 text-sm md:col-span-1 md:flex-col md:items-start md:justify-center md:gap-1.5 md:border-t-0 md:border-l md:py-0">
+            <span className="text-xs font-medium text-ink-2">{tb("stayLength")}</span>
+            {hasDates ? (
+              <span className="flex items-baseline gap-1.5 text-ink">
+                <span className="font-serif text-2xl leading-none md:text-4xl" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>
+                  {nights}
+                </span>
+                {nights > 1 ? tc("nights") : tc("night")}
+              </span>
+            ) : (
+              <span className="text-ink-3">–</span>
+            )}
+          </div>
           <button
             type="button"
             onClick={handleSearch}
-            className="shrink-0 cursor-pointer rounded-xl bg-brand px-10 text-sm font-bold uppercase tracking-widest text-white transition-colors hover:bg-brand-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            className="col-span-2 min-h-[52px] cursor-pointer rounded-full bg-pine px-8 text-[15px] font-medium whitespace-nowrap text-white transition-colors hover:bg-pine-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2 md:col-span-1 md:min-h-14"
           >
-            {t("search")}
+            {hasDates ? tb("seeAvailableHouses") : tb("chooseStayDates")}
           </button>
         </div>
       </motion.div>

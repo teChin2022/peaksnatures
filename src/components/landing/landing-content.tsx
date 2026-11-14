@@ -1,7 +1,6 @@
 "use client";
 
 import { useState } from "react";
-import { motion, useScroll, useTransform } from "motion/react";
 import type { LandingStat } from "@/lib/landing-stats";
 import { LandingHero } from "./hero";
 import { LandingStats } from "./stats";
@@ -24,22 +23,22 @@ interface HomestayData {
 }
 
 export function LandingContent({ homestays, stats }: { homestays: HomestayData[]; stats: LandingStat[] }) {
+  const [query, setQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
-  const { scrollYProgress } = useScroll();
-  const progressWidth = useTransform(scrollYProgress, [0, 1], ["0%", "100%"]);
 
   return (
     <>
-      {/* Scroll progress indicator */}
-      <motion.div
-        style={{ width: progressWidth }}
-        className="fixed top-0 left-0 h-[2px] bg-brand z-[60]"
+      <LandingHero query={query} onQueryChange={setQuery} onSearch={setLocationFilter} />
+      <UniqueHomestays
+        homestays={homestays}
+        locationFilter={locationFilter}
+        onClearFilter={() => {
+          setQuery("");
+          setLocationFilter("");
+        }}
       />
-
-      <LandingHero onSearch={(loc) => setLocationFilter(loc)} />
-      <WhyPeaksnature />
       <LandingStats stats={stats} />
-      <UniqueHomestays homestays={homestays} locationFilter={locationFilter} />
+      <WhyPeaksnature />
       <ForHosts />
     </>
   );

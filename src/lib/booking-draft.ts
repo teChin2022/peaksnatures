@@ -160,7 +160,7 @@ export function reconcileDraftWithCatalog(
   }
 
   const roomsById = new Map(ctx.rooms.map((r) => [r.id, r]));
-  // The catalog is already filtered to active rows (see [slug]/page.tsx), so
+  // The catalog is already filtered to active rows (see [slug]/book/page.tsx), so
   // presence in these sets is the whole check.
   const optionRooms = new Map(ctx.roomOptions.map((o) => [o.id, o.room_id]));
   const tierRooms = new Map(ctx.guestPricing.map((g) => [g.id, g.room_id]));
@@ -172,7 +172,7 @@ export function reconcileDraftWithCatalog(
 
   for (const line of draft.lines) {
     const room = roomsById.get(line.room_id);
-    // Deleted or deactivated — [slug]/page.tsx builds the catalog from
+    // Deleted or deactivated — [slug]/book/page.tsx builds the catalog from
     // activeRooms, so this single lookup covers both.
     if (!room) {
       droppedCount++;
