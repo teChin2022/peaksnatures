@@ -214,7 +214,7 @@ function RoomPriceDisplay({ room, seasonalPrices, specialPrices }: { room: Room;
     <div className="flex items-center gap-1">
       {hasRange ? (
         <>
-          <span className="text-xs text-ink-3 self-end mb-1">{t("fromPrice")}</span>
+          <span className="text-xs text-ink-3 self-end mb-1">{t("ratePrice")}</span>
           <span className="text-2xl font-bold text-ink">
             ฿{min.toLocaleString()}
           </span>
@@ -487,7 +487,7 @@ export function SingleRoomHero({
 
         <div className="mt-auto flex flex-col gap-3 border-t border-line pt-4">
           <p className="whitespace-nowrap">
-            {hasRange && <span className="mr-1.5 text-[13px] text-ink-2">{t("fromPrice")}</span>}
+            {hasRange && <span className="mr-1.5 text-[13px] text-ink-2">{t("ratePrice")}</span>}
             {/* Lining figures: the serif's old-style ones read "฿100" as "฿1OO". */}
             <span className="font-serif text-3xl leading-tight text-ink" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>
               ฿{(hasRange ? min : room.price_per_night).toLocaleString()}

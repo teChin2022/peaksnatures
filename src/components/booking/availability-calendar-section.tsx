@@ -356,7 +356,7 @@ function RoomDayDetail({
           </div>
 
           <div className="flex items-baseline justify-between gap-4">
-            <span className="text-sm font-medium text-ink">{tr("basePrice")}</span>
+            <span className="text-sm font-medium text-ink">{tr("ratePrice")}</span>
             <div className="flex items-baseline gap-1 tabular-nums">
               <span className="text-2xl font-bold text-ink">
                 ฿{room.price_per_night.toLocaleString()}
