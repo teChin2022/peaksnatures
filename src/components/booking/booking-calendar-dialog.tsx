@@ -135,6 +135,7 @@ export function BookingCalendarDialog({
 
   // Thai puts the day before the month ("29 ก.ค."), English the other way round.
   const alertDatePattern = locale === "th" ? "d MMM" : "MMM d";
+  const fieldDatePattern = locale === "th" ? "d MMM yyyy" : "MMM d, yyyy";
 
   const cell = (active: boolean) =>
     `flex-1 rounded-xl border px-3 py-2.5 text-left transition-colors ${
@@ -155,7 +156,7 @@ export function BookingCalendarDialog({
               {t("checkInLabel")}
             </span>
             <span className={`block text-sm ${dateRange?.from ? "font-semibold text-ink" : "text-ink-3"}`}>
-              {dateRange?.from ? fmtDate(dateRange.from, "MMM d, yyyy", locale) : t("addDate")}
+              {dateRange?.from ? fmtDate(dateRange.from, fieldDatePattern, locale) : t("addDate")}
             </span>
           </div>
           <div className={cell(awaiting === "out")}>
@@ -163,7 +164,7 @@ export function BookingCalendarDialog({
               {t("checkOutLabel")}
             </span>
             <span className={`block text-sm ${isComplete ? "font-semibold text-ink" : "text-ink-3"}`}>
-              {isComplete && dateRange?.to ? fmtDate(dateRange.to, "MMM d, yyyy", locale) : t("addDate")}
+              {isComplete && dateRange?.to ? fmtDate(dateRange.to, fieldDatePattern, locale) : t("addDate")}
             </span>
           </div>
         </div>

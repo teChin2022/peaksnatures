@@ -10,10 +10,11 @@ import { useBookingCartOptional } from "@/components/booking/booking-cart-contex
 import { CartLineList } from "@/components/booking/cart-line-list";
 
 /**
- * Desktop-only cart button for the header (sits next to the language flag). Shows
- * a count badge when rooms are in the cart and opens a review dialog (selected
- * rooms + total + proceed). Mobile keeps the sticky MobileBookingBar, so this is
- * hidden there. Icon colour follows the header's scrolled state.
+ * The cart button for the header (desktop; sits next to the language flag) and
+ * the one cart review dialog on every width: selected houses + total + proceed.
+ * On phones the button is hidden and the sticky MobileBookingBar's cart tile
+ * opens this same dialog through the `open-cart` event, so both widths show the
+ * cart the same way. Icon colour follows the header's scrolled state.
  */
 export function HeaderCart({ scrolled }: { scrolled: boolean }) {
   const cart = useBookingCartOptional();
@@ -28,9 +29,9 @@ export function HeaderCart({ scrolled }: { scrolled: boolean }) {
   const dateRange = cart?.dateRange;
   const hasCart = cartCount > 0;
 
-  // "ดูรายการจอง" on the add-to-cart toast opens this dialog (md and up; phones have the sticky bar's sheet).
+  // `open-cart` comes from "ดูรายการจอง" on the add-to-cart toast and from the phone bar's cart tile.
   useEffect(() => {
-    const openCart = () => { if (window.matchMedia("(min-width: 768px)").matches) setOpen(true); };
+    const openCart = () => setOpen(true);
     document.addEventListener("open-cart", openCart);
     return () => document.removeEventListener("open-cart", openCart);
   }, []);
@@ -83,7 +84,8 @@ export function HeaderCart({ scrolled }: { scrolled: boolean }) {
           {dateRange?.from && dateRange?.to && (
             <div className="flex items-center gap-2 rounded-xl bg-mist px-3 py-2 text-sm text-ink-2">
               <CalendarDays size={14} className="text-ink-3" />
-              {fmtDate(dateRange.from, "MMM d", locale)} — {fmtDate(dateRange.to, "MMM d, yyyy", locale)}
+              {/* Day first, as Thai (and British) dates read: 20 พ.ย. – 21 พ.ย. 2569. */}
+              {fmtDate(dateRange.from, "d MMM", locale)} – {fmtDate(dateRange.to, "d MMM yyyy", locale)}
               <span className="ml-auto text-xs text-ink-3">{nights} {nights > 1 ? tc("nights") : tc("night")}</span>
             </div>
           )}

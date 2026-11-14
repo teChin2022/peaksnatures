@@ -195,9 +195,9 @@ export async function reachPayment(page: Page, slug: string, options: { houses?:
   await chooseDates(page);
   await addHouses(page, houses);
 
-  const card = page.locator("section").filter({ has: page.getByRole("button", { name: T.booking.continueDetails }) });
-  await card.getByRole("checkbox").check();
   await page.getByRole("button", { name: T.booking.continueDetails }).click();
+  // Consent sits on the details page, before "review booking" (Mist Ridge prototype).
+  await page.locator('[data-checkout="open"]').getByRole("checkbox").check();
 
   await page.locator("#bk-name").fill("ทดสอบ ระบบ");
   await page.locator("#bk-email").fill("e2e@example.com");

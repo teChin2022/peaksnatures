@@ -4,6 +4,7 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { BookingSection } from "@/components/booking/booking-section";
 import { BookingCartProvider, useBookingCart, type CartLine } from "@/components/booking/booking-cart-context";
+import { fmtDate } from "@/lib/format-date";
 import { toBookingHost } from "@/lib/public-host";
 import { makeHomestay, makeHost, makeRoom } from "../../../test/fixtures/db";
 import type { GuestBookingMode } from "@/types/database";
@@ -68,7 +69,11 @@ vi.mock("@/components/booking/booking-tutorial-dialog", () => ({
   BookingTutorialDialog: ({ quickOnly }: { quickOnly?: boolean }) =>
     createElement("i", { "data-testid": "tutorial", "data-quick-only": String(!!quickOnly) }),
 }));
-vi.mock("@/components/booking/leave-booking-dialog", () => ({ LeaveBookingDialog: () => null }));
+// Stands in for the leave warning, but shows the stay it was handed.
+vi.mock("@/components/booking/leave-booking-dialog", () => ({
+  LeaveBookingDialog: ({ open, dateLabel }: { open: boolean; dateLabel: string | null }) =>
+    open ? createElement("p", { "data-testid": "leave" }, dateLabel) : null,
+}));
 vi.mock("@/components/booking/cart-line-list", () => ({ CartLineList: () => null }));
 
 // The Turnstile widget, loaded with next/dynamic: a button that passes the challenge.
@@ -213,11 +218,14 @@ async function type(selector: string, value: string) {
   });
 }
 
-/** Step 1: consent, then on to the guest details. */
-async function toDetails() {
+/** Step 1 on to the guest details, then the consent that sits there (as in the prototype). */
+async function openDetails() {
   await vi.waitFor(() => expect(buttonByText("continueDetails")).toBeTruthy());
-  await click(document.body.querySelector('input[type="checkbox"]'));
   await click(buttonByText("continueDetails"));
+}
+async function toDetails() {
+  await openDetails();
+  await click(document.body.querySelector('[data-checkout] input[type="checkbox"]'));
 }
 
 interface Details {
@@ -674,6 +682,20 @@ describe("when the 10-minute hold runs out on the payment step", () => {
 });
 
 // ── The review page ─────────────────────────────────────────────────────────
+describe("consent, on the details page as in the prototype", () => {
+  it("lets the guest on from the cart without it, and holds the review back until it is ticked", async () => {
+    await renderForm("normal");
+    await openDetails();
+    await fillDetails();
+    const review = buttonByText("continuePayment") as HTMLButtonElement;
+    expect(review.disabled).toBe(true);
+    expect(text()).toContain("consentRequired");
+
+    await click(document.body.querySelector('[data-checkout] input[type="checkbox"]'));
+    expect(review.disabled).toBe(false);
+  });
+});
+
 describe("the review page, between the guest's details and the hold", () => {
   it("shows the house, the guest and the price, and holds nothing until the guest confirms", async () => {
     await renderForm("normal");
@@ -705,7 +727,7 @@ describe("checkout overlay (steps 2–3)", () => {
   it("opens the guest details full screen and closes back to the page on Back", async () => {
     await renderForm("normal");
     expect(shell().dataset.checkout).toBe("closed");
-    await toDetails();
+    await openDetails();
     expect(shell().dataset.checkout).toBe("open");
     expect(shell().className).toContain("fixed");
     expect(shell().getAttribute("role")).toBe("dialog");
@@ -749,5 +771,15 @@ describe("checkout overlay (steps 2–3)", () => {
 
     await click(buttonByText("backToHomestay"));
     expect(shell().dataset.checkout).toBe("closed");
+  });
+});
+
+// ── Dates read day first in Thai ────────────────────────────────────────────
+describe("dates in Thai", () => {
+  it("writes the stay day first in the leave-booking warning", async () => {
+    await renderForm("normal");
+    await act(async () => void window.dispatchEvent(new PopStateEvent("popstate")));
+    await vi.waitFor(() => expect(document.body.querySelector('[data-testid="leave"]')).not.toBeNull());
+    expect(document.body.querySelector('[data-testid="leave"]')!.textContent).toBe(`${fmtDate(day(40), "d MMM", "th")} – ${fmtDate(day(42), "d MMM", "th")}`);
   });
 });

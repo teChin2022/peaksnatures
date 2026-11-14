@@ -12,7 +12,6 @@ vi.mock("next-intl", () => ({
 vi.mock("@/lib/use-is-mobile", () => ({ useIsMobile: () => true }));
 vi.mock("@/components/booking/use-booking-bar-visible", () => ({ useBookingBarVisible: (enabled: boolean) => enabled }));
 vi.mock("@/components/booking/booking-cart-context", () => ({ useBookingCartOptional: () => cart.value }));
-vi.mock("@/components/booking/cart-line-list", () => ({ CartLineList: () => null }));
 vi.mock("@/components/booking/booking-calendar-dialog", () => ({
   BookingCalendarDialog: ({ open }: { open: boolean }) => (open ? createElement("div", { "data-testid": "calendar" }) : null),
 }));
@@ -64,6 +63,19 @@ describe("MobileBookingBar", () => {
     const [tile] = buttons();
     expect(tile.textContent).toBe("2");
     expect(tile.getAttribute("aria-label")).toBe("yourCart · roomsCount:2");
+  });
+
+  // Same as the desktop header cart: a red count, and the same cart dialog (HeaderCart listens for open-cart).
+  it("shows the count in red and opens the shared cart dialog", () => {
+    withCart(1);
+    render();
+    const [tile] = buttons();
+    expect(tile.querySelector("span")?.className).toContain("bg-[#F83858]");
+    const opened = vi.fn();
+    document.addEventListener("open-cart", opened);
+    act(() => tile.click());
+    document.removeEventListener("open-cart", opened);
+    expect(opened).toHaveBeenCalledTimes(1);
   });
 
   it("opens the calendar from the Book button", () => {

@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope, Calendar as CalendarIcon, CheckCircle2, Loader2, ImageIcon, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle, Download, Shield, Minus, Plus, ShieldUser, ListPlus, Gift, HelpCircle, BedDouble, MessageCircle } from "lucide-react";
+import { ShoppingCart, Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope, CheckCircle2, Loader2, ImageIcon, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle, Download, Shield, Minus, Plus, ShieldUser, ListPlus, Gift, HelpCircle, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { billingTodayStr } from "@/lib/billing-dates";
 import { reconcileDraftWithCatalog, type ResumeDraftDetail } from "@/lib/booking-draft";
@@ -1238,9 +1238,6 @@ export function BookingSection({
     }
   };
 
-  const steps: BookingStep[] = ["dates", "details", "payment"];
-  const stepLabels: Record<BookingStep, string> = { dates: t("stepDates"), details: t("stepDetails"), payment: t("stepPayment") };
-  const currentStepIndex = steps.indexOf(step);
 
   // --- Guard against losing in-progress booking data on browser Back ---
   // The whole funnel lives in client state on a single URL. While there is unsaved
@@ -1449,8 +1446,29 @@ export function BookingSection({
           <div className={`mx-auto max-w-5xl ${bookingDisabled ? "pointer-events-none opacity-50 select-none" : ""}`}>
             {/* ── Heading & how it works, above the card ── */}
             <div>
-              <h2 className="font-serif text-3xl font-normal leading-tight text-ink md:text-4xl">{t("yourBooking")}</h2>
-              <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-2">{t(normalEnabled ? "howItWorks" : "howItWorksQuick")}</p>
+              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
+                <h2 className="font-serif text-3xl font-normal leading-tight text-ink md:text-4xl">{t("yourBooking")}</h2>
+                {cartLines.length > 0 && dateRange?.from && dateRange?.to && (
+                  <p className="text-sm text-ink-2">
+                    {fmtDate(dateRange.from, "EEE d MMM", locale)} – {fmtDate(dateRange.to, "EEE d MMM", locale)} · {nightsLabel} · {t("roomsCount", { count: cartLines.length })}
+                  </p>
+                )}
+              </div>
+              <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-2">
+                <span>{t(normalEnabled ? "howItWorks" : "howItWorksQuick")}</span>{" "}
+                {/* How to book — reopens the tutorial (pulses once on first arrival) */}
+                <motion.button
+                  ref={helpPillRef}
+                  type="button"
+                  onClick={() => { setShowTutorial(true); setCookie(TUTORIAL_COOKIE, "1", 365); }}
+                  animate={pulseHelp ? { scale: [1, 1.08, 1, 1.08, 1] } : { scale: 1 }}
+                  transition={{ duration: 1.2, ease: "easeInOut" }}
+                  className="inline-flex min-h-11 cursor-pointer items-center gap-1 align-middle font-medium text-pine underline underline-offset-4 hover:text-pine-hover"
+                >
+                  {tt("reopen")}
+                  <HelpCircle className="h-4 w-4" />
+                </motion.button>
+              </p>
             </div>
 
             {/* ── Booking card: full width on the page for step 1; steps 2–3 open it full screen ── */}
@@ -1534,163 +1552,64 @@ export function BookingSection({
               </div>
             )}
 
-            {/* Step indicator + How-to-book help (one row); the overlay has its own header */}
-            <div className={`mb-6 flex items-center gap-3 ${checkoutOpen ? "hidden" : ""}`}>
-              {/* Step indicator (compact) */}
-              <div className="flex flex-1 items-center gap-1">
-                {steps.map((s, i) => {
-                  const isActive = step === s;
-                  const isCompleted = currentStepIndex > i;
-                  return (
-                    <div key={s} className={`flex items-center ${i < steps.length - 1 ? 'flex-1' : ''}`}>
-                      <div
-                        aria-current={isActive ? "step" : undefined}
-                        className={`flex h-7 w-7 shrink-0 items-center justify-center rounded-full text-xs font-bold transition-colors ${
-                          isActive || isCompleted ? 'bg-pine text-white' : 'bg-mist-2 text-ink-2'
-                        }`}
-                      >
-                        {isCompleted ? <CheckCircle2 className="h-3.5 w-3.5" /> : i + 1}
-                      </div>
-                      {isActive && <span className="ml-2 whitespace-nowrap text-sm font-semibold text-ink">{stepLabels[s]}</span>}
-                      {i < steps.length - 1 && (
-                        <div className={`mx-1 h-px flex-1 ${currentStepIndex > i ? 'bg-pine' : 'bg-line'}`} />
-                      )}
-                    </div>
-                  );
-                })}
-              </div>
-
-              {/* How to book — reopen tutorial (pulses once on first arrival) */}
-              <motion.button
-                ref={helpPillRef}
-                type="button"
-                onClick={() => { setShowTutorial(true); setCookie(TUTORIAL_COOKIE, "1", 365); }}
-                animate={pulseHelp ? { scale: [1, 1.08, 1, 1.08, 1] } : { scale: 1 }}
-                transition={{ duration: 1.2, ease: "easeInOut" }}
-                className="inline-flex shrink-0 cursor-pointer items-center gap-1.5 rounded-full border border-pine-mist bg-pine-mist px-3 py-2 text-xs font-semibold text-pine transition-colors hover:bg-pine-mist"
-              >
-                {tt("reopen")}
-                <HelpCircle className="h-3.5 w-3.5" />
-              </motion.button>
-            </div>
-
             {/* Hidden file inputs */}
             <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)} />
 
-            <div className="min-h-[300px]">
+            <div>
               <AnimatePresence mode="wait">
                 {/* ═══ Step 1: Dates ═══ */}
                 {step === "dates" && (
                   <motion.div key="step-dates" initial={{ opacity: 0, x: 20 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -20 }}>
                     <AnimatePresence mode="wait">
                       {!showOptions ? (
-                        <motion.div key="dates-form" initial={{ opacity: 0, x: -40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: -40 }} transition={{ duration: 0.25 }} className="grid gap-5 lg:grid-cols-[minmax(0,1.5fr)_minmax(0,1fr)] lg:items-start lg:gap-8">
-                          <div className="min-w-0 space-y-5">
-                          {/* ── Dates — mirrors the sticky bar, and opens the same picker ── */}
-                          <label className="text-[13px] font-semibold text-ink-3">{t("selectDates")}</label>
-                          <button
-                            type="button"
-                            onClick={() => setCalendarOpen(true)}
-                            className="w-full flex items-center justify-between p-3.5 rounded-xl border border-line bg-white text-sm font-medium text-ink-2 cursor-pointer transition-colors hover:border-line-strong hover:bg-mist focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine"
-                          >
-                            <div className="flex items-center gap-2.5">
-                              <CalendarIcon size={16} className="text-ink-3" />
-                              <span>
-                                {dateRange?.from ? (
-                                  <>
-                                    {fmtDate(dateRange.from, "MMM d, yyyy", locale)}
-                                    {dateRange.to && dateRange.to.getTime() !== dateRange.from.getTime() && ` — ${fmtDate(dateRange.to, "MMM d, yyyy", locale)}`}
-                                  </>
-                                ) : t("selectDates")}
+                        <motion.div key="dates-form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} aria-live="polite">
+                          {cartLines.length === 0 ? (
+                            <div className="px-2 py-4 text-center">
+                              <span aria-hidden className="mx-auto mb-3.5 flex h-16 w-16 items-center justify-center rounded-full bg-pine-mist text-pine">
+                                <ShoppingCart className="h-7 w-7" />
                               </span>
+                              <h3 className="font-serif text-[22px] leading-snug text-ink">{t("noRoomSelected")}</h3>
+                              <p className="mx-auto mt-1.5 max-w-[34ch] text-[15px] text-ink-2">
+                                {!dateRange?.from
+                                  ? t("noRoomSelectedNoDates")
+                                  : nights < 1
+                                    ? t("noRoomSelectedNeedCheckOut")
+                                    : availableRoomCount === 0
+                                      ? t("noRoomSelectedSoldOut")
+                                      : t("noRoomSelectedHint", { count: availableRoomCount })}
+                              </p>
+                              <button
+                                type="button"
+                                onClick={() =>
+                                  emptyCartNeedsDates
+                                    ? setCalendarOpen(true)
+                                    : document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                                }
+                                className="mt-5 inline-flex min-h-12 cursor-pointer items-center gap-1.5 rounded-full border border-line-strong bg-white px-6 text-[15px] font-medium text-ink transition-colors hover:bg-mist focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine"
+                              >
+                                {emptyCartNeedsDates ? t("selectDates") : t("viewRooms")}
+                              </button>
                             </div>
-                            {nights > 0 && (
-                              <span className="text-ink-3 text-xs">{nights} {nights > 1 ? tc("nights") : tc("night")}</span>
-                            )}
-                          </button>
-
-                          {/* ── Selected rooms — one panel, three states, fixed position ──
-                              Rooms are added from the cards above; this reviews the cart. */}
-                          <div className="space-y-2 pt-3 border-t border-line">
-                            <label className="text-[13px] font-semibold text-ink-3">
-                              {t("yourCart")}{cartLines.length > 0 ? ` (${cartLines.length})` : ""}
-                            </label>
-
-                            <div aria-live="polite">
-                              {cartLines.length === 0 ? (
-                                <div className="rounded-2xl border border-line bg-mist px-5 py-7 text-center">
-                                  <div className="mx-auto mb-3 flex h-12 w-12 items-center justify-center rounded-full bg-white text-ink-3">
-                                    <BedDouble className="h-6 w-6" />
+                          ) : (
+                            <>
+                              <CartLineList />
+                              <div className="mt-4 space-y-2 border-t border-line pt-4">
+                                {appliedPromo && promoDiscount > 0 && (
+                                  <div className="flex justify-between text-[15px] text-emerald-700">
+                                    <span>{t("promoLabel")} ({appliedPromo.code})</span>
+                                    <span>−฿{promoDiscount.toLocaleString()}</span>
                                   </div>
-                                  <p className="text-sm font-semibold text-ink">{t("noRoomSelected")}</p>
-                                  <p className="mt-1 text-xs text-ink-3">
-                                    {!dateRange?.from
-                                      ? t("noRoomSelectedNoDates")
-                                      : nights < 1
-                                        ? t("noRoomSelectedNeedCheckOut")
-                                        : availableRoomCount === 0
-                                          ? t("noRoomSelectedSoldOut")
-                                          : t("noRoomSelectedHint", { count: availableRoomCount })}
-                                  </p>
-                                  <button
-                                    type="button"
-                                    onClick={() =>
-                                      emptyCartNeedsDates
-                                        ? setCalendarOpen(true)
-                                        : document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" })
-                                    }
-                                    className="mt-4 inline-flex min-h-[44px] cursor-pointer items-center gap-1.5 rounded-full bg-pine px-6 text-sm font-bold text-white transition-colors hover:bg-pine-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine"
-                                  >
-                                    {emptyCartNeedsDates ? t("selectDates") : t("viewRooms")}
-                                    <ArrowRight size={16} />
-                                  </button>
+                                )}
+                                <div className="flex items-baseline justify-between gap-4 text-ink">
+                                  <span className="text-[15px] font-medium">{tc("total")}</span>
+                                  <span className={CO_MONEY_LG}>฿{totalPrice.toLocaleString()}</span>
                                 </div>
-                              ) : (
-                                <CartLineList />
-                              )}
-                            </div>
-                          </div>
-                          </div>
-
-                          {/* ── Summary: the total, consent and the way on; beside the houses from lg ── */}
-                          <div className="space-y-4 rounded-2xl bg-mist p-5 lg:sticky lg:top-24">
-                          {cartLines.length > 0 && (
-                            <div className="space-y-2 border-b border-line pb-4">
-                              {appliedPromo && promoDiscount > 0 && (
-                                <div className="flex justify-between text-sm text-emerald-700">
-                                  <span>{t("promoLabel")} ({appliedPromo.code})</span>
-                                  <span>−฿{promoDiscount.toLocaleString()}</span>
-                                </div>
-                              )}
-                              <div className="flex items-baseline justify-between gap-3 text-ink">
-                                <span className="text-[15px] font-medium">{tc("total")}</span>
-                                <span className="font-serif text-3xl leading-tight" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>
-                                  ฿{totalPrice.toLocaleString()}
-                                </span>
                               </div>
-                            </div>
+                              <button onClick={handleProceedToDetails} className={`${CO_PRIMARY} mt-4`}>
+                                {t("continueDetails")} <ArrowRight size={18} />
+                              </button>
+                            </>
                           )}
-
-                          {/* PDPA */}
-                          <label className="flex items-start gap-2 cursor-pointer">
-                            <input type="checkbox" checked={pdpaConsent} onChange={(e) => setPdpaConsent(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 rounded border-line-strong text-ink focus:ring-pine" />
-                            <span className="text-xs text-ink-2">
-                              {t.rich("pdpaConsent", {
-                                privacy: (chunks) => <a href="/legal#privacy" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-ink">{chunks}</a>,
-                                terms: (chunks) => <a href="/legal#terms" target="_blank" rel="noopener noreferrer" className="font-medium underline hover:text-ink">{chunks}</a>,
-                              })}
-                            </span>
-                          </label>
-
-                          <button
-                            onClick={handleProceedToDetails}
-                            disabled={cartLines.length === 0 || !pdpaConsent}
-                            className="flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full bg-pine px-8 text-[15px] font-medium text-white transition-colors hover:bg-pine-hover disabled:cursor-not-allowed disabled:opacity-50"
-                          >
-                            {t("continueDetails")} <ArrowRight size={18} />
-                          </button>
-                          <p className="text-center text-xs text-ink-2">{cartLines.length > 0 && !pdpaConsent ? t("consentRequired") : t("subtitle")}</p>
-                          </div>
                         </motion.div>
                       ) : showOptions ? (
                         <motion.div key="dates-options" initial={{ opacity: 0, x: 40 }} animate={{ opacity: 1, x: 0 }} exit={{ opacity: 0, x: 40 }} transition={{ duration: 0.25 }} className="space-y-4">
@@ -1830,17 +1749,31 @@ export function BookingSection({
                       </div>
                     </section>
 
-                    <button
-                      onClick={() => {
-                        const formErrors = validateGuestForm();
-                        setErrors(formErrors);
-                        if (Object.keys(formErrors).length > 0) { focusFirstError(formErrors); return; }
-                        setShowConfirmModal(true);
-                      }}
-                      className={CO_PRIMARY}
-                    >
-                      {t("continuePayment")} <ArrowRight size={18} />
-                    </button>
+                    <section className={CO_CARD}>
+                      <label className="flex cursor-pointer items-start gap-3">
+                        <input type="checkbox" checked={pdpaConsent} onChange={(e) => setPdpaConsent(e.target.checked)} className="mt-0.5 h-5 w-5 shrink-0 cursor-pointer rounded border-line-strong accent-pine" />
+                        <span className="text-[15px] text-ink-2">
+                          {t.rich("pdpaConsent", {
+                            privacy: (chunks) => <a href="/legal#privacy" target="_blank" rel="noopener noreferrer" className="font-medium text-pine underline underline-offset-2">{chunks}</a>,
+                            terms: (chunks) => <a href="/legal#terms" target="_blank" rel="noopener noreferrer" className="font-medium text-pine underline underline-offset-2">{chunks}</a>,
+                          })}
+                        </span>
+                      </label>
+                      <button
+                        disabled={!pdpaConsent}
+                        aria-describedby={pdpaConsent ? undefined : "co-consent-why"}
+                        onClick={() => {
+                          const formErrors = validateGuestForm();
+                          setErrors(formErrors);
+                          if (Object.keys(formErrors).length > 0) { focusFirstError(formErrors); return; }
+                          setShowConfirmModal(true);
+                        }}
+                        className={`${CO_PRIMARY} mt-5`}
+                      >
+                        {t("continuePayment")} <ArrowRight size={18} />
+                      </button>
+                      {!pdpaConsent && <p id="co-consent-why" className="mt-2 text-center text-[13px] text-ink-2">{t("consentRequired")}</p>}
+                    </section>
                   </motion.div>
                 )}
 
@@ -2244,11 +2177,12 @@ export function BookingSection({
               ? t("roomsCount", { count: cartLines.length })
               : selectedRoom?.name ?? null
         }
+        // Thai puts the day before the month ("20 พ.ย."), English the other way round.
         dateLabel={
           dateRange?.from
-            ? `${fmtDate(dateRange.from, "MMM d", locale)}${
+            ? `${fmtDate(dateRange.from, locale === "th" ? "d MMM" : "MMM d", locale)}${
                 dateRange.to && dateRange.to.getTime() !== dateRange.from.getTime()
-                  ? ` – ${fmtDate(dateRange.to, "MMM d", locale)}`
+                  ? ` – ${fmtDate(dateRange.to, locale === "th" ? "d MMM" : "MMM d", locale)}`
                   : ""
               }`
             : null
