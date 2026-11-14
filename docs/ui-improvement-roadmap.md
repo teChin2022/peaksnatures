@@ -103,7 +103,7 @@ Deferred until the owner decides (direction §10):
 | Item | Fixes | What changes |
 |---|---|---|
 | Payment guidance | B11 | Labelled timer ("ชำระเงินภายใน 9:59") with a 2-minute warning; numbered phone steps; a full-width "save QR". Moving the deposit choice to the review screen, and keeping the slip after expiry (hold again, then verify), change the payment flow. |
-| In-cart state | B12 | The card shows "✓ อยู่ในรายการจอง · แก้ไข", with a confirmation and "ดูรายการจอง"; "จองบ้านพักนี้" opens that house's dialog. Stopping a re-add of a single-unit house changes cart logic. |
+| In-cart state | B12 | The card shows "✓ อยู่ในรายการจอง · แก้ไข", with a confirmation and "ดูรายการจอง"; "จองบ้านพักนี้" opens that house's dialog. Stopping a re-add of a single-unit house changes cart logic. **Done 2026-11-14** (see ui-audit B12). |
 | Back to the previous step | B14 | The leave dialog gains "กลับไปขั้นตอนก่อนหน้า". The `popstate` guard stays (it is deliberate). |
 | Province order | B15 | Sort by Thai label when the locale is Thai. Data order only. |
 | Recovery | B18, part of B17 | Inline slip errors; the cart kept per homestay in `sessionStorage`; the receipt still reachable after the success modal closes. |

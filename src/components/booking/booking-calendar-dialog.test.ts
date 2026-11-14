@@ -54,3 +54,21 @@ describe("BookingCalendarDialog date fields", () => {
     expect(document.body.textContent).toContain("Dec 24, 2026");
   });
 });
+
+describe("BookingCalendarDialog Done", () => {
+  it("closes, then hands over to onDone, once both dates are picked", () => {
+    const calls: string[] = [];
+    act(() =>
+      root.render(
+        createElement(BookingCalendarDialog, {
+          open: true,
+          onOpenChange: (open: boolean) => calls.push(`open:${open}`),
+          onDone: () => calls.push("done"),
+        }),
+      ),
+    );
+    const done = [...document.body.querySelectorAll("button")].find((b) => b.textContent === "done")!;
+    act(() => done.click());
+    expect(calls).toEqual(["open:false", "done"]);
+  });
+});

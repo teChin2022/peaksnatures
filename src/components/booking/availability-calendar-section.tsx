@@ -9,7 +9,7 @@ import { type DayButton, type Modifiers } from "react-day-picker";
 import { useTranslations, useLocale } from "next-intl";
 import { motion } from "motion/react";
 import { toast } from "sonner";
-import { ArrowLeft, ChevronLeft, ChevronRight, Sparkles, Users } from "lucide-react";
+import { ArrowLeft, ChevronLeft, ChevronRight, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -20,7 +20,8 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { HTMLContent } from "@/components/ui/html-content";
-import { BookingCalendarDialog } from "@/components/booking/booking-calendar-dialog";
+import { BookingCalendarPanel } from "@/components/booking/booking-calendar-dialog";
+import { RoomRateTable } from "@/components/booking/room-rate-table";
 import { RoomConfigDialog } from "@/components/booking/room-config-dialog";
 import { useBookingCart, type CartLine } from "@/components/booking/booking-cart-context";
 import {
@@ -29,8 +30,7 @@ import {
   type RoomDayStatus,
 } from "@/lib/booking-dates";
 import { calculateTotalPrice } from "@/lib/calculate-price";
-import { formatSpecialPriceRule } from "@/lib/special-price-label";
-import { fmtDate, fmtDateStr } from "@/lib/format-date";
+import { fmtDate } from "@/lib/format-date";
 import { useSwipe } from "@/hooks/use-swipe";
 import { DemandEvent } from "@/lib/demand-events";
 import { trackDemandOnce } from "@/lib/demand-track";
@@ -245,6 +245,29 @@ function RoomPhotos({ images, name }: { images: string[]; name: string }) {
   );
 }
 
+/** Header of a dialog view the guest stepped into from the day's house list. */
+function BackHeader({ title, description, onBack }: { title: string; description: string; onBack: () => void }) {
+  const tc = useTranslations("common");
+  return (
+    // text-left overrides DialogHeader's mobile centering: with a back arrow
+    // pinned left, a centered line under a left-aligned title reads crooked.
+    <DialogHeader className="pr-10 text-left">
+      <div className="flex items-center gap-1.5">
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label={tc("back")}
+          className="-ml-2 shrink-0 rounded-full p-2 text-ink-3 transition-colors hover:bg-mist-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/40"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+        <DialogTitle className="min-w-0 truncate">{title}</DialogTitle>
+      </div>
+      <DialogDescription>{description}</DialogDescription>
+    </DialogHeader>
+  );
+}
+
 /**
  * Detail view for one house on one night, shown in place of the day list (the
  * same dialog swaps its body — see the section below). Quotes the rate for THAT
@@ -297,22 +320,11 @@ function RoomDayDetail({
 
   return (
     <>
-      {/* text-left overrides DialogHeader's mobile centering: with a back arrow
-          pinned left, a centered date under a left-aligned title reads crooked. */}
-      <DialogHeader className="pr-10 text-left">
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={onBack}
-            aria-label={tc("back")}
-            className="-ml-2 shrink-0 rounded-full p-2 text-ink-3 transition-colors hover:bg-mist-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/40"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <DialogTitle className="min-w-0 truncate">{room.name}</DialogTitle>
-        </div>
-        <DialogDescription>{fmtDate(date, "EEEE d MMMM yyyy", locale)}</DialogDescription>
-      </DialogHeader>
+      <BackHeader
+        title={room.name}
+        description={fmtDate(date, "EEEE d MMMM yyyy", locale)}
+        onBack={onBack}
+      />
 
       {/* One block wrapper, NOT more grid items. DialogContent is a grid, and an
           aspect-ratio box whose children are all absolute has no in-flow content
@@ -346,85 +358,9 @@ function RoomDayDetail({
           </span>
         </div>
 
-        {/* Base + seasonal rates, same block as the room card's "วันว่าง & ราคา"
-            dialog — the headline above prices only the tapped night, so this is
-            where a guest sees what the house costs the rest of the year. */}
-        <div className="rounded-2xl bg-mist px-5 py-5">
-          <div className="mb-4 flex items-center gap-3">
-            <h4 className="text-xs font-semibold text-ink-3">
-              {tr("priceDetailsTitle")}
-            </h4>
-            <div className="h-px flex-1 bg-line" />
-          </div>
-
-          <div className="flex items-baseline justify-between gap-4">
-            <span className="text-sm font-medium text-ink">{tr("ratePrice")}</span>
-            <div className="flex items-baseline gap-1 tabular-nums">
-              <span className="text-2xl font-bold text-ink">
-                ฿{room.price_per_night.toLocaleString()}
-              </span>
-              <span className="text-xs text-ink-3">{tc("perNight")}</span>
-            </div>
-          </div>
-
-          {specialPrices.length > 0 && (
-            <div className="mt-5 border-t border-dashed border-line-strong pt-4">
-              <div className="mb-3 flex items-center gap-2">
-                <Sparkles className="h-3 w-3 text-pine" strokeWidth={2.5} />
-                <span className="text-xs font-semibold text-ink-3">
-                  {tr("specialRates")}
-                </span>
-              </div>
-              <ul className="space-y-3">
-                {specialPrices.map((s) => (
-                  <li key={s.id} className="flex items-baseline justify-between gap-4">
-                    <div className="min-w-0 pr-2">
-                      <div className="truncate text-sm font-medium text-ink">{s.name}</div>
-                      <div className="mt-0.5 text-xs text-ink-3 tabular-nums">
-                        {formatSpecialPriceRule(s, locale)}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-baseline gap-1 tabular-nums">
-                      <span className="text-lg font-bold text-pine">
-                        +฿{s.surcharge.toLocaleString()}
-                      </span>
-                      <span className="text-xs text-ink-3">{tc("perNight")}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {seasons.length > 0 && (
-            <div className="mt-5 border-t border-dashed border-line-strong pt-4">
-              <div className="mb-3 flex items-center gap-2">
-                <Sparkles className="h-3 w-3 text-pine" strokeWidth={2.5} />
-                <span className="text-xs font-semibold text-ink-3">
-                  {tr("seasonalRates")}
-                </span>
-              </div>
-              <ul className="space-y-3">
-                {seasons.map((s) => (
-                  <li key={s.id} className="flex items-baseline justify-between gap-4">
-                    <div className="min-w-0 pr-2">
-                      <div className="truncate text-sm font-medium text-ink">{s.name}</div>
-                      <div className="mt-0.5 text-xs text-ink-3 tabular-nums">
-                        {fmtDateStr(s.start_date, "d MMM", locale)} – {fmtDateStr(s.end_date, "d MMM yyyy", locale)}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-baseline gap-1 tabular-nums">
-                      <span className="text-lg font-bold text-pine">
-                        ฿{s.price_per_night.toLocaleString()}
-                      </span>
-                      <span className="text-xs text-ink-3">{tc("perNight")}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+        {/* The headline above prices only the tapped night; this is what the
+            house costs the rest of the year, same table as the house card. */}
+        <RoomRateTable room={room} seasonalPrices={seasons} specialPrices={specialPrices} />
 
         {room.description && (
           <HTMLContent content={room.description} className="text-sm leading-relaxed text-ink-2" />
@@ -445,6 +381,7 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
   const { catalog, liveBookedRanges, setDates, lines, isRoomAvailableForRange, remainingForRoom } = useBookingCart();
   const t = useTranslations("availability");
   const tr = useTranslations("rooms");
+  const tb = useTranslations("booking");
   const locale = useLocale();
   const mounted = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   // `open` is tracked apart from `selectedDate` so the modal keeps its contents
@@ -453,10 +390,9 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   // Which house the modal is showing in detail; null = the day's house list.
   const [detailRoomId, setDetailRoomId] = useState<string | null>(null);
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  // The house the open date picker is for. Held apart from `detailRoomId` so
-  // the picker's scope survives the modal's view state being reset.
-  const [bookingRoomId, setBookingRoomId] = useState<string | null>(null);
+  // The house the modal is picking a check-out for; it outranks the other two
+  // views. Held apart from `detailRoomId`, which says where Back returns to.
+  const [pickRoomId, setPickRoomId] = useState<string | null>(null);
   // The house config dialog (guests, add-ons) the picker hands over to.
   const [config, setConfig] = useState<{ room: Room; editingLine?: CartLine } | null>(null);
 
@@ -493,22 +429,22 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
   const handleDayClick = (date: Date, modifiers: Modifiers) => {
     if (modifiers.disabled) return;
     setSelectedDate(date);
-    setDetailRoomId(null); // a new date always opens on the house list
+    // A new date always opens on the house list.
+    setDetailRoomId(null);
+    setPickRoomId(null);
     setOpen(true);
   };
 
   // Booking from here starts the normal flow: the tapped date becomes the
   // check-in (overriding any range already picked — it is the guest's most
-  // recent, most explicit choice) and the shared picker asks for the check-out.
-  // The picker is scoped to this house: the guest chose it before their dates,
-  // so a range it cannot serve must not be offered.
-  const handleBook = () => {
-    if (!selectedDate || !detailRoomId) return;
-    setBookingRoomId(detailRoomId);
+  // recent, most explicit choice) and the shared picker, shown in this same
+  // dialog, asks for the check-out. The picker is scoped to this house: the
+  // guest chose it before their dates, so a range it cannot serve must not be
+  // offered.
+  const handleBook = (roomId: string) => {
+    if (!selectedDate) return;
     setDates({ from: selectedDate, to: undefined });
-    setOpen(false);
-    // Let the day modal's overlay unmount before the picker's mounts.
-    setTimeout(() => setCalendarOpen(true), 150);
+    setPickRoomId(roomId);
   };
 
   const scrollToRooms = () => {
@@ -522,7 +458,8 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
   // that house's config dialog instead of back to the house list. Same checks
   // as the house card's button (rooms-section `handleAddToCart`).
   const handlePickerDone = () => {
-    const room = activeRooms.find((r) => r.id === bookingRoomId);
+    setOpen(false);
+    const room = activeRooms.find((r) => r.id === pickRoomId);
     const line = room ? lines.find((l) => l.roomId === room.id) : undefined;
     if (room && isRoomAvailableForRange(room) && remainingForRoom(room) > 0) {
       setTimeout(() => setConfig({ room }), 150);
@@ -544,6 +481,7 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
   const detailRow = detailRoomId ? breakdown.find((r) => r.roomId === detailRoomId) : undefined;
   const detailRoom = detailRoomId ? activeRooms.find((r) => r.id === detailRoomId) : undefined;
   const showDetail = !!detailRoom && !!detailRow && !!selectedDate;
+  const pickRoom = pickRoomId ? activeRooms.find((r) => r.id === pickRoomId) : undefined;
 
   // Fires calendar_view once the guest actually scrolls the availability
   // calendar into view. Disconnects on the first hit; trackDemandOnce guards
@@ -626,20 +564,36 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
         </div>
       </div>
 
-      {/* One dialog, two views: the day's house list, or one house in detail.
-          Swapping the body in place keeps a single overlay + focus trap, which
-          the rest of the page also prefers over stacked modal layers. */}
+      {/* One dialog, three views: the day's house list, one house in detail,
+          or the check-out picker for one house. Swapping the body in place
+          keeps a single overlay + focus trap, which the rest of the page also
+          prefers over stacked modal layers. */}
       <Dialog open={open} onOpenChange={setOpen}>
         <DialogContent
-          className={cn("max-h-[85vh] overflow-y-auto", showDetail ? "sm:max-w-lg" : "sm:max-w-md")}
+          className={cn(
+            "max-h-[85vh] overflow-y-auto",
+            // The picker's 44px days need the narrower phone padding to fit 7 across.
+            pickRoom ? "grid-cols-1 p-4 sm:max-w-md sm:p-6" : showDetail ? "sm:max-w-lg" : "sm:max-w-md",
+          )}
         >
-          {showDetail ? (
+          {pickRoom ? (
+            <>
+              <BackHeader
+                title={tb("selectDates")}
+                description={pickRoom.name}
+                onBack={() => setPickRoomId(null)}
+              />
+              {/* Seeded with the tapped date as check-in and scoped to the
+                  house, so its booked nights can't be selected. */}
+              <BookingCalendarPanel roomId={pickRoom.id} onDone={handlePickerDone} />
+            </>
+          ) : showDetail ? (
             <RoomDayDetail
               room={detailRoom}
               date={selectedDate}
               freeCount={detailRow.free}
               onBack={() => setDetailRoomId(null)}
-              onBook={handleBook}
+              onBook={() => handleBook(detailRoom.id)}
             />
           ) : (
             <>
@@ -656,25 +610,36 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
                 {breakdown.map((row) => (
                   <li
                     key={row.roomId}
-                    className="flex items-center gap-2 rounded-xl border border-line bg-mist/40 px-3 py-2.5"
+                    className="rounded-xl border border-line bg-mist/40 px-3 py-2.5"
                   >
-                    {/* flex-1 on the name (not justify-between) keeps the link
-                        and the pill together as one group on the right. */}
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
-                      {roomNameById.get(row.roomId)}
-                    </span>
-                    {/* Only houses with a unit left that night are worth opening
-                        — a booked or closed one has nothing to book. */}
+                    <div className="flex items-center gap-2">
+                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
+                        {roomNameById.get(row.roomId)}
+                      </span>
+                      <RoomStatusPill row={row} />
+                    </div>
+                    {/* Only houses with a unit left that night can be opened or
+                        booked — a booked or closed one has nothing to book. */}
                     {!row.blocked && row.free > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setDetailRoomId(row.roomId)}
-                        className="-my-1 shrink-0 whitespace-nowrap px-1 py-2 text-xs text-ink-2 underline underline-offset-2 transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/40"
-                      >
-                        {t("viewDetails")}
-                      </button>
+                      <div className="mt-1.5 flex items-center justify-between gap-2">
+                        <button
+                          type="button"
+                          onClick={() => setDetailRoomId(row.roomId)}
+                          className="-ml-1 inline-flex min-h-11 shrink-0 items-center whitespace-nowrap px-1 text-xs text-ink-2 underline underline-offset-2 transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/40"
+                        >
+                          {t("viewDetails")}
+                        </button>
+                        {/* Secondary, like the house card's "วันว่าง & ราคา": one
+                            filled button per row read as a wall of CTAs. */}
+                        <button
+                          type="button"
+                          className="flex min-h-11 items-center justify-center rounded-full border border-line-strong bg-white px-5 text-sm font-medium text-ink transition-colors hover:bg-mist outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
+                          onClick={() => handleBook(row.roomId)}
+                        >
+                          {t("bookThisHouse")}
+                        </button>
+                      </div>
                     )}
-                    <RoomStatusPill row={row} />
                   </li>
                 ))}
               </ul>
@@ -682,16 +647,6 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
           )}
         </DialogContent>
       </Dialog>
-
-      {/* Shared date picker, seeded with the tapped date as check-in and scoped
-          to the chosen house so its booked nights can't be selected; Done opens
-          that house's config dialog */}
-      <BookingCalendarDialog
-        open={calendarOpen}
-        onOpenChange={setCalendarOpen}
-        onDone={handlePickerDone}
-        roomId={bookingRoomId}
-      />
 
       <RoomConfigDialog
         key={config?.editingLine?.lineId ?? config?.room.id ?? "none"}

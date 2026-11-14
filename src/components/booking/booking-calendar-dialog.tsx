@@ -49,6 +49,40 @@ export function BookingCalendarDialog({
   onDone?: () => void;
   roomId?: string | null;
 }) {
+  const t = useTranslations("booking");
+
+  // The panel unmounts with the content on close, which also clears its warnings.
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="grid-cols-1 p-4 sm:max-w-md sm:p-6">
+        <DialogHeader>
+          <DialogTitle>{t("selectDates")}</DialogTitle>
+        </DialogHeader>
+        <BookingCalendarPanel
+          roomId={roomId}
+          onDone={() => {
+            onOpenChange(false);
+            onDone?.();
+          }}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * The picker's body without its dialog, for a dialog that shows it as one of
+ * its views (the availability calendar's day dialog). Its parts are returned
+ * as siblings so they stay direct items of the host's DialogContent grid.
+ * `onDone` fires only once both dates are picked.
+ */
+export function BookingCalendarPanel({
+  roomId = null,
+  onDone,
+}: {
+  roomId?: string | null;
+  onDone: () => void;
+}) {
   const { dateRange, setDates, nights, catalog, liveBookedRanges } = useBookingCart();
   const t = useTranslations("booking");
   const tc = useTranslations("common");
@@ -121,16 +155,7 @@ export function BookingCalendarDialog({
       setWarned(true);
       return;
     }
-    onOpenChange(false);
-    onDone?.();
-  };
-
-  const handleOpenChange = (next: boolean) => {
-    if (!next) {
-      setWarned(false);
-      setCrossedNight(null);
-    }
-    onOpenChange(next);
+    onDone();
   };
 
   // Thai puts the day before the month ("29 ก.ค."), English the other way round.
@@ -143,12 +168,7 @@ export function BookingCalendarDialog({
     }`;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="grid-cols-1 p-4 sm:max-w-md sm:p-6">
-        <DialogHeader>
-          <DialogTitle>{t("selectDates")}</DialogTitle>
-        </DialogHeader>
-
+    <>
         {/* Which half is still missing — visible before the guest can get it wrong. */}
         <div className="flex gap-2">
           <div className={cell(awaiting === "in")}>
@@ -186,7 +206,9 @@ export function BookingCalendarDialog({
             } : undefined}
             disabled={[{ before: startOfToday() }, isDayDisabled]}
             numberOfMonths={1}
-            className="w-full"
+            // Seven 44px days need 308px; a 375px phone's dialog leaves 309px,
+            // so the calendar's own padding would push Saturday past the edge.
+            className="w-full p-0 sm:p-4"
           />
         </div>
 
@@ -228,7 +250,6 @@ export function BookingCalendarDialog({
         <Button className="w-full rounded-full bg-pine px-6 py-3.5 h-auto text-sm font-bold text-white hover:bg-pine-hover" onClick={handleDone}>
           {tc("done")}
         </Button>
-      </DialogContent>
-    </Dialog>
+    </>
   );
 }

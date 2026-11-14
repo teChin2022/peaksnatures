@@ -2,17 +2,14 @@
 
 import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { useSwipe } from "@/hooks/use-swipe";
-import { useIsMobile } from "@/lib/use-is-mobile";
 import Image from "next/image";
 import { startOfToday, addMonths, parseISO } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
 import type { Room, RoomSeasonalPrice, RoomSpecialPrice, BlockedDate } from "@/types/database";
 
 type BookingStep = "dates" | "details" | "payment";
-import { Badge } from "@/components/ui/badge";
 import { Users, CalendarSearch, ChevronLeft, ChevronRight, X, Sparkles, Wrench, ShoppingCart, Check } from "lucide-react";
 import { roomCtaState } from "@/components/booking/room-cta-state";
-import { fmtDateStr } from "@/lib/format-date";
 
 import { useTranslations, useLocale } from "next-intl";
 import { motion } from "motion/react";
@@ -20,8 +17,8 @@ import { Button } from "@/components/ui/button";
 import { toast } from "sonner";
 import { useBookingCartOptional, type CartLine } from "@/components/booking/booking-cart-context";
 import { RoomConfigDialog } from "@/components/booking/room-config-dialog";
+import { RoomRateTable } from "@/components/booking/room-rate-table";
 import { getPriceRange } from "@/lib/calculate-price";
-import { formatSpecialPriceRule } from "@/lib/special-price-label";
 import { getFullyBookedForRoom } from "@/lib/booking-dates";
 import { HTMLContent } from "@/components/ui/html-content";
 import { thumbScroll } from "@/components/booking/gallery-section";
@@ -203,30 +200,6 @@ export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, sp
 function getFullyBookedDates(roomId: string, rooms: Room[], bookedRanges: BookedRange[]) {
   const roomObj = rooms.find((r) => r.id === roomId);
   return getFullyBookedForRoom(roomId, roomObj?.quantity || 1, bookedRanges);
-}
-
-function RoomPriceDisplay({ room, seasonalPrices, specialPrices }: { room: Room; seasonalPrices: RoomSeasonalPrice[]; specialPrices: RoomSpecialPrice[] }) {
-  const t = useTranslations("rooms");
-  const tc = useTranslations("common");
-  const { min, max } = getPriceRange({ basePricePerNight: room.price_per_night, seasons: seasonalPrices, specialPrices });
-  const hasRange = min !== max;
-  return (
-    <div className="flex items-center gap-1">
-      {hasRange ? (
-        <>
-          <span className="text-xs text-ink-3 self-end mb-1">{t("ratePrice")}</span>
-          <span className="text-2xl font-bold text-ink">
-            ฿{min.toLocaleString()}
-          </span>
-        </>
-      ) : (
-        <span className="text-2xl font-bold text-ink">
-          ฿{room.price_per_night.toLocaleString()}
-        </span>
-      )}
-      <span className="text-xs text-ink-3 self-end mb-1">{tc("perNight")}</span>
-    </div>
-  );
 }
 
 function RoomDescriptionWithReadMore({ content, onReadMore }: { content: string; onReadMore: () => void }) {
@@ -530,12 +503,10 @@ export function SingleRoomHero({
 
 function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blockedDates, popularRoomIds }: { rooms: Room[]; seasonsByRoom: Record<string, RoomSeasonalPrice[]>; specialsByRoom: Record<string, RoomSpecialPrice[]>; bookedRanges: BookedRange[]; blockedDates: BlockedDate[]; popularRoomIds: ReadonlySet<string> }) {
   const t = useTranslations("rooms");
-  const tc = useTranslations("common");
   const [lightbox, setLightbox] = useState<{ images: string[]; name: string } | null>(null);
   const [calendarRoomId, setCalendarRoomId] = useState<string | null>(null);
   const [descRoomId, setDescRoomId] = useState<string | null>(null);
   const [bookingStep, setBookingStep] = useState<BookingStep>("dates");
-  const isMobile = useIsMobile();
   const locale = useLocale();
   const cart = useBookingCartOptional();
   const [config, setConfig] = useState<{ room: Room; editingLine?: CartLine } | null>(null);
@@ -714,91 +685,7 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
           </div>
 
           {calendarRoom && (
-            <div className="mt-5 rounded-2xl bg-mist px-5 py-5">
-              {/* Eyebrow + hairline */}
-              <div className="mb-4 flex items-center gap-3">
-                <h4 className="text-xs font-semibold text-ink-3">
-                  {t("priceDetailsTitle")}
-                </h4>
-                <div className="h-px flex-1 bg-line" />
-              </div>
-
-              {/* Base price — the anchor. Labelled just "price" here (owner, 2026-11-14); the house cards keep "standard rate". */}
-              <div className="flex items-baseline justify-between gap-4">
-                <span className="text-sm font-medium text-ink">
-                  {t("ratePrice")}
-                </span>
-                <div className="flex items-baseline gap-1 tabular-nums">
-                  <span className="text-2xl font-bold text-ink">
-                    ฿{calendarRoom.price_per_night.toLocaleString()}
-                  </span>
-                  <span className="text-xs text-ink-3">{tc("perNight")}</span>
-                </div>
-              </div>
-
-              {/* Special date rates */}
-              {(specialsByRoom[calendarRoom.id] || []).length > 0 && (
-                <div className="mt-5 border-t border-dashed border-line-strong pt-4">
-                  <div className="mb-3 flex items-center gap-2">
-                    <Sparkles className="h-3 w-3 text-pine" strokeWidth={2.5} />
-                    <span className="text-xs font-semibold text-ink-3">
-                      {t("specialRates")}
-                    </span>
-                  </div>
-                  <ul className="space-y-3">
-                    {(specialsByRoom[calendarRoom.id] || []).map((s) => (
-                      <li key={s.id} className="flex items-baseline justify-between gap-4">
-                        <div className="min-w-0 pr-2">
-                          <div className="truncate text-sm font-medium text-ink">{s.name}</div>
-                          <div className="mt-0.5 text-xs text-ink-3 tabular-nums">
-                            {formatSpecialPriceRule(s, locale)}
-                          </div>
-                        </div>
-                        <div className="flex shrink-0 items-baseline gap-1 tabular-nums">
-                          <span className="text-lg font-bold text-pine">
-                            +฿{s.surcharge.toLocaleString()}
-                          </span>
-                          <span className="text-xs text-ink-3">{tc("perNight")}</span>
-                        </div>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-              )}
-
-              {/* Seasonal rates */}
-              {(seasonsByRoom[calendarRoom.id] || []).length > 0 && (
-                <div className="mt-5 border-t border-dashed border-line-strong pt-4">
-                  <div className="mb-3 flex items-center gap-2">
-                    <Sparkles className="h-3 w-3 text-pine" strokeWidth={2.5} />
-                    <span className="text-xs font-semibold text-ink-3">
-                      {t("seasonalRates")}
-                    </span>
-                  </div>
-                  <ul className="space-y-3">
-                    {(seasonsByRoom[calendarRoom.id] || [])
-                      .slice()
-                      .sort((a, b) => a.start_date.localeCompare(b.start_date))
-                      .map((s) => (
-                        <li key={s.id} className="flex items-baseline justify-between gap-4">
-                          <div className="min-w-0 pr-2">
-                            <div className="truncate text-sm font-medium text-ink">{s.name}</div>
-                            <div className="mt-0.5 text-xs text-ink-3 tabular-nums">
-                              {fmtDateStr(s.start_date, "d MMM", locale)} – {fmtDateStr(s.end_date, "d MMM yyyy", locale)}
-                            </div>
-                          </div>
-                          <div className="flex shrink-0 items-baseline gap-1 tabular-nums">
-                            <span className="text-lg font-bold text-pine">
-                              ฿{s.price_per_night.toLocaleString()}
-                            </span>
-                            <span className="text-xs text-ink-3">{tc("perNight")}</span>
-                          </div>
-                        </li>
-                      ))}
-                  </ul>
-                </div>
-              )}
-            </div>
+            <RoomRateTable room={calendarRoom} seasonalPrices={seasonsByRoom[calendarRoom.id] || []} specialPrices={specialsByRoom[calendarRoom.id] || []} className="mt-5" />
           )}
         </DialogContent>
       </Dialog>

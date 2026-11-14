@@ -281,25 +281,33 @@ test.describe("on a phone", () => {
 });
 
 test.describe("booking from the availability calendar", () => {
-  test("hands the house picked on a day straight to its config dialog, without choosing it again", async ({ page, context }) => {
-    const slug = requireSlug();
-    await open(page, context, "normal");
+  /** Opens a day some way ahead that still has a house free. */
+  async function openFreeDay(page: Page, slug: string) {
     await page.goto(`/${slug}/book`);
-
-    // A day some way ahead that still has a house free.
     const free = new RegExp(` — (${T.availability.legendAvailable}|${T.availability.legendPartial})$`);
     const days = page.getByRole("button", { name: free });
     await expect(days.first()).toBeVisible();
     await days.nth(Math.min(4, (await days.count()) - 1)).click();
+  }
 
-    await page.getByRole("dialog").getByRole("button", { name: T.availability.viewDetails }).first().click();
-    const house = (await page.getByRole("dialog").getByRole("heading").first().textContent())!.trim();
-    await page.getByRole("button", { name: T.availability.bookThisHouse }).click();
-
+  /** Picks the check-out in the day dialog's picker view, then adds the house in its config dialog. */
+  async function pickCheckOutAndAdd(page: Page, house: string) {
+    // Still the one day dialog: the picker replaced its body instead of opening on top.
+    await expect(page.getByRole("dialog")).toHaveCount(1);
+    const picker = page.getByRole("dialog");
+    await expect(picker.getByRole("heading", { name: T.booking.selectDates })).toBeVisible();
     // The tapped day is already the check-in: only the check-out is left to pick.
-    const picker = page.getByRole("dialog").filter({ hasText: T.booking.selectDates });
     const pickerDays = picker.locator("button[data-day]");
     await expect(picker.locator('button[data-selected-single="true"]')).toHaveCount(1);
+    // The month sits centred in the dialog. On a 375px phone Saturday used to touch its right
+    // edge (2px) while Sunday sat 32px from the left. Gaps, not the padding: the seven 44px days
+    // fill the phone's content box to the subpixel, and the open animation scales both sides alike.
+    const [leftGap, rightGap] = await picker.evaluate((el) => {
+      const box = el.getBoundingClientRect();
+      const days = [...el.querySelectorAll("button[data-day]")].map((d) => d.getBoundingClientRect());
+      return [Math.min(...days.map((d) => d.left)) - box.left, box.right - Math.max(...days.map((d) => d.right))];
+    });
+    expect(Math.abs(leftGap - rightGap)).toBeLessThanOrEqual(4);
     const startIndex = await pickerDays.evaluateAll((els) => els.findIndex((el) => el.getAttribute("data-selected-single") === "true"));
     await pickerDays.nth(startIndex + 1).click();
     await picker.getByRole("button", { name: T.common.done }).click();
@@ -313,6 +321,30 @@ test.describe("booking from the availability calendar", () => {
 
     await expect(page.getByText(T.booking.addedToast.replace("{name}", house))).toBeVisible();
     await expect(page.getByRole("dialog")).toBeHidden();
+  }
+
+  test("hands the house picked on a day straight to its config dialog, without choosing it again", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await openFreeDay(page, slug);
+
+    await page.getByRole("dialog").getByRole("button", { name: T.availability.viewDetails }).first().click();
+    const house = (await page.getByRole("dialog").getByRole("heading").first().textContent())!.trim();
+    await page.getByRole("dialog").getByRole("button", { name: T.availability.bookThisHouse }).click();
+
+    await pickCheckOutAndAdd(page, house);
+  });
+
+  test("books a house straight from the day's list, skipping its details", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await openFreeDay(page, slug);
+
+    const row = page.getByRole("dialog").getByRole("listitem").filter({ has: page.getByRole("button", { name: T.availability.bookThisHouse }) }).first();
+    const house = (await row.locator("span").first().textContent())!.trim();
+    await row.getByRole("button", { name: T.availability.bookThisHouse }).click();
+
+    await pickCheckOutAndAdd(page, house);
   });
 });
 
