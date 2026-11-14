@@ -8,6 +8,7 @@ import { th as thLocale } from "date-fns/locale";
 import { type DayButton, type Modifiers } from "react-day-picker";
 import { useTranslations, useLocale } from "next-intl";
 import { motion } from "motion/react";
+import { toast } from "sonner";
 import { ArrowLeft, ChevronLeft, ChevronRight, Sparkles, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
@@ -20,7 +21,8 @@ import {
 } from "@/components/ui/dialog";
 import { HTMLContent } from "@/components/ui/html-content";
 import { BookingCalendarDialog } from "@/components/booking/booking-calendar-dialog";
-import { useBookingCart } from "@/components/booking/booking-cart-context";
+import { RoomConfigDialog } from "@/components/booking/room-config-dialog";
+import { useBookingCart, type CartLine } from "@/components/booking/booking-cart-context";
 import {
   buildAvailabilityLookup,
   type DayAvailability,
@@ -440,8 +442,9 @@ function RoomDayDetail({
 }
 
 export function AvailabilityCalendarSection({ homestayId }: { homestayId: string }) {
-  const { catalog, liveBookedRanges, setDates } = useBookingCart();
+  const { catalog, liveBookedRanges, setDates, lines, isRoomAvailableForRange, remainingForRoom } = useBookingCart();
   const t = useTranslations("availability");
+  const tr = useTranslations("rooms");
   const locale = useLocale();
   const mounted = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   // `open` is tracked apart from `selectedDate` so the modal keeps its contents
@@ -454,6 +457,8 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
   // The house the open date picker is for. Held apart from `detailRoomId` so
   // the picker's scope survives the modal's view state being reset.
   const [bookingRoomId, setBookingRoomId] = useState<string | null>(null);
+  // The house config dialog (guests, add-ons) the picker hands over to.
+  const [config, setConfig] = useState<{ room: Room; editingLine?: CartLine } | null>(null);
 
   const activeRooms = useMemo(
     () => catalog.rooms.filter((r) => r.is_active),
@@ -511,6 +516,22 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
       () => document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" }),
       150,
     );
+  };
+
+  // The guest already chose the house, so a confirmed range goes straight to
+  // that house's config dialog instead of back to the house list. Same checks
+  // as the house card's button (rooms-section `handleAddToCart`).
+  const handlePickerDone = () => {
+    const room = activeRooms.find((r) => r.id === bookingRoomId);
+    const line = room ? lines.find((l) => l.roomId === room.id) : undefined;
+    if (room && isRoomAvailableForRange(room) && remainingForRoom(room) > 0) {
+      setTimeout(() => setConfig({ room }), 150);
+    } else if (room && line) {
+      setTimeout(() => setConfig({ room, editingLine: line }), 150);
+    } else {
+      if (room) toast.error(tr("roomUnavailableToast"));
+      scrollToRooms();
+    }
   };
 
   const breakdown = useMemo(
@@ -663,12 +684,21 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
       </Dialog>
 
       {/* Shared date picker, seeded with the tapped date as check-in and scoped
-          to the chosen house so its booked nights can't be selected */}
+          to the chosen house so its booked nights can't be selected; Done opens
+          that house's config dialog */}
       <BookingCalendarDialog
         open={calendarOpen}
         onOpenChange={setCalendarOpen}
-        onDone={scrollToRooms}
+        onDone={handlePickerDone}
         roomId={bookingRoomId}
+      />
+
+      <RoomConfigDialog
+        key={config?.editingLine?.lineId ?? config?.room.id ?? "none"}
+        room={config?.room ?? null}
+        editingLine={config?.editingLine ?? null}
+        open={!!config}
+        onClose={() => setConfig(null)}
       />
     </section>
   );

@@ -280,6 +280,42 @@ test.describe("on a phone", () => {
   });
 });
 
+test.describe("booking from the availability calendar", () => {
+  test("hands the house picked on a day straight to its config dialog, without choosing it again", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.goto(`/${slug}/book`);
+
+    // A day some way ahead that still has a house free.
+    const free = new RegExp(` — (${T.availability.legendAvailable}|${T.availability.legendPartial})$`);
+    const days = page.getByRole("button", { name: free });
+    await expect(days.first()).toBeVisible();
+    await days.nth(Math.min(4, (await days.count()) - 1)).click();
+
+    await page.getByRole("dialog").getByRole("button", { name: T.availability.viewDetails }).first().click();
+    const house = (await page.getByRole("dialog").getByRole("heading").first().textContent())!.trim();
+    await page.getByRole("button", { name: T.availability.bookThisHouse }).click();
+
+    // The tapped day is already the check-in: only the check-out is left to pick.
+    const picker = page.getByRole("dialog").filter({ hasText: T.booking.selectDates });
+    const pickerDays = picker.locator("button[data-day]");
+    await expect(picker.locator('button[data-selected-single="true"]')).toHaveCount(1);
+    const startIndex = await pickerDays.evaluateAll((els) => els.findIndex((el) => el.getAttribute("data-selected-single") === "true"));
+    await pickerDays.nth(startIndex + 1).click();
+    await picker.getByRole("button", { name: T.common.done }).click();
+
+    const config = page.getByRole("dialog").filter({ has: page.getByRole("button", { name: T.booking.addToCart }) });
+    await expect(config.getByRole("heading", { name: house })).toBeVisible();
+    const add = config.getByRole("button", { name: T.booking.addToCart });
+    // A house priced by guest group cannot be added until one group is chosen.
+    if (await add.isDisabled()) await config.getByRole("button", { name: /฿/ }).first().click();
+    await add.click();
+
+    await expect(page.getByText(T.booking.addedToast.replace("{name}", house))).toBeVisible();
+    await expect(page.getByRole("dialog")).toBeHidden();
+  });
+});
+
 test.describe("a host who changed the mode while the page was open", () => {
   test("a stale page that tries the other way is told to refresh", async ({ page, context }) => {
     const slug = requireSlug();
