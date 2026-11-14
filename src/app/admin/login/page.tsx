@@ -140,7 +140,7 @@ export default function AdminLoginPage() {
   }, [email, password]);
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-slate-50 px-4">
+    <main className="flex min-h-screen items-center justify-center bg-earth-50 px-4">
       {showOtpModal && (
         <OtpModal
           email={email}
@@ -164,9 +164,9 @@ export default function AdminLoginPage() {
               height={32}
               className="h-8 w-8 rounded"
             />
-            <span className="text-2xl font-bold text-slate-800">Platform Admin</span>
+            <h1 className="font-serif text-3xl leading-tight text-earth-900">Platform Admin</h1>
           </div>
-          <div className="flex items-center gap-1.5 text-sm text-slate-500">
+          <div className="flex items-center gap-1.5 text-sm text-earth-600">
             <Shield className="h-3.5 w-3.5" />
             <span>Restricted access</span>
           </div>
@@ -214,7 +214,7 @@ export default function AdminLoginPage() {
                   <button
                     type="button"
                     aria-label={showPassword ? "Hide password" : "Show password"} onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-earth-600 hover:text-earth-700"
                     tabIndex={-1}
                   >
                     {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -238,7 +238,7 @@ export default function AdminLoginPage() {
             <CardFooter>
               <Button
                 type="submit"
-                className="w-full bg-slate-900 hover:bg-slate-800"
+                className="w-full bg-earth-900 hover:bg-earth-800"
                 disabled={loading || (!turnstileToken && !turnstileError)}
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -248,6 +248,6 @@ export default function AdminLoginPage() {
           </form>
         </Card>
       </div>
-    </div>
+    </main>
   );
 }

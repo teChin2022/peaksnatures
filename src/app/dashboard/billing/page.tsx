@@ -319,7 +319,7 @@ export default function DashboardBillingPage() {
   }
 
   if (!data) {
-    return <p className="text-sm text-gray-500 py-12 text-center">Failed to load billing information.</p>;
+    return <p className="text-sm text-earth-600 py-12 text-center">Failed to load billing information.</p>;
   }
 
   // Bangkok, not the browser's clock and not UTC: every figure derived from
@@ -388,7 +388,7 @@ export default function DashboardBillingPage() {
     <div className="space-y-8">
       {/* ── Page Header ── */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-        <h1 className="text-xl font-bold text-gray-900">{t("title")}</h1>
+        <h1 className="text-xl font-bold text-earth-900">{t("title")}</h1>
       </motion.div>
 
       {/* ── Alert Banners ── */}
@@ -523,7 +523,7 @@ export default function DashboardBillingPage() {
                 }`}>
                   {plan.icon}
                 </div>
-                <h3 className="text-xl font-serif font-bold text-gray-900 mb-1">
+                <h3 className="text-xl font-serif font-bold text-earth-900 mb-1">
                   {planLabel(plan.key)}
                 </h3>
                 <p className="text-earth-500 text-sm min-h-[36px]">
@@ -536,12 +536,12 @@ export default function DashboardBillingPage() {
               {/* Price — uses real data from API */}
               <div className="mb-6">
                 <div className="flex items-baseline">
-                  <span className="text-4xl font-extrabold tracking-tight text-gray-900">{price}</span>
+                  <span className="text-4xl font-extrabold tracking-tight text-earth-900">{price}</span>
                   <span className="text-earth-400 ml-2 font-medium">{period}</span>
                 </div>
                 {plan.key === "commission" && (
                   <div className="flex items-baseline">
-                    <span className="text-4xl font-extrabold tracking-tight text-gray-900">
+                    <span className="text-4xl font-extrabold tracking-tight text-earth-900">
                       {data.effective_quick_commission_pct != null ? `${data.effective_quick_commission_pct}%` : "—"}
                     </span>
                     <span className="text-earth-400 ml-2 font-medium">/{QUICK_BOOKING[lang]}</span>
@@ -561,7 +561,7 @@ export default function DashboardBillingPage() {
                     <Check className={`w-4.5 h-4.5 mr-2.5 shrink-0 mt-0.5 ${
                       isCurrent ? "text-brand" : "text-earth-400"
                     }`} />
-                    <span className="text-sm text-gray-700">{feature}</span>
+                    <span className="text-sm text-earth-800">{feature}</span>
                   </li>
                 ))}
               </ul>
@@ -616,10 +616,10 @@ export default function DashboardBillingPage() {
             <div className="bg-gradient-to-br from-earth-50/60 via-white to-earth-50/40 px-6 pt-6 pb-8">
               <div className="flex items-center gap-2 mb-6">
                 <Leaf className="h-4 w-4 text-earth-600" />
-                <span className="text-sm font-medium text-gray-600">{t("freePlan")}</span>
+                <span className="text-sm font-medium text-earth-700">{t("freePlan")}</span>
               </div>
               <div className="text-center">
-                <p className="text-4xl sm:text-5xl font-serif tracking-tight text-gray-900">฿0</p>
+                <p className="text-4xl sm:text-5xl font-serif tracking-tight text-earth-900">฿0</p>
                 <p className="text-sm text-earth-400 mt-1">/{locale === "th" ? "เดือน" : "month"}</p>
                 {data.plan_free_expires_at && (
                   <p className="text-sm text-earth-500 mt-3">
@@ -642,7 +642,7 @@ export default function DashboardBillingPage() {
             <div className="bg-gradient-to-br from-brand-50/60 via-white to-brand-50/40 px-6 pt-6 pb-8">
               <div className="flex items-center gap-2 mb-6">
                 <Percent className="h-4 w-4 text-brand" />
-                <span className="text-sm font-medium text-gray-600">{t("commissionPlan")}</span>
+                <span className="text-sm font-medium text-earth-700">{t("commissionPlan")}</span>
               </div>
               <div className="text-center">
                 <div className="grid grid-cols-2 gap-4">
@@ -651,7 +651,7 @@ export default function DashboardBillingPage() {
                     { pct: data.effective_quick_commission_pct, label: QUICK_BOOKING[lang] },
                   ].map(({ pct, label }) => (
                     <div key={label}>
-                      <p className="text-4xl sm:text-5xl font-serif tracking-tight text-gray-900">{pct ?? 0}%</p>
+                      <p className="text-4xl sm:text-5xl font-serif tracking-tight text-earth-900">{pct ?? 0}%</p>
                       <p className="text-sm text-earth-400 mt-1">/{label}</p>
                     </div>
                   ))}
@@ -682,7 +682,7 @@ export default function DashboardBillingPage() {
                 <div className="bg-gradient-to-br from-brand-50/60 via-white to-brand-50/40 px-6 pt-6 pb-8">
                   <div className="flex items-center gap-2 mb-6">
                     <CalendarClock className="h-4 w-4 text-earth-700" />
-                    <span className="text-sm font-medium text-gray-600">{t("fixedRatePlan")}</span>
+                    <span className="text-sm font-medium text-earth-700">{t("fixedRatePlan")}</span>
                   </div>
 
                   {/* Term summary — always visible for fixed_rate hosts */}
@@ -787,7 +787,7 @@ export default function DashboardBillingPage() {
                     </div>
                   ) : (
                     <div className="text-center">
-                      <p className="text-4xl sm:text-5xl font-serif tracking-tight text-gray-900">
+                      <p className="text-4xl sm:text-5xl font-serif tracking-tight text-earth-900">
                         ฿{(data.effective_fixed_rate ?? 0).toLocaleString()}
                       </p>
                       <p className="text-sm text-earth-400 mt-1">/{locale === "th" ? "เดือน" : "month"}</p>
@@ -801,7 +801,7 @@ export default function DashboardBillingPage() {
                 {/* Invoice History */}
                 {data.invoices.length > 0 && (
                   <CardContent className="px-6 pb-6 pt-4">
-                    <p className="text-xs font-medium uppercase tracking-wider text-gray-400 mb-3">
+                    <p className="text-xs font-medium uppercase tracking-wider text-earth-600 mb-3">
                       {t("invoices")}
                     </p>
                     <div className="space-y-3">
@@ -817,8 +817,8 @@ export default function DashboardBillingPage() {
                               status === "overdue"
                                 ? "border-red-200 bg-red-50/30"
                                 : status === "paid"
-                                ? "border-gray-100 bg-gray-50/50"
-                                : "border-gray-200 bg-white"
+                                ? "border-earth-100 bg-earth-50/50"
+                                : "border-earth-200 bg-white"
                             }`}
                           >
                             {/* No pay button here: the payment box above handles the open invoice. */}
@@ -989,7 +989,7 @@ export default function DashboardBillingPage() {
                       {t("saveX", { pct: tier.discount_pct })}
                     </span>
                   )}
-                  <p className="font-serif text-lg text-gray-900">
+                  <p className="font-serif text-lg text-earth-900">
                     {t("nMonths", { n: tier.months })}
                   </p>
                   <p className="text-2xl font-bold tracking-tight text-earth-900 mt-1">
@@ -1040,7 +1040,7 @@ export default function DashboardBillingPage() {
 
           <div className="rounded-xl border border-earth-100 bg-earth-50/60 px-4 py-3 flex items-center justify-between">
             <span className="text-sm text-earth-500">{t("walletBalance")}</span>
-            <span className="text-lg font-serif text-gray-900">
+            <span className="text-lg font-serif text-earth-900">
               ฿{data.wallet_balance.toLocaleString()}
             </span>
           </div>

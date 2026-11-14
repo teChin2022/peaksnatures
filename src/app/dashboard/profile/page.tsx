@@ -413,7 +413,7 @@ export default function ProfilePage() {
 
   if (!host) {
     return (
-      <div className="py-20 text-center text-sm text-gray-500">
+      <div className="py-20 text-center text-sm text-earth-600">
         {t("noHost")}
       </div>
     );
@@ -421,7 +421,7 @@ export default function ProfilePage() {
 
   return (
     <div className="mx-auto max-w-2xl">
-      <h1 className="text-xl font-bold text-gray-900 mb-6">{t("title")}</h1>
+      <h1 className="text-xl font-bold text-earth-900 mb-6">{t("title")}</h1>
 
       <Card>
         <CardHeader>
@@ -434,7 +434,7 @@ export default function ProfilePage() {
           {/* Avatar Upload */}
           <div className="flex flex-col items-center gap-3 pb-2">
             <div
-              className="relative h-24 w-24 cursor-pointer overflow-hidden rounded-full bg-gray-100 ring-2 ring-gray-200 transition-opacity hover:opacity-80"
+              className="relative h-24 w-24 cursor-pointer overflow-hidden rounded-full bg-earth-100 ring-2 ring-earth-200 transition-opacity hover:opacity-80"
               onClick={() => avatarInputRef.current?.click()}
             >
               {avatarUrl ? (
@@ -446,8 +446,8 @@ export default function ProfilePage() {
                   className="h-full w-full object-cover"
                 />
               ) : (
-                <div className="flex h-full w-full items-center justify-center bg-gray-200 text-2xl font-bold text-gray-500">
-                  {name ? getInitials(name) : <User className="h-8 w-8 text-gray-400" />}
+                <div className="flex h-full w-full items-center justify-center bg-earth-200 text-2xl font-bold text-earth-600">
+                  {name ? getInitials(name) : <User className="h-8 w-8 text-earth-600" />}
                 </div>
               )}
               <div className="absolute inset-0 flex items-center justify-center bg-black/40 opacity-0 transition-opacity hover:opacity-100">
@@ -466,7 +466,7 @@ export default function ProfilePage() {
             >
               {avatarUrl ? t("changeAvatar") : t("uploadAvatar")}
             </button>
-            <p className="text-xs text-gray-400">{t("avatarHint")}</p>
+            <p className="text-xs text-earth-600">{t("avatarHint")}</p>
             <input
               ref={avatarInputRef}
               type="file"
@@ -489,7 +489,7 @@ export default function ProfilePage() {
             />
           </div>
 
-          <div className="rounded-lg border border-gray-200 p-4 space-y-4">
+          <div className="rounded-lg border border-earth-200 p-4 space-y-4">
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <ShieldCheck className="h-4 w-4 text-brand" />
@@ -518,7 +518,7 @@ export default function ProfilePage() {
             </div>
 
             {!sensitiveUnlocked && (
-              <p className="text-xs text-gray-500">{t("sensitiveHint")}</p>
+              <p className="text-xs text-earth-600">{t("sensitiveHint")}</p>
             )}
 
             <div className="space-y-2">
@@ -533,7 +533,7 @@ export default function ProfilePage() {
                 onChange={(e) => setEmail(e.target.value)}
                 placeholder={t("emailPlaceholder")}
                 readOnly={!sensitiveUnlocked}
-                className={!sensitiveUnlocked ? "bg-gray-50 cursor-not-allowed" : ""}
+                className={!sensitiveUnlocked ? "bg-earth-50 cursor-not-allowed" : ""}
               />
             </div>
 
@@ -551,7 +551,7 @@ export default function ProfilePage() {
                 onChange={(e) => setPhone(sensitiveUnlocked ? sanitizePhoneInput(e.target.value) : e.target.value)}
                 placeholder={t("phonePlaceholder")}
                 readOnly={!sensitiveUnlocked}
-                className={!sensitiveUnlocked ? "bg-gray-50 cursor-not-allowed" : ""}
+                className={!sensitiveUnlocked ? "bg-earth-50 cursor-not-allowed" : ""}
               />
             </div>
 
@@ -566,17 +566,17 @@ export default function ProfilePage() {
                 onChange={(e) => setPromptpayId(e.target.value)}
                 placeholder={t("promptpayPlaceholder")}
                 readOnly={!sensitiveUnlocked}
-                className={!sensitiveUnlocked ? "bg-gray-50 cursor-not-allowed" : ""}
+                className={!sensitiveUnlocked ? "bg-earth-50 cursor-not-allowed" : ""}
               />
-              <p className="text-xs text-gray-500">{t("promptpayHint")}</p>
+              <p className="text-xs text-earth-600">{t("promptpayHint")}</p>
             </div>
 
-            <div className="border-t border-gray-100 pt-4 space-y-3">
+            <div className="border-t border-earth-100 pt-4 space-y-3">
               <div className="flex items-center gap-2 text-sm font-medium">
                 <CreditCard className="h-3.5 w-3.5" />
                 {t("paymentDisplayTitle")}
               </div>
-              <p className="text-xs text-gray-500">{t("paymentDisplayHint")}</p>
+              <p className="text-xs text-earth-600">{t("paymentDisplayHint")}</p>
 
               <div className="flex gap-2">
                 {(["qr", "bank"] as const).map((option) => (
@@ -606,7 +606,7 @@ export default function ProfilePage() {
                       value={bankName}
                       onChange={(e) => setBankName(e.target.value)}
                       disabled={!sensitiveUnlocked}
-                      className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${!sensitiveUnlocked ? "bg-gray-50 cursor-not-allowed" : ""}`}
+                      className={`flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm ring-offset-background focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 ${!sensitiveUnlocked ? "bg-earth-50 cursor-not-allowed" : ""}`}
                     >
                       <option value="">{t("bankNamePlaceholder")}</option>
                       <option value="กรุงเทพ">ธ.กรุงเทพ (BBL)</option>
@@ -631,7 +631,7 @@ export default function ProfilePage() {
                       onChange={(e) => setBankAccountNumber(e.target.value)}
                       placeholder={t("bankAccountNumberPlaceholder")}
                       readOnly={!sensitiveUnlocked}
-                      className={!sensitiveUnlocked ? "bg-gray-50 cursor-not-allowed" : ""}
+                      className={!sensitiveUnlocked ? "bg-earth-50 cursor-not-allowed" : ""}
                     />
                   </div>
                   <div className="space-y-2">
@@ -642,7 +642,7 @@ export default function ProfilePage() {
                       onChange={(e) => setBankAccountName(e.target.value)}
                       placeholder={t("bankAccountNamePlaceholder")}
                       readOnly={!sensitiveUnlocked}
-                      className={!sensitiveUnlocked ? "bg-gray-50 cursor-not-allowed" : ""}
+                      className={!sensitiveUnlocked ? "bg-earth-50 cursor-not-allowed" : ""}
                     />
                   </div>
                 </div>
@@ -687,7 +687,7 @@ export default function ProfilePage() {
                   className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-colors ${
                     notificationPreference === option
                       ? "border-current text-white"
-                      : "border-gray-200 text-gray-600 hover:border-gray-300"
+                      : "border-earth-200 text-earth-700 hover:border-earth-300"
                   }`}
                   style={
                     notificationPreference === option
@@ -703,15 +703,15 @@ export default function ProfilePage() {
 
           {/* SMS Settings — shown when SMS is selected */}
           {notificationPreference === "sms" && (
-            <div className="rounded-lg border border-gray-200 p-4">
-              <p className="text-xs text-gray-500">{t("smsSettingsHint")}</p>
+            <div className="rounded-lg border border-earth-200 p-4">
+              <p className="text-xs text-earth-600">{t("smsSettingsHint")}</p>
             </div>
           )}
 
           {/* LINE Settings — shown when LINE is selected */}
           {notificationPreference === "line" && (
-            <div className="rounded-lg border border-gray-200 p-4 space-y-3">
-              <p className="text-xs text-gray-500 mb-2">{t("lineSettingsHint")}</p>
+            <div className="rounded-lg border border-earth-200 p-4 space-y-3">
+              <p className="text-xs text-earth-600 mb-2">{t("lineSettingsHint")}</p>
               <div className="space-y-2">
                 <Label htmlFor="host-line-user-id" className="flex items-center gap-2">
                   <MessageCircle className="h-3.5 w-3.5" />
@@ -723,7 +723,7 @@ export default function ProfilePage() {
                   onChange={(e) => setLineUserId(e.target.value)}
                   placeholder={t("lineUserIdPlaceholder")}
                 />
-                <p className="text-xs text-gray-500">{t("lineUserIdHint")}</p>
+                <p className="text-xs text-earth-600">{t("lineUserIdHint")}</p>
               </div>
               <div className="space-y-2">
                 <Label htmlFor="host-line-token" className="flex items-center gap-2">
@@ -737,7 +737,7 @@ export default function ProfilePage() {
                   onChange={(e) => { setLineChannelToken(e.target.value); setLineTokenMasked(false); }}
                   placeholder={t("lineChannelTokenPlaceholder")}
                 />
-                <p className="text-xs text-gray-500">{t("lineChannelTokenHint")}</p>
+                <p className="text-xs text-earth-600">{t("lineChannelTokenHint")}</p>
               </div>
             </div>
           )}
@@ -765,7 +765,7 @@ export default function ProfilePage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-xs text-gray-500">{t("requireOtpHint")}</p>
+          <p className="text-xs text-earth-600">{t("requireOtpHint")}</p>
           <div className="flex gap-2">
             {([true, false] as const).map((option) => (
               <button
@@ -775,7 +775,7 @@ export default function ProfilePage() {
                 className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-colors ${
                   requireOtp === option
                     ? "border-current text-white"
-                    : "border-gray-200 text-gray-600 hover:border-gray-300"
+                    : "border-earth-200 text-earth-700 hover:border-earth-300"
                 }`}
                 style={
                   requireOtp === option
@@ -826,7 +826,7 @@ export default function ProfilePage() {
               />
               <button
                 type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-earth-600 hover:text-earth-700"
                 aria-label={showOldPassword ? ta("hidePassword") : ta("showPassword")} onClick={() => setShowOldPassword(!showOldPassword)}
                 tabIndex={-1}
               >
@@ -851,7 +851,7 @@ export default function ProfilePage() {
               />
               <button
                 type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-earth-600 hover:text-earth-700"
                 aria-label={showNewPassword ? ta("hidePassword") : ta("showPassword")} onClick={() => setShowNewPassword(!showNewPassword)}
                 tabIndex={-1}
               >
@@ -876,7 +876,7 @@ export default function ProfilePage() {
               />
               <button
                 type="button"
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-earth-600 hover:text-earth-700"
                 aria-label={showConfirmPassword ? ta("hidePassword") : ta("showPassword")} onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 tabIndex={-1}
               >
@@ -908,7 +908,7 @@ export default function ProfilePage() {
           </CardTitle>
         </CardHeader>
         <CardContent className="space-y-4">
-          <p className="text-sm text-gray-600">{t("securityPinDesc")}</p>
+          <p className="text-sm text-earth-700">{t("securityPinDesc")}</p>
           {hasPinSet && (
             <Button
               variant="outline"
@@ -959,7 +959,7 @@ export default function ProfilePage() {
             </Button>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm text-gray-600">{t("deleteConfirmInstructions")}</p>
+              <p className="text-sm text-earth-700">{t("deleteConfirmInstructions")}</p>
               <Input
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}

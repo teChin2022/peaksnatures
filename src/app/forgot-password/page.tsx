@@ -70,11 +70,11 @@ export default function ForgotPasswordPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+    <main className="flex min-h-screen items-center justify-center bg-earth-50 px-4">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2">
-          <span className="text-2xl font-bold ">{t('forgotPasswordTitle')}</span>
-          <p className="text-sm text-gray-500">{t("hostDashboard")}</p>
+          <h1 className="font-serif text-3xl leading-tight text-earth-900">{t('forgotPasswordTitle')}</h1>
+          <p className="text-sm text-earth-600">{t("hostDashboard")}</p>
         </div>
 
         {emailSent ? (
@@ -83,15 +83,15 @@ export default function ForgotPasswordPage() {
               <div className="flex h-16 w-16 items-center justify-center rounded-full bg-brand-50">
                 <Mail className="h-8 w-8 text-brand" />
               </div>
-              <h2 className="text-xl font-semibold text-gray-900">
+              <h2 className="text-xl font-semibold text-earth-900">
                 {t("resetEmailTitle")}
               </h2>
-              <p className="text-center text-sm text-gray-500">
+              <p className="text-center text-sm text-earth-600">
                 {t("resetEmailDesc", { email })}
               </p>
               <Link
                 href="/login"
-                className="mt-2 text-sm font-medium text-gray-900 hover:text-gray-700"
+                className="mt-2 text-sm font-medium text-earth-900 hover:text-earth-800"
               >
                 {t("backToSignIn")}
               </Link>
@@ -113,9 +113,9 @@ export default function ForgotPasswordPage() {
                   </div>
                 )}
                 <div className="space-y-1.5">
-                  <label htmlFor="email" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("email")} <span className="text-red-500">*</span></label>
+                  <label htmlFor="email" className="text-[13px] font-medium text-earth-700">{t("email")} <span className="text-red-500">*</span></label>
                   <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-600" size={16} />
                     <Input
                       id="email"
                       type="email"
@@ -125,7 +125,7 @@ export default function ForgotPasswordPage() {
                       onBlur={() => setTouched(true)}
                       required
                       autoComplete="email"
-                      className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched && !email.trim() ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-gray-200 hover:!border-gray-400 focus-visible:!border-gray-400"} !bg-white transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0`}
+                      className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched && !email.trim() ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
                     />
                   </div>
                 </div>
@@ -143,7 +143,7 @@ export default function ForgotPasswordPage() {
               <CardFooter className="flex flex-col gap-3">
                 <Button
                   type="submit"
-                  className="w-full bg-brand text-white px-10 py-6 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl"
+                  className="w-full bg-brand text-white px-10 py-6 rounded-full font-bold text-sm hover:bg-brand-hover transition-colors"
                   disabled={loading || (!turnstileToken && !turnstileError)}
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
@@ -151,7 +151,7 @@ export default function ForgotPasswordPage() {
                 </Button>
                 <Link
                   href="/login"
-                  className="flex items-center gap-1 text-sm font-medium text-gray-900 hover:text-gray-700"
+                  className="flex items-center gap-1 text-sm font-medium text-earth-900 hover:text-earth-800"
                 >
                   <ArrowLeft className="h-3 w-3" />
                   {t("backToSignIn")}
@@ -161,6 +161,6 @@ export default function ForgotPasswordPage() {
           </Card>
         )}
       </div>
-    </div>
+    </main>
   );
 }

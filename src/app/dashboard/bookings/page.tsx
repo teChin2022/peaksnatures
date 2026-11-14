@@ -29,6 +29,7 @@ import {
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
+import { statusToneClass } from "@/components/admin/status-badge";
 import { Textarea } from "@/components/ui/textarea";
 import { Label } from "@/components/ui/label";
 import { Input } from "@/components/ui/input";
@@ -200,12 +201,12 @@ const statusConfig: Record<
   BookingStatus,
   { labelKey: string; color: string; icon: React.ElementType }
 > = {
-  pending: { labelKey: "statusPending", color: "bg-yellow-100 text-yellow-700", icon: Clock },
-  verified: { labelKey: "statusVerified", color: "bg-blue-100 text-blue-700", icon: CheckCircle2 },
-  confirmed: { labelKey: "statusConfirmed", color: "bg-green-100 text-green-700", icon: CheckCircle2 },
-  rejected: { labelKey: "statusRejected", color: "bg-red-100 text-red-700", icon: XCircle },
-  cancelled: { labelKey: "statusCancelled", color: "bg-gray-100 text-gray-500", icon: XCircle },
-  completed: { labelKey: "statusCompleted", color: "bg-purple-100 text-purple-700", icon: CheckCircle2 },
+  pending: { labelKey: "statusPending", color: statusToneClass("pending"), icon: Clock },
+  verified: { labelKey: "statusVerified", color: statusToneClass("verified"), icon: CheckCircle2 },
+  confirmed: { labelKey: "statusConfirmed", color: statusToneClass("confirmed"), icon: CheckCircle2 },
+  rejected: { labelKey: "statusRejected", color: statusToneClass("rejected"), icon: XCircle },
+  cancelled: { labelKey: "statusCancelled", color: statusToneClass("cancelled"), icon: XCircle },
+  completed: { labelKey: "statusCompleted", color: statusToneClass("completed"), icon: CheckCircle2 },
 };
 
 export default function BookingsPage() {
@@ -768,7 +769,7 @@ export default function BookingsPage() {
           {t(config.labelKey)}
         </Badge>
         {b.status === "cancelled" && b.cancelled_by && (
-          <Badge variant="secondary" className="bg-red-50 text-red-600 text-[11px]">
+          <Badge variant="secondary" className={`${statusToneClass("cancelled")} text-[11px]`}>
             {b.cancelled_by === b.guest_name ? t("cancelledByGuest") : t("cancelledByHost")}
           </Badge>
         )}
@@ -779,13 +780,13 @@ export default function BookingsPage() {
   const renderStayBadges = (b: DisplayBooking) => (
     <>
       {b.checked_in_at && (
-        <Badge variant="secondary" className="bg-blue-100 text-blue-700">
+        <Badge variant="secondary" className={statusToneClass("active")}>
           <CheckCircle2 className="mr-1 h-3 w-3" />
           {t("guestCheckedIn")}
         </Badge>
       )}
       {b.checked_out_at && (
-        <Badge variant="secondary" className="bg-purple-100 text-purple-700">
+        <Badge variant="secondary" className={statusToneClass("completed")}>
           <CheckCircle2 className="mr-1 h-3 w-3" />
           {t("guestCheckedOut")}
         </Badge>
@@ -899,7 +900,7 @@ export default function BookingsPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-gray-900">{t("allBookings")}</h1>
+        <h1 className="text-xl font-bold text-earth-900">{t("allBookings")}</h1>
         {firstHomestayId && quickBookingRooms.length > 0 && (
           <Button
             size="sm"
@@ -944,7 +945,7 @@ export default function BookingsPage() {
                 onChange={(e) => setSearchInput(e.target.value)}
               />
               {showSearchHint && (
-                <p className="text-xs text-gray-400">{t("searchMinCharsHint")}</p>
+                <p className="text-xs text-earth-600">{t("searchMinCharsHint")}</p>
               )}
             </div>
             <Select
@@ -991,9 +992,9 @@ export default function BookingsPage() {
           return (
             <TabsContent key={tab} value={tab} className="mt-4 space-y-3">
               {carts.length === 0 ? (
-                <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 py-12 text-center">
-                  <CalendarDays className="h-10 w-10 text-gray-300" />
-                  <p className="mt-3 text-sm font-medium text-gray-500">
+                <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-earth-200 py-12 text-center">
+                  <CalendarDays className="h-10 w-10 text-earth-300" />
+                  <p className="mt-3 text-sm font-medium text-earth-600">
                     {filtersActive ? t("noFilterResults") : t("noBookings")}
                   </p>
                 </div>
@@ -1031,8 +1032,8 @@ export default function BookingsPage() {
                               </div>
                             </button>
                           ) : (
-                            <div className="flex h-full w-full items-center justify-center bg-gray-100">
-                              <ImageIcon className="h-6 w-6 text-gray-300" />
+                            <div className="flex h-full w-full items-center justify-center bg-earth-100">
+                              <ImageIcon className="h-6 w-6 text-earth-300" />
                               <span className="sr-only">{t("noSlip")}</span>
                             </div>
                           )}
@@ -1040,7 +1041,7 @@ export default function BookingsPage() {
 
                         <div className="flex flex-1 min-w-0 flex-col gap-4 p-4 sm:flex-row sm:items-start">
                           <div className="flex-1 min-w-0 space-y-1">
-                            <h3 className="font-semibold text-gray-900">
+                            <h3 className="font-semibold text-earth-900">
                               {booking.guest_name}
                             </h3>
                             <div className="flex flex-wrap items-center gap-1.5">
@@ -1097,7 +1098,7 @@ export default function BookingsPage() {
                                 </Badge>
                               )}
                             </div>
-                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-gray-500">
+                            <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-earth-600">
                               <span className="flex items-center gap-1">
                                 <Home className="h-3.5 w-3.5" />
                                 {booking.homestay_name}
@@ -1120,14 +1121,14 @@ export default function BookingsPage() {
                               )}
                             </div>
                             {isGroup && (
-                              <ul className="space-y-1 text-sm text-gray-700">
+                              <ul className="space-y-1 text-sm text-earth-800">
                                 {cart.map((b) => (
                                   <li key={b.id}>
                                     <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
                                       <span className="font-medium">• {b.room_name}</span>
                                       {perHouse && (
                                         <>
-                                          <span className="text-gray-500">{renderDates(b)}</span>
+                                          <span className="text-earth-600">{renderDates(b)}</span>
                                           {renderStatusBadges(b)}
                                           {renderStayBadges(b)}
                                         </>
@@ -1138,7 +1139,7 @@ export default function BookingsPage() {
                                 ))}
                               </ul>
                             )}
-                            <p className="text-xs text-gray-400">
+                            <p className="text-xs text-earth-600">
                               ID: {(booking.group_id ?? booking.id).slice(0, 8)}… ·{" "}
                               {booking.guest_email} · {booking.guest_phone}
                             </p>
@@ -1231,7 +1232,7 @@ export default function BookingsPage() {
                 {/* Load More */}
                 {tab === "all" && (filtersActive ? hasMoreFiltered : hasMore) && (
                   <div className="flex flex-col items-center gap-2 pt-4">
-                    <p className="text-xs text-gray-400">
+                    <p className="text-xs text-earth-600">
                       {t("showingCount", {
                         count: filtersActive ? pagedFilteredCount : pagedCount,
                         total: filtersActive ? filteredCount : totalCount,
@@ -1284,7 +1285,7 @@ export default function BookingsPage() {
               {detail.payment_slip_url ? (
                 <div className="space-y-2">
                   <div className="flex items-center justify-between">
-                    <h4 className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                    <h4 className="text-sm font-medium text-earth-800 flex items-center gap-1.5">
                       <CreditCard className="h-4 w-4" />
                       {t("paymentSlip")}
                     </h4>
@@ -1300,7 +1301,7 @@ export default function BookingsPage() {
                       </Badge>
                     )}
                   </div>
-                  <div className="rounded-lg border bg-gray-50 p-2">
+                  <div className="rounded-lg border bg-earth-50 p-2">
                     <Image
                       src={detail.payment_slip_url}
                       alt="Payment slip"
@@ -1316,7 +1317,7 @@ export default function BookingsPage() {
                   {t("quickPendingHint")}
                 </div>
               ) : (
-                <div className="flex items-center gap-2 rounded-lg border border-dashed border-gray-200 p-4 text-sm text-gray-400">
+                <div className="flex items-center gap-2 rounded-lg border border-dashed border-earth-200 p-4 text-sm text-earth-600">
                   <ImageIcon className="h-5 w-5" />
                   {t("noSlip")}
                 </div>
@@ -1326,7 +1327,7 @@ export default function BookingsPage() {
               {detailTarget.map((b) => (
                 <div key={b.id}>
                   {detailIsGroup && (
-                    <p className="mb-1 text-xs font-medium text-gray-500">{b.room_name}</p>
+                    <p className="mb-1 text-xs font-medium text-earth-600">{b.room_name}</p>
                   )}
                   <BookingAttachments
                     bookingId={b.id}
@@ -1336,29 +1337,29 @@ export default function BookingsPage() {
               ))}
 
               {/* Booking Info */}
-              <div className="rounded-lg border bg-gray-50 p-4 space-y-2 text-sm">
+              <div className="rounded-lg border bg-earth-50 p-4 space-y-2 text-sm">
                 <div className="flex items-center gap-2">
-                  <User className="h-4 w-4 text-gray-400" />
-                  <span className="font-medium text-gray-900">{detail.guest_name}</span>
+                  <User className="h-4 w-4 text-earth-600" />
+                  <span className="font-medium text-earth-900">{detail.guest_name}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Mail className="h-4 w-4 text-gray-400" />
-                  <span className="text-gray-600">{detail.guest_email}</span>
+                  <Mail className="h-4 w-4 text-earth-600" />
+                  <span className="text-earth-700">{detail.guest_email}</span>
                 </div>
                 <div className="flex items-center gap-2">
-                  <Phone className="h-4 w-4 text-gray-400" />
-                  <span className="text-gray-600">{detail.guest_phone}</span>
+                  <Phone className="h-4 w-4 text-earth-600" />
+                  <span className="text-earth-700">{detail.guest_phone}</span>
                 </div>
                 {detail.guest_province && (
                   <div className="flex items-center gap-2">
-                    <MapPin className="h-4 w-4 text-gray-400" />
-                    <span className="text-gray-600">{getProvinceLabel(detail.guest_province, locale)}</span>
+                    <MapPin className="h-4 w-4 text-earth-600" />
+                    <span className="text-earth-700">{getProvinceLabel(detail.guest_province, locale)}</span>
                   </div>
                 )}
-                <div className="border-t border-gray-200 pt-2 mt-2 space-y-1">
+                <div className="border-t border-earth-200 pt-2 mt-2 space-y-1">
                   {detailIsGroup && !detailPerHouse && (
                     <div className="flex justify-between">
-                      <span className="text-gray-500">{t("dates")}</span>
+                      <span className="text-earth-600">{t("dates")}</span>
                       <span>{fmtDateStr(detail.check_in, "d MMM yyyy", locale)} → {fmtDateStr(detail.check_out, "d MMM yyyy", locale)}</span>
                     </div>
                   )}
@@ -1367,13 +1368,13 @@ export default function BookingsPage() {
                       {detailIsGroup ? (
                         // The house's own price: total_price carries its share of
                         // the cart promo, which the discount line takes off once.
-                        <div className="flex justify-between font-medium text-gray-900">
+                        <div className="flex justify-between font-medium text-earth-900">
                           <span>{b.room_name}</span>
                           <span>฿{(b.total_price + (b.discount_amount ?? 0)).toLocaleString()}</span>
                         </div>
                       ) : (
                         <div className="flex justify-between">
-                          <span className="text-gray-500">{t("room")}</span>
+                          <span className="text-earth-600">{t("room")}</span>
                           <span className="font-medium">{b.room_name}</span>
                         </div>
                       )}
@@ -1385,23 +1386,23 @@ export default function BookingsPage() {
                       )}
                       {(!detailIsGroup || detailPerHouse) && (
                         <div className="flex justify-between">
-                          <span className="text-gray-500">{t("dates")}</span>
+                          <span className="text-earth-600">{t("dates")}</span>
                           <span>{fmtDateStr(b.check_in, "d MMM yyyy", locale)} → {fmtDateStr(b.check_out, "d MMM yyyy", locale)}</span>
                         </div>
                       )}
                       <div className="flex justify-between">
-                        <span className="text-gray-500">{t("guests")}</span>
+                        <span className="text-earth-600">{t("guests")}</span>
                         {/* Headcount always leads: in stepper mode the label names only the
                             EXTRA guests, so showing it alone would hide the real party size. */}
                         <span>{b.num_guests}{b.guest_pricing_label ? ` (${b.guest_pricing_label})` : ""}</span>
                       </div>
                       {b.selected_options && b.selected_options.length > 0 && (
                         <div>
-                          <span className="text-gray-500">{t("options")}</span>
+                          <span className="text-earth-600">{t("options")}</span>
                           <div className="mt-1 space-y-0.5">
                             {b.selected_options.map((o: { name: string; price: number }, i: number) => (
                               <div key={i} className="flex justify-between text-xs">
-                                <span className="text-gray-600">{o.name}</span>
+                                <span className="text-earth-700">{o.name}</span>
                                 <span className="font-medium text-brand">+฿{o.price.toLocaleString()}</span>
                               </div>
                             ))}
@@ -1415,8 +1416,8 @@ export default function BookingsPage() {
                   {detailMoney.discount > 0 && (
                     <>
                       <div className="flex justify-between text-sm">
-                        <span className="text-gray-500">{t("subtotal")}</span>
-                        <span className="font-medium text-gray-900">฿{(detailMoney.total + detailMoney.discount).toLocaleString()}</span>
+                        <span className="text-earth-600">{t("subtotal")}</span>
+                        <span className="font-medium text-earth-900">฿{(detailMoney.total + detailMoney.discount).toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between text-sm">
                         <span className="text-emerald-700">{t("promoDiscount")}</span>
@@ -1425,12 +1426,12 @@ export default function BookingsPage() {
                     </>
                   )}
                   <div className="flex justify-between">
-                    <span className="text-gray-500">{t("total")}</span>
+                    <span className="text-earth-600">{t("total")}</span>
                     <span className="font-bold text-brand">฿{detailMoney.total.toLocaleString()}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-500">{t("amountPaid")}</span>
-                    <span className="font-medium text-gray-900">฿{detailMoney.paid.toLocaleString()}</span>
+                    <span className="text-earth-600">{t("amountPaid")}</span>
+                    <span className="font-medium text-earth-900">฿{detailMoney.paid.toLocaleString()}</span>
                   </div>
                   {detailMoney.paid < detailMoney.total && (
                     <div className="flex justify-between">
@@ -1440,7 +1441,7 @@ export default function BookingsPage() {
                   )}
                 </div>
                 {/* A cart goes by its group id, the one the guest's email and the host's LINE message show. */}
-                <p className="text-xs text-gray-400 pt-1">ID: {detail.group_id ?? detail.id}</p>
+                <p className="text-xs text-earth-600 pt-1">ID: {detail.group_id ?? detail.id}</p>
               </div>
 
               {/* Action buttons */}
@@ -1547,7 +1548,7 @@ export default function BookingsPage() {
               rows={2}
               className="mt-1"
             />
-            <p className="mt-1 text-xs text-gray-400">{t("cancelReasonHint")}</p>
+            <p className="mt-1 text-xs text-earth-600">{t("cancelReasonHint")}</p>
           </div>
           <DialogFooter className="flex gap-2 sm:justify-end">
             <Button

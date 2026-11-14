@@ -327,6 +327,8 @@
     "proceedBooking": "Proceed to booking",
     "viewRooms": "View houses",
     "noRoomSelected": "No houses selected yet",
+    "noHousesTitle": "No houses open for booking yet",
+    "noHousesDesc": "This homestay hasn't opened its houses for online booking yet. Ask the host about dates directly.",
     "noRoomSelectedNoDates": "Pick your stay dates first, then add a house",
     "noRoomSelectedNeedCheckOut": "Pick your check-out date to see available houses",
     "noRoomSelectedHint": "{count} houses available for your dates",
@@ -2170,5 +2172,12 @@
     "restoredNoRooms": "The houses you chose are no longer available. Please pick again — your details are still filled in.",
     "restoredPriceChanged": "Prices for these dates have changed since you started. Please check the total before paying.",
     "restoredDatesPast": "Those dates have already passed. Please pick new dates — your details are still filled in."
+  },
+  "errorPage": {
+    "title": "This page couldn't load",
+    "description": "Something went wrong. Try again, or go back to the home page.",
+    "retry": "Try again",
+    "home": "Back to home",
+    "dashboard": "Back to dashboard"
   }
 }

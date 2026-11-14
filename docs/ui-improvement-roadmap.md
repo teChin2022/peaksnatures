@@ -64,9 +64,9 @@ gets its own impact summary.
 | # | Item | Fixes | Files | Risk | Size | Command |
 |---|---|---|---|---|---|---|
 | 0.1 | Map shadcn's semantic tokens to the palette: `--primary` and `--ring` to Forest, `--border`/`--input` to Sand and `earth-500`, `--muted-foreground` to `earth-600`. | S1, part of S13, part of S7 | `src/app/globals.css` (`:root`) | Every default `Button`, `Badge`, link and ring changes colour at once, on all three surfaces. The admin settings, bookings and hosts buttons turn green. **`--ring` done 2026-11-14** (Forest, with a solid 2px ring on `Button`/`Badge`); `--primary`, `--border`/`--input` and `--muted-foreground` still open. | S | colorize |
-| 0.2 | Thai-safe tracking: stop `tracking-*` and `uppercase` from applying to Thai. Either a scoped CSS rule keyed on `html:lang(th)`, with `lang="en"` on Latin-only tracked text such as the `SectionMark` numerals, or a shared helper like the gate in `booking-footer.tsx:155`. Pick one in review. | S3 (25–28 elements on `/book`, 11–12 on `/`) | `globals.css` or a helper plus call sites | A global CSS rule could also un-track English text inside a Thai page. Screenshot both locales. | S–M | typeset |
-| 0.3 | Reduced motion everywhere: wrap `children` in `RespectReducedMotion` in the root layout, and add `prefers-reduced-motion` rules for `.hero-mist` and `.skeleton-warm`. | S4, motion #1 | `src/app/layout.tsx`, `globals.css` | A client wrapper at the root. Children stay server-rendered (passed as props). | S | animate |
-| 0.4 | Error boundaries: `src/app/error.tsx`, `global-error.tsx`, plus `dashboard/` and `admin/` `error.tsx`, styled to DESIGN.md. Messages via next-intl, except English for admin. | S11 | new files, `messages/*.json` | Low: new files only. | S | harden |
+| 0.2 | Thai-safe tracking: stop `tracking-*` and `uppercase` from applying to Thai. Either a scoped CSS rule keyed on `html:lang(th)`, with `lang="en"` on Latin-only tracked text such as the `SectionMark` numerals, or a shared helper like the gate in `booking-footer.tsx:155`. Pick one in review. | S3 (25–28 elements on `/book`, 11–12 on `/`) | `globals.css` or a helper plus call sites | A global CSS rule could also un-track English text inside a Thai page. Screenshot both locales. **Done 2026-11-14:** one CSS rule (`:lang(th)` un-tracks `tracking-wide*` and `tracking-[0.*]`); Latin codes and numerals keep tracking with `lang="en"`. E2E: "Thai typography". | S–M | typeset |
+| 0.3 | Reduced motion everywhere: wrap `children` in `RespectReducedMotion` in the root layout, and add `prefers-reduced-motion` rules for `.hero-mist` and `.skeleton-warm`. | S4, motion #1 | `src/app/layout.tsx`, `globals.css` | A client wrapper at the root. Children stay server-rendered (passed as props). **Done 2026-11-14:** `RespectReducedMotion` wraps the root layout; `.skeleton-warm` and the card lift stop under reduced motion. `.hero-mist` no longer exists. | S | animate |
+| 0.4 | Error boundaries: `src/app/error.tsx`, `global-error.tsx`, plus `dashboard/` and `admin/` `error.tsx`, styled to DESIGN.md. Messages via next-intl, except English for admin. | S11 | new files, `messages/*.json` | Low: new files only. **Done 2026-11-14:** root, `global-error`, dashboard and admin boundaries share `ErrorView` (generic message, retry, a way back); `errorPage` keys in both files, admin English. | S | harden |
 | 0.5 | Browser chrome colour: `themeColor` and the manifest `theme_color` to #2F5D50. | S17 | `src/app/layout.tsx`, `public/manifest.json` | None. **Done** (found in code 2026-11-14: both are #2F5D50). | XS | polish |
 | 0.6 | Accessible names: label the 21 icon-only buttons, the auth password toggles, the dashboard menu button, and the home user and search buttons. | S5, part of D5, part of A2 | about 10 files | None: attributes only. **Done 2026-11-14:** 50 icon-only buttons named, including the password and PIN toggles on the auth, admin and profile pages; new keys in both message files, admin in English. | S | harden |
 | 0.7 | Billing banners readable: grace and blocked text to `amber-800`/`red-700` at 14px. | D1 | `components/dashboard/dashboard-shell.tsx` | None. **Done 2026-11-14**, plus the same fix on the billing page's free-expired banner (a copy of the pattern). | XS | colorize |
@@ -84,19 +84,19 @@ Deferred until the owner decides (direction §10):
 
 | Item | Fixes | Notes |
 |---|---|---|
-| Accessible guest-details form | B1 | Follow `DESIGN.md` for fields. A small `Field` wrapper over shadcn `Input`/`Label` (label `htmlFor`, `aria-describedby`, `required`), plus `autoComplete` on name, email and phone, and 16px inputs. `earth-700` labels, unspaced, with a 2px Forest focus ring. Name the four icon back buttons. |
-| Contrast and tiny-text pass | B2, S2, S6 | Step dots, the "ยอดนิยม" badge (Charcoal on an amber tint), clickable next-month days at full opacity, helper lines at `earth-600`, the cart badge (Forest or Charcoal; owner decides with direction §10.6), and a 12px floor. |
-| One Thai date format | B4 | One `fmtDate` preset, "18 พ.ย. 2569", for the dialog, the sheet and step 1. |
+| Accessible guest-details form | B1 | Follow `DESIGN.md` for fields. A small `Field` wrapper over shadcn `Input`/`Label` (label `htmlFor`, `aria-describedby`, `required`), plus `autoComplete` on name, email and phone, and 16px inputs. `earth-700` labels, unspaced, with a 2px Forest focus ring. Name the four icon back buttons. **Done** (found in code 2026-11-14: linked labels and errors, `autoComplete`, 16px inputs, a Pine ring, named back buttons). |
+| Contrast and tiny-text pass | B2, S2, S6 | Step dots, the "ยอดนิยม" badge (Charcoal on an amber tint), clickable next-month days at full opacity, helper lines at `earth-600`, the cart badge (Forest or Charcoal; owner decides with direction §10.6), and a 12px floor. **Done 2026-11-14** except the cart badge, which waits on direction §10.6: clickable next-month days no longer faded, the closed-booking notice at `amber-800`; the popular badge and 12px floor were already in place. |
+| One Thai date format | B4 | One `fmtDate` preset, "18 พ.ย. 2569", for the dialog, the sheet and step 1. **Done** (found in code 2026-11-14: "18 พ.ย. 2569" in the picker). |
 | Landing position | B5, part of B18 | `scroll-margin-top` equal to the header height and `block: "start"`; hide the sticky bar while the booking card is in view. Keep the bar's settled content. **Done** (found in code 2026-11-14: `#booking-card` has `scroll-mt-24` and is scrolled to `block: "start"`; `bar-visibility.ts` hides the bars while the card is on screen). |
-| Calm the shell | B6, B9, B10, S9, S10 | No entrance animation on the booking card or the date search. Flat 18px card with no `shadow-xl`. Flat pills. No faux italic. Replace the four filler rows with three real mechanisms: slip checked automatically, deposit now and the rest on arrival, the free-cancellation date. No glass header. |
+| Calm the shell | B6, B9, B10, S9, S10 | No entrance animation on the booking card or the date search. Flat 18px card with no `shadow-xl`. Flat pills. No faux italic. Replace the four filler rows with three real mechanisms: slip checked automatically, deposit now and the rest on arrival, the free-cancellation date. No glass header. **Done 2026-11-14:** no entrance on the booking card or the date search; flat pills, no faux italic and the filler rows were already gone. |
 | Calendars, visual part | B13 | One legend, a distinct style for booked nights, a solid focus ring. **Done 2026-11-14** (see ui-audit B13). |
-| House dialog context | B16 | Show the dates and nights beside the total; `aria-pressed` on tiers. Preselecting the base tier **needs approval** (it changes the default selection). |
-| Readable price and outcome | B17 (visual part) | Price breakdown in `earth-700` at 14px; the pending state gets its own icon and words. |
-| Steps and disabled reasons | B19 | Named steps; "accept the terms to continue" under the disabled CTA. |
-| Photo scrim | B3 | A bottom gradient scrim that guarantees 4.5:1 for white text on any photo. This is a scrim, not a decorative gradient. |
-| Small targets | B8 | Photo dots at 24px, the details link at 44px tall. |
-| Lightbox | B20 | Move it to shadcn `Dialog` (Esc, focus trap, labels). |
-| Empty homestay | B7 | When a homestay has no houses, replace the checkout card with an empty state: no houses open yet, and how to contact the host. |
+| House dialog context | B16 | Show the dates and nights beside the total; `aria-pressed` on tiers. Preselecting the base tier **needs approval** (it changes the default selection). **Done 2026-11-14** (visual part): dates and nights beside the total, `aria-pressed` on tiers. No preselection (owner, 2026-11-14). |
+| Readable price and outcome | B17 (visual part) | Price breakdown in `earth-700` at 14px; the pending state gets its own icon and words. **Done** (found in code 2026-11-14: 15px breakdown in ink, `amber-800` balance, a clock icon and its own title for pending). |
+| Steps and disabled reasons | B19 | Named steps; "accept the terms to continue" under the disabled CTA. **Done** (found in code 2026-11-14: named steps; the consent reason under the disabled button). |
+| Photo scrim | B3 | A bottom gradient scrim that guarantees 4.5:1 for white text on any photo. This is a scrim, not a decorative gradient. **No longer applies** (2026-11-14: house names and prices sit in the card's white body since the Mist Ridge rebuild). |
+| Small targets | B8 | Photo dots at 24px, the details link at 44px tall. **Done** (found in code 2026-11-14: 56×40px thumbnails replaced the dots; the hero link is gone). |
+| Lightbox | B20 | Move it to shadcn `Dialog` (Esc, focus trap, labels). **Done 2026-11-14:** a Radix dialog (Esc, focus trap, a title) keeping the full-screen look. |
+| Empty homestay | B7 | When a homestay has no houses, replace the checkout card with an empty state: no houses open yet, and how to contact the host. **Done 2026-11-14:** "ยังไม่มีบ้านพักเปิดรับจอง" with the host's contacts instead of asking for dates. |
 
 ### 1b: booking-path behaviour (**needs approval**, item by item)
 
@@ -142,11 +142,11 @@ homestay cards render with JavaScript disabled).
 | Item | Fixes | Notes |
 |---|---|---|
 | Today's work first | D2 | Check-ins, slips to verify and new bookings above the charts. **Owner decides** (direction §10.8). |
-| One visual language | D3, S7 | `earth-*` instead of `gray-*`; remove `bg-[#f8f9fa]`. Page by page, starting with the shell, then bookings and check-ins. |
-| Shared status tones | S12 | Admin's `StatusBadge` (add "verified") replaces the rainbow `statusConfig`. |
+| One visual language | D3, S7 | `earth-*` instead of `gray-*`; remove `bg-[#f8f9fa]`. Page by page, starting with the shell, then bookings and check-ins. **Done 2026-11-14:** all 483 `gray-*` in the dashboard mapped to `earth-*` (text darker: 400/500→600, 600→700, 700→800); `bg-[#f8f9fa]` → `earth-50`. |
+| Shared status tones | S12 | Admin's `StatusBadge` (add "verified") replaces the rainbow `statusConfig`. **Done 2026-11-14:** `statusToneClass()` from `status-badge.tsx` (with `verified`) on bookings, calendar and promo codes. |
 | Pending-approval render | D4 | Render `children` once. This is a bug fix, so it needs a failing test first (CLAUDE.md §3). |
-| Mobile top bar | D5 | A 44px labelled menu button and the page title. |
-| Polish | D6–D8 | Sign-out contrast, sidebar grouping (billing and wallet), the side-tab borders; extract visual subcomponents from monolith pages only when touching them. |
+| Mobile top bar | D5 | A 44px labelled menu button and the page title. **Done 2026-11-14:** 44px labelled menu button; the bar shows the page's name (`navKeyFor`). |
+| Polish | D6–D8 | Sign-out contrast, sidebar grouping (billing and wallet), the side-tab borders; extract visual subcomponents from monolith pages only when touching them. **Partly done 2026-11-14:** sign-out readable (earth-600), side-tab borders removed (D7). Billing and wallet stay separate (owner). D8 stays opportunistic. |
 
 Dashboard pages write to Supabase from the browser (the `hosts` column
 grants, CLAUDE.md §5). Visual changes must not touch those calls.
@@ -155,7 +155,7 @@ grants, CLAUDE.md §5). Visual changes must not touch those calls.
 
 | Item | Fixes | Notes |
 |---|---|---|
-| Auth in the brand | A1, A2, S14, S18 | Earth surface, serif heading, `h1` and `main`, labelled toggles, translated titles. |
+| Auth in the brand | A1, A2, S14, S18 | Earth surface, serif heading, `h1` and `main`, labelled toggles, translated titles. **Done 2026-11-14** for login, register, forgot, reset and admin login: earth, serif `h1` in `main`, readable labels, flat pills, named toggles, Thai titles. E2E: `auth-pages.spec.ts`. |
 | Slip page | P1, P2 | On-brand colours and i18n (P2). Checking the session on load (P1) needs a read endpoint or a server check: **needs approval** if it touches `/api/slip-upload`. |
 | 404 and static pages | G1–G3, S14 | Earth 404 with a serif heading; `main` landmarks; a table of contents on `/legal`; labels on the lookup inputs. |
 
@@ -163,7 +163,7 @@ grants, CLAUDE.md §5). Visual changes must not touch those calls.
 
 | Item | Fixes | Notes |
 |---|---|---|
-| Calm cards | X1 | No hover lift on cards that are not links. |
+| Calm cards | X1 | No hover lift on cards that are not links. **Done 2026-11-14:** the lift applies only to linked or `role="button"` cards, on hover devices, and not under reduced motion. |
 | One neutral | X2 | `section-alt` to `earth-50` (after 0.1). |
 | Tables for dense lists | X3 | **Owner decides**: bookings and hosts as tables on desktop. |
 

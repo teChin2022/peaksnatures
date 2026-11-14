@@ -41,6 +41,15 @@ const NAV_ITEMS = [
   { key: "profile", href: "/dashboard/profile", icon: User }
 ] as const;
 
+/** Whether a nav item is the current page: the overview only on its own path. */
+const isNavActive = (href: string, pathname: string) =>
+  href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
+
+/** The `dashboardNav` key of the current page, for the phone top bar's title; null off the nav. */
+export function navKeyFor(pathname: string): (typeof NAV_ITEMS)[number]["key"] | null {
+  return NAV_ITEMS.find((item) => isNavActive(item.href, pathname))?.key ?? null;
+}
+
 interface SidebarProps {
   collapsed: boolean;
   onToggle: () => void;
@@ -67,15 +76,15 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
   return (
     <aside
       className={cn(
-        "fixed left-0 top-0 z-40 flex h-full flex-col border-r border-gray-200/80 bg-white transition-all duration-300",
+        "fixed left-0 top-0 z-40 flex h-full flex-col border-r border-earth-200/80 bg-white transition-all duration-300",
         collapsed ? "w-16" : "w-60"
       )}
     >
       {/* Brand */}
-      <div className="flex h-14 items-center justify-between border-b border-gray-100 px-3">
+      <div className="flex h-14 items-center justify-between border-b border-earth-100 px-3">
         {/* <Link href="/" className="flex items-center gap-2.5 overflow-hidden"> */}
           {!collapsed && (
-            <span className="whitespace-nowrap font-semibold truncate text-gray-900">
+            <span className="whitespace-nowrap font-semibold truncate text-earth-900">
               {brandName}
             </span>
           )}
@@ -83,7 +92,7 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
         <Button
           variant="ghost"
           size="icon"
-          className="h-7 w-7 shrink-0 text-gray-400 hover:text-gray-600"
+          className="h-7 w-7 shrink-0 text-earth-600 hover:text-earth-700"
           onClick={onToggle}
           aria-label={collapsed ? tc("expandSidebar") : tc("collapseSidebar")}
         >
@@ -99,10 +108,7 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3 scrollbar-hide">
         {NAV_ITEMS.map((item) => {
           const Icon = item.icon;
-          const isActive =
-            item.href === "/dashboard"
-              ? pathname === "/dashboard"
-              : pathname.startsWith(item.href);
+          const isActive = isNavActive(item.href, pathname);
 
           return (
             <Link
@@ -112,11 +118,11 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
                 "flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
                 isActive
                   ? "bg-brand/8 text-brand"
-                  : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
+                  : "text-earth-600 hover:bg-earth-50 hover:text-earth-900"
               )}
               title={collapsed ? t(item.key) : undefined}
             >
-              <Icon className={cn("h-[18px] w-[18px] shrink-0", isActive ? "text-brand" : "text-gray-400")} />
+              <Icon className={cn("h-[18px] w-[18px] shrink-0", isActive ? "text-brand" : "text-earth-600")} />
               {!collapsed && <span className="truncate">{t(item.key)}</span>}
             </Link>
           );
@@ -124,11 +130,11 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
       </nav>
 
       {/* Sign out */}
-      <div className="border-t border-gray-100 px-2 py-2">
+      <div className="border-t border-earth-100 px-2 py-2">
         <button
           onClick={handleSignOut}
           className={cn(
-            "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600"
+            "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-earth-600 transition-colors hover:bg-earth-50 hover:text-earth-700"
           )}
           title={collapsed ? ta("signOut") : undefined}
         >
@@ -178,8 +184,8 @@ export function MobileSidebar({
       />
 
       {/* Drawer */}
-      <aside className="fixed left-0 top-0 z-50 flex h-full w-60 flex-col border-r border-gray-200/80 bg-white lg:hidden">
-        <div className="flex h-14 items-center justify-between border-b border-gray-100 px-3">
+      <aside className="fixed left-0 top-0 z-50 flex h-full w-60 flex-col border-r border-earth-200/80 bg-white lg:hidden">
+        <div className="flex h-14 items-center justify-between border-b border-earth-100 px-3">
           <Link href="/" className="flex items-center gap-2.5 overflow-hidden">
             {brandLogo ? (
               <Image src={brandLogo} alt={brandName} width={28} height={28} className="h-7 w-7 shrink-0 rounded-lg object-cover" />
@@ -188,9 +194,9 @@ export function MobileSidebar({
                 {getInitials(brandName)}
               </div>
             )}
-            <span className="font-semibold truncate text-gray-900">{brandName}</span>
+            <span className="font-semibold truncate text-earth-900">{brandName}</span>
           </Link>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-600" onClick={onClose} aria-label={tc("close")}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-earth-600 hover:text-earth-700" onClick={onClose} aria-label={tc("close")}>
             <X className="h-4 w-4" />
           </Button>
         </div>
@@ -198,10 +204,7 @@ export function MobileSidebar({
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3 scrollbar-hide">
           {NAV_ITEMS.map((item) => {
             const Icon = item.icon;
-            const isActive =
-              item.href === "/dashboard"
-                ? pathname === "/dashboard"
-                : pathname.startsWith(item.href);
+            const isActive = isNavActive(item.href, pathname);
 
             return (
               <Link
@@ -212,20 +215,20 @@ export function MobileSidebar({
                   "flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
                   isActive
                     ? "bg-brand/8 text-brand"
-                    : "text-gray-500 hover:bg-gray-50 hover:text-gray-800"
+                    : "text-earth-600 hover:bg-earth-50 hover:text-earth-900"
                 )}
               >
-                <Icon className={cn("h-[18px] w-[18px] shrink-0", isActive ? "text-brand" : "text-gray-400")} />
+                <Icon className={cn("h-[18px] w-[18px] shrink-0", isActive ? "text-brand" : "text-earth-600")} />
                 <span className="truncate">{t(item.key)}</span>
               </Link>
             );
           })}
         </nav>
 
-        <div className="border-t border-gray-100 px-2 py-2">
+        <div className="border-t border-earth-100 px-2 py-2">
           <button
             onClick={handleSignOut}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-gray-400 transition-colors hover:bg-gray-50 hover:text-gray-600"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-earth-600 transition-colors hover:bg-earth-50 hover:text-earth-700"
           >
             <LogOut className="h-[18px] w-[18px] shrink-0" />
             <span className="truncate">{ta("signOut")}</span>

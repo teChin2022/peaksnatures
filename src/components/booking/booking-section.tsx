@@ -1440,7 +1440,7 @@ export function BookingSection({
             <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 px-6 py-5 text-center">
               <Clock className="h-6 w-6 text-amber-500 mx-auto mb-2" />
               <p className="text-base font-medium text-amber-800">{t("unavailableTitle")}</p>
-              <p className="text-sm text-amber-600 mt-1">{t("unavailableDesc")}</p>
+              <p className="text-sm text-amber-800 mt-1">{t("unavailableDesc")}</p>
             </div>
           )}
           <div className={`mx-auto max-w-5xl ${bookingDisabled ? "pointer-events-none opacity-50 select-none" : ""}`}>
@@ -1519,11 +1519,8 @@ export function BookingSection({
               </div>
             )}
             <div className={checkoutOpen ? "px-4 pt-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))] sm:px-6" : ""}>
+            {/* No entrance: it is the task surface, visible at rest (ui-audit B6). */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 20 }}
-              whileInView={{ opacity: 1, scale: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, ease: [0.25, 0.1, 0, 1] }}
               ref={cardRef}
               id="booking-card"
               className={checkoutOpen ? "relative mx-auto flex w-full max-w-3xl scroll-mt-24 flex-col" : "relative flex scroll-mt-24 flex-col rounded-[24px] bg-white p-5 md:p-8"}
@@ -1562,7 +1559,17 @@ export function BookingSection({
                     <AnimatePresence mode="wait">
                       {!showOptions ? (
                         <motion.div key="dates-form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} aria-live="polite">
-                          {cartLines.length === 0 ? (
+                          {rooms.length === 0 ? (
+                            // No house is open: nothing here can be booked, so say so and
+                            // give the guest the host instead of asking for dates (B7).
+                            <div className="px-2 py-4 text-center">
+                              <h3 className="font-serif text-[22px] leading-snug text-ink">{t("noHousesTitle")}</h3>
+                              <p className="mx-auto mt-1.5 max-w-[40ch] text-[15px] text-ink-2">{t("noHousesDesc")}</p>
+                              <div className="mx-auto mt-5 max-w-sm text-left">
+                                <HostContactLinks facebookUrl={homestay.facebook_url} hostPhone={host.phone} />
+                              </div>
+                            </div>
+                          ) : cartLines.length === 0 ? (
                             <div className="px-2 py-4 text-center">
                               <span aria-hidden className="mx-auto mb-3.5 flex h-16 w-16 items-center justify-center rounded-full bg-pine-mist text-pine">
                                 <ShoppingCart className="h-7 w-7" />
@@ -2057,7 +2064,7 @@ export function BookingSection({
                         <div className="mt-5">
                           <p className="text-[13px] text-ink-2">{t("bookingId")}</p>
                           {/* The first 8 characters: what the guest's email and the host's message quote. */}
-                          <p className="mt-1.5 inline-block rounded-xl border border-line-strong px-5 py-2 font-serif text-2xl tracking-[0.08em] text-ink uppercase lining-nums">{bookingCode(bookingId)}</p>
+                          <p lang="en" className="mt-1.5 inline-block rounded-xl border border-line-strong px-5 py-2 font-serif text-2xl tracking-[0.08em] text-ink uppercase lining-nums">{bookingCode(bookingId)}</p>
                         </div>
                       )}
                       <p className="mt-4 text-[13px] text-ink-2">

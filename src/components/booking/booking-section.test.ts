@@ -168,12 +168,13 @@ function Seed({ rooms }: { rooms: string[] }) {
   return null;
 }
 
-async function renderForm(mode: GuestBookingMode, rooms: string[] = [ROOM_A.id], over: { facebook_url?: string | null; phone?: string | null } = {}) {
+async function renderForm(mode: GuestBookingMode, rooms: string[] = [ROOM_A.id], over: { facebook_url?: string | null; phone?: string | null; noHouses?: boolean } = {}) {
   const homestay = { ...HOMESTAY, facebook_url: over.facebook_url === undefined ? HOMESTAY.facebook_url : over.facebook_url };
   const host = toBookingHost(
     makeHost({ guest_booking_mode: mode, promptpay_id: "0812345678", phone: over.phone === undefined ? "0812345678" : over.phone }),
   );
-  const catalog = { rooms: [ROOM_A, ROOM_B], seasonalPrices: [], specialPrices: [], roomOptions: [], guestPricing: [], blockedDates: [], bookedRanges: [] };
+  const houses = over.noHouses ? [] : [ROOM_A, ROOM_B];
+  const catalog = { rooms: houses, seasonalPrices: [], specialPrices: [], roomOptions: [], guestPricing: [], blockedDates: [], bookedRanges: [] };
   const { homestay: _h, ...forClient } = { ...homestay, host: null } as never as { homestay: never } & Record<string, unknown>;
   void _h;
   await act(async () => {
@@ -187,7 +188,7 @@ async function renderForm(mode: GuestBookingMode, rooms: string[] = [ROOM_A.id],
           createElement(Seed, { rooms }),
           createElement(BookingSection, {
             homestay: forClient as never,
-            rooms: [ROOM_A, ROOM_B],
+            rooms: houses,
             blockedDates: [],
             host,
             bookingDisabled: false,
@@ -313,6 +314,15 @@ describe("the guest details step", () => {
 });
 
 // ── The payment step, per host mode ─────────────────────────────────────────
+describe("a homestay with no house open", () => {
+  it("says nothing can be booked yet and offers the host, instead of asking for dates", async () => {
+    await renderForm("normal", [], { noHouses: true });
+    expect(text()).toContain("noHousesTitle");
+    expect(text()).not.toContain("noRoomSelected");
+    expect(document.body.querySelector('a[href^="tel:"]')).toBeTruthy();
+  });
+});
+
 describe("the how-to-book guide follows the host's mode", () => {
   const tutorialQuickOnly = () => document.body.querySelector('[data-testid="tutorial"]')?.getAttribute("data-quick-only");
 

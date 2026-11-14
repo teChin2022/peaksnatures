@@ -9,6 +9,7 @@ import { toast } from "sonner";
 import type { Room } from "@/types/database";
 import { composeTierLabel, hasDefaultPriceTier, resolveGuestPricing } from "@/lib/guest-pricing";
 import { calculateTotalPrice } from "@/lib/calculate-price";
+import { fmtDate } from "@/lib/format-date";
 import { useBookingCart, type CartLine } from "@/components/booking/booking-cart-context";
 
 /**
@@ -143,6 +144,7 @@ export function RoomConfigDialog({
                     <button
                       key={tier.id}
                       type="button"
+                      aria-pressed={isSel}
                       onClick={() => setTierIds([tier.id])}
                       className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${isSel ? "border-pine bg-pine/5" : "border-line hover:border-line-strong"}`}
                     >
@@ -271,6 +273,12 @@ export function RoomConfigDialog({
                 <span>{tc("total")}</span>
                 <span>฿{(unitPrice * (isEditing ? 1 : qty)).toLocaleString()}</span>
               </div>
+              {/* The stay the total is for, so the price never floats free of its dates (B16). */}
+              {dateRange?.from && dateRange?.to && (
+                <p className="text-right text-[13px] text-ink-2">
+                  {fmtDate(dateRange.from, "d MMM", locale)} – {fmtDate(dateRange.to, "d MMM", locale)} · {nights} {nights > 1 ? tc("nights") : tc("night")}
+                </p>
+              )}
             </div>
           )}
           <Button

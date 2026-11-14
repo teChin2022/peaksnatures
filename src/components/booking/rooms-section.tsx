@@ -29,9 +29,11 @@ import {
   Dialog,
   DialogContent,
   DialogHeader,
+  DialogPortal,
   DialogTitle,
   DialogDescription,
 } from "@/components/ui/dialog";
+import { Dialog as DialogPrimitive } from "radix-ui";
 
 const BLUR_DATA_URL =
   "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI4MDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2UyZThmMCIvPjwvc3ZnPg==";
@@ -46,8 +48,13 @@ export function RoomLightbox({ images, name, startIndex, onClose }: { images: st
   const nextImage = useCallback(() => setIndex((i) => (i < images.length - 1 ? i + 1 : 0)), [images.length]);
   useSwipe(containerEl, { onSwipeLeft: nextImage, onSwipeRight: prevImage });
 
+  // A Radix dialog (B20): Esc closes it, focus stays inside, and it has a name.
+  // The primitive Content, not DialogContent, keeps the full-screen look.
   return (
-    <div ref={setContainerEl} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-2xl p-4" style={{ touchAction: "none" }}>
+    <Dialog open onOpenChange={(open) => { if (!open) onClose(); }}>
+    <DialogPortal>
+    <DialogPrimitive.Content aria-describedby={undefined} ref={setContainerEl} className="fixed inset-0 z-[100] flex items-center justify-center bg-black/60 backdrop-blur-2xl p-4 outline-none" style={{ touchAction: "none" }}>
+      <DialogPrimitive.Title className="sr-only">{name}</DialogPrimitive.Title>
       <Button
         variant="ghost"
         size="icon"
@@ -127,7 +134,9 @@ export function RoomLightbox({ images, name, startIndex, onClose }: { images: st
       <div className="absolute bottom-6 text-sm text-white/70">
         {index + 1} / {images.length}
       </div>
-    </div>
+    </DialogPrimitive.Content>
+    </DialogPortal>
+    </Dialog>
   );
 }
 

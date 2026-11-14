@@ -76,7 +76,7 @@ const TXN_TYPE_CONFIG: Record<string, { icon: typeof ArrowUpCircle; color: strin
   topup:      { icon: ArrowUpCircle,     color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200" },
   commission: { icon: ArrowDownCircle,   color: "text-amber-600",   bg: "bg-amber-50 border-amber-200" },
   refund:     { icon: RotateCcw,         color: "text-blue-600",    bg: "bg-blue-50 border-blue-200" },
-  adjustment: { icon: SlidersHorizontal, color: "text-gray-600",    bg: "bg-gray-50 border-gray-200" },
+  adjustment: { icon: SlidersHorizontal, color: "text-earth-700",    bg: "bg-earth-50 border-earth-200" },
 };
 
 /* ─── Page ─── */
@@ -333,7 +333,7 @@ export default function WalletPage() {
   }
 
   if (!billing) {
-    return <p className="text-sm text-gray-500 py-12 text-center">Failed to load wallet information.</p>;
+    return <p className="text-sm text-earth-600 py-12 text-center">Failed to load wallet information.</p>;
   }
 
   const isNegative = billing.wallet_balance < 0;
@@ -342,7 +342,7 @@ export default function WalletPage() {
     <div className="space-y-8">
       {/* ── Page title ── */}
       <motion.div initial={{ opacity: 0, y: 8 }} animate={{ opacity: 1, y: 0 }} transition={{ duration: 0.4 }}>
-        <h1 className="text-xl font-bold text-gray-900">{t("title")}</h1>
+        <h1 className="text-xl font-bold text-earth-900">{t("title")}</h1>
       </motion.div>
 
       {/* ── Negative balance alert ── */}
@@ -395,7 +395,7 @@ export default function WalletPage() {
                     transition={{ duration: 0.4, type: "spring" }}
                   >
                     <span className={`text-5xl sm:text-6xl font-serif tracking-tight leading-none ${
-                      isNegative ? "text-red-600" : "text-gray-900"
+                      isNegative ? "text-red-600" : "text-earth-900"
                     }`}>
                       {isNegative ? "-" : ""}฿{Math.abs(billing.wallet_balance).toLocaleString()}
                     </span>
@@ -414,7 +414,7 @@ export default function WalletPage() {
                       </div>
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-wider text-earth-400">{t("income")}</p>
-                        <p className="text-lg font-serif text-gray-900 leading-tight">
+                        <p className="text-lg font-serif text-earth-900 leading-tight">
                           ฿{monthlyIncome.toLocaleString()}
                         </p>
                         <p className="text-[10px] text-earth-400">{t("thisMonth")}</p>
@@ -426,7 +426,7 @@ export default function WalletPage() {
                       </div>
                       <div>
                         <p className="text-[11px] font-semibold uppercase tracking-wider text-earth-400">{t("deductions")}</p>
-                        <p className="text-lg font-serif text-gray-900 leading-tight">
+                        <p className="text-lg font-serif text-earth-900 leading-tight">
                           ฿{monthlyDeductions.toLocaleString()}
                         </p>
                         <p className="text-[10px] text-earth-400">{t("thisMonth")}</p>
@@ -445,7 +445,7 @@ export default function WalletPage() {
                     <ArrowUpCircle className="h-4 w-4 text-emerald-600" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-gray-900">{t("topUp")}</h3>
+                    <h3 className="text-sm font-semibold text-earth-900">{t("topUp")}</h3>
                     <p className="text-[11px] text-earth-400">{t("topUpInlineDesc")}</p>
                   </div>
                 </div>
@@ -462,7 +462,7 @@ export default function WalletPage() {
                         amount={Number(topupAmount) > 0 ? Number(topupAmount) : 0}
                       />
                       {topupAmount && Number(topupAmount) > 0 && (
-                        <p className="text-lg font-mono font-bold text-gray-900 mt-2">
+                        <p className="text-lg font-mono font-bold text-earth-900 mt-2">
                           ฿{Number(topupAmount).toLocaleString()}
                         </p>
                       )}
@@ -478,7 +478,7 @@ export default function WalletPage() {
 
                 {/* Amount selection */}
                 <div className="space-y-3 mb-5">
-                  <Label className="text-sm text-gray-700">{t("amount")} (THB)</Label>
+                  <Label className="text-sm text-earth-800">{t("amount")} (THB)</Label>
                   <div className="grid grid-cols-3 gap-2">
                     {TOPUP_AMOUNTS.map((amt) => (
                       <button
@@ -488,7 +488,7 @@ export default function WalletPage() {
                         className={`rounded-xl border py-2.5 text-sm font-medium transition-all ${
                           topupAmount === String(amt)
                             ? "border-brand/30 bg-brand-50 text-brand ring-1 ring-brand/20"
-                            : "border-gray-200 text-gray-600 hover:bg-gray-50 hover:border-gray-300"
+                            : "border-earth-200 text-earth-700 hover:bg-earth-50 hover:border-earth-300"
                         }`}
                       >
                         ฿{amt.toLocaleString()}
@@ -507,7 +507,7 @@ export default function WalletPage() {
                       className="overflow-hidden"
                     >
                       <form onSubmit={handleTopup} className="space-y-4">
-                        <Label className="text-sm text-gray-700">{t("paymentSlip")}</Label>
+                        <Label className="text-sm text-earth-800">{t("paymentSlip")}</Label>
 
                         {topupFile ? (
                           <div className="rounded-2xl border bg-earth-50 p-3">
@@ -604,7 +604,7 @@ export default function WalletPage() {
               className={`relative px-5 py-3 text-sm font-medium transition-colors ${
                 activeTab === tab
                   ? "text-brand"
-                  : "text-earth-400 hover:text-gray-700"
+                  : "text-earth-400 hover:text-earth-800"
               }`}
             >
               {t(tab)}
@@ -701,7 +701,7 @@ export default function WalletPage() {
 
                         {/* Description */}
                         <div className="flex-1 min-w-0">
-                          <p className="text-sm font-medium text-gray-800 truncate">
+                          <p className="text-sm font-medium text-earth-900 truncate">
                             {getTxLabel(tx)}
                           </p>
                           {tx.booking && (

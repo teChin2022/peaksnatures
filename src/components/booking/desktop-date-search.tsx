@@ -63,11 +63,8 @@ export function DesktopDateSearch({ bookingDisabled = false }: { bookingDisabled
   return (
     // #date-panel: the bottom bars hide while it is on screen (bar-visibility.ts).
     <div id="date-panel" className="relative z-20">
+      {/* No entrance: a task surface stays visible at rest (ui-audit B6). */}
       <motion.div
-        initial={{ opacity: 0, y: 14 }}
-        whileInView={{ opacity: 1, y: 0 }}
-        viewport={{ once: true }}
-        transition={{ duration: 0.5, ease: [0.25, 0.1, 0, 1] }}
         className="mx-auto -mt-8 max-w-4xl px-4 sm:px-6 md:-mt-12"
       >
         <div className="grid grid-cols-2 gap-1 rounded-[20px] bg-white p-2 shadow-[0_18px_40px_-18px_rgba(19,38,34,0.35)] md:grid-cols-[1fr_1fr_0.8fr_auto] md:items-center">

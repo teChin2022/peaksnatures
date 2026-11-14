@@ -4,6 +4,7 @@ import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
 import { CookieConsent } from "@/components/cookie-consent";
+import { RespectReducedMotion } from "@/components/respect-reduced-motion";
 import { JsonLd } from "@/components/seo/json-ld";
 import {
   SITE_URL,
@@ -139,9 +140,13 @@ export default async function RootLayout({
         <JsonLd data={organizationLd} id="ld-organization" />
         <JsonLd data={websiteLd} id="ld-website" />
         <NextIntlClientProvider messages={messages}>
-          {children}
-          <Toaster richColors position="top-right" />
-          <CookieConsent />
+          {/* Every surface honours the OS "Reduce motion" setting, not only the
+              guest pages; server children pass through the client wrapper. */}
+          <RespectReducedMotion>
+            {children}
+            <Toaster richColors position="top-right" />
+            <CookieConsent />
+          </RespectReducedMotion>
         </NextIntlClientProvider>
       </body>
     </html>

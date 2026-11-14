@@ -1208,7 +1208,7 @@ export default function RoomsPage() {
 
   if (!homestayId) {
     return (
-      <div className="py-20 text-center text-sm text-gray-500">
+      <div className="py-20 text-center text-sm text-earth-600">
         {t("noHomestay")}
       </div>
     );
@@ -1217,7 +1217,7 @@ export default function RoomsPage() {
   return (
     <div className="mx-auto max-w-3xl">
       <div className="mb-6 flex items-center justify-between">
-        <h1 className="text-xl font-bold text-gray-900">{t("title")}</h1>
+        <h1 className="text-xl font-bold text-earth-900">{t("title")}</h1>
         <Button
           onClick={openCreateDialog}
           className="hover:brightness-90 bg-brand"
@@ -1228,9 +1228,9 @@ export default function RoomsPage() {
       </div>
 
       {rooms.length === 0 ? (
-        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 py-16 text-center">
-          <BedDouble className="h-10 w-10 text-gray-300" />
-          <p className="mt-3 text-sm font-medium text-gray-500">{t("noRooms")}</p>
+        <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-earth-200 py-16 text-center">
+          <BedDouble className="h-10 w-10 text-earth-300" />
+          <p className="mt-3 text-sm font-medium text-earth-600">{t("noRooms")}</p>
           <Button
             variant="outline"
             className="mt-4"
@@ -1255,8 +1255,8 @@ export default function RoomsPage() {
                       className="object-cover"
                     />
                   ) : (
-                    <div className="flex h-full w-full items-center justify-center bg-gray-100">
-                      <ImageIcon className="h-8 w-8 text-gray-300" />
+                    <div className="flex h-full w-full items-center justify-center bg-earth-100">
+                      <ImageIcon className="h-8 w-8 text-earth-300" />
                     </div>
                   )}
                 </div>
@@ -1264,15 +1264,15 @@ export default function RoomsPage() {
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-gray-900">{room.name}</h3>
+                        <h3 className="font-semibold text-earth-900">{room.name}</h3>
                         {!room.is_active && (
-                          <span className="inline-flex items-center rounded-full bg-gray-100 px-2 py-0.5 text-xs font-medium text-gray-500">
+                          <span className="inline-flex items-center rounded-full bg-earth-100 px-2 py-0.5 text-xs font-medium text-earth-600">
                             {t("inactive")}
                           </span>
                         )}
                       </div>
                       {room.description && (
-                        <p className="mt-0.5 text-sm text-gray-500 line-clamp-1">
+                        <p className="mt-0.5 text-sm text-earth-600 line-clamp-1">
                           {room.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}
                         </p>
                       )}
@@ -1301,7 +1301,7 @@ export default function RoomsPage() {
                       </Button>
                     </div>
                   </div>
-                  <div className="mt-2 flex items-center gap-4 text-sm text-gray-500">
+                  <div className="mt-2 flex items-center gap-4 text-sm text-earth-600">
                     <span className="font-medium text-brand">
                       ฿{room.price_per_night.toLocaleString()}{tc("perNight")}
                     </span>
@@ -1368,7 +1368,7 @@ export default function RoomsPage() {
               <div className="space-y-2">
                 <Label>{t("price")}</Label>
                 <div className="relative">
-                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">
+                  <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-earth-600">
                     ฿
                   </span>
                   <Input
@@ -1404,7 +1404,7 @@ export default function RoomsPage() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-brand" />
-                  <h3 className="text-sm font-semibold text-gray-900">{t("guestPricing")}</h3>
+                  <h3 className="text-sm font-semibold text-earth-900">{t("guestPricing")}</h3>
                 </div>
                 {canCopy("tiers") && (
                   <button
@@ -1416,7 +1416,7 @@ export default function RoomsPage() {
                   </button>
                 )}
               </div>
-              <p className="text-xs text-gray-500">{t("guestPricingDesc")}</p>
+              <p className="text-xs text-earth-600">{t("guestPricingDesc")}</p>
 
               {/* Tiers list — DB tiers for existing rooms, pending for new */}
               {editingRoom ? (
@@ -1425,15 +1425,15 @@ export default function RoomsPage() {
                     {(guestTiers[editingRoom.id] || []).map((tier) => (
                       <div
                         key={tier.id}
-                        className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                        className="flex items-center justify-between rounded-md border bg-earth-50 px-3 py-2"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900">{composeTierLabel(tier, locale)}</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-sm font-medium text-earth-900">{composeTierLabel(tier, locale)}</p>
+                          <p className="text-xs text-earth-600">
                             {tier.surcharge > 0 ? (
                               <><span className="font-medium text-brand">+฿{tier.surcharge.toLocaleString()}</span>{tc("perNight")}</>
                             ) : (
-                              <><span className="font-medium text-brand">{defaultTierPriceLabel}</span>{tc("perNight")}<span className="text-gray-400"> · {t("defaultPrice")}</span></>
+                              <><span className="font-medium text-brand">{defaultTierPriceLabel}</span>{tc("perNight")}<span className="text-earth-600"> · {t("defaultPrice")}</span></>
                             )}
                           </p>
                         </div>
@@ -1459,7 +1459,7 @@ export default function RoomsPage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs italic text-gray-400">{t("noTiers")}</p>
+                  <p className="text-xs italic text-earth-600">{t("noTiers")}</p>
                 )
               ) : (
                 pendingTiers.length > 0 ? (
@@ -1467,15 +1467,15 @@ export default function RoomsPage() {
                     {pendingTiers.map((tier, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                        className="flex items-center justify-between rounded-md border bg-earth-50 px-3 py-2"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900">{composeTierLabel(tier, locale)}</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-sm font-medium text-earth-900">{composeTierLabel(tier, locale)}</p>
+                          <p className="text-xs text-earth-600">
                             {tier.surcharge > 0 ? (
                               <><span className="font-medium text-brand">+฿{tier.surcharge.toLocaleString()}</span>{tc("perNight")}</>
                             ) : (
-                              <><span className="font-medium text-brand">{defaultTierPriceLabel}</span>{tc("perNight")}<span className="text-gray-400"> · {t("defaultPrice")}</span></>
+                              <><span className="font-medium text-brand">{defaultTierPriceLabel}</span>{tc("perNight")}<span className="text-earth-600"> · {t("defaultPrice")}</span></>
                             )}
                           </p>
                         </div>
@@ -1491,13 +1491,13 @@ export default function RoomsPage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs italic text-gray-400">{t("noTiers")}</p>
+                  <p className="text-xs italic text-earth-600">{t("noTiers")}</p>
                 )
               )}
 
               {/* Tier add/edit form */}
               <div className="space-y-2 rounded-md border bg-white p-3">
-                <p className="text-xs font-medium text-gray-700">
+                <p className="text-xs font-medium text-earth-800">
                   {editingTier ? t("editTier") : t("addTier")}
                 </p>
                 <div className="grid grid-cols-2 gap-2">
@@ -1531,8 +1531,8 @@ export default function RoomsPage() {
                     onChange={(e) => setTierForm((f) => ({ ...f, detail: e.target.value }))}
                   />
                 </div>
-                <div className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2">
-                  <Label className="text-xs font-medium text-gray-700">{t("useDefaultPrice")}</Label>
+                <div className="flex items-center justify-between rounded-md border bg-earth-50 px-3 py-2">
+                  <Label className="text-xs font-medium text-earth-800">{t("useDefaultPrice")}</Label>
                   <Switch
                     checked={tierForm.useDefaultPrice}
                     onCheckedChange={(checked) => setTierForm((f) => ({ ...f, useDefaultPrice: checked }))}
@@ -1543,7 +1543,7 @@ export default function RoomsPage() {
                   <div>
                     <Label className="text-xs">{t("tierSurcharge")}</Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">฿</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-earth-600">฿</span>
                       <Input
                         type="number"
                         min="0"
@@ -1579,7 +1579,7 @@ export default function RoomsPage() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <ListPlus className="h-4 w-4 text-brand" />
-                  <h3 className="text-sm font-semibold text-gray-900">{t("roomOptions")}</h3>
+                  <h3 className="text-sm font-semibold text-earth-900">{t("roomOptions")}</h3>
                 </div>
                 {canCopy("options") && (
                   <button
@@ -1591,7 +1591,7 @@ export default function RoomsPage() {
                   </button>
                 )}
               </div>
-              <p className="text-xs text-gray-500">{t("roomOptionsDesc")}</p>
+              <p className="text-xs text-earth-600">{t("roomOptionsDesc")}</p>
 
               {/* Options list — DB options for existing rooms, pending for new */}
               {editingRoom ? (
@@ -1600,11 +1600,11 @@ export default function RoomsPage() {
                     {(roomOptions[editingRoom.id] || []).map((option) => (
                       <div
                         key={option.id}
-                        className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                        className="flex items-center justify-between rounded-md border bg-earth-50 px-3 py-2"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900">{option.name}</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-sm font-medium text-earth-900">{option.name}</p>
+                          <p className="text-xs text-earth-600">
                             <span className="font-medium text-brand">+฿{option.price.toLocaleString()}{option.pricing_type === "per_time" ? tc("perStay") : tc("perNight")}</span>
                           </p>
                         </div>
@@ -1630,7 +1630,7 @@ export default function RoomsPage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs italic text-gray-400">{t("noOptions")}</p>
+                  <p className="text-xs italic text-earth-600">{t("noOptions")}</p>
                 )
               ) : (
                 pendingOptions.length > 0 ? (
@@ -1638,11 +1638,11 @@ export default function RoomsPage() {
                     {pendingOptions.map((option, idx) => (
                       <div
                         key={idx}
-                        className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                        className="flex items-center justify-between rounded-md border bg-earth-50 px-3 py-2"
                       >
                         <div className="min-w-0 flex-1">
-                          <p className="text-sm font-medium text-gray-900">{option.name}</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-sm font-medium text-earth-900">{option.name}</p>
+                          <p className="text-xs text-earth-600">
                             <span className="font-medium text-brand">+฿{option.price.toLocaleString()}{option.pricing_type === "per_time" ? tc("perStay") : tc("perNight")}</span>
                           </p>
                         </div>
@@ -1658,13 +1658,13 @@ export default function RoomsPage() {
                     ))}
                   </div>
                 ) : (
-                  <p className="text-xs italic text-gray-400">{t("noOptions")}</p>
+                  <p className="text-xs italic text-earth-600">{t("noOptions")}</p>
                 )
               )}
 
               {/* Option add/edit form */}
               <div className="space-y-2 rounded-md border bg-white p-3">
-                <p className="text-xs font-medium text-gray-700">
+                <p className="text-xs font-medium text-earth-800">
                   {editingOption ? t("editOption") : t("addOption")}
                 </p>
                 <Input
@@ -1676,7 +1676,7 @@ export default function RoomsPage() {
                 <div>
                   <Label className="text-xs">{t("optionPrice")}</Label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">฿</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-earth-600">฿</span>
                     <Input
                       type="number"
                       className="pl-7 text-sm"
@@ -1687,18 +1687,18 @@ export default function RoomsPage() {
                 </div>
                 <div>
                   <Label className="text-xs">{t("pricingType")}</Label>
-                  <div className="mt-1 inline-flex rounded-md border bg-gray-50 p-0.5">
+                  <div className="mt-1 inline-flex rounded-md border bg-earth-50 p-0.5">
                     <button
                       type="button"
                       onClick={() => setOptionForm((f) => ({ ...f, pricing_type: "per_night" }))}
-                      className={`rounded px-3 py-1 text-xs font-medium transition-colors ${optionForm.pricing_type === "per_night" ? "bg-white text-brand shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
+                      className={`rounded px-3 py-1 text-xs font-medium transition-colors ${optionForm.pricing_type === "per_night" ? "bg-white text-brand shadow-sm" : "text-earth-700 hover:text-earth-900"}`}
                     >
                       {t("pricingTypePerNight")}
                     </button>
                     <button
                       type="button"
                       onClick={() => setOptionForm((f) => ({ ...f, pricing_type: "per_time" }))}
-                      className={`rounded px-3 py-1 text-xs font-medium transition-colors ${optionForm.pricing_type === "per_time" ? "bg-white text-brand shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
+                      className={`rounded px-3 py-1 text-xs font-medium transition-colors ${optionForm.pricing_type === "per_time" ? "bg-white text-brand shadow-sm" : "text-earth-700 hover:text-earth-900"}`}
                     >
                       {t("pricingTypePerStay")}
                     </button>
@@ -1729,7 +1729,7 @@ export default function RoomsPage() {
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <CalendarDays className="h-4 w-4 text-brand" />
-                    <h3 className="text-sm font-semibold text-gray-900">{t("seasonalPricing")}</h3>
+                    <h3 className="text-sm font-semibold text-earth-900">{t("seasonalPricing")}</h3>
                   </div>
                   {canCopy("seasons") && (
                     <button
@@ -1741,7 +1741,7 @@ export default function RoomsPage() {
                     </button>
                   )}
                 </div>
-                <p className="text-xs text-gray-500">{t("seasonalPricingDesc")}</p>
+                <p className="text-xs text-earth-600">{t("seasonalPricingDesc")}</p>
 
                 {/* Seasons list — DB seasons for existing rooms, pending for new */}
                 {editingRoom ? (
@@ -1750,11 +1750,11 @@ export default function RoomsPage() {
                       {(seasonalPrices[editingRoom.id] || []).map((season) => (
                         <div
                           key={season.id}
-                          className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                          className="flex items-center justify-between rounded-md border bg-earth-50 px-3 py-2"
                         >
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-gray-900">{season.name}</p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-sm font-medium text-earth-900">{season.name}</p>
+                            <p className="text-xs text-earth-600">
                               {fmtDate(season.start_date)} → {fmtDate(season.end_date)} · <span className="font-medium text-brand">฿{season.price_per_night.toLocaleString()}</span>{tc("perNight")}
                             </p>
                           </div>
@@ -1780,7 +1780,7 @@ export default function RoomsPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs italic text-gray-400">{t("noSeasons")}</p>
+                    <p className="text-xs italic text-earth-600">{t("noSeasons")}</p>
                   )
                 ) : (
                   pendingSeasons.length > 0 ? (
@@ -1788,11 +1788,11 @@ export default function RoomsPage() {
                       {pendingSeasons.map((season, idx) => (
                         <div
                           key={idx}
-                          className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                          className="flex items-center justify-between rounded-md border bg-earth-50 px-3 py-2"
                         >
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-gray-900">{season.name}</p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-sm font-medium text-earth-900">{season.name}</p>
+                            <p className="text-xs text-earth-600">
                               {fmtDate(season.start_date)} → {fmtDate(season.end_date)} · <span className="font-medium text-brand">฿{season.price_per_night.toLocaleString()}</span>{tc("perNight")}
                             </p>
                           </div>
@@ -1808,13 +1808,13 @@ export default function RoomsPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs italic text-gray-400">{t("noSeasons")}</p>
+                    <p className="text-xs italic text-earth-600">{t("noSeasons")}</p>
                   )
                 )}
 
                 {/* Season add/edit form */}
                 <div className="space-y-2 rounded-md border bg-white p-3">
-                  <p className="text-xs font-medium text-gray-700">
+                  <p className="text-xs font-medium text-earth-800">
                     {editingSeason ? t("editSeason") : t("addSeason")}
                   </p>
                   <Input
@@ -1832,10 +1832,10 @@ export default function RoomsPage() {
                             variant="outline"
                             className="w-full justify-start text-left text-sm font-normal"
                           >
-                            <CalendarDays className="mr-2 h-3.5 w-3.5 text-gray-400" />
+                            <CalendarDays className="mr-2 h-3.5 w-3.5 text-earth-600" />
                             {seasonForm.start_date
                               ? fmtDate(seasonForm.start_date)
-                              : <span className="text-gray-400">{t("startDate")}</span>}
+                              : <span className="text-earth-600">{t("startDate")}</span>}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
@@ -1865,10 +1865,10 @@ export default function RoomsPage() {
                             variant="outline"
                             className="w-full justify-start text-left text-sm font-normal"
                           >
-                            <CalendarDays className="mr-2 h-3.5 w-3.5 text-gray-400" />
+                            <CalendarDays className="mr-2 h-3.5 w-3.5 text-earth-600" />
                             {seasonForm.end_date
                               ? fmtDate(seasonForm.end_date)
-                              : <span className="text-gray-400">{t("endDate")}</span>}
+                              : <span className="text-earth-600">{t("endDate")}</span>}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
@@ -1894,7 +1894,7 @@ export default function RoomsPage() {
                   <div>
                     <Label className="text-xs">{t("seasonPrice")}</Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">฿</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-earth-600">฿</span>
                       <Input
                         type="number"
                         className="pl-7 text-sm"
@@ -1928,7 +1928,7 @@ export default function RoomsPage() {
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <CalendarRange className="h-4 w-4 text-brand" />
-                    <h3 className="text-sm font-semibold text-gray-900">{t("specialPricing")}</h3>
+                    <h3 className="text-sm font-semibold text-earth-900">{t("specialPricing")}</h3>
                   </div>
                   {canCopy("specials") && (
                     <button
@@ -1940,7 +1940,7 @@ export default function RoomsPage() {
                     </button>
                   )}
                 </div>
-                <p className="text-xs text-gray-500">{t("specialPricingDesc")}</p>
+                <p className="text-xs text-earth-600">{t("specialPricingDesc")}</p>
 
                 {/* Rules list — DB rules for existing rooms, pending for new */}
                 {editingRoom ? (
@@ -1949,11 +1949,11 @@ export default function RoomsPage() {
                       {(specialPrices[editingRoom.id] || []).map((special) => (
                         <div
                           key={special.id}
-                          className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                          className="flex items-center justify-between rounded-md border bg-earth-50 px-3 py-2"
                         >
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-gray-900">{special.name}</p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-sm font-medium text-earth-900">{special.name}</p>
+                            <p className="text-xs text-earth-600">
                               {formatSpecialPriceRule(special, locale)} · <span className="font-medium text-brand">+฿{special.surcharge.toLocaleString()}</span>{tc("perNight")}
                             </p>
                           </div>
@@ -1979,7 +1979,7 @@ export default function RoomsPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs italic text-gray-400">{t("noSpecials")}</p>
+                    <p className="text-xs italic text-earth-600">{t("noSpecials")}</p>
                   )
                 ) : (
                   pendingSpecials.length > 0 ? (
@@ -1987,11 +1987,11 @@ export default function RoomsPage() {
                       {pendingSpecials.map((special, idx) => (
                         <div
                           key={idx}
-                          className="flex items-center justify-between rounded-md border bg-gray-50 px-3 py-2"
+                          className="flex items-center justify-between rounded-md border bg-earth-50 px-3 py-2"
                         >
                           <div className="min-w-0 flex-1">
-                            <p className="text-sm font-medium text-gray-900">{special.name}</p>
-                            <p className="text-xs text-gray-500">
+                            <p className="text-sm font-medium text-earth-900">{special.name}</p>
+                            <p className="text-xs text-earth-600">
                               {formatSpecialPriceRule(special, locale)} · <span className="font-medium text-brand">+฿{special.surcharge.toLocaleString()}</span>{tc("perNight")}
                             </p>
                           </div>
@@ -2007,7 +2007,7 @@ export default function RoomsPage() {
                       ))}
                     </div>
                   ) : (
-                    <p className="text-xs italic text-gray-400">{t("noSpecials")}</p>
+                    <p className="text-xs italic text-earth-600">{t("noSpecials")}</p>
                   )
                 )}
 
@@ -2026,18 +2026,18 @@ export default function RoomsPage() {
                   {/* Rule type */}
                   <div>
                     <Label className="text-xs">{t("specialRuleType")}</Label>
-                    <div className="mt-1 inline-flex rounded-md border bg-gray-50 p-0.5">
+                    <div className="mt-1 inline-flex rounded-md border bg-earth-50 p-0.5">
                       <button
                         type="button"
                         onClick={() => setSpecialForm((f) => ({ ...f, rule_type: "weekday" }))}
-                        className={`rounded px-3 py-1 text-xs font-medium transition-colors ${specialForm.rule_type === "weekday" ? "bg-white text-brand shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
+                        className={`rounded px-3 py-1 text-xs font-medium transition-colors ${specialForm.rule_type === "weekday" ? "bg-white text-brand shadow-sm" : "text-earth-700 hover:text-earth-900"}`}
                       >
                         {t("specialRuleWeekday")}
                       </button>
                       <button
                         type="button"
                         onClick={() => setSpecialForm((f) => ({ ...f, rule_type: "date" }))}
-                        className={`rounded px-3 py-1 text-xs font-medium transition-colors ${specialForm.rule_type === "date" ? "bg-white text-brand shadow-sm" : "text-gray-600 hover:text-gray-900"}`}
+                        className={`rounded px-3 py-1 text-xs font-medium transition-colors ${specialForm.rule_type === "date" ? "bg-white text-brand shadow-sm" : "text-earth-700 hover:text-earth-900"}`}
                       >
                         {t("specialRuleDate")}
                       </button>
@@ -2055,7 +2055,7 @@ export default function RoomsPage() {
                               key={preset.key}
                               type="button"
                               onClick={() => setSpecialForm((f) => ({ ...f, weekdays: [...preset.days] }))}
-                              className="rounded-full border px-2.5 py-1 text-xs font-medium text-gray-600 transition-colors hover:border-brand hover:text-brand"
+                              className="rounded-full border px-2.5 py-1 text-xs font-medium text-earth-700 transition-colors hover:border-brand hover:text-brand"
                             >
                               {t(preset.key)}
                             </button>
@@ -2071,7 +2071,7 @@ export default function RoomsPage() {
                                 type="button"
                                 onClick={() => toggleSpecialWeekday(day)}
                                 aria-pressed={on}
-                                className={`h-8 min-w-9 rounded-md border px-2 text-xs font-medium transition-colors ${on ? "border-brand bg-brand text-white" : "bg-white text-gray-600 hover:border-brand hover:text-brand"}`}
+                                className={`h-8 min-w-9 rounded-md border px-2 text-xs font-medium transition-colors ${on ? "border-brand bg-brand text-white" : "bg-white text-earth-700 hover:border-brand hover:text-brand"}`}
                               >
                                 {WEEKDAY_SHORT[locale === "th" ? "th" : "en"][day]}
                               </button>
@@ -2083,15 +2083,15 @@ export default function RoomsPage() {
                       {/* Optional window */}
                       <div>
                         <Label className="text-xs">{t("specialWindow")}</Label>
-                        <p className="mb-1 text-[11px] text-gray-400">{t("specialWindowHint")}</p>
+                        <p className="mb-1 text-[11px] text-earth-600">{t("specialWindowHint")}</p>
                         <div className="grid grid-cols-2 gap-2">
                           <Popover>
                             <PopoverTrigger asChild>
                               <Button variant="outline" className="w-full justify-start text-left text-sm font-normal">
-                                <CalendarDays className="mr-2 h-3.5 w-3.5 text-gray-400" />
+                                <CalendarDays className="mr-2 h-3.5 w-3.5 text-earth-600" />
                                 {specialForm.start_date
                                   ? fmtDate(specialForm.start_date)
-                                  : <span className="text-gray-400">{t("startDate")}</span>}
+                                  : <span className="text-earth-600">{t("startDate")}</span>}
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
@@ -2115,10 +2115,10 @@ export default function RoomsPage() {
                           <Popover>
                             <PopoverTrigger asChild>
                               <Button variant="outline" className="w-full justify-start text-left text-sm font-normal">
-                                <CalendarDays className="mr-2 h-3.5 w-3.5 text-gray-400" />
+                                <CalendarDays className="mr-2 h-3.5 w-3.5 text-earth-600" />
                                 {specialForm.end_date
                                   ? fmtDate(specialForm.end_date)
-                                  : <span className="text-gray-400">{t("endDate")}</span>}
+                                  : <span className="text-earth-600">{t("endDate")}</span>}
                               </Button>
                             </PopoverTrigger>
                             <PopoverContent className="w-auto p-0" align="start">
@@ -2144,7 +2144,7 @@ export default function RoomsPage() {
                           <button
                             type="button"
                             onClick={() => setSpecialForm((f) => ({ ...f, start_date: "", end_date: "" }))}
-                            className="mt-1.5 text-[11px] font-medium text-gray-500 transition-colors hover:text-brand"
+                            className="mt-1.5 text-[11px] font-medium text-earth-600 transition-colors hover:text-brand"
                           >
                             {t("specialWindowClear")}
                           </button>
@@ -2158,10 +2158,10 @@ export default function RoomsPage() {
                       <Popover>
                         <PopoverTrigger asChild>
                           <Button variant="outline" className="mt-1 w-full justify-start text-left text-sm font-normal">
-                            <CalendarDays className="mr-2 h-3.5 w-3.5 text-gray-400" />
+                            <CalendarDays className="mr-2 h-3.5 w-3.5 text-earth-600" />
                             {specialForm.dates.length > 0
                               ? t("specialDatesCount", { count: specialForm.dates.length })
-                              : <span className="text-gray-400">{t("specialDatesPick")}</span>}
+                              : <span className="text-earth-600">{t("specialDatesPick")}</span>}
                           </Button>
                         </PopoverTrigger>
                         <PopoverContent className="w-auto p-0" align="start">
@@ -2190,14 +2190,14 @@ export default function RoomsPage() {
                           {specialForm.dates.map((d) => (
                             <span
                               key={d}
-                              className="inline-flex items-center gap-1 rounded-full border bg-gray-50 py-1 pl-2.5 pr-1 text-xs text-gray-700"
+                              className="inline-flex items-center gap-1 rounded-full border bg-earth-50 py-1 pl-2.5 pr-1 text-xs text-earth-800"
                             >
                               {fmtDate(d)}
                               <button
                                 type="button"
                                 onClick={() => toggleSpecialDate(d)}
                                 aria-label={tc("delete")}
-                                className="rounded-full p-0.5 text-gray-400 transition-colors hover:bg-gray-200 hover:text-red-600"
+                                className="rounded-full p-0.5 text-earth-600 transition-colors hover:bg-earth-200 hover:text-red-600"
                               >
                                 <X className="h-3 w-3" />
                               </button>
@@ -2211,7 +2211,7 @@ export default function RoomsPage() {
                   <div>
                     <Label className="text-xs">{t("specialSurcharge")}</Label>
                     <div className="relative">
-                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-gray-500">+฿</span>
+                      <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-earth-600">+฿</span>
                       <Input
                         type="number"
                         className="pl-9 text-sm"
@@ -2222,12 +2222,12 @@ export default function RoomsPage() {
                     {/* Spell the arithmetic out. The whole point of this tier is that the
                         number ADDS to whatever sits under the night, and a bare number in
                         a box is exactly what got read as a replacement price before. */}
-                    <p className="mt-1 text-[11px] text-gray-500">
+                    <p className="mt-1 text-[11px] text-earth-600">
                       {specialSurchargePreview ?? t("specialSurchargeHint")}
                     </p>
                   </div>
 
-                  <p className="text-[11px] text-gray-400">{t("specialPrecedenceHint")}</p>
+                  <p className="text-[11px] text-earth-600">{t("specialPrecedenceHint")}</p>
 
                   <div className="flex gap-2">
                     <Button
@@ -2253,17 +2253,17 @@ export default function RoomsPage() {
             <div className="space-y-2">
               <Label>{t("roomImages")}</Label>
               <div
-                className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 p-6 transition-colors"
+                className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-earth-200 p-6 transition-colors"
                 onClick={() => fileInputRef.current?.click()}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2F5D5066'; e.currentTarget.style.backgroundColor = '#2F5D500d'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
               >
                 {uploading ? (
-                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                  <Loader2 className="h-6 w-6 animate-spin text-earth-600" />
                 ) : (
                   <>
-                    <Upload className="h-6 w-6 text-gray-400" />
-                    <p className="mt-2 text-sm text-gray-500">{t("clickUpload")}</p>
+                    <Upload className="h-6 w-6 text-earth-600" />
+                    <p className="mt-2 text-sm text-earth-600">{t("clickUpload")}</p>
                   </>
                 )}
               </div>
@@ -2326,7 +2326,7 @@ export default function RoomsPage() {
               <Trash2 className="h-4 w-4 text-red-500" />
               {t("confirmDeleteTitle")}
             </DialogTitle>
-            <DialogDescription className="text-sm text-gray-600">
+            <DialogDescription className="text-sm text-earth-700">
               {confirmMessage}
             </DialogDescription>
           </DialogHeader>
@@ -2366,7 +2366,7 @@ export default function RoomsPage() {
                   <Copy className="h-4 w-4 text-brand" />
                   {t(COPY_TITLE_KEY[copySection])}
                 </DialogTitle>
-                <DialogDescription className="text-sm text-gray-600">
+                <DialogDescription className="text-sm text-earth-700">
                   {t("copyDesc", { count: copySourceCount, room: editingRoom.name })}
                 </DialogDescription>
               </DialogHeader>
@@ -2381,9 +2381,9 @@ export default function RoomsPage() {
                         allTargetsSelected ? new Set() : new Set(otherRooms.map((r) => r.id))
                       )
                     }
-                    className="h-4 w-4 rounded border-gray-300 text-brand focus:ring-brand"
+                    className="h-4 w-4 rounded border-earth-300 text-brand focus:ring-brand"
                   />
-                  <span className="text-sm font-medium text-gray-900">
+                  <span className="text-sm font-medium text-earth-900">
                     {t("copySelectAll", { count: otherRooms.length })}
                   </span>
                 </label>
@@ -2396,19 +2396,19 @@ export default function RoomsPage() {
                       <label
                         key={room.id}
                         className={`flex cursor-pointer items-center gap-3 rounded-md border px-3 py-2 transition-colors ${
-                          checked ? "border-brand bg-brand/5" : "border-gray-200 bg-gray-50"
+                          checked ? "border-brand bg-brand/5" : "border-earth-200 bg-earth-50"
                         }`}
                       >
                         <input
                           type="checkbox"
                           checked={checked}
                           onChange={() => toggleCopyTarget(room.id)}
-                          className="h-4 w-4 rounded border-gray-300 text-brand focus:ring-brand"
+                          className="h-4 w-4 rounded border-earth-300 text-brand focus:ring-brand"
                         />
-                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-gray-900">
+                        <span className="min-w-0 flex-1 truncate text-sm font-medium text-earth-900">
                           {room.name}
                         </span>
-                        <span className="shrink-0 text-xs text-gray-500">
+                        <span className="shrink-0 text-xs text-earth-600">
                           {existing > 0
                             ? t("copyTargetCount", { count: existing })
                             : t("copyTargetEmpty")}

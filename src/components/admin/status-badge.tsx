@@ -13,6 +13,7 @@ const TONE_CLASSES: Record<Tone, string> = {
 
 const STATUS_TONES: Record<string, Tone> = {
   // booking statuses
+  verified:  "brand",
   confirmed: "brand",
   completed: "earth",
   pending:   "amber",
@@ -26,6 +27,15 @@ const STATUS_TONES: Record<string, Tone> = {
   paid:      "brand",
   overdue:   "destructive",
 };
+
+/**
+ * The tone classes for a status (or an explicit tone), for places that keep
+ * their own badge markup: the host dashboard uses the admin tones so a colour
+ * means the same status everywhere (ui-audit S12).
+ */
+export function statusToneClass(status: string, tone?: Tone): string {
+  return TONE_CLASSES[tone ?? STATUS_TONES[status.toLowerCase()] ?? "muted"];
+}
 
 interface StatusBadgeProps {
   status: string;

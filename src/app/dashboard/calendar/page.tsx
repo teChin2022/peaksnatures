@@ -65,6 +65,7 @@ import { toast } from "sonner";
 import type { BookingStatus } from "@/types/database";
 import { QuickBookingDialog } from "@/components/dashboard/quick-booking-dialog";
 import { BookingAttachments } from "@/components/dashboard/booking-attachments";
+import { statusToneClass } from "@/components/admin/status-badge";
 
 interface BookingRow {
   id: string;
@@ -117,12 +118,12 @@ async function resolveSingleSlipUrl(
 }
 
 const STATUS_BADGE: Record<BookingStatus, string> = {
-  pending: "bg-yellow-100 text-yellow-700",
-  verified: "bg-blue-100 text-blue-700",
-  confirmed: "bg-green-100 text-green-700",
-  rejected: "bg-red-100 text-red-700",
-  cancelled: "bg-gray-100 text-gray-500",
-  completed: "bg-purple-100 text-purple-700",
+  pending: statusToneClass("pending"),
+  verified: statusToneClass("verified"),
+  confirmed: statusToneClass("confirmed"),
+  rejected: statusToneClass("rejected"),
+  cancelled: statusToneClass("cancelled"),
+  completed: statusToneClass("completed"),
 };
 
 interface BlockedDateRow {
@@ -621,9 +622,9 @@ export default function CalendarPage() {
 
   if (!homestayId) {
     return (
-      <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-gray-200 py-16 text-center">
-        <CalendarDays className="h-10 w-10 text-gray-300" />
-        <p className="mt-3 text-sm font-medium text-gray-500">{t("noHomestay")}</p>
+      <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-earth-200 py-16 text-center">
+        <CalendarDays className="h-10 w-10 text-earth-300" />
+        <p className="mt-3 text-sm font-medium text-earth-600">{t("noHomestay")}</p>
       </div>
     );
   }
@@ -631,7 +632,7 @@ export default function CalendarPage() {
   return (
     <div>
       <div className="flex items-center justify-between mb-6">
-        <h1 className="text-xl font-bold text-gray-900">{t("title")}</h1>
+        <h1 className="text-xl font-bold text-earth-900">{t("title")}</h1>
         {homestayId && roomsFull.length > 0 && (
           <Button
             size="sm"
@@ -665,7 +666,7 @@ export default function CalendarPage() {
               <Wallet className="h-6 w-6" />
             </div>
             <div className="min-w-0">
-              <p className="text-xs font-medium text-gray-500">
+              <p className="text-xs font-medium text-earth-600">
                 {t("monthlyRevenue")} · {fmtDate(currentMonth, "MMMM yyyy", locale)}
               </p>
               <p className="mt-0.5 text-3xl font-bold tracking-tight text-brand tabular-nums">
@@ -678,28 +679,28 @@ export default function CalendarPage() {
 
         <Card>
           <CardContent className="p-4 sm:p-5">
-            <p className="text-xs font-medium text-gray-500">
+            <p className="text-xs font-medium text-earth-600">
               {tDash("bookingsByRoom")} · {fmtDate(currentMonth, "MMMM yyyy", locale)}
             </p>
             {roomBookings.length > 0 ? (
               <ul className="mt-3 space-y-2">
                 {roomBookings.map((r) => (
                   <li key={r.id} className="flex items-center gap-3">
-                    <span className="w-24 shrink-0 truncate text-sm text-gray-700">{r.name}</span>
-                    <div className="h-2 flex-1 rounded-full bg-gray-100" aria-hidden="true">
+                    <span className="w-24 shrink-0 truncate text-sm text-earth-800">{r.name}</span>
+                    <div className="h-2 flex-1 rounded-full bg-earth-100" aria-hidden="true">
                       <div
                         className="h-full rounded-full bg-brand transition-all"
                         style={{ width: `${(r.count / maxRoomCount) * 100}%` }}
                       />
                     </div>
-                    <span className="w-6 shrink-0 text-right text-sm font-semibold tabular-nums text-gray-900">
+                    <span className="w-6 shrink-0 text-right text-sm font-semibold tabular-nums text-earth-900">
                       {r.count}
                     </span>
                   </li>
                 ))}
               </ul>
             ) : (
-              <p className="py-6 text-center text-sm text-gray-300">{tDash("noChartData")}</p>
+              <p className="py-6 text-center text-sm text-earth-300">{tDash("noChartData")}</p>
             )}
           </CardContent>
         </Card>
@@ -709,28 +710,28 @@ export default function CalendarPage() {
       <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500">{t("available")}</p>
+            <p className="text-xs text-earth-600">{t("available")}</p>
             <p className="text-2xl font-bold text-brand">
               {monthStats.available}
             </p>
-            <p className="text-xs text-gray-400">{monthStats.pct}%</p>
+            <p className="text-xs text-earth-600">{monthStats.pct}%</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500">{t("booked")}</p>
+            <p className="text-xs text-earth-600">{t("booked")}</p>
             <p className="text-2xl font-bold text-blue-600">{monthStats.booked}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500">{t("blocked")}</p>
+            <p className="text-xs text-earth-600">{t("blocked")}</p>
             <p className="text-2xl font-bold text-red-500">{monthStats.blocked}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
-            <p className="text-xs text-gray-500">{t("pending")}</p>
+            <p className="text-xs text-earth-600">{t("pending")}</p>
             <p className="text-2xl font-bold text-yellow-600">
               {bookings.filter((b) => b.status === "pending").length}
             </p>
@@ -765,7 +766,7 @@ export default function CalendarPage() {
           {/* Room filter */}
           {rooms.length > 0 && (
             <div>
-              <Label className="text-xs text-gray-500 mb-1.5 block">{t("allRooms")}</Label>
+              <Label className="text-xs text-earth-600 mb-1.5 block">{t("allRooms")}</Label>
               <Select value={selectedRoomFilter} onValueChange={setSelectedRoomFilter}>
                 <SelectTrigger className="w-full">
                   <SelectValue />
@@ -858,7 +859,7 @@ export default function CalendarPage() {
             {weekdayLabels.map((day) => (
               <div
                 key={day}
-                className="py-2 text-center text-xs font-medium text-gray-500"
+                className="py-2 text-center text-xs font-medium text-earth-600"
               >
                 {day}
               </div>
@@ -877,12 +878,12 @@ export default function CalendarPage() {
                 (bi) => bi.booking.status === "pending"
               );
 
-              let bgClass = "bg-white hover:bg-gray-50";
-              let textClass = "text-gray-900";
+              let bgClass = "bg-white hover:bg-earth-50";
+              let textClass = "text-earth-900";
 
               if (!dayInfo.isCurrentMonth) {
-                bgClass = "bg-gray-50/50";
-                textClass = "text-gray-300";
+                bgClass = "bg-earth-50/50";
+                textClass = "text-earth-300";
               } else if (dayInfo.isBlocked) {
                 bgClass = "bg-red-50 hover:bg-red-100";
                 textClass = "text-red-700";
@@ -974,7 +975,7 @@ export default function CalendarPage() {
                         );
                       })}
                       {dayInfo.bookings.length > 2 && (
-                        <p className="text-[8px] text-gray-400 pl-0.5">+{dayInfo.bookings.length - 2}</p>
+                        <p className="text-[8px] text-earth-600 pl-0.5">+{dayInfo.bookings.length - 2}</p>
                       )}
                     </div>
                   )}
@@ -1000,7 +1001,7 @@ export default function CalendarPage() {
           </div>
 
           {/* Legend */}
-          <div className="mt-4 flex flex-wrap items-center gap-4 border-t pt-4 text-xs text-gray-500">
+          <div className="mt-4 flex flex-wrap items-center gap-4 border-t pt-4 text-xs text-earth-600">
             <div className="flex items-center gap-1.5">
               <span
                 className="inline-block h-3 w-3 rounded-full bg-brand"
@@ -1016,10 +1017,10 @@ export default function CalendarPage() {
               {t("legendBlocked")}
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-full border border-gray-300 bg-white" />
+              <span className="inline-block h-3 w-3 rounded-full border border-earth-300 bg-white" />
               {t("legendAvailable")}
             </div>
-            <div className="ml-auto flex items-center gap-1 text-gray-400">
+            <div className="ml-auto flex items-center gap-1 text-earth-600">
               <Info className="h-3.5 w-3.5" />
               {t("clickToSelect")}
             </div>
@@ -1120,7 +1121,7 @@ export default function CalendarPage() {
                         className="rounded-lg border p-3 text-sm"
                       >
                         <div className="flex items-center justify-between mb-2">
-                          <span className="font-semibold text-gray-900">
+                          <span className="font-semibold text-earth-900">
                             {bi.booking.guest_name}
                           </span>
                           <div className="flex items-center gap-1.5">
@@ -1147,14 +1148,14 @@ export default function CalendarPage() {
                         <div className="grid grid-cols-2 gap-2 text-xs">
                           <div className="rounded-md bg-brand-50 px-2.5 py-1.5">
                             <p className="text-brand font-medium mb-0.5">{t("checkIn")}</p>
-                            <p className="text-gray-900 font-semibold">{fmtDateStr(bi.booking.check_in, "d MMM yyyy", locale)}</p>
+                            <p className="text-earth-900 font-semibold">{fmtDateStr(bi.booking.check_in, "d MMM yyyy", locale)}</p>
                           </div>
                           <div className="rounded-md bg-orange-50 px-2.5 py-1.5">
                             <p className="text-orange-600 font-medium mb-0.5">{t("checkOut")}</p>
-                            <p className="text-gray-900 font-semibold">{fmtDateStr(bi.booking.check_out, "d MMM yyyy", locale)}</p>
+                            <p className="text-earth-900 font-semibold">{fmtDateStr(bi.booking.check_out, "d MMM yyyy", locale)}</p>
                           </div>
                         </div>
-                        <div className="flex items-center justify-between mt-2 text-xs text-gray-500">
+                        <div className="flex items-center justify-between mt-2 text-xs text-earth-600">
                           <span>
                             {bi.booking.room_id ? roomMap[bi.booking.room_id] || "—" : "—"} · {bi.booking.num_guests} {t("guests")}
                           </span>
@@ -1198,7 +1199,7 @@ export default function CalendarPage() {
                       </div>
                       <Skeleton className="h-56 w-full rounded-lg" />
                     </div>
-                    <div className="rounded-lg border bg-gray-50 p-4 space-y-3">
+                    <div className="rounded-lg border bg-earth-50 p-4 space-y-3">
                       <div className="flex items-center gap-2">
                         <Skeleton className="h-4 w-4 rounded-full" />
                         <Skeleton className="h-4 w-32" />
@@ -1211,7 +1212,7 @@ export default function CalendarPage() {
                         <Skeleton className="h-4 w-4 rounded-full" />
                         <Skeleton className="h-4 w-28" />
                       </div>
-                      <div className="border-t border-gray-200 pt-3 space-y-2">
+                      <div className="border-t border-earth-200 pt-3 space-y-2">
                         <div className="flex justify-between">
                           <Skeleton className="h-4 w-16" />
                           <Skeleton className="h-4 w-24" />
@@ -1250,7 +1251,7 @@ export default function CalendarPage() {
                         {fb.payment_slip_url ? (
                           <div className="space-y-2">
                             <div className="flex items-center justify-between">
-                              <h4 className="text-sm font-medium text-gray-700 flex items-center gap-1.5">
+                              <h4 className="text-sm font-medium text-earth-800 flex items-center gap-1.5">
                                 <CreditCard className="h-4 w-4" />
                                 {tDash("paymentSlip")}
                               </h4>
@@ -1266,7 +1267,7 @@ export default function CalendarPage() {
                                 </Badge>
                               )}
                             </div>
-                            <div className="rounded-lg border bg-gray-50 p-2">
+                            <div className="rounded-lg border bg-earth-50 p-2">
                               <Image
                                 src={fb.payment_slip_url}
                                 alt="Payment slip"
@@ -1278,7 +1279,7 @@ export default function CalendarPage() {
                             </div>
                           </div>
                         ) : (
-                          <div className="flex items-center gap-2 rounded-lg border border-dashed border-gray-200 p-4 text-sm text-gray-400">
+                          <div className="flex items-center gap-2 rounded-lg border border-dashed border-earth-200 p-4 text-sm text-earth-600">
                             <ImageIcon className="h-5 w-5" />
                             {tDash("noSlip")}
                           </div>
@@ -1292,50 +1293,50 @@ export default function CalendarPage() {
                             until the fetch effect runs. */}
                         <BookingAttachments key={activeBookingId} bookingId={activeBookingId} />
 
-                        <div className="rounded-lg border bg-gray-50 p-4 space-y-2 text-sm">
+                        <div className="rounded-lg border bg-earth-50 p-4 space-y-2 text-sm">
                           <div className="flex items-center gap-2">
-                            <User className="h-4 w-4 text-gray-400" />
-                            <span className="font-medium text-gray-900">{fb.guest_name}</span>
+                            <User className="h-4 w-4 text-earth-600" />
+                            <span className="font-medium text-earth-900">{fb.guest_name}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Mail className="h-4 w-4 text-gray-400" />
-                            <span className="text-gray-600 break-all">{fb.guest_email}</span>
+                            <Mail className="h-4 w-4 text-earth-600" />
+                            <span className="text-earth-700 break-all">{fb.guest_email}</span>
                           </div>
                           <div className="flex items-center gap-2">
-                            <Phone className="h-4 w-4 text-gray-400" />
-                            <span className="text-gray-600">{fb.guest_phone}</span>
+                            <Phone className="h-4 w-4 text-earth-600" />
+                            <span className="text-earth-700">{fb.guest_phone}</span>
                           </div>
                           {fb.guest_province && (
                             <div className="flex items-center gap-2">
-                              <MapPin className="h-4 w-4 text-gray-400" />
-                              <span className="text-gray-600">{getProvinceLabel(fb.guest_province, locale)}</span>
+                              <MapPin className="h-4 w-4 text-earth-600" />
+                              <span className="text-earth-700">{getProvinceLabel(fb.guest_province, locale)}</span>
                             </div>
                           )}
 
-                          <div className="border-t border-gray-200 pt-2 mt-2 space-y-1">
+                          <div className="border-t border-earth-200 pt-2 mt-2 space-y-1">
                             <div className="flex justify-between">
-                              <span className="text-gray-500">{tDash("room")}</span>
+                              <span className="text-earth-600">{tDash("room")}</span>
                               <span className="font-medium">
                                 {fb.room_id ? roomMap[fb.room_id] || "—" : "—"}
                               </span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-gray-500">{tDash("dates")}</span>
+                              <span className="text-earth-600">{tDash("dates")}</span>
                               <span>
                                 {fmtDateStr(fb.check_in, "d MMM yyyy", locale)} → {fmtDateStr(fb.check_out, "d MMM yyyy", locale)}
                               </span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-gray-500">{tDash("guests")}</span>
+                              <span className="text-earth-600">{tDash("guests")}</span>
                               <span>{fb.num_guests}</span>
                             </div>
                             {fb.selected_options && fb.selected_options.length > 0 && (
                               <div>
-                                <span className="text-gray-500">{tDash("options")}</span>
+                                <span className="text-earth-600">{tDash("options")}</span>
                                 <div className="mt-1 space-y-0.5">
                                   {fb.selected_options.map((o, i) => (
                                     <div key={i} className="flex justify-between text-xs">
-                                      <span className="text-gray-600">{o.name}</span>
+                                      <span className="text-earth-700">{o.name}</span>
                                       <span className="font-medium text-brand">+฿{o.price.toLocaleString()}</span>
                                     </div>
                                   ))}
@@ -1345,8 +1346,8 @@ export default function CalendarPage() {
                             {(fb.discount_amount ?? 0) > 0 && (
                               <>
                                 <div className="flex justify-between text-sm">
-                                  <span className="text-gray-500">{tDash("subtotal")}</span>
-                                  <span className="font-medium text-gray-900">
+                                  <span className="text-earth-600">{tDash("subtotal")}</span>
+                                  <span className="font-medium text-earth-900">
                                     ฿{(fb.total_price + (fb.discount_amount ?? 0)).toLocaleString()}
                                   </span>
                                 </div>
@@ -1359,12 +1360,12 @@ export default function CalendarPage() {
                               </>
                             )}
                             <div className="flex justify-between">
-                              <span className="text-gray-500">{tDash("total")}</span>
+                              <span className="text-earth-600">{tDash("total")}</span>
                               <span className="font-bold text-brand">฿{fb.total_price.toLocaleString()}</span>
                             </div>
                             <div className="flex justify-between">
-                              <span className="text-gray-500">{tDash("amountPaid")}</span>
-                              <span className="font-medium text-gray-900">฿{fb.amount_paid.toLocaleString()}</span>
+                              <span className="text-earth-600">{tDash("amountPaid")}</span>
+                              <span className="font-medium text-earth-900">฿{fb.amount_paid.toLocaleString()}</span>
                             </div>
                             {balance > 0 && (
                               <div className="flex justify-between">
@@ -1375,7 +1376,7 @@ export default function CalendarPage() {
                               </div>
                             )}
                           </div>
-                          <p className="text-xs text-gray-400 pt-1">ID: {fb.id}</p>
+                          <p className="text-xs text-earth-600 pt-1">ID: {fb.id}</p>
                         </div>
                       </div>
                     );

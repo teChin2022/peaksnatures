@@ -28,19 +28,19 @@ export default function PendingApprovalPage() {
           </div>
 
           <div className="space-y-2">
-            <h1 className="text-2xl font-bold text-gray-900">
+            <h1 className="text-2xl font-bold text-earth-900">
               รอการอนุมัติ
             </h1>
-            <p className="text-base text-gray-500">
+            <p className="text-base text-earth-600">
               Account Pending Approval
             </p>
           </div>
 
-          <div className="space-y-3 text-sm text-gray-600">
+          <div className="space-y-3 text-sm text-earth-700">
             <p>
               บัญชีของคุณกำลังรอการตรวจสอบจากทีมงาน เราจะแจ้งผลให้ทราบทางอีเมลเมื่อได้รับการอนุมัติ
             </p>
-            <p className="text-gray-400">
+            <p className="text-earth-600">
               Your account is being reviewed by our team. We&apos;ll notify you by email once approved.
             </p>
           </div>

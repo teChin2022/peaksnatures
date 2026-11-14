@@ -116,7 +116,7 @@ export function SlipPaymentFields({
           <p className="text-xs font-semibold uppercase tracking-wider text-brand mb-3">
             {t("transferTo")}
           </p>
-          <div className="space-y-2 text-sm text-gray-700">
+          <div className="space-y-2 text-sm text-earth-800">
             <div className="flex justify-between">
               <span className="text-earth-500">{t("bankLabel")}</span>
               <span className="font-medium text-earth-900">{platformPayment!.bank_name}</span>
@@ -145,7 +145,7 @@ export function SlipPaymentFields({
 
       {/* Upload slip */}
       <div className="space-y-2">
-        <Label className="text-sm text-gray-700">{t("paymentSlip")}</Label>
+        <Label className="text-sm text-earth-800">{t("paymentSlip")}</Label>
 
         {file ? (
           <div className="rounded-2xl border bg-earth-50 p-3">

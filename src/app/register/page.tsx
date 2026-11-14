@@ -120,23 +120,23 @@ export default function RegisterPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4 py-8">
+    <main className="flex min-h-screen items-center justify-center bg-earth-50 px-4 py-8">
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2">
-          <span className="text-2xl font-bold text-gray-900">{t('register')}</span>
-          <p className="text-sm text-gray-500">{t("registerAs")}</p>
+          <h1 className="font-serif text-3xl leading-tight text-earth-900">{t('register')}</h1>
+          <p className="text-sm text-earth-600">{t("registerAs")}</p>
         </div>
 
         {emailSent ? (
           <Card>
             <CardContent className="flex flex-col items-center gap-4 py-8">
-              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-gray-100">
-                <Mail className="h-8 w-8 text-gray-900" />
+              <div className="flex h-16 w-16 items-center justify-center rounded-full bg-earth-100">
+                <Mail className="h-8 w-8 text-earth-900" />
               </div>
-              <h2 className="text-xl font-semibold text-gray-900">
+              <h2 className="text-xl font-semibold text-earth-900">
                 {t("checkEmailTitle")}
               </h2>
-              <p className="text-center text-sm text-gray-500">
+              <p className="text-center text-sm text-earth-600">
                 {t("checkEmailDesc", { email })}
               </p>
               <p className="text-center text-xs text-amber-600 bg-amber-50 rounded-lg px-4 py-2">
@@ -144,7 +144,7 @@ export default function RegisterPage() {
               </p>
               <Link
                 href="/login"
-                className="mt-2 text-sm font-medium text-gray-900 hover:text-gray-700"
+                className="mt-2 text-sm font-medium text-earth-900 hover:text-earth-800"
               >
                 {t("backToSignIn")}
               </Link>
@@ -166,9 +166,9 @@ export default function RegisterPage() {
                   </div>
                 )}
                 <div className="space-y-1.5">
-                  <label htmlFor="name" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("fullName")} <span className="text-red-500">*</span></label>
+                  <label htmlFor="name" className="text-[13px] font-medium text-earth-700">{t("fullName")} <span className="text-red-500">*</span></label>
                   <div className="relative">
-                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <User className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-600" size={16} />
                     <Input
                       id="name"
                       type="text"
@@ -177,14 +177,14 @@ export default function RegisterPage() {
                       onChange={(e) => setName(e.target.value)}
                       onBlur={() => setTouched(prev => new Set([...prev, "name"]))}
                       required
-                      className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("name") && !name.trim() ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-gray-200 hover:!border-gray-400 focus-visible:!border-gray-400"} !bg-white transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0`}
+                      className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("name") && !name.trim() ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
                     />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="email" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("email")} <span className="text-red-500">*</span></label>
+                  <label htmlFor="email" className="text-[13px] font-medium text-earth-700">{t("email")} <span className="text-red-500">*</span></label>
                   <div className="relative">
-                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-600" size={16} />
                     <Input
                       id="email"
                       type="email"
@@ -194,14 +194,14 @@ export default function RegisterPage() {
                       onBlur={() => setTouched(prev => new Set([...prev, "email"]))}
                       required
                       autoComplete="email"
-                      className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("email") && !email.trim() ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-gray-200 hover:!border-gray-400 focus-visible:!border-gray-400"} !bg-white transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0`}
+                      className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("email") && !email.trim() ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
                     />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="phone" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("phone")} <span className="text-red-500">*</span></label>
+                  <label htmlFor="phone" className="text-[13px] font-medium text-earth-700">{t("phone")} <span className="text-red-500">*</span></label>
                   <div className="relative">
-                    <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                    <Phone className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-600" size={16} />
                     <Input
                       id="phone"
                       type="tel"
@@ -213,12 +213,12 @@ export default function RegisterPage() {
                       onBlur={() => setTouched(prev => new Set([...prev, "phone"]))}
                       required
                       autoComplete="tel"
-                      className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("phone") && !isValidPhone(phone) ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-gray-200 hover:!border-gray-400 focus-visible:!border-gray-400"} !bg-white transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0`}
+                      className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("phone") && !isValidPhone(phone) ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
                     />
                   </div>
                 </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="password" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("password")} <span className="text-red-500">*</span></label>
+                  <label htmlFor="password" className="text-[13px] font-medium text-earth-700">{t("password")} <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Input
                       id="password"
@@ -233,12 +233,12 @@ export default function RegisterPage() {
                       required
                       minLength={6}
                       autoComplete="new-password"
-                      className={`pr-10 p-3.5 !h-auto rounded-xl !border ${touched.has("password") && (!password || !!passwordWarning) ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-gray-200 hover:!border-gray-400 focus-visible:!border-gray-400"} !bg-white transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0`}
+                      className={`pr-10 p-3.5 !h-auto rounded-xl !border ${touched.has("password") && (!password || !!passwordWarning) ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
                     />
                     <button
                       type="button"
                       aria-label={showPassword ? t("hidePassword") : t("showPassword")} onClick={() => setShowPassword(!showPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-earth-600 hover:text-earth-700"
                       tabIndex={-1}
                     >
                       {showPassword ? (
@@ -253,7 +253,7 @@ export default function RegisterPage() {
                   )}
                 </div>
                 <div className="space-y-1.5">
-                  <label htmlFor="confirmPassword" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("confirmPassword")} <span className="text-red-500">*</span></label>
+                  <label htmlFor="confirmPassword" className="text-[13px] font-medium text-earth-700">{t("confirmPassword")} <span className="text-red-500">*</span></label>
                   <div className="relative">
                     <Input
                       id="confirmPassword"
@@ -268,12 +268,12 @@ export default function RegisterPage() {
                       required
                       minLength={6}
                       autoComplete="new-password"
-                      className={`pr-10 p-3.5 !h-auto rounded-xl !border ${touched.has("confirmPassword") && (!confirmPassword || !!confirmPasswordWarning) ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-gray-200 hover:!border-gray-400 focus-visible:!border-gray-400"} !bg-white transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0`}
+                      className={`pr-10 p-3.5 !h-auto rounded-xl !border ${touched.has("confirmPassword") && (!confirmPassword || !!confirmPasswordWarning) ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
                     />
                     <button
                       type="button"
                       aria-label={showConfirmPassword ? t("hidePassword") : t("showPassword")} onClick={() => setShowConfirmPassword(!showConfirmPassword)}
-                      className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                      className="absolute right-3 top-1/2 -translate-y-1/2 text-earth-600 hover:text-earth-700"
                       tabIndex={-1}
                     >
                       {showConfirmPassword ? (
@@ -304,16 +304,16 @@ export default function RegisterPage() {
                     type="checkbox"
                     checked={pdpaConsent}
                     onChange={(e) => setPdpaConsent(e.target.checked)}
-                    className="mt-1 h-4 w-4 rounded border-gray-300 text-gray-900 focus:ring-gray-900"
+                    className="mt-1 h-4 w-4 rounded border-earth-300 text-earth-900 focus:ring-earth-900"
                   />
-                  <span className="text-xs text-gray-600">
+                  <span className="text-xs text-earth-700">
                     {t.rich("pdpaConsent", {
                       privacy: (chunks) => (
                         <a
                           href="/legal#privacy"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-medium underline hover:text-gray-900"
+                          className="font-medium underline hover:text-earth-900"
                         >
                           {chunks}
                         </a>
@@ -323,7 +323,7 @@ export default function RegisterPage() {
                           href="/legal#terms"
                           target="_blank"
                           rel="noopener noreferrer"
-                          className="font-medium underline hover:text-gray-900"
+                          className="font-medium underline hover:text-earth-900"
                         >
                           {chunks}
                         </a>
@@ -333,17 +333,17 @@ export default function RegisterPage() {
                 </label>
                 <Button
                   type="submit"
-                className="w-full bg-brand text-white px-10 py-6 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl"
+                className="w-full bg-brand text-white px-10 py-6 rounded-full font-bold text-sm hover:bg-brand-hover transition-colors"
                   disabled={loading || (!turnstileToken && !turnstileError) || !pdpaConsent}
                 >
                   {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                   {t("createAccount")}
                 </Button>
-                <p className="text-center text-sm text-gray-500">
+                <p className="text-center text-sm text-earth-600">
                   {t("haveAccount")}{" "}
                   <Link
                     href="/login"
-                    className="font-medium text-gray-900 hover:text-gray-700"
+                    className="font-medium text-earth-900 hover:text-earth-800"
                   >
                     {t("signIn")}
                   </Link>
@@ -371,6 +371,6 @@ export default function RegisterPage() {
           </DialogFooter>
         </DialogContent>
       </Dialog>
-    </div>
+    </main>
   );
 }

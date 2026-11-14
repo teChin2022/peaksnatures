@@ -28,9 +28,14 @@ afterEach(() => {
   vi.unstubAllGlobals();
 });
 
-const render = (images: string[]) =>
-  act(() => root.render(createElement(RoomLightbox, { images, name: "Baan", startIndex: 0, onClose: () => {} })));
-const thumbs = () => [...container.querySelectorAll("button[aria-current]")] as HTMLButtonElement[];
+// The lightbox renders in a portal (a Radix dialog), so its parts live under document.body.
+let onClose = vi.fn();
+const render = (images: string[]) => {
+  onClose = vi.fn();
+  act(() => root.render(createElement(RoomLightbox, { images, name: "Baan", startIndex: 0, onClose })));
+};
+const lightbox = () => document.querySelector("[role=dialog]") as HTMLElement;
+const thumbs = () => [...document.body.querySelectorAll("button[aria-current]")] as HTMLButtonElement[];
 
 describe("RoomLightbox thumbnails", () => {
   it("shows one thumbnail per photo and jumps to the tapped one", () => {
@@ -40,7 +45,7 @@ describe("RoomLightbox thumbnails", () => {
     expect(thumbs()[2].getAttribute("aria-label")).toBe("goToPhoto");
 
     act(() => thumbs()[2].click());
-    expect(container.textContent).toContain("3 / 4");
+    expect(lightbox().textContent).toContain("3 / 4");
     expect(thumbs()[2].getAttribute("aria-current")).toBe("true");
     expect(thumbs()[0].getAttribute("aria-current")).toBe("false");
   });
@@ -52,10 +57,21 @@ describe("RoomLightbox thumbnails", () => {
 
   it("names its icon-only controls", () => {
     render(photos(3));
-    const labels = [...container.querySelectorAll("button")].map((b) => b.getAttribute("aria-label") ?? b.textContent?.trim());
+    const labels = [...lightbox().querySelectorAll("button")].map((b) => b.getAttribute("aria-label") ?? b.textContent?.trim());
     expect(labels).toEqual(expect.arrayContaining(["close", "prevPhoto", "nextPhoto"]));
     // Every button has a name: the icon ones by label, the thumbnails by "goToPhoto".
     expect(labels.every(Boolean)).toBe(true);
+  });
+
+  it("is a named dialog that Esc closes, with focus inside it", () => {
+    render(photos(3));
+    expect(lightbox().getAttribute("aria-labelledby")).toBeTruthy();
+    expect(document.getElementById(lightbox().getAttribute("aria-labelledby")!)?.textContent).toBe("Baan");
+    expect(lightbox().contains(document.activeElement)).toBe(true);
+    act(() => {
+      document.activeElement!.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true }));
+    });
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
 

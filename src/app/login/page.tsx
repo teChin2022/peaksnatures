@@ -171,7 +171,7 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="flex min-h-screen items-center justify-center bg-gray-50 px-4">
+    <main className="flex min-h-screen items-center justify-center bg-earth-50 px-4">
       {showOtpModal && (
         <OtpModal
           email={email}
@@ -184,8 +184,8 @@ export default function LoginPage() {
       )}
       <div className="w-full max-w-sm">
         <div className="mb-8 flex flex-col items-center gap-2">
-          <span className="text-2xl font-bold text-gray-900">{t('signIn')}</span>
-          <p className="text-sm text-gray-500">{t("hostDashboard")}</p>
+          <h1 className="font-serif text-3xl leading-tight text-earth-900">{t('signIn')}</h1>
+          <p className="text-sm text-earth-600">{t("hostDashboard")}</p>
         </div>
 
         <Card>
@@ -203,9 +203,9 @@ export default function LoginPage() {
                 </div>
               )}
               <div className="space-y-1.5">
-                <label htmlFor="email" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("email")} <span className="text-red-500">*</span></label>
+                <label htmlFor="email" className="text-[13px] font-medium text-earth-700">{t("email")} <span className="text-red-500">*</span></label>
                 <div className="relative">
-                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-gray-400" size={16} />
+                  <Mail className="absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-600" size={16} />
                   <Input
                     id="email"
                     type="email"
@@ -215,16 +215,16 @@ export default function LoginPage() {
                     onBlur={() => setTouched(prev => new Set([...prev, "email"]))}
                     required
                     autoComplete="email"
-                    className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("email") && !email.trim() ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-gray-200 hover:!border-gray-400 focus-visible:!border-gray-400"} !bg-white transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0`}
+                    className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("email") && !email.trim() ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
                   />
                 </div>
               </div>
               <div className="space-y-1.5">
                 <div className="flex items-center justify-between">
-                  <label htmlFor="password" className="text-[10px] font-bold uppercase tracking-widest text-gray-400">{t("password")} <span className="text-red-500">*</span></label>
+                  <label htmlFor="password" className="text-[13px] font-medium text-earth-700">{t("password")} <span className="text-red-500">*</span></label>
                   <Link
                     href="/forgot-password"
-                    className="text-xs font-medium text-gray-600 hover:text-gray-900"
+                    className="text-xs font-medium text-earth-700 hover:text-earth-900"
                   >
                     {t("forgotPassword")}
                   </Link>
@@ -239,12 +239,12 @@ export default function LoginPage() {
                     onBlur={() => setTouched(prev => new Set([...prev, "password"]))}
                     required
                     autoComplete="current-password"
-                    className={`pr-10 p-3.5 !h-auto rounded-xl !border ${touched.has("password") && !password ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-gray-200 hover:!border-gray-400 focus-visible:!border-gray-400"} !bg-white transition-all text-sm font-medium text-gray-900 !shadow-none focus-visible:!ring-0`}
+                    className={`pr-10 p-3.5 !h-auto rounded-xl !border ${touched.has("password") && !password ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
                   />
                   <button
                     type="button"
                     aria-label={showPassword ? t("hidePassword") : t("showPassword")} onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                    className="absolute right-3 top-1/2 -translate-y-1/2 text-earth-600 hover:text-earth-700"
                     tabIndex={-1}
                   >
                     {showPassword ? (
@@ -269,18 +269,18 @@ export default function LoginPage() {
             <CardFooter className="flex flex-col gap-3">
               <Button
                 type="submit"
-                className="w-full bg-brand text-white px-10 py-6 rounded-full font-bold text-sm tracking-widest uppercase hover:bg-brand-hover transition-all shadow-lg hover:shadow-xl"
+                className="w-full bg-brand text-white px-10 py-6 rounded-full font-bold text-sm hover:bg-brand-hover transition-colors"
                 disabled={loading || (!turnstileToken && !turnstileError)}
               >
                 {loading && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
                 {t("signInButton")}
               </Button>
 
-              <p className="text-center text-sm text-gray-500">
+              <p className="text-center text-sm text-earth-600">
                 {t("noAccount")}{" "}
                 <Link
                   href="/register"
-                  className="font-medium text-gray-900 hover:text-gray-700"
+                  className="font-medium text-earth-900 hover:text-earth-800"
                 >
                   {t("register")}
                 </Link>
@@ -289,6 +289,6 @@ export default function LoginPage() {
           </form>
         </Card>
       </div>
-    </div>
+    </main>
   );
 }

@@ -105,8 +105,8 @@ function IconPicker({ value, kind, label, onChange }: { value: string; kind: Lis
                 onChange(key);
                 setOpen(false);
               }}
-              className={`flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-gray-100 ${
-                key === value ? "bg-brand/10 text-brand ring-1 ring-brand/30" : "text-gray-600"
+              className={`flex h-8 w-8 items-center justify-center rounded-md transition-colors hover:bg-earth-100 ${
+                key === value ? "bg-brand/10 text-brand ring-1 ring-brand/30" : "text-earth-700"
               }`}
             >
               <ListIcon name={key} kind={kind} className="h-4 w-4" />
@@ -668,7 +668,7 @@ export default function HomestayPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="text-xl font-bold text-gray-900 mb-6">
+      <h1 className="text-xl font-bold text-earth-900 mb-6">
         {isNew ? t("createTitle") : t("editTitle")}
       </h1>
 
@@ -707,7 +707,7 @@ export default function HomestayPage() {
                 }}
                 placeholder="my-homestay"
               />
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-earth-600">
                 {t("slugHint")}: peaksnature.com/{slug || "my-homestay"}
               </p>
             </div>
@@ -760,7 +760,7 @@ export default function HomestayPage() {
                 onChange={(e) => setMapEmbedUrl(e.target.value)}
                 placeholder={t("mapEmbedUrlPlaceholder")}
               />
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-earth-600">
                 {t("mapEmbedUrlHint")}
               </p>
             </div>
@@ -822,7 +822,7 @@ export default function HomestayPage() {
             {/* Selected amenities */}
             {amenities.length > 0 && (
               <div>
-                <Label className="mb-2 block text-sm text-gray-500">{t("selectedAmenities")}</Label>
+                <Label className="mb-2 block text-sm text-earth-600">{t("selectedAmenities")}</Label>
                 <div className="flex flex-wrap gap-2">
                   {amenities.map((a) => (
                     <Badge
@@ -851,7 +851,7 @@ export default function HomestayPage() {
 
             {/* Add custom amenity */}
             <div>
-              <Label className="mb-2 block text-sm text-gray-500">{t("addCustomAmenity")}</Label>
+              <Label className="mb-2 block text-sm text-earth-600">{t("addCustomAmenity")}</Label>
               <div className="flex gap-2">
                 <Input
                   value={customAmenity}
@@ -878,17 +878,17 @@ export default function HomestayPage() {
 
             {/* Common amenities quick-add */}
             <div>
-              <Label className="mb-2 block text-sm text-gray-500">{t("commonAmenities")}</Label>
+              <Label className="mb-2 block text-sm text-earth-600">{t("commonAmenities")}</Label>
               <div className="flex flex-wrap gap-2">
                 {AMENITY_PRESETS.filter((a) => !amenities.includes(a)).map((a) => (
                   <Badge
                     key={a}
                     variant="outline"
-                    className="cursor-pointer hover:bg-gray-100"
+                    className="cursor-pointer hover:bg-earth-100"
                     onClick={() => toggleAmenity(a)}
                   >
                     <Plus className="mr-0.5 h-3 w-3" />
-                    <ListIcon name={autoIconKey(a, "amenity")} kind="amenity" className="text-gray-500" />
+                    <ListIcon name={autoIconKey(a, "amenity")} kind="amenity" className="text-earth-600" />
                     {a}
                   </Badge>
                 ))}
@@ -909,7 +909,7 @@ export default function HomestayPage() {
             {/* Selected prohibitions */}
             {prohibitions.length > 0 && (
               <div>
-                <Label className="mb-2 block text-sm text-gray-500">{t("selectedProhibitions")}</Label>
+                <Label className="mb-2 block text-sm text-earth-600">{t("selectedProhibitions")}</Label>
                 <div className="flex flex-wrap gap-2">
                   {prohibitions.map((p) => (
                     <Badge
@@ -938,7 +938,7 @@ export default function HomestayPage() {
 
             {/* Add custom prohibition */}
             <div>
-              <Label className="mb-2 block text-sm text-gray-500">{t("addCustomProhibition")}</Label>
+              <Label className="mb-2 block text-sm text-earth-600">{t("addCustomProhibition")}</Label>
               <div className="flex gap-2">
                 <Input
                   value={customProhibition}
@@ -965,17 +965,17 @@ export default function HomestayPage() {
 
             {/* Common prohibitions quick-add */}
             <div>
-              <Label className="mb-2 block text-sm text-gray-500">{t("commonProhibitions")}</Label>
+              <Label className="mb-2 block text-sm text-earth-600">{t("commonProhibitions")}</Label>
               <div className="flex flex-wrap gap-2">
                 {RULE_PRESETS.filter((p) => !prohibitions.includes(p)).map((p) => (
                   <Badge
                     key={p}
                     variant="outline"
-                    className="cursor-pointer hover:bg-gray-100"
+                    className="cursor-pointer hover:bg-earth-100"
                     onClick={() => toggleProhibition(p)}
                   >
                     <Plus className="mr-0.5 h-3 w-3" />
-                    <ListIcon name={autoIconKey(p, "rule")} kind="rule" className="text-gray-500" />
+                    <ListIcon name={autoIconKey(p, "rule")} kind="rule" className="text-earth-600" />
                     {p}
                   </Badge>
                 ))}
@@ -993,7 +993,7 @@ export default function HomestayPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Label className="text-sm text-gray-500">{t("checkInInfoHint")}</Label>
+            <Label className="text-sm text-earth-600">{t("checkInInfoHint")}</Label>
             <RichTextEditor
               value={checkInInfo}
               onChange={setCheckInInfo}
@@ -1011,7 +1011,7 @@ export default function HomestayPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Label className="text-sm text-gray-500">{t("policiesHint")}</Label>
+            <Label className="text-sm text-earth-600">{t("policiesHint")}</Label>
             <RichTextEditor
               value={policies}
               onChange={setPolicies}
@@ -1029,9 +1029,9 @@ export default function HomestayPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-sm text-gray-500">{t("faqHint")}</p>
+            <p className="text-sm text-earth-600">{t("faqHint")}</p>
             {faq.length === 0 ? (
-              <p className="rounded-lg border border-dashed border-gray-300 px-3 py-6 text-center text-sm text-gray-500">
+              <p className="rounded-lg border border-dashed border-earth-300 px-3 py-6 text-center text-sm text-earth-600">
                 {t("faqEmpty")}
               </p>
             ) : (
@@ -1039,10 +1039,10 @@ export default function HomestayPage() {
                 {faq.map((item, i) => (
                   <div
                     key={i}
-                    className="rounded-lg border border-gray-200 bg-gray-50/50 p-3 space-y-2"
+                    className="rounded-lg border border-earth-200 bg-earth-50/50 p-3 space-y-2"
                   >
                     <div className="flex items-center justify-between">
-                      <span className="text-xs font-medium text-gray-500">#{i + 1}</span>
+                      <span className="text-xs font-medium text-earth-600">#{i + 1}</span>
                       <div className="flex items-center gap-1">
                         <Button
                           type="button"
@@ -1079,7 +1079,7 @@ export default function HomestayPage() {
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs text-gray-500">{t("faqQuestion")}</Label>
+                      <Label className="text-xs text-earth-600">{t("faqQuestion")}</Label>
                       <Input
                         value={item.question}
                         onChange={(e) => updateFaqItem(i, "question", e.target.value)}
@@ -1087,7 +1087,7 @@ export default function HomestayPage() {
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs text-gray-500">{t("faqAnswer")}</Label>
+                      <Label className="text-xs text-earth-600">{t("faqAnswer")}</Label>
                       <Textarea
                         value={item.answer}
                         rows={3}
@@ -1128,7 +1128,7 @@ export default function HomestayPage() {
                 onChange={(e) => setDepositAmount(parseInt(e.target.value) || 0)}
                 placeholder={t("depositPlaceholder")}
               />
-              <p className="text-xs text-gray-500">{t("defaultDepositHint")}</p>
+              <p className="text-xs text-earth-600">{t("defaultDepositHint")}</p>
             </div>
 
             <div className="space-y-2">
@@ -1149,7 +1149,7 @@ export default function HomestayPage() {
               <div className="grid grid-cols-4 gap-2">
                 {MONTH_KEYS.map((m) => (
                   <div key={m} className="space-y-1">
-                    <label className="text-[11px] text-gray-500 block text-center">
+                    <label className="text-[11px] text-earth-600 block text-center">
                       {t(`month${m}`)}
                     </label>
                     <Input
@@ -1174,7 +1174,7 @@ export default function HomestayPage() {
                   </div>
                 ))}
               </div>
-              <p className="text-xs text-gray-500">{t("monthlyDepositHint")}</p>
+              <p className="text-xs text-earth-600">{t("monthlyDepositHint")}</p>
             </div>
 
             <div className="border-t pt-4 space-y-3">
@@ -1201,7 +1201,7 @@ export default function HomestayPage() {
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-gray-500">{t("cancellationDaysHint")}</p>
+                <p className="text-xs text-earth-600">{t("cancellationDaysHint")}</p>
               </div>
             </div>
 
@@ -1233,7 +1233,7 @@ export default function HomestayPage() {
                     </button>
                   ))}
                 </div>
-                <p className="text-xs text-gray-500">{t("resumeDraftHoursHint")}</p>
+                <p className="text-xs text-earth-600">{t("resumeDraftHoursHint")}</p>
               </div>
             </div>
 
@@ -1254,7 +1254,7 @@ export default function HomestayPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-4">
-            <p className="text-xs text-gray-500">{t("socialMediaHint")}</p>
+            <p className="text-xs text-earth-600">{t("socialMediaHint")}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
                 <Label>{t("facebookUrl")}</Label>
@@ -1334,19 +1334,19 @@ export default function HomestayPage() {
                 </div>
               ) : (
                 <div
-                  className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-gray-200 transition-colors"
+                  className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-earth-200 transition-colors"
                   onClick={() => logoInputRef.current?.click()}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2F5D5066'; e.currentTarget.style.backgroundColor = '#2F5D500d'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
                 >
                   {uploadingLogo ? (
-                    <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                    <Loader2 className="h-6 w-6 animate-spin text-earth-600" />
                   ) : (
-                    <Upload className="h-6 w-6 text-gray-400" />
+                    <Upload className="h-6 w-6 text-earth-600" />
                   )}
                 </div>
               )}
-              <p className="text-xs text-gray-500">{t("logoHint")}</p>
+              <p className="text-xs text-earth-600">{t("logoHint")}</p>
               <input
                 ref={logoInputRef}
                 type="file"
@@ -1390,18 +1390,18 @@ export default function HomestayPage() {
                 </div>
               ) : (
                 <div
-                  className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 py-10 transition-colors"
+                  className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-earth-200 py-10 transition-colors"
                   onClick={() => heroInputRef.current?.click()}
                   onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2F5D5066'; e.currentTarget.style.backgroundColor = '#2F5D500d'; }}
                   onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
                 >
                   {uploadingHero ? (
-                    <Loader2 className="h-8 w-8 animate-spin text-gray-400" />
+                    <Loader2 className="h-8 w-8 animate-spin text-earth-600" />
                   ) : (
                     <>
-                      <Upload className="h-8 w-8 text-gray-400" />
-                      <p className="mt-2 text-sm font-medium text-gray-500">{t("clickUploadHero")}</p>
-                      <p className="mt-1 text-xs text-gray-400">{t("imageHint")}</p>
+                      <Upload className="h-8 w-8 text-earth-600" />
+                      <p className="mt-2 text-sm font-medium text-earth-600">{t("clickUploadHero")}</p>
+                      <p className="mt-1 text-xs text-earth-600">{t("imageHint")}</p>
                     </>
                   )}
                 </div>
@@ -1419,18 +1419,18 @@ export default function HomestayPage() {
             <div className="space-y-2">
               <Label>{t("gallery")}</Label>
               <div
-                className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-gray-200 py-8 transition-colors"
+                className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-earth-200 py-8 transition-colors"
                 onClick={() => galleryInputRef.current?.click()}
                 onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2F5D5066'; e.currentTarget.style.backgroundColor = '#2F5D500d'; }}
                 onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
               >
                 {uploadingGallery ? (
-                  <Loader2 className="h-6 w-6 animate-spin text-gray-400" />
+                  <Loader2 className="h-6 w-6 animate-spin text-earth-600" />
                 ) : (
                   <>
-                    <Upload className="h-6 w-6 text-gray-400" />
-                    <p className="mt-2 text-sm font-medium text-gray-500">{t("clickUploadGallery")}</p>
-                    <p className="mt-1 text-xs text-gray-400">{t("imageHintMulti")}</p>
+                    <Upload className="h-6 w-6 text-earth-600" />
+                    <p className="mt-2 text-sm font-medium text-earth-600">{t("clickUploadGallery")}</p>
+                    <p className="mt-1 text-xs text-earth-600">{t("imageHintMulti")}</p>
                   </>
                 )}
               </div>
@@ -1518,7 +1518,7 @@ export default function HomestayPage() {
               <Trash2 className="h-4 w-4 text-red-500" />
               {t("confirmDeleteTitle")}
             </DialogTitle>
-            <DialogDescription className="text-sm text-gray-600">
+            <DialogDescription className="text-sm text-earth-700">
               {confirmMessage}
             </DialogDescription>
           </DialogHeader>

@@ -82,7 +82,7 @@ export function LandingRooms({ rooms, bookHref, bookingDisabled = false }: Landi
                 )}
               </div>
               <div className="flex min-w-0 flex-col gap-2.5 px-5 pt-5 pb-6 md:px-10 md:py-9">
-                <span aria-hidden className="font-serif text-[13px] tracking-[0.2em] text-ink-3 lining-nums">
+                <span aria-hidden lang="en" className="font-serif text-[13px] tracking-[0.2em] text-ink-3 lining-nums">
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">

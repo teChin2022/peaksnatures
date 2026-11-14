@@ -153,11 +153,11 @@ export default function CheckinsPage() {
   return (
     <div>
       <div className="mb-6">
-        <h1 className="text-xl font-bold text-gray-900 flex items-center gap-2">
+        <h1 className="text-xl font-bold text-earth-900 flex items-center gap-2">
           <ClipboardCheck className="h-5 w-5 text-brand" />
           {t("title")}
         </h1>
-        <p className="text-sm text-gray-500 mt-1">{t("subtitle")}</p>
+        <p className="text-sm text-earth-600 mt-1">{t("subtitle")}</p>
       </div>
 
       {loading ? (
@@ -180,8 +180,8 @@ export default function CheckinsPage() {
       ) : bookings.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <ClipboardCheck className="h-12 w-12 text-gray-300 mb-3" />
-            <p className="text-gray-500">{t("noCheckins")}</p>
+            <ClipboardCheck className="h-12 w-12 text-earth-300 mb-3" />
+            <p className="text-earth-600">{t("noCheckins")}</p>
           </CardContent>
         </Card>
       ) : (
@@ -202,10 +202,10 @@ export default function CheckinsPage() {
                     {/* Header: name + status */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="font-semibold text-gray-900 text-base truncate">
+                        <h3 className="font-semibold text-earth-900 text-base truncate">
                           {booking.guest_name}
                         </h3>
-                        <p className="text-xs text-gray-400 mt-0.5">
+                        <p className="text-xs text-earth-600 mt-0.5">
                           ID: {booking.id.slice(0, 8)}
                         </p>
                         {booking.attachment_count > 0 && (
@@ -247,22 +247,22 @@ export default function CheckinsPage() {
 
                     {/* Info grid */}
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-6 gap-y-2 text-sm">
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <BedDouble className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                        <span>{t("room")}: <span className="font-medium text-gray-900">{booking.room_name}</span></span>
+                      <div className="flex items-center gap-2 text-earth-700">
+                        <BedDouble className="h-3.5 w-3.5 text-earth-600 shrink-0" />
+                        <span>{t("room")}: <span className="font-medium text-earth-900">{booking.room_name}</span></span>
                       </div>
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <Users className="h-3.5 w-3.5 text-gray-400 shrink-0" />
-                        <span>{t("guests")}: <span className="font-medium text-gray-900">{booking.num_guests}</span></span>
+                      <div className="flex items-center gap-2 text-earth-700">
+                        <Users className="h-3.5 w-3.5 text-earth-600 shrink-0" />
+                        <span>{t("guests")}: <span className="font-medium text-earth-900">{booking.num_guests}</span></span>
                       </div>
-                      <div className="flex items-center gap-2 text-gray-600">
-                        <CalendarDays className="h-3.5 w-3.5 text-gray-400 shrink-0" />
+                      <div className="flex items-center gap-2 text-earth-700">
+                        <CalendarDays className="h-3.5 w-3.5 text-earth-600 shrink-0" />
                         <span>
                           {fmtDateStr(booking.check_in, "d MMM yyyy", locale)} → {fmtDateStr(booking.check_out, "d MMM yyyy", locale)}
-                          <span className="text-gray-400 ml-1">({nights} {t("nights")})</span>
+                          <span className="text-earth-600 ml-1">({nights} {t("nights")})</span>
                         </span>
                       </div>
-                      <div className="flex items-center gap-2 text-gray-600">
+                      <div className="flex items-center gap-2 text-earth-700">
                         <span className="font-medium text-brand">฿{booking.total_price.toLocaleString()}</span>
                         {hasBalance ? (
                           <Badge variant="secondary" className="bg-amber-100 text-amber-700 text-xs">
@@ -278,10 +278,10 @@ export default function CheckinsPage() {
 
                     {/* Room Options */}
                     {options.length > 0 && (
-                      <div className="flex items-start gap-2 rounded-lg bg-brand-50/50 p-2.5 text-xs text-gray-600">
+                      <div className="flex items-start gap-2 rounded-lg bg-brand-50/50 p-2.5 text-xs text-earth-700">
                         <ListPlus className="h-3.5 w-3.5 text-brand shrink-0 mt-0.5" />
                         <div>
-                          <span className="font-medium text-gray-700">{t("options")}:</span>{" "}
+                          <span className="font-medium text-earth-800">{t("options")}:</span>{" "}
                           {options.map((o, i) => (
                             <span key={o.id}>
                               {o.name} <span className="text-brand font-medium">(+฿{o.price.toLocaleString()})</span>
@@ -293,7 +293,7 @@ export default function CheckinsPage() {
                     )}
 
                     {/* Contact + province */}
-                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-gray-500">
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-earth-600">
                       <span className="flex items-center gap-1">
                         <Phone className="h-3 w-3" />
                         {booking.guest_phone}
@@ -312,8 +312,8 @@ export default function CheckinsPage() {
 
                     {/* Notes */}
                     {booking.notes && (
-                      <div className="flex items-start gap-2 rounded-lg bg-gray-50 p-2.5 text-xs text-gray-600">
-                        <StickyNote className="h-3.5 w-3.5 text-gray-400 shrink-0 mt-0.5" />
+                      <div className="flex items-start gap-2 rounded-lg bg-earth-50 p-2.5 text-xs text-earth-700">
+                        <StickyNote className="h-3.5 w-3.5 text-earth-600 shrink-0 mt-0.5" />
                         <span>{booking.notes}</span>
                       </div>
                     )}

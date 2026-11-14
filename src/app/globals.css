@@ -345,9 +345,20 @@
               box-shadow 0.4s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-.dashboard-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(47, 93, 80, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+/* Lift only what can be clicked (a card inside a link, or a role="button" card),
+   and only where hover exists: a static card that rises looks clickable (X1). */
+@media (hover: hover) {
+  a > .dashboard-card:hover,
+  .dashboard-card[role="button"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(47, 93, 80, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-card {
+    transition: none;
+  }
 }
 
 /* Sidebar active glow */
@@ -369,7 +380,20 @@
   border-radius: 4px;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-warm {
+    animation: none;
+  }
+}
+
 /* ── Admin Platform: refresh utilities ── */
 .admin-surface {
   background-color: var(--color-section-alt);
+}
+
+/* Thai is never letter-spaced (ui-audit S3): widening tracking utilities apply
+   to Latin only. :lang(th) follows the page's <html lang>, so Latin-only text
+   inside a Thai page (codes, numerals) keeps its tracking with lang="en". */
+:lang(th):is([class*="tracking-wide"], [class*="tracking-[0."]) {
+  letter-spacing: normal;
 }

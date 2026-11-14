@@ -73,7 +73,8 @@ function makeAvailabilityDay(
     ...props
   }: React.ComponentProps<typeof DayButton>) {
     // Only past days are inactive. Adjacent-month ("outside") days are still
-    // colored and clickable, just de-emphasized so the current month stands out.
+    // colored and clickable, just lighter in weight so the current month stands
+    // out. Not faded: a faded day measured 2.5:1 while still tappable (B2).
     const isPast = modifiers.disabled;
     const status = isPast ? null : getStatus(format(day.date, "yyyy-MM-dd"));
 
@@ -94,7 +95,7 @@ function makeAvailabilityDay(
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2",
           isPast && "cursor-not-allowed text-line-strong",
           status && `cursor-pointer ${STATUS_CLASS[status]}`,
-          modifiers.outside && status && "opacity-55",
+          modifiers.outside && status && "font-normal",
           // Today is marked by its number alone — bold and brand-green. twMerge
           // drops the status text colour so the green wins on any background.
           modifiers.today && "font-bold text-pine",

@@ -222,6 +222,29 @@ test.describe("a host on both", () => {
   });
 });
 
+test.describe("Thai typography", () => {
+  test("letter-spaces no Thai text, only Latin marked lang=en", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.goto(`/${slug}`);
+    await page.waitForLoadState("networkidle");
+
+    const spacing = await page.evaluate(() => {
+      const tracked = [...document.querySelectorAll<HTMLElement>('[class*="tracking-wide"], [class*="tracking-[0."]')];
+      const of = (el: HTMLElement) => getComputedStyle(el).letterSpacing;
+      return {
+        thai: tracked.filter((el) => el.closest("[lang]")?.getAttribute("lang") === "th").map(of),
+        latin: tracked.filter((el) => el.closest("[lang]")?.getAttribute("lang") === "en").map(of),
+      };
+    });
+    expect(spacing.thai.length).toBeGreaterThan(0);
+    expect(spacing.thai.every((s) => s === "normal")).toBe(true);
+    // The house numerals ("01", "02") keep their tracking.
+    expect(spacing.latin.length).toBeGreaterThan(0);
+    expect(spacing.latin.some((s) => s !== "normal")).toBe(true);
+  });
+});
+
 test.describe("the booking page header", () => {
   test("shows only the name and tagline, centred, and stays put while the guest scrolls to the dates", async ({ page, context }) => {
     const slug = requireSlug();

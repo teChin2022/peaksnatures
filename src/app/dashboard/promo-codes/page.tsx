@@ -106,6 +106,7 @@ import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { toast } from "sonner";
 import { getInitials, sanitizePhoneInput } from "@/lib/utils";
+import { statusToneClass } from "@/components/admin/status-badge";
 
 interface PromoFormState {
   code: string;
@@ -597,11 +598,11 @@ export default function PromoCodesPage() {
 
   const codeStatus = (c: PromoCode): { label: string; pill: string; dot: string } => {
     const today = format(new Date(), "yyyy-MM-dd");
-    if (!c.is_active) return { label: t("statusInactive"), pill: "bg-gray-100 text-gray-700", dot: "bg-gray-400" };
-    if (c.expires_at && c.expires_at < today) return { label: t("statusExpired"), pill: "bg-red-100 text-red-700", dot: "bg-red-500" };
-    if (c.max_uses != null && c.times_used >= c.max_uses) return { label: t("statusUsedUp"), pill: "bg-amber-100 text-amber-700", dot: "bg-amber-500" };
-    if (c.start_at && c.start_at > today) return { label: t("statusScheduled"), pill: "bg-blue-100 text-blue-700", dot: "bg-blue-500" };
-    return { label: t("statusActive"), pill: "bg-emerald-100 text-emerald-700", dot: "bg-emerald-500" };
+    if (!c.is_active) return { label: t("statusInactive"), pill: statusToneClass("inactive"), dot: "bg-earth-400" };
+    if (c.expires_at && c.expires_at < today) return { label: t("statusExpired"), pill: statusToneClass("expired"), dot: "bg-red-500" };
+    if (c.max_uses != null && c.times_used >= c.max_uses) return { label: t("statusUsedUp"), pill: statusToneClass("usedUp", "amber"), dot: "bg-amber-500" };
+    if (c.start_at && c.start_at > today) return { label: t("statusScheduled"), pill: statusToneClass("scheduled", "earth"), dot: "bg-earth-500" };
+    return { label: t("statusActive"), pill: statusToneClass("active"), dot: "bg-brand" };
   };
 
   async function copyCode(code: string) {
@@ -1120,7 +1121,7 @@ export default function PromoCodesPage() {
                         {/* Code chip + status */}
                         <div className="space-y-2">
                           <div className="flex items-center justify-between gap-2">
-                            <div className="min-w-0 truncate rounded-lg bg-brand-50 px-3 py-1.5 font-mono text-base font-bold tracking-wide text-brand-700 sm:text-lg">
+                            <div lang="en" className="min-w-0 truncate rounded-lg bg-brand-50 px-3 py-1.5 font-mono text-base font-bold tracking-wide text-brand-700 sm:text-lg">
                               {c.code}
                             </div>
                             <span
@@ -1279,15 +1280,9 @@ export default function PromoCodesPage() {
               {pagedRedemptions.map((r) => {
                 const isZeroCommission =
                   Number(r.commission_amount || 0) === 0 && r.payout_status !== "cancelled";
-                const borderColor = isZeroCommission
-                  ? "border-l-earth-200"
-                  : r.payout_status === "pending"
-                    ? "border-l-amber-400"
-                    : r.payout_status === "paid"
-                      ? "border-l-emerald-400"
-                      : "border-l-earth-200";
+                // Status reads from the badge inside, not a coloured side tab (D7).
                 return (
-                  <Card key={r.id} className={`border-l-4 ${borderColor} border-earth-100`}>
+                  <Card key={r.id} className="border-earth-100">
                     <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
                       <div className="space-y-1">
                         <div className="flex flex-wrap items-center gap-2">
@@ -1305,7 +1300,7 @@ export default function PromoCodesPage() {
                               {t("statusPaid")}
                             </Badge>
                           ) : (
-                            <Badge className="bg-gray-100 text-gray-600">
+                            <Badge className="bg-earth-100 text-earth-700">
                               {t("statusCancelled")}
                             </Badge>
                           )}
@@ -1374,12 +1369,10 @@ export default function PromoCodesPage() {
             ) : (
               <>
                 {pagedRecommenders.map((row) => {
-                  const borderColor =
-                    row.pending > 0 ? "border-l-amber-400" : "border-l-emerald-400";
                   return (
                     <Card
                       key={row.name}
-                      className={`border-l-4 ${borderColor} border-earth-100`}
+                      className="border-earth-100"
                     >
                       <CardContent className="flex flex-col gap-3 p-4 md:flex-row md:items-center md:justify-between">
                         <div className="min-w-0 space-y-1.5">
