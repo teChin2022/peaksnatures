@@ -2,8 +2,11 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   CREATED_ID,
   T,
+  addHouses,
   bookingPosts,
+  chooseDates,
   expectNoUnexpectedWrites,
+  openCart,
   reachPayment,
   requireSlug,
   startSession,
@@ -437,6 +440,29 @@ test.describe("a host who changed the mode while the page was open", () => {
     await page.getByRole("button", { name: T.booking.quickSubmit }).click();
 
     await expect(page.getByText(T.booking.errorBookingModeChanged)).toBeVisible();
+  });
+});
+
+test.describe("the cart dialog", () => {
+  test("is the only cart: it goes straight to the guest details, and Back returns to it", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.goto(`/${slug}/book`);
+    await chooseDates(page);
+    await addHouses(page, 1);
+    // No second copy of the cart on the page.
+    await expect(page.getByRole("heading", { name: T.booking.yourBooking })).toHaveCount(0);
+    await expect(page.getByRole("button", { name: T.booking.continueDetails })).toHaveCount(0);
+
+    await openCart(page);
+    await page.getByRole("dialog").getByRole("button", { name: T.booking.proceedBooking }).click();
+    const overlay = page.locator('[data-checkout="open"]');
+    await expect(page.locator("#bk-name")).toBeVisible();
+    await expect(overlay.getByRole("button", { name: T.bookingTutorial.reopen })).toBeVisible();
+
+    await overlay.getByRole("button", { name: T.common.back }).click();
+    await expect(page.locator('[data-checkout="closed"]')).toBeAttached();
+    await expect(page.getByRole("dialog").getByRole("button", { name: T.booking.proceedBooking })).toBeVisible();
   });
 });
 

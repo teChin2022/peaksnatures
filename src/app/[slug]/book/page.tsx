@@ -124,6 +124,7 @@ export default async function HomestayBookingPage({ params, searchParams }: Page
         // Hidden when the host turned drafts off, and when bookings are
         // blocked at all — restoring into a dead form helps nobody.
         resumeEnabled={(homestay.host.booking_draft_hours ?? 0) > 0 && !bookingDisabled}
+        promo={initialPromo}
       />
 
       <main className="pb-28 md:pb-0">

@@ -13,7 +13,8 @@ import { useBookingBarVisible } from "@/components/booking/use-booking-bar-visib
  * The desktop counterpart of the phone bar: a floating summary at the bottom of
  * /book — the stay, how many houses are chosen and their total — with the next
  * step as its one button: choose dates, change them, or go on to the booking
- * card. It reads the cart and opens the shared calendar; it writes nothing.
+ * steps (`proceed-booking`, as the cart dialog sends). It reads the cart and
+ * opens the shared calendar; it writes nothing.
  * Hidden on phones, in checkout, and while the date panel, the booking card or
  * the footer is on screen (useBookingBarVisible).
  */
@@ -39,7 +40,7 @@ export function DesktopBookingDock({ bookingDisabled = false }: { bookingDisable
     document.getElementById(id)?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
 
   const action = houses > 0 ? tb("proceedBooking") : hasDates ? tb("changeDates") : tb("chooseStayDates");
-  const onAction = () => (houses > 0 ? scrollTo("booking-card") : setCalendarOpen(true));
+  const onAction = () => (houses > 0 ? document.dispatchEvent(new Event("proceed-booking")) : setCalendarOpen(true));
 
   return (
     <>

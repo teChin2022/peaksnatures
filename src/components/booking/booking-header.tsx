@@ -13,7 +13,7 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { FullScreenMenu, type MenuItem } from "@/components/full-screen-menu";
 import { LanguageSwitcherIcon } from "@/components/language-switcher-icon";
-import { HeaderCart } from "@/components/booking/header-cart";
+import { HeaderCart, type CartPromo } from "@/components/booking/header-cart";
 import { ResumeBookingDialog } from "@/components/booking/resume-booking-dialog";
 
 interface BookingHeaderProps {
@@ -35,6 +35,8 @@ interface BookingHeaderProps {
   bookingDisabled?: boolean;
   /** Landing section links: inline from xl, in the full-screen menu below it. menuOnly: the menu only (the xl row has no room). */
   navItems?: { href: string; label: string; menuOnly?: boolean }[];
+  /** /book: the referral code a ?promo= link brought, shown in the cart dialog. */
+  promo?: CartPromo | null;
 }
 
 // Solid once the hero's top is scrolled past. Read from the page itself, so a
@@ -50,7 +52,7 @@ const subscribeScroll = (onChange: () => void) => {
 const pastHeroTop = () => window.scrollY > window.innerHeight * 0.15;
 const atTopOnServer = () => false;
 
-export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeEnabled = false, bookHref, bookingDisabled = false, navItems = [] }: BookingHeaderProps) {
+export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeEnabled = false, bookHref, bookingDisabled = false, navItems = [], promo = null }: BookingHeaderProps) {
   const scrolled = useSyncExternalStore(subscribeScroll, pastHeroTop, atTopOnServer);
   // The landing's section links need xl: at lg they wrap to two lines and crowd the Book button.
   const inlineNav = navItems.length > 0;
@@ -161,7 +163,7 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
               </Link>
             )
           ) : (
-            <HeaderCart scrolled={scrolled} />
+            <HeaderCart scrolled={scrolled} promo={promo} />
           )}
           <LanguageSwitcherIcon scrolled={scrolled} />
           <button

@@ -168,7 +168,7 @@ function Seed({ rooms }: { rooms: string[] }) {
   return null;
 }
 
-async function renderForm(mode: GuestBookingMode, rooms: string[] = [ROOM_A.id], over: { facebook_url?: string | null; phone?: string | null; noHouses?: boolean } = {}) {
+async function renderForm(mode: GuestBookingMode, rooms: string[] = [ROOM_A.id], over: { facebook_url?: string | null; phone?: string | null; noHouses?: boolean; bookingDisabled?: boolean } = {}) {
   const homestay = { ...HOMESTAY, facebook_url: over.facebook_url === undefined ? HOMESTAY.facebook_url : over.facebook_url };
   const host = toBookingHost(
     makeHost({ guest_booking_mode: mode, promptpay_id: "0812345678", phone: over.phone === undefined ? "0812345678" : over.phone }),
@@ -191,7 +191,7 @@ async function renderForm(mode: GuestBookingMode, rooms: string[] = [ROOM_A.id],
             rooms: houses,
             blockedDates: [],
             host,
-            bookingDisabled: false,
+            bookingDisabled: over.bookingDisabled ?? false,
           }),
         ),
       ),
@@ -219,10 +219,14 @@ async function type(selector: string, value: string) {
   });
 }
 
-/** Step 1 on to the guest details, then the consent that sits there (as in the prototype). */
+/** "Proceed" in the cart dialog (HeaderCart) or the desktop dock: they send this event. */
+const proceed = () => act(async () => void document.dispatchEvent(new Event("proceed-booking")));
+const checkoutState = () => document.body.querySelector("[data-checkout]")?.getAttribute("data-checkout");
+
+/** The cart's proceed button on to the guest details, then the consent that sits there (as in the prototype). */
 async function openDetails() {
-  await vi.waitFor(() => expect(buttonByText("continueDetails")).toBeTruthy());
-  await click(buttonByText("continueDetails"));
+  await proceed();
+  await vi.waitFor(() => expect(checkoutState()).toBe("open"));
 }
 async function toDetails() {
   await openDetails();
@@ -497,7 +501,7 @@ describe("when the server turns a quick booking down", () => {
     await click(buttonByText("quickSubmit"));
 
     await vi.waitFor(() => expect(h.toastError).toHaveBeenCalledWith("errorDatesUnavailable"));
-    await vi.waitFor(() => expect(buttonByText("continueDetails")).toBeTruthy());
+    await vi.waitFor(() => expect(checkoutState()).toBe("closed"));
   });
 
   it("shows a generic error for anything else", async () => {
@@ -733,7 +737,9 @@ describe("the review page, between the guest's details and the hold", () => {
 describe("checkout overlay (steps 2–3)", () => {
   const shell = () => document.body.querySelector<HTMLElement>("[data-checkout]")!;
 
-  it("opens the guest details full screen and closes back to the page on Back", async () => {
+  it("opens the guest details full screen and closes back to the cart on Back", async () => {
+    const openCart = vi.fn();
+    document.addEventListener("open-cart", openCart);
     await renderForm("normal");
     expect(shell().dataset.checkout).toBe("closed");
     await openDetails();
@@ -746,6 +752,9 @@ describe("checkout overlay (steps 2–3)", () => {
     await click(document.body.querySelector('[data-checkout] button[aria-label="back"]'));
     expect(shell().dataset.checkout).toBe("closed");
     expect(document.documentElement.style.overflow).toBe("");
+    // Back from the details goes to where the guest came from: the cart dialog.
+    expect(openCart).toHaveBeenCalledTimes(1);
+    document.removeEventListener("open-cart", openCart);
   });
 
   it("takes the rest of the page out of the tab order while open, and gives it back on close", async () => {
@@ -780,6 +789,38 @@ describe("checkout overlay (steps 2–3)", () => {
 
     await click(buttonByText("backToHomestay"));
     expect(shell().dataset.checkout).toBe("closed");
+  });
+});
+
+// ── No cart card on the page: the cart dialog starts checkout ───────────────
+describe("starting checkout from the cart", () => {
+  it("shows no second copy of the cart on the page", async () => {
+    await renderForm("normal");
+    expect(text()).not.toContain("yourBooking");
+    expect(text()).not.toContain("continueDetails");
+    expect(document.body.querySelector("[data-checkout]")!.className).toContain("hidden");
+  });
+
+  it("does not start while bookings are off", async () => {
+    await renderForm("normal", [ROOM_A.id], { bookingDisabled: true });
+    await proceed();
+    expect(checkoutState()).toBe("closed");
+  });
+
+  // The header cart stays reachable above the overlay; its button must not pull a paying guest back.
+  it("leaves a checkout under way where it is", async () => {
+    await renderForm("normal");
+    await reachPayment();
+    await proceed();
+    expect(buttonByText("submitBooking")).toBeTruthy();
+    expect(calls.some((c) => c.method === "DELETE" && c.url === "/api/bookings/hold")).toBe(false);
+  });
+
+  it("offers the how-to-book guide inside the steps, not on the page", async () => {
+    await renderForm("normal");
+    expect(buttonByText("reopen")).toBeUndefined();
+    await openDetails();
+    expect(document.body.querySelector("[data-checkout]")!.textContent).toContain("reopen");
   });
 });
 

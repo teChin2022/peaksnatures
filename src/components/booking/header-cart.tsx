@@ -1,27 +1,38 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { ShoppingCart, ArrowRight, CalendarDays } from "lucide-react";
+import { useState, useEffect, useRef } from "react";
+import { ShoppingCart, ArrowRight, Gift } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
-import { Button } from "@/components/ui/button";
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { fmtDate } from "@/lib/format-date";
 import { useBookingCartOptional } from "@/components/booking/booking-cart-context";
 import { CartLineList } from "@/components/booking/cart-line-list";
+
+/** The referral code a ?promo= link brought (getPromoLinkInfo; data.ts is server only, so not imported). */
+export interface CartPromo {
+  code: string;
+  discount_type: "percentage" | "fixed";
+  discount_value: number;
+  recommender_name: string | null;
+}
 
 /**
  * The cart button for the header (desktop; sits next to the language flag) and
  * the one cart review dialog on every width: selected houses + total + proceed.
  * On phones the button is hidden and the sticky MobileBookingBar's cart tile
  * opens this same dialog through the `open-cart` event, so both widths show the
- * cart the same way. Icon colour follows the header's scrolled state.
+ * cart the same way. The page has no cart card: "proceed" sends `proceed-booking`
+ * and BookingSection opens the guest details. Icon colour follows the header's
+ * scrolled state. `promo`: the referral code a ?promo= link brought, if any.
  */
-export function HeaderCart({ scrolled }: { scrolled: boolean }) {
+export function HeaderCart({ scrolled, promo = null }: { scrolled: boolean; promo?: CartPromo | null }) {
   const cart = useBookingCartOptional();
   const tb = useTranslations("booking");
   const tc = useTranslations("common");
   const locale = useLocale();
   const [open, setOpen] = useState(false);
+  // Set by "proceed": the checkout takes focus, so the dialog must not hand it back to its opener.
+  const proceedingRef = useRef(false);
 
   const cartCount = cart?.lines.length ?? 0;
   const subtotal = cart?.subtotal ?? 0;
@@ -48,11 +59,9 @@ export function HeaderCart({ scrolled }: { scrolled: boolean }) {
   if (!cart) return null;
 
   const handleContinue = () => {
+    proceedingRef.current = true;
     setOpen(false);
-    setTimeout(
-      () => document.getElementById("booking-card")?.scrollIntoView({ behavior: "smooth", block: "start" }),
-      150,
-    );
+    document.dispatchEvent(new Event("proceed-booking"));
   };
 
   return (
@@ -76,41 +85,63 @@ export function HeaderCart({ scrolled }: { scrolled: boolean }) {
       </button>
 
       <Dialog open={open} onOpenChange={setOpen}>
-        <DialogContent className="sm:max-w-md">
-          <DialogHeader>
-            <DialogTitle>{tb("reviewCart")}</DialogTitle>
+        <DialogContent
+          className="gap-0 rounded-[24px] border-0 p-6 sm:max-w-md"
+          onCloseAutoFocus={(e) => {
+            if (proceedingRef.current) e.preventDefault();
+            proceedingRef.current = false;
+          }}
+        >
+          <DialogHeader className="pr-8 text-left">
+            <DialogTitle className="font-serif text-[26px] leading-tight font-normal text-ink">{tb("reviewCart")}</DialogTitle>
+            {dateRange?.from && dateRange?.to && (
+              // Day first with its weekday, as the page's date bars read: ศ. 20 พ.ย. – อา. 22 พ.ย.
+              <DialogDescription className="text-[15px] text-ink-2">
+                {fmtDate(dateRange.from, "EEE d MMM", locale)} – {fmtDate(dateRange.to, "EEE d MMM", locale)}
+                {" · "}
+                {nights} {nights > 1 ? tc("nights") : tc("night")}
+                {hasCart && ` · ${tb("roomsCount", { count: cartCount })}`}
+              </DialogDescription>
+            )}
           </DialogHeader>
 
-          {dateRange?.from && dateRange?.to && (
-            <div className="flex items-center gap-2 rounded-xl bg-mist px-3 py-2 text-sm text-ink-2">
-              <CalendarDays size={14} className="text-ink-3" />
-              {/* Day first, as Thai (and British) dates read: 20 พ.ย. – 21 พ.ย. 2569. */}
-              {fmtDate(dateRange.from, "d MMM", locale)} – {fmtDate(dateRange.to, "d MMM yyyy", locale)}
-              <span className="ml-auto text-xs text-ink-3">{nights} {nights > 1 ? tc("nights") : tc("night")}</span>
+          {promo && (
+            <div className="mt-5 flex items-start gap-2.5 rounded-xl bg-pine-mist p-3.5">
+              <Gift className="mt-0.5 h-4 w-4 shrink-0 text-pine" aria-hidden />
+              <p className="text-sm leading-snug text-ink">
+                <span className="font-semibold">{tb("promoFromLinkBanner", { code: promo.code })}</span>
+                {promo.discount_value > 0 &&
+                  (promo.discount_type === "percentage"
+                    ? tb("promoFromLinkDiscountPct", { value: promo.discount_value })
+                    : tb("promoFromLinkDiscountFixed", { value: promo.discount_value.toLocaleString() }))}
+                {promo.recommender_name && <span className="text-ink-2">{tb("promoFromLinkRef", { name: promo.recommender_name })}</span>}
+              </p>
             </div>
           )}
 
           {hasCart ? (
-            <CartLineList className="max-h-72 overflow-y-auto pr-1" />
+            <CartLineList className="mt-5 max-h-72 overflow-y-auto pr-1" />
           ) : (
-            <div className="rounded-xl border border-dashed border-line-strong bg-mist p-6 text-center text-sm text-ink-2">
+            <div className="mt-5 rounded-xl border border-dashed border-line-strong bg-mist p-6 text-center text-[15px] text-ink-2">
               {tb("emptyCart")}
             </div>
           )}
 
           {hasCart && (
-            <>
-              <div className="flex items-center justify-between border-t border-line pt-3 text-base font-bold text-ink">
-                <span>{tc("total")}</span>
-                <span>฿{subtotal.toLocaleString()}</span>
+            <div className="mt-5 border-t border-line pt-4">
+              {/* The total outranks every line price: same serif money as the checkout. */}
+              <div className="flex items-baseline justify-between gap-4 text-ink">
+                <span className="text-[15px] font-medium">{tc("total")}</span>
+                <span className="font-serif text-2xl lining-nums tabular-nums">฿{subtotal.toLocaleString()}</span>
               </div>
-              <Button
-                className="w-full rounded-full bg-pine px-6 py-3.5 h-auto text-sm font-bold text-white hover:bg-pine-hover"
+              <button
+                type="button"
                 onClick={handleContinue}
+                className="mt-4 flex min-h-[52px] w-full cursor-pointer items-center justify-center gap-2 rounded-full bg-pine px-8 text-[15px] font-medium text-white transition-colors hover:bg-pine-hover focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine"
               >
-                {tb("proceedBooking")} <ArrowRight size={16} className="ml-1" />
-              </Button>
-            </>
+                {tb("proceedBooking")} <ArrowRight size={18} aria-hidden />
+              </button>
+            </div>
           )}
         </DialogContent>
       </Dialog>

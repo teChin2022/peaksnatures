@@ -43,10 +43,30 @@ describe("HeaderCart", () => {
     vi.unstubAllGlobals();
   });
 
-  it("writes the stay day first, as Thai dates read", () => {
+  it("writes the stay day first, with its weekday, as the page does", () => {
     act(() => root.render(createElement(HeaderCart, { scrolled: true })));
     act(() => void document.dispatchEvent(new Event("open-cart")));
-    expect(document.body.querySelector('[role="dialog"]')!.textContent).toContain("20 Nov – 22 Nov 2026");
+    expect(document.body.querySelector('[role="dialog"]')!.textContent).toContain("Fri 20 Nov – Sun 22 Nov");
+  });
+
+  // The page has no cart card any more: proceeding goes straight to the guest details.
+  it("proceeds straight to the booking steps and closes itself", () => {
+    const proceed = vi.fn();
+    document.addEventListener("proceed-booking", proceed);
+    act(() => root.render(createElement(HeaderCart, { scrolled: true })));
+    act(() => void document.dispatchEvent(new Event("open-cart")));
+    const button = [...document.body.querySelectorAll('[role="dialog"] button')].find((b) => b.textContent?.includes("proceedBooking"));
+    act(() => (button as HTMLButtonElement).click());
+    expect(proceed).toHaveBeenCalledTimes(1);
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    document.removeEventListener("proceed-booking", proceed);
+  });
+
+  it("shows the referral code a promo link brought", () => {
+    const promo = { code: "FRIEND10", discount_type: "percentage" as const, discount_value: 10, recommender_name: "Nok" };
+    act(() => root.render(createElement(HeaderCart, { scrolled: true, promo })));
+    act(() => void document.dispatchEvent(new Event("open-cart")));
+    expect(document.body.querySelector('[role="dialog"]')!.textContent).toContain("promoFromLinkBanner");
   });
 
   it("shows the count in red on the header button", () => {

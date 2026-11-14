@@ -190,7 +190,8 @@ export async function reachPayment(page: Page, slug: string, options: { houses?:
   await chooseDates(page);
   await addHouses(page, houses);
 
-  await page.getByRole("button", { name: T.booking.continueDetails }).click();
+  await openCart(page);
+  await page.getByRole("dialog").getByRole("button", { name: T.booking.proceedBooking }).click();
   // Consent sits on the details page, before "review booking" (Mist Ridge prototype).
   await page.locator('[data-checkout="open"]').getByRole("checkbox").check();
 
@@ -209,8 +210,14 @@ export async function reachPayment(page: Page, slug: string, options: { houses?:
   await expect(page.getByText(T.booking.amountToTransfer).first()).toBeVisible();
 }
 
+/** Opens the cart review dialog: the header cart on desktop, the bottom bar's cart tile on phones (one shows per width). */
+export async function openCart(page: Page) {
+  await page.getByRole("button", { name: new RegExp(`^${T.booking.yourCart}`) }).click();
+  await expect(page.getByRole("dialog").getByRole("heading", { name: T.booking.reviewCart })).toBeVisible();
+}
+
 /** Picks two consecutive free nights some days ahead, trying later pairs when a house is not free for them. */
-async function chooseDates(page: Page) {
+export async function chooseDates(page: Page) {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     await page.getByRole("button", { name: T.booking.selectDates }).last().click();
     const dialog = page.getByRole("dialog");
@@ -239,7 +246,7 @@ async function chooseDates(page: Page) {
   throw new Error("No two consecutive free nights with an available house were found.");
 }
 
-async function addHouses(page: Page, count: number) {
+export async function addHouses(page: Page, count: number) {
   for (let i = 0; i < count; i += 1) {
     const choose = page.getByRole("button", { name: T.rooms.selectThisRoom, disabled: false });
     test.skip((await choose.count()) <= i, `needs ${count} houses free for the chosen dates`);
