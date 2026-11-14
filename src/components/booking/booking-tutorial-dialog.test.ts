@@ -32,18 +32,18 @@ describe("BookingTutorialDialog", () => {
   it("promises the automatic slip check on the normal flow", () => {
     const text = render();
     expect(text).toContain("intro");
-    expect(text).toContain("step3Title");
-    expect(text).toContain("step3Desc");
+    // The four steps of the /book flow; the last is the payment with the slip upload.
+    for (const n of [1, 2, 3, 4]) expect(text).toContain(`step${n}Title`);
+    expect(text).toContain("step4Desc");
     expect(text).not.toContain("Quick");
   });
 
-  it("swaps the intro and step 3 for a quick-only host, and leaves steps 1 and 2 alone", () => {
+  it("swaps the intro and the payment step for a quick-only host, and leaves steps 1 to 3 alone", () => {
     const text = render(true);
     expect(text).toContain("introQuick");
-    expect(text).toContain("step3TitleQuick");
-    expect(text).toContain("step3DescQuick");
-    expect(text).toContain("step1Desc");
-    expect(text).toContain("step2Desc");
-    expect(text.replaceAll("step3TitleQuick", "").replaceAll("step3DescQuick", "")).not.toMatch(/step3(Title|Desc)/);
+    expect(text).toContain("step4TitleQuick");
+    expect(text).toContain("step4DescQuick");
+    for (const n of [1, 2, 3]) expect(text).toContain(`step${n}Desc`);
+    expect(text.replaceAll("step4TitleQuick", "").replaceAll("step4DescQuick", "")).not.toMatch(/step4(Title|Desc)/);
   });
 });

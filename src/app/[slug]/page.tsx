@@ -252,7 +252,7 @@ export default async function HomestayLandingPage({ params, searchParams }: Page
         <HostLocationSection
           hostName={homestay.host.name}
           hostPhone={homestay.host.phone}
-          lineId={homestay.line_id}
+          facebookUrl={homestay.facebook_url}
           hostAvatarUrl={homestay.host.avatar_url}
           isVerified={homestay.host.is_verified}
           hostCreatedAt={homestay.host.created_at}

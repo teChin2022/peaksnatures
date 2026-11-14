@@ -32,7 +32,7 @@ const render = (props: Partial<ComponentProps<typeof HostLocationSection>>) =>
       createElement(HostLocationSection, {
         hostName: "Somchai Jaidee",
         hostPhone: null,
-        lineId: null,
+        facebookUrl: null,
         hostAvatarUrl: null,
         isVerified: true,
         hostCreatedAt: "2024-01-01T00:00:00Z",
@@ -46,17 +46,27 @@ const render = (props: Partial<ComponentProps<typeof HostLocationSection>>) =>
   );
 
 describe("HostLocationSection trust signals", () => {
-  it("offers the host's LINE beside the phone, opening outside the page", () => {
-    render({ hostPhone: "0812345678", lineId: "@baan" });
-    const line = container.querySelector<HTMLAnchorElement>('a[href="https://line.me/R/ti/p/%40baan"]');
-    expect(line?.textContent).toContain("chatOnLine");
-    expect(line?.target).toBe("_blank");
-    expect(line?.rel).toBe("noopener noreferrer");
+  it("offers a Messenger chat beside the phone, opening outside the page, and no LINE button", () => {
+    render({ hostPhone: "0812345678", facebookUrl: "https://www.facebook.com/baanmonmok" });
+    const chat = container.querySelector<HTMLAnchorElement>('a[href="https://m.me/baanmonmok"]');
+    expect(chat?.textContent).toContain("chatOnMessenger");
+    expect(chat?.target).toBe("_blank");
+    expect(chat?.rel).toBe("noopener noreferrer");
+    expect(container.querySelector('a[href^="https://line.me"]')).toBeNull();
   });
 
-  it("shows no LINE link when the host has no LINE ID", () => {
+  it("opens the Facebook page when its address can't become a Messenger link", () => {
+    render({ facebookUrl: "https://www.facebook.com/pages/Baan-Mon-Mok/123456789" });
+    const chat = [...container.querySelectorAll<HTMLAnchorElement>("a")].find((a) => a.textContent?.includes("openFacebookPage"));
+    expect(chat?.href).toContain("facebook.com");
+  });
+
+  it("shows no chat button without a Facebook page, nor for an address that isn't Facebook", () => {
     render({ hostPhone: "0812345678" });
-    expect(container.querySelector('a[href^="https://line.me"]')).toBeNull();
+    expect(container.textContent).not.toContain("chatOnMessenger");
+    render({ hostPhone: "0812345678", facebookUrl: "javascript:alert(1)" });
+    expect(container.textContent).not.toContain("chatOnMessenger");
+    expect(container.textContent).not.toContain("openFacebookPage");
   });
 
   it("shows the verified badge for a verified host", () => {

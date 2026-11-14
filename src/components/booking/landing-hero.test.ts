@@ -40,6 +40,12 @@ describe("LandingHero", () => {
     expect(html).toContain('<span class="inline-block max-w-full">อิงค์เขาแคมป์ปิ้ง</span> <span class="inline-block max-w-full">ม่อนเงาะ</span>');
   });
 
+  it("centres the name and tagline over the photo", async () => {
+    const html = await hero();
+    expect(html).toMatch(/<section class="[^"]*\bitems-center\b[^"]*\bjustify-center\b/);
+    expect(html).toMatch(/<div class="[^"]*\btext-center\b[^"]*"><h1/);
+  });
+
   it("scrolls on to the section it is given", async () => {
     expect(await hero()).toContain('href="#gallery"');
   });

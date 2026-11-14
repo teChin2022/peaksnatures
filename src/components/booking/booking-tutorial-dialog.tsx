@@ -1,7 +1,7 @@
 "use client";
 
 import { useTranslations } from "next-intl";
-import { CalendarDays, ClipboardCheck, CreditCard, CheckCircle2 } from "lucide-react";
+import { CalendarDays, UserRound, ClipboardCheck, CreditCard, CheckCircle2 } from "lucide-react";
 import { motion } from "motion/react";
 import {
   Dialog,
@@ -16,15 +16,19 @@ import { Button } from "@/components/ui/button";
 interface BookingTutorialDialogProps {
   open: boolean;
   onOpenChange: (open: boolean) => void;
-  /** The host takes quick bookings only: step 3 has no slip upload and the host confirms. */
+  /** The host takes quick bookings only: the payment step has no slip upload and the host confirms. */
   quickOnly?: boolean;
 }
 
+// The /book flow (2026-11-14): pick dates and houses, the guest's details and consent,
+// the review with full or deposit, then one payment page with the slip upload.
 const STEPS = [
   { num: 1, icon: CalendarDays, titleKey: "step1Title", descKey: "step1Desc", highlight: false },
-  { num: 2, icon: ClipboardCheck, titleKey: "step2Title", descKey: "step2Desc", highlight: false },
-  { num: 3, icon: CreditCard, titleKey: "step3Title", descKey: "step3Desc", highlight: true },
+  { num: 2, icon: UserRound, titleKey: "step2Title", descKey: "step2Desc", highlight: false },
+  { num: 3, icon: ClipboardCheck, titleKey: "step3Title", descKey: "step3Desc", highlight: false },
+  { num: 4, icon: CreditCard, titleKey: "step4Title", descKey: "step4Desc", highlight: true },
 ] as const;
+const LAST = STEPS.length;
 
 export function BookingTutorialDialog({ open, onOpenChange, quickOnly = false }: BookingTutorialDialogProps) {
   const t = useTranslations("bookingTutorial");
@@ -56,10 +60,10 @@ export function BookingTutorialDialog({ open, onOpenChange, quickOnly = false }:
                 <div className="min-w-0 flex-1">
                   <div className="mb-0.5 flex items-center gap-2">
                     <Icon className="h-4 w-4 shrink-0 text-pine" />
-                    <h3 className="text-sm font-semibold text-ink">{t(quickOnly && s.num === 3 ? "step3TitleQuick" : s.titleKey)}</h3>
+                    <h3 className="text-sm font-semibold text-ink">{t(quickOnly && s.num === LAST ? "step4TitleQuick" : s.titleKey)}</h3>
                     {s.highlight && <CheckCircle2 className="h-4 w-4 shrink-0 text-green-600" />}
                   </div>
-                  <p className="text-[13px] leading-relaxed text-ink-3">{t(quickOnly && s.num === 3 ? "step3DescQuick" : s.descKey)}</p>
+                  <p className="text-[13px] leading-relaxed text-ink-3">{t(quickOnly && s.num === LAST ? "step4DescQuick" : s.descKey)}</p>
                 </div>
               </motion.div>
             );

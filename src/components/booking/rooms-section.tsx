@@ -723,10 +723,10 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
                 <div className="h-px flex-1 bg-line" />
               </div>
 
-              {/* Base price — the anchor */}
+              {/* Base price — the anchor. Labelled just "price" here (owner, 2026-11-14); the house cards keep "standard rate". */}
               <div className="flex items-baseline justify-between gap-4">
                 <span className="text-sm font-medium text-ink">
-                  {t("basePrice")}
+                  {t("ratePrice")}
                 </span>
                 <div className="flex items-baseline gap-1 tabular-nums">
                   <span className="text-2xl font-bold text-ink">

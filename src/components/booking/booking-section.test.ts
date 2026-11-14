@@ -313,19 +313,18 @@ describe("the guest details step", () => {
 });
 
 // ── The payment step, per host mode ─────────────────────────────────────────
-describe("how booking works, above the form", () => {
+describe("the how-to-book guide follows the host's mode", () => {
   const tutorialQuickOnly = () => document.body.querySelector('[data-testid="tutorial"]')?.getAttribute("data-quick-only");
 
-  it("promises the automatic slip check to a host on the normal flow", async () => {
+  it("words the guide for the automatic slip check on the normal flow, with no description above the cart", async () => {
     await renderForm("normal");
-    expect(text()).toContain("howItWorks");
-    expect(text()).not.toContain("howItWorksQuick");
+    expect(text()).not.toContain("howItWorks");
     expect(tutorialQuickOnly()).toBe("false");
   });
 
-  it("tells a guest of a quick-only host to send the slip in chat and wait for the host", async () => {
+  it("words the guide for sending the slip in chat to a quick-only host", async () => {
     await renderForm("quick");
-    expect(text()).toContain("howItWorksQuick");
+    expect(text()).not.toContain("howItWorks");
     expect(tutorialQuickOnly()).toBe("true");
   });
 

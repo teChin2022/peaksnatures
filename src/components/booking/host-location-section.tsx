@@ -2,20 +2,20 @@
 
 import { Fragment } from "react";
 import Image from "next/image";
-import { Phone, BadgeCheck, MapPin } from "lucide-react";
+import { Phone, BadgeCheck, MapPin, MessageCircle } from "lucide-react";
 
 import { useTranslations, useLocale } from "next-intl";
-import { getInitials, lineUrl } from "@/lib/utils";
+import { getInitials } from "@/lib/utils";
+import { hostContactLink } from "@/lib/quick-booking";
 import { fmtDateStr } from "@/lib/format-date";
-import { LineIcon } from "@/components/booking/booking-footer";
 import { SectionHeading, SectionMark } from "@/components/booking/section-mark";
 import { CountUp } from "@/components/booking/reveal";
 
 interface HostLocationSectionProps {
   hostName: string;
   hostPhone: string | null;
-  /** The homestay's LINE ID or link; Thai guests ask there first. */
-  lineId?: string | null;
+  /** The homestay's Facebook page; the chat button opens it in Messenger (m.me) when the address allows. */
+  facebookUrl?: string | null;
   hostAvatarUrl: string | null;
   isVerified: boolean;
   hostCreatedAt: string;
@@ -46,7 +46,7 @@ function Stat({ value, label, small = false }: { value: React.ReactNode; label?:
 export function HostLocationSection({
   hostName,
   hostPhone,
-  lineId,
+  facebookUrl,
   hostAvatarUrl,
   isVerified,
   hostCreatedAt,
@@ -60,6 +60,7 @@ export function HostLocationSection({
   const tl = useTranslations("landing");
   const locale = useLocale();
 
+  const chat = hostContactLink(facebookUrl);
   const now = Date.now();
   const diffMs = now - new Date(hostCreatedAt).getTime();
   const totalMonths = Math.max(0, Math.floor(diffMs / (30.44 * DAY_MS)));
@@ -108,7 +109,7 @@ export function HostLocationSection({
               </div>
             </div>
 
-            {(hostPhone || lineId) && (
+            {(hostPhone || chat) && (
               <div className="mt-5 flex flex-wrap justify-center gap-2.5 md:justify-start">
                 {hostPhone && (
                   <a
@@ -119,16 +120,17 @@ export function HostLocationSection({
                     {hostPhone}
                   </a>
                 )}
-                {/* Thai guests ask on LINE first, so it is a button beside the phone, not a grey link. */}
-                {lineId && (
+                {/* Chat beside the phone: Messenger when the page address allows it, else the Facebook page itself.
+                    Built by hostContactLink, which never turns a non-Facebook address into a button. */}
+                {chat && (
                   <a
-                    href={lineUrl(lineId)}
+                    href={chat.href}
                     target="_blank"
                     rel="noopener noreferrer"
                     className="inline-flex min-h-12 shrink-0 items-center gap-2 whitespace-nowrap rounded-full border border-line-strong px-6 text-[15px] font-medium text-ink transition-colors hover:bg-mist outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
                   >
-                    <LineIcon className="h-4 w-4" />
-                    {t("chatOnLine")}
+                    <MessageCircle className="h-4 w-4" />
+                    {chat.kind === "messenger" ? t("chatOnMessenger") : t("openFacebookPage")}
                   </a>
                 )}
               </div>

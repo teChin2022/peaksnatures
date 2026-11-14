@@ -31,8 +31,8 @@ export async function LandingHero({
   const italic = (await getLocale()) === "en" ? "italic" : "";
 
   return (
-    // Mist Ridge: the name sits low and left over the photo, aligned with the sections below.
-    <section className="relative flex h-[100svh] min-h-[560px] w-full items-end overflow-hidden bg-pine-deep">
+    // The name and tagline sit in the middle of the photo (owner, 2026-11-14).
+    <section className="relative flex h-[100svh] min-h-[560px] w-full items-center justify-center overflow-hidden bg-pine-deep">
       {heroImageUrl && (
         // Slow zoom only: the photo is the page's largest paint, so it never fades in.
         <Image
@@ -47,8 +47,8 @@ export async function LandingHero({
       {/* Flat, so the text rows get the same shade wherever they sit: solid white over the brightest photo stays at 4.76:1. */}
       <div className="absolute inset-0 bg-black/55" />
 
-      {/* Bottom padding clears the scroll cue, and on phones the sticky Book bar under it. */}
-      <div className="relative z-10 mx-auto w-full max-w-6xl px-4 pb-[calc(12rem+env(safe-area-inset-bottom))] text-white text-shadow-lg text-shadow-black/40 sm:px-6 md:pb-40">
+      {/* Top padding clears the header; the bottom keeps the text above the scroll cue on short phone screens. */}
+      <div className="relative z-10 mx-auto w-full max-w-4xl px-6 pt-16 pb-24 text-center text-white text-shadow-lg text-shadow-black/40 md:pb-0">
         <h1 className="font-serif text-5xl leading-[1.15] text-balance sm:text-6xl md:text-7xl lg:text-8xl">
           {/* The name rises from behind a mask (globals.css .hero-rise); the padding keeps Thai marks above and below the line inside it. */}
           <span className="-my-[0.12em] block overflow-hidden py-[0.12em]">
@@ -64,7 +64,7 @@ export async function LandingHero({
           </span>
         </h1>
         {tagline && (
-          <p className={`mt-4 max-w-[32ch] text-lg text-white/95 sm:text-xl md:text-2xl ${italic} ${RISE} motion-safe:delay-700`}>{tagline}</p>
+          <p className={`mx-auto mt-4 max-w-[32ch] text-lg text-balance text-white/95 sm:text-xl md:text-2xl ${italic} ${RISE} motion-safe:delay-700`}>{tagline}</p>
         )}
 
         {/* The only other thing the hero says, and only when it is true (settled: blocked hosts show the notice). */}

@@ -1,18 +1,20 @@
 {
   "bookingTutorial": {
-    "title": "How to book in 3 easy steps",
+    "title": "How to book in 4 easy steps",
     "intro": "Takes a few minutes — your booking is confirmed automatically after payment",
     "introQuick": "It only takes a few minutes. The host confirms your booking once the payment has been checked.",
     "step1Title": "Select dates & houses",
-    "step1Desc": "Pick your check-in/out dates, then add the houses you want — you can add several",
-    "step2Title": "Review & enter details",
-    "step2Desc": "Check the houses in your cart, then fill in your name, email, phone, and province",
-    "step3Title": "Pay & upload slip",
-    "step3Desc": "Scan the PromptPay QR or bank transfer, upload your slip, and we confirm automatically",
-    "step3TitleQuick": "Pay and place your booking",
-    "step3DescQuick": "Scan the PromptPay QR or transfer to the bank account, place your booking, then send the slip to the host in chat. No slip upload needed here.",
+    "step1Desc": "Pick your check-in and check-out dates, then tap “Select this house” to add houses to your booking. You can add several.",
+    "step2Title": "Enter your details",
+    "step2Desc": "Tap “Continue to Guest Details”, fill in your name, phone and email, then tick the consent box.",
+    "step3Title": "Review & choose how to pay",
+    "step3Desc": "Check your houses, details and price, then choose full payment or a deposit (if the homestay offers one). Your houses are held for you while you pay.",
     "cta": "Got it, start booking",
-    "reopen": "How to book"
+    "reopen": "How to book",
+    "step4Title": "Pay & upload your slip",
+    "step4Desc": "Scan the PromptPay QR or transfer to the bank account, then upload your slip on the same page. We check it and confirm your booking automatically.",
+    "step4TitleQuick": "Pay and place your booking",
+    "step4DescQuick": "Scan the PromptPay QR or transfer to the bank account, place your booking, then send the slip to the host in chat. No slip upload needed here."
   },
   "hero": {
     "verifiedHost": "Verified Host",
@@ -29,7 +31,9 @@
     "totalRooms": "{count, plural, =1 {House} other {Houses}}",
     "totalBookings": "{count, plural, =0 {No Bookings Yet} =1 {Booking} other {Bookings}}",
     "lastBooking": "Last booking",
-    "chatOnLine": "Chat on LINE"
+    "chatOnLine": "Chat on LINE",
+    "chatOnMessenger": "Chat on Messenger",
+    "openFacebookPage": "Open Facebook page"
   },
   "common": {
     "brand": "Peaksnature",
@@ -287,7 +291,8 @@
     "seasonalRates": "Seasonal rates",
     "specialRates": "Extra charges",
     "popular": "Popular",
-    "temporarilyClosed": "This house is temporarily closed for renovation"
+    "temporarilyClosed": "This house is temporarily closed for renovation",
+    "ratePrice": "Price"
   },
   "booking": {
     "title": "Book Your Stay",

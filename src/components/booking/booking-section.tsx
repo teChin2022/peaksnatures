@@ -1448,27 +1448,26 @@ export function BookingSection({
             <div>
               <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
                 <h2 className="font-serif text-3xl font-normal leading-tight text-ink md:text-4xl">{t("yourBooking")}</h2>
+                <div className="flex flex-wrap items-baseline gap-x-4">
                 {cartLines.length > 0 && dateRange?.from && dateRange?.to && (
                   <p className="text-sm text-ink-2">
                     {fmtDate(dateRange.from, "EEE d MMM", locale)} – {fmtDate(dateRange.to, "EEE d MMM", locale)} · {nightsLabel} · {t("roomsCount", { count: cartLines.length })}
                   </p>
                 )}
-              </div>
-              <p className="mt-3 max-w-2xl text-[15px] leading-relaxed text-ink-2">
-                <span>{t(normalEnabled ? "howItWorks" : "howItWorksQuick")}</span>{" "}
-                {/* How to book — reopens the tutorial (pulses once on first arrival) */}
+                {/* How to book — opens the step-by-step guide (pulses once on first arrival) */}
                 <motion.button
                   ref={helpPillRef}
                   type="button"
                   onClick={() => { setShowTutorial(true); setCookie(TUTORIAL_COOKIE, "1", 365); }}
                   animate={pulseHelp ? { scale: [1, 1.08, 1, 1.08, 1] } : { scale: 1 }}
                   transition={{ duration: 1.2, ease: "easeInOut" }}
-                  className="inline-flex min-h-11 cursor-pointer items-center gap-1 align-middle font-medium text-pine underline underline-offset-4 hover:text-pine-hover"
+                  className="inline-flex min-h-11 cursor-pointer items-center gap-1 text-[15px] font-medium text-pine underline underline-offset-4 hover:text-pine-hover"
                 >
                   {tt("reopen")}
                   <HelpCircle className="h-4 w-4" />
                 </motion.button>
-              </p>
+                </div>
+              </div>
             </div>
 
             {/* ── Booking card: full width on the page for step 1; steps 2–3 open it full screen ── */}

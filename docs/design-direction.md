@@ -243,8 +243,8 @@ From earlier sessions with the owner:
 - **`/admin`:** stays English-only.
 
 - **Guest pages palette (2026-11-13):** Mist Ridge (DESIGN.md "Mist Ridge"),
-  guest pages only. `/[slug]` shipped first: hero name and tagline low and
-  left; gallery a 5-photo mosaic (3 tiles on phones) with "Show all" over the
+  guest pages only. `/[slug]` shipped first: hero name and tagline centred
+  (owner, 2026-11-14; briefly low and left); gallery a 5-photo mosaic (3 tiles on phones) with "Show all" over the
   last tile; amenities and rules side by side; houses as white cards; host
   card and map in one section; check-in and policies side by side from lg;
   closing band over the host's hero photo; phone bar shows the "from" price
