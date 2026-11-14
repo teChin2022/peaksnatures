@@ -2,8 +2,8 @@
 import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { RoomLightbox, SingleRoomHero } from "@/components/booking/rooms-section";
-import type { Room } from "@/types/database";
+import { RoomLightbox, RoomsSection, SingleRoomHero } from "@/components/booking/rooms-section";
+import type { BlockedDate, Room } from "@/types/database";
 
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key, useLocale: () => "th" }));
 
@@ -124,5 +124,34 @@ describe("SingleRoomHero house card", () => {
     expect(container.textContent).toContain("temporarilyClosed");
     expect(buttonsNamed("selectThisRoom")).toHaveLength(0);
     expect(buttonsNamed("viewCalendar")).toHaveLength(0);
+  });
+});
+
+describe("the house card's availability calendar", () => {
+  it("is view only, and marks a booked night in words as well as colour", () => {
+    vi.useFakeTimers({ now: new Date(2026, 11, 1), toFake: ["Date"] });
+    try {
+      act(() =>
+        root.render(
+          createElement(RoomsSection, {
+            rooms: [room()],
+            blockedDates: [{ id: "b1", room_id: null, date: "2026-12-20" } as BlockedDate],
+          }),
+        ),
+      );
+      act(() => buttonsNamed("viewCalendar")[0].click());
+
+      const grid = document.body.querySelector('[role="dialog"] [role="grid"]')!;
+      expect(grid.querySelectorAll('[role="gridcell"]').length).toBeGreaterThan(27);
+      // Text, not buttons: tapping a day did nothing, so it no longer looks tappable.
+      expect(grid.querySelectorAll("button")).toHaveLength(0);
+
+      const booked = [...grid.querySelectorAll('[role="gridcell"]')].filter((c) => c.className.includes("line-through"));
+      expect(booked).toHaveLength(1);
+      expect(booked[0].textContent).toBe("20");
+      expect(booked[0].getAttribute("aria-label")).toMatch(/, legendBooked$/);
+    } finally {
+      vi.useRealTimers();
+    }
   });
 });

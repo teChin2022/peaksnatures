@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { startOfToday, addMonths, parseISO } from "date-fns";
+import { startOfToday, addMonths, parseISO, format, isBefore, isSameDay } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
 import type { DateRange } from "react-day-picker";
 import { useTranslations, useLocale } from "next-intl";
@@ -16,6 +16,7 @@ import {
   makeStayDisabledMatcher,
 } from "@/lib/booking-dates";
 import { useBookingCart } from "@/components/booking/booking-cart-context";
+import { BOOKED_DAY_MODIFIER, CalendarLegend, LEGEND_SWATCH } from "@/components/booking/calendar-legend";
 
 /**
  * Shared date-range picker dialog for the homestay page. Reads/writes the one
@@ -86,6 +87,8 @@ export function BookingCalendarPanel({
   const { dateRange, setDates, nights, catalog, liveBookedRanges } = useBookingCart();
   const t = useTranslations("booking");
   const tc = useTranslations("common");
+  const tr = useTranslations("rooms");
+  const ta = useTranslations("availability");
   const locale = useLocale();
   const [warned, setWarned] = useState(false);
   // Set when a tap would have produced a stay running across an unusable night,
@@ -133,6 +136,14 @@ export function BookingCalendarPanel({
     () => makeStayDisabledMatcher(unavailableNights, pendingCheckIn),
     [unavailableNights, pendingCheckIn],
   );
+
+  // Booked or closed nights look booked, not past. The picked check-in and
+  // check-out keep the selection style, since a booked night can be a check-out.
+  const isBookedNight = (date: Date) =>
+    !isBefore(date, startOfToday()) &&
+    unavailableNights.has(format(date, "yyyy-MM-dd")) &&
+    !(dateRange?.from && isSameDay(date, dateRange.from)) &&
+    !(dateRange?.to && isSameDay(date, dateRange.to));
 
   const handleSelect = (range: DateRange | undefined, triggerDate: Date) => {
     const blocker =
@@ -205,10 +216,20 @@ export function BookingCalendarPanel({
               formatYearDropdown: (date) => String(date.getFullYear() + 543),
             } : undefined}
             disabled={[{ before: startOfToday() }, isDayDisabled]}
+            modifiers={{ booked: isBookedNight }}
+            modifiersClassNames={{ booked: BOOKED_DAY_MODIFIER }}
             numberOfMonths={1}
             // Seven 44px days need 308px; a 375px phone's dialog leaves 309px,
             // so the calendar's own padding would push Saturday past the edge.
             className="w-full p-0 sm:p-4"
+          />
+          <CalendarLegend
+            className="mt-2"
+            items={[
+              { swatch: LEGEND_SWATCH.free, label: tr("legendAvailable") },
+              // Unscoped, a night only counts once every house is taken.
+              { swatch: LEGEND_SWATCH.full, label: scopedRoom ? tr("legendBooked") : ta("legendFull") },
+            ]}
           />
         </div>
 
@@ -247,7 +268,7 @@ export function BookingCalendarPanel({
           </div>
         ) : null}
 
-        <Button className="w-full rounded-full bg-pine px-6 py-3.5 h-auto text-sm font-bold text-white hover:bg-pine-hover" onClick={handleDone}>
+        <Button className="w-full rounded-full bg-pine px-6 py-3.5 h-auto text-sm font-bold text-white hover:bg-pine-hover focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2" onClick={handleDone}>
           {tc("done")}
         </Button>
     </>

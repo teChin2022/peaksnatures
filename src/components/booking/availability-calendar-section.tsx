@@ -22,6 +22,7 @@ import {
 import { HTMLContent } from "@/components/ui/html-content";
 import { BookingCalendarPanel } from "@/components/booking/booking-calendar-dialog";
 import { RoomRateTable } from "@/components/booking/room-rate-table";
+import { BOOKED_DAY, CalendarLegend, LEGEND_SWATCH } from "@/components/booking/calendar-legend";
 import { RoomConfigDialog } from "@/components/booking/room-config-dialog";
 import { useBookingCart, type CartLine } from "@/components/booking/booking-cart-context";
 import {
@@ -57,7 +58,7 @@ const getServerSnapshot = () => false;
 const STATUS_CLASS: Record<DayAvailability, string> = {
   available: "bg-white text-ink-2 hover:bg-mist",
   partial: "bg-amber-100 text-amber-800 hover:bg-amber-200",
-  full: "bg-red-100 text-red-600 line-through decoration-red-400/60 hover:bg-red-200",
+  full: `${BOOKED_DAY} hover:bg-red-200`,
 };
 
 function makeAvailabilityDay(
@@ -87,7 +88,7 @@ function makeAvailabilityDay(
         }
         className={cn(
           "relative flex size-10 items-center justify-center rounded-full text-sm font-medium select-none transition-colors md:size-14 md:text-base",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/40",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2",
           isPast && "cursor-not-allowed text-line-strong",
           status && `cursor-pointer ${STATUS_CLASS[status]}`,
           modifiers.outside && status && "opacity-55",
@@ -101,15 +102,6 @@ function makeAvailabilityDay(
       </button>
     );
   };
-}
-
-function LegendItem({ swatch, label }: { swatch: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className={cn("size-3.5 rounded-full ring-1 ring-inset", swatch)} />
-      {label}
-    </span>
-  );
 }
 
 const PILL_BASE =
@@ -252,12 +244,13 @@ function BackHeader({ title, description, onBack }: { title: string; description
     // text-left overrides DialogHeader's mobile centering: with a back arrow
     // pinned left, a centered line under a left-aligned title reads crooked.
     <DialogHeader className="pr-10 text-left">
-      <div className="flex items-center gap-1.5">
+      {/* gap-2.5 leaves the focus ring (2px + 2px offset) clear of the title. */}
+      <div className="flex items-center gap-2.5">
         <button
           type="button"
           onClick={onBack}
           aria-label={tc("back")}
-          className="-ml-2 shrink-0 rounded-full p-2 text-ink-3 transition-colors hover:bg-mist-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/40"
+          className="-ml-2 shrink-0 rounded-full p-2 text-ink-3 transition-colors hover:bg-mist-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
@@ -367,7 +360,7 @@ function RoomDayDetail({
         )}
 
         <Button
-          className="w-full rounded-full bg-pine px-6 py-3.5 h-auto text-sm font-bold text-white hover:bg-pine-hover"
+          className="w-full rounded-full bg-pine px-6 py-3.5 h-auto text-sm font-bold text-white hover:bg-pine-hover focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
           onClick={onBook}
         >
           {t("bookThisHouse")}
@@ -556,11 +549,14 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
             <div className="h-[22rem] animate-pulse rounded-xl bg-mist md:h-[26rem]" />
           )}
 
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-line px-2 pt-3 text-xs text-ink-2">
-            <LegendItem swatch="bg-white ring-line-strong" label={t("legendAvailable")} />
-            <LegendItem swatch="bg-amber-100 ring-amber-300" label={t("legendPartial")} />
-            <LegendItem swatch="bg-red-100 ring-red-300" label={t("legendFull")} />
-          </div>
+          <CalendarLegend
+            className="mt-3 border-t border-line px-2 pt-3"
+            items={[
+              { swatch: LEGEND_SWATCH.free, label: t("legendAvailable") },
+              { swatch: LEGEND_SWATCH.partial, label: t("legendPartial") },
+              { swatch: LEGEND_SWATCH.full, label: t("legendFull") },
+            ]}
+          />
         </div>
       </div>
 
@@ -625,7 +621,7 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
                         <button
                           type="button"
                           onClick={() => setDetailRoomId(row.roomId)}
-                          className="-ml-1 inline-flex min-h-11 shrink-0 items-center whitespace-nowrap px-1 text-xs text-ink-2 underline underline-offset-2 transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/40"
+                          className="-ml-1 inline-flex min-h-11 shrink-0 items-center whitespace-nowrap px-1 text-xs text-ink-2 underline underline-offset-2 transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
                         >
                           {t("viewDetails")}
                         </button>

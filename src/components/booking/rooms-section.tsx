@@ -3,7 +3,8 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { useSwipe } from "@/hooks/use-swipe";
 import Image from "next/image";
-import { startOfToday, addMonths, parseISO } from "date-fns";
+import { startOfToday, addMonths, parseISO, isBefore } from "date-fns";
+import type { DayProps } from "react-day-picker";
 import { th as thLocale } from "date-fns/locale";
 import type { Room, RoomSeasonalPrice, RoomSpecialPrice, BlockedDate } from "@/types/database";
 
@@ -18,6 +19,7 @@ import { toast } from "sonner";
 import { useBookingCartOptional, type CartLine } from "@/components/booking/booking-cart-context";
 import { RoomConfigDialog } from "@/components/booking/room-config-dialog";
 import { RoomRateTable } from "@/components/booking/room-rate-table";
+import { BOOKED_DAY_MODIFIER, CalendarLegend, LEGEND_SWATCH } from "@/components/booking/calendar-legend";
 import { getPriceRange } from "@/lib/calculate-price";
 import { getFullyBookedForRoom } from "@/lib/booking-dates";
 import { HTMLContent } from "@/components/ui/html-content";
@@ -501,6 +503,29 @@ export function SingleRoomHero({
   );
 }
 
+/**
+ * A day of the view-only "วันว่าง & ราคา" calendar: a grid cell with text, not
+ * a button. The number sits in a `.day-btn` so the shared day modifiers (today,
+ * outside, past, booked) style it like every other calendar's day. Booked
+ * nights add the word to the cell's label, since the strike-through is visual.
+ */
+function StaticDay(props: DayProps) {
+  const t = useTranslations("rooms");
+  const label = props["aria-label"];
+  return (
+    <td
+      role={props.role}
+      className={props.className}
+      style={props.style}
+      aria-label={props.modifiers.booked && label ? `${label}, ${t("legendBooked")}` : label}
+    >
+      <span className="day-btn relative flex size-11 items-center justify-center rounded-full text-sm font-medium text-earth-700">
+        {props.children}
+      </span>
+    </td>
+  );
+}
+
 function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blockedDates, popularRoomIds }: { rooms: Room[]; seasonsByRoom: Record<string, RoomSeasonalPrice[]>; specialsByRoom: Record<string, RoomSpecialPrice[]>; bookedRanges: BookedRange[]; blockedDates: BlockedDate[]; popularRoomIds: ReadonlySet<string> }) {
   const t = useTranslations("rooms");
   const [lightbox, setLightbox] = useState<{ images: string[]; name: string } | null>(null);
@@ -572,6 +597,8 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
     const allDisabled = new Set([...fullyBooked, ...blocked]);
     return Array.from(allDisabled).map((d) => parseISO(d));
   }, [calendarRoomId, rooms, bookedRanges, blockedDates]);
+  // Past nights read as past, not booked.
+  const bookedDays = useMemo(() => disabledDates.filter((d) => !isBefore(d, startOfToday())), [disabledDates]);
 
   return (
     <>
@@ -641,15 +668,16 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
       </Dialog>
 
       <Dialog open={!!calendarRoomId} onOpenChange={(open) => { if (!open) setCalendarRoomId(null); }}>
-        <DialogContent className="sm:max-w-2xl overflow-y-auto max-h-[90vh]">
+        <DialogContent className="sm:max-w-2xl overflow-y-auto max-h-[90vh] p-4 sm:p-6">
           <DialogHeader>
             <DialogTitle>{t("availabilityTitle")}</DialogTitle>
             <DialogDescription>
               {calendarRoom?.name}
             </DialogDescription>
           </DialogHeader>
+          {/* View only (owner, 2026-11-14): no `mode`, so the days are text, not
+              buttons — dates are picked from the date bars, not from a house. */}
           <Calendar
-            mode="single"
             numberOfMonths={1}
             locale={locale === "th" ? thLocale : undefined}
             captionLayout="dropdown"
@@ -661,28 +689,19 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
               formatYearDropdown: (date) =>
                 String(date.getFullYear() + 543),
             } : undefined}
-            disabled={[
-              { before: new Date() },
-              ...disabledDates,
-            ]}
-            modifiers={{
-              booked: disabledDates,
-            }}
-            modifiersClassNames={{
-              booked: "[&_.day-btn]:bg-red-100! [&_.day-btn]:hover:bg-red-100! [&_.day-btn]:text-red-400! [&_.day-btn]:opacity-100! [&_.day-btn]:rounded-full",
-            }}
-            className="rounded-md border w-full"
+            disabled={{ before: startOfToday() }}
+            modifiers={{ booked: bookedDays }}
+            modifiersClassNames={{ booked: BOOKED_DAY_MODIFIER }}
+            components={{ Day: StaticDay }}
+            // Same phone fit as the date picker: seven 44px days in a p-4 dialog.
+            className="w-full p-0 sm:p-4"
           />
-          <div className="flex items-center justify-center gap-4 text-xs text-ink-3">
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-sm bg-red-100 border border-red-200" />
-              {t("legendBooked")}
-            </span>
-            <span className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-sm bg-white border border-line" />
-              {t("legendAvailable")}
-            </span>
-          </div>
+          <CalendarLegend
+            items={[
+              { swatch: LEGEND_SWATCH.free, label: t("legendAvailable") },
+              { swatch: LEGEND_SWATCH.full, label: t("legendBooked") },
+            ]}
+          />
 
           {calendarRoom && (
             <RoomRateTable room={calendarRoom} seasonalPrices={seasonsByRoom[calendarRoom.id] || []} specialPrices={specialsByRoom[calendarRoom.id] || []} className="mt-5" />

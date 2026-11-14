@@ -89,7 +89,7 @@ Deferred until the owner decides (direction §10):
 | One Thai date format | B4 | One `fmtDate` preset, "18 พ.ย. 2569", for the dialog, the sheet and step 1. |
 | Landing position | B5, part of B18 | `scroll-margin-top` equal to the header height and `block: "start"`; hide the sticky bar while the booking card is in view. Keep the bar's settled content. |
 | Calm the shell | B6, B9, B10, S9, S10 | No entrance animation on the booking card or the date search. Flat 18px card with no `shadow-xl`. Flat pills. No faux italic. Replace the four filler rows with three real mechanisms: slip checked automatically, deposit now and the rest on arrival, the free-cancellation date. No glass header. |
-| Calendars, visual part | B13 | One legend, a distinct style for booked nights, a solid focus ring. |
+| Calendars, visual part | B13 | One legend, a distinct style for booked nights, a solid focus ring. **Done 2026-11-14** (see ui-audit B13). |
 | House dialog context | B16 | Show the dates and nights beside the total; `aria-pressed` on tiers. Preselecting the base tier **needs approval** (it changes the default selection). |
 | Readable price and outcome | B17 (visual part) | Price breakdown in `earth-700` at 14px; the pending state gets its own icon and words. |
 | Steps and disabled reasons | B19 | Named steps; "accept the terms to continue" under the disabled CTA. |

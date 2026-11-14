@@ -465,6 +465,15 @@ not bubbly.
   legend for all free, some free and full. Status must not rely on colour
   alone, and days from the next month that stay clickable must keep text
   contrast.
+- **One calendar language** (`src/components/booking/calendar-legend.tsx`):
+  every guest calendar uses the same round legend swatches and the same
+  booked night: red-100 fill, red-700 number (4.5:1), struck through with a
+  solid 2px red-500 line (thinner vanishes on 1x screens). A booked
+  night never looks like a past day. Day focus is a 2px solid Forest ring
+  with a 2px offset.
+- **"วันว่าง & ราคา"** (the house card's calendar) is view only: its days are
+  text, not buttons. Dates are picked from the date bars or the availability
+  calendar.
 
 ### Badges and Status
 - **Normative:** admin's `StatusBadge` tones (`src/components/admin/status-badge.tsx`):
