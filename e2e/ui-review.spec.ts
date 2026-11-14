@@ -128,6 +128,27 @@ test("booking page, first view", async ({ page, context }, testInfo) => {
   }
 });
 
+test("booking page, availability day", async ({ page, context }, testInfo) => {
+  const slug = requireSlug();
+  session = await startSession(page, context);
+  for (const width of widthsFor(testInfo)) {
+    if (width) await page.setViewportSize({ width, height: 800 });
+    await page.goto(`/${slug}/book`);
+    const section = page.locator("section").filter({ has: page.getByRole("heading", { name: T.availability.title }) });
+    await expect(section.getByRole("button", { name: / — / }).first()).toBeVisible();
+    // A partly booked day shows both row kinds; fall back to any day with a house free.
+    const partial = section.getByRole("button", { name: new RegExp(` — ${T.availability.legendPartial}$`) });
+    const free = section.getByRole("button", { name: new RegExp(` — (${T.availability.legendAvailable}|${T.availability.legendPartial})$`) });
+    await ((await partial.count()) ? partial : free).first().click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.waitForTimeout(400); // dialog entrance
+    // The full page shrinks the dialog past reading; keep a close-up too.
+    await page.getByRole("dialog").screenshot({ path: join(OUT, `availability-day-dialog-${page.viewportSize()?.width}.png`) });
+    await capture(page, testInfo, "availability-day", slug);
+    await page.keyboard.press("Escape");
+  }
+});
+
 test("booking page, payment step", async ({ page, context }, testInfo) => {
   const slug = requireSlug();
   // Holds and the draft are stubbed by startSession; nothing reaches the database.

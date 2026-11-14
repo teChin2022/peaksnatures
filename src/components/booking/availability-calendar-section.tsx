@@ -108,29 +108,27 @@ function makeAvailabilityDay(
   };
 }
 
-const PILL_BASE =
-  "inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset";
-
-function RoomStatusPill({ row }: { row: RoomDayStatus }) {
+/** Coloured text, not a pill: five pills in a list made the one booked house the loudest thing on screen. */
+function RoomStatusText({ row }: { row: RoomDayStatus }) {
   const t = useTranslations("availability");
 
   let cls: string;
   let label: string;
   if (row.blocked) {
-    cls = "bg-mist-2 text-ink-3 ring-line";
+    cls = "text-ink-3";
     label = t("roomClosed");
   } else if (row.free === 0) {
-    cls = "bg-red-50 text-red-600 ring-red-200";
+    cls = "text-red-700";
     label = t("roomBooked");
   } else if (row.booked === 0) {
-    cls = "bg-emerald-50 text-emerald-700 ring-emerald-200";
+    cls = "text-emerald-700";
     label = row.total > 1 ? t("roomFreeCount", { count: row.free }) : t("roomAvailable");
   } else {
-    cls = "bg-amber-50 text-amber-800 ring-amber-200";
+    cls = "text-amber-800";
     label = t("roomLeftCount", { count: row.free });
   }
 
-  return <span className={cn(PILL_BASE, cls)}>{label}</span>;
+  return <span className={cn("shrink-0 font-medium", cls)}>{label}</span>;
 }
 
 const BLUR_DATA_URL =
@@ -623,42 +621,50 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
                 </DialogDescription>
               </DialogHeader>
 
-              <ul className="space-y-2">
-                {breakdown.map((row) => (
-                  <li
-                    key={row.roomId}
-                    className="rounded-xl border border-line bg-mist/40 px-3 py-2.5"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
-                        {roomNameById.get(row.roomId)}
-                      </span>
-                      <RoomStatusPill row={row} />
-                    </div>
-                    {/* Only houses with a unit left that night can be opened or
-                        booked — a booked or closed one has nothing to book. */}
-                    {!row.blocked && row.free > 0 && (
-                      <div className="mt-1.5 flex items-center justify-between gap-2">
+              {/* Every row has the same two-line shape (name, then status), so
+                  booked and free rows are the same height. */}
+              <ul className="divide-y divide-line">
+                {breakdown.map((row) => {
+                  // Only houses with a unit left that night can be opened or
+                  // booked — a booked or closed one has nothing to book.
+                  const bookable = !row.blocked && row.free > 0;
+                  return (
+                    <li key={row.roomId} className="flex items-center gap-3 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className={cn("truncate text-base font-semibold", bookable ? "text-ink" : "text-ink-3")}>
+                          {roomNameById.get(row.roomId)}
+                        </p>
+                        <div className="mt-0.5 flex items-center gap-1.5 text-sm">
+                          <RoomStatusText row={row} />
+                          {bookable && (
+                            <>
+                              <span aria-hidden="true" className="text-ink-3">·</span>
+                              {/* -my-3 keeps the 44px tap target without making the line 44px tall. */}
+                              <button
+                                type="button"
+                                onClick={() => setDetailRoomId(row.roomId)}
+                                className="-my-3 inline-flex min-h-11 min-w-0 items-center truncate text-ink-2 underline underline-offset-2 transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
+                              >
+                                {t("viewDetails")}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      {/* Secondary, like the house card's "วันว่าง & ราคา": one
+                          filled button per row read as a wall of CTAs. */}
+                      {bookable && (
                         <button
                           type="button"
-                          onClick={() => setDetailRoomId(row.roomId)}
-                          className="-ml-1 inline-flex min-h-11 shrink-0 items-center whitespace-nowrap px-1 text-xs text-ink-2 underline underline-offset-2 transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
-                        >
-                          {t("viewDetails")}
-                        </button>
-                        {/* Secondary, like the house card's "วันว่าง & ราคา": one
-                            filled button per row read as a wall of CTAs. */}
-                        <button
-                          type="button"
-                          className="flex min-h-11 items-center justify-center rounded-full border border-line-strong bg-white px-5 text-sm font-medium text-ink transition-colors hover:bg-mist outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
+                          className="flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-line-strong bg-white px-5 text-sm font-medium text-ink transition-colors hover:bg-mist outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
                           onClick={() => handleBook(row.roomId)}
                         >
                           {t("bookThisHouse")}
                         </button>
-                      </div>
-                    )}
-                  </li>
-                ))}
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </>
           )}

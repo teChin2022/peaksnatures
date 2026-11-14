@@ -371,7 +371,7 @@ test.describe("booking from the availability calendar", () => {
     await openFreeDay(page, slug);
 
     const row = page.getByRole("dialog").getByRole("listitem").filter({ has: page.getByRole("button", { name: T.availability.bookThisHouse }) }).first();
-    const house = (await row.locator("span").first().textContent())!.trim();
+    const house = (await row.locator("p").first().textContent())!.trim();
     await row.getByRole("button", { name: T.availability.bookThisHouse }).click();
 
     await pickCheckOutAndAdd(page, house);
