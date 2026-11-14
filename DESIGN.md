@@ -399,6 +399,9 @@ not bubbly.
   uppercase with `tracking-widest`; Thai labels stay unspaced.
 - **Hover / Focus:** hover to Forest Hover. Focus is a 2px solid Forest ring
   with a 2px offset (7.49:1). A ring at `brand/40` is too faint (1.94:1).
+  shadcn's `--ring` is Forest app-wide (2026-11-14): `Button` and `Badge` draw
+  that ring, inputs, selects, switches and tabs get a Forest border on focus,
+  and the dialog and sheet close buttons ring on keyboard focus only.
 - **Secondary:** white fill, 1px Sand border, Teak Deep label, the same
   pill. On a photo, white at 90% with no border.
 - **Ghost / link:** Forest text, underline on hover. Dashboard icon buttons
@@ -457,7 +460,9 @@ not bubbly.
 
 ### Calendars
 - **Date picker** (shadcn `Calendar`, react-day-picker 9, in
-  `BookingCalendarDialog`): 44 × 44px day buttons; check-in and check-out are
+  `BookingCalendarDialog`): 44 × 44px day buttons, shrinking below a 375px
+  screen to a seventh of the dialog (about 36px at 320px; owner's call
+  2026-11-14, seven 44px days would overflow); check-in and check-out are
   Forest circles joined by a Forest Pale band; today is a Linen circle; past
   days are `earth-400` and disabled. Check-in and check-out summary boxes sit
   above the grid.

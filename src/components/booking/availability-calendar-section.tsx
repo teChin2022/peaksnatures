@@ -5,7 +5,7 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import Image from "next/image";
 import { format, startOfToday, addDays, addMonths } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
-import { type DayButton, type Modifiers } from "react-day-picker";
+import { type DateRange, type DayButton, type Modifiers } from "react-day-picker";
 import { useTranslations, useLocale } from "next-intl";
 import { motion } from "motion/react";
 import { toast } from "sonner";
@@ -87,7 +87,10 @@ function makeAvailabilityDay(
             : undefined
         }
         className={cn(
-          "relative flex size-10 items-center justify-center rounded-full text-sm font-medium select-none transition-colors md:size-14 md:text-base",
+          // 40px, or a seventh of the grid's width (100vw minus the section's
+          // 2×1rem, the card's 2×0.75rem and 2px border, the calendar's own
+          // 2×1rem) below ~370px, where seven 40px days overflow.
+          "relative flex size-[min(2.5rem,calc((100vw_-_5.5rem_-_2px)/7))] items-center justify-center rounded-full text-sm font-medium select-none transition-colors md:size-14 md:text-base",
           "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2",
           isPast && "cursor-not-allowed text-line-strong",
           status && `cursor-pointer ${STATUS_CLASS[status]}`,
@@ -371,7 +374,10 @@ function RoomDayDetail({
 }
 
 export function AvailabilityCalendarSection({ homestayId }: { homestayId: string }) {
-  const { catalog, liveBookedRanges, setDates, lines, isRoomAvailableForRange, remainingForRoom } = useBookingCart();
+  const { catalog, liveBookedRanges, dateRange, setDates, lines, isRoomAvailableForRange, remainingForRoom } = useBookingCart();
+  // The guest's dates from before "จองบ้านพักนี้" seeded a new check-in; Back or
+  // closing without Done puts them back instead of leaving half a range.
+  const datesBeforePick = useRef<DateRange | undefined>(undefined);
   const t = useTranslations("availability");
   const tr = useTranslations("rooms");
   const tb = useTranslations("booking");
@@ -430,14 +436,28 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
 
   // Booking from here starts the normal flow: the tapped date becomes the
   // check-in (overriding any range already picked — it is the guest's most
-  // recent, most explicit choice) and the shared picker, shown in this same
+  // recent, most explicit choice — until they leave without Done, see
+  // cancelPick) and the shared picker, shown in this same
   // dialog, asks for the check-out. The picker is scoped to this house: the
   // guest chose it before their dates, so a range it cannot serve must not be
   // offered.
   const handleBook = (roomId: string) => {
     if (!selectedDate) return;
+    datesBeforePick.current = dateRange;
     setDates({ from: selectedDate, to: undefined });
     setPickRoomId(roomId);
+  };
+
+  // Leaving the picker without Done (Back, the close button, Esc, the overlay).
+  const cancelPick = () => {
+    setDates(datesBeforePick.current);
+    setPickRoomId(null);
+  };
+
+  // Done closes the dialog itself (setOpen), so only a dismissal lands here.
+  const handleOpenChange = (next: boolean) => {
+    if (!next && pickRoomId) cancelPick();
+    setOpen(next);
   };
 
   const scrollToRooms = () => {
@@ -564,7 +584,7 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
           or the check-out picker for one house. Swapping the body in place
           keeps a single overlay + focus trap, which the rest of the page also
           prefers over stacked modal layers. */}
-      <Dialog open={open} onOpenChange={setOpen}>
+      <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent
           className={cn(
             "max-h-[85vh] overflow-y-auto",
@@ -577,7 +597,7 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
               <BackHeader
                 title={tb("selectDates")}
                 description={pickRoom.name}
-                onBack={() => setPickRoomId(null)}
+                onBack={cancelPick}
               />
               {/* Seeded with the tapped date as check-in and scoped to the
                   house, so its booked nights can't be selected. */}

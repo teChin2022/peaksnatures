@@ -12,6 +12,7 @@ const h = vi.hoisted(() => ({
   remaining: 1,
   lines: [] as CartLine[],
   booked: [] as { room_id: string; check_in: string; check_out: string }[],
+  dateRange: undefined as { from?: Date; to?: Date } | undefined,
 }));
 
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key, useLocale: () => "th" }));
@@ -27,6 +28,7 @@ vi.mock("@/components/booking/booking-cart-context", () => ({
   useBookingCart: () => ({
     catalog: { rooms: [house], blockedDates: [], seasonalPrices: [], specialPrices: [] },
     liveBookedRanges: h.booked,
+    dateRange: h.dateRange,
     setDates: h.setDates,
     lines: h.lines,
     isRoomAvailableForRange: () => h.available,
@@ -70,6 +72,7 @@ afterEach(() => {
   h.remaining = 1;
   h.lines = [];
   h.booked = [];
+  h.dateRange = undefined;
 });
 
 const button = (text: string) =>
@@ -149,5 +152,46 @@ describe("AvailabilityCalendarSection: the check-out picker", () => {
     bookFromDetail();
     expect(config()).toBeNull();
     expect(h.toastError).toHaveBeenCalledWith("roomUnavailableToast");
+  });
+});
+
+describe("AvailabilityCalendarSection: leaving the check-out picker", () => {
+  const before = { from: new Date(2026, 11, 24), to: new Date(2026, 11, 26) };
+  const lastDates = () => h.setDates.mock.calls.at(-1)?.[0];
+
+  it("puts the guest's earlier dates back on Back", () => {
+    h.dateRange = before;
+    openDay();
+    act(() => button("bookThisHouse").click());
+    expect(lastDates()).toEqual({ from: expect.any(Date), to: undefined });
+
+    act(() => (document.body.querySelector('[aria-label="back"]') as HTMLButtonElement).click());
+    expect(lastDates()).toBe(before);
+    expect(button("viewDetails")).toBeDefined();
+  });
+
+  it("puts them back when the dialog is closed without Done", () => {
+    h.dateRange = before;
+    openDay();
+    act(() => button("bookThisHouse").click());
+    act(() => button("Close").click());
+    expect(lastDates()).toBe(before);
+  });
+
+  it("clears the half-picked check-in when there were no dates before", () => {
+    openDay();
+    act(() => button("bookThisHouse").click());
+    act(() => button("Close").click());
+    expect(h.setDates).toHaveBeenLastCalledWith(undefined);
+  });
+
+  it("keeps the new dates once the guest presses Done", () => {
+    h.dateRange = before;
+    openDay();
+    act(() => button("bookThisHouse").click());
+    act(() => button("picker-done").click());
+    tick();
+    expect(h.setDates).toHaveBeenCalledTimes(1);
+    expect(config()?.textContent).toBe("Baan Mok");
   });
 });

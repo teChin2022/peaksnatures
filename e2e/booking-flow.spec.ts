@@ -284,10 +284,16 @@ test.describe("booking from the availability calendar", () => {
   /** Opens a day some way ahead that still has a house free. */
   async function openFreeDay(page: Page, slug: string) {
     await page.goto(`/${slug}/book`);
-    const free = new RegExp(` — (${T.availability.legendAvailable}|${T.availability.legendPartial})$`);
-    const days = page.getByRole("button", { name: free });
-    await expect(days.first()).toBeVisible();
-    await days.nth(Math.min(4, (await days.count()) - 1)).click();
+    const section = page.locator("section").filter({ has: page.getByRole("heading", { name: T.availability.title }) });
+    // Every day ahead carries a status label once the client-only grid renders.
+    await expect(section.getByRole("button", { name: / — / }).first()).toBeVisible();
+    const free = section.getByRole("button", { name: new RegExp(` — (${T.availability.legendAvailable}|${T.availability.legendPartial})$`) });
+    // A month can be fully booked, or nearly over: look up to three months ahead.
+    for (let month = 0; month < 3 && (await free.count()) === 0; month += 1) {
+      await section.getByRole("button", { name: "Go to the Next Month" }).click();
+    }
+    test.skip((await free.count()) === 0, "no free house in the next three months");
+    await free.nth(Math.min(4, (await free.count()) - 1)).click();
   }
 
   /** Picks the check-out in the day dialog's picker view, then adds the house in its config dialog. */
@@ -301,8 +307,9 @@ test.describe("booking from the availability calendar", () => {
     await expect(picker.locator('button[data-selected-single="true"]')).toHaveCount(1);
     // The month sits centred in the dialog. On a 375px phone Saturday used to touch its right
     // edge (2px) while Sunday sat 32px from the left. Gaps, not the padding: the seven 44px days
-    // fill the phone's content box to the subpixel, and the open animation scales both sides alike.
-    const [leftGap, rightGap] = await picker.evaluate((el) => {
+    // fill the phone's content box to the subpixel. Measured once the open animation is over.
+    const [leftGap, rightGap] = await picker.evaluate(async (el) => {
+      await Promise.all(el.getAnimations().map((a) => a.finished));
       const box = el.getBoundingClientRect();
       const days = [...el.querySelectorAll("button[data-day]")].map((d) => d.getBoundingClientRect());
       return [Math.min(...days.map((d) => d.left)) - box.left, box.right - Math.max(...days.map((d) => d.right))];
@@ -345,6 +352,56 @@ test.describe("booking from the availability calendar", () => {
     await row.getByRole("button", { name: T.availability.bookThisHouse }).click();
 
     await pickCheckOutAndAdd(page, house);
+  });
+
+  test("leaving the check-out picker without Done leaves no half-picked dates behind", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await openFreeDay(page, slug);
+
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("button", { name: T.availability.bookThisHouse }).first().click();
+    await expect(dialog.getByRole("heading", { name: T.booking.selectDates })).toBeVisible();
+    await dialog.getByRole("button", { name: T.common.back }).click();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+
+    // The page's own date picker shows no check-in: the tapped day was not kept.
+    await page.getByRole("button", { name: T.booking.selectDates }).last().click();
+    const checkIn = page.getByRole("dialog").locator("div.rounded-xl", { hasText: T.booking.checkInLabel });
+    await expect(checkIn).toContainText(T.booking.addDate);
+  });
+
+  test("fits a 320px phone: the month grid and the check-out picker", async ({ page, context }, testInfo) => {
+    test.skip(testInfo.project.name !== "phone", "phone layout only");
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.setViewportSize({ width: 320, height: 640 });
+    await openFreeDay(page, slug);
+
+    // Seven days inside the box that holds them, with even gaps either side,
+    // measured once a dialog's open animation (a scale) is over.
+    const fits = (box: Locator, days: string) =>
+      box.evaluate(async (el, sel) => {
+        await Promise.all(el.getAnimations().map((a) => a.finished));
+        const r = el.getBoundingClientRect();
+        const d = [...el.querySelectorAll(sel)].map((b) => b.getBoundingClientRect());
+        const left = Math.min(...d.map((x) => x.left)) - r.left;
+        const right = r.right - Math.max(...d.map((x) => x.right));
+        return { left, right };
+      }, days);
+
+    await page.keyboard.press("Escape");
+    const grid = page.locator("section").filter({ has: page.getByRole("heading", { name: T.availability.title }) }).locator("div.rounded-2xl").first();
+    const gridGaps = await fits(grid, 'button[aria-label*=" — "]');
+    expect(gridGaps.right).toBeGreaterThanOrEqual(0);
+    expect(Math.abs(gridGaps.left - gridGaps.right)).toBeLessThanOrEqual(4);
+
+    await openFreeDay(page, slug);
+    await page.getByRole("dialog").getByRole("button", { name: T.availability.bookThisHouse }).first().click();
+    const pickerGaps = await fits(page.getByRole("dialog"), "button[data-day]");
+    expect(pickerGaps.right).toBeGreaterThanOrEqual(0);
+    expect(Math.abs(pickerGaps.left - pickerGaps.right)).toBeLessThanOrEqual(4);
   });
 });
 

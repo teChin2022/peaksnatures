@@ -1,6 +1,6 @@
 {
   "schemaVersion": 2,
-  "generatedAt": "2026-11-11T12:00:00+07:00",
+  "generatedAt": "2026-11-14T20:30:00+07:00",
   "title": "Design System: Peaksnature",
   "extensions": {
     "colorMeta": {
@@ -23,7 +23,20 @@
       "section-alt": { "role": "neutral", "displayName": "Stone (admin only)", "canonical": "#F7F7F5" },
       "destructive": { "role": "error", "displayName": "Destructive", "canonical": "oklch(0.577 0.245 27.325)" },
       "amber-50": { "role": "warning", "displayName": "Pending Wash", "canonical": "oklch(0.987 0.022 95.277)" },
-      "amber-700": { "role": "warning", "displayName": "Pending Ink", "canonical": "oklch(0.555 0.163 48.998)" }
+      "amber-700": { "role": "warning", "displayName": "Pending Ink", "canonical": "oklch(0.555 0.163 48.998)" },
+      "mist": { "role": "neutral", "displayName": "Mist", "canonical": "#F3F4F1", "tonalRamp": ["#8A948F", "#D9DDD6", "#E9ECE7", "#F3F4F1", "#FFFFFF"] },
+      "mist-2": { "role": "neutral", "displayName": "Mist 2", "canonical": "#E9ECE7", "tonalRamp": ["#8A948F", "#D9DDD6", "#E9ECE7", "#F3F4F1", "#FFFFFF"] },
+      "pine-mist": { "role": "neutral", "displayName": "Pine Mist", "canonical": "#E3EAE5", "tonalRamp": ["#132622", "#1F3A33", "#2A4B42", "#E3EAE5", "#F3F4F1"] },
+      "ink": { "role": "neutral", "displayName": "Ink", "canonical": "#17201D", "tonalRamp": ["#17201D", "#4D5752", "#5A6460", "#8A948F", "#D9DDD6"] },
+      "ink-2": { "role": "neutral", "displayName": "Ink 2", "canonical": "#4D5752", "tonalRamp": ["#17201D", "#4D5752", "#5A6460", "#8A948F", "#D9DDD6"] },
+      "ink-3": { "role": "neutral", "displayName": "Ink 3", "canonical": "#5A6460", "tonalRamp": ["#17201D", "#4D5752", "#5A6460", "#8A948F", "#D9DDD6"] },
+      "line": { "role": "neutral", "displayName": "Line", "canonical": "#D9DDD6", "tonalRamp": ["#17201D", "#4D5752", "#5A6460", "#8A948F", "#D9DDD6"] },
+      "line-strong": { "role": "neutral", "displayName": "Line Strong", "canonical": "#8A948F", "tonalRamp": ["#17201D", "#4D5752", "#5A6460", "#8A948F", "#D9DDD6"] },
+      "pine": { "role": "primary", "displayName": "Pine", "canonical": "#1F3A33", "tonalRamp": ["#132622", "#1F3A33", "#2A4B42", "#E3EAE5", "#F3F4F1"] },
+      "pine-hover": { "role": "primary", "displayName": "Pine Hover", "canonical": "#2A4B42", "tonalRamp": ["#132622", "#1F3A33", "#2A4B42", "#E3EAE5", "#F3F4F1"] },
+      "pine-deep": { "role": "primary", "displayName": "Pine Deep", "canonical": "#132622", "tonalRamp": ["#132622", "#1F3A33", "#2A4B42", "#E3EAE5", "#F3F4F1"] },
+      "dawn": { "role": "accent", "displayName": "Dawn", "canonical": "#B8935A", "tonalRamp": ["#8A6A2F", "#B8935A", "#E8DCC8"] },
+      "star": { "role": "accent", "displayName": "Star", "canonical": "#8A6A2F", "tonalRamp": ["#8A6A2F", "#B8935A", "#E8DCC8"] }
     },
     "typographyMeta": {
       "display": { "displayName": "Display", "purpose": "The homestay or platform name in a hero. Serif: Playfair Display for Latin, Noto Serif Thai for Thai. Never italic for Thai." },
@@ -117,6 +130,30 @@
       "description": "Signature: the '01 ——' counter in Latin numerals above a serif heading. The numerals carry the tracking so Thai never does.",
       "html": "<div class=\"ds-section\"><span class=\"ds-mark\">01<span class=\"ds-mark-rule\"></span></span><h2 class=\"ds-heading\">บ้านพัก &amp; ราคา</h2></div>",
       "css": ".ds-section { display: grid; gap: 8px; } .ds-mark { display: flex; align-items: center; gap: 12px; color: #75604e; font: 400 12px/1 ui-sans-serif, system-ui, sans-serif; letter-spacing: 0.3em; } .ds-mark-rule { display: block; width: 40px; height: 1px; background: #c9b9a6; } .ds-heading { margin: 0; color: #3a2e27; font: 400 36px/1.25 'Playfair Display', 'Noto Serif Thai', serif; }"
+    },
+    {
+      "name": "Guest Primary Button",
+      "kind": "button",
+      "refersTo": "button-primary",
+      "description": "Mist Ridge guest pages (/[slug], /book): the one action colour, Pine, as a pill.",
+      "html": "<button class=\"ds-guest-btn-primary\">เลือกบ้านพักนี้</button>",
+      "css": ".ds-guest-btn-primary { display: inline-flex; align-items: center; justify-content: center; min-height: 48px; padding: 0 20px; border: 0; border-radius: 9999px; background: #1F3A33; color: #ffffff; font: 500 15px/1.4 ui-sans-serif, system-ui, sans-serif; cursor: pointer; transition: background-color 150ms ease; } .ds-guest-btn-primary:hover { background: #2A4B42; } .ds-guest-btn-primary:focus-visible { outline: 2px solid #1F3A33; outline-offset: 2px; } .ds-guest-btn-primary:disabled { opacity: 0.5; cursor: not-allowed; }"
+    },
+    {
+      "name": "Guest Secondary Button",
+      "kind": "button",
+      "refersTo": "button-secondary",
+      "description": "Mist Ridge guest pages: a Line Strong outline on white, e.g. 'วันว่าง & ราคา', and 'จองบ้านพักนี้' on each row of the day list.",
+      "html": "<button class=\"ds-guest-btn-secondary\">วันว่าง &amp; ราคา</button>",
+      "css": ".ds-guest-btn-secondary { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 20px; border: 1px solid #8A948F; border-radius: 9999px; background: #ffffff; color: #17201D; font: 500 14px/1.4 ui-sans-serif, system-ui, sans-serif; cursor: pointer; transition: background-color 150ms ease; } .ds-guest-btn-secondary:hover { background: #F3F4F1; } .ds-guest-btn-secondary:focus-visible { outline: 2px solid #1F3A33; outline-offset: 2px; }"
+    },
+    {
+      "name": "Calendar Days and Legend",
+      "kind": "custom",
+      "refersTo": "calendar",
+      "description": "One calendar language (calendar-legend.tsx): free, picked and booked nights, and the shared legend. Booked is struck through, never shown like a past day.",
+      "html": "<div class=\"ds-cal\"><div class=\"ds-cal-row\"><span class=\"ds-cal-day ds-cal-past\">13</span><span class=\"ds-cal-day\" tabindex=\"0\">17</span><span class=\"ds-cal-day ds-cal-picked\">18</span><span class=\"ds-cal-day ds-cal-booked\">19</span><span class=\"ds-cal-day\" tabindex=\"0\">20</span></div><div class=\"ds-cal-legend\"><span><i class=\"ds-cal-sw\"></i>ว่าง</span><span><i class=\"ds-cal-sw ds-cal-sw-full\"></i>จองแล้ว</span></div></div>",
+      "css": ".ds-cal { display: grid; gap: 12px; font: 500 14px/1 ui-sans-serif, system-ui, sans-serif; } .ds-cal-row { display: flex; gap: 4px; } .ds-cal-day { display: flex; align-items: center; justify-content: center; width: 44px; height: 44px; border-radius: 9999px; color: #4a3b32; } .ds-cal-day:focus-visible { outline: 2px solid #2F5D50; outline-offset: 2px; } .ds-cal-past { color: #a89279; } .ds-cal-picked { background: #2F5D50; color: #ffffff; } .ds-cal-booked { background: #fee2e2; color: #b91c1c; text-decoration: line-through 2px #ef4444; } .ds-cal-legend { display: flex; justify-content: center; gap: 16px; font-size: 12px; color: #4D5752; } .ds-cal-legend span { display: inline-flex; align-items: center; gap: 6px; } .ds-cal-sw { width: 14px; height: 14px; border-radius: 9999px; background: #ffffff; box-shadow: inset 0 0 0 1px #8A948F; } .ds-cal-sw-full { background: #fee2e2; box-shadow: inset 0 0 0 1px #fca5a5; }"
     }
   ],
   "narrative": {
@@ -163,7 +200,7 @@
       "Don't colour booking statuses per screen; use the StatusBadge tones.",
       "Don't add hover lift to cards that are not links.",
       "Don't use transition-all; name the properties.",
-      "Don't invent testimonials, people, numbers or claims (src/components/landing/reviews.tsx is placeholder copy and must never ship)."
+      "Don't invent testimonials, people, numbers or claims (the placeholder landing/reviews.tsx was deleted on 2026-11-13; don't bring it back)."
     ]
   }
 }

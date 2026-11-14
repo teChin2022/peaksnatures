@@ -519,7 +519,8 @@ function StaticDay(props: DayProps) {
       style={props.style}
       aria-label={props.modifiers.booked && label ? `${label}, ${t("legendBooked")}` : label}
     >
-      <span className="day-btn relative flex size-11 items-center justify-center rounded-full text-sm font-medium text-earth-700">
+      {/* Same size rule as CalendarDayButton (ui/calendar.tsx). */}
+      <span className="day-btn relative flex size-[min(2.75rem,calc((100vw_-_4rem_-_2px)/7))] items-center justify-center rounded-full text-sm font-medium text-earth-700">
         {props.children}
       </span>
     </td>
