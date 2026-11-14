@@ -24,6 +24,7 @@ export default function OtpModal({
   loading,
 }: OtpModalProps) {
   const t = useTranslations("auth");
+  const tc = useTranslations("common");
   const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [resendCooldown, setResendCooldown] = useState(60);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
@@ -119,7 +120,7 @@ export default function OtpModal({
       <Card className="w-full max-w-sm relative">
         <button
           type="button"
-          onClick={onClose}
+          aria-label={tc("close")} onClick={onClose}
           className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
           disabled={loading}
         >

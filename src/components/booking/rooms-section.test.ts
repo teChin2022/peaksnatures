@@ -49,6 +49,14 @@ describe("RoomLightbox thumbnails", () => {
     render(photos(1));
     expect(thumbs()).toHaveLength(0);
   });
+
+  it("names its icon-only controls", () => {
+    render(photos(3));
+    const labels = [...container.querySelectorAll("button")].map((b) => b.getAttribute("aria-label") ?? b.textContent?.trim());
+    expect(labels).toEqual(expect.arrayContaining(["close", "prevPhoto", "nextPhoto"]));
+    // Every button has a name: the icon ones by label, the thumbnails by "goToPhoto".
+    expect(labels.every(Boolean)).toBe(true);
+  });
 });
 
 const room = (over: Partial<Room> = {}) =>

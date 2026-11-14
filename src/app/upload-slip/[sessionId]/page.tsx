@@ -116,7 +116,7 @@ export default function UploadSlipPage({
                 />
                 <button
                   type="button"
-                  onClick={handleRemove}
+                  aria-label={"ลบสลิป / Remove slip"} onClick={handleRemove}
                   className="absolute -right-2 -top-2 rounded-full bg-red-500 p-1 text-white shadow-md hover:bg-red-600"
                 >
                   <X className="h-3.5 w-3.5" />

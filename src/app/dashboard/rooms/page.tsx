@@ -1287,7 +1287,7 @@ export default function RoomsPage() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8"
-                        onClick={() => openEditDialog(room)}
+                        aria-label={`${tc("edit")} ${room.name}`} onClick={() => openEditDialog(room)}
                       >
                         <Pencil className="h-3.5 w-3.5" />
                       </Button>
@@ -1295,7 +1295,7 @@ export default function RoomsPage() {
                         variant="ghost"
                         size="icon"
                         className="h-8 w-8 text-red-500 hover:text-red-700"
-                        onClick={() => handleDeleteRoom(room.id)}
+                        aria-label={`${tc("delete")} ${room.name}`} onClick={() => handleDeleteRoom(room.id)}
                       >
                         <Trash2 className="h-3.5 w-3.5" />
                       </Button>
@@ -1442,7 +1442,7 @@ export default function RoomsPage() {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7"
-                            onClick={() => startEditTier(tier)}
+                            aria-label={`${tc("edit")} ${composeTierLabel(tier, locale)}`} onClick={() => startEditTier(tier)}
                           >
                             <Pencil className="h-3 w-3" />
                           </Button>
@@ -1450,7 +1450,7 @@ export default function RoomsPage() {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-red-500 hover:text-red-700"
-                            onClick={() => handleDeleteTier(tier.id)}
+                            aria-label={`${tc("delete")} ${composeTierLabel(tier, locale)}`} onClick={() => handleDeleteTier(tier.id)}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
@@ -1483,7 +1483,7 @@ export default function RoomsPage() {
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-red-500 hover:text-red-700"
-                          onClick={() => setPendingTiers((prev) => prev.filter((_, i) => i !== idx))}
+                          aria-label={`${tc("delete")} ${composeTierLabel(tier, locale)}`} onClick={() => setPendingTiers((prev) => prev.filter((_, i) => i !== idx))}
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -1613,7 +1613,7 @@ export default function RoomsPage() {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7"
-                            onClick={() => startEditOption(option)}
+                            aria-label={`${tc("edit")} ${option.name}`} onClick={() => startEditOption(option)}
                           >
                             <Pencil className="h-3 w-3" />
                           </Button>
@@ -1621,7 +1621,7 @@ export default function RoomsPage() {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-red-500 hover:text-red-700"
-                            onClick={() => handleDeleteOption(option.id)}
+                            aria-label={`${tc("delete")} ${option.name}`} onClick={() => handleDeleteOption(option.id)}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
@@ -1650,7 +1650,7 @@ export default function RoomsPage() {
                           variant="ghost"
                           size="icon"
                           className="h-7 w-7 text-red-500 hover:text-red-700"
-                          onClick={() => setPendingOptions((prev) => prev.filter((_, i) => i !== idx))}
+                          aria-label={`${tc("delete")} ${option.name}`} onClick={() => setPendingOptions((prev) => prev.filter((_, i) => i !== idx))}
                         >
                           <Trash2 className="h-3 w-3" />
                         </Button>
@@ -1763,7 +1763,7 @@ export default function RoomsPage() {
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7"
-                              onClick={() => startEditSeason(season)}
+                              aria-label={`${tc("edit")} ${season.name}`} onClick={() => startEditSeason(season)}
                             >
                               <Pencil className="h-3 w-3" />
                             </Button>
@@ -1771,7 +1771,7 @@ export default function RoomsPage() {
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-red-500 hover:text-red-700"
-                              onClick={() => handleDeleteSeason(season.id)}
+                              aria-label={`${tc("delete")} ${season.name}`} onClick={() => handleDeleteSeason(season.id)}
                             >
                               <Trash2 className="h-3 w-3" />
                             </Button>
@@ -1800,7 +1800,7 @@ export default function RoomsPage() {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-red-500 hover:text-red-700"
-                            onClick={() => setPendingSeasons((prev) => prev.filter((_, i) => i !== idx))}
+                            aria-label={`${tc("delete")} ${season.name}`} onClick={() => setPendingSeasons((prev) => prev.filter((_, i) => i !== idx))}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
@@ -1962,7 +1962,7 @@ export default function RoomsPage() {
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7"
-                              onClick={() => startEditSpecial(special)}
+                              aria-label={`${tc("edit")} ${special.name}`} onClick={() => startEditSpecial(special)}
                             >
                               <Pencil className="h-3 w-3" />
                             </Button>
@@ -1970,7 +1970,7 @@ export default function RoomsPage() {
                               variant="ghost"
                               size="icon"
                               className="h-7 w-7 text-red-500 hover:text-red-700"
-                              onClick={() => handleDeleteSpecial(special.id)}
+                              aria-label={`${tc("delete")} ${special.name}`} onClick={() => handleDeleteSpecial(special.id)}
                             >
                               <Trash2 className="h-3 w-3" />
                             </Button>
@@ -1999,7 +1999,7 @@ export default function RoomsPage() {
                             variant="ghost"
                             size="icon"
                             className="h-7 w-7 text-red-500 hover:text-red-700"
-                            onClick={() => setPendingSpecials((prev) => prev.filter((_, i) => i !== idx))}
+                            aria-label={`${tc("delete")} ${special.name}`} onClick={() => setPendingSpecials((prev) => prev.filter((_, i) => i !== idx))}
                           >
                             <Trash2 className="h-3 w-3" />
                           </Button>
@@ -2291,7 +2291,7 @@ export default function RoomsPage() {
                         className="h-20 w-full object-cover"
                       />
                       <button
-                        onClick={() => removeImage(i)}
+                        aria-label={tc("removeImage")} onClick={() => removeImage(i)}
                         className="absolute right-1 top-1 rounded-full bg-black/60 p-1.5 text-white opacity-100 transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100"
                       >
                         <X className="h-3 w-3" />

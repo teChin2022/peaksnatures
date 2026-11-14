@@ -839,7 +839,7 @@ export default function HomestayPage() {
                       <button
                         type="button"
                         className="ml-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full hover:brightness-75"
-                        onClick={() => removeAmenity(a)}
+                        aria-label={`${t("remove")} ${a}`} onClick={() => removeAmenity(a)}
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -868,7 +868,7 @@ export default function HomestayPage() {
                   type="button"
                   variant="outline"
                   size="icon"
-                  onClick={addCustomAmenity}
+                  aria-label={t("addCustomAmenity")} onClick={addCustomAmenity}
                   disabled={!customAmenity.trim()}
                 >
                   <Plus className="h-4 w-4" />
@@ -926,7 +926,7 @@ export default function HomestayPage() {
                       <button
                         type="button"
                         className="ml-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full hover:brightness-75"
-                        onClick={() => removeProhibition(p)}
+                        aria-label={`${t("remove")} ${p}`} onClick={() => removeProhibition(p)}
                       >
                         <X className="h-3 w-3" />
                       </button>
@@ -955,7 +955,7 @@ export default function HomestayPage() {
                   type="button"
                   variant="outline"
                   size="icon"
-                  onClick={addCustomProhibition}
+                  aria-label={t("addCustomProhibition")} onClick={addCustomProhibition}
                   disabled={!customProhibition.trim()}
                 >
                   <Plus className="h-4 w-4" />
@@ -1454,7 +1454,7 @@ export default function HomestayPage() {
                         className="h-full w-full object-cover"
                       />
                       <button
-                        onClick={() => removeGalleryImage(i)}
+                        aria-label={tc("removeImage")} onClick={() => removeGalleryImage(i)}
                         className="absolute right-1 top-1 rounded-full bg-black/60 p-1.5 text-white opacity-100 transition-opacity pointer-fine:opacity-0 pointer-fine:group-hover:opacity-100"
                       >
                         <X className="h-3 w-3" />

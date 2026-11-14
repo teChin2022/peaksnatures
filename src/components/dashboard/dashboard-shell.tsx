@@ -20,6 +20,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const pathname = usePathname();
   const isPending = pathname === "/dashboard/pending";
   const t = useTranslations("billing");
+  const tc = useTranslations("common");
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [brandName, setBrandName] = useState("Peaksnature");
@@ -112,6 +113,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
             size="icon"
             className="h-8 w-8 text-gray-500 hover:text-gray-700"
             onClick={() => setMobileOpen(true)}
+            aria-label={tc("menu")}
           >
             <Menu className="h-5 w-5" />
           </Button>
@@ -129,7 +131,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-amber-800">{t("graceTitle")}</p>
-                <p className="text-xs text-amber-600 mt-0.5">
+                <p className="text-sm text-amber-800 mt-0.5">
                   {t("graceDesc", { days: expiryInfo.graceDaysRemaining ?? 0 })}
                 </p>
               </div>
@@ -151,7 +153,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-red-800">{t("blockedTitle")}</p>
-                <p className="text-xs text-red-600 mt-0.5">{t("invoiceBlockedDesc")}</p>
+                <p className="text-sm text-red-700 mt-0.5">{t("invoiceBlockedDesc")}</p>
               </div>
               <Link href="/dashboard/billing">
                 <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white text-xs shrink-0">
@@ -171,7 +173,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-red-800">{t("blockedTitle")}</p>
-                <p className="text-xs text-red-600 mt-0.5">{t("blockedDesc")}</p>
+                <p className="text-sm text-red-700 mt-0.5">{t("blockedDesc")}</p>
               </div>
               <Link href="/dashboard/billing">
                 <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white text-xs shrink-0">

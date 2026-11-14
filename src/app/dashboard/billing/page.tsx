@@ -408,7 +408,7 @@ export default function DashboardBillingPage() {
               </div>
               <div>
                 <p className="text-sm font-medium text-amber-800">{t("freeExpiredTitle")}</p>
-                <p className="text-xs text-amber-600 mt-0.5">{t("freeExpiredDesc")}</p>
+                <p className="text-sm text-amber-800 mt-0.5">{t("freeExpiredDesc")}</p>
               </div>
             </div>
           </motion.div>

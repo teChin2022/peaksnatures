@@ -53,6 +53,7 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
   const router = useRouter();
   const t = useTranslations("dashboardNav");
   const ta = useTranslations("auth");
+  const tc = useTranslations("common");
 
   const handleSignOut = async () => {
     const supabase = createClient();
@@ -84,6 +85,7 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
           size="icon"
           className="h-7 w-7 shrink-0 text-gray-400 hover:text-gray-600"
           onClick={onToggle}
+          aria-label={collapsed ? tc("expandSidebar") : tc("collapseSidebar")}
         >
           {collapsed ? (
             <ChevronRight className="h-4 w-4" />
@@ -154,6 +156,7 @@ export function MobileSidebar({
   const router = useRouter();
   const t = useTranslations("dashboardNav");
   const ta = useTranslations("auth");
+  const tc = useTranslations("common");
 
   const handleSignOut = async () => {
     const supabase = createClient();
@@ -187,7 +190,7 @@ export function MobileSidebar({
             )}
             <span className="font-semibold truncate text-gray-900">{brandName}</span>
           </Link>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-600" onClick={onClose}>
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-gray-400 hover:text-gray-600" onClick={onClose} aria-label={tc("close")}>
             <X className="h-4 w-4" />
           </Button>
         </div>

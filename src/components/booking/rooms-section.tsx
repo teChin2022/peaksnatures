@@ -39,6 +39,7 @@ const BLUR_DATA_URL =
 
 export function RoomLightbox({ images, name, startIndex, onClose }: { images: string[]; name: string; startIndex: number; onClose: () => void }) {
   const t = useTranslations("rooms");
+  const tc = useTranslations("common");
   const [index, setIndex] = useState(startIndex);
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   const prevImage = useCallback(() => setIndex((i) => (i > 0 ? i - 1 : images.length - 1)), [images.length]);
@@ -51,7 +52,7 @@ export function RoomLightbox({ images, name, startIndex, onClose }: { images: st
         variant="ghost"
         size="icon"
         className="absolute right-4 top-4 z-10 text-white hover:bg-white/20"
-        onClick={onClose}
+        aria-label={tc("close")} onClick={onClose}
       >
         <X className="h-6 w-6" />
       </Button>
@@ -60,7 +61,7 @@ export function RoomLightbox({ images, name, startIndex, onClose }: { images: st
         variant="ghost"
         size="icon"
         className="absolute left-4 z-10 text-white hover:bg-white/20"
-        onClick={prevImage}
+        aria-label={t("prevPhoto")} onClick={prevImage}
       >
         <ChevronLeft className="h-8 w-8" />
       </Button>
@@ -118,7 +119,7 @@ export function RoomLightbox({ images, name, startIndex, onClose }: { images: st
         variant="ghost"
         size="icon"
         className="absolute right-4 text-white hover:bg-white/20"
-        onClick={nextImage}
+        aria-label={t("nextPhoto")} onClick={nextImage}
       >
         <ChevronRight className="h-8 w-8" />
       </Button>

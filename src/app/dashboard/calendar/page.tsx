@@ -836,7 +836,7 @@ export default function CalendarPage() {
       <Card>
         <CardHeader className="pb-2">
           <div className="flex items-center justify-between">
-            <Button variant="ghost" size="icon" onClick={goToPrevMonth}>
+            <Button variant="ghost" size="icon" aria-label={t("prevMonth")} onClick={goToPrevMonth}>
               <ChevronLeft className="h-5 w-5" />
             </Button>
             <div className="flex items-center gap-3">
@@ -847,7 +847,7 @@ export default function CalendarPage() {
                 {t("today")}
               </Button>
             </div>
-            <Button variant="ghost" size="icon" onClick={goToNextMonth}>
+            <Button variant="ghost" size="icon" aria-label={t("nextMonth")} onClick={goToNextMonth}>
               <ChevronRight className="h-5 w-5" />
             </Button>
           </div>

@@ -28,6 +28,7 @@ interface HostData {
 
 export default function ProfilePage() {
   const t = useTranslations("dashboardProfile");
+  const ta = useTranslations("auth");
   const router = useRouter();
   const [host, setHost] = useState<HostData | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
@@ -826,7 +827,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                onClick={() => setShowOldPassword(!showOldPassword)}
+                aria-label={showOldPassword ? ta("hidePassword") : ta("showPassword")} onClick={() => setShowOldPassword(!showOldPassword)}
                 tabIndex={-1}
               >
                 {showOldPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -851,7 +852,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                onClick={() => setShowNewPassword(!showNewPassword)}
+                aria-label={showNewPassword ? ta("hidePassword") : ta("showPassword")} onClick={() => setShowNewPassword(!showNewPassword)}
                 tabIndex={-1}
               >
                 {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -876,7 +877,7 @@ export default function ProfilePage() {
               <button
                 type="button"
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                onClick={() => setShowConfirmPassword(!showConfirmPassword)}
+                aria-label={showConfirmPassword ? ta("hidePassword") : ta("showPassword")} onClick={() => setShowConfirmPassword(!showConfirmPassword)}
                 tabIndex={-1}
               >
                 {showConfirmPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

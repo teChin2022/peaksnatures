@@ -79,6 +79,7 @@ function AdminSidebar({ collapsed, onToggle }: AdminSidebarProps) {
           size="icon"
           className="h-8 w-8 shrink-0 cursor-pointer text-earth-600 hover:bg-earth-50 hover:text-brand"
           onClick={onToggle}
+          aria-label={collapsed ? "Expand sidebar" : "Collapse sidebar"}
         >
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
@@ -152,6 +153,7 @@ function AdminMobileSidebar({ open, onClose }: { open: boolean; onClose: () => v
             size="icon"
             className="h-8 w-8 cursor-pointer text-earth-600 hover:bg-earth-50 hover:text-brand"
             onClick={onClose}
+            aria-label="Close menu"
           >
             <X className="h-4 w-4" />
           </Button>
@@ -229,6 +231,7 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
             size="icon"
             className="h-9 w-9 shrink-0 cursor-pointer text-earth-700 hover:bg-earth-50 hover:text-brand"
             onClick={() => setMobileOpen(true)}
+            aria-label="Open menu"
           >
             <Menu className="h-5 w-5" />
           </Button>
