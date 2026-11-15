@@ -407,6 +407,50 @@ test.describe("booking from the availability calendar", () => {
     await pickCheckOutAndAdd(page, house);
   });
 
+  test("a house's details keep Book and close on screen, and many photos stay inside the dialog", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await openFreeDay(page, slug);
+
+    const dialog = page.getByRole("dialog");
+    const details = dialog.getByRole("button", { name: T.availability.viewDetails }).first();
+    await details.click();
+    const book = dialog.getByRole("button", { name: T.availability.bookThisHouse });
+    // Focus follows the view: the house name, then back to the row it came from.
+    await expect(dialog.getByRole("heading").first()).toBeFocused();
+    await expect(book).toBeInViewport();
+
+    // The body scrolls between a header and a footer that stay put: at the
+    // rate table (the end of the body) Book, Back and close are all still there.
+    await dialog.getByText(T.rooms.priceDetailsTitle).scrollIntoViewIfNeeded();
+    await expect(book).toBeInViewport();
+    await expect(dialog.getByRole("button", { name: T.common.back })).toBeInViewport();
+    await expect(dialog.getByRole("button", { name: "Close" })).toBeInViewport();
+
+    // A house with 12 photos (2026-11-15: 8 pushed the photo past the dialog's
+    // right edge and the dialog scrolled sideways). The test houses have fewer,
+    // so the thumbnail row is padded in place.
+    const measured = await dialog.evaluate(async (el) => {
+      await Promise.all(el.getAnimations().map((a) => a.finished));
+      const thumb = el.querySelector("button[aria-current]");
+      if (!thumb) return null;
+      while (thumb.parentElement!.children.length < 12) thumb.parentElement!.append(thumb.cloneNode(true));
+      const box = el.getBoundingClientRect();
+      const photo = el.querySelector('[style*="pan-y"]')!.getBoundingClientRect();
+      // Any scroll container but the thumbnail row itself, which is meant to scroll sideways.
+      const sideways = [el, ...el.querySelectorAll("*")].some(
+        (n) => n !== thumb.parentElement && ["auto", "scroll"].includes(getComputedStyle(n).overflowX) && n.scrollWidth > n.clientWidth,
+      );
+      return { left: photo.left - box.left, right: box.right - photo.right, sideways };
+    });
+    test.skip(!measured, "the first free house has a single photo, so no thumbnail row");
+    expect(Math.abs(measured!.left - measured!.right)).toBeLessThanOrEqual(1);
+    expect(measured!.sideways).toBe(false);
+
+    await dialog.getByRole("button", { name: T.common.back }).click();
+    await expect(details).toBeFocused();
+  });
+
   test("leaving the check-out picker without Done leaves no half-picked dates behind", async ({ page, context }) => {
     const slug = requireSlug();
     await open(page, context, "normal");
@@ -455,6 +499,48 @@ test.describe("booking from the availability calendar", () => {
     const pickerGaps = await fits(page.getByRole("dialog"), "button[data-day]");
     expect(pickerGaps.right).toBeGreaterThanOrEqual(0);
     expect(Math.abs(pickerGaps.left - pickerGaps.right)).toBeLessThanOrEqual(4);
+  });
+});
+
+test.describe("a house card's photos", () => {
+  test("are named in Thai, and their thumbnails are a 44px touch target", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.goto(`/${slug}/book`);
+    const card = page.locator("#rooms-section [data-room-id]").first();
+    await card.scrollIntoViewIfNeeded();
+    const name = (await card.getByRole("heading").first().textContent())!.trim();
+    const alt = T.gallery.photoAlt.replace("{name}", name).replace("{number}", "1");
+    await expect(card.getByRole("img", { name: alt, exact: true })).toBeAttached();
+    await expect(card.getByRole("button", { name: T.gallery.showAll, exact: true })).toBeAttached();
+
+    const thumbs = card.locator("button[aria-current]");
+    test.skip((await thumbs.count()) === 0, "the first house has a single photo");
+    const heights = await thumbs.evaluateAll((els) => els.map((el) => el.getBoundingClientRect().height));
+    expect(Math.min(...heights)).toBeGreaterThanOrEqual(44);
+  });
+});
+
+test.describe("toasts", () => {
+  test("a success toast's text passes AA (4.5:1) on its own tint", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.goto(`/${slug}/book`);
+    await chooseDates(page);
+    await addHouses(page, 1);
+    const toast = page.locator('[data-sonner-toast][data-type="success"]').first();
+    await expect(toast).toBeVisible();
+    const ratio = await toast.evaluate((el) => {
+      const rgb = (c: string) => c.match(/[\d.]+/g)!.slice(0, 3).map(Number);
+      const lum = (c: string) => {
+        const [r, g, b] = rgb(c).map((v) => v / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
+        return 0.2126 * r + 0.7152 * g + 0.0722 * b;
+      };
+      const s = getComputedStyle(el);
+      const [a, b] = [lum(s.color), lum(s.backgroundColor)].sort((x, y) => y - x);
+      return (a + 0.05) / (b + 0.05);
+    });
+    expect(ratio).toBeGreaterThanOrEqual(4.5);
   });
 });
 

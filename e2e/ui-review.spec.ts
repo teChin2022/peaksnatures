@@ -166,6 +166,36 @@ test("booking page, availability day", async ({ page, context }, testInfo) => {
   }
 });
 
+test("booking page, availability house detail", async ({ page, context }, testInfo) => {
+  const slug = requireSlug();
+  session = await startSession(page, context);
+  for (const width of widthsFor(testInfo)) {
+    if (width) await page.setViewportSize({ width, height: 800 });
+    await page.goto(`/${slug}/book`);
+    const section = page.locator("section").filter({ has: page.getByRole("heading", { name: T.availability.title }) });
+    const free = section.getByRole("button", { name: new RegExp(` — (${T.availability.legendAvailable}|${T.availability.legendPartial})$`) });
+    await free.first().click();
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("button", { name: T.availability.viewDetails }).first().click();
+    await expect(dialog.getByRole("button", { name: T.availability.bookThisHouse })).toBeVisible();
+    await page.waitForTimeout(800); // photos load
+    await dialog.screenshot({ path: join(OUT, `availability-detail-dialog-${page.viewportSize()?.width}.png`) });
+    // Scrolled to the end: whichever box scrolls (the body between the pinned header and footer).
+    await dialog.evaluate((el) => {
+      for (const n of [el, ...el.querySelectorAll("*")]) {
+        if (getComputedStyle(n).overflowY === "auto" && n.scrollHeight > n.clientHeight) n.scrollTo(0, n.scrollHeight);
+      }
+    });
+    await page.waitForTimeout(300);
+    await dialog.screenshot({ path: join(OUT, `availability-detail-dialog-end-${page.viewportSize()?.width}.png`) });
+    // Overflow evidence: content wider than the dialog means a sideways scroll.
+    const box = await dialog.evaluate((el) => ({ client: el.clientWidth, scroll: el.scrollWidth }));
+    writeFileSync(join(OUT, `availability-detail-${page.viewportSize()?.width}.overflow.json`), JSON.stringify(box));
+    await capture(page, testInfo, "availability-detail", slug);
+    await page.keyboard.press("Escape");
+  }
+});
+
 test("booking page, payment step", async ({ page, context }, testInfo) => {
   const slug = requireSlug();
   // Holds and the draft are stubbed by startSession; nothing reaches the database.

@@ -116,6 +116,8 @@ describe("AvailabilityCalendarSection: the house detail's photos", () => {
     // The photo count, as on the house card.
     expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain("1 / 3");
     expect(thumbs()[2].getAttribute("aria-label")).toBe("goToPhoto");
+    // The gallery's localized alt, not a hard-coded English "photo N".
+    expect(document.body.querySelector('[role="dialog"] img')?.getAttribute("alt")).toBe("photoAlt");
     act(() => thumbs()[2].click());
     expect(thumbs().map((b) => b.getAttribute("aria-current"))).toEqual(["false", "false", "true"]);
     expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain("3 / 3");
@@ -183,6 +185,27 @@ describe("AvailabilityCalendarSection: the check-out picker", () => {
     bookFromDetail();
     expect(config()).toBeNull();
     expect(h.toastError).toHaveBeenCalledWith("roomUnavailableToast");
+  });
+});
+
+describe("AvailabilityCalendarSection: focus across the dialog's views", () => {
+  const back = () => act(() => (document.body.querySelector('[aria-label="back"]') as HTMLButtonElement).click());
+
+  it("lands on the house name when its details open, and on its ดูรายละเอียด after Back", () => {
+    openDay();
+    act(() => button("viewDetails").click());
+    expect(document.activeElement?.tagName).toBe("H2");
+    expect(document.activeElement?.textContent).toBe("Baan Mok");
+    back();
+    expect(document.activeElement).toBe(button("viewDetails"));
+  });
+
+  it("lands on the picker's title, and back on the row's จองบ้านพักนี้ after Back", () => {
+    openDay();
+    act(() => button("bookThisHouse").click());
+    expect(document.activeElement?.textContent).toBe("selectDates");
+    back();
+    expect(document.activeElement).toBe(button("bookThisHouse"));
   });
 });
 

@@ -492,7 +492,8 @@ not bubbly.
   purple) are drift.
 
 ### Feedback and States
-- **Toasts:** sonner, `richColors`, top-right.
+- **Toasts:** sonner, `richColors`, top-right. Success, error and warning
+  take the Status colours above (`globals.css`); sonner's own tints fail AA.
 - **Loading:** shadcn `Skeleton` for content; `Loader2` spinners only inside
   the button that is working.
 - **Empty states:** admin's `EmptyState` pattern: icon, title, one line, one
