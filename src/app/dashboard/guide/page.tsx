@@ -76,8 +76,8 @@ export default function GuidePage() {
           <BookOpen className="h-5 w-5 text-brand" />
         </div>
         <div>
-          <h1 className="text-2xl font-bold text-gray-900">{t("title")}</h1>
-          <p className="text-sm text-gray-500">{t("subtitle")}</p>
+          <h1 className="text-2xl font-bold text-earth-900">{t("title")}</h1>
+          <p className="text-sm text-earth-600">{t("subtitle")}</p>
         </div>
       </div>
 
@@ -102,18 +102,18 @@ export default function GuidePage() {
                       <Icon
                         className="h-4 w-4 shrink-0 text-brand"
                       />
-                      <h2 className="font-semibold text-gray-900">
+                      <h2 className="font-semibold text-earth-900">
                         {t(step.titleKey)}
                       </h2>
                     </div>
-                    <p className="text-sm text-gray-500 mb-3">
+                    <p className="text-sm text-earth-600 mb-3">
                       {t(step.descKey)}
                     </p>
                     <ul className="space-y-1.5 mb-4">
                       {step.items.map((itemKey) => (
                         <li
                           key={itemKey}
-                          className="flex items-start gap-2 text-sm text-gray-600"
+                          className="flex items-start gap-2 text-sm text-earth-700"
                         >
                           <CheckCircle2
                             className="h-4 w-4 shrink-0 mt-0.5 text-brand"

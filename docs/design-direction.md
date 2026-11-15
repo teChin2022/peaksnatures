@@ -27,8 +27,8 @@ recently 2026-11-05) is the simplest conventional pattern, Booking.com-style,
 over novel layouts. These do not conflict:
 - **Premium** lives in restraint and precision: real photographs, one green
   voice, a serif for names and prices, warm neutrals, and generous space.
-- **Conventional** is the structure: pick dates first, choose a house, review
-  the cart, pay. Familiar placements, familiar controls, nothing to learn.
+- **Conventional** is the structure: pick dates first, choose one house or
+  several, book, pay. Familiar placements, familiar controls, nothing to learn.
 - **Not premium:** effects. Glass, gradients, parallax, heavy shadows, faux
   italics and decorative loops read as a template, and the brief rules them
   out.
@@ -76,7 +76,6 @@ These are confirmed in `PRODUCT.md`:
   - The host dashboard's cool greys: 489 `gray-*` uses, plus a hard-coded
     `bg-[#f8f9fa]`.
   - The admin's cool `section-alt` #F7F7F5.
-  - A pink cart badge, `bg-[#F83858]`.
   - A Tailwind blue on `/upload-slip`.
 
 **Proposed:** adopt the brief's palette as the *roles* of the existing system,
@@ -115,7 +114,9 @@ then tune values. This is a value change, not a rebuild.
 **Proposed:**
 - **Keep the serif pairing** for display, headlines, house names and prices.
   Never italicise Thai; emphasise with Forest colour instead.
-- **Body font: decide between two options.**
+- **Body font: decided 2026-11-15, option B with Anuphan** (thai + latin,
+  variable). It replaces the half-applied Geist; the body names `font-sans`
+  in `globals.css`. The options as weighed:
   - **A. Recommended:** make the system stack official. It is what renders
     today, costs no bytes, gives native-quality Thai on iOS and Android, and
     stops the half-applied Geist load.
@@ -229,8 +230,21 @@ From earlier sessions with the owner:
   - House rows stack on phones (3:2 photo over the details) and alternate
     photo and details from `md` (owner's pick 2026-11-11, reversing the
     2026-11-05 side-by-side phone layout).
-- **Mobile sticky booking bar:** one Forest CTA that carries the dates on a
-  second line, plus a cart tile. No separate date field.
+- **No cart on `/book` (2026-11-15, replaces the cart tile and cart
+  dialog):** a chosen house shows on its own card (lines with edit and
+  remove). The house dialog ends in "จองเลย" (straight to the guest details
+  with every chosen house) or "เลือกบ้านพักหลังอื่นเพิ่ม".
+- **Mobile sticky booking bar:** nothing chosen, one Forest CTA that carries
+  the dates on a second line (no separate date field); a house chosen for a
+  full stay, a summary and "จองเลย" at the same height. Dates then change
+  from the date panel or the houses heading's "เปลี่ยนวัน".
+- **One house first (2026-11-15):** after a date picker's Done the house
+  list shows one house (the one picked on the availability calendar, else
+  the chosen ones, else the first free), with "ดูบ้านพักหลังอื่น" /
+  "จองบ้านพักเพิ่ม" for the rest. Without a full stay every house shows.
+  From the availability calendar, Done also opens that house's dialog.
+- **New dates and chosen houses:** a chosen house the stay no longer fits is
+  removed (or cut to its free units) and named in a notice.
 - **House-card "เลือกบ้านพักนี้":** disabled until both check-in and
   check-out are chosen.
 - **Image delete control:** the always-visible top-right X badge
@@ -249,6 +263,12 @@ From earlier sessions with the owner:
   card and map in one section; check-in and policies side by side from lg;
   closing band over the host's hero photo; phone bar shows the "from" price
   beside the Book button. Header menu and language switcher unchanged.
+- **Header menus on the guest pages (2026-11-15):** the phone/tablet menu
+  and the desktop dropdown hold the same booking tools on `/[slug]` and
+  `/book`: check-in / check-out, change house / dates, write a review
+  (`/book` adds "ดูรายละเอียดที่พัก" first and "ทำรายการจองต่อ"; the
+  landing's phone menu keeps its Book pill). The landing's section links
+  stay only in its xl header row; Location and Policies have no menu link.
 
 From this session (2026-11-11):
 - North Star "The Quiet Retreat".
@@ -263,13 +283,11 @@ From this session (2026-11-11):
 2. **Guest page background.** `earth-50` #faf8f5 or the proposed Warm Ivory
    #F5F1E8. The proposed value comes after the text-contrast fix.
 3. **Sage.** Confirm its role as a decorative accent only.
-4. **Body font.** Make the system stack official (recommended) or load a
-   Latin + Thai web font pair.
+4. ~~**Body font.**~~ Closed 2026-11-15: Anuphan (option B, a Latin + Thai
+   web font) for body and UI text, site-wide.
 5. **Home hero image.** Which real Thai photo, and with whose permission.
-6. **Cart badge pulse.** It runs forever while the cart has houses
-   (deliberate, documented in `globals.css`). WCAG 2.2.2 (Pause, Stop, Hide)
-   asks that motion lasting more than 5 seconds can be paused, so a single
-   pulse when a house is added may be the safer equivalent.
+6. ~~**Cart badge pulse.**~~ Closed 2026-11-15: the booking page has no cart,
+   so no badge and no pulse.
 7. **Platform home order.** Put homestays before the "why" manifesto and the
    host pitch (proposed in the audit).
 8. **Host dashboard home.** Today's work first, analytics second (proposed in

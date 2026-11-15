@@ -219,11 +219,11 @@ export function BookingAttachments({ bookingId, onCountChange }: BookingAttachme
   return (
     <div className="space-y-2">
       <div className="flex items-center justify-between">
-        <h4 className="flex items-center gap-1.5 text-sm font-medium text-gray-700">
+        <h4 className="flex items-center gap-1.5 text-sm font-medium text-earth-800">
           <ImagePlus className="h-4 w-4" />
           {t("attachmentsTitle")}
           {attachments.length > 0 && (
-            <span className="text-xs font-normal text-gray-400">
+            <span className="text-xs font-normal text-earth-600">
               {t("attachmentsCount", {
                 count: attachments.length,
                 max: MAX_ATTACHMENTS_PER_BOOKING,
@@ -251,7 +251,7 @@ export function BookingAttachments({ bookingId, onCountChange }: BookingAttachme
 
       {/* The privacy promise belongs at the moment of upload — the host is about
           to paste a guest's conversation — not buried in a policy page. */}
-      <p className="flex items-center gap-1 text-xs text-gray-400">
+      <p className="flex items-center gap-1 text-xs text-earth-600">
         <Lock className="h-3 w-3" />
         {t("attachmentsPrivateHint")}
       </p>
@@ -266,11 +266,11 @@ export function BookingAttachments({ bookingId, onCountChange }: BookingAttachme
       />
 
       {loading ? (
-        <div className="flex items-center justify-center rounded-lg border border-dashed border-gray-200 p-4">
-          <Loader2 className="h-4 w-4 animate-spin text-gray-300" />
+        <div className="flex items-center justify-center rounded-lg border border-dashed border-earth-200 p-4">
+          <Loader2 className="h-4 w-4 animate-spin text-earth-300" />
         </div>
       ) : attachments.length === 0 ? (
-        <div className="flex items-center gap-2 rounded-lg border border-dashed border-gray-200 p-4 text-sm text-gray-400">
+        <div className="flex items-center gap-2 rounded-lg border border-dashed border-earth-200 p-4 text-sm text-earth-600">
           <ImagePlus className="h-5 w-5" />
           {t("attachmentsEmpty")}
         </div>
@@ -281,7 +281,7 @@ export function BookingAttachments({ bookingId, onCountChange }: BookingAttachme
           {attachments.map((attachment) => (
             <div
               key={attachment.id}
-              className="group relative aspect-[3/4] overflow-hidden rounded-lg border bg-gray-50"
+              className="group relative aspect-[3/4] overflow-hidden rounded-lg border bg-earth-50"
             >
               {attachment.signed_url ? (
                 // rel="noreferrer" is load-bearing, not boilerplate: a signed
@@ -303,7 +303,7 @@ export function BookingAttachments({ bookingId, onCountChange }: BookingAttachme
                 </a>
               ) : (
                 <div className="flex h-full w-full items-center justify-center">
-                  <ImagePlus className="h-5 w-5 text-gray-300" />
+                  <ImagePlus className="h-5 w-5 text-earth-300" />
                 </div>
               )}
               {/* Always visible on touch, hover-revealed on a fine pointer. A
@@ -328,7 +328,7 @@ export function BookingAttachments({ bookingId, onCountChange }: BookingAttachme
               <Trash2 className="h-4 w-4 text-red-500" />
               {t("attachmentsRemove")}
             </DialogTitle>
-            <DialogDescription className="text-sm text-gray-600">
+            <DialogDescription className="text-sm text-earth-700">
               {tc("confirmRemoveImage")}
             </DialogDescription>
           </DialogHeader>

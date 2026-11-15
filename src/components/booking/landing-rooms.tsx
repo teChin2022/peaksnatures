@@ -82,7 +82,7 @@ export function LandingRooms({ rooms, bookHref, bookingDisabled = false }: Landi
                 )}
               </div>
               <div className="flex min-w-0 flex-col gap-2.5 px-5 pt-5 pb-6 md:px-10 md:py-9">
-                <span aria-hidden className="font-serif text-[13px] tracking-[0.2em] text-ink-3 lining-nums">
+                <span aria-hidden lang="en" className="font-serif text-[13px] tracking-[0.2em] text-ink-3 lining-nums">
                   {String(i + 1).padStart(2, "0")}
                 </span>
                 <div className="flex flex-wrap items-center gap-x-3 gap-y-1">
@@ -102,7 +102,7 @@ export function LandingRooms({ rooms, bookHref, bookingDisabled = false }: Landi
                 )}
                 <div className="mt-auto flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-t border-line pt-4">
                   <div>
-                    <p className="text-[13px] text-ink-2">{t("basePrice")}</p>
+                    <p className="text-[13px] text-ink-2">{t("ratePrice")}</p>
                     <p className="whitespace-nowrap">
                       {/* Lining figures: the serif's old-style ones read "฿100" as "฿1OO". Set here, not with .tabular-nums, which resets the feature list. */}
                       <span className="font-serif text-3xl leading-tight text-ink" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>

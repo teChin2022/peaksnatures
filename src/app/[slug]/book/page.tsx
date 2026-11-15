@@ -79,8 +79,8 @@ export default async function HomestayBookingPage({ params, searchParams }: Page
   const activeRooms = rooms.filter((r) => r.is_active);
   const inactiveRooms = rooms.filter((r) => !r.is_active);
 
-  // Shared cart catalog — powers the sticky date bar, room-card "Add to cart",
-  // the cart modal, and the booking panel from one source of truth.
+  // Shared catalog for the chosen houses — powers the date bars, the house
+  // cards, their config dialog and the checkout from one source of truth.
   const cartCatalog = {
     rooms: activeRooms,
     seasonalPrices,
@@ -134,7 +134,7 @@ export default async function HomestayBookingPage({ params, searchParams }: Page
 
         <AvailabilityCalendarSection homestayId={homestay.id} />
 
-        <RoomsSection rooms={sortedRooms} seasonalPrices={seasonalPrices} specialPrices={specialPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} popularRoomIds={popularRoomIds} />
+        <RoomsSection rooms={sortedRooms} seasonalPrices={seasonalPrices} specialPrices={specialPrices} bookedRanges={bookedRanges} blockedDates={blockedDates} popularRoomIds={popularRoomIds} promo={initialPromo} />
 
         {/* Booking (inline) */}
         <div className="bg-mist">

@@ -74,6 +74,7 @@ export async function LandingBookBar({
 }) {
   const tb = await getTranslations("booking");
   const tc = await getTranslations("common");
+  const tr = await getTranslations("rooms");
 
   const button = "inline-flex min-h-[52px] shrink-0 items-center justify-center rounded-full bg-pine px-7 text-base font-medium text-white";
 
@@ -90,7 +91,7 @@ export async function LandingBookBar({
           <>
             {fromPrice !== null && (
               <p className="min-w-0">
-                <span className="block text-[13px] text-ink-2">{tc("from")}</span>
+                <span className="block text-[13px] text-ink-2">{tr("ratePrice")}</span>
                 <span className="font-serif text-2xl leading-tight text-ink lining-nums">฿{fromPrice.toLocaleString()}</span>
                 <span className="ml-1 text-sm text-ink-2">{tc("perNight")}</span>
               </p>

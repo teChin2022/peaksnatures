@@ -62,7 +62,7 @@ function Calendar({
         dropdowns:
           "w-full flex items-center text-sm font-semibold tracking-wide justify-center h-8 gap-1.5 text-earth-800",
         dropdown_root:
-          "relative has-focus:ring-2 has-focus:ring-brand/10 rounded-md",
+          "relative has-[:focus-visible]:ring-2 has-[:focus-visible]:ring-brand has-[:focus-visible]:ring-offset-2 rounded-md",
         dropdown:
           "absolute inset-0 opacity-0 cursor-pointer",
         months_dropdown: "",
@@ -161,9 +161,13 @@ function CalendarDayButton({
       data-range-middle={modifiers.range_middle}
       className={cn(
         "day-btn",
-        "relative flex size-11 items-center justify-center rounded-full text-sm font-medium transition-all duration-150",
+        // 44px, or a seventh of a phone dialog's content box (100vw minus 2×1rem margin,
+        // 2×1rem padding, 2px border) when that is smaller: below 375px, seven 44px
+        // days overflow. Owner's call, 2026-11-14.
+        "relative flex size-[min(2.75rem,calc((100vw_-_4rem_-_2px)/7))] items-center justify-center rounded-full text-sm font-medium transition-all duration-150",
         "text-earth-700 hover:bg-earth-100 hover:text-earth-900",
-        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand/20 focus-visible:ring-offset-1",
+        // DESIGN.md: a 2px solid Forest ring, 2px offset (7.49:1); brand/20 was ~1.36:1.
+        "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
         "data-[selected-single=true]:bg-brand data-[selected-single=true]:text-white data-[selected-single=true]:shadow-sm data-[selected-single=true]:hover:bg-brand-hover",
         "[&>span]:text-[0.65rem] [&>span]:opacity-60",
         className

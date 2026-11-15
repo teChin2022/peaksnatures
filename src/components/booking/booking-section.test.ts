@@ -168,12 +168,13 @@ function Seed({ rooms }: { rooms: string[] }) {
   return null;
 }
 
-async function renderForm(mode: GuestBookingMode, rooms: string[] = [ROOM_A.id], over: { facebook_url?: string | null; phone?: string | null } = {}) {
+async function renderForm(mode: GuestBookingMode, rooms: string[] = [ROOM_A.id], over: { facebook_url?: string | null; phone?: string | null; noHouses?: boolean; bookingDisabled?: boolean } = {}) {
   const homestay = { ...HOMESTAY, facebook_url: over.facebook_url === undefined ? HOMESTAY.facebook_url : over.facebook_url };
   const host = toBookingHost(
     makeHost({ guest_booking_mode: mode, promptpay_id: "0812345678", phone: over.phone === undefined ? "0812345678" : over.phone }),
   );
-  const catalog = { rooms: [ROOM_A, ROOM_B], seasonalPrices: [], specialPrices: [], roomOptions: [], guestPricing: [], blockedDates: [], bookedRanges: [] };
+  const houses = over.noHouses ? [] : [ROOM_A, ROOM_B];
+  const catalog = { rooms: houses, seasonalPrices: [], specialPrices: [], roomOptions: [], guestPricing: [], blockedDates: [], bookedRanges: [] };
   const { homestay: _h, ...forClient } = { ...homestay, host: null } as never as { homestay: never } & Record<string, unknown>;
   void _h;
   await act(async () => {
@@ -187,10 +188,10 @@ async function renderForm(mode: GuestBookingMode, rooms: string[] = [ROOM_A.id],
           createElement(Seed, { rooms }),
           createElement(BookingSection, {
             homestay: forClient as never,
-            rooms: [ROOM_A, ROOM_B],
+            rooms: houses,
             blockedDates: [],
             host,
-            bookingDisabled: false,
+            bookingDisabled: over.bookingDisabled ?? false,
           }),
         ),
       ),
@@ -218,10 +219,14 @@ async function type(selector: string, value: string) {
   });
 }
 
-/** Step 1 on to the guest details, then the consent that sits there (as in the prototype). */
+/** "Proceed" in the cart dialog (HeaderCart) or the desktop dock: they send this event. */
+const proceed = () => act(async () => void document.dispatchEvent(new Event("proceed-booking")));
+const checkoutState = () => document.body.querySelector("[data-checkout]")?.getAttribute("data-checkout");
+
+/** The cart's proceed button on to the guest details, then the consent that sits there (as in the prototype). */
 async function openDetails() {
-  await vi.waitFor(() => expect(buttonByText("continueDetails")).toBeTruthy());
-  await click(buttonByText("continueDetails"));
+  await proceed();
+  await vi.waitFor(() => expect(checkoutState()).toBe("open"));
 }
 async function toDetails() {
   await openDetails();
@@ -313,6 +318,15 @@ describe("the guest details step", () => {
 });
 
 // ── The payment step, per host mode ─────────────────────────────────────────
+describe("a homestay with no house open", () => {
+  it("says nothing can be booked yet and offers the host, instead of asking for dates", async () => {
+    await renderForm("normal", [], { noHouses: true });
+    expect(text()).toContain("noHousesTitle");
+    expect(text()).not.toContain("noRoomSelected");
+    expect(document.body.querySelector('a[href^="tel:"]')).toBeTruthy();
+  });
+});
+
 describe("the how-to-book guide follows the host's mode", () => {
   const tutorialQuickOnly = () => document.body.querySelector('[data-testid="tutorial"]')?.getAttribute("data-quick-only");
 
@@ -487,7 +501,7 @@ describe("when the server turns a quick booking down", () => {
     await click(buttonByText("quickSubmit"));
 
     await vi.waitFor(() => expect(h.toastError).toHaveBeenCalledWith("errorDatesUnavailable"));
-    await vi.waitFor(() => expect(buttonByText("continueDetails")).toBeTruthy());
+    await vi.waitFor(() => expect(checkoutState()).toBe("closed"));
   });
 
   it("shows a generic error for anything else", async () => {
@@ -723,7 +737,10 @@ describe("the review page, between the guest's details and the hold", () => {
 describe("checkout overlay (steps 2–3)", () => {
   const shell = () => document.body.querySelector<HTMLElement>("[data-checkout]")!;
 
-  it("opens the guest details full screen and closes back to the page on Back", async () => {
+  it("opens the guest details full screen and closes back to the houses on Back", async () => {
+    const heading = Object.assign(document.createElement("h2"), { id: "rooms-heading", tabIndex: -1 });
+    heading.scrollIntoView = vi.fn();
+    document.body.append(heading);
     await renderForm("normal");
     expect(shell().dataset.checkout).toBe("closed");
     await openDetails();
@@ -736,6 +753,11 @@ describe("checkout overlay (steps 2–3)", () => {
     await click(document.body.querySelector('[data-checkout] button[aria-label="back"]'));
     expect(shell().dataset.checkout).toBe("closed");
     expect(document.documentElement.style.overflow).toBe("");
+    // There is no cart: Back lands on the houses, where the chosen ones show on their cards.
+    await act(() => new Promise((r) => setTimeout(r, 60)));
+    expect(heading.scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(heading);
+    heading.remove();
   });
 
   it("takes the rest of the page out of the tab order while open, and gives it back on close", async () => {
@@ -770,6 +792,38 @@ describe("checkout overlay (steps 2–3)", () => {
 
     await click(buttonByText("backToHomestay"));
     expect(shell().dataset.checkout).toBe("closed");
+  });
+});
+
+// ── No cart card on the page: the cart dialog starts checkout ───────────────
+describe("starting checkout from the cart", () => {
+  it("shows no second copy of the cart on the page", async () => {
+    await renderForm("normal");
+    expect(text()).not.toContain("yourBooking");
+    expect(text()).not.toContain("continueDetails");
+    expect(document.body.querySelector("[data-checkout]")!.className).toContain("hidden");
+  });
+
+  it("does not start while bookings are off", async () => {
+    await renderForm("normal", [ROOM_A.id], { bookingDisabled: true });
+    await proceed();
+    expect(checkoutState()).toBe("closed");
+  });
+
+  // The header cart stays reachable above the overlay; its button must not pull a paying guest back.
+  it("leaves a checkout under way where it is", async () => {
+    await renderForm("normal");
+    await reachPayment();
+    await proceed();
+    expect(buttonByText("submitBooking")).toBeTruthy();
+    expect(calls.some((c) => c.method === "DELETE" && c.url === "/api/bookings/hold")).toBe(false);
+  });
+
+  it("offers the how-to-book guide inside the steps, not on the page", async () => {
+    await renderForm("normal");
+    expect(buttonByText("reopen")).toBeUndefined();
+    await openDetails();
+    expect(document.body.querySelector("[data-checkout]")!.textContent).toContain("reopen");
   });
 });
 

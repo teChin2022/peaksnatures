@@ -165,7 +165,7 @@ export function SecurityPinDialog({
               <button
                 type="button"
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                onClick={() => setShowPin(!showPin)}
+                aria-label={showPin ? t("hidePin") : t("showPin")} onClick={() => setShowPin(!showPin)}
                 tabIndex={-1}
               >
                 {showPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -194,7 +194,7 @@ export function SecurityPinDialog({
                   <button
                     type="button"
                     className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
-                    onClick={() => setShowNewPin(!showNewPin)}
+                    aria-label={showNewPin ? t("hidePin") : t("showPin")} onClick={() => setShowNewPin(!showNewPin)}
                     tabIndex={-1}
                   >
                     {showNewPin ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}

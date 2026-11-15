@@ -48,44 +48,47 @@ const render = (bookingDisabled = false) =>
 const buttons = () => [...container.querySelectorAll("button")];
 
 describe("MobileBookingBar", () => {
-  it("puts the cart tile first, then the Book button carrying the dates", () => {
+  it("with nothing chosen, is one Book button carrying the dates", () => {
     withCart(0);
     render();
-    const [tile, book] = buttons();
-    expect(tile.getAttribute("aria-label")).toBe("yourCart");
-    expect(book.textContent).toContain("bookHouse");
-    expect(book.textContent).toContain("2 nights");
-  });
-
-  it("counts the houses in the cart on the tile, and in its name", () => {
-    withCart(2);
-    render();
-    const [tile] = buttons();
-    expect(tile.textContent).toBe("2");
-    expect(tile.getAttribute("aria-label")).toBe("yourCart · roomsCount:2");
-  });
-
-  // Same as the desktop header cart: a red count, and the same cart dialog (HeaderCart listens for open-cart).
-  it("shows the count in red and opens the shared cart dialog", () => {
-    withCart(1);
-    render();
-    const [tile] = buttons();
-    expect(tile.querySelector("span")?.className).toContain("bg-[#F83858]");
-    const opened = vi.fn();
-    document.addEventListener("open-cart", opened);
-    act(() => tile.click());
-    document.removeEventListener("open-cart", opened);
-    expect(opened).toHaveBeenCalledTimes(1);
+    expect(buttons()).toHaveLength(1);
+    expect(buttons()[0].textContent).toContain("bookHouse");
+    expect(buttons()[0].textContent).toContain("2 nights");
   });
 
   it("opens the calendar from the Book button", () => {
     withCart(0, false);
     render();
-    act(() => buttons()[1].click());
+    act(() => buttons()[0].click());
     expect(document.body.querySelector('[data-testid="calendar"]')).not.toBeNull();
   });
 
-  it("dims both buttons and turns them off while bookings are off", () => {
+  // No cart: once a house is chosen the bar is the way on to the guest details.
+  it("with houses chosen, shows their count, total and dates, and Book Now goes straight to checkout", () => {
+    withCart(2);
+    render();
+    expect(container.textContent).toContain("roomsCount:2");
+    expect(container.textContent).toContain("฿3,600");
+    expect(container.textContent).toContain("20 Nov – 22 Nov · 2 nights");
+    expect(buttons()).toHaveLength(1);
+    expect(buttons()[0].textContent).toBe("bookNow");
+    const proceed = vi.fn();
+    document.addEventListener("proceed-booking", proceed);
+    act(() => buttons()[0].click());
+    document.removeEventListener("proceed-booking", proceed);
+    expect(proceed).toHaveBeenCalledTimes(1);
+    expect(document.body.querySelector('[data-testid="calendar"]')).toBeNull();
+  });
+
+  // A half-picked range prices nothing, so chosen houses can't be booked from it.
+  it("keeps the Book button while the stay is not fully picked, even with houses chosen", () => {
+    withCart(2, false);
+    render();
+    expect(buttons()[0].textContent).toContain("bookHouse");
+    expect(container.textContent).not.toContain("bookNow");
+  });
+
+  it("turns its button off while bookings are off", () => {
     withCart(1);
     render(true);
     expect(buttons().every((b) => b.disabled)).toBe(true);

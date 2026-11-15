@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { ShoppingCart, Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope, CheckCircle2, Loader2, ImageIcon, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle, Download, Shield, Minus, Plus, ShieldUser, ListPlus, Gift, HelpCircle, MessageCircle } from "lucide-react";
+import { Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope, CheckCircle2, Loader2, ImageIcon, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle, Download, Shield, Minus, Plus, ShieldUser, ListPlus, HelpCircle, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { billingTodayStr } from "@/lib/billing-dates";
 import { reconcileDraftWithCatalog, type ResumeDraftDetail } from "@/lib/booking-draft";
@@ -49,7 +49,6 @@ import { BookingCalendarDialog } from "@/components/booking/booking-calendar-dia
 import { BookingTutorialDialog } from "@/components/booking/booking-tutorial-dialog";
 import { LeaveBookingDialog } from "@/components/booking/leave-booking-dialog";
 import { useBookingCart } from "@/components/booking/booking-cart-context";
-import { CartLineList } from "@/components/booking/cart-line-list";
 import { HostContactLinks } from "@/components/booking/host-contact-links";
 import { QuickBookingNotice } from "@/components/booking/quick-booking-notice";
 import { allowsNormal, allowsQuick, bookingCode, guestBookingModeOf } from "@/lib/quick-booking";
@@ -219,7 +218,7 @@ export function BookingSection({
   const phoneInputRef = useRef<HTMLInputElement>(null);
   const qrContainerRef = useRef<HTMLDivElement>(null);
 
-  // "How to book?" help pill: pulse once when the form first scrolls into view,
+  // "How to book?" link in the checkout header: pulse once when it first shows,
   // unless the tutorial was already seen or the user prefers reduced motion.
   // useInView({ once }) flips false→true a single time; the keyframe array then
   // plays one shot (framer doesn't loop keyframes), so no state/timeout is needed.
@@ -375,11 +374,11 @@ export function BookingSection({
       // scrolling here is a silent no-op: the guest is left wherever the header
       // menu was while the panel swaps to step 3 far below. Defer past the exit
       // animation, the same 250ms handleStayInBooking uses for this exact
-      // reason. The section's top edge is the right landing spot for every
-      // outcome — its position does not move between steps — so this covers the
-      // clean restore into step 3 and the step-1 fallbacks alike.
+      // reason. The houses are the landing spot: a clean restore opens step 3
+      // over them, and a step-1 fallback needs the guest to choose again there
+      // (the page has no booking card at step 1; chosen houses show on their cards).
       setTimeout(() => {
-        sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+        document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 250);
     };
     document.addEventListener("resume-draft", handler);
@@ -487,13 +486,6 @@ export function BookingSection({
     return fullyBookedEverywhere;
   }, [selectedRoomId, liveBookedRanges, rooms]);
 
-  // How many rooms RoomsSection will actually show for the chosen range — drives
-  // the "no rooms selected" panel's hint so it can't promise rooms that aren't there.
-  const availableRoomCount = useMemo(() => {
-    if (!dateRange?.from || !dateRange?.to) return 0;
-    return rooms.filter((r) => cart.isRoomAvailableForRange(r)).length;
-  }, [dateRange?.from, dateRange?.to, rooms, cart]);
-
 
   const selectedRoom = rooms.find((r) => r.id === selectedRoomId);
 
@@ -524,11 +516,6 @@ export function BookingSection({
     if (!dateRange?.from || !dateRange?.to) return 0;
     return differenceInDays(dateRange.to, dateRange.from);
   }, [dateRange]);
-
-  // With no usable range — or a range nothing is free for — the only sensible next
-  // step is the date picker, so the empty state points there instead of the rooms.
-  // nights < 1 covers both "nothing picked" and "check-in only" (from === to).
-  const emptyCartNeedsDates = nights < 1 || availableRoomCount === 0;
 
   const optionsTotal = useMemo(() => {
     return selectedOptionIds.reduce((sum, id) => {
@@ -718,6 +705,17 @@ export function BookingSection({
     setStep("details");
     setTimeout(() => nameInputRef.current?.focus(), 100);
   };
+
+  // The house dialog's "จองเลย", the phone bar and the desktop dock start checkout with this
+  // event: the page has no cart. Only from step 1, so nothing outside the overlay can pull a
+  // guest back out of a later step (and its hold).
+  // No deps: re-subscribes each render so the handler always sees the current state.
+  useEffect(() => {
+    if (bookingDisabled || step !== "dates") return;
+    const proceed = () => handleProceedToDetails();
+    document.addEventListener("proceed-booking", proceed);
+    return () => document.removeEventListener("proceed-booking", proceed);
+  });
 
   // The province is optional: it feeds the host's guest-origin chart and nothing
   // the stay needs, so it is not asked for as a condition of booking.
@@ -1292,10 +1290,11 @@ export function BookingSection({
   const handleStayInBooking = () => {
     setShowLeaveWarning(false);
     armBackGuard(); // re-arm for the next Back
-    // Bring the booking form back into view. Deferred so it runs after the
-    // dialog's exit animation releases Radix's body scroll lock (~200ms).
+    // Bring the houses back into view (steps 2–3 sit over them; step 1 has no
+    // card on the page). Deferred so it runs after the dialog's exit animation
+    // releases Radix's body scroll lock (~200ms).
     setTimeout(() => {
-      sectionRef.current?.scrollIntoView({ behavior: "smooth", block: "center" });
+      document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 250);
   };
 
@@ -1322,7 +1321,15 @@ export function BookingSection({
   const checkoutStepIndex = { details: 0, review: 1, pay: 2, expired: 2, done: 3 }[checkoutView];
   const checkoutBack =
     checkoutView === "details"
-      ? () => setStep("dates")
+      ? () => {
+          setStep("dates");
+          // The chosen houses live on their cards (no cart), so Back lands on the houses.
+          setTimeout(() => {
+            const heading = document.getElementById("rooms-heading");
+            heading?.scrollIntoView({ block: "start" });
+            heading?.focus({ preventScroll: true });
+          }, 50);
+        }
       : checkoutView === "review"
         ? () => setShowConfirmModal(false)
         : checkoutView === "pay"
@@ -1434,43 +1441,24 @@ export function BookingSection({
           </div>
         </div>
       )}
-      <section id="booking-section" ref={sectionRef} className="py-20 md:py-28">
+      {/* At step 1 the page shows no cart card (the cart dialog holds the cart), so with houses
+          open this section is empty until checkout opens over the page. */}
+      <section id="booking-section" ref={sectionRef} className={rooms.length > 0 && !bookingDisabled ? "" : "py-20 md:py-28"}>
         <div className="mx-auto max-w-7xl px-4 sm:px-6">
           {bookingDisabled && (
             <div className="mb-8 rounded-xl border border-amber-200 bg-amber-50 px-6 py-5 text-center">
               <Clock className="h-6 w-6 text-amber-500 mx-auto mb-2" />
               <p className="text-base font-medium text-amber-800">{t("unavailableTitle")}</p>
-              <p className="text-sm text-amber-600 mt-1">{t("unavailableDesc")}</p>
+              <p className="text-sm text-amber-800 mt-1">{t("unavailableDesc")}</p>
             </div>
           )}
           <div className={`mx-auto max-w-5xl ${bookingDisabled ? "pointer-events-none opacity-50 select-none" : ""}`}>
-            {/* ── Heading & how it works, above the card ── */}
-            <div>
-              <div className="flex flex-wrap items-baseline justify-between gap-x-4 gap-y-1">
-                <h2 className="font-serif text-3xl font-normal leading-tight text-ink md:text-4xl">{t("yourBooking")}</h2>
-                <div className="flex flex-wrap items-baseline gap-x-4">
-                {cartLines.length > 0 && dateRange?.from && dateRange?.to && (
-                  <p className="text-sm text-ink-2">
-                    {fmtDate(dateRange.from, "EEE d MMM", locale)} – {fmtDate(dateRange.to, "EEE d MMM", locale)} · {nightsLabel} · {t("roomsCount", { count: cartLines.length })}
-                  </p>
-                )}
-                {/* How to book — opens the step-by-step guide (pulses once on first arrival) */}
-                <motion.button
-                  ref={helpPillRef}
-                  type="button"
-                  onClick={() => { setShowTutorial(true); setCookie(TUTORIAL_COOKIE, "1", 365); }}
-                  animate={pulseHelp ? { scale: [1, 1.08, 1, 1.08, 1] } : { scale: 1 }}
-                  transition={{ duration: 1.2, ease: "easeInOut" }}
-                  className="inline-flex min-h-11 cursor-pointer items-center gap-1 text-[15px] font-medium text-pine underline underline-offset-4 hover:text-pine-hover"
-                >
-                  {tt("reopen")}
-                  <HelpCircle className="h-4 w-4" />
-                </motion.button>
-                </div>
-              </div>
-            </div>
+            {/* ── Heading, above the no-house card (with houses open, step 1 has no card) ── */}
+            {rooms.length === 0 && (
+              <h2 className="font-serif text-3xl font-normal leading-tight text-ink md:text-4xl">{t("yourBooking")}</h2>
+            )}
 
-            {/* ── Booking card: full width on the page for step 1; steps 2–3 open it full screen ── */}
+            {/* ── Booking card: on the page only for the no-house state; steps 2–3 open it full screen ── */}
             <div
               ref={checkoutShellRef}
               data-checkout={checkoutOpen ? "open" : "closed"}
@@ -1480,7 +1468,7 @@ export function BookingSection({
               className={
                 checkoutOpen
                   ? "fixed inset-x-0 top-[69px] bottom-0 z-[45] overflow-x-hidden overflow-y-auto overscroll-contain bg-mist outline-none animate-in fade-in slide-in-from-bottom-4 duration-300 motion-reduce:animate-none"
-                  : "mt-6"
+                  : rooms.length > 0 ? "hidden" : "mt-6"
               }
             >
             {/* The checkout's own header: back, the stay, the hold timer, and where the guest is. */}
@@ -1501,6 +1489,19 @@ export function BookingSection({
                       {dateRange?.from && dateRange?.to ? ` · ${fmtDate(dateRange.from, "d MMM", locale)} – ${fmtDate(dateRange.to, "d MMM", locale)} · ${nightsLabel}` : ""}
                     </p>
                   </div>
+                  {/* How to book — opens the step-by-step guide (pulses once on first sight) */}
+                  <motion.button
+                    ref={helpPillRef}
+                    type="button"
+                    onClick={() => { setShowTutorial(true); setCookie(TUTORIAL_COOKIE, "1", 365); }}
+                    animate={pulseHelp ? { scale: [1, 1.08, 1, 1.08, 1] } : { scale: 1 }}
+                    transition={{ duration: 1.2, ease: "easeInOut" }}
+                    className="inline-flex min-h-11 min-w-11 shrink-0 cursor-pointer items-center justify-center gap-1 text-[13px] font-medium text-pine underline-offset-4 hover:text-pine-hover sm:px-1 sm:underline"
+                  >
+                    {/* Icon only on phones: the header also holds the stay and, on payment, the timer. */}
+                    <span className="sr-only sm:not-sr-only">{tt("reopen")}</span>
+                    <HelpCircle className="h-5 w-5 sm:h-4 sm:w-4" aria-hidden />
+                  </motion.button>
                   {step === "payment" && !showConfirmedModal && !holdExpired && (
                     <HoldCountdown expiresAt={holdExpiresAt} onExpire={handleHoldExpired} />
                   )}
@@ -1519,38 +1520,12 @@ export function BookingSection({
               </div>
             )}
             <div className={checkoutOpen ? "px-4 pt-6 pb-[calc(2.5rem+env(safe-area-inset-bottom))] sm:px-6" : ""}>
+            {/* No entrance: it is the task surface, visible at rest (ui-audit B6). */}
             <motion.div
-              initial={{ opacity: 0, scale: 0.96, y: 20 }}
-              whileInView={{ opacity: 1, scale: 1, y: 0 }}
-              viewport={{ once: true }}
-              transition={{ duration: 0.6, ease: [0.25, 0.1, 0, 1] }}
               ref={cardRef}
               id="booking-card"
               className={checkoutOpen ? "relative mx-auto flex w-full max-w-3xl scroll-mt-24 flex-col" : "relative flex scroll-mt-24 flex-col rounded-[24px] bg-white p-5 md:p-8"}
             >
-            {!checkoutOpen && initialPromo && promoInput.trim().toUpperCase() === initialPromo.code.toUpperCase() && (
-              <div className="mb-5 flex items-start gap-2.5 rounded-xl border border-pine-mist bg-pine-mist p-3.5">
-                <Gift className="mt-0.5 h-4 w-4 shrink-0 text-pine" />
-                <div className="text-sm leading-snug text-ink">
-                  <span className="font-semibold">
-                    {t("promoFromLinkBanner", { code: initialPromo.code })}
-                  </span>
-                  {initialPromo.discount_value > 0 && (
-                    <span>
-                      {initialPromo.discount_type === "percentage"
-                        ? t("promoFromLinkDiscountPct", { value: initialPromo.discount_value })
-                        : t("promoFromLinkDiscountFixed", { value: initialPromo.discount_value.toLocaleString() })}
-                    </span>
-                  )}
-                  {initialPromo.recommender_name && (
-                    <span className="text-ink-2">
-                      {t("promoFromLinkRef", { name: initialPromo.recommender_name })}
-                    </span>
-                  )}
-                </div>
-              </div>
-            )}
-
             {/* Hidden file inputs */}
             <input ref={galleryInputRef} type="file" accept="image/*" className="hidden" onChange={(e) => handleSlipSelect(e.target.files?.[0] || null)} />
 
@@ -1562,52 +1537,16 @@ export function BookingSection({
                     <AnimatePresence mode="wait">
                       {!showOptions ? (
                         <motion.div key="dates-form" initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }} transition={{ duration: 0.25 }} aria-live="polite">
-                          {cartLines.length === 0 ? (
+                          {rooms.length === 0 && (
+                            // No house is open: nothing here can be booked, so say so and
+                            // give the guest the host instead of asking for dates (B7).
                             <div className="px-2 py-4 text-center">
-                              <span aria-hidden className="mx-auto mb-3.5 flex h-16 w-16 items-center justify-center rounded-full bg-pine-mist text-pine">
-                                <ShoppingCart className="h-7 w-7" />
-                              </span>
-                              <h3 className="font-serif text-[22px] leading-snug text-ink">{t("noRoomSelected")}</h3>
-                              <p className="mx-auto mt-1.5 max-w-[34ch] text-[15px] text-ink-2">
-                                {!dateRange?.from
-                                  ? t("noRoomSelectedNoDates")
-                                  : nights < 1
-                                    ? t("noRoomSelectedNeedCheckOut")
-                                    : availableRoomCount === 0
-                                      ? t("noRoomSelectedSoldOut")
-                                      : t("noRoomSelectedHint", { count: availableRoomCount })}
-                              </p>
-                              <button
-                                type="button"
-                                onClick={() =>
-                                  emptyCartNeedsDates
-                                    ? setCalendarOpen(true)
-                                    : document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" })
-                                }
-                                className="mt-5 inline-flex min-h-12 cursor-pointer items-center gap-1.5 rounded-full border border-line-strong bg-white px-6 text-[15px] font-medium text-ink transition-colors hover:bg-mist focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-pine"
-                              >
-                                {emptyCartNeedsDates ? t("selectDates") : t("viewRooms")}
-                              </button>
-                            </div>
-                          ) : (
-                            <>
-                              <CartLineList />
-                              <div className="mt-4 space-y-2 border-t border-line pt-4">
-                                {appliedPromo && promoDiscount > 0 && (
-                                  <div className="flex justify-between text-[15px] text-emerald-700">
-                                    <span>{t("promoLabel")} ({appliedPromo.code})</span>
-                                    <span>−฿{promoDiscount.toLocaleString()}</span>
-                                  </div>
-                                )}
-                                <div className="flex items-baseline justify-between gap-4 text-ink">
-                                  <span className="text-[15px] font-medium">{tc("total")}</span>
-                                  <span className={CO_MONEY_LG}>฿{totalPrice.toLocaleString()}</span>
-                                </div>
+                              <h3 className="font-serif text-[22px] leading-snug text-ink">{t("noHousesTitle")}</h3>
+                              <p className="mx-auto mt-1.5 max-w-[40ch] text-[15px] text-ink-2">{t("noHousesDesc")}</p>
+                              <div className="mx-auto mt-5 max-w-sm text-left">
+                                <HostContactLinks facebookUrl={homestay.facebook_url} hostPhone={host.phone} />
                               </div>
-                              <button onClick={handleProceedToDetails} className={`${CO_PRIMARY} mt-4`}>
-                                {t("continueDetails")} <ArrowRight size={18} />
-                              </button>
-                            </>
+                            </div>
                           )}
                         </motion.div>
                       ) : showOptions ? (
@@ -2057,7 +1996,7 @@ export function BookingSection({
                         <div className="mt-5">
                           <p className="text-[13px] text-ink-2">{t("bookingId")}</p>
                           {/* The first 8 characters: what the guest's email and the host's message quote. */}
-                          <p className="mt-1.5 inline-block rounded-xl border border-line-strong px-5 py-2 font-serif text-2xl tracking-[0.08em] text-ink uppercase lining-nums">{bookingCode(bookingId)}</p>
+                          <p lang="en" className="mt-1.5 inline-block rounded-xl border border-line-strong px-5 py-2 font-serif text-2xl tracking-[0.08em] text-ink uppercase lining-nums">{bookingCode(bookingId)}</p>
                         </div>
                       )}
                       <p className="mt-4 text-[13px] text-ink-2">

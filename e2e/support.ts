@@ -181,16 +181,15 @@ export async function startSession(
   return session;
 }
 
-/** Opens /{slug}/book and works through the date picker, a house, the cart and the guest details to the payment step. */
+/** Opens /{slug}/book and works through the date picker, the houses (the last one's "Book Now") and the guest details to the payment step. */
 export async function reachPayment(page: Page, slug: string, options: { houses?: number; province?: boolean } = {}) {
   const { houses = 1, province = true } = options;
   await page.goto(`/${slug}/book`);
   await expect(page.getByRole("button", { name: T.booking.selectDates }).first()).toBeVisible();
 
   await chooseDates(page);
-  await addHouses(page, houses);
+  await addHouses(page, houses, { book: true });
 
-  await page.getByRole("button", { name: T.booking.continueDetails }).click();
   // Consent sits on the details page, before "review booking" (Mist Ridge prototype).
   await page.locator('[data-checkout="open"]').getByRole("checkbox").check();
 
@@ -210,7 +209,7 @@ export async function reachPayment(page: Page, slug: string, options: { houses?:
 }
 
 /** Picks two consecutive free nights some days ahead, trying later pairs when a house is not free for them. */
-async function chooseDates(page: Page) {
+export async function chooseDates(page: Page) {
   for (let attempt = 0; attempt < 10; attempt += 1) {
     await page.getByRole("button", { name: T.booking.selectDates }).last().click();
     const dialog = page.getByRole("dialog");
@@ -239,17 +238,28 @@ async function chooseDates(page: Page) {
   throw new Error("No two consecutive free nights with an available house were found.");
 }
 
-async function addHouses(page: Page, count: number) {
+/**
+ * Chooses `count` houses. The list starts at one house after the date picker, and a chosen
+ * house drops its "select" button, so the next one is always the first enabled "select";
+ * "choose another house" shows the rest. With `book`, the last house's "Book Now" opens the
+ * guest details (the page has no cart).
+ */
+export async function addHouses(page: Page, count: number, { book = false }: { book?: boolean } = {}) {
   for (let i = 0; i < count; i += 1) {
     const choose = page.getByRole("button", { name: T.rooms.selectThisRoom, disabled: false });
-    test.skip((await choose.count()) <= i, `needs ${count} houses free for the chosen dates`);
-    await choose.nth(i).click();
+    test.skip((await choose.count()) === 0, `needs ${count} houses free for the chosen dates`);
+    await choose.first().click();
     const dialog = page.getByRole("dialog");
-    const add = dialog.getByRole("button", { name: T.booking.addToCart });
-    // A house priced by guest group cannot be added until one group is chosen.
-    if (await add.isDisabled()) await dialog.getByRole("button", { name: /฿/ }).first().click();
-    await add.click();
-    await expect(page.getByRole("dialog")).toBeHidden();
+    // A house priced by guest group cannot be chosen until one group is.
+    const more = dialog.getByRole("button", { name: T.booking.chooseAnotherHouse });
+    if (await more.isDisabled()) await dialog.getByRole("button", { name: /฿/ }).first().click();
+    if (book && i === count - 1) {
+      await dialog.getByRole("button", { name: new RegExp(`^${T.common.bookNow}`) }).click();
+      await expect(page.locator('[data-checkout="open"]')).toBeVisible();
+    } else {
+      await more.click();
+      await expect(page.getByRole("dialog")).toBeHidden();
+    }
   }
 }
 

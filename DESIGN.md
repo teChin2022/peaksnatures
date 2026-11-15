@@ -59,22 +59,22 @@ typography:
     lineHeight: 1.2
     fontFeature: "\"tnum\""
   body:
-    fontFamily: "ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Anuphan, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: 1.625
   body-sm:
-    fontFamily: "ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Anuphan, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.625
   label:
-    fontFamily: "ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Anuphan, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 600
     lineHeight: 1.43
   caption:
-    fontFamily: "ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Anuphan, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 500
     lineHeight: 1.333
@@ -277,20 +277,22 @@ just the demo photo.
 
 **Display Font:** Playfair Display for Latin, with Noto Serif Thai for Thai
 (`font-serif`; Noto Serif Thai is loaded at 400 and 700 only).
-**Body Font:** the system UI stack (`ui-sans-serif, system-ui, sans-serif`),
-so Thai renders in the OS Thai face (SF Thai or Thonburi on Apple, Noto Sans
-Thai on Android, Leelawadee UI on Windows).
+**Body Font:** Anuphan for Thai and Latin (`font-sans`, the variable font
+from `next/font/google`, subsets `thai` and `latin`, weights 100–700), with
+the system UI stack behind it as the fallback. Owner's pick, 2026-11-15
+(design-direction §10.4, option B): the same loopless Thai on every phone,
+where the OS stack gave Thonburi on Apple and Noto Sans Thai on Android.
 **Mono:** Geist Mono (loaded; not part of the visible system).
 
 **Character:** a quiet serif for the names of places and prices, against a
-plain, native sans that reads well in Thai on any phone.
+plain, modern loopless sans that reads well in Thai on any phone.
 
-Geist is loaded in `src/app/layout.tsx` but is not the body font in practice:
-`@theme inline` inlines `--font-sans` into utilities instead of defining it on
-`:root`, so the base `html` font falls back to the system stack, and only
-elements with an explicit `font-sans` class (9 on `/[slug]`) render in Geist.
-Whether to make the system stack official or apply a web font (with a Thai
-companion) is an open decision in `docs/design-direction.md`.
+The body sets `font-sans` in `globals.css` (`@layer base`): the `next/font`
+variables (`--font-anuphan` and the rest) are set on `<body>` in
+`src/app/layout.tsx`, so `html`'s default font cannot resolve them, and
+without that rule the page falls back to the system stack (why Geist never
+showed). Anuphan's
+variable axis stops at 700, so `font-extrabold` renders at 700.
 
 ### Hierarchy
 - **Display** (serif 400, `text-4xl` → `sm:text-6xl` → `md:text-7xl`, i.e.
@@ -399,6 +401,9 @@ not bubbly.
   uppercase with `tracking-widest`; Thai labels stay unspaced.
 - **Hover / Focus:** hover to Forest Hover. Focus is a 2px solid Forest ring
   with a 2px offset (7.49:1). A ring at `brand/40` is too faint (1.94:1).
+  shadcn's `--ring` is Forest app-wide (2026-11-14): `Button` and `Badge` draw
+  that ring, inputs, selects, switches and tabs get a Forest border on focus,
+  and the dialog and sheet close buttons ring on keyboard focus only.
 - **Secondary:** white fill, 1px Sand border, Teak Deep label, the same
   pill. On a photo, white at 90% with no border.
 - **Ghost / link:** Forest text, underline on hover. Dashboard icon buttons
@@ -438,9 +443,11 @@ not bubbly.
   menu right, each a 44px target.
 - **Guest phone menu:** `FullScreenMenu`, 44px rows, unspaced Thai, labelled
   close button (the reference implementation).
-- **Mobile booking bar:** one Forest CTA that carries the dates on a second
-  line, plus a cart tile with a count badge (settled). Tapping the CTA always
-  reopens the date picker.
+- **Mobile booking bar:** two states at one height (settled 2026-11-15; the
+  booking page has no cart). Nothing chosen: one Forest CTA that carries the
+  dates on a second line and always reopens the date picker. A house chosen
+  for a full stay: the houses, total and dates on the left, Forest "จองเลย"
+  on the right, straight to the guest details.
 - **Host dashboard:** collapsible sidebar from `lg`; below it a 56px top bar
   with a menu button (44px target) and a drawer. Active item: Forest icon and
   text.
@@ -450,14 +457,16 @@ not bubbly.
 - **Dialog** (shadcn): centered, 10px radius, `shadow-lg`, `bg-black/50`
   overlay; one primary pill at the bottom; an X close with an accessible
   name. Used for picking dates and configuring a house.
-- **Sheet** (shadcn): bottom sheet on phones for cart review, 18px top
-  corners, the total and one primary CTA pinned at the bottom.
+- **Sheet** (shadcn): bottom sheet on phones, 18px top corners, the total
+  and one primary CTA pinned at the bottom.
 - **Dropdowns and Select** (shadcn): 8px radius, `shadow-md`, 44px rows on
   phones.
 
 ### Calendars
 - **Date picker** (shadcn `Calendar`, react-day-picker 9, in
-  `BookingCalendarDialog`): 44 × 44px day buttons; check-in and check-out are
+  `BookingCalendarDialog`): 44 × 44px day buttons, shrinking below a 375px
+  screen to a seventh of the dialog (about 36px at 320px; owner's call
+  2026-11-14, seven 44px days would overflow); check-in and check-out are
   Forest circles joined by a Forest Pale band; today is a Linen circle; past
   days are `earth-400` and disabled. Check-in and check-out summary boxes sit
   above the grid.
@@ -465,6 +474,15 @@ not bubbly.
   legend for all free, some free and full. Status must not rely on colour
   alone, and days from the next month that stay clickable must keep text
   contrast.
+- **One calendar language** (`src/components/booking/calendar-legend.tsx`):
+  every guest calendar uses the same round legend swatches and the same
+  booked night: red-100 fill, red-700 number (4.5:1), struck through with a
+  solid 2px red-500 line (thinner vanishes on 1x screens). A booked
+  night never looks like a past day. Day focus is a 2px solid Forest ring
+  with a 2px offset.
+- **"วันว่าง & ราคา"** (the house card's calendar) is view only: its days are
+  text, not buttons. Dates are picked from the date bars or the availability
+  calendar.
 
 ### Badges and Status
 - **Normative:** admin's `StatusBadge` tones (`src/components/admin/status-badge.tsx`):

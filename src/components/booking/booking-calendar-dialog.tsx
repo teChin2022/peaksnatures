@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { startOfToday, addMonths, parseISO } from "date-fns";
+import { startOfToday, addMonths, parseISO, format, isBefore, isSameDay } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
 import type { DateRange } from "react-day-picker";
 import { useTranslations, useLocale } from "next-intl";
@@ -16,6 +16,7 @@ import {
   makeStayDisabledMatcher,
 } from "@/lib/booking-dates";
 import { useBookingCart } from "@/components/booking/booking-cart-context";
+import { BOOKED_DAY_MODIFIER, CalendarLegend, LEGEND_SWATCH } from "@/components/booking/calendar-legend";
 
 /**
  * Shared date-range picker dialog for the homestay page. Reads/writes the one
@@ -49,9 +50,45 @@ export function BookingCalendarDialog({
   onDone?: () => void;
   roomId?: string | null;
 }) {
+  const t = useTranslations("booking");
+
+  // The panel unmounts with the content on close, which also clears its warnings.
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent className="grid-cols-1 p-4 sm:max-w-md sm:p-6">
+        <DialogHeader>
+          <DialogTitle>{t("selectDates")}</DialogTitle>
+        </DialogHeader>
+        <BookingCalendarPanel
+          roomId={roomId}
+          onDone={() => {
+            onOpenChange(false);
+            onDone?.();
+          }}
+        />
+      </DialogContent>
+    </Dialog>
+  );
+}
+
+/**
+ * The picker's body without its dialog, for a dialog that shows it as one of
+ * its views (the availability calendar's day dialog). Its parts are returned
+ * as siblings so they stay direct items of the host's DialogContent grid.
+ * `onDone` fires only once both dates are picked.
+ */
+export function BookingCalendarPanel({
+  roomId = null,
+  onDone,
+}: {
+  roomId?: string | null;
+  onDone: () => void;
+}) {
   const { dateRange, setDates, nights, catalog, liveBookedRanges } = useBookingCart();
   const t = useTranslations("booking");
   const tc = useTranslations("common");
+  const tr = useTranslations("rooms");
+  const ta = useTranslations("availability");
   const locale = useLocale();
   const [warned, setWarned] = useState(false);
   // Set when a tap would have produced a stay running across an unusable night,
@@ -100,6 +137,14 @@ export function BookingCalendarDialog({
     [unavailableNights, pendingCheckIn],
   );
 
+  // Booked or closed nights look booked, not past. The picked check-in and
+  // check-out keep the selection style, since a booked night can be a check-out.
+  const isBookedNight = (date: Date) =>
+    !isBefore(date, startOfToday()) &&
+    unavailableNights.has(format(date, "yyyy-MM-dd")) &&
+    !(dateRange?.from && isSameDay(date, dateRange.from)) &&
+    !(dateRange?.to && isSameDay(date, dateRange.to));
+
   const handleSelect = (range: DateRange | undefined, triggerDate: Date) => {
     const blocker =
       range?.from && range?.to ? firstUnavailableNight(unavailableNights, range.from, range.to) : null;
@@ -121,16 +166,9 @@ export function BookingCalendarDialog({
       setWarned(true);
       return;
     }
-    onOpenChange(false);
-    onDone?.();
-  };
-
-  const handleOpenChange = (next: boolean) => {
-    if (!next) {
-      setWarned(false);
-      setCrossedNight(null);
-    }
-    onOpenChange(next);
+    // RoomsSection starts the house list at one house for this stay: the scoped one, if any.
+    document.dispatchEvent(new CustomEvent("dates-picked", { detail: { roomId } }));
+    onDone();
   };
 
   // Thai puts the day before the month ("29 ก.ค."), English the other way round.
@@ -143,12 +181,7 @@ export function BookingCalendarDialog({
     }`;
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
-      <DialogContent className="grid-cols-1 p-4 sm:max-w-md sm:p-6">
-        <DialogHeader>
-          <DialogTitle>{t("selectDates")}</DialogTitle>
-        </DialogHeader>
-
+    <>
         {/* Which half is still missing — visible before the guest can get it wrong. */}
         <div className="flex gap-2">
           <div className={cell(awaiting === "in")}>
@@ -185,8 +218,20 @@ export function BookingCalendarDialog({
               formatYearDropdown: (date) => String(date.getFullYear() + 543),
             } : undefined}
             disabled={[{ before: startOfToday() }, isDayDisabled]}
+            modifiers={{ booked: isBookedNight }}
+            modifiersClassNames={{ booked: BOOKED_DAY_MODIFIER }}
             numberOfMonths={1}
-            className="w-full"
+            // Seven 44px days need 308px; a 375px phone's dialog leaves 309px,
+            // so the calendar's own padding would push Saturday past the edge.
+            className="w-full p-0 sm:p-4"
+          />
+          <CalendarLegend
+            className="mt-2"
+            items={[
+              { swatch: LEGEND_SWATCH.free, label: tr("legendAvailable") },
+              // Unscoped, a night only counts once every house is taken.
+              { swatch: LEGEND_SWATCH.full, label: scopedRoom ? tr("legendBooked") : ta("legendFull") },
+            ]}
           />
         </div>
 
@@ -225,10 +270,9 @@ export function BookingCalendarDialog({
           </div>
         ) : null}
 
-        <Button className="w-full rounded-full bg-pine px-6 py-3.5 h-auto text-sm font-bold text-white hover:bg-pine-hover" onClick={handleDone}>
+        <Button className="w-full rounded-full bg-pine px-6 py-3.5 h-auto text-sm font-bold text-white hover:bg-pine-hover focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2" onClick={handleDone}>
           {tc("done")}
         </Button>
-      </DialogContent>
-    </Dialog>
+    </>
   );
 }

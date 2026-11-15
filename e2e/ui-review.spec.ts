@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
-import { CHANGE_PREVIEW_SAME_PRICE, T, chooseNewStay, expectNoUnexpectedWrites, findBooking, reachPayment, requireSlug, startSession, stubChangeBooking, stubbedBooking, type Session } from "./support";
+import { CHANGE_PREVIEW_SAME_PRICE, T, addHouses, chooseDates, chooseNewStay, expectNoUnexpectedWrites, findBooking, reachPayment, requireSlug, startSession, stubChangeBooking, stubbedBooking, type Session } from "./support";
 
 /**
  * Evidence for a UI review (peaksnature-ui Mode A), not a regression test.
@@ -125,6 +125,44 @@ test("booking page, first view", async ({ page, context }, testInfo) => {
     await page.goto(`/${slug}/book`);
     await page.waitForLoadState("networkidle");
     await capture(page, testInfo, "book", slug);
+  }
+});
+
+test("booking page, a house chosen", async ({ page, context }, testInfo) => {
+  const slug = requireSlug();
+  session = await startSession(page, context);
+  for (const width of widthsFor(testInfo)) {
+    if (width) await page.setViewportSize({ width, height: 800 });
+    await page.goto(`/${slug}/book`);
+    await chooseDates(page);
+    await addHouses(page, 1);
+    // The viewport, not the full page: the chosen card and the bottom bar (or dock) together.
+    await page.locator("#rooms-section [data-room-id]").first().scrollIntoViewIfNeeded();
+    await page.waitForTimeout(600);
+    await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
+    await page.screenshot({ path: join(OUT, `book-chosen-view-${page.viewportSize()?.width}.png`) });
+    await capture(page, testInfo, "book-chosen", slug);
+  }
+});
+
+test("booking page, availability day", async ({ page, context }, testInfo) => {
+  const slug = requireSlug();
+  session = await startSession(page, context);
+  for (const width of widthsFor(testInfo)) {
+    if (width) await page.setViewportSize({ width, height: 800 });
+    await page.goto(`/${slug}/book`);
+    const section = page.locator("section").filter({ has: page.getByRole("heading", { name: T.availability.title }) });
+    await expect(section.getByRole("button", { name: / — / }).first()).toBeVisible();
+    // A partly booked day shows both row kinds; fall back to any day with a house free.
+    const partial = section.getByRole("button", { name: new RegExp(` — ${T.availability.legendPartial}$`) });
+    const free = section.getByRole("button", { name: new RegExp(` — (${T.availability.legendAvailable}|${T.availability.legendPartial})$`) });
+    await ((await partial.count()) ? partial : free).first().click();
+    await expect(page.getByRole("dialog")).toBeVisible();
+    await page.waitForTimeout(400); // dialog entrance
+    // The full page shrinks the dialog past reading; keep a close-up too.
+    await page.getByRole("dialog").screenshot({ path: join(OUT, `availability-day-dialog-${page.viewportSize()?.width}.png`) });
+    await capture(page, testInfo, "availability-day", slug);
+    await page.keyboard.press("Escape");
   }
 });
 

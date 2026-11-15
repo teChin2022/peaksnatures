@@ -5,10 +5,11 @@ import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore
 import Image from "next/image";
 import { format, startOfToday, addDays, addMonths } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
-import { type DayButton, type Modifiers } from "react-day-picker";
+import { type DateRange, type DayButton, type Modifiers } from "react-day-picker";
 import { useTranslations, useLocale } from "next-intl";
 import { motion } from "motion/react";
-import { ArrowLeft, ChevronLeft, ChevronRight, Sparkles, Users } from "lucide-react";
+import { toast } from "sonner";
+import { ArrowLeft, ChevronLeft, ChevronRight, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -19,16 +20,19 @@ import {
   DialogTitle,
 } from "@/components/ui/dialog";
 import { HTMLContent } from "@/components/ui/html-content";
-import { BookingCalendarDialog } from "@/components/booking/booking-calendar-dialog";
-import { useBookingCart } from "@/components/booking/booking-cart-context";
+import { BookingCalendarPanel } from "@/components/booking/booking-calendar-dialog";
+import { RoomRateTable } from "@/components/booking/room-rate-table";
+import { thumbScroll } from "@/components/booking/gallery-section";
+import { BOOKED_DAY, CalendarLegend, LEGEND_SWATCH } from "@/components/booking/calendar-legend";
+import { RoomConfigDialog } from "@/components/booking/room-config-dialog";
+import { useBookingCart, type CartLine } from "@/components/booking/booking-cart-context";
 import {
   buildAvailabilityLookup,
   type DayAvailability,
   type RoomDayStatus,
 } from "@/lib/booking-dates";
 import { calculateTotalPrice } from "@/lib/calculate-price";
-import { formatSpecialPriceRule } from "@/lib/special-price-label";
-import { fmtDate, fmtDateStr } from "@/lib/format-date";
+import { fmtDate } from "@/lib/format-date";
 import { useSwipe } from "@/hooks/use-swipe";
 import { DemandEvent } from "@/lib/demand-events";
 import { trackDemandOnce } from "@/lib/demand-track";
@@ -55,7 +59,7 @@ const getServerSnapshot = () => false;
 const STATUS_CLASS: Record<DayAvailability, string> = {
   available: "bg-white text-ink-2 hover:bg-mist",
   partial: "bg-amber-100 text-amber-800 hover:bg-amber-200",
-  full: "bg-red-100 text-red-600 line-through decoration-red-400/60 hover:bg-red-200",
+  full: `${BOOKED_DAY} hover:bg-red-200`,
 };
 
 function makeAvailabilityDay(
@@ -70,7 +74,8 @@ function makeAvailabilityDay(
     ...props
   }: React.ComponentProps<typeof DayButton>) {
     // Only past days are inactive. Adjacent-month ("outside") days are still
-    // colored and clickable, just de-emphasized so the current month stands out.
+    // colored and clickable, just lighter in weight so the current month stands
+    // out. Not faded: a faded day measured 2.5:1 while still tappable (B2).
     const isPast = modifiers.disabled;
     const status = isPast ? null : getStatus(format(day.date, "yyyy-MM-dd"));
 
@@ -84,11 +89,14 @@ function makeAvailabilityDay(
             : undefined
         }
         className={cn(
-          "relative flex size-10 items-center justify-center rounded-full text-sm font-medium select-none transition-colors md:size-14 md:text-base",
-          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/40",
+          // 40px, or a seventh of the grid's width (100vw minus the section's
+          // 2×1rem, the card's 2×0.75rem and 2px border, the calendar's own
+          // 2×1rem) below ~370px, where seven 40px days overflow.
+          "relative flex size-[min(2.5rem,calc((100vw_-_5.5rem_-_2px)/7))] items-center justify-center rounded-full text-sm font-medium select-none transition-colors md:size-14 md:text-base",
+          "focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2",
           isPast && "cursor-not-allowed text-line-strong",
           status && `cursor-pointer ${STATUS_CLASS[status]}`,
-          modifiers.outside && status && "opacity-55",
+          modifiers.outside && status && "font-normal",
           // Today is marked by its number alone — bold and brand-green. twMerge
           // drops the status text colour so the green wins on any background.
           modifiers.today && "font-bold text-pine",
@@ -101,44 +109,33 @@ function makeAvailabilityDay(
   };
 }
 
-function LegendItem({ swatch, label }: { swatch: string; label: string }) {
-  return (
-    <span className="inline-flex items-center gap-1.5">
-      <span className={cn("size-3.5 rounded-full ring-1 ring-inset", swatch)} />
-      {label}
-    </span>
-  );
-}
-
-const PILL_BASE =
-  "inline-flex shrink-0 items-center rounded-full px-2.5 py-1 text-xs font-semibold ring-1 ring-inset";
-
-function RoomStatusPill({ row }: { row: RoomDayStatus }) {
+/** Coloured text, not a pill: five pills in a list made the one booked house the loudest thing on screen. */
+function RoomStatusText({ row }: { row: RoomDayStatus }) {
   const t = useTranslations("availability");
 
   let cls: string;
   let label: string;
   if (row.blocked) {
-    cls = "bg-mist-2 text-ink-3 ring-line";
+    cls = "text-ink-3";
     label = t("roomClosed");
   } else if (row.free === 0) {
-    cls = "bg-red-50 text-red-600 ring-red-200";
+    cls = "text-red-700";
     label = t("roomBooked");
   } else if (row.booked === 0) {
-    cls = "bg-emerald-50 text-emerald-700 ring-emerald-200";
+    cls = "text-emerald-700";
     label = row.total > 1 ? t("roomFreeCount", { count: row.free }) : t("roomAvailable");
   } else {
-    cls = "bg-amber-50 text-amber-800 ring-amber-200";
+    cls = "text-amber-800";
     label = t("roomLeftCount", { count: row.free });
   }
 
-  return <span className={cn(PILL_BASE, cls)}>{label}</span>;
+  return <span className={cn("shrink-0 font-medium", cls)}>{label}</span>;
 }
 
 const BLUR_DATA_URL =
   "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI4MDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2UyZThmMCIvPjwvc3ZnPg==";
 
-/** Swipeable photo strip — the room-card carousel trimmed to fit a dialog (no arrows, no lightbox). */
+/** Swipeable photos with a thumbnail row — the house card's carousel trimmed to fit a dialog (no lightbox). */
 function RoomPhotos({ images, name }: { images: string[]; name: string }) {
   const t = useTranslations("rooms");
   const [index, setIndex] = useState(0);
@@ -168,78 +165,112 @@ function RoomPhotos({ images, name }: { images: string[]; name: string }) {
   if (images.length === 0) return null;
 
   return (
-    <div
-      ref={setContainerEl}
-      className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-mist-2"
-      style={{ touchAction: "pan-y" }}
-    >
+    <div>
       <div
-        className="absolute inset-0 flex transition-transform duration-500 ease-out will-change-transform"
-        style={{ transform: `translateX(-${index * 100}%)` }}
+        ref={setContainerEl}
+        className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-mist-2"
+        style={{ touchAction: "pan-y" }}
       >
-        {images.map((src, i) => (
-          <div key={src} className="relative h-full w-full shrink-0">
-            {isNear(i) && (
-              <Image
-                src={src}
-                alt={`${name} photo ${i + 1}`}
-                fill
-                sizes="(max-width: 640px) 100vw, 512px"
-                placeholder="blur"
-                blurDataURL={BLUR_DATA_URL}
-                className="h-full w-full object-cover"
-              />
-            )}
-          </div>
-        ))}
+        <div
+          className="absolute inset-0 flex transition-transform duration-500 ease-out will-change-transform"
+          style={{ transform: `translateX(-${index * 100}%)` }}
+        >
+          {images.map((src, i) => (
+            <div key={src} className="relative h-full w-full shrink-0">
+              {isNear(i) && (
+                <Image
+                  src={src}
+                  alt={`${name} photo ${i + 1}`}
+                  fill
+                  sizes="(max-width: 640px) 100vw, 512px"
+                  placeholder="blur"
+                  blurDataURL={BLUR_DATA_URL}
+                  className="h-full w-full object-cover"
+                />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Photo count, as on the house card (rooms-section). */}
+        {multi && (
+          <span aria-hidden="true" className="pointer-events-none absolute right-3 bottom-3 z-10 rounded-full bg-black/70 px-2.5 py-0.5 text-xs text-white tabular-nums">
+            {index + 1} / {images.length}
+          </span>
+        )}
+
+        {/* Arrows — desktop only, fading in on hover, same as the room cards */}
+        {multi && (
+          <>
+            <button
+              type="button"
+              aria-label={t("prevPhoto")}
+              onClick={prev}
+              className="absolute left-4 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/50 focus-visible:opacity-100 group-hover:opacity-100 md:flex"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              aria-label={t("nextPhoto")}
+              onClick={next}
+              className="absolute right-4 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/50 focus-visible:opacity-100 group-hover:opacity-100 md:flex"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </>
+        )}
       </div>
 
-      {/* Arrows — desktop only, fading in on hover, same as the room cards */}
+      {/* Thumbnails under the photo, as on the house card's phone layout; the shown one keeps in view as the photo changes.
+          -mx-1 px-1 pb-1: room for the ring and focus ring, which the scrolling row would otherwise clip. */}
       {multi && (
-        <>
-          <button
-            type="button"
-            aria-label={t("prevPhoto")}
-            onClick={prev}
-            className="absolute left-4 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/50 focus-visible:opacity-100 group-hover:opacity-100 md:flex"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            aria-label={t("nextPhoto")}
-            onClick={next}
-            className="absolute right-4 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/50 focus-visible:opacity-100 group-hover:opacity-100 md:flex"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        </>
-      )}
-
-      {/* Dots sit at the TOP of the image, as on the room cards — identical on mobile
-          and desktop. The button's padding grows the tap target; the matching negative
-          margins cancel it out of layout, so the dots keep the tight gap-1.5 pitch. */}
-      {multi && (
-        <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-center gap-1.5 bg-gradient-to-b from-black/20 to-transparent pt-3 pb-6">
-          {images.map((_, i) => (
+        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pt-3 pb-1 [scrollbar-width:none]">
+          {images.map((src, i) => (
             <button
-              key={i}
+              key={src}
               type="button"
               aria-label={t("goToPhoto", { number: i + 1 })}
+              aria-current={i === index}
               onClick={() => setIndex(i)}
-              className="px-1 -mx-1 py-2 -my-2"
+              ref={(el) => {
+                if (i === index) el?.scrollIntoView?.({ inline: "nearest", block: "nearest", behavior: thumbScroll() });
+              }}
+              className={cn(
+                "relative h-10 w-14 shrink-0 overflow-hidden rounded-lg outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-1",
+                i === index ? "opacity-100 ring-2 ring-pine" : "opacity-60 hover:opacity-100",
+              )}
             >
-              <span
-                className={cn(
-                  "block h-1.5 rounded-full transition-all",
-                  i === index ? "w-3 bg-white" : "w-1.5 bg-white/50 pointer-fine:hover:bg-white/80",
-                )}
-              />
+              <Image src={src} alt="" fill sizes="56px" className="object-cover" />
             </button>
           ))}
         </div>
       )}
     </div>
+  );
+}
+
+/** Header of a dialog view the guest stepped into from the day's house list. */
+function BackHeader({ title, description, onBack }: { title: string; description: string; onBack: () => void }) {
+  const tc = useTranslations("common");
+  return (
+    // text-left overrides DialogHeader's mobile centering: with a back arrow
+    // pinned left, a centered line under a left-aligned title reads crooked.
+    <DialogHeader className="pr-10 text-left">
+      {/* gap-2.5 leaves the focus ring (2px + 2px offset) clear of the title. */}
+      <div className="flex items-center gap-2.5">
+        <button
+          type="button"
+          onClick={onBack}
+          aria-label={tc("back")}
+          className="-ml-2 shrink-0 rounded-full p-2 text-ink-3 transition-colors hover:bg-mist-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
+        >
+          <ArrowLeft className="h-4 w-4" />
+        </button>
+        <DialogTitle className="min-w-0 truncate">{title}</DialogTitle>
+      </div>
+      <DialogDescription>{description}</DialogDescription>
+    </DialogHeader>
   );
 }
 
@@ -295,22 +326,11 @@ function RoomDayDetail({
 
   return (
     <>
-      {/* text-left overrides DialogHeader's mobile centering: with a back arrow
-          pinned left, a centered date under a left-aligned title reads crooked. */}
-      <DialogHeader className="pr-10 text-left">
-        <div className="flex items-center gap-1.5">
-          <button
-            type="button"
-            onClick={onBack}
-            aria-label={tc("back")}
-            className="-ml-2 shrink-0 rounded-full p-2 text-ink-3 transition-colors hover:bg-mist-2 hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/40"
-          >
-            <ArrowLeft className="h-4 w-4" />
-          </button>
-          <DialogTitle className="min-w-0 truncate">{room.name}</DialogTitle>
-        </div>
-        <DialogDescription>{fmtDate(date, "EEEE d MMMM yyyy", locale)}</DialogDescription>
-      </DialogHeader>
+      <BackHeader
+        title={room.name}
+        description={fmtDate(date, "EEEE d MMMM yyyy", locale)}
+        onBack={onBack}
+      />
 
       {/* One block wrapper, NOT more grid items. DialogContent is a grid, and an
           aspect-ratio box whose children are all absolute has no in-flow content
@@ -344,92 +364,16 @@ function RoomDayDetail({
           </span>
         </div>
 
-        {/* Base + seasonal rates, same block as the room card's "วันว่าง & ราคา"
-            dialog — the headline above prices only the tapped night, so this is
-            where a guest sees what the house costs the rest of the year. */}
-        <div className="rounded-2xl bg-mist px-5 py-5">
-          <div className="mb-4 flex items-center gap-3">
-            <h4 className="text-xs font-semibold text-ink-3">
-              {tr("priceDetailsTitle")}
-            </h4>
-            <div className="h-px flex-1 bg-line" />
-          </div>
-
-          <div className="flex items-baseline justify-between gap-4">
-            <span className="text-sm font-medium text-ink">{tr("basePrice")}</span>
-            <div className="flex items-baseline gap-1 tabular-nums">
-              <span className="text-2xl font-bold text-ink">
-                ฿{room.price_per_night.toLocaleString()}
-              </span>
-              <span className="text-xs text-ink-3">{tc("perNight")}</span>
-            </div>
-          </div>
-
-          {specialPrices.length > 0 && (
-            <div className="mt-5 border-t border-dashed border-line-strong pt-4">
-              <div className="mb-3 flex items-center gap-2">
-                <Sparkles className="h-3 w-3 text-pine" strokeWidth={2.5} />
-                <span className="text-xs font-semibold text-ink-3">
-                  {tr("specialRates")}
-                </span>
-              </div>
-              <ul className="space-y-3">
-                {specialPrices.map((s) => (
-                  <li key={s.id} className="flex items-baseline justify-between gap-4">
-                    <div className="min-w-0 pr-2">
-                      <div className="truncate text-sm font-medium text-ink">{s.name}</div>
-                      <div className="mt-0.5 text-xs text-ink-3 tabular-nums">
-                        {formatSpecialPriceRule(s, locale)}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-baseline gap-1 tabular-nums">
-                      <span className="text-lg font-bold text-pine">
-                        +฿{s.surcharge.toLocaleString()}
-                      </span>
-                      <span className="text-xs text-ink-3">{tc("perNight")}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-
-          {seasons.length > 0 && (
-            <div className="mt-5 border-t border-dashed border-line-strong pt-4">
-              <div className="mb-3 flex items-center gap-2">
-                <Sparkles className="h-3 w-3 text-pine" strokeWidth={2.5} />
-                <span className="text-xs font-semibold text-ink-3">
-                  {tr("seasonalRates")}
-                </span>
-              </div>
-              <ul className="space-y-3">
-                {seasons.map((s) => (
-                  <li key={s.id} className="flex items-baseline justify-between gap-4">
-                    <div className="min-w-0 pr-2">
-                      <div className="truncate text-sm font-medium text-ink">{s.name}</div>
-                      <div className="mt-0.5 text-xs text-ink-3 tabular-nums">
-                        {fmtDateStr(s.start_date, "d MMM", locale)} – {fmtDateStr(s.end_date, "d MMM yyyy", locale)}
-                      </div>
-                    </div>
-                    <div className="flex shrink-0 items-baseline gap-1 tabular-nums">
-                      <span className="text-lg font-bold text-pine">
-                        ฿{s.price_per_night.toLocaleString()}
-                      </span>
-                      <span className="text-xs text-ink-3">{tc("perNight")}</span>
-                    </div>
-                  </li>
-                ))}
-              </ul>
-            </div>
-          )}
-        </div>
+        {/* The headline above prices only the tapped night; this is what the
+            house costs the rest of the year, same table as the house card. */}
+        <RoomRateTable room={room} seasonalPrices={seasons} specialPrices={specialPrices} />
 
         {room.description && (
           <HTMLContent content={room.description} className="text-sm leading-relaxed text-ink-2" />
         )}
 
         <Button
-          className="w-full rounded-full bg-pine px-6 py-3.5 h-auto text-sm font-bold text-white hover:bg-pine-hover"
+          className="w-full rounded-full bg-pine px-6 py-3.5 h-auto text-sm font-bold text-white hover:bg-pine-hover focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
           onClick={onBook}
         >
           {t("bookThisHouse")}
@@ -440,8 +384,13 @@ function RoomDayDetail({
 }
 
 export function AvailabilityCalendarSection({ homestayId }: { homestayId: string }) {
-  const { catalog, liveBookedRanges, setDates } = useBookingCart();
+  const { catalog, liveBookedRanges, dateRange, setDates, lines, isRoomAvailableForRange, remainingForRoom } = useBookingCart();
+  // The guest's dates from before "จองบ้านพักนี้" seeded a new check-in; Back or
+  // closing without Done puts them back instead of leaving half a range.
+  const datesBeforePick = useRef<DateRange | undefined>(undefined);
   const t = useTranslations("availability");
+  const tr = useTranslations("rooms");
+  const tb = useTranslations("booking");
   const locale = useLocale();
   const mounted = useSyncExternalStore(subscribe, getSnapshot, getServerSnapshot);
   // `open` is tracked apart from `selectedDate` so the modal keeps its contents
@@ -450,10 +399,11 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
   const [selectedDate, setSelectedDate] = useState<Date | null>(null);
   // Which house the modal is showing in detail; null = the day's house list.
   const [detailRoomId, setDetailRoomId] = useState<string | null>(null);
-  const [calendarOpen, setCalendarOpen] = useState(false);
-  // The house the open date picker is for. Held apart from `detailRoomId` so
-  // the picker's scope survives the modal's view state being reset.
-  const [bookingRoomId, setBookingRoomId] = useState<string | null>(null);
+  // The house the modal is picking a check-out for; it outranks the other two
+  // views. Held apart from `detailRoomId`, which says where Back returns to.
+  const [pickRoomId, setPickRoomId] = useState<string | null>(null);
+  // The house config dialog (guests, add-ons) the picker hands over to.
+  const [config, setConfig] = useState<{ room: Room; editingLine?: CartLine } | null>(null);
 
   const activeRooms = useMemo(
     () => catalog.rooms.filter((r) => r.is_active),
@@ -488,22 +438,36 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
   const handleDayClick = (date: Date, modifiers: Modifiers) => {
     if (modifiers.disabled) return;
     setSelectedDate(date);
-    setDetailRoomId(null); // a new date always opens on the house list
+    // A new date always opens on the house list.
+    setDetailRoomId(null);
+    setPickRoomId(null);
     setOpen(true);
   };
 
   // Booking from here starts the normal flow: the tapped date becomes the
   // check-in (overriding any range already picked — it is the guest's most
-  // recent, most explicit choice) and the shared picker asks for the check-out.
-  // The picker is scoped to this house: the guest chose it before their dates,
-  // so a range it cannot serve must not be offered.
-  const handleBook = () => {
-    if (!selectedDate || !detailRoomId) return;
-    setBookingRoomId(detailRoomId);
+  // recent, most explicit choice — until they leave without Done, see
+  // cancelPick) and the shared picker, shown in this same
+  // dialog, asks for the check-out. The picker is scoped to this house: the
+  // guest chose it before their dates, so a range it cannot serve must not be
+  // offered.
+  const handleBook = (roomId: string) => {
+    if (!selectedDate) return;
+    datesBeforePick.current = dateRange;
     setDates({ from: selectedDate, to: undefined });
-    setOpen(false);
-    // Let the day modal's overlay unmount before the picker's mounts.
-    setTimeout(() => setCalendarOpen(true), 150);
+    setPickRoomId(roomId);
+  };
+
+  // Leaving the picker without Done (Back, the close button, Esc, the overlay).
+  const cancelPick = () => {
+    setDates(datesBeforePick.current);
+    setPickRoomId(null);
+  };
+
+  // Done closes the dialog itself (setOpen), so only a dismissal lands here.
+  const handleOpenChange = (next: boolean) => {
+    if (!next && pickRoomId) cancelPick();
+    setOpen(next);
   };
 
   const scrollToRooms = () => {
@@ -511,6 +475,24 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
       () => document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" }),
       150,
     );
+  };
+
+  // The guest already chose the house, so a confirmed range goes straight to
+  // that house's config dialog, over the house list (which the picker's Done
+  // narrowed to this house). Same checks as the house card's button
+  // (rooms-section `handleAddToCart`).
+  const handlePickerDone = () => {
+    setOpen(false);
+    scrollToRooms();
+    const room = activeRooms.find((r) => r.id === pickRoomId);
+    const line = room ? lines.find((l) => l.roomId === room.id) : undefined;
+    if (room && isRoomAvailableForRange(room) && remainingForRoom(room) > 0) {
+      setTimeout(() => setConfig({ room }), 150);
+    } else if (room && line) {
+      setTimeout(() => setConfig({ room, editingLine: line }), 150);
+    } else if (room) {
+      toast.error(tr("roomUnavailableToast"));
+    }
   };
 
   const breakdown = useMemo(
@@ -523,6 +505,7 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
   const detailRow = detailRoomId ? breakdown.find((r) => r.roomId === detailRoomId) : undefined;
   const detailRoom = detailRoomId ? activeRooms.find((r) => r.id === detailRoomId) : undefined;
   const showDetail = !!detailRoom && !!detailRow && !!selectedDate;
+  const pickRoom = pickRoomId ? activeRooms.find((r) => r.id === pickRoomId) : undefined;
 
   // Fires calendar_view once the guest actually scrolls the availability
   // calendar into view. Disconnects on the first hit; trackDemandOnce guards
@@ -597,28 +580,47 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
             <div className="h-[22rem] animate-pulse rounded-xl bg-mist md:h-[26rem]" />
           )}
 
-          <div className="mt-3 flex flex-wrap items-center justify-center gap-x-4 gap-y-2 border-t border-line px-2 pt-3 text-xs text-ink-2">
-            <LegendItem swatch="bg-white ring-line-strong" label={t("legendAvailable")} />
-            <LegendItem swatch="bg-amber-100 ring-amber-300" label={t("legendPartial")} />
-            <LegendItem swatch="bg-red-100 ring-red-300" label={t("legendFull")} />
-          </div>
+          <CalendarLegend
+            className="mt-3 border-t border-line px-2 pt-3"
+            items={[
+              { swatch: LEGEND_SWATCH.free, label: t("legendAvailable") },
+              { swatch: LEGEND_SWATCH.partial, label: t("legendPartial") },
+              { swatch: LEGEND_SWATCH.full, label: t("legendFull") },
+            ]}
+          />
         </div>
       </div>
 
-      {/* One dialog, two views: the day's house list, or one house in detail.
-          Swapping the body in place keeps a single overlay + focus trap, which
-          the rest of the page also prefers over stacked modal layers. */}
-      <Dialog open={open} onOpenChange={setOpen}>
+      {/* One dialog, three views: the day's house list, one house in detail,
+          or the check-out picker for one house. Swapping the body in place
+          keeps a single overlay + focus trap, which the rest of the page also
+          prefers over stacked modal layers. */}
+      <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent
-          className={cn("max-h-[85vh] overflow-y-auto", showDetail ? "sm:max-w-lg" : "sm:max-w-md")}
+          className={cn(
+            "max-h-[85vh] overflow-y-auto",
+            // The picker's 44px days need the narrower phone padding to fit 7 across.
+            pickRoom ? "grid-cols-1 p-4 sm:max-w-md sm:p-6" : showDetail ? "sm:max-w-lg" : "sm:max-w-md",
+          )}
         >
-          {showDetail ? (
+          {pickRoom ? (
+            <>
+              <BackHeader
+                title={tb("selectDates")}
+                description={pickRoom.name}
+                onBack={cancelPick}
+              />
+              {/* Seeded with the tapped date as check-in and scoped to the
+                  house, so its booked nights can't be selected. */}
+              <BookingCalendarPanel roomId={pickRoom.id} onDone={handlePickerDone} />
+            </>
+          ) : showDetail ? (
             <RoomDayDetail
               room={detailRoom}
               date={selectedDate}
               freeCount={detailRow.free}
               onBack={() => setDetailRoomId(null)}
-              onBook={handleBook}
+              onBook={() => handleBook(detailRoom.id)}
             />
           ) : (
             <>
@@ -631,44 +633,62 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
                 </DialogDescription>
               </DialogHeader>
 
-              <ul className="space-y-2">
-                {breakdown.map((row) => (
-                  <li
-                    key={row.roomId}
-                    className="flex items-center gap-2 rounded-xl border border-line bg-mist/40 px-3 py-2.5"
-                  >
-                    {/* flex-1 on the name (not justify-between) keeps the link
-                        and the pill together as one group on the right. */}
-                    <span className="min-w-0 flex-1 truncate text-sm font-medium text-ink">
-                      {roomNameById.get(row.roomId)}
-                    </span>
-                    {/* Only houses with a unit left that night are worth opening
-                        — a booked or closed one has nothing to book. */}
-                    {!row.blocked && row.free > 0 && (
-                      <button
-                        type="button"
-                        onClick={() => setDetailRoomId(row.roomId)}
-                        className="-my-1 shrink-0 whitespace-nowrap px-1 py-2 text-xs text-ink-2 underline underline-offset-2 transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine/40"
-                      >
-                        {t("viewDetails")}
-                      </button>
-                    )}
-                    <RoomStatusPill row={row} />
-                  </li>
-                ))}
+              {/* Every row has the same two-line shape (name, then status), so
+                  booked and free rows are the same height. */}
+              <ul className="divide-y divide-line">
+                {breakdown.map((row) => {
+                  // Only houses with a unit left that night can be opened or
+                  // booked — a booked or closed one has nothing to book.
+                  const bookable = !row.blocked && row.free > 0;
+                  return (
+                    <li key={row.roomId} className="flex items-center gap-3 py-3">
+                      <div className="min-w-0 flex-1">
+                        <p className={cn("truncate text-base font-semibold", bookable ? "text-ink" : "text-ink-3")}>
+                          {roomNameById.get(row.roomId)}
+                        </p>
+                        <div className="mt-0.5 flex items-center gap-1.5 text-sm">
+                          <RoomStatusText row={row} />
+                          {bookable && (
+                            <>
+                              <span aria-hidden="true" className="text-ink-3">·</span>
+                              {/* -my-3 keeps the 44px tap target without making the line 44px tall. */}
+                              <button
+                                type="button"
+                                onClick={() => setDetailRoomId(row.roomId)}
+                                className="-my-3 inline-flex min-h-11 min-w-0 items-center truncate text-ink-2 underline underline-offset-2 transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
+                              >
+                                {t("viewDetails")}
+                              </button>
+                            </>
+                          )}
+                        </div>
+                      </div>
+                      {/* Secondary, like the house card's "วันว่าง & ราคา": one
+                          filled button per row read as a wall of CTAs. */}
+                      {bookable && (
+                        <button
+                          type="button"
+                          className="flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-line-strong bg-white px-5 text-sm font-medium text-ink transition-colors hover:bg-mist outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
+                          onClick={() => handleBook(row.roomId)}
+                        >
+                          {t("bookThisHouse")}
+                        </button>
+                      )}
+                    </li>
+                  );
+                })}
               </ul>
             </>
           )}
         </DialogContent>
       </Dialog>
 
-      {/* Shared date picker, seeded with the tapped date as check-in and scoped
-          to the chosen house so its booked nights can't be selected */}
-      <BookingCalendarDialog
-        open={calendarOpen}
-        onOpenChange={setCalendarOpen}
-        onDone={scrollToRooms}
-        roomId={bookingRoomId}
+      <RoomConfigDialog
+        key={config?.editingLine?.lineId ?? config?.room.id ?? "none"}
+        room={config?.room ?? null}
+        editingLine={config?.editingLine ?? null}
+        open={!!config}
+        onClose={() => setConfig(null)}
       />
     </section>
   );

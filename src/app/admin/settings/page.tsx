@@ -502,7 +502,7 @@ export default function AdminSettingsPage() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowCurrent(!showCurrent)}
+                  aria-label={showCurrent ? "Hide password" : "Show password"} onClick={() => setShowCurrent(!showCurrent)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-400 hover:text-brand"
                   tabIndex={-1}
                 >
@@ -526,7 +526,7 @@ export default function AdminSettingsPage() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowNew(!showNew)}
+                  aria-label={showNew ? "Hide password" : "Show password"} onClick={() => setShowNew(!showNew)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-400 hover:text-brand"
                   tabIndex={-1}
                 >
@@ -551,7 +551,7 @@ export default function AdminSettingsPage() {
                 />
                 <button
                   type="button"
-                  onClick={() => setShowConfirm(!showConfirm)}
+                  aria-label={showConfirm ? "Hide password" : "Show password"} onClick={() => setShowConfirm(!showConfirm)}
                   className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-400 hover:text-brand"
                   tabIndex={-1}
                 >

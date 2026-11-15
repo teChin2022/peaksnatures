@@ -59,19 +59,30 @@ describe("DesktopBookingDock", () => {
     expect(button().textContent).toBe("changeDates");
   });
 
-  it("with houses chosen, shows their count and total and goes on to the booking card", () => {
+  it("with houses chosen, shows their count and total and goes straight to the booking steps", () => {
     withCart({ dates: true, lines: 2 });
-    const card = document.createElement("div");
-    card.id = "booking-card";
-    card.scrollIntoView = vi.fn();
-    document.body.append(card);
+    const proceed = vi.fn();
+    document.addEventListener("proceed-booking", proceed);
     render();
     expect(container.textContent).toContain("roomsCount:2");
     expect(container.textContent).toContain("฿3,600");
+    expect(button().textContent).toBe("bookNow");
     act(() => button().click());
-    expect(card.scrollIntoView).toHaveBeenCalled();
+    expect(proceed).toHaveBeenCalledTimes(1);
     expect(dialog()).toBeNull();
-    card.remove();
+    document.removeEventListener("proceed-booking", proceed);
+  });
+
+  it("with houses chosen but the stay not fully picked, asks for dates instead of booking", () => {
+    withCart({ lines: 2 });
+    const proceed = vi.fn();
+    document.addEventListener("proceed-booking", proceed);
+    render();
+    expect(button().textContent).toBe("chooseStayDates");
+    act(() => button().click());
+    document.removeEventListener("proceed-booking", proceed);
+    expect(proceed).not.toHaveBeenCalled();
+    expect(dialog()).not.toBeNull();
   });
 
   it("is not shown while bookings are off", () => {

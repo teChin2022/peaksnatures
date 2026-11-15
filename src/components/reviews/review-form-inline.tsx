@@ -59,6 +59,7 @@ function InteractiveStars({
   onLeave: () => void;
   size?: number;
 }) {
+  const t = useTranslations("reviews");
   return (
     <div className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map((star) => {
@@ -69,6 +70,7 @@ function InteractiveStars({
             type="button"
             className="cursor-pointer p-0.5 transition-transform hover:scale-110"
             onClick={() => onSelect(star)}
+            aria-label={t("starLabel", { count: star })}
             onMouseEnter={() => onHover(star)}
             onMouseLeave={onLeave}
           >
@@ -97,6 +99,7 @@ export function ReviewFormInline({
   onSuccess,
 }: ReviewFormInlineProps) {
   const t = useTranslations("reviews");
+  const tc = useTranslations("common");
 
   const [overallRating, setOverallRating] = useState(0);
   const [overallHover, setOverallHover] = useState(0);
@@ -260,13 +263,13 @@ export function ReviewFormInline({
             {photos.map((photo, i) => (
               <div key={i} className="relative h-20 w-20 rounded-lg overflow-hidden border border-earth-200">
                 <img src={photo.preview} alt="" aria-hidden="true" className="h-full w-full object-cover" />
-                <button type="button" onClick={() => removePhoto(i)} className="absolute right-0.5 top-0.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full bg-earth-900/60 text-white transition-colors hover:bg-earth-900/80">
+                <button type="button" aria-label={tc("removeImage")} onClick={() => removePhoto(i)} className="absolute right-0.5 top-0.5 flex h-5 w-5 cursor-pointer items-center justify-center rounded-full bg-earth-900/60 text-white transition-colors hover:bg-earth-900/80">
                   <X className="h-3 w-3" />
                 </button>
               </div>
             ))}
             {photos.length < MAX_REVIEW_PHOTOS && (
-              <button type="button" onClick={() => fileInputRef.current?.click()} className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-earth-200 text-earth-400 transition-colors hover:border-earth-400 hover:text-earth-600">
+              <button type="button" aria-label={t("addPhoto")} onClick={() => fileInputRef.current?.click()} className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-earth-200 text-earth-400 transition-colors hover:border-earth-400 hover:text-earth-600">
                 <ImagePlus className="h-6 w-6" />
               </button>
             )}

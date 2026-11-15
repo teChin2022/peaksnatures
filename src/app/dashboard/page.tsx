@@ -104,7 +104,7 @@ const CHART_COLORS = ["#2F5D50", "#3d7a6a", "#5a9485", "#7db0a3", "#a0ccc0", "#c
 const STATUS_BADGE: Record<string, string> = {
   confirmed: "bg-emerald-500 text-white",
   completed: "bg-brand text-white",
-  pending: "border border-gray-300 text-gray-600",
+  pending: "border border-earth-300 text-earth-700",
   verified: "bg-sky-500 text-white",
   rejected: "bg-rose-50 text-rose-600",
   cancelled: "bg-rose-50 text-rose-600",
@@ -450,7 +450,7 @@ export default function DashboardPage() {
           <Skeleton className="h-8 w-52 rounded-full" />
           <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
             {[1, 2, 3, 4].map((i) => (
-              <Card key={i} className="border border-gray-100">
+              <Card key={i} className="border border-earth-100">
                 <CardContent className="p-5 space-y-3">
                   <Skeleton className="h-3 w-20" />
                   <Skeleton className="h-7 w-24" />
@@ -461,7 +461,7 @@ export default function DashboardPage() {
           </div>
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             {[1, 2].map((i) => (
-              <Card key={i} className="border border-gray-100">
+              <Card key={i} className="border border-earth-100">
                 <CardContent className="p-6 space-y-3">
                   <Skeleton className="h-5 w-40" />
                   <Skeleton className="h-48 w-full rounded-lg" />
@@ -469,7 +469,7 @@ export default function DashboardPage() {
               </Card>
             ))}
           </div>
-          <Card className="border border-gray-100">
+          <Card className="border border-earth-100">
             <CardContent className="p-6 space-y-3">
               <Skeleton className="h-5 w-40" />
               {[1, 2, 3, 4, 5].map((i) => (
@@ -488,10 +488,10 @@ export default function DashboardPage() {
             className="flex items-end justify-between"
           >
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-gray-400 mb-0.5">
+              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-earth-600 mb-0.5">
                 {ta("hostDashboard")}
               </p>
-              <h1 className="text-xl font-bold text-gray-900">
+              <h1 className="text-xl font-bold text-earth-900">
                 {stats.homestayName || ta("hostDashboard")}
               </h1>
             </div>
@@ -518,7 +518,7 @@ export default function DashboardPage() {
           )}
 
           {/* Tab Switcher */}
-          <div className="inline-flex rounded-full border border-gray-200 p-0.5">
+          <div className="inline-flex rounded-full border border-earth-200 p-0.5">
             {(["overview", "insights"] as const).map((t2) => (
               <button
                 key={t2}
@@ -526,7 +526,7 @@ export default function DashboardPage() {
                 className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${
                   tab === t2
                     ? "bg-brand text-white"
-                    : "text-gray-500 hover:text-gray-700"
+                    : "text-earth-600 hover:text-earth-800"
                 }`}
               >
                 {t(t2)}
@@ -549,28 +549,28 @@ export default function DashboardPage() {
                   value={`฿${stats.totalRevenue.toLocaleString()}`}
                   change={stats.revenuePctChange}
                   changeLabel={t("fromLastMonth")}
-                  icon={<DollarSign className="h-4 w-4 text-gray-400" />}
+                  icon={<DollarSign className="h-4 w-4 text-earth-600" />}
                 />
                 <StatCard
                   title={t("totalBookings")}
                   value={`+${stats.totalBookings}`}
                   change={stats.bookingsPctChange}
                   changeLabel={t("fromLastMonth")}
-                  icon={<CalendarDays className="h-4 w-4 text-gray-400" />}
+                  icon={<CalendarDays className="h-4 w-4 text-earth-600" />}
                 />
                 <StatCard
                   title={t("occupancyRate")}
                   value={`${stats.occupancyRate}%`}
                   change={stats.occupancyPctChange}
                   changeLabel={t("fromLastMonth")}
-                  icon={<Percent className="h-4 w-4 text-gray-400" />}
+                  icon={<Percent className="h-4 w-4 text-earth-600" />}
                 />
                 <StatCard
                   title={t("checkinsToday")}
                   value={String(stats.todayCheckins)}
                   change={stats.checkinsDelta}
                   changeLabel={t("sinceYesterday")}
-                  icon={<LogIn className="h-4 w-4 text-gray-400" />}
+                  icon={<LogIn className="h-4 w-4 text-earth-600" />}
                   isDelta
                 />
               </div>
@@ -578,9 +578,9 @@ export default function DashboardPage() {
               {/* Charts */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Revenue Area Chart */}
-                <Card className="border border-gray-100 shadow-sm rounded-2xl">
+                <Card className="border border-earth-100 shadow-sm rounded-2xl">
                   <CardHeader className="pb-2 px-6 pt-5">
-                    <CardTitle className="text-sm font-semibold text-gray-900">
+                    <CardTitle className="text-sm font-semibold text-earth-900">
                       {t("revenueChart")}
                     </CardTitle>
                   </CardHeader>
@@ -604,18 +604,18 @@ export default function DashboardPage() {
                         </AreaChart>
                       </ResponsiveContainer>
                     ) : (
-                      <p className="text-sm text-gray-300 text-center py-16">{t("noChartData")}</p>
+                      <p className="text-sm text-earth-300 text-center py-16">{t("noChartData")}</p>
                     )}
                   </CardContent>
                 </Card>
 
                 {/* Bookings by Room Bar Chart */}
-                <Card className="border border-gray-100 shadow-sm rounded-2xl">
+                <Card className="border border-earth-100 shadow-sm rounded-2xl">
                   <CardHeader className="pb-0 px-6 pt-5">
-                    <CardTitle className="text-sm font-semibold text-gray-900">
+                    <CardTitle className="text-sm font-semibold text-earth-900">
                       {t("bookingsByRoom")}
                     </CardTitle>
-                    <p className="text-xs text-gray-400">{t("popularRoomsDesc")}</p>
+                    <p className="text-xs text-earth-600">{t("popularRoomsDesc")}</p>
                   </CardHeader>
                   <CardContent className="px-2 pb-4">
                     {stats.bookingsByRoom.length > 0 ? (
@@ -630,7 +630,7 @@ export default function DashboardPage() {
                         </BarChart>
                       </ResponsiveContainer>
                     ) : (
-                      <p className="text-sm text-gray-300 text-center py-16">{t("noChartData")}</p>
+                      <p className="text-sm text-earth-300 text-center py-16">{t("noChartData")}</p>
                     )}
                   </CardContent>
                 </Card>
@@ -641,12 +641,12 @@ export default function DashboardPage() {
               <DemandPanel endpoint="/api/host/demand" labels={demandLabels} locale={locale} />
 
               {/* Recent Bookings */}
-              <Card className="border border-gray-100 shadow-sm rounded-2xl">
+              <Card className="border border-earth-100 shadow-sm rounded-2xl">
                 <CardHeader className="pb-2 px-6 pt-5">
-                  <CardTitle className="text-sm font-semibold text-gray-900">
+                  <CardTitle className="text-sm font-semibold text-earth-900">
                     {t("recentBookings")}
                   </CardTitle>
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-earth-600">
                     {t("recentBookingsDesc", { count: stats.currentMonthBookingCount })}
                   </p>
                 </CardHeader>
@@ -655,10 +655,10 @@ export default function DashboardPage() {
                     <div className="overflow-x-auto">
                       <table className="w-full text-sm">
                         <thead>
-                          <tr className="border-b border-gray-100">
-                            <th className="text-left py-3 font-medium text-gray-500">{t("guest")}</th>
-                            <th className="text-left py-3 font-medium text-gray-500">{t("status")}</th>
-                            <th className="text-right py-3 font-medium text-gray-500">{t("amount")}</th>
+                          <tr className="border-b border-earth-100">
+                            <th className="text-left py-3 font-medium text-earth-600">{t("guest")}</th>
+                            <th className="text-left py-3 font-medium text-earth-600">{t("status")}</th>
+                            <th className="text-right py-3 font-medium text-earth-600">{t("amount")}</th>
                           </tr>
                         </thead>
                         <tbody>
@@ -668,24 +668,24 @@ export default function DashboardPage() {
                             const statusKey = `status${b.status.charAt(0).toUpperCase()}${b.status.slice(1)}` as
                               "statusPending" | "statusVerified" | "statusConfirmed" | "statusRejected" | "statusCancelled" | "statusCompleted";
                             return (
-                              <tr key={b.id} className="border-b border-gray-50 last:border-0">
+                              <tr key={b.id} className="border-b border-earth-50 last:border-0">
                                 <td className="py-3">
                                   <div className="flex items-center gap-3">
                                     <div className={`h-9 w-9 rounded-full ${AVATAR_COLORS[colorIdx]} flex items-center justify-center shrink-0`}>
                                       <span className="text-xs font-semibold text-white">{initials}</span>
                                     </div>
                                     <div className="min-w-0">
-                                      <p className="font-medium text-gray-900 truncate">{b.guest_name}</p>
-                                      <p className="text-xs text-gray-400 truncate">{b.guest_email}</p>
+                                      <p className="font-medium text-earth-900 truncate">{b.guest_name}</p>
+                                      <p className="text-xs text-earth-600 truncate">{b.guest_email}</p>
                                     </div>
                                   </div>
                                 </td>
                                 <td className="py-3">
-                                  <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[b.status] || "bg-gray-100 text-gray-600"}`}>
+                                  <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[b.status] || "bg-earth-100 text-earth-700"}`}>
                                     {t(statusKey)}
                                   </span>
                                 </td>
-                                <td className="py-3 text-right font-medium text-gray-900 tabular-nums">
+                                <td className="py-3 text-right font-medium text-earth-900 tabular-nums">
                                   ฿{b.total_price.toLocaleString()}
                                 </td>
                               </tr>
@@ -695,7 +695,7 @@ export default function DashboardPage() {
                       </table>
                     </div>
                   ) : (
-                    <p className="text-sm text-gray-300 text-center py-8">{t("noRecentBookings")}</p>
+                    <p className="text-sm text-earth-300 text-center py-8">{t("noRecentBookings")}</p>
                   )}
                 </CardContent>
               </Card>
@@ -716,21 +716,21 @@ export default function DashboardPage() {
                   value={`฿${stats.adr.toLocaleString()}`}
                   change={stats.adrPctChange}
                   changeLabel={t("fromLastMonth")}
-                  icon={<TrendingUp className="h-4 w-4 text-gray-400" />}
+                  icon={<TrendingUp className="h-4 w-4 text-earth-600" />}
                 />
                 <StatCard
                   title={t("revpar")}
                   value={`฿${stats.revpar.toLocaleString()}`}
                   change={stats.revparPctChange}
                   changeLabel={t("fromLastMonth")}
-                  icon={<BarChart3 className="h-4 w-4 text-gray-400" />}
+                  icon={<BarChart3 className="h-4 w-4 text-earth-600" />}
                 />
                 <StatCard
                   title={t("cancellations")}
                   value={String(stats.cancelledCount)}
                   change={stats.cancelledDelta}
                   changeLabel={t("fromLastMonth")}
-                  icon={<XCircle className="h-4 w-4 text-gray-400" />}
+                  icon={<XCircle className="h-4 w-4 text-earth-600" />}
                   isDelta
                   invertColor
                 />
@@ -739,19 +739,19 @@ export default function DashboardPage() {
                   value={`${stats.directBookingPct}%`}
                   change={stats.directPctChange}
                   changeLabel={t("fromLastMonth")}
-                  icon={<Compass className="h-4 w-4 text-gray-400" />}
+                  icon={<Compass className="h-4 w-4 text-earth-600" />}
                 />
               </div>
 
               {/* Donut Charts */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 {/* Booking Source */}
-                <Card className="border border-gray-100 shadow-sm rounded-2xl">
+                <Card className="border border-earth-100 shadow-sm rounded-2xl">
                   <CardHeader className="pb-0 px-6 pt-5">
-                    <CardTitle className="text-sm font-semibold text-gray-900">
+                    <CardTitle className="text-sm font-semibold text-earth-900">
                       {t("bookingSourcePerformance")}
                     </CardTitle>
-                    <p className="text-xs text-gray-400">{t("bookingSourceDesc")}</p>
+                    <p className="text-xs text-earth-600">{t("bookingSourceDesc")}</p>
                   </CardHeader>
                   <CardContent className="px-6 pb-6">
                     {stats.bookingsBySource.length > 0 ? (
@@ -784,25 +784,25 @@ export default function DashboardPage() {
                             return (
                               <div key={s.name} className="flex items-center gap-1.5 text-xs">
                                 <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
-                                <span className="text-gray-600">{sourceLabel(s.name)} {pct}%</span>
+                                <span className="text-earth-700">{sourceLabel(s.name)} {pct}%</span>
                               </div>
                             );
                           })}
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-300 text-center py-16">{t("noChartData")}</p>
+                      <p className="text-sm text-earth-300 text-center py-16">{t("noChartData")}</p>
                     )}
                   </CardContent>
                 </Card>
 
                 {/* Guest Province Distribution */}
-                <Card className="border border-gray-100 shadow-sm rounded-2xl">
+                <Card className="border border-earth-100 shadow-sm rounded-2xl">
                   <CardHeader className="pb-0 px-6 pt-5">
-                    <CardTitle className="text-sm font-semibold text-gray-900">
+                    <CardTitle className="text-sm font-semibold text-earth-900">
                       {t("guestProvinceDistribution")}
                     </CardTitle>
-                    <p className="text-xs text-gray-400">{t("guestProvinceDesc")}</p>
+                    <p className="text-xs text-earth-600">{t("guestProvinceDesc")}</p>
                   </CardHeader>
                   <CardContent className="px-6 pb-6">
                     {stats.provinceDistribution.length > 0 ? (
@@ -838,14 +838,14 @@ export default function DashboardPage() {
                             return (
                               <div key={p.name} className="flex items-center gap-1.5 text-xs">
                                 <span className="h-2.5 w-2.5 rounded-full shrink-0" style={{ backgroundColor: CHART_COLORS[i % CHART_COLORS.length] }} />
-                                <span className="text-gray-600">{p.name === "_others" ? t("sourceOther") : getProvinceLabel(p.name, locale)} {pct}%</span>
+                                <span className="text-earth-700">{p.name === "_others" ? t("sourceOther") : getProvinceLabel(p.name, locale)} {pct}%</span>
                               </div>
                             );
                           })}
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm text-gray-300 text-center py-16">{t("noChartData")}</p>
+                      <p className="text-sm text-earth-300 text-center py-16">{t("noChartData")}</p>
                     )}
                   </CardContent>
                 </Card>

@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Menu, AlertTriangle, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sidebar, MobileSidebar } from "./sidebar";
+import { Sidebar, MobileSidebar, navKeyFor } from "./sidebar";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { getPlanExpiryInfo, type PlanExpiryInfo } from "@/lib/plan-expiry";
@@ -20,6 +20,9 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const pathname = usePathname();
   const isPending = pathname === "/dashboard/pending";
   const t = useTranslations("billing");
+  const tc = useTranslations("common");
+  const tNav = useTranslations("dashboardNav");
+  const pageKey = navKeyFor(pathname);
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [brandName, setBrandName] = useState("Peaksnature");
@@ -89,7 +92,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-[#f8f9fa]">
+    <div className="min-h-screen bg-earth-50">
       {/* Desktop sidebar */}
       <div className="hidden lg:block">
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} brandName={brandName} brandLogo={brandLogo} />
@@ -106,17 +109,19 @@ export function DashboardShell({ children }: DashboardShellProps) {
         )}
       >
         {/* Mobile header */}
-        <header className="sticky top-0 z-30 flex h-14 items-center border-b border-gray-200/80 bg-white/80 backdrop-blur-md px-4 lg:hidden">
+        <header className="sticky top-0 z-30 flex h-14 items-center border-b border-earth-200/80 bg-white/80 backdrop-blur-md px-4 lg:hidden">
           <Button
             variant="ghost"
             size="icon"
-            className="h-8 w-8 text-gray-500 hover:text-gray-700"
+            className="-ml-2 size-11 text-earth-600 hover:text-earth-800"
             onClick={() => setMobileOpen(true)}
+            aria-label={tc("menu")}
           >
             <Menu className="h-5 w-5" />
           </Button>
-          <span className="ml-3 text-sm font-semibold text-gray-900">
-            {brandName}
+          {/* Where the host is, not who they are: the sidebar already carries the brand (D5). */}
+          <span className="ml-1 truncate text-sm font-semibold text-earth-900">
+            {pageKey ? tNav(pageKey) : brandName}
           </span>
         </header>
 
@@ -129,7 +134,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-amber-800">{t("graceTitle")}</p>
-                <p className="text-xs text-amber-600 mt-0.5">
+                <p className="text-sm text-amber-800 mt-0.5">
                   {t("graceDesc", { days: expiryInfo.graceDaysRemaining ?? 0 })}
                 </p>
               </div>
@@ -151,7 +156,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-red-800">{t("blockedTitle")}</p>
-                <p className="text-xs text-red-600 mt-0.5">{t("invoiceBlockedDesc")}</p>
+                <p className="text-sm text-red-700 mt-0.5">{t("invoiceBlockedDesc")}</p>
               </div>
               <Link href="/dashboard/billing">
                 <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white text-xs shrink-0">
@@ -171,7 +176,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
               </div>
               <div className="flex-1 min-w-0">
                 <p className="text-sm font-medium text-red-800">{t("blockedTitle")}</p>
-                <p className="text-xs text-red-600 mt-0.5">{t("blockedDesc")}</p>
+                <p className="text-sm text-red-700 mt-0.5">{t("blockedDesc")}</p>
               </div>
               <Link href="/dashboard/billing">
                 <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white text-xs shrink-0">

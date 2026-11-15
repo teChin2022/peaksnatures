@@ -2,7 +2,9 @@ import { expect, test, type Locator, type Page } from "@playwright/test";
 import {
   CREATED_ID,
   T,
+  addHouses,
   bookingPosts,
+  chooseDates,
   expectNoUnexpectedWrites,
   reachPayment,
   requireSlug,
@@ -165,7 +167,7 @@ test.describe("a host on quick booking only", () => {
     expect(bookingPosts(session)[0].body).not.toHaveProperty("turnstile_token");
   });
 
-  test("books several houses through the cart route", async ({ page, context }) => {
+  test("books several houses in one booking, through the group route", async ({ page, context }) => {
     const slug = requireSlug();
     await open(page, context, "quick");
     await reachPayment(page, slug, { houses: 2 });
@@ -219,6 +221,53 @@ test.describe("a host on both", () => {
 
     await expect(page.getByRole("dialog").getByText(T.booking.quickPlacedTitle)).toBeVisible();
     expect(bookingPosts(session)[0].body).toMatchObject({ quick: true, easyslip_verified: false });
+  });
+});
+
+test.describe("Thai typography", () => {
+  test("letter-spaces no Thai text, only Latin marked lang=en", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.goto(`/${slug}`);
+    await page.waitForLoadState("networkidle");
+
+    const spacing = await page.evaluate(() => {
+      const tracked = [...document.querySelectorAll<HTMLElement>('[class*="tracking-wide"], [class*="tracking-[0."]')];
+      const of = (el: HTMLElement) => getComputedStyle(el).letterSpacing;
+      return {
+        thai: tracked.filter((el) => el.closest("[lang]")?.getAttribute("lang") === "th").map(of),
+        latin: tracked.filter((el) => el.closest("[lang]")?.getAttribute("lang") === "en").map(of),
+      };
+    });
+    expect(spacing.thai.length).toBeGreaterThan(0);
+    expect(spacing.thai.every((s) => s === "normal")).toBe(true);
+    // The house numerals ("01", "02") keep their tracking.
+    expect(spacing.latin.length).toBeGreaterThan(0);
+    expect(spacing.latin.some((s) => s !== "normal")).toBe(true);
+  });
+
+  // Geist was loaded for months without ever reaching the body: the font has to be applied, not just declared.
+  test("sets the text and the buttons in Anuphan, downloaded with the page, not the phone's own font", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.goto(`/${slug}`);
+    await page.waitForLoadState("networkidle");
+
+    const font = await page.evaluate(async () => {
+      await document.fonts.ready;
+      const loaded: string[] = [];
+      document.fonts.forEach((face) => {
+        if (face.status === "loaded") loaded.push(face.family);
+      });
+      return {
+        body: getComputedStyle(document.body).fontFamily,
+        button: getComputedStyle(document.querySelector("button")!).fontFamily,
+        loaded,
+      };
+    });
+    expect(font.body).toContain("Anuphan");
+    expect(font.button).toContain("Anuphan");
+    expect(font.loaded.some((family) => family.includes("Anuphan"))).toBe(true);
   });
 });
 
@@ -280,6 +329,135 @@ test.describe("on a phone", () => {
   });
 });
 
+test.describe("booking from the availability calendar", () => {
+  /** Opens a day some way ahead that still has a house free. */
+  async function openFreeDay(page: Page, slug: string) {
+    await page.goto(`/${slug}/book`);
+    const section = page.locator("section").filter({ has: page.getByRole("heading", { name: T.availability.title }) });
+    // Every day ahead carries a status label once the client-only grid renders.
+    await expect(section.getByRole("button", { name: / — / }).first()).toBeVisible();
+    const free = section.getByRole("button", { name: new RegExp(` — (${T.availability.legendAvailable}|${T.availability.legendPartial})$`) });
+    // A month can be fully booked, or nearly over: look up to three months ahead.
+    for (let month = 0; month < 3 && (await free.count()) === 0; month += 1) {
+      await section.getByRole("button", { name: "Go to the Next Month" }).click();
+    }
+    test.skip((await free.count()) === 0, "no free house in the next three months");
+    await free.nth(Math.min(4, (await free.count()) - 1)).click();
+  }
+
+  /** Picks the check-out in the day dialog's picker view; the house list narrows to the house, whose config dialog opens to choose it. */
+  async function pickCheckOutAndAdd(page: Page, house: string) {
+    // Still the one day dialog: the picker replaced its body instead of opening on top.
+    await expect(page.getByRole("dialog")).toHaveCount(1);
+    const picker = page.getByRole("dialog");
+    await expect(picker.getByRole("heading", { name: T.booking.selectDates })).toBeVisible();
+    // The tapped day is already the check-in: only the check-out is left to pick.
+    const pickerDays = picker.locator("button[data-day]");
+    await expect(picker.locator('button[data-selected-single="true"]')).toHaveCount(1);
+    // The month sits centred in the dialog. On a 375px phone Saturday used to touch its right
+    // edge (2px) while Sunday sat 32px from the left. Gaps, not the padding: the seven 44px days
+    // fill the phone's content box to the subpixel. Measured once the open animation is over.
+    const [leftGap, rightGap] = await picker.evaluate(async (el) => {
+      await Promise.all(el.getAnimations().map((a) => a.finished));
+      const box = el.getBoundingClientRect();
+      const days = [...el.querySelectorAll("button[data-day]")].map((d) => d.getBoundingClientRect());
+      return [Math.min(...days.map((d) => d.left)) - box.left, box.right - Math.max(...days.map((d) => d.right))];
+    });
+    expect(Math.abs(leftGap - rightGap)).toBeLessThanOrEqual(4);
+    const startIndex = await pickerDays.evaluateAll((els) => els.findIndex((el) => el.getAttribute("data-selected-single") === "true"));
+    await pickerDays.nth(startIndex + 1).click();
+    await picker.getByRole("button", { name: T.common.done }).click();
+
+    const config = page.getByRole("dialog").filter({ has: page.getByRole("button", { name: T.booking.chooseAnotherHouse }) });
+    await expect(config.getByRole("heading", { name: house })).toBeVisible();
+    // Behind it, the house list shows this house only (owner, 2026-11-15).
+    const cards = page.locator("#rooms-section [data-room-id]");
+    await expect(cards).toHaveCount(1);
+    await expect(cards.first()).toContainText(house);
+    const add = config.getByRole("button", { name: T.booking.chooseAnotherHouse });
+    // A house priced by guest group cannot be chosen until one group is.
+    if (await add.isDisabled()) await config.getByRole("button", { name: /฿/ }).first().click();
+    await add.click();
+
+    await expect(page.getByText(T.booking.addedToast.replace("{name}", house))).toBeVisible();
+    await expect(page.getByRole("dialog")).toBeHidden();
+  }
+
+  test("hands the house picked on a day straight to its config dialog, without choosing it again", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await openFreeDay(page, slug);
+
+    await page.getByRole("dialog").getByRole("button", { name: T.availability.viewDetails }).first().click();
+    const house = (await page.getByRole("dialog").getByRole("heading").first().textContent())!.trim();
+    await page.getByRole("dialog").getByRole("button", { name: T.availability.bookThisHouse }).click();
+
+    await pickCheckOutAndAdd(page, house);
+  });
+
+  test("books a house straight from the day's list, skipping its details", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await openFreeDay(page, slug);
+
+    const row = page.getByRole("dialog").getByRole("listitem").filter({ has: page.getByRole("button", { name: T.availability.bookThisHouse }) }).first();
+    const house = (await row.locator("p").first().textContent())!.trim();
+    await row.getByRole("button", { name: T.availability.bookThisHouse }).click();
+
+    await pickCheckOutAndAdd(page, house);
+  });
+
+  test("leaving the check-out picker without Done leaves no half-picked dates behind", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await openFreeDay(page, slug);
+
+    const dialog = page.getByRole("dialog");
+    await dialog.getByRole("button", { name: T.availability.bookThisHouse }).first().click();
+    await expect(dialog.getByRole("heading", { name: T.booking.selectDates })).toBeVisible();
+    await dialog.getByRole("button", { name: T.common.back }).click();
+    await page.keyboard.press("Escape");
+    await expect(dialog).toBeHidden();
+
+    // The page's own date picker shows no check-in: the tapped day was not kept.
+    await page.getByRole("button", { name: T.booking.selectDates }).last().click();
+    const checkIn = page.getByRole("dialog").locator("div.rounded-xl", { hasText: T.booking.checkInLabel });
+    await expect(checkIn).toContainText(T.booking.addDate);
+  });
+
+  test("fits a 320px phone: the month grid and the check-out picker", async ({ page, context }, testInfo) => {
+    test.skip(testInfo.project.name !== "phone", "phone layout only");
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.setViewportSize({ width: 320, height: 640 });
+    await openFreeDay(page, slug);
+
+    // Seven days inside the box that holds them, with even gaps either side,
+    // measured once a dialog's open animation (a scale) is over.
+    const fits = (box: Locator, days: string) =>
+      box.evaluate(async (el, sel) => {
+        await Promise.all(el.getAnimations().map((a) => a.finished));
+        const r = el.getBoundingClientRect();
+        const d = [...el.querySelectorAll(sel)].map((b) => b.getBoundingClientRect());
+        const left = Math.min(...d.map((x) => x.left)) - r.left;
+        const right = r.right - Math.max(...d.map((x) => x.right));
+        return { left, right };
+      }, days);
+
+    await page.keyboard.press("Escape");
+    const grid = page.locator("section").filter({ has: page.getByRole("heading", { name: T.availability.title }) }).locator("div.rounded-2xl").first();
+    const gridGaps = await fits(grid, 'button[aria-label*=" — "]');
+    expect(gridGaps.right).toBeGreaterThanOrEqual(0);
+    expect(Math.abs(gridGaps.left - gridGaps.right)).toBeLessThanOrEqual(4);
+
+    await openFreeDay(page, slug);
+    await page.getByRole("dialog").getByRole("button", { name: T.availability.bookThisHouse }).first().click();
+    const pickerGaps = await fits(page.getByRole("dialog"), "button[data-day]");
+    expect(pickerGaps.right).toBeGreaterThanOrEqual(0);
+    expect(Math.abs(pickerGaps.left - pickerGaps.right)).toBeLessThanOrEqual(4);
+  });
+});
+
 test.describe("a host who changed the mode while the page was open", () => {
   test("a stale page that tries the other way is told to refresh", async ({ page, context }) => {
     const slug = requireSlug();
@@ -289,6 +467,42 @@ test.describe("a host who changed the mode while the page was open", () => {
     await page.getByRole("button", { name: T.booking.quickSubmit }).click();
 
     await expect(page.getByText(T.booking.errorBookingModeChanged)).toBeVisible();
+  });
+});
+
+test.describe("booking without a cart", () => {
+  test("one house: the list starts at it, its Book Now opens the guest details, and Back returns to it, still chosen", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.goto(`/${slug}/book`);
+    await chooseDates(page);
+    // After the date picker's Done the list starts with one house.
+    await expect(page.locator("#rooms-section [data-room-id]")).toHaveCount(1);
+
+    await addHouses(page, 1, { book: true });
+    const overlay = page.locator('[data-checkout="open"]');
+    await expect(page.locator("#bk-name")).toBeVisible();
+    await expect(overlay.getByRole("button", { name: T.bookingTutorial.reopen })).toBeVisible();
+
+    await overlay.getByRole("button", { name: T.common.back }).click();
+    await expect(page.locator('[data-checkout="closed"]')).toBeAttached();
+    await expect(page.locator("#rooms-heading")).toBeFocused();
+    await expect(page.locator("#rooms-section [data-room-id]").getByText(T.rooms.chosen, { exact: true }).first()).toBeVisible();
+  });
+
+  test("several houses: choosing another shows the rest, and the bottom bar's Book Now takes them all to the guest details", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.goto(`/${slug}/book`);
+    await chooseDates(page);
+    await addHouses(page, 2);
+    // One chosen line (with its edit control) per house.
+    await expect(page.locator("#rooms-section [data-room-id]").getByRole("button", { name: T.common.edit, exact: true })).toHaveCount(2);
+
+    // The phone bar or the desktop dock (one per width); it hides while the date panel is on screen.
+    await page.locator("#rooms-section [data-room-id]").first().scrollIntoViewIfNeeded();
+    await page.locator("[data-bottom-bar]").getByRole("button", { name: T.common.bookNow, exact: true }).click();
+    await expect(page.locator("#bk-name")).toBeVisible();
   });
 });
 

@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useMemo } from "react";
+import { useState, useMemo, useRef } from "react";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Minus, Plus, Users, ListPlus } from "lucide-react";
@@ -9,12 +9,16 @@ import { toast } from "sonner";
 import type { Room } from "@/types/database";
 import { composeTierLabel, hasDefaultPriceTier, resolveGuestPricing } from "@/lib/guest-pricing";
 import { calculateTotalPrice } from "@/lib/calculate-price";
+import { fmtDate } from "@/lib/format-date";
 import { useBookingCart, type CartLine } from "@/components/booking/booking-cart-context";
 
 /**
- * Quick-config popup shown when a guest taps "Add to cart" on a room card, or
- * "Edit" on a cart line. Collects guests (tier or stepper) + add-ons (+ quantity
- * when adding), shows the price for the shared dates, and adds/updates the cart.
+ * Quick-config popup shown when a guest taps "เลือกบ้านพักนี้" on a house card
+ * (or books a house from the availability calendar), or "edit" on a chosen line.
+ * Collects guests (tier or stepper) + add-ons (+ quantity when adding) and shows
+ * the price for the shared dates. Adding has two ends, since the page has no
+ * cart: "จองเลย" goes straight to the guest details with every chosen house,
+ * "เลือกบ้านพักหลังอื่นเพิ่ม" keeps the house chosen and goes back to the list.
  * When `editingLine` is passed the dialog updates that line instead of adding.
  *
  * The guest section has two shapes, decided by whether the host defined a
@@ -35,7 +39,9 @@ export function RoomConfigDialog({
   editingLine?: CartLine | null;
 }) {
   const cart = useBookingCart();
-  const { catalog, dateRange, nights, computeLineGross, addLine, updateLine, remainingForRoom } = cart;
+  const { catalog, dateRange, nights, computeLineGross, addLine, updateLine, remainingForRoom, lines, subtotal } = cart;
+  // Set when an add hands focus elsewhere (the checkout, or the house list), so closing must not return it to the card.
+  const handedOffRef = useRef(false);
   const t = useTranslations("booking");
   const tc = useTranslations("common");
   const locale = useLocale();
@@ -106,26 +112,51 @@ export function RoomConfigDialog({
   const canAdd = !!room && nights > 0 && (!hasBaseTier || tierIds.length === 1);
   const maxGuests = room?.max_guests || 99;
 
-  const handleSubmit = () => {
-    if (!room || !canAdd) return;
-    const fields = { roomId: room.id, numGuests: resolvedGuests, tierIds, optionIds };
-    if (isEditing && editingLine) {
-      updateLine(editingLine.lineId, fields);
-    } else {
-      for (let i = 0; i < qty; i++) {
-        addLine({ lineId: crypto.randomUUID(), ...fields });
-      }
-      // The card barely changes, so confirm the add and offer the cart (listened to by MobileBookingBar and HeaderCart).
-      toast.success(t("addedToast", { name: room.name }), {
-        action: { label: t("viewCart"), onClick: () => document.dispatchEvent(new CustomEvent("open-cart")) },
-      });
-    }
+  const fields = room ? { roomId: room.id, numGuests: resolvedGuests, tierIds, optionIds } : null;
+  // Houses already chosen (other lines). The dialog prices only this one, so it adds the grand total.
+  const otherCount = isEditing ? 0 : lines.length;
+  const houseCount = otherCount + qty;
+
+  /** Adds `qty` lines for this house and returns the first one's id. */
+  const addLines = () => {
+    const ids = Array.from({ length: qty }, () => crypto.randomUUID());
+    for (const lineId of ids) addLine({ lineId, ...fields! });
+    return ids[0];
+  };
+
+  const handleSave = () => {
+    if (!canAdd || !editingLine || !fields) return;
+    updateLine(editingLine.lineId, fields);
+    onClose();
+  };
+
+  const handleBookNow = () => {
+    if (!canAdd || !fields) return;
+    addLines();
+    handedOffRef.current = true;
+    onClose();
+    // Next task, so the new lines are committed: the checkout's handler reads the chosen houses (booking-section).
+    setTimeout(() => document.dispatchEvent(new Event("proceed-booking")), 0);
+  };
+
+  const handleChooseMore = () => {
+    if (!room || !canAdd || !fields) return;
+    const lineId = addLines();
+    handedOffRef.current = true;
+    toast.success(t("addedToast", { name: room.name }));
+    // RoomsSection shows the other houses (or focuses this new line when all are shown already).
+    document.dispatchEvent(new CustomEvent("house-chosen", { detail: { lineId, more: true } }));
     onClose();
   };
 
   return (
     <Dialog open={open && !!room} onOpenChange={(o) => { if (!o) onClose(); }}>
-      <DialogContent className="sm:max-w-md max-h-[90vh] gap-0 p-0 flex flex-col">
+      <DialogContent
+        className="sm:max-w-md max-h-[90vh] gap-0 p-0 flex flex-col"
+        onCloseAutoFocus={(e) => {
+          if (handedOffRef.current) e.preventDefault();
+        }}
+      >
         <DialogHeader className="px-6 pt-6 pb-3 pr-12 text-left">
           <DialogTitle>{room?.name}</DialogTitle>
         </DialogHeader>
@@ -143,6 +174,7 @@ export function RoomConfigDialog({
                     <button
                       key={tier.id}
                       type="button"
+                      aria-pressed={isSel}
                       onClick={() => setTierIds([tier.id])}
                       className={`w-full flex items-center gap-3 p-3 rounded-xl border text-left transition-all ${isSel ? "border-pine bg-pine/5" : "border-line hover:border-line-strong"}`}
                     >
@@ -268,22 +300,50 @@ export function RoomConfigDialog({
                 </p>
               )}
               <div className="flex items-center justify-between text-base font-bold text-ink">
-                <span>{tc("total")}</span>
+                {/* With other houses chosen, this price is for this house only; the grand total follows. */}
+                <span>{otherCount > 0 ? t("thisHouse") : tc("total")}</span>
                 <span>฿{(unitPrice * (isEditing ? 1 : qty)).toLocaleString()}</span>
               </div>
+              {/* The stay the total is for, so the price never floats free of its dates (B16). */}
+              {dateRange?.from && dateRange?.to && (
+                <p className="text-right text-[13px] text-ink-2">
+                  {fmtDate(dateRange.from, "d MMM", locale)} – {fmtDate(dateRange.to, "d MMM", locale)} · {nights} {nights > 1 ? tc("nights") : tc("night")}
+                </p>
+              )}
+              {otherCount > 0 && (
+                <p className="mt-2 flex items-center justify-between border-t border-dashed border-line-strong pt-2 text-sm text-ink-2">
+                  <span>{t("allHousesTotal", { count: houseCount })}</span>
+                  <span className="text-base font-bold text-ink">฿{(subtotal + unitPrice * qty).toLocaleString()}</span>
+                </p>
+              )}
             </div>
           )}
-          <Button
-            disabled={!canAdd}
-            onClick={handleSubmit}
-            className="w-full rounded-full bg-pine px-6 py-3.5 h-auto text-sm font-bold text-white hover:bg-pine-hover disabled:opacity-50"
-          >
-            {isEditing ? (
-              tc("save")
-            ) : (
-              <><Plus size={16} className="mr-1" /> {t("addToCart")}</>
-            )}
-          </Button>
+          {isEditing ? (
+            <Button
+              disabled={!canAdd}
+              onClick={handleSave}
+              className="w-full rounded-full bg-pine px-6 py-3.5 h-auto text-sm font-bold text-white hover:bg-pine-hover disabled:opacity-50"
+            >
+              {tc("save")}
+            </Button>
+          ) : (
+            <div className="grid gap-2">
+              <Button
+                disabled={!canAdd}
+                onClick={handleBookNow}
+                className="w-full rounded-full bg-pine px-6 py-3.5 h-auto text-sm font-bold text-white hover:bg-pine-hover disabled:opacity-50"
+              >
+                {houseCount > 1 ? t("bookNowCount", { count: houseCount }) : tc("bookNow")}
+              </Button>
+              <Button
+                disabled={!canAdd}
+                onClick={handleChooseMore}
+                className="w-full rounded-full border border-line-strong bg-white px-6 py-3.5 h-auto text-sm font-bold text-ink shadow-none hover:bg-mist disabled:opacity-50"
+              >
+                {t("chooseAnotherHouse")}
+              </Button>
+            </div>
+          )}
           {hasBaseTier && !selectedTier && (
             <p className="text-center text-xs text-ink-3">{t("selectGuestsForPrice")}</p>
           )}

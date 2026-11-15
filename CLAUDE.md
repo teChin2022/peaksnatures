@@ -424,8 +424,8 @@ get my explicit approval first.
   shadcn's `--primary` is still near-black, so a `<Button>` without a variant
   renders black.
 - `motion` ignores the OS reduced-motion setting unless the tree is wrapped in
-  `RespectReducedMotion` (`src/components/respect-reduced-motion.tsx`; today
-  only `/[slug]` is). CSS keyframes need their own
+  `RespectReducedMotion` (`src/components/respect-reduced-motion.tsx`; the
+  root layout wraps every page since 2026-11-14). CSS keyframes need their own
   `@media (prefers-reduced-motion: reduce)` rule.
 - Visual checks: `chrome --headless --screenshot` shows only the `100svh`
   hero, so use Playwright or drive Chrome over CDP at 375, 768 and 1280 px.

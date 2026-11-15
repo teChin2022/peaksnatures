@@ -287,8 +287,8 @@ export function QuickBookingDialog({
                     variant="outline"
                     className="w-full justify-start text-left font-normal"
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4 text-gray-400" />
-                    {checkIn ? fmtDate(checkIn, "d MMM yyyy", locale) : <span className="text-gray-400">—</span>}
+                    <CalendarIcon className="mr-2 h-4 w-4 text-earth-600" />
+                    {checkIn ? fmtDate(checkIn, "d MMM yyyy", locale) : <span className="text-earth-600">—</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -319,8 +319,8 @@ export function QuickBookingDialog({
                     variant="outline"
                     className="w-full justify-start text-left font-normal"
                   >
-                    <CalendarIcon className="mr-2 h-4 w-4 text-gray-400" />
-                    {checkOut ? fmtDate(checkOut, "d MMM yyyy", locale) : <span className="text-gray-400">—</span>}
+                    <CalendarIcon className="mr-2 h-4 w-4 text-earth-600" />
+                    {checkOut ? fmtDate(checkOut, "d MMM yyyy", locale) : <span className="text-earth-600">—</span>}
                   </Button>
                 </PopoverTrigger>
                 <PopoverContent className="w-auto p-0" align="start">
@@ -369,7 +369,7 @@ export function QuickBookingDialog({
             <div className="space-y-1.5">
               <Label htmlFor="qb-guests">{t("numGuestsLabel")} ({locale === "th" ? "ไม่บังคับ" : "optional"})</Label>
               <div className="relative">
-                <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400 pointer-events-none" />
+                <Users className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-earth-600 pointer-events-none" />
                 <Input
                   id="qb-guests"
                   type="number"
@@ -388,7 +388,7 @@ export function QuickBookingDialog({
             <div className="space-y-1.5">
               <Label htmlFor="qb-agreed">{t("agreedPriceLabel")}</Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">฿</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-earth-600 text-sm pointer-events-none">฿</span>
                 <Input
                   id="qb-agreed"
                   type="number"
@@ -403,7 +403,7 @@ export function QuickBookingDialog({
             <div className="space-y-1.5">
               <Label htmlFor="qb-paid">{t("amountPaidInputLabel")}</Label>
               <div className="relative">
-                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-gray-400 text-sm pointer-events-none">฿</span>
+                <span className="absolute left-3 top-1/2 -translate-y-1/2 text-earth-600 text-sm pointer-events-none">฿</span>
                 <Input
                   id="qb-paid"
                   type="number"

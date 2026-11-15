@@ -37,13 +37,13 @@ export function StatCard({
   const greenCondition = invertColor ? isNegative : isPositive;
 
   return (
-    <Card className="border border-gray-100 shadow-sm rounded-2xl">
+    <Card className="border border-earth-100 shadow-sm rounded-2xl">
       <CardContent className="p-5">
         <div className="flex items-center justify-between mb-3">
-          <p className="text-xs font-medium text-gray-500 leading-tight">{title}</p>
+          <p className="text-xs font-medium text-earth-600 leading-tight">{title}</p>
           {icon}
         </div>
-        <p className="text-2xl font-bold text-gray-900 leading-tight">{value}</p>
+        <p className="text-2xl font-bold text-earth-900 leading-tight">{value}</p>
         {!isNeutral && (
           <div className="flex items-center gap-1 mt-1.5">
             {greenCondition ? (
@@ -57,7 +57,7 @@ export function StatCard({
                 : `${change! > 0 ? "+" : ""}${change}%`
               }
             </span>
-            <span className="text-xs text-gray-400">{changeLabel}</span>
+            <span className="text-xs text-earth-600">{changeLabel}</span>
           </div>
         )}
       </CardContent>

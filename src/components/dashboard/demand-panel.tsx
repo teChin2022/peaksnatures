@@ -49,9 +49,9 @@ function BarRow({
 }) {
   return (
     <div className="flex items-center gap-3">
-      <span className="w-28 shrink-0 truncate text-xs text-gray-500 sm:w-36">{label}</span>
-      <div className="h-5 flex-1 overflow-hidden rounded bg-gray-50">{children}</div>
-      <span className="w-12 shrink-0 text-right text-xs font-medium tabular-nums text-gray-900">
+      <span className="w-28 shrink-0 truncate text-xs text-earth-600 sm:w-36">{label}</span>
+      <div className="h-5 flex-1 overflow-hidden rounded bg-earth-50">{children}</div>
+      <span className="w-12 shrink-0 text-right text-xs font-medium tabular-nums text-earth-900">
         {value}
       </span>
       <span className="w-14 shrink-0 text-right text-xs tabular-nums">{trailing}</span>
@@ -118,16 +118,16 @@ export function DemandPanel({
   const maxRequested = Math.max(1, ...(stats?.topDates ?? []).map((d) => d.requested));
 
   return (
-    <Card className="border border-gray-100 shadow-sm rounded-2xl">
+    <Card className="border border-earth-100 shadow-sm rounded-2xl">
       <CardHeader className="pb-2 px-6 pt-5">
         <div className="flex flex-wrap items-center justify-between gap-3">
           <div>
-            <CardTitle className="text-sm font-semibold text-gray-900">{labels.title}</CardTitle>
-            <p className="text-xs text-gray-400">{labels.subtitle}</p>
+            <CardTitle className="text-sm font-semibold text-earth-900">{labels.title}</CardTitle>
+            <p className="text-xs text-earth-600">{labels.subtitle}</p>
           </div>
           <div className="flex items-center gap-2">
             {filter}
-            <div className="flex rounded-full bg-gray-100 p-0.5">
+            <div className="flex rounded-full bg-earth-100 p-0.5">
               {RANGES.map((r) => (
                 <button
                   key={r}
@@ -135,7 +135,7 @@ export function DemandPanel({
                   onClick={() => setDays(r)}
                   className={cn(
                     "rounded-full px-3 py-1 text-xs font-medium transition-colors",
-                    days === r ? "bg-white text-gray-900 shadow-sm" : "text-gray-500 hover:text-gray-700",
+                    days === r ? "bg-white text-earth-900 shadow-sm" : "text-earth-600 hover:text-earth-800",
                   )}
                 >
                   {rangeLabel[r]}
@@ -150,33 +150,33 @@ export function DemandPanel({
         {loading ? (
           <div className="space-y-2 py-4">
             {Array.from({ length: 5 }).map((_, i) => (
-              <div key={i} className="h-6 animate-pulse rounded bg-gray-100" />
+              <div key={i} className="h-6 animate-pulse rounded bg-earth-100" />
             ))}
           </div>
         ) : !stats || !hasData ? (
-          <p className="py-10 text-center text-sm text-gray-300">{labels.empty}</p>
+          <p className="py-10 text-center text-sm text-earth-300">{labels.empty}</p>
         ) : (
           <div className="space-y-6">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
               <StatCard
                 title={labels.sessions}
                 value={stats.totals.sessions.toLocaleString()}
-                icon={<Eye className="h-4 w-4 text-gray-400" />}
+                icon={<Eye className="h-4 w-4 text-earth-600" />}
               />
               <StatCard
                 title={labels.conversion}
                 value={`${stats.totals.conversionPct}%`}
-                icon={<Percent className="h-4 w-4 text-gray-400" />}
+                icon={<Percent className="h-4 w-4 text-earth-600" />}
               />
               <StatCard
                 title={labels.lostDemand}
                 value={stats.totals.lostDemand.toLocaleString()}
-                icon={<CalendarX className="h-4 w-4 text-gray-400" />}
+                icon={<CalendarX className="h-4 w-4 text-earth-600" />}
               />
             </div>
 
             <div>
-              <p className="mb-2 text-xs font-semibold text-gray-700">{labels.funnelTitle}</p>
+              <p className="mb-2 text-xs font-semibold text-earth-800">{labels.funnelTitle}</p>
               <div className="space-y-1.5">
                 {stats.funnel.map((row, i) => {
                   const prev = i === 0 ? null : stats.funnel[i - 1].sessions;
@@ -192,7 +192,7 @@ export function DemandPanel({
                       value={row.sessions.toLocaleString()}
                       trailing={
                         dropPct !== null && dropPct > 0 ? (
-                          <span className="text-gray-400">{`-${dropPct}%`}</span>
+                          <span className="text-earth-600">{`-${dropPct}%`}</span>
                         ) : null
                       }
                     >
@@ -204,10 +204,10 @@ export function DemandPanel({
             </div>
 
             <div>
-              <p className="text-xs font-semibold text-gray-700">{labels.topDatesTitle}</p>
-              <p className="mb-2 text-xs text-gray-400">{labels.topDatesHint}</p>
+              <p className="text-xs font-semibold text-earth-800">{labels.topDatesTitle}</p>
+              <p className="mb-2 text-xs text-earth-600">{labels.topDatesHint}</p>
               {stats.topDates.length === 0 ? (
-                <p className="py-6 text-center text-sm text-gray-300">{labels.empty}</p>
+                <p className="py-6 text-center text-sm text-earth-300">{labels.empty}</p>
               ) : (
                 <div className="space-y-1.5">
                   {stats.topDates.map((d) => {

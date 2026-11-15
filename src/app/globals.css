@@ -7,7 +7,7 @@
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
+  --font-sans: var(--font-anuphan), ui-sans-serif, system-ui, sans-serif;
   --font-mono: var(--font-geist-mono);
   --font-serif: var(--font-playfair), var(--font-noto-serif-thai), serif;
 
@@ -100,7 +100,7 @@
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: oklch(0.922 0 0);
-  --ring: oklch(0.708 0 0);
+  --ring: #2F5D50; /* Forest (brand): DESIGN.md focus ring, 7.49:1. Was grey, ~1.5:1 at /50. */
   --chart-1: oklch(0.646 0.222 41.116);
   --chart-2: oklch(0.6 0.118 184.704);
   --chart-3: oklch(0.398 0.07 227.392);
@@ -153,10 +153,10 @@
 @layer base {
   * {
     @apply border-border outline-ring/50;
-    @apply border-border outline-ring/50;
   }
   body {
-    @apply bg-background text-foreground;
+    /* The next/font variables are set on <body>, so html's default font cannot resolve them. */
+    @apply bg-background text-foreground font-sans;
     @apply bg-background text-foreground;
   }
 }
@@ -217,14 +217,6 @@
 }
 
 /* Landing page utilities */
-.card-hover {
-  transition: transform 0.5s cubic-bezier(0.23, 1, 0.32, 1);
-}
-
-.card-hover:hover {
-  transform: scale(1.02);
-}
-
 .scrollbar-hide::-webkit-scrollbar {
   display: none;
 }
@@ -232,36 +224,6 @@
 .scrollbar-hide {
   -ms-overflow-style: none;
   scrollbar-width: none;
-}
-
-/* Cart badge pulse — shared by the mobile sticky bar and the desktop header cart.
-   Runs while the cart holds houses so the guest keeps noticing it. Gentle on
-   purpose; it never stops while non-empty.
-
-   The keyframe redraws the badge's 2px ring itself: animating `box-shadow`
-   outranks Tailwind's `ring-*` utility (which is also a box-shadow), so the ring
-   would otherwise vanish for the whole animation. --cart-badge-ring is the
-   surface behind the badge — brand green on the mobile pill, white in the header.
-   The static `ring-*` class stays on both badges to cover reduced motion. */
-@keyframes cart-badge-pulse {
-  0%, 100% {
-    transform: scale(1);
-    box-shadow: 0 0 0 2px var(--cart-badge-ring, #fff), 0 0 0 2px rgba(248, 56, 88, 0.45);
-  }
-  50% {
-    transform: scale(1.12);
-    box-shadow: 0 0 0 2px var(--cart-badge-ring, #fff), 0 0 0 7px rgba(248, 56, 88, 0);
-  }
-}
-
-.cart-badge-pulse {
-  animation: cart-badge-pulse 2s ease-in-out infinite;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .cart-badge-pulse {
-    animation: none;
-  }
 }
 
 /* Landing hero scroll cue: the line under "Discover" draws down, then retracts
@@ -348,33 +310,26 @@
 
 /* ── Dashboard: Organic Luxury utilities ── */
 
-/* Grain texture overlay (SVG noise) */
-.dashboard-grain {
-  position: relative;
-}
-
-.dashboard-grain::before {
-  content: "";
-  position: absolute;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0.03;
-  background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
-  background-repeat: repeat;
-  background-size: 256px 256px;
-  z-index: 1;
-  mix-blend-mode: multiply;
-}
-
 /* Card hover lift */
 .dashboard-card {
   transition: transform 0.4s cubic-bezier(0.23, 1, 0.32, 1),
               box-shadow 0.4s cubic-bezier(0.23, 1, 0.32, 1);
 }
 
-.dashboard-card:hover {
-  transform: translateY(-2px);
-  box-shadow: 0 8px 30px rgba(47, 93, 80, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+/* Lift only what can be clicked (a card inside a link, or a role="button" card),
+   and only where hover exists: a static card that rises looks clickable (X1). */
+@media (hover: hover) {
+  a > .dashboard-card:hover,
+  .dashboard-card[role="button"]:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 8px 30px rgba(47, 93, 80, 0.08), 0 2px 8px rgba(0, 0, 0, 0.04);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dashboard-card {
+    transition: none;
+  }
 }
 
 /* Sidebar active glow */
@@ -396,18 +351,10 @@
   border-radius: 4px;
 }
 
-/* Dark sidebar scrollbar */
-.sidebar-dark::-webkit-scrollbar {
-  width: 4px;
-}
-
-.sidebar-dark::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-.sidebar-dark::-webkit-scrollbar-thumb {
-  background: rgba(168, 146, 121, 0.3);
-  border-radius: 2px;
+@media (prefers-reduced-motion: reduce) {
+  .skeleton-warm {
+    animation: none;
+  }
 }
 
 /* ── Admin Platform: refresh utilities ── */
@@ -415,13 +362,9 @@
   background-color: var(--color-section-alt);
 }
 
-.admin-card {
-  background-color: #ffffff;
-  border: 1px solid var(--color-earth-100);
-  border-radius: var(--radius);
-}
-
-.tabular-nums {
-  font-variant-numeric: tabular-nums;
-  font-feature-settings: "tnum";
+/* Thai is never letter-spaced (ui-audit S3): widening tracking utilities apply
+   to Latin only. :lang(th) follows the page's <html lang>, so Latin-only text
+   inside a Thai page (codes, numerals) keeps its tracking with lang="en". */
+:lang(th):is([class*="tracking-wide"], [class*="tracking-[0."]) {
+  letter-spacing: normal;
 }

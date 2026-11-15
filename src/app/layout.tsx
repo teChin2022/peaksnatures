@@ -1,9 +1,10 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Playfair_Display, Noto_Serif_Thai } from "next/font/google";
+import { Anuphan, Geist_Mono, Playfair_Display, Noto_Serif_Thai } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
 import { CookieConsent } from "@/components/cookie-consent";
+import { RespectReducedMotion } from "@/components/respect-reduced-motion";
 import { JsonLd } from "@/components/seo/json-ld";
 import {
   SITE_URL,
@@ -17,9 +18,9 @@ import {
 } from "@/lib/seo";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const anuphan = Anuphan({
+  variable: "--font-anuphan",
+  subsets: ["thai", "latin"],
 });
 
 const geistMono = Geist_Mono({
@@ -133,15 +134,19 @@ export default async function RootLayout({
   return (
     <html lang={locale} suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${notoSerifThai.variable} antialiased`}
+        className={`${anuphan.variable} ${geistMono.variable} ${playfair.variable} ${notoSerifThai.variable} antialiased`}
         suppressHydrationWarning
       >
         <JsonLd data={organizationLd} id="ld-organization" />
         <JsonLd data={websiteLd} id="ld-website" />
         <NextIntlClientProvider messages={messages}>
-          {children}
-          <Toaster richColors position="top-right" />
-          <CookieConsent />
+          {/* Every surface honours the OS "Reduce motion" setting, not only the
+              guest pages; server children pass through the client wrapper. */}
+          <RespectReducedMotion>
+            {children}
+            <Toaster richColors position="top-right" />
+            <CookieConsent />
+          </RespectReducedMotion>
         </NextIntlClientProvider>
       </body>
     </html>
