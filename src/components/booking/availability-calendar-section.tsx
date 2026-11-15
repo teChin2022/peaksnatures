@@ -467,19 +467,20 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
   };
 
   // The guest already chose the house, so a confirmed range goes straight to
-  // that house's config dialog instead of back to the house list. Same checks
-  // as the house card's button (rooms-section `handleAddToCart`).
+  // that house's config dialog, over the house list (which the picker's Done
+  // narrowed to this house). Same checks as the house card's button
+  // (rooms-section `handleAddToCart`).
   const handlePickerDone = () => {
     setOpen(false);
+    scrollToRooms();
     const room = activeRooms.find((r) => r.id === pickRoomId);
     const line = room ? lines.find((l) => l.roomId === room.id) : undefined;
     if (room && isRoomAvailableForRange(room) && remainingForRoom(room) > 0) {
       setTimeout(() => setConfig({ room }), 150);
     } else if (room && line) {
       setTimeout(() => setConfig({ room, editingLine: line }), 150);
-    } else {
-      if (room) toast.error(tr("roomUnavailableToast"));
-      scrollToRooms();
+    } else if (room) {
+      toast.error(tr("roomUnavailableToast"));
     }
   };
 

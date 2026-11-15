@@ -102,4 +102,20 @@ describe("BookingCalendarDialog Done", () => {
     act(() => done.click());
     expect(calls).toEqual(["open:false", "done"]);
   });
+
+  // RoomsSection starts the house list at one house from this event; scoped, it is that house.
+  it.each([
+    ["the date bars", null],
+    ["a house picked on the availability calendar", "r1"],
+  ])("tells the house list the stay is picked, from %s", (_from, roomId) => {
+    const picked = vi.fn();
+    const listen = (e: Event) => picked((e as CustomEvent<{ roomId: string | null }>).detail);
+    document.addEventListener("dates-picked", listen);
+    act(() => root.render(createElement(BookingCalendarDialog, { open: true, onOpenChange: () => {}, roomId })));
+    const done = [...document.body.querySelectorAll("button")].find((b) => b.textContent === "done")!;
+    act(() => done.click());
+    document.removeEventListener("dates-picked", listen);
+    expect(picked).toHaveBeenCalledTimes(1);
+    expect(picked).toHaveBeenCalledWith({ roomId });
+  });
 });

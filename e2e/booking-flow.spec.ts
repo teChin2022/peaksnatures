@@ -6,7 +6,6 @@ import {
   bookingPosts,
   chooseDates,
   expectNoUnexpectedWrites,
-  openCart,
   reachPayment,
   requireSlug,
   startSession,
@@ -168,7 +167,7 @@ test.describe("a host on quick booking only", () => {
     expect(bookingPosts(session)[0].body).not.toHaveProperty("turnstile_token");
   });
 
-  test("books several houses through the cart route", async ({ page, context }) => {
+  test("books several houses in one booking, through the group route", async ({ page, context }) => {
     const slug = requireSlug();
     await open(page, context, "quick");
     await reachPayment(page, slug, { houses: 2 });
@@ -322,7 +321,7 @@ test.describe("booking from the availability calendar", () => {
     await free.nth(Math.min(4, (await free.count()) - 1)).click();
   }
 
-  /** Picks the check-out in the day dialog's picker view, then adds the house in its config dialog. */
+  /** Picks the check-out in the day dialog's picker view; the house list narrows to the house, whose config dialog opens to choose it. */
   async function pickCheckOutAndAdd(page: Page, house: string) {
     // Still the one day dialog: the picker replaced its body instead of opening on top.
     await expect(page.getByRole("dialog")).toHaveCount(1);
@@ -345,10 +344,14 @@ test.describe("booking from the availability calendar", () => {
     await pickerDays.nth(startIndex + 1).click();
     await picker.getByRole("button", { name: T.common.done }).click();
 
-    const config = page.getByRole("dialog").filter({ has: page.getByRole("button", { name: T.booking.addToCart }) });
+    const config = page.getByRole("dialog").filter({ has: page.getByRole("button", { name: T.booking.chooseAnotherHouse }) });
     await expect(config.getByRole("heading", { name: house })).toBeVisible();
-    const add = config.getByRole("button", { name: T.booking.addToCart });
-    // A house priced by guest group cannot be added until one group is chosen.
+    // Behind it, the house list shows this house only (owner, 2026-11-15).
+    const cards = page.locator("#rooms-section [data-room-id]");
+    await expect(cards).toHaveCount(1);
+    await expect(cards.first()).toContainText(house);
+    const add = config.getByRole("button", { name: T.booking.chooseAnotherHouse });
+    // A house priced by guest group cannot be chosen until one group is.
     if (await add.isDisabled()) await config.getByRole("button", { name: /฿/ }).first().click();
     await add.click();
 
@@ -443,26 +446,39 @@ test.describe("a host who changed the mode while the page was open", () => {
   });
 });
 
-test.describe("the cart dialog", () => {
-  test("is the only cart: it goes straight to the guest details, and Back returns to it", async ({ page, context }) => {
+test.describe("booking without a cart", () => {
+  test("one house: the list starts at it, its Book Now opens the guest details, and Back returns to it, still chosen", async ({ page, context }) => {
     const slug = requireSlug();
     await open(page, context, "normal");
     await page.goto(`/${slug}/book`);
     await chooseDates(page);
-    await addHouses(page, 1);
-    // No second copy of the cart on the page.
-    await expect(page.getByRole("heading", { name: T.booking.yourBooking })).toHaveCount(0);
-    await expect(page.getByRole("button", { name: T.booking.continueDetails })).toHaveCount(0);
+    // After the date picker's Done the list starts with one house.
+    await expect(page.locator("#rooms-section [data-room-id]")).toHaveCount(1);
 
-    await openCart(page);
-    await page.getByRole("dialog").getByRole("button", { name: T.booking.proceedBooking }).click();
+    await addHouses(page, 1, { book: true });
     const overlay = page.locator('[data-checkout="open"]');
     await expect(page.locator("#bk-name")).toBeVisible();
     await expect(overlay.getByRole("button", { name: T.bookingTutorial.reopen })).toBeVisible();
 
     await overlay.getByRole("button", { name: T.common.back }).click();
     await expect(page.locator('[data-checkout="closed"]')).toBeAttached();
-    await expect(page.getByRole("dialog").getByRole("button", { name: T.booking.proceedBooking })).toBeVisible();
+    await expect(page.locator("#rooms-heading")).toBeFocused();
+    await expect(page.locator("#rooms-section [data-room-id]").getByText(T.rooms.chosen, { exact: true }).first()).toBeVisible();
+  });
+
+  test("several houses: choosing another shows the rest, and the bottom bar's Book Now takes them all to the guest details", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.goto(`/${slug}/book`);
+    await chooseDates(page);
+    await addHouses(page, 2);
+    // One chosen line (with its edit control) per house.
+    await expect(page.locator("#rooms-section [data-room-id]").getByRole("button", { name: T.common.edit, exact: true })).toHaveCount(2);
+
+    // The phone bar or the desktop dock (one per width); it hides while the date panel is on screen.
+    await page.locator("#rooms-section [data-room-id]").first().scrollIntoViewIfNeeded();
+    await page.locator("[data-bottom-bar]").getByRole("button", { name: T.common.bookNow, exact: true }).click();
+    await expect(page.locator("#bk-name")).toBeVisible();
   });
 });
 

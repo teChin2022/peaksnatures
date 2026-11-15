@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
-import { CHANGE_PREVIEW_SAME_PRICE, T, chooseNewStay, expectNoUnexpectedWrites, findBooking, reachPayment, requireSlug, startSession, stubChangeBooking, stubbedBooking, type Session } from "./support";
+import { CHANGE_PREVIEW_SAME_PRICE, T, addHouses, chooseDates, chooseNewStay, expectNoUnexpectedWrites, findBooking, reachPayment, requireSlug, startSession, stubChangeBooking, stubbedBooking, type Session } from "./support";
 
 /**
  * Evidence for a UI review (peaksnature-ui Mode A), not a regression test.
@@ -125,6 +125,23 @@ test("booking page, first view", async ({ page, context }, testInfo) => {
     await page.goto(`/${slug}/book`);
     await page.waitForLoadState("networkidle");
     await capture(page, testInfo, "book", slug);
+  }
+});
+
+test("booking page, a house chosen", async ({ page, context }, testInfo) => {
+  const slug = requireSlug();
+  session = await startSession(page, context);
+  for (const width of widthsFor(testInfo)) {
+    if (width) await page.setViewportSize({ width, height: 800 });
+    await page.goto(`/${slug}/book`);
+    await chooseDates(page);
+    await addHouses(page, 1);
+    // The viewport, not the full page: the chosen card and the bottom bar (or dock) together.
+    await page.locator("#rooms-section [data-room-id]").first().scrollIntoViewIfNeeded();
+    await page.waitForTimeout(600);
+    await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
+    await page.screenshot({ path: join(OUT, `book-chosen-view-${page.viewportSize()?.width}.png`) });
+    await capture(page, testInfo, "book-chosen", slug);
   }
 });
 

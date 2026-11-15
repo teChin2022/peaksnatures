@@ -10,7 +10,6 @@ vi.mock("next/link", () => ({
   default: ({ href, children, ...rest }: { href: string; children?: ReactNode }) => createElement("a", { href, ...rest }, children),
 }));
 // The booking page's header pieces; the landing renders neither.
-vi.mock("@/components/booking/header-cart", () => ({ HeaderCart: () => null }));
 vi.mock("@/components/booking/resume-booking-dialog", () => ({ ResumeBookingDialog: () => null }));
 
 // Tells React this is a test renderer, so act() flushes effects without warning.

@@ -166,6 +166,8 @@ export function BookingCalendarPanel({
       setWarned(true);
       return;
     }
+    // RoomsSection starts the house list at one house for this stay: the scoped one, if any.
+    document.dispatchEvent(new CustomEvent("dates-picked", { detail: { roomId } }));
     onDone();
   };
 

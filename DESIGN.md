@@ -441,9 +441,11 @@ not bubbly.
   menu right, each a 44px target.
 - **Guest phone menu:** `FullScreenMenu`, 44px rows, unspaced Thai, labelled
   close button (the reference implementation).
-- **Mobile booking bar:** one Forest CTA that carries the dates on a second
-  line, plus a cart tile with a count badge (settled). Tapping the CTA always
-  reopens the date picker.
+- **Mobile booking bar:** two states at one height (settled 2026-11-15; the
+  booking page has no cart). Nothing chosen: one Forest CTA that carries the
+  dates on a second line and always reopens the date picker. A house chosen
+  for a full stay: the houses, total and dates on the left, Forest "จองเลย"
+  on the right, straight to the guest details.
 - **Host dashboard:** collapsible sidebar from `lg`; below it a 56px top bar
   with a menu button (44px target) and a drawer. Active item: Forest icon and
   text.
@@ -453,8 +455,8 @@ not bubbly.
 - **Dialog** (shadcn): centered, 10px radius, `shadow-lg`, `bg-black/50`
   overlay; one primary pill at the bottom; an X close with an accessible
   name. Used for picking dates and configuring a house.
-- **Sheet** (shadcn): bottom sheet on phones for cart review, 18px top
-  corners, the total and one primary CTA pinned at the bottom.
+- **Sheet** (shadcn): bottom sheet on phones, 18px top corners, the total
+  and one primary CTA pinned at the bottom.
 - **Dropdowns and Select** (shadcn): 8px radius, `shadow-md`, 44px rows on
   phones.
 

@@ -12,9 +12,9 @@ import { useBookingBarVisible } from "@/components/booking/use-booking-bar-visib
 /**
  * The desktop counterpart of the phone bar: a floating summary at the bottom of
  * /book — the stay, how many houses are chosen and their total — with the next
- * step as its one button: choose dates, change them, or go on to the booking
- * steps (`proceed-booking`, as the cart dialog sends). It reads the cart and
- * opens the shared calendar; it writes nothing.
+ * step as its one button: choose dates, change them, or "จองเลย" on to the
+ * booking steps (`proceed-booking`, as the house dialog's "จองเลย" sends). It
+ * reads the chosen houses and opens the shared calendar; it writes nothing.
  * Hidden on phones, in checkout, and while the date panel, the booking card or
  * the footer is on screen (useBookingBarVisible).
  */
@@ -39,8 +39,10 @@ export function DesktopBookingDock({ bookingDisabled = false }: { bookingDisable
   const scrollTo = (id: string) =>
     document.getElementById(id)?.scrollIntoView({ behavior: reduceMotion ? "auto" : "smooth", block: "start" });
 
-  const action = houses > 0 ? tb("proceedBooking") : hasDates ? tb("changeDates") : tb("chooseStayDates");
-  const onAction = () => (houses > 0 ? document.dispatchEvent(new Event("proceed-booking")) : setCalendarOpen(true));
+  // Chosen houses only count with a full stay: a half-picked range prices nothing.
+  const picked = hasDates && houses > 0;
+  const action = picked ? tc("bookNow") : hasDates ? tb("changeDates") : tb("chooseStayDates");
+  const onAction = () => (picked ? document.dispatchEvent(new Event("proceed-booking")) : setCalendarOpen(true));
 
   return (
     <>

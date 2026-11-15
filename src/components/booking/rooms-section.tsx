@@ -3,13 +3,13 @@
 import { useMemo, useState, useRef, useEffect, useCallback } from "react";
 import { useSwipe } from "@/hooks/use-swipe";
 import Image from "next/image";
-import { startOfToday, addMonths, parseISO, isBefore } from "date-fns";
+import { startOfToday, addMonths, parseISO, isBefore, format, eachDayOfInterval, subDays } from "date-fns";
 import type { DayProps } from "react-day-picker";
 import { th as thLocale } from "date-fns/locale";
 import type { Room, RoomSeasonalPrice, RoomSpecialPrice, BlockedDate } from "@/types/database";
 
 type BookingStep = "dates" | "details" | "payment";
-import { Users, CalendarSearch, ChevronLeft, ChevronRight, X, Sparkles, Wrench, ShoppingCart, Check } from "lucide-react";
+import { Users, CalendarSearch, ChevronLeft, ChevronRight, X, Sparkles, Wrench, Plus } from "lucide-react";
 import { roomCtaState } from "@/components/booking/room-cta-state";
 
 import { useTranslations, useLocale } from "next-intl";
@@ -19,9 +19,13 @@ import { toast } from "sonner";
 import { useBookingCartOptional, type CartLine } from "@/components/booking/booking-cart-context";
 import { RoomConfigDialog } from "@/components/booking/room-config-dialog";
 import { RoomRateTable } from "@/components/booking/room-rate-table";
+import { CartLineList } from "@/components/booking/cart-line-list";
+import { BookingCalendarDialog } from "@/components/booking/booking-calendar-dialog";
+import { PromoLinkBanner, type PromoLink } from "@/components/booking/promo-link-banner";
 import { BOOKED_DAY_MODIFIER, CalendarLegend, LEGEND_SWATCH } from "@/components/booking/calendar-legend";
-import { getPriceRange } from "@/lib/calculate-price";
-import { getFullyBookedForRoom } from "@/lib/booking-dates";
+import { calculateTotalPrice, getPriceRange } from "@/lib/calculate-price";
+import { freeUnitsForStay, getFullyBookedForRoom } from "@/lib/booking-dates";
+import { fmtDate } from "@/lib/format-date";
 import { HTMLContent } from "@/components/ui/html-content";
 import { thumbScroll } from "@/components/booking/gallery-section";
 import { Calendar } from "@/components/ui/calendar";
@@ -159,9 +163,11 @@ interface RoomsSectionProps {
   bookedRanges?: BookedRange[];
   blockedDates?: BlockedDate[];
   popularRoomIds?: ReadonlySet<string>;
+  /** The referral code a ?promo= link brought, if any. */
+  promo?: PromoLink | null;
 }
 
-export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, specialPrices = EMPTY_SPECIAL_PRICES, bookedRanges = EMPTY_BOOKED_RANGES, blockedDates = EMPTY_BLOCKED_DATES, popularRoomIds = EMPTY_POPULAR_IDS }: RoomsSectionProps) {
+export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, specialPrices = EMPTY_SPECIAL_PRICES, bookedRanges = EMPTY_BOOKED_RANGES, blockedDates = EMPTY_BLOCKED_DATES, popularRoomIds = EMPTY_POPULAR_IDS, promo = null }: RoomsSectionProps) {
   const t = useTranslations("rooms");
 
   const seasonsByRoom = useMemo(() => {
@@ -189,23 +195,60 @@ export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, sp
       <div className="mx-auto max-w-7xl px-4 sm:px-6">
         <div className="overflow-hidden pt-2 -mt-2">
           <motion.h2
+            // Checkout's Back lands here (booking-section), so it can take focus.
+            id="rooms-heading"
+            tabIndex={-1}
             initial={{ y: "100%" }}
             whileInView={{ y: 0 }}
             viewport={{ once: true }}
             transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
-            className="text-2xl md:text-3xl font-serif text-ink tracking-tight"
+            className="scroll-mt-24 text-2xl md:text-3xl font-serif text-ink tracking-tight outline-none"
           >
             {t("title")}
           </motion.h2>
         </div>
-        <p className="mt-2 text-sm text-ink-3">
-          {t("subtitle")}
-        </p>
+        <StayLine />
+        {promo && <PromoLinkBanner promo={promo} className="mt-4 max-w-xl" />}
 
         <RoomCards rooms={rooms} seasonsByRoom={seasonsByRoom} specialsByRoom={specialsByRoom} bookedRanges={bookedRanges} blockedDates={blockedDates} popularRoomIds={popularRoomIds} />
 
       </div>
     </section>
+  );
+}
+
+/**
+ * Under the houses heading: the stay the houses are priced for, with "change
+ * dates" right beside it (the phone bar stops offering the dates once a house
+ * is chosen). Before a full stay is picked, the section's usual subtitle.
+ */
+function StayLine() {
+  const t = useTranslations("rooms");
+  const tb = useTranslations("booking");
+  const tc = useTranslations("common");
+  const locale = useLocale();
+  const cart = useBookingCartOptional();
+  const [open, setOpen] = useState(false);
+  const from = cart?.dateRange?.from;
+  const to = cart?.dateRange?.to;
+  const nights = cart?.nights ?? 0;
+
+  if (!from || !to || nights < 1) return <p className="mt-2 text-sm text-ink-3">{t("subtitle")}</p>;
+  return (
+    <>
+      <p className="mt-2 text-sm text-ink-2">
+        {fmtDate(from, "EEE d MMM", locale)} – {fmtDate(to, "EEE d MMM", locale)} · {nights} {nights > 1 ? tc("nights") : tc("night")}
+        {/* -my-3 keeps the 44px tap target without making the line 44px tall. */}
+        <button
+          type="button"
+          onClick={() => setOpen(true)}
+          className="-my-3 ml-2 inline-flex min-h-11 items-center rounded-sm font-medium text-pine underline underline-offset-4 hover:text-pine-hover outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
+        >
+          {tb("changeDates")}
+        </button>
+      </p>
+      <BookingCalendarDialog open={open} onOpenChange={setOpen} />
+    </>
   );
 }
 
@@ -254,8 +297,10 @@ const CARD_ENTRANCE = {
 /**
  * One house on /book: a white card with its photos (swipe, arrows, thumbnails,
  * tap for the lightbox) and, below on phones or beside from md, the name,
- * description, facts, price and the two actions. The main button's state comes
- * from roomCtaState and stays disabled until both dates are chosen.
+ * description, facts, price and the actions. The main button's state comes
+ * from roomCtaState and stays disabled until both dates are chosen. A chosen
+ * house shows its chosen units on the card itself (CartLineList): the page has
+ * no cart.
  */
 export function SingleRoomHero({
   room,
@@ -265,7 +310,6 @@ export function SingleRoomHero({
   onCalendar,
   onDesc,
   onAddToCart,
-  onEdit,
   cartEnabled,
   bookingLocked,
   isPopular,
@@ -281,8 +325,6 @@ export function SingleRoomHero({
   onCalendar: () => void;
   onDesc: () => void;
   onAddToCart: () => void;
-  /** Opens the room's cart line for editing (used once every free unit is in the cart). */
-  onEdit: () => void;
   cartEnabled: boolean;
   bookingLocked: boolean;
   isPopular?: boolean;
@@ -290,7 +332,7 @@ export function SingleRoomHero({
   datesChosen?: boolean;
   /** Units still bookable for the chosen dates; only meaningful once dates are chosen. */
   remaining?: number;
-  /** Units of this house already in the cart. */
+  /** Units of this house the guest has chosen for these dates. */
   inCart?: number;
 }) {
   const t = useTranslations("rooms");
@@ -342,24 +384,24 @@ export function SingleRoomHero({
 
   const mainLabel = unavailableForDates ? (
     t("unavailableForDates")
-  ) : ctaState === "edit" ? (
+  ) : ctaState === "add-more" ? (
     <>
-      <Check className="h-4 w-4" />
-      {t("inCartEdit")}
+      <Plus className="h-4 w-4" />
+      {t("selectAnother")}
     </>
   ) : (
-    <>
-      <ShoppingCart className="h-4 w-4" />
-      {t("selectThisRoom")}
-    </>
+    t("selectThisRoom")
   );
+  // Once every free unit is chosen there is nothing left to add: each unit is edited on its line.
+  const showMain = cartEnabled && ctaState !== "full";
 
   return (
     <motion.div
       data-room-id={room.id}
       {...CARD_ENTRANCE}
-      // In the cart: a Pine outline, so the guest sees at a glance which houses are chosen.
-      className={`grid overflow-hidden rounded-[20px] bg-white md:grid-cols-[52%_1fr] ${inCart > 0 ? "ring-[1.5px] ring-inset ring-pine" : ""}`}
+      // Chosen: a Pine outline, so the guest sees at a glance which houses are chosen.
+      // scroll-mt clears the fixed site header when "see other houses" scrolls a card into view.
+      className={`grid scroll-mt-24 overflow-hidden rounded-[20px] bg-white md:grid-cols-[52%_1fr] ${inCart > 0 ? "ring-[1.5px] ring-inset ring-pine" : ""}`}
     >
       {/* Photos */}
       <div className="relative min-w-0">
@@ -397,11 +439,16 @@ export function SingleRoomHero({
           {/* Click area for lightbox */}
           <button type="button" className="absolute inset-0 z-[1] cursor-pointer" onClick={onLightbox} aria-label="View photos" />
 
-          {isPopular && (
-            <span className="pointer-events-none absolute left-3 top-3 z-20 inline-flex items-center gap-1 rounded-full bg-[#FCEFC7] px-3 py-1 text-xs font-semibold text-[#7A4D00]">
-              <Sparkles className="h-3 w-3" />
-              {t("popular")}
-            </span>
+          {(isPopular || inCart > 0) && (
+            <div className="pointer-events-none absolute left-3 top-3 z-20 flex flex-wrap gap-1.5">
+              {isPopular && (
+                <span className="inline-flex items-center gap-1 rounded-full bg-[#FCEFC7] px-3 py-1 text-xs font-semibold text-[#7A4D00]">
+                  <Sparkles className="h-3 w-3" />
+                  {t("popular")}
+                </span>
+              )}
+              {inCart > 0 && <span className="rounded-full bg-white px-3 py-1 text-xs font-medium text-ink">{t("chosen")}</span>}
+            </div>
           )}
 
           {multi && (
@@ -462,12 +509,6 @@ export function SingleRoomHero({
             {ta("upToGuests", { count: room.max_guests })}
           </span>
           {datesChosen && remaining > 0 && <span>{t("available", { count: remaining })}</span>}
-          {inCart > 0 && (
-            <span className="inline-flex items-center gap-1 rounded-full bg-pine-mist px-2.5 py-1 font-medium text-pine-deep">
-              <Check className="h-3.5 w-3.5" />
-              {t("selectedCount", { count: inCart })}
-            </span>
-          )}
         </div>
 
         <div className="mt-auto flex flex-col gap-3 border-t border-line pt-4">
@@ -480,22 +521,25 @@ export function SingleRoomHero({
             <span className="ml-1 text-[13px] text-ink-2">{tc("perNight")}</span>
           </p>
 
-          <div className="grid gap-2 @md:grid-cols-2">
-            {cartEnabled && (
+          {datesChosen && inCart > 0 && <CartLineList roomId={room.id} />}
+
+          <div className={`grid gap-2 ${showMain ? "@md:grid-cols-2" : ""}`}>
+            {showMain && (
               <Button
+                data-room-main
                 disabled={bookingLocked || unavailableForDates || ctaState === "pick-dates"}
                 className={`h-auto min-h-12 gap-2 rounded-full px-5 text-[15px] font-medium shadow-none disabled:cursor-not-allowed disabled:opacity-50 @md:order-2 ${
-                  ctaState === "edit"
-                    ? "border border-pine bg-pine-mist text-pine-deep hover:bg-pine-mist/70"
+                  ctaState === "add-more"
+                    ? "border border-line-strong bg-white text-ink hover:bg-mist"
                     : "border-0 bg-pine text-white hover:bg-pine-hover"
                 }`}
-                onClick={() => (ctaState === "edit" ? onEdit() : onAddToCart())}
+                onClick={onAddToCart}
               >
                 {mainLabel}
               </Button>
             )}
             {/* Under the button it explains on phones; under both buttons once they sit side by side. */}
-            {cartEnabled && ctaState === "pick-dates" && !bookingLocked && (
+            {showMain && ctaState === "pick-dates" && !bookingLocked && (
               <p className="text-center text-xs text-ink-2 @md:order-3 @md:col-span-2">{t("pickDatesFirst")}</p>
             )}
             <button
@@ -546,11 +590,9 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
   const locale = useLocale();
   const cart = useBookingCartOptional();
   const [config, setConfig] = useState<{ room: Room; editingLine?: CartLine } | null>(null);
-
-  const handleEditInCart = (room: Room) => {
-    const line = cart?.lines.find((l) => l.roomId === room.id);
-    if (line) setConfig({ room, editingLine: line });
-  };
+  // After the date picker's Done the list starts with one house (see `dates-picked` below).
+  // Keyed to the stay it was made for, so other dates, or none, show every house again.
+  const [focus, setFocus] = useState<{ stay: string; ids: string[] } | null>(null);
 
   const handleAddToCart = (room: Room) => {
     if (!cart) return;
@@ -592,10 +634,98 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
 
   const calendarRoom = calendarRoomId ? rooms.find((r) => r.id === calendarRoomId) : null;
 
+  // A full stay (at least one night). A half-picked range (check-in only) counts
+  // as no dates: every house shows, and nothing chosen is shown or totalled.
+  const from = cart?.dateRange?.from;
+  const to = cart?.dateRange?.to;
+  const nights = cart?.nights ?? 0;
+  const datesChosen = !!from && !!to && nights > 0;
+  const stay = datesChosen ? `${format(from, "yyyy-MM-dd")}|${format(to, "yyyy-MM-dd")}` : "";
+  const nightKeys = useMemo(
+    () => (from && to && nights > 0 ? eachDayOfInterval({ start: from, end: subDays(to, 1) }).map((d) => format(d, "yyyy-MM-dd")) : []),
+    [from, to, nights],
+  );
+
   // Once dates are chosen, only show rooms that are actually available for them
   // (hide rooms fully booked or blocked for the selected range).
-  const datesChosen = !!cart?.dateRange?.from && !!cart?.dateRange?.to;
   const visibleRooms = datesChosen && cart ? rooms.filter((room) => cart.isRoomAvailableForRange(room)) : rooms;
+  const focusIds = datesChosen && focus?.stay === stay ? focus.ids : null;
+  // Chosen houses always stay in view, so nothing counted on the bar is ever hidden.
+  const shownRooms = focusIds ? visibleRooms.filter((r) => focusIds.includes(r.id) || (cart?.countForRoom(r.id) ?? 0) > 0) : visibleRooms;
+  const hiddenRooms = focusIds ? visibleRooms.filter((r) => r.is_active && !shownRooms.includes(r)) : [];
+  // "From" price of the hidden houses: the cheapest average night for this stay.
+  const hiddenFrom =
+    from && to && nights > 0 && hiddenRooms.length > 0
+      ? Math.round(
+          Math.min(
+            ...hiddenRooms.map(
+              (r) =>
+                calculateTotalPrice({ basePricePerNight: r.price_per_night, checkIn: from, checkOut: to, seasons: seasonsByRoom[r.id] || [], specialPrices: specialsByRoom[r.id] || [] }).total / nights,
+            ),
+          ),
+        )
+      : 0;
+
+  // Done on a date picker (BookingCalendarPanel sends `dates-picked`): show one house first —
+  // the one picked on the availability calendar, else the houses already chosen, else the
+  // first free one in the page's order (the popular house leads).
+  useEffect(() => {
+    if (!cart) return;
+    const onPicked = (e: Event) => {
+      const roomId = (e as CustomEvent<{ roomId?: string | null }>).detail?.roomId ?? null;
+      const free = rooms.filter((r) => r.is_active && cart.isRoomAvailableForRange(r));
+      if (!stay || free.length === 0) return setFocus(null);
+      const ids = free.filter((r) => r.id === roomId || cart.countForRoom(r.id) > 0).map((r) => r.id);
+      setFocus({ stay, ids: ids.length > 0 ? ids : [free[0].id] });
+    };
+    document.addEventListener("dates-picked", onPicked);
+    return () => document.removeEventListener("dates-picked", onPicked);
+  }, [cart, rooms, stay]);
+
+  // New dates can leave a chosen house unavailable (or fewer of its units free). Its card is
+  // then hidden, so it must not stay counted: drop what no longer fits and say which house.
+  // Runs on any full stay, not only on Done: the picker writes each tap, and closing it keeps them.
+  useEffect(() => {
+    if (!cart || bookingLocked || !datesChosen) return;
+    const gone: string[] = [];
+    for (const room of rooms) {
+      const mine = cart.lines.filter((l) => l.roomId === room.id);
+      if (mine.length === 0) continue;
+      const free = freeUnitsForStay(room.id, room.quantity || 1, nightKeys, cart.liveBookedRanges, cart.catalog.blockedDates);
+      if (mine.length <= free) continue;
+      for (const line of mine.slice(free)) cart.removeLine(line.lineId);
+      if (free > 0) toast(t("trimmedForDates", { name: room.name, count: free }));
+      else gone.push(room.name);
+    }
+    if (gone.length > 0) toast(t("removedForDates", { names: new Intl.ListFormat(locale, { type: "conjunction" }).format(gone) }));
+  }, [cart, bookingLocked, datesChosen, rooms, nightKeys, t, locale]);
+
+  // "See other houses", and "choose another house" in the config dialog: show every house
+  // and take the guest to the first one they had not seen.
+  const showAllHouses = () => {
+    const next = hiddenRooms[0];
+    setFocus(null);
+    if (!next) return;
+    const reduce = window.matchMedia("(prefers-reduced-motion: reduce)").matches;
+    setTimeout(() => {
+      const card = document.querySelector<HTMLElement>(`[data-room-id="${next.id}"]`);
+      card?.scrollIntoView({ behavior: reduce ? "auto" : "smooth", block: "start" });
+      card?.querySelector<HTMLElement>("[data-room-main]")?.focus({ preventScroll: true });
+    }, 50);
+  };
+
+  // The config dialog (here or on the availability calendar) chose a house and closed
+  // without giving focus back: reveal the rest if asked, else land on the new line.
+  // No deps: it re-subscribes each render, so it always sees the current hidden houses.
+  useEffect(() => {
+    const onChosen = (e: Event) => {
+      const { lineId, more } = (e as CustomEvent<{ lineId: string; more: boolean }>).detail;
+      if (more && hiddenRooms.length > 0) return showAllHouses();
+      requestAnimationFrame(() => document.querySelector<HTMLElement>(`[data-edit-line="${lineId}"]`)?.focus());
+    };
+    document.addEventListener("house-chosen", onChosen);
+    return () => document.removeEventListener("house-chosen", onChosen);
+  });
 
   const disabledDates = useMemo(() => {
     if (!calendarRoomId) return [];
@@ -614,7 +744,7 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
   return (
     <>
       <div className="mt-8 grid gap-5">
-        {visibleRooms.map((room) => (
+        {shownRooms.map((room) => (
           <SingleRoomHero
             key={room.id}
             room={room}
@@ -624,20 +754,36 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
             onCalendar={() => setCalendarRoomId(room.id)}
             onDesc={() => setDescRoomId(room.id)}
             onAddToCart={() => handleAddToCart(room)}
-            onEdit={() => handleEditInCart(room)}
             cartEnabled={!!cart}
             bookingLocked={bookingLocked}
             isPopular={popularRoomIds.has(room.id)}
             unavailableForDates={false}
             datesChosen={datesChosen}
             remaining={cart?.remainingForRoom(room)}
-            inCart={cart?.countForRoom(room.id) ?? 0}
+            inCart={datesChosen ? (cart?.countForRoom(room.id) ?? 0) : 0}
           />
         ))}
         {datesChosen && visibleRooms.length === 0 && (
           <div className="rounded-2xl border border-dashed border-line-strong bg-mist p-8 text-center text-sm text-ink-2">
             {t("noAvailableRooms")}
           </div>
+        )}
+        {focusIds && hiddenRooms.length > 0 && (
+          <div className="text-center">
+            <button
+              type="button"
+              onClick={showAllHouses}
+              disabled={bookingLocked}
+              className="inline-flex min-h-[52px] w-full items-center justify-center gap-2 rounded-full border border-line-strong bg-white px-6 text-[15px] font-medium text-ink transition-colors hover:bg-mist outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2 disabled:opacity-50 md:w-auto md:min-w-80"
+            >
+              <Plus className="h-4 w-4" aria-hidden />
+              {(cart?.lines.length ?? 0) > 0 ? t("bookMoreHouses") : t("showOtherHouses")}
+            </button>
+            <p className="mt-2 text-sm text-ink-2">{t("moreHousesHint", { count: hiddenRooms.length, price: hiddenFrom.toLocaleString() })}</p>
+          </div>
+        )}
+        {focusIds && hiddenRooms.length === 0 && visibleRooms.length > 0 && (
+          <p className="text-center text-sm text-ink-2">{t("noOtherHouses")}</p>
         )}
       </div>
 

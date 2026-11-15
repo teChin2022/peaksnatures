@@ -376,7 +376,7 @@ export function BookingSection({
       // animation, the same 250ms handleStayInBooking uses for this exact
       // reason. The houses are the landing spot: a clean restore opens step 3
       // over them, and a step-1 fallback needs the guest to choose again there
-      // (the page has no booking card at step 1; the cart dialog holds the cart).
+      // (the page has no booking card at step 1; chosen houses show on their cards).
       setTimeout(() => {
         document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "start" });
       }, 250);
@@ -706,9 +706,9 @@ export function BookingSection({
     setTimeout(() => nameInputRef.current?.focus(), 100);
   };
 
-  // The cart dialog (HeaderCart) and the desktop dock start checkout with this event: the
-  // page has no cart card at step 1. Only from step 1, so the header cart, still reachable
-  // above the overlay, cannot pull a guest back out of a later step (and its hold).
+  // The house dialog's "จองเลย", the phone bar and the desktop dock start checkout with this
+  // event: the page has no cart. Only from step 1, so nothing outside the overlay can pull a
+  // guest back out of a later step (and its hold).
   // No deps: re-subscribes each render so the handler always sees the current state.
   useEffect(() => {
     if (bookingDisabled || step !== "dates") return;
@@ -1321,7 +1321,15 @@ export function BookingSection({
   const checkoutStepIndex = { details: 0, review: 1, pay: 2, expired: 2, done: 3 }[checkoutView];
   const checkoutBack =
     checkoutView === "details"
-      ? () => { setStep("dates"); document.dispatchEvent(new Event("open-cart")); }
+      ? () => {
+          setStep("dates");
+          // The chosen houses live on their cards (no cart), so Back lands on the houses.
+          setTimeout(() => {
+            const heading = document.getElementById("rooms-heading");
+            heading?.scrollIntoView({ block: "start" });
+            heading?.focus({ preventScroll: true });
+          }, 50);
+        }
       : checkoutView === "review"
         ? () => setShowConfirmModal(false)
         : checkoutView === "pay"

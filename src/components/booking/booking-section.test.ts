@@ -737,9 +737,10 @@ describe("the review page, between the guest's details and the hold", () => {
 describe("checkout overlay (steps 2–3)", () => {
   const shell = () => document.body.querySelector<HTMLElement>("[data-checkout]")!;
 
-  it("opens the guest details full screen and closes back to the cart on Back", async () => {
-    const openCart = vi.fn();
-    document.addEventListener("open-cart", openCart);
+  it("opens the guest details full screen and closes back to the houses on Back", async () => {
+    const heading = Object.assign(document.createElement("h2"), { id: "rooms-heading", tabIndex: -1 });
+    heading.scrollIntoView = vi.fn();
+    document.body.append(heading);
     await renderForm("normal");
     expect(shell().dataset.checkout).toBe("closed");
     await openDetails();
@@ -752,9 +753,11 @@ describe("checkout overlay (steps 2–3)", () => {
     await click(document.body.querySelector('[data-checkout] button[aria-label="back"]'));
     expect(shell().dataset.checkout).toBe("closed");
     expect(document.documentElement.style.overflow).toBe("");
-    // Back from the details goes to where the guest came from: the cart dialog.
-    expect(openCart).toHaveBeenCalledTimes(1);
-    document.removeEventListener("open-cart", openCart);
+    // There is no cart: Back lands on the houses, where the chosen ones show on their cards.
+    await act(() => new Promise((r) => setTimeout(r, 60)));
+    expect(heading.scrollIntoView).toHaveBeenCalledTimes(1);
+    expect(document.activeElement).toBe(heading);
+    heading.remove();
   });
 
   it("takes the rest of the page out of the tab order while open, and gives it back on close", async () => {

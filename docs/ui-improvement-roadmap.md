@@ -85,7 +85,7 @@ Deferred until the owner decides (direction §10):
 | Item | Fixes | Notes |
 |---|---|---|
 | Accessible guest-details form | B1 | Follow `DESIGN.md` for fields. A small `Field` wrapper over shadcn `Input`/`Label` (label `htmlFor`, `aria-describedby`, `required`), plus `autoComplete` on name, email and phone, and 16px inputs. `earth-700` labels, unspaced, with a 2px Forest focus ring. Name the four icon back buttons. **Done** (found in code 2026-11-14: linked labels and errors, `autoComplete`, 16px inputs, a Pine ring, named back buttons). |
-| Contrast and tiny-text pass | B2, S2, S6 | Step dots, the "ยอดนิยม" badge (Charcoal on an amber tint), clickable next-month days at full opacity, helper lines at `earth-600`, the cart badge (Forest or Charcoal; owner decides with direction §10.6), and a 12px floor. **Done 2026-11-14** except the cart badge, which waits on direction §10.6: clickable next-month days no longer faded, the closed-booking notice at `amber-800`; the popular badge and 12px floor were already in place. |
+| Contrast and tiny-text pass | B2, S2, S6 | Step dots, the "ยอดนิยม" badge (Charcoal on an amber tint), clickable next-month days at full opacity, helper lines at `earth-600`, the cart badge (Forest or Charcoal; owner decides with direction §10.6), and a 12px floor. **Done 2026-11-14** except the cart badge, which waited on direction §10.6 (moot since 2026-11-15: the page has no cart): clickable next-month days no longer faded, the closed-booking notice at `amber-800`; the popular badge and 12px floor were already in place. |
 | One Thai date format | B4 | One `fmtDate` preset, "18 พ.ย. 2569", for the dialog, the sheet and step 1. **Done** (found in code 2026-11-14: "18 พ.ย. 2569" in the picker). |
 | Landing position | B5, part of B18 | `scroll-margin-top` equal to the header height and `block: "start"`; hide the sticky bar while the booking card is in view. Keep the bar's settled content. **Done** (found in code 2026-11-14: `#booking-card` has `scroll-mt-24` and is scrolled to `block: "start"`; `bar-visibility.ts` hides the bars while the card is on screen). |
 | Calm the shell | B6, B9, B10, S9, S10 | No entrance animation on the booking card or the date search. Flat 18px card with no `shadow-xl`. Flat pills. No faux italic. Replace the four filler rows with three real mechanisms: slip checked automatically, deposit now and the rest on arrival, the free-cancellation date. No glass header. **Done 2026-11-14:** no entrance on the booking card or the date search; flat pills, no faux italic and the filler rows were already gone. |
@@ -103,7 +103,7 @@ Deferred until the owner decides (direction §10):
 | Item | Fixes | What changes |
 |---|---|---|
 | Payment guidance | B11 | Labelled timer ("ชำระเงินภายใน 9:59") with a 2-minute warning; numbered phone steps; a full-width "save QR". Moving the deposit choice to the review screen, and keeping the slip after expiry (hold again, then verify), change the payment flow. |
-| In-cart state | B12 | The card shows "✓ อยู่ในรายการจอง · แก้ไข", with a confirmation and "ดูรายการจอง"; "จองบ้านพักนี้" opens that house's dialog. Stopping a re-add of a single-unit house changes cart logic. **Done 2026-11-14** (see ui-audit B12). |
+| In-cart state | B12 | The card shows "✓ อยู่ในรายการจอง · แก้ไข", with a confirmation and "ดูรายการจอง"; "จองบ้านพักนี้" opens that house's dialog. Stopping a re-add of a single-unit house changes cart logic. **Done 2026-11-14** (see ui-audit B12). **Superseded 2026-11-15:** no cart; a chosen house shows its lines (edit, remove) on its card, and its dialog books directly. |
 | Back to the previous step | B14 | The leave dialog gains "กลับไปขั้นตอนก่อนหน้า". The `popstate` guard stays (it is deliberate). |
 | Province order | B15 | Sort by Thai label when the locale is Thai. Data order only. |
 | Recovery | B18, part of B17 | Inline slip errors; the cart kept per homestay in `sessionStorage`; the receipt still reachable after the success modal closes. |
@@ -116,7 +116,7 @@ Deferred until the owner decides (direction §10):
   - the `Field` wrapper links label, input and error (`// @vitest-environment
     happy-dom`).
 - **E2E** (Playwright is not set up; ask before installing):
-  - `booking-flow.spec.ts`: dates → house → cart → step 2, where every field
+  - `booking-flow.spec.ts`: dates → house → "จองเลย" → step 2, where every field
     is reachable by its label. Runs against seeded data and never submits.
   - `booking-a11y.spec.ts`: an axe scan of steps 1–2.
 - **No pgTAP:** no database change.
@@ -185,7 +185,7 @@ From direction §10:
 3. Sage's role.
 4. Body font.
 5. The home hero photo.
-6. The cart badge pulse.
+6. ~~The cart badge pulse.~~ Closed 2026-11-15 (no cart).
 7. The home order.
 8. The dashboard home order.
 

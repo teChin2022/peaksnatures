@@ -66,10 +66,23 @@ describe("DesktopBookingDock", () => {
     render();
     expect(container.textContent).toContain("roomsCount:2");
     expect(container.textContent).toContain("฿3,600");
+    expect(button().textContent).toBe("bookNow");
     act(() => button().click());
     expect(proceed).toHaveBeenCalledTimes(1);
     expect(dialog()).toBeNull();
     document.removeEventListener("proceed-booking", proceed);
+  });
+
+  it("with houses chosen but the stay not fully picked, asks for dates instead of booking", () => {
+    withCart({ lines: 2 });
+    const proceed = vi.fn();
+    document.addEventListener("proceed-booking", proceed);
+    render();
+    expect(button().textContent).toBe("chooseStayDates");
+    act(() => button().click());
+    document.removeEventListener("proceed-booking", proceed);
+    expect(proceed).not.toHaveBeenCalled();
+    expect(dialog()).not.toBeNull();
   });
 
   it("is not shown while bookings are off", () => {

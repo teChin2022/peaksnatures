@@ -13,7 +13,6 @@ import {
 } from "@/components/ui/dropdown-menu";
 import { FullScreenMenu, type MenuItem } from "@/components/full-screen-menu";
 import { LanguageSwitcherIcon } from "@/components/language-switcher-icon";
-import { HeaderCart, type CartPromo } from "@/components/booking/header-cart";
 import { ResumeBookingDialog } from "@/components/booking/resume-booking-dialog";
 
 interface BookingHeaderProps {
@@ -26,17 +25,12 @@ interface BookingHeaderProps {
    * Needs BookingCartProvider, so it stays false on the landing.
    */
   resumeEnabled?: boolean;
-  /**
-   * Landing mode (/[slug]): a Book button links here in place of the cart,
-   * which needs BookingCartProvider.
-   */
+  /** Landing mode (/[slug]): a Book button that links here. /book itself has none. */
   bookHref?: string;
   /** Landing mode: the host can't take bookings, so the Book button is left out. */
   bookingDisabled?: boolean;
   /** Landing section links: inline from xl, in the full-screen menu below it. menuOnly: the menu only (the xl row has no room). */
   navItems?: { href: string; label: string; menuOnly?: boolean }[];
-  /** /book: the referral code a ?promo= link brought, shown in the cart dialog. */
-  promo?: CartPromo | null;
 }
 
 // Solid once the hero's top is scrolled past. Read from the page itself, so a
@@ -52,7 +46,7 @@ const subscribeScroll = (onChange: () => void) => {
 const pastHeroTop = () => window.scrollY > window.innerHeight * 0.15;
 const atTopOnServer = () => false;
 
-export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeEnabled = false, bookHref, bookingDisabled = false, navItems = [], promo = null }: BookingHeaderProps) {
+export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeEnabled = false, bookHref, bookingDisabled = false, navItems = [] }: BookingHeaderProps) {
   const scrolled = useSyncExternalStore(subscribeScroll, pastHeroTop, atTopOnServer);
   // The landing's section links need xl: at lg they wrap to two lines and crowd the Book button.
   const inlineNav = navItems.length > 0;
@@ -149,21 +143,17 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
           </div>
         )}
         <div className="flex items-center gap-2">
-          {bookHref ? (
-            !bookingDisabled && (
-              <Link
-                href={bookHref}
-                // 44px: from md this is the only Book button on screen, and tablets are touch devices.
-                // Over the hero it turns white so it reads on the photo; solid, it is the Pine primary.
-                className={`hidden md:inline-flex h-11 items-center rounded-full px-5 text-[15px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
-                  scrolled ? "bg-pine text-white hover:bg-pine-hover focus-visible:ring-pine" : "bg-white text-pine-deep hover:bg-pine-mist focus-visible:ring-white focus-visible:ring-offset-transparent"
-                }`}
-              >
-                {tb("bookHouse")}
-              </Link>
-            )
-          ) : (
-            <HeaderCart scrolled={scrolled} promo={promo} />
+          {bookHref && !bookingDisabled && (
+            <Link
+              href={bookHref}
+              // 44px: from md this is the only Book button on screen, and tablets are touch devices.
+              // Over the hero it turns white so it reads on the photo; solid, it is the Pine primary.
+              className={`hidden md:inline-flex h-11 items-center rounded-full px-5 text-[15px] font-medium transition-colors outline-none focus-visible:ring-2 focus-visible:ring-offset-2 ${
+                scrolled ? "bg-pine text-white hover:bg-pine-hover focus-visible:ring-pine" : "bg-white text-pine-deep hover:bg-pine-mist focus-visible:ring-white focus-visible:ring-offset-transparent"
+              }`}
+            >
+              {tb("bookHouse")}
+            </Link>
           )}
           <LanguageSwitcherIcon scrolled={scrolled} />
           <button
