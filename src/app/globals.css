@@ -368,3 +368,19 @@
 :lang(th):is([class*="tracking-wide"], [class*="tracking-[0."]) {
   letter-spacing: normal;
 }
+
+/* Toasts (sonner richColors): its default success, error and warning text
+   fails AA on its own tint (4.29, 4.36 and 3.07:1), so they take the DESIGN.md
+   status colours. `html` outranks sonner's equal-specificity rule, which it
+   appends to <head> after this file. Its dark theme keeps its own colours. */
+html [data-sonner-toaster][data-sonner-theme="light"] {
+  --success-bg: var(--color-brand-50);
+  --success-border: var(--color-brand-100);
+  --success-text: var(--color-brand); /* Forest on Forest Mist, 6.68:1 */
+  --error-bg: var(--color-red-50);
+  --error-border: var(--color-red-200);
+  --error-text: var(--color-red-700); /* 5.87:1 */
+  --warning-bg: var(--color-amber-50);
+  --warning-border: var(--color-amber-200);
+  --warning-text: var(--color-amber-800); /* 6.84:1 */
+}

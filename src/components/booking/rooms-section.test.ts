@@ -52,6 +52,8 @@ describe("RoomLightbox thumbnails", () => {
     expect(thumbs()).toHaveLength(4);
     expect(thumbs()[0].getAttribute("aria-current")).toBe("true");
     expect(thumbs()[2].getAttribute("aria-label")).toBe("goToPhoto:3");
+    // The gallery's localized alt, not a hard-coded English "photo N".
+    expect(lightbox().querySelector("img:not([alt=''])")?.getAttribute("alt")).toBe("photoAlt:Baan,1");
 
     act(() => thumbs()[2].click());
     expect(lightbox().textContent).toContain("3 / 4");
@@ -136,6 +138,9 @@ describe("SingleRoomHero house card", () => {
     act(() => buttonsNamed("viewCalendar")[0].click());
     expect(calls.calendar).toBe(1);
     expect(container.textContent).toContain("1 / 3");
+    expect(container.querySelector("img:not([alt=''])")?.getAttribute("alt")).toBe("photoAlt:Baan Mok,1");
+    // The tap area that opens the photos is named in the page's language too.
+    expect(container.querySelector('button[aria-label="showAll"]')).not.toBeNull();
     const thumbs = [...container.querySelectorAll<HTMLButtonElement>("button[aria-current]")];
     expect(thumbs).toHaveLength(3);
     act(() => thumbs[2].click());

@@ -138,6 +138,7 @@ const BLUR_DATA_URL =
 /** Swipeable photos with a thumbnail row — the house card's carousel trimmed to fit a dialog (no lightbox). */
 function RoomPhotos({ images, name }: { images: string[]; name: string }) {
   const t = useTranslations("rooms");
+  const tg = useTranslations("gallery");
   const [index, setIndex] = useState(0);
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   const multi = images.length > 1;
@@ -180,9 +181,9 @@ function RoomPhotos({ images, name }: { images: string[]; name: string }) {
               {isNear(i) && (
                 <Image
                   src={src}
-                  alt={`${name} photo ${i + 1}`}
+                  alt={tg("photoAlt", { name, number: i + 1 })}
                   fill
-                  sizes="(max-width: 640px) 100vw, 512px"
+                  sizes="(max-width: 640px) 100vw, 448px"
                   placeholder="blur"
                   blurDataURL={BLUR_DATA_URL}
                   className="h-full w-full object-cover"
@@ -237,11 +238,12 @@ function RoomPhotos({ images, name }: { images: string[]; name: string }) {
                 if (i === index) el?.scrollIntoView?.({ inline: "nearest", block: "nearest", behavior: thumbScroll() });
               }}
               className={cn(
-                "relative h-10 w-14 shrink-0 overflow-hidden rounded-lg outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-1",
+                // 44px tall: the minimum touch target.
+                "relative h-11 w-16 shrink-0 overflow-hidden rounded-lg outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-1",
                 i === index ? "opacity-100 ring-2 ring-pine" : "opacity-60 hover:opacity-100",
               )}
             >
-              <Image src={src} alt="" fill sizes="56px" className="object-cover" />
+              <Image src={src} alt="" fill sizes="64px" className="object-cover" />
             </button>
           ))}
         </div>
@@ -251,12 +253,28 @@ function RoomPhotos({ images, name }: { images: string[]; name: string }) {
 }
 
 /** Header of a dialog view the guest stepped into from the day's house list. */
-function BackHeader({ title, description, onBack }: { title: string; description: string; onBack: () => void }) {
+function BackHeader({
+  title,
+  description,
+  onBack,
+  className,
+}: {
+  title: string;
+  description: string;
+  onBack: () => void;
+  className?: string;
+}) {
   const tc = useTranslations("common");
+  const titleRef = useRef<HTMLHeadingElement>(null);
+  // Swapping views unmounts the button that held focus, which would drop it on
+  // the dialog itself; the new view's title is where a screen reader should land.
+  useEffect(() => {
+    titleRef.current?.focus();
+  }, []);
   return (
     // text-left overrides DialogHeader's mobile centering: with a back arrow
     // pinned left, a centered line under a left-aligned title reads crooked.
-    <DialogHeader className="pr-10 text-left">
+    <DialogHeader className={cn("pr-10 text-left", className)}>
       {/* gap-2.5 leaves the focus ring (2px + 2px offset) clear of the title. */}
       <div className="flex items-center gap-2.5">
         <button
@@ -267,7 +285,9 @@ function BackHeader({ title, description, onBack }: { title: string; description
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <DialogTitle className="min-w-0 truncate">{title}</DialogTitle>
+        <DialogTitle ref={titleRef} tabIndex={-1} className="min-w-0 truncate outline-none">
+          {title}
+        </DialogTitle>
       </div>
       <DialogDescription>{description}</DialogDescription>
     </DialogHeader>
@@ -324,35 +344,22 @@ function RoomDayDetail({
     [room.price_per_night, date, seasons, specialPrices],
   );
 
+  // The dialog is a flex column in this view (see the section below): the
+  // header and the footer stay put while the body between them scrolls, so
+  // Back, close and Book are always on screen.
   return (
     <>
       <BackHeader
         title={room.name}
         description={fmtDate(date, "EEEE d MMMM yyyy", locale)}
         onBack={onBack}
+        className="px-6 pr-12 pt-6 pb-3"
       />
 
-      {/* One block wrapper, NOT more grid items. DialogContent is a grid, and an
-          aspect-ratio box whose children are all absolute has no in-flow content
-          height — as a direct grid item its row collapses (~8px), the box then
-          renders at its ratio height, overflows the row, and (being positioned)
-          paints over the static siblings below it. Normal block flow resolves
-          the width first, so the ratio sizes correctly — which also lets the
-          dialog's max-h/overflow-y actually scroll. */}
-      <div className="space-y-4">
+      {/* A block wrapper, so the photo's aspect-ratio box (all absolute
+          children, no in-flow height) gets its width before its height. */}
+      <div className="min-h-0 flex-1 space-y-4 overflow-y-auto px-6 pb-4">
         <RoomPhotos images={room.images} name={room.name} />
-
-        <div className="flex items-baseline gap-1.5">
-          <span className="text-2xl font-bold text-ink">
-            ฿{(night?.price ?? room.price_per_night).toLocaleString()}
-          </span>
-          <span className="text-xs text-ink-3">{tc("perNight")}</span>
-          {night?.seasonName && (
-            <span className="ml-1 truncate rounded-full bg-pine/10 px-2 py-0.5 text-xs font-semibold text-pine">
-              {night.seasonName}
-            </span>
-          )}
-        </div>
 
         <div className="flex flex-wrap items-center gap-2 text-xs">
           <span className="inline-flex items-center gap-1.5 rounded-full bg-mist-2 px-2.5 py-1 text-ink-2">
@@ -364,16 +371,30 @@ function RoomDayDetail({
           </span>
         </div>
 
-        {/* The headline above prices only the tapped night; this is what the
-            house costs the rest of the year, same table as the house card. */}
-        <RoomRateTable room={room} seasonalPrices={seasons} specialPrices={specialPrices} />
-
+        {/* What the house is, before what it costs across the year. */}
         {room.description && (
           <HTMLContent content={room.description} className="text-sm leading-relaxed text-ink-2" />
         )}
 
+        {/* The footer prices only the tapped night; this is what the house
+            costs the rest of the year, same table as the house card. */}
+        <RoomRateTable room={room} seasonalPrices={seasons} specialPrices={specialPrices} />
+      </div>
+
+      <div className="flex items-center gap-3 border-t border-line px-6 py-4">
+        <div className="min-w-0 flex-1">
+          <p className="flex items-baseline gap-1 tabular-nums">
+            <span className="text-xl font-bold text-ink">
+              ฿{(night?.price ?? room.price_per_night).toLocaleString()}
+            </span>
+            <span className="text-xs text-ink-3">{tc("perNight")}</span>
+          </p>
+          {night?.seasonName && (
+            <p className="truncate text-xs font-semibold text-pine">{night.seasonName}</p>
+          )}
+        </div>
         <Button
-          className="w-full rounded-full bg-pine px-6 py-3.5 h-auto text-sm font-bold text-white hover:bg-pine-hover focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
+          className="h-auto shrink-0 rounded-full bg-pine px-6 py-3.5 text-sm font-bold text-white hover:bg-pine-hover focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
           onClick={onBook}
         >
           {t("bookThisHouse")}
@@ -404,6 +425,15 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
   const [pickRoomId, setPickRoomId] = useState<string | null>(null);
   // The house config dialog (guests, add-ons) the picker hands over to.
   const [config, setConfig] = useState<{ room: Room; editingLine?: CartLine } | null>(null);
+  // The list button ("details:<id>" or "book:<id>") that Back returns focus to:
+  // the view swap unmounted it, so focus would otherwise land on the dialog.
+  const returnFocus = useRef<string | null>(null);
+  const focusOnReturn = (key: string) => (el: HTMLButtonElement | null) => {
+    if (el && returnFocus.current === key) {
+      returnFocus.current = null;
+      el.focus();
+    }
+  };
 
   const activeRooms = useMemo(
     () => catalog.rooms.filter((r) => r.is_active),
@@ -598,9 +628,17 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
       <Dialog open={open} onOpenChange={handleOpenChange}>
         <DialogContent
           className={cn(
-            "max-h-[85vh] overflow-y-auto",
+            // One width for all three views, so the dialog does not jump between them.
+            "max-h-[85vh] sm:max-w-md",
+            // grid-cols-1, not the grid's default auto column: that one grows to
+            // its widest content (a row of many thumbnails, a long house name)
+            // and pushed the dialog past the screen.
             // The picker's 44px days need the narrower phone padding to fit 7 across.
-            pickRoom ? "grid-cols-1 p-4 sm:max-w-md sm:p-6" : showDetail ? "sm:max-w-lg" : "sm:max-w-md",
+            pickRoom
+              ? "grid-cols-1 overflow-y-auto p-4 sm:p-6"
+              : showDetail
+                ? "flex flex-col gap-0 p-0"
+                : "grid-cols-1 overflow-y-auto",
           )}
         >
           {pickRoom ? (
@@ -608,7 +646,10 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
               <BackHeader
                 title={tb("selectDates")}
                 description={pickRoom.name}
-                onBack={cancelPick}
+                onBack={() => {
+                  if (!detailRoomId) returnFocus.current = `book:${pickRoom.id}`;
+                  cancelPick();
+                }}
               />
               {/* Seeded with the tapped date as check-in and scoped to the
                   house, so its booked nights can't be selected. */}
@@ -619,7 +660,10 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
               room={detailRoom}
               date={selectedDate}
               freeCount={detailRow.free}
-              onBack={() => setDetailRoomId(null)}
+              onBack={() => {
+                returnFocus.current = `details:${detailRoom.id}`;
+                setDetailRoomId(null);
+              }}
               onBook={() => handleBook(detailRoom.id)}
             />
           ) : (
@@ -654,6 +698,7 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
                               {/* -my-3 keeps the 44px tap target without making the line 44px tall. */}
                               <button
                                 type="button"
+                                ref={focusOnReturn(`details:${row.roomId}`)}
                                 onClick={() => setDetailRoomId(row.roomId)}
                                 className="-my-3 inline-flex min-h-11 min-w-0 items-center truncate text-ink-2 underline underline-offset-2 transition-colors hover:text-ink focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
                               >
@@ -668,6 +713,7 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
                       {bookable && (
                         <button
                           type="button"
+                          ref={focusOnReturn(`book:${row.roomId}`)}
                           className="flex min-h-11 shrink-0 items-center justify-center whitespace-nowrap rounded-full border border-line-strong bg-white px-5 text-sm font-medium text-ink transition-colors hover:bg-mist outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
                           onClick={() => handleBook(row.roomId)}
                         >

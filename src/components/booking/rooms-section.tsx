@@ -46,6 +46,7 @@ const BLUR_DATA_URL =
 export function RoomLightbox({ images, name, startIndex, onClose }: { images: string[]; name: string; startIndex: number; onClose: () => void }) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
+  const tg = useTranslations("gallery");
   const [index, setIndex] = useState(startIndex);
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   const prevImage = useCallback(() => setIndex((i) => (i > 0 ? i - 1 : images.length - 1)), [images.length]);
@@ -82,7 +83,7 @@ export function RoomLightbox({ images, name, startIndex, onClose }: { images: st
           <Image
             key={images[index]}
             src={images[index]}
-            alt={`${name} photo ${index + 1}`}
+            alt={tg("photoAlt", { name, number: index + 1 })}
             width={1920}
             height={1080}
             sizes="90vw"
@@ -338,6 +339,7 @@ export function SingleRoomHero({
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
   const ta = useTranslations("about");
+  const tg = useTranslations("gallery");
   const [index, setIndex] = useState(0);
   const [containerEl, setContainerEl] = useState<HTMLDivElement | null>(null);
   const [seen, setSeen] = useState<Set<number>>(() => new Set([0]));
@@ -422,7 +424,7 @@ export function SingleRoomHero({
                   {shouldMount && (
                     <Image
                       src={src}
-                      alt={`${room.name} photo ${i + 1}`}
+                      alt={tg("photoAlt", { name: room.name, number: i + 1 })}
                       fill
                       sizes="(max-width: 768px) 100vw, 52vw"
                       priority={i === 0}
@@ -437,7 +439,7 @@ export function SingleRoomHero({
           </div>
 
           {/* Click area for lightbox */}
-          <button type="button" className="absolute inset-0 z-[1] cursor-pointer" onClick={onLightbox} aria-label="View photos" />
+          <button type="button" className="absolute inset-0 z-[1] cursor-pointer" onClick={onLightbox} aria-label={tg("showAll")} />
 
           {(isPopular || inCart > 0) && (
             <div className="pointer-events-none absolute left-3 top-3 z-20 flex flex-wrap gap-1.5">
@@ -487,11 +489,12 @@ export function SingleRoomHero({
                 aria-label={t("goToPhoto", { number: i + 1 })}
                 aria-current={i === index}
                 onClick={() => goTo(i)}
-                className={`relative h-10 w-14 shrink-0 overflow-hidden rounded-lg outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-1 ${
+                // 44px tall: the minimum touch target, same as the availability calendar's house photos.
+                className={`relative h-11 w-16 shrink-0 overflow-hidden rounded-lg outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-1 ${
                   i === index ? "opacity-100 ring-2 ring-pine md:ring-white" : "opacity-60 hover:opacity-100"
                 }`}
               >
-                <Image src={src} alt="" fill sizes="56px" className="object-cover" />
+                <Image src={src} alt="" fill sizes="64px" className="object-cover" />
               </button>
             ))}
           </div>

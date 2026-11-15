@@ -32,7 +32,8 @@ export function RoomRateTable({
     <div className={cn("rounded-2xl bg-mist px-5 py-5", className)}>
       {/* Eyebrow + hairline */}
       <div className="mb-4 flex items-center gap-3">
-        <h4 className="text-xs font-semibold text-ink-3">{t("priceDetailsTitle")}</h4>
+        {/* h3: both dialogs that show this table title it with an h2. */}
+        <h3 className="text-xs font-semibold text-ink-3">{t("priceDetailsTitle")}</h3>
         <div className="h-px flex-1 bg-line" />
       </div>
 
