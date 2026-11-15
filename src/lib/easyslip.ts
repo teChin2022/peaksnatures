@@ -234,7 +234,7 @@ export function matchesAccount(easyslipVal: string | undefined | null, expected:
  * which is what makes each half of the check below opt-in.
  */
 export function validateReceiver(
-  rawSlip: EasySlipV2RawSlip,
+  rawSlip: Pick<EasySlipV2RawSlip, "receiver">,
   expectedReceiver: string | null,
   expectedReceiverBank: string | null,
 ): boolean {

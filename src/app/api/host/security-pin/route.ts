@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { pinAttemptKey, pinAttemptLimit } from "@/lib/security-pin";
 import bcrypt from "bcryptjs";
 
 // POST — Set PIN for the first time (during setup)
@@ -63,6 +64,9 @@ export async function PUT(req: Request) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    // Per-host PIN tries (src/lib/security-pin.ts, audit F-13).
+    const pinLimited = await pinAttemptLimit.checkKey(pinAttemptKey(user.id));
+    if (pinLimited) return pinLimited;
 
     const { currentPin, newPin } = await req.json();
 

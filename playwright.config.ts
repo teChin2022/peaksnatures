@@ -28,6 +28,12 @@ export default defineConfig({
     locale: "th-TH",
     timezoneId: "Asia/Bangkok",
     trace: "retain-on-failure",
+    // startSession serves /{slug}/book from route.fulfill, and Chrome's Local
+    // Network Access checks then block that page's dev websocket to localhost.
+    // Since Next 16.4 the dev server needs it to load the page's dynamic
+    // chunks, so the date picker never opened (64 failures). Production builds
+    // (E2E_BASE_URL) passed either way; this only affects `next dev`.
+    launchOptions: { args: ["--disable-features=LocalNetworkAccessChecks"] },
   },
   projects: [
     {

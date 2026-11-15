@@ -24,6 +24,8 @@ const h = vi.hoisted(() => ({
   sendRecommenderPromoUsedNotification: vi.fn(),
   rateLimitCheck: vi.fn(),
   verifyTurnstileToken: vi.fn(),
+  claimVerifiedSlip: vi.fn(),
+  releaseVerifiedSlip: vi.fn(),
 }));
 
 vi.mock("@/lib/rate-limit", () => ({ createRateLimiter: () => ({ check: h.rateLimitCheck }) }));
@@ -46,6 +48,10 @@ vi.mock("@/lib/billing", () => ({
   HOST_BLOCK_COLUMNS: "plan_type, plan_free_expires_at, wallet_balance, wallet_credit_limit, wallet_negative_since",
 }));
 vi.mock("@/lib/plan-expiry", () => ({ isHostBlocked: h.isHostBlocked }));
+vi.mock("@/lib/verified-slips", () => ({
+  claimVerifiedSlip: h.claimVerifiedSlip,
+  releaseVerifiedSlip: h.releaseVerifiedSlip,
+}));
 vi.mock("@/lib/notifications", () => ({
   sendBookingConfirmationEmail: h.sendBookingConfirmationEmail,
   sendQuickBookingEmail: h.sendQuickBookingEmail,
@@ -85,7 +91,9 @@ const body = (over: Record<string, unknown> = {}) => ({
 const homestayRow = (over: Record<string, unknown> = {}) => ({
   host_id: "host-1",
   promo_codes_enabled: false,
-  hosts: {
+  ...over,
+  // A test's host fields layer over these (status included); `hosts: null` is a missing row.
+  hosts: over.hosts === null ? null : {
     plan_type: "commission",
     plan_free_expires_at: null,
     wallet_balance: 5000,
@@ -93,9 +101,11 @@ const homestayRow = (over: Record<string, unknown> = {}) => ({
     wallet_negative_since: null,
     deposit_amount: 0,
     deposit_by_month: null,
+    promptpay_id: "0812345678",
+    bank_account_number: null,
+    status: "approved",
     ...(over.hosts as Record<string, unknown> | undefined),
   },
-  ...over,
 });
 
 /** The table script for a plain two-night booking at 1000/night. */
@@ -168,6 +178,9 @@ beforeEach(() => {
   h.isHostBlocked.mockReturnValue(false);
   h.rateLimitCheck.mockResolvedValue(null);
   h.verifyTurnstileToken.mockResolvedValue("pass");
+  // The slip matches the server's record unless a test says otherwise.
+  h.claimVerifiedSlip.mockResolvedValue(true);
+  h.releaseVerifiedSlip.mockResolvedValue(undefined);
   mockClient();
 });
 
@@ -191,9 +204,10 @@ describe("POST /api/bookings", () => {
     );
   });
 
-  it("marks an unverified slip as pending rather than confirmed", async () => {
+  it("marks a slip the server could not match as pending rather than confirmed", async () => {
     const supabase = mockClient();
-    await post(body({ easyslip_verified: false }));
+    h.claimVerifiedSlip.mockResolvedValue(false);
+    await post(body());
 
     expect(supabase.rpc).toHaveBeenCalledWith(
       "create_booking_atomic",
@@ -214,8 +228,60 @@ describe("POST /api/bookings", () => {
   });
 
   it("leaves the stats cache alone for an unverified booking", async () => {
-    await post(body({ easyslip_verified: false }));
+    h.claimVerifiedSlip.mockResolvedValue(false);
+    await post(body());
     expect(h.revalidateTag).not.toHaveBeenCalledWith("admin-stats", "max");
+  });
+
+  describe("whether the slip paid for it is decided on the server", () => {
+    it("claims the slip for the amount the server charges, paid to this host's accounts", async () => {
+      await post(body({ total_price: 1 }));
+
+      expect(h.claimVerifiedSlip).toHaveBeenCalledWith(expect.anything(), {
+        slipHash: "a".repeat(64),
+        amount: 2000,
+        promptpayId: "0812345678",
+        bankAccountNumber: null,
+      });
+    });
+
+    it("claims the host's deposit, not the full price, for a deposit booking", async () => {
+      mockClient({ tables: tables({ homestays: { data: homestayRow({ hosts: { deposit_amount: 500 } }) } }) });
+
+      await post(body({ payment_type: "deposit" }));
+
+      expect(h.claimVerifiedSlip).toHaveBeenCalledWith(expect.anything(), expect.objectContaining({ amount: 500 }));
+    });
+
+    // F-01: the client used to decide this itself, with `true` as the default.
+    it("keeps a booking pending when the client says verified but the server cannot match the slip", async () => {
+      const supabase = mockClient();
+      h.claimVerifiedSlip.mockResolvedValue(false);
+
+      await post(body({ easyslip_verified: true, slip_hash: "made-up" }));
+
+      expect(supabase.rpc).toHaveBeenCalledWith(
+        "create_booking_atomic",
+        expect.objectContaining({ p_status: "pending", p_easyslip_verified: false, p_payment_slip_hash: "made-up" }),
+      );
+      expect(h.deductCommission).not.toHaveBeenCalled();
+    });
+
+    it("frees the slip again when the dates were taken first", async () => {
+      mockClient({ rpc: { create_booking_atomic: { error: { message: "DATES_UNAVAILABLE" } } } });
+
+      expect((await post(body())).status).toBe(409);
+      expect(h.releaseVerifiedSlip).toHaveBeenCalledWith(expect.anything(), "a".repeat(64));
+    });
+
+    it("has nothing to free when the slip was never claimed", async () => {
+      h.claimVerifiedSlip.mockResolvedValue(false);
+      mockClient({ rpc: { create_booking_atomic: { error: { message: "DATES_UNAVAILABLE" } } } });
+
+      await post(body());
+
+      expect(h.releaseVerifiedSlip).not.toHaveBeenCalled();
+    });
   });
 
   describe("validation", () => {
@@ -276,10 +342,19 @@ describe("POST /api/bookings", () => {
       expect((await post(body())).status).toBe(201);
     });
 
-    it("proceeds when the homestay has no host row to check", async () => {
-      mockClient({ tables: tables({ homestays: { data: null } }) });
-      expect((await post(body())).status).toBe(201);
-      expect(h.hostBlockStateFrom).not.toHaveBeenCalled();
+    it("refuses when the homestay or its host cannot be read, rather than booking blind", async () => {
+      const supabase = mockClient({ tables: tables({ homestays: { data: null } }) });
+      expect((await post(body())).status).toBe(403);
+      expect(supabase.rpc).not.toHaveBeenCalled();
+    });
+
+    // F-14: a host nobody approved could publish a page and take bookings.
+    it.each(["pending", "rejected"])("refuses a booking at a %s host's homestay", async (status) => {
+      const supabase = mockClient({ tables: tables({ homestays: { data: homestayRow({ hosts: { status } }) } }) });
+
+      expect((await post(body())).status).toBe(403);
+      expect(supabase.rpc).not.toHaveBeenCalled();
+      expect(h.claimVerifiedSlip).not.toHaveBeenCalled();
     });
   });
 
@@ -582,7 +657,7 @@ describe("POST /api/bookings", () => {
 
     it("refuses a deposit when the host row cannot be read", async () => {
       mockClient({ tables: depositTables(null) });
-      expect((await post(body({ payment_type: "deposit" }))).status).toBe(400);
+      expect((await post(body({ payment_type: "deposit" }))).status).toBe(403);
     });
 
     it("pays the full price when no deposit was requested", async () => {
@@ -700,7 +775,8 @@ describe("POST /api/bookings", () => {
         }),
       });
 
-      await post(body({ total_price: 0, promo_code_id: PROMO_ID, easyslip_verified: false }));
+      h.claimVerifiedSlip.mockResolvedValue(false);
+      await post(body({ total_price: 0, promo_code_id: PROMO_ID }));
       await runAfter();
 
       expect(h.sendRecommenderPromoUsedNotification).not.toHaveBeenCalled();
@@ -713,82 +789,18 @@ describe("POST /api/bookings", () => {
     });
   });
 
-  describe("a booking with no room", () => {
-    const noRoom = () => body({ room_id: undefined });
+  // The room-less insert path skipped pricing and the overlap check and took
+  // the client total as given, which drove commission with no ceiling. The
+  // booking form always sends a house, so the path is gone.
+  it("refuses a booking with no house instead of inserting it", async () => {
+    const supabase = mockClient();
 
-    it("inserts directly, skipping the atomic room reservation", async () => {
-      const supabase = mockClient();
+    const { status } = await readJson(await post(body({ room_id: undefined, total_price: 10_000_000 })));
 
-      const { status, body: result } = await readJson(await post(noRoom()));
-
-      expect(status).toBe(201);
-      expect(result).toMatchObject({ booking: { id: BOOKING_ID } });
-      expect(supabase.rpc).not.toHaveBeenCalled();
-      expect(supabase.builderFor("bookings").insert).toHaveBeenCalledWith(
-        expect.objectContaining({
-          homestay_id: HOMESTAY_ID,
-          room_id: null,
-          status: "confirmed",
-          payment_type: "full",
-          amount_paid: 2000,
-          discount_amount: 0,
-        }),
-      );
-    });
-
-    it("takes the client price as given, since there is no room to price against", async () => {
-      const supabase = mockClient();
-      await post(body({ room_id: undefined, total_price: 4242 }));
-
-      expect(supabase.builderFor("bookings").insert).toHaveBeenCalledWith(
-        expect.objectContaining({ total_price: 4242, amount_paid: 4242 }),
-      );
-    });
-
-    it("records an unverified booking as pending and charges no commission", async () => {
-      const supabase = mockClient();
-      await post(body({ room_id: undefined, easyslip_verified: false }));
-
-      expect(supabase.builderFor("bookings").insert).toHaveBeenCalledWith(
-        expect.objectContaining({ status: "pending", easyslip_verified: false }),
-      );
-      expect(h.deductCommission).not.toHaveBeenCalled();
-    });
-
-    it("charges commission on a verified booking", async () => {
-      await post(noRoom());
-      expect(h.deductCommission).toHaveBeenCalledWith(BOOKING_ID);
-    });
-
-    it("still honours the host's deposit configuration", async () => {
-      const supabase = mockClient({
-        tables: tables({
-          homestays: { data: homestayRow({ hosts: { deposit_amount: 500, deposit_by_month: null } }) },
-        }),
-      });
-
-      await post(body({ room_id: undefined, payment_type: "deposit" }));
-      expect(supabase.builderFor("bookings").insert).toHaveBeenCalledWith(
-        expect.objectContaining({ payment_type: "deposit", amount_paid: 500 }),
-      );
-    });
-
-    it("busts the availability cache and defers the notifications", async () => {
-      await post(noRoom());
-      expect(h.revalidateTag).toHaveBeenCalledWith(`booking-availability:${HOMESTAY_ID}`, "max");
-
-      await runAfter();
-      expect(h.logEvent).toHaveBeenCalledWith(expect.objectContaining({ entityId: BOOKING_ID }));
-      expect(h.dispatchHostNotification).toHaveBeenCalled();
-    });
-
-    it("reports 500 when the insert fails", async () => {
-      mockClient({ tables: tables({ bookings: { data: null, error: { message: "constraint" } } }) });
-      await expect(readJson(await post(noRoom()))).resolves.toEqual({
-        status: 500,
-        body: { error: "Failed to create booking" },
-      });
-    });
+    expect(status).toBe(400);
+    expect(supabase.from).not.toHaveBeenCalled();
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(h.deductCommission).not.toHaveBeenCalled();
   });
 
   describe("guest quick booking", () => {
@@ -852,7 +864,7 @@ describe("POST /api/bookings", () => {
         mockClient({ tables: tables({ homestays: { data: null } }) });
         const { status, body: result } = await readJson(await post(quickBody()));
         expect(status).toBe(403);
-        expect(result).toMatchObject({ code: "QUICK_NOT_ENABLED" });
+        expect(result).toMatchObject({ error: "This homestay is not available for bookings" });
       });
 
       it("refuses a normal booking for a host on quick only, even by direct POST", async () => {
@@ -896,6 +908,8 @@ describe("POST /api/bookings", () => {
           expect.objectContaining({ ...PENDING_RPC, p_total_price: 2000, p_amount_paid: 2000 }),
         );
         expect(h.deductCommission).not.toHaveBeenCalled();
+        // No slip, so nothing to claim, even when the client sends one.
+        expect(h.claimVerifiedSlip).not.toHaveBeenCalled();
       });
 
       it("works for a host on both", async () => {
@@ -1058,7 +1072,8 @@ describe("POST /api/bookings", () => {
       });
 
       it("keeps the pending email and flagged wording for a slip that failed verification", async () => {
-        await post(body({ easyslip_verified: false }));
+        h.claimVerifiedSlip.mockResolvedValue(false);
+        await post(body());
         await runAfter();
 
         expect(h.sendBookingConfirmationEmail).toHaveBeenCalledWith(expect.anything(), "th", "pending");

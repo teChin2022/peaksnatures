@@ -6,18 +6,33 @@ import { sendHostCancellationLineNotification, sendHostCancellationSmsNotificati
 import type { Booking, Homestay, Host, Room } from "@/types/database";
 import { logEvent, EventType } from "@/lib/history-log";
 import { cancelRedemptionForBooking } from "@/lib/promo-redemptions-server";
+import { createRateLimiter } from "@/lib/rate-limit";
+
+const cancelRateLimit = createRateLimiter({ limit: 10, windowMs: 10 * 60_000, name: "guest-cancel" });
 
 export async function POST(req: NextRequest) {
+  const rateLimited = await cancelRateLimit.check(req);
+  if (rateLimited) return rateLimited;
+
   try {
     const body = await req.json();
-    const { booking_id, reason } = body as {
+    const { booking_id, guest_email, reason } = body as {
       booking_id: string;
+      guest_email?: string;
       reason?: string;
     };
 
     if (!booking_id) {
       return NextResponse.json(
         { error: "booking_id is required" },
+        { status: 400 }
+      );
+    }
+    // The booking id alone used to be enough to cancel anyone's stay (audit
+    // F-06): it travels in emails and was searchable. The email must match too.
+    if (!guest_email || typeof guest_email !== "string") {
+      return NextResponse.json(
+        { error: "guest_email is required" },
         { status: 400 }
       );
     }
@@ -39,6 +54,10 @@ export async function POST(req: NextRequest) {
     }
 
     const booking = bookingRow as unknown as Booking;
+
+    if ((booking.guest_email || "").toLowerCase() !== guest_email.trim().toLowerCase()) {
+      return NextResponse.json({ error: "Email does not match the booking" }, { status: 403 });
+    }
 
     // Only confirmed bookings can be cancelled by guest
     if (booking.status !== "confirmed") {

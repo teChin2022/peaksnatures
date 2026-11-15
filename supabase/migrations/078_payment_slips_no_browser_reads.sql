@@ -1,0 +1,31 @@
+-- ============================================================================
+-- 078: No more browser reads of the payment-slips bucket.
+--
+-- Security audit 2026-11-15, F-09. 001's "Authenticated users can view payment
+-- slips" let any signed-in user (and anyone can register) list and sign every
+-- slip in the bucket, every tenant's: guests' transfer slips with names, banks
+-- and amounts, and hosts' own payments to the platform. Slip paths
+-- (pending/<uuid>/slip.<ext>) carry no tenant, so the policy could not simply
+-- be narrowed.
+--
+-- The only browser readers were /dashboard/bookings and /dashboard/calendar,
+-- which now get signed URLs from POST /api/host/booking-slips: it checks the
+-- bookings belong to the host's homestays and signs with the service role.
+-- Every other reader and writer of the bucket is already a route on the
+-- service role. booking-attachments (068) keeps its own tenant-scoped policy.
+--
+-- Not changed here: "Anyone can upload payment slips" (anon INSERT), which no
+-- browser code uses either. Audit finding F-18, scheduled separately.
+--
+-- Rollback:
+--   CREATE POLICY "Authenticated users can view payment slips"
+--     ON storage.objects FOR SELECT
+--     USING (bucket_id = 'payment-slips' AND auth.role() = 'authenticated');
+--
+-- Check after applying (should return no rows):
+--   SELECT policyname FROM pg_policies
+--   WHERE schemaname = 'storage' AND tablename = 'objects'
+--     AND cmd IN ('SELECT', 'ALL') AND coalesce(qual, '') LIKE '%payment-slips%';
+-- ============================================================================
+
+DROP POLICY IF EXISTS "Authenticated users can view payment slips" ON storage.objects;

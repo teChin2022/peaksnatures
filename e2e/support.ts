@@ -337,12 +337,22 @@ export async function stubChangeBooking(page: Page) {
   await page.route(/\/rest\/v1\/blocked_dates\?/, (route) => json(route, []));
 }
 
+/**
+ * The guest lookup fields (booking search, review lookup): phone AND email,
+ * those of stubbedBooking(). Both are required since the search stopped
+ * taking either one alone.
+ */
+export async function fillGuestLookup(page: Page, t: { phonePlaceholder: string; emailPlaceholder: string }) {
+  const phone = page.getByPlaceholder(t.phonePlaceholder);
+  await expect(phone).toBeEnabled();
+  await phone.fill("0898765432");
+  await page.getByPlaceholder(t.emailPlaceholder).fill("e2e@example.com");
+}
+
 /** Opens /{slug}/change-booking and finds the stubbed booking. */
 export async function findBooking(page: Page, slug: string) {
   await page.goto(`/${slug}/change-booking`);
-  const search = page.getByPlaceholder(T.bookingSearch.placeholder);
-  await expect(search).toBeEnabled();
-  await search.fill(CHANGE.bookingId.slice(0, 8));
+  await fillGuestLookup(page, T.bookingSearch);
   await page.getByRole("button", { name: T.bookingSearch.search, exact: true }).click();
   await expect(page.getByRole("button", { name: T.bookingSearch.changeDates })).toBeVisible();
 }

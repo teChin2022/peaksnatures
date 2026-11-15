@@ -15,10 +15,8 @@ import {
   DialogHeader,
   DialogTitle,
 } from "@/components/ui/dialog";
-import { createClient } from "@/lib/supabase/client";
 
 interface SetupProfileModalProps {
-  hostId: string;
   hasPhone: boolean;
   hasPromptpay: boolean;
   hasPinSet: boolean;
@@ -26,7 +24,6 @@ interface SetupProfileModalProps {
 }
 
 export function SetupProfileModal({
-  hostId,
   hasPhone,
   hasPromptpay,
   hasPinSet,
@@ -75,16 +72,18 @@ export function SetupProfileModal({
     setLoading(true);
     try {
       // Update phone & promptpay if needed
+      // Through the server, which only fills empty fields: the browser no
+      // longer has write access to phone or promptpay_id (migration 079).
       if (needsPhone || needsPromptpay) {
-        const supabase = createClient();
-        const { error: updateError } = await supabase
-          .from("hosts")
-          .update(setupProfileUpdate({ needsPhone, phone, needsPromptpay, promptpayId }) as never)
-          .eq("id", hostId);
+        const res = await fetch("/api/host/setup-profile", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(setupProfileUpdate({ needsPhone, phone, needsPromptpay, promptpayId })),
+        });
 
-        if (updateError) {
+        if (!res.ok) {
           setError(t("errorGeneric"));
-          console.error("Profile update error:", updateError);
+          console.error("Profile update error:", res.status);
           return;
         }
       }

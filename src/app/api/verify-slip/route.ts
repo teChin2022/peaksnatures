@@ -10,6 +10,7 @@ import {
   ALLOWED_TYPES,
   MAX_SLIP_AGE_MS,
 } from "@/lib/easyslip";
+import { recordVerifiedSlip } from "@/lib/verified-slips";
 
 /**
  * Must exceed EASYSLIP_TOTAL_BUDGET_MS (45s) in src/lib/easyslip.ts. With no
@@ -252,10 +253,21 @@ export async function POST(req: NextRequest) {
       }
     }
 
+    const slipAmount = easySlipData.data.amountInSlip ?? rawSlip.amount.amount;
+
+    // What the slip says, kept on the server. The routes that take the guest's
+    // money decide from this record against their own amount and the host's
+    // account (src/lib/verified-slips.ts), never from the verdict below, whose
+    // expected amount and receiver came from the browser.
+    await recordVerifiedSlip(supabase, {
+      slipHash,
+      transRef: transRef || null,
+      amount: slipAmount,
+      receiver: rawSlip.receiver ?? null,
+    });
+
     // V2 built-in amount matching (if matchAmount was sent)
     const amountMatchedByV2 = easySlipData.data.isAmountMatched;
-    // Fallback: our own amount check
-    const slipAmount = easySlipData.data.amountInSlip ?? rawSlip.amount.amount;
     const amountMatch = amountMatchedByV2 === true || slipAmount === expectedAmount;
 
     // Receiver matching (still our own — V2 matchAccount requires dashboard config)

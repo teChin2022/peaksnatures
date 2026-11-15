@@ -19,10 +19,14 @@ import { deductCommission, hostBlockStateFrom, HOST_BLOCK_COLUMNS, type HostBloc
 import { isHostBlocked } from "@/lib/plan-expiry";
 import { computeCommissionAmount, computePromoDiscount, evaluatePromoCode } from "@/lib/promo-codes";
 import { guardGuestBookingMode, quickBookingRateLimit } from "./guest-quick";
+import { claimVerifiedSlip, releaseVerifiedSlip } from "@/lib/verified-slips";
+import { isHostApproved } from "@/lib/public-host";
 
 const bookingSchema = z.object({
   homestay_id: z.string().uuid(),
-  room_id: z.string().uuid().optional(),
+  // Required: a booking without a house had its own insert path that skipped
+  // pricing and the overlap check, and the booking form never used it.
+  room_id: z.string().uuid(),
   guest_name: z.string().min(1, "Name is required"),
   guest_email: z.string().email("Valid email required"),
   guest_phone: z.string().min(1, "Phone is required"),
@@ -38,7 +42,8 @@ const bookingSchema = z.object({
   slip_trans_ref: z.string().nullable().optional(),
   payment_slip_url: z.string().nullable().optional(),
   easyslip_response: z.unknown().optional(),
-  easyslip_verified: z.boolean().optional().default(true),
+  // No `easyslip_verified`: whether the slip paid for this booking is decided
+  // on the server from /api/verify-slip's record (claimVerifiedSlip below).
   // Session ID for hold cleanup
   session_id: z.string().optional(),
   notes: z.string().optional(),
@@ -54,7 +59,7 @@ const bookingSchema = z.object({
   })).optional().default([]),
   promo_code_id: z.string().uuid().optional(),
   // Guest quick booking: needs a host on `quick` or `both`. The server then
-  // ignores every slip field and `easyslip_verified` sent with it.
+  // ignores every slip field sent with it.
   quick: z.boolean().optional(),
   turnstile_token: z.string().optional(),
 }).superRefine((d, ctx) => {
@@ -151,7 +156,7 @@ export async function POST(req: NextRequest) {
     const { data: homestayRow } = await supabase
       .from("homestays")
       .select(
-        `host_id, promo_codes_enabled, hosts(${HOST_BLOCK_COLUMNS}, deposit_amount, deposit_by_month, guest_booking_mode)`,
+        `host_id, promo_codes_enabled, hosts(${HOST_BLOCK_COLUMNS}, deposit_amount, deposit_by_month, guest_booking_mode, promptpay_id, bank_account_number, status)`,
       )
       .eq("id", data.homestay_id)
       .single();
@@ -164,10 +169,20 @@ export async function POST(req: NextRequest) {
             deposit_amount: number;
             deposit_by_month: Record<string, number> | null;
             guest_booking_mode: string | null;
+            promptpay_id: string | null;
+            bank_account_number: string | null;
+            status: string | null;
           })
         | null;
     } | null;
 
+    // Only an admin-approved host takes bookings (audit F-14).
+    if (!isHostApproved(homestayCtx?.hosts)) {
+      return NextResponse.json(
+        { error: "This homestay is not available for bookings" },
+        { status: 403 }
+      );
+    }
     // Check if host is soft-blocked (free expired, overdue invoice, or overdrawn wallet)
     const hostId = homestayCtx?.host_id;
     if (hostId && homestayCtx?.hosts) {
@@ -193,7 +208,6 @@ export async function POST(req: NextRequest) {
     if (quick) {
       // Nothing was verified, whatever the client says: pending, no slip on
       // file, no commission until the host confirms.
-      data.easyslip_verified = false;
       data.slip_hash = undefined;
       data.slip_trans_ref = null;
       data.payment_slip_url = null;
@@ -201,144 +215,142 @@ export async function POST(req: NextRequest) {
     }
 
     // Server-side price verification: never trust client-supplied total_price
-    if (data.room_id) {
-      // Parallel: room price + seasonal prices + special date prices + option prices +
-      // the room's guest pricing tiers. All the room's tiers are read (not just the chosen
-      // ones) so the server, not the client, decides whether the tier replaces the
-      // headcount or adds to the stepper.
-      const optionIds = data.selected_options.map((o) => o.id);
-      const tierIds = data.guest_pricing_ids ?? [];
-      const [{ data: roomRow, error: roomError }, { data: seasonRows }, { data: specialRows }, { data: dbOptions }, { data: tierRows }] = await Promise.all([
-        supabase.from("rooms").select("price_per_night").eq("id", data.room_id).single(),
-        supabase.from("room_seasonal_prices").select("*").eq("room_id", data.room_id),
-        supabase.from("room_special_prices").select("*").eq("room_id", data.room_id).eq("is_active", true),
-        optionIds.length > 0
-          ? supabase.from("room_options").select("id, price, pricing_type").eq("room_id", data.room_id).in("id", optionIds)
-          : Promise.resolve({ data: null }),
-        supabase.from("room_guest_pricing").select("id, adults, children, detail, surcharge, sort_order").eq("room_id", data.room_id).eq("is_active", true),
-      ]);
+    // Parallel: room price + seasonal prices + special date prices + option prices +
+    // the room's guest pricing tiers. All the room's tiers are read (not just the chosen
+    // ones) so the server, not the client, decides whether the tier replaces the
+    // headcount or adds to the stepper.
+    const optionIds = data.selected_options.map((o) => o.id);
+    const tierIds = data.guest_pricing_ids ?? [];
+    const [{ data: roomRow, error: roomError }, { data: seasonRows }, { data: specialRows }, { data: dbOptions }, { data: tierRows }] = await Promise.all([
+      supabase.from("rooms").select("price_per_night").eq("id", data.room_id).single(),
+      supabase.from("room_seasonal_prices").select("*").eq("room_id", data.room_id),
+      supabase.from("room_special_prices").select("*").eq("room_id", data.room_id).eq("is_active", true),
+      optionIds.length > 0
+        ? supabase.from("room_options").select("id, price, pricing_type").eq("room_id", data.room_id).in("id", optionIds)
+        : Promise.resolve({ data: null }),
+      supabase.from("room_guest_pricing").select("id, adults, children, detail, surcharge, sort_order").eq("room_id", data.room_id).eq("is_active", true),
+    ]);
 
-      if (roomError || !roomRow) {
-        return NextResponse.json(
-          { error: "Room not found" },
-          { status: 404 }
-        );
+    if (roomError || !roomRow) {
+      return NextResponse.json(
+        { error: "Room not found" },
+        { status: 404 }
+      );
+    }
+
+    const room = roomRow as unknown as { price_per_night: number };
+    const checkIn = new Date(data.check_in);
+    const checkOut = new Date(data.check_out);
+    const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
+
+    if (nights <= 0) {
+      return NextResponse.json(
+        { error: "Invalid date range" },
+        { status: 400 }
+      );
+    }
+
+    const seasons = (seasonRows as unknown as RoomSeasonalPrice[]) || [];
+    const specialPrices = (specialRows as unknown as RoomSpecialPrice[]) || [];
+
+    const { total: serverBasePrice } = calculateTotalPrice({
+      basePricePerNight: room.price_per_night,
+      checkIn,
+      checkOut,
+      seasons,
+      specialPrices,
+    });
+
+    // Validate selected options prices against DB.
+    // per_night options charge price × nights; per_time options charge a single flat fee.
+    let serverOptionsTotal = 0;
+    if (optionIds.length > 0) {
+      const dbMap = new Map(
+        (dbOptions as { id: string; price: number; pricing_type: 'per_night' | 'per_time' }[] || [])
+          .map((o) => [o.id, { price: o.price, pricing_type: o.pricing_type }])
+      );
+      for (const opt of data.selected_options) {
+        const row = dbMap.get(opt.id);
+        if (row !== undefined) {
+          const enforced = row.pricing_type === "per_time" ? row.price : row.price * nights;
+          opt.price = enforced;
+          opt.unit_price = row.price;
+          opt.pricing_type = row.pricing_type;
+          serverOptionsTotal += enforced;
+        }
+      }
+    }
+
+    // Guest-composition surcharge (per night), validated against the room's DB tiers.
+    const roomTiers = (tierRows as unknown as TierPricingInput[]) || [];
+    if (tierIds.some((id) => !roomTiers.some((t) => t.id === id))) {
+      return NextResponse.json({ error: "Invalid guest pricing selection" }, { status: 400 });
+    }
+    // A base-tier list is a set of alternatives, so stacking two of them is incoherent.
+    if (tierIds.length > 1 && hasDefaultPriceTier(roomTiers)) {
+      return NextResponse.json({ error: "Invalid guest pricing selection" }, { status: 400 });
+    }
+
+    const guests = resolveGuestPricing(roomTiers, tierIds, data.num_guests, data.locale ?? "th");
+    const serverCompositionSurcharge = computeCompositionSurcharge(guests.surchargePerNight, nights);
+    guestPricingSurcharge = guests.surchargePerNight;
+    guestPricingLabel = guests.label;
+    data.num_guests = guests.numGuests;
+
+    const subtotal = serverBasePrice + serverOptionsTotal + serverCompositionSurcharge;
+
+    // Resolve promo code (if supplied) and apply discount before price-mismatch check.
+    // Promo state is stashed on `req` via locals — use a closure on the outer scope.
+    let serverPrice = subtotal;
+    if (data.promo_code_id) {
+      if (!homestayCtx?.promo_codes_enabled) {
+        return NextResponse.json({ error: "Promo codes are not enabled for this homestay" }, { status: 400 });
       }
 
-      const room = roomRow as unknown as { price_per_night: number };
-      const checkIn = new Date(data.check_in);
-      const checkOut = new Date(data.check_out);
-      const nights = Math.round((checkOut.getTime() - checkIn.getTime()) / (1000 * 60 * 60 * 24));
-
-      if (nights <= 0) {
-        return NextResponse.json(
-          { error: "Invalid date range" },
-          { status: 400 }
-        );
+      const { data: promoRow } = await supabase
+        .from("promo_codes")
+        .select("*")
+        .eq("id", data.promo_code_id)
+        .eq("homestay_id", data.homestay_id)
+        .maybeSingle();
+      const promo = promoRow as unknown as PromoCode | null;
+      if (!promo) {
+        return NextResponse.json({ error: "Invalid promo code" }, { status: 400 });
       }
 
-      const seasons = (seasonRows as unknown as RoomSeasonalPrice[]) || [];
-      const specialPrices = (specialRows as unknown as RoomSpecialPrice[]) || [];
+      const verdict = evaluatePromoCode(promo);
+      if (!verdict.ok) {
+        return NextResponse.json({ error: `Promo code rejected (${verdict.reason})` }, { status: 400 });
+      }
 
-      const { total: serverBasePrice } = calculateTotalPrice({
-        basePricePerNight: room.price_per_night,
-        checkIn,
-        checkOut,
-        seasons,
-        specialPrices,
-      });
-
-      // Validate selected options prices against DB.
-      // per_night options charge price × nights; per_time options charge a single flat fee.
-      let serverOptionsTotal = 0;
-      if (optionIds.length > 0) {
-        const dbMap = new Map(
-          (dbOptions as { id: string; price: number; pricing_type: 'per_night' | 'per_time' }[] || [])
-            .map((o) => [o.id, { price: o.price, pricing_type: o.pricing_type }])
-        );
-        for (const opt of data.selected_options) {
-          const row = dbMap.get(opt.id);
-          if (row !== undefined) {
-            const enforced = row.pricing_type === "per_time" ? row.price : row.price * nights;
-            opt.price = enforced;
-            opt.unit_price = row.price;
-            opt.pricing_type = row.pricing_type;
-            serverOptionsTotal += enforced;
-          }
+      if (promo.one_use_per_guest) {
+        const phone = data.guest_phone.trim();
+        const email = data.guest_email.trim().toLowerCase();
+        const { data: existing } = await supabase
+          .from("promo_redemptions")
+          .select("id")
+          .eq("promo_code_id", promo.id)
+          .or(`guest_phone.eq.${phone},guest_email.eq.${email}`)
+          .limit(1);
+        if (existing && existing.length > 0) {
+          return NextResponse.json({ error: "Promo code already used by this guest" }, { status: 400 });
         }
       }
 
-      // Guest-composition surcharge (per night), validated against the room's DB tiers.
-      const roomTiers = (tierRows as unknown as TierPricingInput[]) || [];
-      if (tierIds.some((id) => !roomTiers.some((t) => t.id === id))) {
-        return NextResponse.json({ error: "Invalid guest pricing selection" }, { status: 400 });
-      }
-      // A base-tier list is a set of alternatives, so stacking two of them is incoherent.
-      if (tierIds.length > 1 && hasDefaultPriceTier(roomTiers)) {
-        return NextResponse.json({ error: "Invalid guest pricing selection" }, { status: 400 });
-      }
+      // Always attach _promo (even when discount = 0) so commission-only /
+      // pure-attribution codes still write a redemption row and tick times_used.
+      const discount = computePromoDiscount(promo, subtotal);
+      serverPrice = Math.max(0, subtotal - discount);
+      (data as typeof data & { _promo: { promo: PromoCode; discount: number; subtotal: number } })._promo = {
+        promo,
+        discount,
+        subtotal,
+      };
+    }
 
-      const guests = resolveGuestPricing(roomTiers, tierIds, data.num_guests, data.locale ?? "th");
-      const serverCompositionSurcharge = computeCompositionSurcharge(guests.surchargePerNight, nights);
-      guestPricingSurcharge = guests.surchargePerNight;
-      guestPricingLabel = guests.label;
-      data.num_guests = guests.numGuests;
-
-      const subtotal = serverBasePrice + serverOptionsTotal + serverCompositionSurcharge;
-
-      // Resolve promo code (if supplied) and apply discount before price-mismatch check.
-      // Promo state is stashed on `req` via locals — use a closure on the outer scope.
-      let serverPrice = subtotal;
-      if (data.promo_code_id) {
-        if (!homestayCtx?.promo_codes_enabled) {
-          return NextResponse.json({ error: "Promo codes are not enabled for this homestay" }, { status: 400 });
-        }
-
-        const { data: promoRow } = await supabase
-          .from("promo_codes")
-          .select("*")
-          .eq("id", data.promo_code_id)
-          .eq("homestay_id", data.homestay_id)
-          .maybeSingle();
-        const promo = promoRow as unknown as PromoCode | null;
-        if (!promo) {
-          return NextResponse.json({ error: "Invalid promo code" }, { status: 400 });
-        }
-
-        const verdict = evaluatePromoCode(promo);
-        if (!verdict.ok) {
-          return NextResponse.json({ error: `Promo code rejected (${verdict.reason})` }, { status: 400 });
-        }
-
-        if (promo.one_use_per_guest) {
-          const phone = data.guest_phone.trim();
-          const email = data.guest_email.trim().toLowerCase();
-          const { data: existing } = await supabase
-            .from("promo_redemptions")
-            .select("id")
-            .eq("promo_code_id", promo.id)
-            .or(`guest_phone.eq.${phone},guest_email.eq.${email}`)
-            .limit(1);
-          if (existing && existing.length > 0) {
-            return NextResponse.json({ error: "Promo code already used by this guest" }, { status: 400 });
-          }
-        }
-
-        // Always attach _promo (even when discount = 0) so commission-only /
-        // pure-attribution codes still write a redemption row and tick times_used.
-        const discount = computePromoDiscount(promo, subtotal);
-        serverPrice = Math.max(0, subtotal - discount);
-        (data as typeof data & { _promo: { promo: PromoCode; discount: number; subtotal: number } })._promo = {
-          promo,
-          discount,
-          subtotal,
-        };
-      }
-
-      if (data.total_price !== serverPrice) {
-        console.warn(`[Security] Price mismatch: client=${data.total_price}, server=${serverPrice} (base=${serverBasePrice}, options=${serverOptionsTotal})`);
-        data.total_price = serverPrice;
-      }
+    if (data.total_price !== serverPrice) {
+      console.warn(`[Security] Price mismatch: client=${data.total_price}, server=${serverPrice} (base=${serverBasePrice}, options=${serverOptionsTotal})`);
+      data.total_price = serverPrice;
     }
 
     // Validate payment_type and amount_paid
@@ -360,185 +372,127 @@ export async function POST(req: NextRequest) {
       data.amount_paid = data.total_price;
     }
 
+    // Confirmed only when /api/verify-slip's record shows exactly the amount
+    // charged above, paid to this host, and the slip is not used yet. Anything
+    // else (a made-up hash, a wrong amount, another account) is created
+    // pending for the host to check, as a failed verification always was.
+    const slipHash = data.slip_hash;
+    const verified =
+      !!slipHash &&
+      (await claimVerifiedSlip(supabase, {
+        slipHash,
+        amount: data.amount_paid || data.total_price,
+        promptpayId: homestayCtx?.hosts?.promptpay_id ?? null,
+        bankAccountNumber: homestayCtx?.hosts?.bank_account_number ?? null,
+      }));
+
     // Atomic booking creation: checks overlap + blocked dates + inserts in one transaction
     const promoState = (data as typeof data & { _promo?: { promo: PromoCode; discount: number; subtotal: number } })._promo;
-    if (data.room_id) {
-      const { data: bookingId, error: rpcError } = await supabase.rpc(
-        "create_booking_atomic" as never,
-        {
-          p_homestay_id: data.homestay_id,
-          p_room_id: data.room_id,
-          p_guest_name: data.guest_name,
-          p_guest_email: data.guest_email,
-          p_guest_phone: data.guest_phone,
-          p_guest_province: data.guest_province || null,
-          p_check_in: data.check_in,
-          p_check_out: data.check_out,
-          p_num_guests: data.num_guests,
-          p_total_price: data.total_price,
-          p_status: data.easyslip_verified ? "confirmed" : "pending",
-          p_easyslip_verified: data.easyslip_verified,
-          p_payment_slip_hash: data.slip_hash ?? null,
-          p_slip_trans_ref: data.slip_trans_ref || null,
-          p_payment_slip_url: data.payment_slip_url || null,
-          p_easyslip_response: data.easyslip_response || null,
-          p_session_id: data.session_id || null,
-          p_notes: data.notes || null,
-          p_payment_type: data.payment_type || "full",
-          p_amount_paid: data.amount_paid || data.total_price,
-          p_created_by: data.guest_name,
-          p_selected_options: data.selected_options,
-          p_discount_amount: promoState?.discount || 0,
-        } as never
-      );
+    const { data: bookingId, error: rpcError } = await supabase.rpc(
+      "create_booking_atomic" as never,
+      {
+        p_homestay_id: data.homestay_id,
+        p_room_id: data.room_id,
+        p_guest_name: data.guest_name,
+        p_guest_email: data.guest_email,
+        p_guest_phone: data.guest_phone,
+        p_guest_province: data.guest_province || null,
+        p_check_in: data.check_in,
+        p_check_out: data.check_out,
+        p_num_guests: data.num_guests,
+        p_total_price: data.total_price,
+        p_status: verified ? "confirmed" : "pending",
+        p_easyslip_verified: verified,
+        p_payment_slip_hash: data.slip_hash ?? null,
+        p_slip_trans_ref: data.slip_trans_ref || null,
+        p_payment_slip_url: data.payment_slip_url || null,
+        p_easyslip_response: data.easyslip_response || null,
+        p_session_id: data.session_id || null,
+        p_notes: data.notes || null,
+        p_payment_type: data.payment_type || "full",
+        p_amount_paid: data.amount_paid || data.total_price,
+        p_created_by: data.guest_name,
+        p_selected_options: data.selected_options,
+        p_discount_amount: promoState?.discount || 0,
+      } as never
+    );
 
-      if (rpcError) {
-        console.error("Atomic booking error:", rpcError);
+    if (rpcError) {
+      console.error("Atomic booking error:", rpcError);
+      // No booking took the slip: free it for the guest's next try.
+      if (verified && slipHash) await releaseVerifiedSlip(supabase, slipHash);
 
-        if (rpcError.message?.includes("DATES_UNAVAILABLE")) {
-          return NextResponse.json(
-            { error: "Selected dates are no longer available for this room" },
-            { status: 409 }
-          );
-        }
-        if (rpcError.message?.includes("DATES_BLOCKED")) {
-          return NextResponse.json(
-            { error: "Some selected dates are blocked by the host" },
-            { status: 409 }
-          );
-        }
-        if (rpcError.message?.includes("ROOM_NOT_FOUND")) {
-          return NextResponse.json(
-            { error: "Room not found" },
-            { status: 404 }
-          );
-        }
-
+      if (rpcError.message?.includes("DATES_UNAVAILABLE")) {
         return NextResponse.json(
-          { error: "Failed to create booking" },
-          { status: 500 }
+          { error: "Selected dates are no longer available for this room" },
+          { status: 409 }
+        );
+      }
+      if (rpcError.message?.includes("DATES_BLOCKED")) {
+        return NextResponse.json(
+          { error: "Some selected dates are blocked by the host" },
+          { status: 409 }
+        );
+      }
+      if (rpcError.message?.includes("ROOM_NOT_FOUND")) {
+        return NextResponse.json(
+          { error: "Room not found" },
+          { status: 404 }
         );
       }
 
-      // Persist the guest-composition snapshot. This is metadata, not part of the
-      // atomic overlap check, so a follow-up UPDATE keeps the RPC signature untouched.
-      if (guestPricingLabel !== null) {
-        const { error: gpErr } = await supabase
-          .from("bookings")
-          .update({ guest_pricing_label: guestPricingLabel, guest_pricing_surcharge: guestPricingSurcharge } as never)
-          .eq("id", bookingId as string);
-        if (gpErr) console.error("[GuestPricing] Failed to persist snapshot:", gpErr);
-      }
-
-      // Fetch the created booking for the response
-      const { data: booking } = await supabase
-        .from("bookings")
-        .select("*")
-        .eq("id", bookingId as string)
-        .single();
-
-      // Persist promo redemption (if applied) and increment usage counter.
-      if (promoState) {
-        const { promo, discount, subtotal } = promoState;
-        const commission = computeCommissionAmount(promo, subtotal);
-        const { error: redemptionErr } = await supabase
-          .from("promo_redemptions")
-          .insert({
-            promo_code_id: promo.id,
-            booking_id: bookingId as string,
-            discount_amount: discount,
-            commission_amount: commission,
-            payout_status: "pending",
-            guest_phone: data.guest_phone.trim(),
-            guest_email: data.guest_email.trim().toLowerCase(),
-            created_by: data.guest_name,
-            updated_by: data.guest_name,
-          } as never);
-        if (redemptionErr) {
-          console.error("[Promo] Failed to record redemption:", redemptionErr);
-        } else {
-          await supabase
-            .from("promo_codes")
-            .update({ times_used: promo.times_used + 1 } as never)
-            .eq("id", promo.id);
-        }
-      }
-
-      if (data.easyslip_verified) {
-        await deductCommission(bookingId as string);
-      }
-
-      // Logging + notifications can safely live in after() — they're non-critical.
-      after(async () => {
-        await logEvent({
-          homestayId: data.homestay_id,
-          entityType: "booking",
-          entityId: bookingId as string,
-          eventType: data.easyslip_verified ? EventType.BOOKING_CONFIRMED : EventType.BOOKING_CREATED,
-          actorType: "guest",
-          actorId: null,
-          data: { guest_name: data.guest_name, check_in: data.check_in, check_out: data.check_out, total_price: data.total_price, room_id: data.room_id, payment_type: data.payment_type, promo_code_id: data.promo_code_id || null, ...(quick ? { quick: true } : {}) },
-          req,
-        });
-        await sendNotifications(bookingId as string, supabase, data.locale || "th", data.easyslip_verified, quick);
-        if (promoState && data.easyslip_verified) {
-          await sendRecommenderPromoUsedNotification({
-            promo: promoState.promo,
-            bookingId: bookingId as string,
-            guestName: data.guest_name,
-            discountAmount: promoState.discount,
-            commissionAmount: computeCommissionAmount(promoState.promo, promoState.subtotal),
-          }, data.locale || "th").catch((e) => console.error("[Promo] Recommender notify failed:", e));
-        }
-        // They finished — the saved draft has done its job.
-        await deleteBookingDraft(supabase, data.homestay_id, data.guest_phone, data.guest_email);
-      });
-
-      if (data.easyslip_verified) revalidateTag("admin-stats", "max");
-      revalidateTag(`booking-availability:${data.homestay_id}`, "max");
-      return NextResponse.json({ booking }, { status: 201 });
-    }
-
-    // Fallback for bookings without a room_id (shouldn't happen in normal flow)
-    const { data: booking, error } = await supabase
-      .from("bookings")
-      .insert({
-        homestay_id: data.homestay_id,
-        room_id: null,
-        guest_name: data.guest_name,
-        guest_email: data.guest_email,
-        guest_phone: data.guest_phone,
-        guest_province: data.guest_province || null,
-        check_in: data.check_in,
-        check_out: data.check_out,
-        num_guests: data.num_guests,
-        total_price: data.total_price,
-        discount_amount: promoState?.discount || 0,
-        status: data.easyslip_verified ? "confirmed" : "pending",
-        easyslip_verified: data.easyslip_verified,
-        payment_slip_hash: data.slip_hash ?? null,
-        slip_trans_ref: data.slip_trans_ref || null,
-        payment_slip_url: data.payment_slip_url || null,
-        easyslip_response: data.easyslip_response || null,
-        notes: data.notes || null,
-        payment_type: data.payment_type || "full",
-        amount_paid: data.amount_paid || data.total_price,
-        created_by: data.guest_name,
-      } as never)
-      .select()
-      .single();
-
-    if (error) {
-      console.error("Supabase booking insert error:", error);
       return NextResponse.json(
         { error: "Failed to create booking" },
         { status: 500 }
       );
     }
 
-    // Commission deduction is financial — run synchronously before response.
-    if (data.easyslip_verified) {
-      await deductCommission((booking as unknown as Booking).id);
+    // Persist the guest-composition snapshot. This is metadata, not part of the
+    // atomic overlap check, so a follow-up UPDATE keeps the RPC signature untouched.
+    if (guestPricingLabel !== null) {
+      const { error: gpErr } = await supabase
+        .from("bookings")
+        .update({ guest_pricing_label: guestPricingLabel, guest_pricing_surcharge: guestPricingSurcharge } as never)
+        .eq("id", bookingId as string);
+      if (gpErr) console.error("[GuestPricing] Failed to persist snapshot:", gpErr);
+    }
+
+    // Fetch the created booking for the response
+    const { data: booking } = await supabase
+      .from("bookings")
+      .select("*")
+      .eq("id", bookingId as string)
+      .single();
+
+    // Persist promo redemption (if applied) and increment usage counter.
+    if (promoState) {
+      const { promo, discount, subtotal } = promoState;
+      const commission = computeCommissionAmount(promo, subtotal);
+      const { error: redemptionErr } = await supabase
+        .from("promo_redemptions")
+        .insert({
+          promo_code_id: promo.id,
+          booking_id: bookingId as string,
+          discount_amount: discount,
+          commission_amount: commission,
+          payout_status: "pending",
+          guest_phone: data.guest_phone.trim(),
+          guest_email: data.guest_email.trim().toLowerCase(),
+          created_by: data.guest_name,
+          updated_by: data.guest_name,
+        } as never);
+      if (redemptionErr) {
+        console.error("[Promo] Failed to record redemption:", redemptionErr);
+      } else {
+        await supabase
+          .from("promo_codes")
+          .update({ times_used: promo.times_used + 1 } as never)
+          .eq("id", promo.id);
+      }
+    }
+
+    if (verified) {
+      await deductCommission(bookingId as string);
     }
 
     // Logging + notifications can safely live in after() — they're non-critical.
@@ -546,18 +500,28 @@ export async function POST(req: NextRequest) {
       await logEvent({
         homestayId: data.homestay_id,
         entityType: "booking",
-        entityId: (booking as unknown as Booking).id,
-        eventType: data.easyslip_verified ? EventType.BOOKING_CONFIRMED : EventType.BOOKING_CREATED,
+        entityId: bookingId as string,
+        eventType: verified ? EventType.BOOKING_CONFIRMED : EventType.BOOKING_CREATED,
         actorType: "guest",
         actorId: null,
-        data: { guest_name: data.guest_name, check_in: data.check_in, check_out: data.check_out, total_price: data.total_price, payment_type: data.payment_type },
+        data: { guest_name: data.guest_name, check_in: data.check_in, check_out: data.check_out, total_price: data.total_price, room_id: data.room_id, payment_type: data.payment_type, promo_code_id: data.promo_code_id || null, ...(quick ? { quick: true } : {}) },
         req,
       });
-      await sendNotifications((booking as unknown as Booking).id, supabase, data.locale || "th", data.easyslip_verified, quick);
+      await sendNotifications(bookingId as string, supabase, data.locale || "th", verified, quick);
+      if (promoState && verified) {
+        await sendRecommenderPromoUsedNotification({
+          promo: promoState.promo,
+          bookingId: bookingId as string,
+          guestName: data.guest_name,
+          discountAmount: promoState.discount,
+          commissionAmount: computeCommissionAmount(promoState.promo, promoState.subtotal),
+        }, data.locale || "th").catch((e) => console.error("[Promo] Recommender notify failed:", e));
+      }
+      // They finished — the saved draft has done its job.
       await deleteBookingDraft(supabase, data.homestay_id, data.guest_phone, data.guest_email);
     });
 
-    if (data.easyslip_verified) revalidateTag("admin-stats", "max");
+    if (verified) revalidateTag("admin-stats", "max");
     revalidateTag(`booking-availability:${data.homestay_id}`, "max");
     return NextResponse.json({ booking }, { status: 201 });
   } catch (error) {

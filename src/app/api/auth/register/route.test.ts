@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
+import { SITE_URL } from "@/lib/seo";
 import { makeRequest, readJson } from "../../../../../test/helpers/request";
 
 const h = vi.hoisted(() => ({
@@ -37,6 +38,18 @@ describe("POST /api/auth/register", () => {
     expect(h.signUp).toHaveBeenCalledWith(
       expect.objectContaining({
         options: expect.objectContaining({ data: { name: "Somchai", phone: "0812345678" } }),
+      }),
+    );
+  });
+
+  it("points the confirmation link at the app's own URL, whatever Origin the request claims", async () => {
+    await readJson(
+      await POST(makeRequest("/api/auth/register", { body: body(), headers: { origin: "https://attacker.example" } })),
+    );
+
+    expect(h.signUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({ emailRedirectTo: `${SITE_URL}/api/auth/callback?next=/dashboard` }),
       }),
     );
   });

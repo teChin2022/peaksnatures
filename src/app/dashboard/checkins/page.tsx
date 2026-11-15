@@ -20,6 +20,7 @@ import {
   StickyNote,
   ListPlus,
   Paperclip,
+  Banknote,
 } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Badge } from "@/components/ui/badge";
@@ -61,6 +62,35 @@ export default function CheckinsPage() {
   const [bookings, setBookings] = useState<CheckinBooking[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkingInId, setCheckingInId] = useState<string | null>(null);
+  // Two taps: money recorded here has no undo.
+  const [confirmingCashId, setConfirmingCashId] = useState<string | null>(null);
+  const [recordingCashId, setRecordingCashId] = useState<string | null>(null);
+
+  // The guest pays the rest in cash on arrival; only the host can record it.
+  const handleRecordCash = async (bookingId: string) => {
+    setRecordingCashId(bookingId);
+    try {
+      const res = await fetch("/api/bookings/host-cash-balance", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ booking_id: bookingId }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(t("recordCashError"));
+        return;
+      }
+      setBookings((prev) =>
+        prev.map((b) => (b.id === bookingId ? { ...b, amount_paid: data.amount_paid, payment_type: "full" } : b))
+      );
+      setConfirmingCashId(null);
+      toast.success(t("recordCashSuccess"));
+    } catch {
+      toast.error(t("recordCashError"));
+    } finally {
+      setRecordingCashId(null);
+    }
+  };
 
   const handleCheckIn = async (bookingId: string) => {
     setCheckingInId(bookingId);
@@ -275,6 +305,44 @@ export default function CheckinsPage() {
                         )}
                       </div>
                     </div>
+
+                    {/* Cash for the balance, recorded by the host (the guest's own "paid in cash" is gone). */}
+                    {hasBalance && (
+                      <div className="flex flex-wrap items-center gap-2">
+                        {confirmingCashId === booking.id ? (
+                          <>
+                            <Button
+                              size="sm"
+                              onClick={() => handleRecordCash(booking.id)}
+                              disabled={recordingCashId === booking.id}
+                              className="h-8 bg-brand hover:bg-brand/90 text-white"
+                            >
+                              <Banknote className="mr-1 h-3.5 w-3.5" />
+                              {t("recordCashConfirm", { amount: (booking.total_price - booking.amount_paid).toLocaleString() })}
+                            </Button>
+                            <Button
+                              size="sm"
+                              variant="outline"
+                              onClick={() => setConfirmingCashId(null)}
+                              disabled={recordingCashId === booking.id}
+                              className="h-8"
+                            >
+                              {t("recordCashCancel")}
+                            </Button>
+                          </>
+                        ) : (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => setConfirmingCashId(booking.id)}
+                            className="h-8 border-earth-300 text-earth-800"
+                          >
+                            <Banknote className="mr-1 h-3.5 w-3.5" />
+                            {t("recordCash")}
+                          </Button>
+                        )}
+                      </div>
+                    )}
 
                     {/* Room Options */}
                     {options.length > 0 && (

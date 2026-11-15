@@ -2,7 +2,7 @@ import { execFileSync } from "node:child_process";
 import { existsSync, mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { expect, test, type Page, type TestInfo } from "@playwright/test";
-import { CHANGE_PREVIEW_SAME_PRICE, T, addHouses, chooseDates, chooseNewStay, expectNoUnexpectedWrites, findBooking, reachPayment, requireSlug, startSession, stubChangeBooking, stubbedBooking, type Session } from "./support";
+import { CHANGE_PREVIEW_SAME_PRICE, T, addHouses, chooseDates, chooseNewStay, expectNoUnexpectedWrites, fillGuestLookup, findBooking, reachPayment, requireSlug, startSession, stubChangeBooking, stubbedBooking, type Session } from "./support";
 
 /**
  * Evidence for a UI review (peaksnature-ui Mode A), not a regression test.
@@ -276,9 +276,7 @@ test("check-in-out page", async ({ page, context }, testInfo) => {
   for (const width of widthsFor(testInfo)) {
     if (width) await page.setViewportSize({ width, height: 800 });
     await page.goto(`/${slug}/check-in-out`);
-    const search = page.getByPlaceholder(t.placeholder);
-    await expect(search).toBeEnabled();
-    await search.fill("0898765432");
+    await fillGuestLookup(page, t);
     await page.getByRole("button", { name: t.search, exact: true }).click();
     await expect(page.getByRole("button", { name: t.checkIn, exact: true })).toBeVisible();
     await page.waitForTimeout(400);
@@ -290,6 +288,15 @@ test("check-in-out page", async ({ page, context }, testInfo) => {
     if (await transfer.isVisible()) await transfer.click();
     await page.waitForTimeout(400);
     await capture(page, testInfo, "cio-balance", slug);
+
+    // Cash: only a note that the host records it; nothing is sent.
+    await page.goto(`/${slug}/check-in-out`);
+    await fillGuestLookup(page, t);
+    await page.getByRole("button", { name: t.search, exact: true }).click();
+    await page.getByRole("button", { name: /฿2,000/ }).click();
+    await page.getByRole("button", { name: t.payViaCash }).click();
+    await page.waitForTimeout(400);
+    await capture(page, testInfo, "cio-cash", slug);
   }
 });
 
@@ -305,8 +312,7 @@ test("reviews page", async ({ page, context }, testInfo) => {
   for (const width of widthsFor(testInfo)) {
     if (width) await page.setViewportSize({ width, height: 800 });
     await page.goto(`/${slug}/reviews`);
-    const search = page.getByPlaceholder(t.identifierPlaceholder);
-    await search.fill("0898765432");
+    await fillGuestLookup(page, t);
     await capture(page, testInfo, "reviews-lookup", slug);
     await page.getByRole("button", { name: t.lookupButton }).click();
     await expect(page.getByText(t.selectBooking)).toBeVisible();

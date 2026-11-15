@@ -2,7 +2,7 @@
 
 import { useState, useCallback, useRef } from "react";
 import Link from "next/link";
-import { Search, Loader2, CalendarDays, Users, CheckCircle } from "lucide-react";
+import { Phone, Mail, Loader2, CalendarDays, Users, CheckCircle } from "lucide-react";
 import { useTranslations, useLocale } from "next-intl";
 import { Turnstile, type TurnstileInstance } from "@marsidev/react-turnstile";
 import { Button } from "@/components/ui/button";
@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { ReviewFormInline } from "@/components/reviews/review-form-inline";
 import { fmtDateStr } from "@/lib/format-date";
+import { isValidEmail, isValidPhone, sanitizePhoneInput } from "@/lib/utils";
 
 interface EligibleBooking {
   id: string;
@@ -33,7 +34,9 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
   const t = useTranslations("reviewsPage");
   const locale = useLocale();
 
-  const [identifier, setIdentifier] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const canLookup = isValidPhone(phone) && isValidEmail(email);
   const [loading, setLoading] = useState(false);
   const [bookings, setBookings] = useState<EligibleBooking[] | null>(null);
   const [selectedBooking, setSelectedBooking] = useState<EligibleBooking | null>(null);
@@ -44,7 +47,7 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
   const turnstileRef = useRef<TurnstileInstance>(null);
 
   const handleLookup = useCallback(async () => {
-    if (!identifier.trim() || loading) return;
+    if (!canLookup || loading) return;
     setLoading(true);
     setBookings(null);
     setSelectedBooking(null);
@@ -55,7 +58,8 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           homestay_id: homestayId,
-          identifier: identifier.trim(),
+          phone,
+          email: email.trim(),
           turnstileToken: turnstileToken || "",
         }),
       });
@@ -74,7 +78,7 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
     } finally {
       setLoading(false);
     }
-  }, [identifier, homestayId, loading, turnstileToken]);
+  }, [canLookup, phone, email, homestayId, loading, turnstileToken]);
 
   const handleSuccess = useCallback(() => {
     setSubmitted(true);
@@ -84,7 +88,8 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
     setSubmitted(false);
     setSelectedBooking(null);
     setBookings(null);
-    setIdentifier("");
+    setPhone("");
+    setEmail("");
     setTurnstileToken(null);
     setTurnstileVerified(false);
     turnstileRef.current?.reset();
@@ -154,32 +159,55 @@ export function ReviewSubmission({ homestayId, homestayName, homestaySlug }: Rev
     <div className="space-y-6">
       {/* Lookup form */}
       <div>
-        <Label
-          htmlFor="reviews-identifier"
-          className="block text-sm font-semibold text-earth-700"
-        >
-          {t("identifierLabel")}
-        </Label>
-        {/* Same field + button as the booking search (booking-search-view.tsx): keep the two in step. */}
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-earth-500" aria-hidden="true" />
-            <Input
-              id="reviews-identifier"
-              enterKeyHint="search"
-              autoComplete="off"
-              placeholder={t("identifierPlaceholder")}
-              value={identifier}
-              onChange={(e) => setIdentifier(e.target.value)}
-              onKeyDown={(e) => e.key === "Enter" && handleLookup()}
-              aria-describedby="reviews-lookup-hint"
-              className="!pl-10 p-3.5 !h-12 rounded-xl !border !border-earth-500 !bg-white hover:!border-earth-700 transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2"
-            />
+        {/* Same fields + button as the booking search (booking-search-view.tsx): keep the two in step.
+            Phone AND email, as /api/reviews/lookup requires (src/lib/guest-lookup.ts). */}
+        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <div>
+            <Label htmlFor="reviews-phone" className="block text-sm font-semibold text-earth-700">
+              {t("phoneLabel")}
+            </Label>
+            <div className="relative mt-2">
+              <Phone className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-earth-500" aria-hidden="true" />
+              <Input
+                id="reviews-phone"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel"
+                maxLength={10}
+                placeholder={t("phonePlaceholder")}
+                value={phone}
+                onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
+                onKeyDown={(e) => e.key === "Enter" && handleLookup()}
+                aria-describedby="reviews-lookup-hint"
+                className="!pl-10 p-3.5 !h-12 rounded-xl !border !border-earth-500 !bg-white hover:!border-earth-700 transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2"
+              />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="reviews-email" className="block text-sm font-semibold text-earth-700">
+              {t("emailLabel")}
+            </Label>
+            <div className="relative mt-2">
+              <Mail className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-earth-500" aria-hidden="true" />
+              <Input
+                id="reviews-email"
+                type="email"
+                inputMode="email"
+                enterKeyHint="search"
+                autoComplete="email"
+                placeholder={t("emailPlaceholder")}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={(e) => e.key === "Enter" && handleLookup()}
+                aria-describedby="reviews-lookup-hint"
+                className="!pl-10 p-3.5 !h-12 rounded-xl !border !border-earth-500 !bg-white hover:!border-earth-700 transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2"
+              />
+            </div>
           </div>
           <button
             type="button"
             onClick={handleLookup}
-            disabled={!identifier.trim() || loading || (!turnstileVerified && !turnstileToken && !turnstileError)}
+            disabled={!canLookup || loading || (!turnstileVerified && !turnstileToken && !turnstileError)}
             className="inline-flex h-12 w-full shrink-0 items-center justify-center rounded-full bg-brand px-6 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:w-auto sm:min-w-28"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" aria-label={t("lookupLoading")} /> : t("lookupButton")}

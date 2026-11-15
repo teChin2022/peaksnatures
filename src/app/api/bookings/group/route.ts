@@ -20,6 +20,8 @@ import { verifyRoomLineItem, splitProportional, type LineItemInput } from "@/lib
 import { getDepositForMonth } from "@/lib/get-deposit";
 import { logEvent, EventType } from "@/lib/history-log";
 import { deductCommission } from "@/lib/billing";
+import { claimVerifiedSlip, releaseVerifiedSlip } from "@/lib/verified-slips";
+import { isHostApproved } from "@/lib/public-host";
 import { guardGuestBookingMode, quickBookingRateLimit } from "../guest-quick";
 import { computeCommissionAmount, computePromoDiscount, evaluatePromoCode } from "@/lib/promo-codes";
 
@@ -41,7 +43,7 @@ const groupSchema = z.object({
   slip_trans_ref: z.string().nullable().optional(),
   payment_slip_url: z.string().nullable().optional(),
   easyslip_response: z.unknown().optional(),
-  easyslip_verified: z.boolean().optional().default(true),
+  // No `easyslip_verified`: decided on the server (claimVerifiedSlip below).
   items: z
     .array(
       z.object({
@@ -67,7 +69,7 @@ const groupSchema = z.object({
     )
     .min(1, "At least one room is required"),
   // Guest quick booking: needs a host on `quick` or `both`. The server then
-  // ignores every slip field and `easyslip_verified` sent with it.
+  // ignores every slip field sent with it.
   quick: z.boolean().optional(),
   turnstile_token: z.string().optional(),
 }).superRefine((d, ctx) => {
@@ -133,7 +135,7 @@ export async function POST(req: NextRequest) {
     // Homestay + host config (block check + deposit) in one query.
     const { data: hsRow } = await supabase
       .from("homestays")
-      .select("host_id, promo_codes_enabled, hosts(deposit_amount, deposit_by_month, guest_booking_mode)")
+      .select("host_id, promo_codes_enabled, hosts(deposit_amount, deposit_by_month, guest_booking_mode, promptpay_id, bank_account_number, status)")
       .eq("id", data.homestay_id)
       .single();
     const homestayRow = hsRow as unknown as {
@@ -143,12 +145,22 @@ export async function POST(req: NextRequest) {
         deposit_amount: number;
         deposit_by_month: Record<string, number> | null;
         guest_booking_mode: string | null;
+        promptpay_id: string | null;
+        bank_account_number: string | null;
+        status: string | null;
       } | null;
     } | null;
     if (!homestayRow) {
       return NextResponse.json({ error: "Homestay not found" }, { status: 404 });
     }
 
+    // Only an admin-approved host takes bookings (audit F-14).
+    if (!isHostApproved(homestayRow.hosts)) {
+      return NextResponse.json(
+        { error: "This homestay is not available for bookings" },
+        { status: 403 }
+      );
+    }
     // Soft-block check (expired plan / overdue invoice / overdrawn wallet)
     if (homestayRow.host_id) {
       const [{ isHostBlocked }, { getHostBlockState }] = await Promise.all([
@@ -177,7 +189,6 @@ export async function POST(req: NextRequest) {
     if (quick) {
       // Nothing was verified, whatever the client says: pending, no slip on
       // file, no commission until the host confirms each member.
-      data.easyslip_verified = false;
       data.slip_hash = undefined;
       data.slip_trans_ref = null;
       data.payment_slip_url = null;
@@ -272,7 +283,19 @@ export async function POST(req: NextRequest) {
       guest_pricing_surcharge: v.guest_pricing_surcharge,
     }));
 
-    const status = data.easyslip_verified ? "confirmed" : "pending";
+    // Confirmed only when /api/verify-slip's record shows exactly the amount
+    // charged above, paid to this host, and unused. Anything else is created
+    // pending for the host to check, as a failed verification always was.
+    const slipHash = data.slip_hash;
+    const slipVerified =
+      !!slipHash &&
+      (await claimVerifiedSlip(supabase, {
+        slipHash,
+        amount: amountPaid,
+        promptpayId: homestayRow.hosts?.promptpay_id ?? null,
+        bankAccountNumber: homestayRow.hosts?.bank_account_number ?? null,
+      }));
+    const status = slipVerified ? "confirmed" : "pending";
 
     const { data: groupId, error: rpcError } = await supabase.rpc("create_booking_group_atomic" as never, {
       p_homestay_id: data.homestay_id,
@@ -282,7 +305,7 @@ export async function POST(req: NextRequest) {
       p_guest_province: data.guest_province || null,
       p_notes: data.notes || null,
       p_status: status,
-      p_easyslip_verified: data.easyslip_verified,
+      p_easyslip_verified: slipVerified,
       p_payment_slip_hash: data.slip_hash ?? null,
       p_slip_trans_ref: data.slip_trans_ref || null,
       p_payment_slip_url: data.payment_slip_url || null,
@@ -299,6 +322,8 @@ export async function POST(req: NextRequest) {
 
     if (rpcError) {
       console.error("Atomic group booking error:", rpcError);
+      // No booking took the slip: free it for the guest's next try.
+      if (slipVerified && slipHash) await releaseVerifiedSlip(supabase, slipHash);
       const msg = rpcError.message || "";
       if (msg.includes("DATES_UNAVAILABLE")) {
         return NextResponse.json(
@@ -355,7 +380,7 @@ export async function POST(req: NextRequest) {
     }
 
     // Commission deduction is financial — run synchronously, per member row.
-    if (data.easyslip_verified) {
+    if (slipVerified) {
       for (const b of memberBookings) {
         await deductCommission(b.id);
       }
@@ -366,7 +391,7 @@ export async function POST(req: NextRequest) {
         homestayId: data.homestay_id,
         entityType: "booking",
         entityId: gid,
-        eventType: data.easyslip_verified ? EventType.BOOKING_CONFIRMED : EventType.BOOKING_CREATED,
+        eventType: slipVerified ? EventType.BOOKING_CONFIRMED : EventType.BOOKING_CREATED,
         actorType: "guest",
         actorId: null,
         data: {
@@ -381,8 +406,8 @@ export async function POST(req: NextRequest) {
         },
         req,
       });
-      await sendGroupNotifications(gid, supabase, locale, data.easyslip_verified, quick);
-      if (promoState && data.easyslip_verified) {
+      await sendGroupNotifications(gid, supabase, locale, slipVerified, quick);
+      if (promoState && slipVerified) {
         await sendRecommenderPromoUsedNotification(
           {
             promo: promoState.promo,
@@ -398,7 +423,7 @@ export async function POST(req: NextRequest) {
       await deleteBookingDraft(supabase, data.homestay_id, data.guest_phone, data.guest_email);
     });
 
-    if (data.easyslip_verified) revalidateTag("admin-stats", "max");
+    if (slipVerified) revalidateTag("admin-stats", "max");
     revalidateTag(`booking-availability:${data.homestay_id}`, "max");
 
     return NextResponse.json({ group, bookings: memberBookings }, { status: 201 });

@@ -1,6 +1,7 @@
 import type { MetadataRoute } from "next";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { isHostBlocked } from "@/lib/plan-expiry";
+import { isHostApproved } from "@/lib/public-host";
 import { fetchPastDueHostIds } from "@/lib/billing";
 import { SITE_URL } from "@/lib/seo";
 
@@ -14,6 +15,7 @@ type HomestayRow = {
 
 type HostRow = {
   id: string;
+  status: string;
   plan_type: string;
   plan_free_expires_at: string | null;
   wallet_balance: number | null;
@@ -73,7 +75,7 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
       supabase
         .from("hosts")
         .select(
-          "id, plan_type, plan_free_expires_at, wallet_balance, wallet_credit_limit, wallet_negative_since",
+          "id, status, plan_type, plan_free_expires_at, wallet_balance, wallet_credit_limit, wallet_negative_since",
         )
         .in("id", hostIds),
       fetchPastDueHostIds(hostIds, supabase),
@@ -82,6 +84,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
     const blockedHostIds = new Set<string>();
     for (const host of (hostRows as HostRow[] | null) ?? []) {
       if (
+        // Not approved by an admin yet: not public (audit F-14).
+        !isHostApproved(host) ||
         isHostBlocked({
           plan_type: host.plan_type,
           plan_free_expires_at: host.plan_free_expires_at,

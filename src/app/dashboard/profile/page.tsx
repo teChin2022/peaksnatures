@@ -210,7 +210,6 @@ export default function ProfilePage() {
         line_user_id: lineUserId.trim() || null,
         ...(lineTokenMasked ? {} : { line_channel_access_token: lineChannelToken.trim() || null }),
         notification_preference: notificationPreference,
-        require_otp: requireOtp,
         updated_by: host.name,
       };
 
@@ -239,6 +238,8 @@ export default function ProfilePage() {
             bank_name: bankName.trim() || null,
             bank_account_number: bankAccountNumber.trim() || null,
             bank_account_name: bankAccountName.trim() || null,
+            // Behind the PIN: the browser can no longer write require_otp (migration 079).
+            require_otp: requireOtp,
           }),
         });
 
@@ -766,13 +767,16 @@ export default function ProfilePage() {
         </CardHeader>
         <CardContent className="space-y-4">
           <p className="text-xs text-earth-600">{t("requireOtpHint")}</p>
+          {/* Saved behind the PIN, like the fields above it. */}
+          {!sensitiveUnlocked && <p className="text-xs text-earth-600">{t("otpLockedHint")}</p>}
           <div className="flex gap-2">
             {([true, false] as const).map((option) => (
               <button
                 key={String(option)}
                 type="button"
                 onClick={() => setRequireOtp(option)}
-                className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-colors ${
+                disabled={!sensitiveUnlocked}
+                className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
                   requireOtp === option
                     ? "border-current text-white"
                     : "border-earth-200 text-earth-700 hover:border-earth-300"

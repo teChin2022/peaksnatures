@@ -60,6 +60,7 @@ import { BookingAttachments } from "@/components/dashboard/booking-attachments";
 import { countAttachmentsByBooking } from "@/lib/booking-attachments";
 import { isQuickPending } from "@/lib/quick-booking";
 import { cartActionTargets, cartMoney, groupIntoCarts, housesDiffer, mergeById } from "@/lib/booking-carts";
+import { slipStoragePath } from "@/lib/slip-path";
 
 interface BookingRow {
   id: string;
@@ -119,48 +120,39 @@ interface DisplayBooking extends BookingRow {
 const PAGE_SIZE = 20;
 const SEARCH_MIN_CHARS = 3;
 
+/** /api/host/booking-slips takes at most this many ids per request. */
+const SLIP_IDS_PER_REQUEST = 100;
+
 /**
- * Converts a storage path (or legacy signed URL) stored in payment_slip_url
- * into a fresh signed URL. Returns null if no path is stored.
+ * Swaps each row's stored slip path for a fresh signed URL. The server signs
+ * them (/api/host/booking-slips), after checking the bookings are this
+ * host's: the browser no longer has read access to the slips bucket. On any
+ * failure the row keeps its stored value, as before.
  */
-function extractStoragePath(value: string | null): string | null {
-  if (!value) return null;
-  // New format: plain storage path like "pending/xxx/slip.jpg"
-  if (!value.startsWith("http")) return value;
-  // Legacy format: full signed URL — extract path after "/payment-slips/"
-  const match = value.match(/\/payment-slips\/([^?]+)/);
-  return match ? decodeURIComponent(match[1]) : null;
-}
+async function resolveSlipUrls(rows: BookingRow[]): Promise<BookingRow[]> {
+  const ids = rows.filter((r) => slipStoragePath(r.payment_slip_url) !== null).map((r) => r.id);
+  if (ids.length === 0) return rows;
 
-async function resolveSlipUrls(
-  rows: BookingRow[],
-  supabase: ReturnType<typeof createClient>
-): Promise<BookingRow[]> {
-  const paths = rows
-    .map((r) => ({ id: r.id, path: extractStoragePath(r.payment_slip_url) }))
-    .filter((p): p is { id: string; path: string } => p.path !== null);
+  const chunks: string[][] = [];
+  for (let i = 0; i < ids.length; i += SLIP_IDS_PER_REQUEST) chunks.push(ids.slice(i, i + SLIP_IDS_PER_REQUEST));
 
-  if (paths.length === 0) return rows;
+  const urls: Record<string, string> = {};
+  await Promise.all(
+    chunks.map(async (booking_ids) => {
+      try {
+        const res = await fetch("/api/host/booking-slips", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ booking_ids }),
+        });
+        if (res.ok) Object.assign(urls, ((await res.json()) as { urls: Record<string, string> }).urls);
+      } catch {
+        // Keep the stored values for this chunk.
+      }
+    }),
+  );
 
-  const { data } = await supabase.storage
-    .from("payment-slips")
-    .createSignedUrls(
-      paths.map((p) => p.path),
-      60 * 60 // 1 hour
-    );
-
-  if (!data) return rows;
-
-  const urlMap = new Map<string, string>();
-  paths.forEach((p, i) => {
-    const signed = data[i]?.signedUrl;
-    if (signed) urlMap.set(p.id, signed);
-  });
-
-  return rows.map((r) => ({
-    ...r,
-    payment_slip_url: urlMap.get(r.id) ?? r.payment_slip_url,
-  }));
+  return rows.map((r) => ({ ...r, payment_slip_url: urls[r.id] ?? r.payment_slip_url }));
 }
 
 /**
@@ -356,7 +348,7 @@ export default function BookingsPage() {
     // Parallel: resolve slip URLs + fetch date change requests (independent)
     const bookingIds = rawRows.map((b) => b.id);
     const [rows, dcrResult, counts] = await Promise.all([
-      resolveSlipUrls(rawRows, supabase),
+      resolveSlipUrls(rawRows),
       bookingIds.length > 0
         ? supabase.from("date_change_requests").select("id, booking_id, old_check_in, old_check_out, new_check_in, new_check_out, old_total_price, new_total_price, price_difference, status, requested_by, easyslip_verified, payment_slip_url, old_room_id, new_room_id").in("booking_id", bookingIds).eq("status", "pending")
         : Promise.resolve({ data: null }),
@@ -409,7 +401,7 @@ export default function BookingsPage() {
     const { data: single } = await supabase.from("bookings").select("*").eq("id", wanted).single();
     if (!single) return;
     const cartRows = await withCartSiblings([single as unknown as BookingRow], supabase);
-    const withSlips = await resolveSlipUrls(cartRows, supabase);
+    const withSlips = await resolveSlipUrls(cartRows);
     const deepCounts = await fetchAttachmentCounts(cartRows.map((b) => b.id), supabase);
     setAttachmentCounts((prev) => ({ ...prev, ...deepCounts }));
     openDetail(groupIntoCarts(toDisplay(withSlips))[0]);
@@ -472,7 +464,7 @@ export default function BookingsPage() {
       .range(0, PAGE_SIZE - 1);
 
     const pageRows = (data as unknown as BookingRow[]) || [];
-    const rows = await resolveSlipUrls(await withCartSiblings(pageRows, supabase), supabase);
+    const rows = await resolveSlipUrls(await withCartSiblings(pageRows, supabase));
 
     const bookingIds = rows.map((b) => b.id);
     const dcrResult = bookingIds.length > 0
@@ -536,7 +528,7 @@ export default function BookingsPage() {
     const rawRows = await withCartSiblings(pageRows, supabase);
     const counts = await fetchAttachmentCounts(rawRows.map((b) => b.id), supabase);
 
-    const rows = await resolveSlipUrls(rawRows, supabase);
+    const rows = await resolveSlipUrls(rawRows);
     // Merge: the earlier pages are still on screen and still need their badges.
     setAttachmentCounts((prev) => ({
       ...prev,

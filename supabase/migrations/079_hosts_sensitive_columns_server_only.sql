@@ -1,0 +1,30 @@
+-- ============================================================================
+-- 079: phone, promptpay_id and require_otp are written by the server only.
+--
+-- Security audit 2026-11-15, F-13 (and the part of F-11 that can be fixed).
+-- 069 granted a host's own session UPDATE on these columns, for the browser
+-- writes of the setup popup and the profile page. That made the security PIN
+-- decorative for them: anyone holding a host session could
+--   - change promptpay_id, the account guests' PromptPay QR pays into,
+--   - change phone,
+--   - turn require_otp off (login OTP)
+-- with a direct PATCH /rest/v1/hosts, no PIN asked.
+--
+-- The app no longer writes them from the browser:
+--   - first-run popup -> POST /api/host/setup-profile (fills empty fields only)
+--   - profile page    -> POST /api/host/update-sensitive (PIN, rate-limited)
+-- Every other column 069 granted keeps its grant.
+--
+-- APPLY AFTER deploying the code that stops the browser writes. Before it, the
+-- profile page's save still sends require_otp from the browser and would fail
+-- with 42501 until the new code is live.
+--
+-- Rollback:
+--   GRANT UPDATE (phone, promptpay_id, require_otp) ON public.hosts TO authenticated;
+--
+-- Check after applying (all three should be false):
+--   SELECT c, has_column_privilege('authenticated', 'public.hosts', c, 'UPDATE')
+--   FROM unnest(ARRAY['phone', 'promptpay_id', 'require_otp']) AS c;
+-- ============================================================================
+
+REVOKE UPDATE (phone, promptpay_id, require_otp) ON public.hosts FROM authenticated;

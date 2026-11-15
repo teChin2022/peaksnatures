@@ -8,7 +8,10 @@ const { getReadyRedis, getCacheEnvPrefix } = vi.hoisted(() => ({
 }));
 vi.mock("@/lib/redis", () => ({ getReadyRedis, getCacheEnvPrefix }));
 
-type Limiter = { check: (req: NextRequest) => Promise<Response | null> };
+type Limiter = {
+  check: (req: NextRequest) => Promise<Response | null>;
+  checkKey: (bucket: string) => Promise<Response | null>;
+};
 type LimiterOptions = Parameters<typeof import("@/lib/rate-limit").createRateLimiter>[0];
 
 /**
@@ -103,6 +106,18 @@ describe("in-memory limiter (no REDIS_URL)", () => {
 
     expect(await limiter.check(anonymous())).toBeNull();
     expect((await limiter.check(anonymous()))?.status).toBe(429);
+  });
+
+  // For limits on who rather than where from: a user id or an email the route
+  // only knows after reading the body or the session.
+  it("meters a bucket the caller names, apart from the request's address", async () => {
+    const limiter = await freshLimiter({ limit: 2, windowMs: 60_000 });
+
+    expect(await limiter.checkKey("user:a")).toBeNull();
+    expect(await limiter.checkKey("user:a")).toBeNull();
+    expect((await limiter.checkKey("user:a"))?.status).toBe(429);
+    expect(await limiter.checkKey("user:b")).toBeNull();
+    expect(await limiter.check(req())).toBeNull();
   });
 
   it("accepts a custom bucket key", async () => {

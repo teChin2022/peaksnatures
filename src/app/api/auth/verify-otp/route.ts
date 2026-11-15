@@ -4,17 +4,30 @@ import {
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
+import { createRateLimiter } from "@/lib/rate-limit";
+
+// Audit F-11: the 6-digit code had no limit on guesses. A code lives 5
+// minutes, so 5 tries per email per 5 minutes is 5 guesses per code at most;
+// the per-address limit stops one client walking many emails.
+const verifyOtpRateLimit = createRateLimiter({ limit: 20, windowMs: 60_000, name: "verify-otp" });
+const otpEmailLimit = createRateLimiter({ limit: 5, windowMs: 5 * 60_000, name: "verify-otp-email" });
 
 export async function POST(req: NextRequest) {
+  const rateLimited = await verifyOtpRateLimit.check(req);
+  if (rateLimited) return rateLimited;
+
   try {
     const { email, password, otp } = await req.json();
 
-    if (!email || !password || !otp) {
+    if (!email || !password || !otp || typeof email !== "string") {
       return NextResponse.json(
         { error: "Email, password, and verification code are required" },
         { status: 400 }
       );
     }
+
+    const emailLimited = await otpEmailLimit.checkKey(`otp:${email.trim().toLowerCase()}`);
+    if (emailLimited) return emailLimited;
 
     // Look up OTP in DB via service role
     const serviceClient = createServiceRoleClient();

@@ -1,5 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { createRateLimiter } from "@/lib/rate-limit";
+import { guestLookupSchema, matchesGuestContact } from "@/lib/guest-lookup";
 
 interface BookingResult {
   id: string;
@@ -23,54 +25,41 @@ interface BookingResult {
 
 const BOOKING_SELECT = "id, guest_name, guest_email, guest_phone, check_in, check_out, num_guests, total_price, amount_paid, payment_type, status, room_id, group_id, checked_in_at, checked_out_at, created_at, selected_options, guest_pricing_label";
 
-export async function GET(request: NextRequest) {
-  const { searchParams } = new URL(request.url);
-  const query = searchParams.get("query")?.trim();
-  const homestayId = searchParams.get("homestay_id");
+const searchRateLimit = createRateLimiter({ limit: 10, windowMs: 60_000, name: "booking-search" });
 
-  if (!query || !homestayId) {
-    return NextResponse.json({ bookings: [] });
+/**
+ * POST, not GET: the phone and email must not end up in a URL, where request
+ * logs keep them. Same reason as /api/bookings/draft/lookup.
+ */
+export async function POST(request: NextRequest) {
+  const rateLimited = await searchRateLimit.check(request);
+  if (rateLimited) return rateLimited;
+
+  let raw: unknown;
+  try {
+    raw = await request.json();
+  } catch {
+    return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
   }
+  const parsed = guestLookupSchema.safeParse(raw);
+  if (!parsed.success) {
+    return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
+  }
+  const { homestay_id: homestayId, phone, email } = parsed.data;
 
-  // Public endpoint: guests search their own bookings.
-  // Supports booking ID, phone number, or email.
-  // Scoped by homestay_id — no auth required.
+  // Public endpoint: a guest finds their own bookings with the phone AND email
+  // they booked with (see guestLookupSchema). The ilike only narrows the read;
+  // matchesGuestContact decides.
   const supabase = createServiceRoleClient();
 
-  // Determine search type and query accordingly
-  const isEmail = query.includes("@");
-  const isPhone = /^[0-9+\-() ]{7,}$/.test(query);
-
-  let searchQuery;
-  if (isEmail) {
-    searchQuery = supabase
-      .from("bookings")
-      .select(BOOKING_SELECT)
-      .eq("homestay_id", homestayId)
-      .eq("guest_email", query)
-      .order("created_at", { ascending: false })
-      .limit(10);
-  } else if (isPhone) {
-    const digits = query.replace(/\D/g, "");
-    searchQuery = supabase
-      .from("bookings")
-      .select(BOOKING_SELECT)
-      .eq("homestay_id", homestayId)
-      .like("guest_phone", `%${digits}%`)
-      .order("created_at", { ascending: false })
-      .limit(10);
-  } else {
-    // Default: search by exact booking ID
-    searchQuery = supabase
-      .from("bookings")
-      .select(BOOKING_SELECT)
-      .eq("homestay_id", homestayId)
-      .eq("id", query)
-      .limit(1);
-  }
-
-  const { data } = await searchQuery;
-  const unique = (data as unknown as BookingResult[]) || [];
+  const { data } = await supabase
+    .from("bookings")
+    .select(BOOKING_SELECT)
+    .eq("homestay_id", homestayId)
+    .ilike("guest_email", email)
+    .order("created_at", { ascending: false })
+    .limit(50);
+  const unique = ((data as unknown as BookingResult[]) || []).filter((b) => matchesGuestContact(b, phone, email));
 
   const sliced = unique.slice(0, 10);
 

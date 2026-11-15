@@ -1,17 +1,21 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { verifyTurnstileToken } from "@/lib/turnstile";
+import { createRateLimiter } from "@/lib/rate-limit";
+import { guestLookupSchema, matchesGuestContact } from "@/lib/guest-lookup";
+
+const lookupRateLimit = createRateLimiter({ limit: 10, windowMs: 60_000, name: "reviews-lookup" });
 
 export async function POST(request: NextRequest) {
-  try {
-    const { homestay_id, identifier, turnstileToken } = await request.json();
+  const rateLimited = await lookupRateLimit.check(request);
+  if (rateLimited) return rateLimited;
 
-    if (!homestay_id || !identifier?.trim()) {
-      return NextResponse.json(
-        { error: "homestay_id and identifier (email or phone) are required" },
-        { status: 400 }
-      );
+  try {
+    const parsed = guestLookupSchema.safeParse(await request.json());
+    if (!parsed.success) {
+      return NextResponse.json({ error: "INVALID_INPUT" }, { status: 400 });
     }
+    const { homestay_id, phone, email, turnstileToken } = parsed.data;
 
     // Verify Turnstile CAPTCHA
     const captchaResult = await verifyTurnstileToken(turnstileToken || "");
@@ -22,31 +26,24 @@ export async function POST(request: NextRequest) {
       );
     }
 
-    const value = identifier.trim().toLowerCase();
     const supabase = createServiceRoleClient();
 
-    // Find completed bookings for this homestay matching email or phone
-    let query = supabase
+    // Completed stays for this homestay booked with this phone AND email (see
+    // guestLookupSchema). The ilike only narrows; matchesGuestContact decides.
+    const { data: bookingRows, error } = await supabase
       .from("bookings")
       .select("id, guest_name, guest_email, guest_phone, room_id, check_in, check_out, num_guests, total_price, created_at")
       .eq("homestay_id", homestay_id)
       .eq("status", "completed")
-      .order("check_out", { ascending: false });
-
-    // Determine if identifier is email or phone
-    if (value.includes("@")) {
-      query = query.ilike("guest_email", value);
-    } else {
-      query = query.eq("guest_phone", value);
-    }
-
-    const { data: bookingRows, error } = await query;
+      .ilike("guest_email", email)
+      .order("check_out", { ascending: false })
+      .limit(50);
 
     if (error) {
       return NextResponse.json({ error: "Failed to lookup bookings" }, { status: 500 });
     }
 
-    const bookings = (bookingRows || []) as {
+    const bookings = ((bookingRows || []) as {
       id: string;
       guest_name: string;
       guest_email: string;
@@ -57,7 +54,7 @@ export async function POST(request: NextRequest) {
       num_guests: number;
       total_price: number;
       created_at: string;
-    }[];
+    }[]).filter((b) => matchesGuestContact(b, phone, email));
 
     if (bookings.length === 0) {
       return NextResponse.json({ bookings: [] });
