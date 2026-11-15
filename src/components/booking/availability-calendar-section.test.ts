@@ -73,6 +73,7 @@ afterEach(() => {
   h.lines = [];
   h.booked = [];
   h.dateRange = undefined;
+  house.images.length = 0;
 });
 
 const button = (text: string) =>
@@ -99,6 +100,32 @@ function bookFromDetail() {
   act(() => button("picker-done").click());
   tick();
 }
+
+describe("AvailabilityCalendarSection: the house detail's photos", () => {
+  const thumbs = () => [...document.body.querySelectorAll<HTMLButtonElement>('[role="dialog"] button[aria-current]')];
+  const showDetail = (photos: number) => {
+    house.images.push(...Array.from({ length: photos }, (_, i) => `/photo-${i + 1}.jpg`));
+    openDay();
+    act(() => button("viewDetails").click());
+  };
+
+  it("shows one thumbnail per photo, the first one current, and jumps to a tapped one", () => {
+    showDetail(3);
+    expect(thumbs()).toHaveLength(3);
+    expect(thumbs().map((b) => b.getAttribute("aria-current"))).toEqual(["true", "false", "false"]);
+    expect(thumbs()[2].getAttribute("aria-label")).toBe("goToPhoto");
+    act(() => thumbs()[2].click());
+    expect(thumbs().map((b) => b.getAttribute("aria-current"))).toEqual(["false", "false", "true"]);
+    // The photo strip slides to the third photo.
+    const strip = document.body.querySelector<HTMLElement>('[role="dialog"] [style*="translateX"]');
+    expect(strip?.style.transform).toBe("translateX(-200%)");
+  });
+
+  it("shows no thumbnails for a single photo", () => {
+    showDetail(1);
+    expect(thumbs()).toHaveLength(0);
+  });
+});
 
 describe("AvailabilityCalendarSection: the day's house list", () => {
   it("books a free house straight from its row, without opening the details", () => {

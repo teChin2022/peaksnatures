@@ -22,6 +22,7 @@ import {
 import { HTMLContent } from "@/components/ui/html-content";
 import { BookingCalendarPanel } from "@/components/booking/booking-calendar-dialog";
 import { RoomRateTable } from "@/components/booking/room-rate-table";
+import { thumbScroll } from "@/components/booking/gallery-section";
 import { BOOKED_DAY, CalendarLegend, LEGEND_SWATCH } from "@/components/booking/calendar-legend";
 import { RoomConfigDialog } from "@/components/booking/room-config-dialog";
 import { useBookingCart, type CartLine } from "@/components/booking/booking-cart-context";
@@ -134,7 +135,7 @@ function RoomStatusText({ row }: { row: RoomDayStatus }) {
 const BLUR_DATA_URL =
   "data:image/svg+xml;base64,PHN2ZyB3aWR0aD0iMTIwMCIgaGVpZ2h0PSI4MDAiIHhtbG5zPSJodHRwOi8vd3d3LnczLm9yZy8yMDAwL3N2ZyI+PHJlY3Qgd2lkdGg9IjEwMCUiIGhlaWdodD0iMTAwJSIgZmlsbD0iI2UyZThmMCIvPjwvc3ZnPg==";
 
-/** Swipeable photo strip — the room-card carousel trimmed to fit a dialog (no arrows, no lightbox). */
+/** Swipeable photos with a thumbnail row — the house card's carousel trimmed to fit a dialog (no lightbox). */
 function RoomPhotos({ images, name }: { images: string[]; name: string }) {
   const t = useTranslations("rooms");
   const [index, setIndex] = useState(0);
@@ -164,73 +165,76 @@ function RoomPhotos({ images, name }: { images: string[]; name: string }) {
   if (images.length === 0) return null;
 
   return (
-    <div
-      ref={setContainerEl}
-      className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-mist-2"
-      style={{ touchAction: "pan-y" }}
-    >
+    <div>
       <div
-        className="absolute inset-0 flex transition-transform duration-500 ease-out will-change-transform"
-        style={{ transform: `translateX(-${index * 100}%)` }}
+        ref={setContainerEl}
+        className="group relative aspect-[4/3] overflow-hidden rounded-xl bg-mist-2"
+        style={{ touchAction: "pan-y" }}
       >
-        {images.map((src, i) => (
-          <div key={src} className="relative h-full w-full shrink-0">
-            {isNear(i) && (
-              <Image
-                src={src}
-                alt={`${name} photo ${i + 1}`}
-                fill
-                sizes="(max-width: 640px) 100vw, 512px"
-                placeholder="blur"
-                blurDataURL={BLUR_DATA_URL}
-                className="h-full w-full object-cover"
-              />
-            )}
-          </div>
-        ))}
+        <div
+          className="absolute inset-0 flex transition-transform duration-500 ease-out will-change-transform"
+          style={{ transform: `translateX(-${index * 100}%)` }}
+        >
+          {images.map((src, i) => (
+            <div key={src} className="relative h-full w-full shrink-0">
+              {isNear(i) && (
+                <Image
+                  src={src}
+                  alt={`${name} photo ${i + 1}`}
+                  fill
+                  sizes="(max-width: 640px) 100vw, 512px"
+                  placeholder="blur"
+                  blurDataURL={BLUR_DATA_URL}
+                  className="h-full w-full object-cover"
+                />
+              )}
+            </div>
+          ))}
+        </div>
+
+        {/* Arrows — desktop only, fading in on hover, same as the room cards */}
+        {multi && (
+          <>
+            <button
+              type="button"
+              aria-label={t("prevPhoto")}
+              onClick={prev}
+              className="absolute left-4 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/50 focus-visible:opacity-100 group-hover:opacity-100 md:flex"
+            >
+              <ChevronLeft className="h-5 w-5" />
+            </button>
+            <button
+              type="button"
+              aria-label={t("nextPhoto")}
+              onClick={next}
+              className="absolute right-4 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/50 focus-visible:opacity-100 group-hover:opacity-100 md:flex"
+            >
+              <ChevronRight className="h-5 w-5" />
+            </button>
+          </>
+        )}
       </div>
 
-      {/* Arrows — desktop only, fading in on hover, same as the room cards */}
+      {/* Thumbnails under the photo, as on the house card's phone layout; the shown one keeps in view as the photo changes.
+          -mx-1 px-1 pb-1: room for the ring and focus ring, which the scrolling row would otherwise clip. */}
       {multi && (
-        <>
-          <button
-            type="button"
-            aria-label={t("prevPhoto")}
-            onClick={prev}
-            className="absolute left-4 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/50 focus-visible:opacity-100 group-hover:opacity-100 md:flex"
-          >
-            <ChevronLeft className="h-5 w-5" />
-          </button>
-          <button
-            type="button"
-            aria-label={t("nextPhoto")}
-            onClick={next}
-            className="absolute right-4 top-1/2 z-10 hidden h-10 w-10 -translate-y-1/2 items-center justify-center rounded-full bg-black/30 text-white opacity-0 backdrop-blur-sm transition-all hover:bg-black/50 focus-visible:opacity-100 group-hover:opacity-100 md:flex"
-          >
-            <ChevronRight className="h-5 w-5" />
-          </button>
-        </>
-      )}
-
-      {/* Dots sit at the TOP of the image, as on the room cards — identical on mobile
-          and desktop. The button's padding grows the tap target; the matching negative
-          margins cancel it out of layout, so the dots keep the tight gap-1.5 pitch. */}
-      {multi && (
-        <div className="absolute inset-x-0 top-0 z-10 flex items-center justify-center gap-1.5 bg-gradient-to-b from-black/20 to-transparent pt-3 pb-6">
-          {images.map((_, i) => (
+        <div className="-mx-1 flex gap-1.5 overflow-x-auto px-1 pt-3 pb-1 [scrollbar-width:none]">
+          {images.map((src, i) => (
             <button
-              key={i}
+              key={src}
               type="button"
               aria-label={t("goToPhoto", { number: i + 1 })}
+              aria-current={i === index}
               onClick={() => setIndex(i)}
-              className="px-1 -mx-1 py-2 -my-2"
+              ref={(el) => {
+                if (i === index) el?.scrollIntoView?.({ inline: "nearest", block: "nearest", behavior: thumbScroll() });
+              }}
+              className={cn(
+                "relative h-10 w-14 shrink-0 overflow-hidden rounded-lg outline-none transition-opacity focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-1",
+                i === index ? "opacity-100 ring-2 ring-pine" : "opacity-60 hover:opacity-100",
+              )}
             >
-              <span
-                className={cn(
-                  "block h-1.5 rounded-full transition-all",
-                  i === index ? "w-3 bg-white" : "w-1.5 bg-white/50 pointer-fine:hover:bg-white/80",
-                )}
-              />
+              <Image src={src} alt="" fill sizes="56px" className="object-cover" />
             </button>
           ))}
         </div>
