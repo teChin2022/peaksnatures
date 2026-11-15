@@ -192,6 +192,13 @@ function RoomPhotos({ images, name }: { images: string[]; name: string }) {
           ))}
         </div>
 
+        {/* Photo count, as on the house card (rooms-section). */}
+        {multi && (
+          <span aria-hidden="true" className="pointer-events-none absolute right-3 bottom-3 z-10 rounded-full bg-black/70 px-2.5 py-0.5 text-xs text-white tabular-nums">
+            {index + 1} / {images.length}
+          </span>
+        )}
+
         {/* Arrows — desktop only, fading in on hover, same as the room cards */}
         {multi && (
           <>

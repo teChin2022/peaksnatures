@@ -113,17 +113,21 @@ describe("AvailabilityCalendarSection: the house detail's photos", () => {
     showDetail(3);
     expect(thumbs()).toHaveLength(3);
     expect(thumbs().map((b) => b.getAttribute("aria-current"))).toEqual(["true", "false", "false"]);
+    // The photo count, as on the house card.
+    expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain("1 / 3");
     expect(thumbs()[2].getAttribute("aria-label")).toBe("goToPhoto");
     act(() => thumbs()[2].click());
     expect(thumbs().map((b) => b.getAttribute("aria-current"))).toEqual(["false", "false", "true"]);
+    expect(document.body.querySelector('[role="dialog"]')?.textContent).toContain("3 / 3");
     // The photo strip slides to the third photo.
     const strip = document.body.querySelector<HTMLElement>('[role="dialog"] [style*="translateX"]');
     expect(strip?.style.transform).toBe("translateX(-200%)");
   });
 
-  it("shows no thumbnails for a single photo", () => {
+  it("shows no thumbnails and no count for a single photo", () => {
     showDetail(1);
     expect(thumbs()).toHaveLength(0);
+    expect(document.body.querySelector('[role="dialog"]')?.textContent).not.toContain("1 / 1");
   });
 });
 
