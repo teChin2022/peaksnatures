@@ -59,22 +59,22 @@ typography:
     lineHeight: 1.2
     fontFeature: "\"tnum\""
   body:
-    fontFamily: "ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Anuphan, ui-sans-serif, system-ui, sans-serif"
     fontSize: "1rem"
     fontWeight: 400
     lineHeight: 1.625
   body-sm:
-    fontFamily: "ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Anuphan, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 400
     lineHeight: 1.625
   label:
-    fontFamily: "ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Anuphan, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.875rem"
     fontWeight: 600
     lineHeight: 1.43
   caption:
-    fontFamily: "ui-sans-serif, system-ui, sans-serif"
+    fontFamily: "Anuphan, ui-sans-serif, system-ui, sans-serif"
     fontSize: "0.75rem"
     fontWeight: 500
     lineHeight: 1.333
@@ -277,20 +277,22 @@ just the demo photo.
 
 **Display Font:** Playfair Display for Latin, with Noto Serif Thai for Thai
 (`font-serif`; Noto Serif Thai is loaded at 400 and 700 only).
-**Body Font:** the system UI stack (`ui-sans-serif, system-ui, sans-serif`),
-so Thai renders in the OS Thai face (SF Thai or Thonburi on Apple, Noto Sans
-Thai on Android, Leelawadee UI on Windows).
+**Body Font:** Anuphan for Thai and Latin (`font-sans`, the variable font
+from `next/font/google`, subsets `thai` and `latin`, weights 100–700), with
+the system UI stack behind it as the fallback. Owner's pick, 2026-11-15
+(design-direction §10.4, option B): the same loopless Thai on every phone,
+where the OS stack gave Thonburi on Apple and Noto Sans Thai on Android.
 **Mono:** Geist Mono (loaded; not part of the visible system).
 
 **Character:** a quiet serif for the names of places and prices, against a
-plain, native sans that reads well in Thai on any phone.
+plain, modern loopless sans that reads well in Thai on any phone.
 
-Geist is loaded in `src/app/layout.tsx` but is not the body font in practice:
-`@theme inline` inlines `--font-sans` into utilities instead of defining it on
-`:root`, so the base `html` font falls back to the system stack, and only
-elements with an explicit `font-sans` class (9 on `/[slug]`) render in Geist.
-Whether to make the system stack official or apply a web font (with a Thai
-companion) is an open decision in `docs/design-direction.md`.
+The body sets `font-sans` in `globals.css` (`@layer base`): the `next/font`
+variables (`--font-anuphan` and the rest) are set on `<body>` in
+`src/app/layout.tsx`, so `html`'s default font cannot resolve them, and
+without that rule the page falls back to the system stack (why Geist never
+showed). Anuphan's
+variable axis stops at 700, so `font-extrabold` renders at 700.
 
 ### Hierarchy
 - **Display** (serif 400, `text-4xl` → `sm:text-6xl` → `md:text-7xl`, i.e.

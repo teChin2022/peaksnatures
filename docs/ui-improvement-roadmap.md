@@ -74,7 +74,9 @@ gets its own impact summary.
 
 Deferred until the owner decides (direction §10):
 - **0.9 Body font.** Make the system stack official (recommended), or load a
-  Latin + Thai pair. Fixes S8.
+  Latin + Thai pair. Fixes S8. **Done 2026-11-15:** the owner chose Anuphan
+  (thai + latin) in place of Geist; the body names `font-sans`. E2E: "Thai
+  typography".
 - **0.10 Palette value tuning.** Warm Ivory background; whether Forest
   changes. Only after phase 1 has moved text to `earth-600` or darker.
 
@@ -183,7 +185,7 @@ From direction §10:
 1. Brand green.
 2. Page background.
 3. Sage's role.
-4. Body font.
+4. ~~Body font.~~ Closed 2026-11-15 (Anuphan).
 5. The home hero photo.
 6. ~~The cart badge pulse.~~ Closed 2026-11-15 (no cart).
 7. The home order.

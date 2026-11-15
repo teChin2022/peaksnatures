@@ -114,7 +114,9 @@ then tune values. This is a value change, not a rebuild.
 **Proposed:**
 - **Keep the serif pairing** for display, headlines, house names and prices.
   Never italicise Thai; emphasise with Forest colour instead.
-- **Body font: decide between two options.**
+- **Body font: decided 2026-11-15, option B with Anuphan** (thai + latin,
+  variable). It replaces the half-applied Geist; the body names `font-sans`
+  in `globals.css`. The options as weighed:
   - **A. Recommended:** make the system stack official. It is what renders
     today, costs no bytes, gives native-quality Thai on iOS and Android, and
     stops the half-applied Geist load.
@@ -281,8 +283,8 @@ From this session (2026-11-11):
 2. **Guest page background.** `earth-50` #faf8f5 or the proposed Warm Ivory
    #F5F1E8. The proposed value comes after the text-contrast fix.
 3. **Sage.** Confirm its role as a decorative accent only.
-4. **Body font.** Make the system stack official (recommended) or load a
-   Latin + Thai web font pair.
+4. ~~**Body font.**~~ Closed 2026-11-15: Anuphan (option B, a Latin + Thai
+   web font) for body and UI text, site-wide.
 5. **Home hero image.** Which real Thai photo, and with whose permission.
 6. ~~**Cart badge pulse.**~~ Closed 2026-11-15: the booking page has no cart,
    so no badge and no pulse.

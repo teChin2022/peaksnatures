@@ -1,5 +1,5 @@
 import type { Metadata, Viewport } from "next";
-import { Geist, Geist_Mono, Playfair_Display, Noto_Serif_Thai } from "next/font/google";
+import { Anuphan, Geist_Mono, Playfair_Display, Noto_Serif_Thai } from "next/font/google";
 import { NextIntlClientProvider } from "next-intl";
 import { getLocale, getMessages } from "next-intl/server";
 import { Toaster } from "@/components/ui/sonner";
@@ -18,9 +18,9 @@ import {
 } from "@/lib/seo";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
+const anuphan = Anuphan({
+  variable: "--font-anuphan",
+  subsets: ["thai", "latin"],
 });
 
 const geistMono = Geist_Mono({
@@ -134,7 +134,7 @@ export default async function RootLayout({
   return (
     <html lang={locale} suppressHydrationWarning>
       <body
-        className={`${geistSans.variable} ${geistMono.variable} ${playfair.variable} ${notoSerifThai.variable} antialiased`}
+        className={`${anuphan.variable} ${geistMono.variable} ${playfair.variable} ${notoSerifThai.variable} antialiased`}
         suppressHydrationWarning
       >
         <JsonLd data={organizationLd} id="ld-organization" />

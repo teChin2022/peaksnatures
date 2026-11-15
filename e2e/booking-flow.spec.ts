@@ -245,6 +245,30 @@ test.describe("Thai typography", () => {
     expect(spacing.latin.length).toBeGreaterThan(0);
     expect(spacing.latin.some((s) => s !== "normal")).toBe(true);
   });
+
+  // Geist was loaded for months without ever reaching the body: the font has to be applied, not just declared.
+  test("sets the text and the buttons in Anuphan, downloaded with the page, not the phone's own font", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.goto(`/${slug}`);
+    await page.waitForLoadState("networkidle");
+
+    const font = await page.evaluate(async () => {
+      await document.fonts.ready;
+      const loaded: string[] = [];
+      document.fonts.forEach((face) => {
+        if (face.status === "loaded") loaded.push(face.family);
+      });
+      return {
+        body: getComputedStyle(document.body).fontFamily,
+        button: getComputedStyle(document.querySelector("button")!).fontFamily,
+        loaded,
+      };
+    });
+    expect(font.body).toContain("Anuphan");
+    expect(font.button).toContain("Anuphan");
+    expect(font.loaded.some((family) => family.includes("Anuphan"))).toBe(true);
+  });
 });
 
 test.describe("the booking page header", () => {
