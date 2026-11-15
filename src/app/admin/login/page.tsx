@@ -19,6 +19,13 @@ import {
 import OtpModal from "@/components/otp-modal";
 import { isValidEmail } from "@/lib/utils";
 
+/** English text for the codes /api/auth/send-otp and /verify-otp answer with. */
+function authErrorText(code: unknown) {
+  if (code === "INVALID_CREDENTIALS") return "Incorrect email or password";
+  if (code === "EMAIL_NOT_CONFIRMED") return "This email is not confirmed yet";
+  return "Something went wrong";
+}
+
 export default function AdminLoginPage() {
   const router = useRouter();
   const [email, setEmail] = useState("");
@@ -62,7 +69,7 @@ export default function AdminLoginPage() {
         if (res.status === 403) {
           setError("CAPTCHA verification failed");
         } else {
-          setError(data.error || "Something went wrong");
+          setError(authErrorText(data.error));
         }
         turnstileRef.current?.reset();
         setTurnstileToken(null);
@@ -99,7 +106,7 @@ export default function AdminLoginPage() {
           } else if (data.error === "invalid_code") {
             setOtpError("Invalid verification code.");
           } else {
-            setOtpError(data.error || "Something went wrong");
+            setOtpError(authErrorText(data.error));
           }
           return;
         }

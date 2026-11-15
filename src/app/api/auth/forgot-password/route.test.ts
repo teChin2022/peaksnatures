@@ -36,3 +36,13 @@ describe("POST /api/auth/forgot-password", () => {
     });
   });
 });
+
+describe("POST /api/auth/forgot-password: when Supabase refuses", () => {
+  it("answers a fixed code, not Supabase's own message", async () => {
+    h.resetPasswordForEmail.mockResolvedValue({ error: { message: "For security purposes, you can only request this after 42 seconds." } });
+
+    await expect(
+      readJson(await POST(makeRequest("/api/auth/forgot-password", { body: { email: "host@example.com", turnstileToken: "tok" } }))),
+    ).resolves.toEqual({ status: 400, body: { error: "REQUEST_FAILED" } });
+  });
+});

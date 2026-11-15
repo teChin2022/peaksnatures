@@ -17,6 +17,7 @@ let heroResponse: () => Response;
 
 beforeEach(async () => {
   vi.spyOn(console, "error").mockImplementation(() => {});
+  vi.stubEnv("NEXT_PUBLIC_SUPABASE_URL", "https://x.supabase.co");
   supabase = createSupabaseMock({
     tables: {
       homestays: {
@@ -42,6 +43,7 @@ beforeEach(async () => {
 
 afterEach(() => {
   vi.unstubAllGlobals();
+  vi.unstubAllEnvs();
 });
 
 const render = async () =>
@@ -56,7 +58,7 @@ describe("[slug]/opengraph-image", () => {
 
     expect([...png.slice(0, 4)]).toEqual(PNG_MAGIC);
     expect(supabase.calls[0].builder.eq).toHaveBeenCalledWith("slug", SLUG);
-    expect(fetch).toHaveBeenCalledWith(HERO);
+    expect(fetch).toHaveBeenCalledWith(HERO, expect.objectContaining({ signal: expect.anything() }));
   });
 
   it("still renders when the hero cannot be fetched", async () => {
@@ -65,5 +67,68 @@ describe("[slug]/opengraph-image", () => {
     const png = await render();
 
     expect([...png.slice(0, 4)]).toEqual(PNG_MAGIC);
+  });
+});
+
+// F-16: hero_image_url is whatever the host typed, and the server fetched it
+// with no allowlist (SSRF) and fed the bytes to sharp. Only this project's own
+// homestay-photos bucket is fetched now; anything else renders the text card.
+describe("[slug]/opengraph-image: what it will fetch", () => {
+  const withHero = (url: string) => {
+    supabase = createSupabaseMock({
+      tables: { homestays: { data: { name: "Mon Ngo Viewmok", tagline: null, location: "Chiang Mai", hero_image_url: url } } },
+    });
+    mocks.createServiceRoleClient.mockReturnValue(supabase);
+  };
+
+  it.each([
+    ["the cloud metadata address", "http://169.254.169.254/latest/meta-data/"],
+    ["another site", "https://evil.example/hero.webp"],
+    ["plain http on the project's own host", "http://x.supabase.co/storage/v1/object/public/homestay-photos/hero.webp"],
+    ["another bucket on the project's host", "https://x.supabase.co/storage/v1/object/public/payment-slips/slip.jpg"],
+    ["a look-alike host", "https://x.supabase.co.evil.example/storage/v1/object/public/homestay-photos/hero.webp"],
+    ["not a URL at all", "javascript:alert(1)"],
+  ])("does not fetch %s, and still renders the card", async (_, url) => {
+    withHero(url);
+
+    const png = await render();
+
+    expect([...png.slice(0, 4)]).toEqual(PNG_MAGIC);
+    expect(vi.mocked(fetch).mock.calls.some((c) => String(c[0]) === url)).toBe(false);
+  });
+
+  /** sharp decodes this many times in one render; next/og uses sharp itself too. */
+  const sharpDecodes = async () => {
+    const toBuffer = vi.spyOn(sharp.prototype, "toBuffer");
+    await render();
+    const n = toBuffer.mock.calls.length;
+    toBuffer.mockRestore();
+    return n;
+  };
+  /** The count with no hero decoded at all: the fetch fails. */
+  const withoutHero = async () => {
+    const saved = heroResponse;
+    heroResponse = () => new Response("", { status: 404 });
+    const n = await sharpDecodes();
+    heroResponse = saved;
+    return n;
+  };
+
+  it("decodes a real WebP hero (so the counts below mean something)", async () => {
+    const baseline = await withoutHero();
+    expect(await sharpDecodes()).toBe(baseline + 1);
+  });
+
+  it("does not decode an SVG served as the hero", async () => {
+    const baseline = await withoutHero();
+    heroResponse = () => new Response('<svg xmlns="http://www.w3.org/2000/svg"/>', { headers: { "content-type": "image/svg+xml" } });
+    expect(await sharpDecodes()).toBe(baseline);
+  });
+
+  it("does not download a hero larger than the cap", async () => {
+    const baseline = await withoutHero();
+    heroResponse = () =>
+      new Response(new Uint8Array(16), { headers: { "content-type": "image/webp", "content-length": String(50 * 1024 * 1024) } });
+    expect(await sharpDecodes()).toBe(baseline);
   });
 });

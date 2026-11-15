@@ -69,3 +69,16 @@ describe("POST /api/auth/send-magic-link", () => {
     expect((await send({}, ip)).status).toBe(429);
   });
 });
+
+// F-19: "no_account" (404) told anyone which emails have an account here.
+describe("POST /api/auth/send-magic-link: unknown emails", () => {
+  it("answers exactly as for a real account, and sends nothing", async () => {
+    h.generateLink.mockResolvedValue({ data: null, error: { message: "User not found" } });
+
+    const { status, body } = await readJson(await send());
+
+    expect(status).toBe(200);
+    expect(body).toEqual({ success: true });
+    expect(h.send).not.toHaveBeenCalled();
+  });
+});

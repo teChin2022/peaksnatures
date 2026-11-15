@@ -23,7 +23,7 @@ export default function ResetPasswordPage() {
   const [confirmPasswordWarning, setConfirmPasswordWarning] = useState<string | null>(null);
   const [touched, setTouched] = useState<Set<string>>(new Set());
 
-  const passwordRegex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[_#@]).{6,}$/;
+  const passwordRegex = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[_#@]).{8,}$/;
 
   const handlePasswordBlur = () => {
     setTouched(prev => new Set([...prev, "password"]));
@@ -146,7 +146,7 @@ export default function ResetPasswordPage() {
                       }}
                       onBlur={handlePasswordBlur}
                       required
-                      minLength={6}
+                      minLength={8}
                       autoComplete="new-password"
                       className={`pr-10 p-3.5 !h-auto rounded-xl !border ${touched.has("password") && (!password || !!passwordWarning) ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
                     />
@@ -181,7 +181,7 @@ export default function ResetPasswordPage() {
                       }}
                       onBlur={handleConfirmPasswordBlur}
                       required
-                      minLength={6}
+                      minLength={8}
                       autoComplete="new-password"
                       className={`pr-10 p-3.5 !h-auto rounded-xl !border ${touched.has("confirmPassword") && (!confirmPassword || !!confirmPasswordWarning) ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
                     />

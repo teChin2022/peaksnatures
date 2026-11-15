@@ -65,3 +65,24 @@ describe("POST /api/auth/register", () => {
     expect(h.signUp).not.toHaveBeenCalled();
   });
 });
+
+// F-19: EMAIL_EXISTS (409) told anyone which emails have an account here.
+describe("POST /api/auth/register: an email that already has an account", () => {
+  it.each([
+    ["Supabase reports it (confirmations off)", () => h.signUp.mockResolvedValue({ data: null, error: { message: "User already registered" } })],
+    ["Supabase hides it (confirmations on)", () => h.signUp.mockResolvedValue({ data: { user: { identities: [] } }, error: null })],
+  ])("answers exactly as for a new one when %s", async (_, arrange) => {
+    arrange();
+    await expect(register(body())).resolves.toEqual({ status: 200, body: { success: true } });
+  });
+});
+
+// L-02: 6 characters was the minimum.
+describe("POST /api/auth/register: password length", () => {
+  it("refuses a 7-character password, even with every required kind of character", async () => {
+    const { status } = await register(body({ password: "Secr_1A" }));
+
+    expect(status).toBe(400);
+    expect(h.signUp).not.toHaveBeenCalled();
+  });
+});

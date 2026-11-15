@@ -285,6 +285,13 @@ describe("POST /api/bookings", () => {
   });
 
   describe("validation", () => {
+    // L-07: the zod error tree used to go back to the client.
+    it("answers a fixed message, without the validation details", async () => {
+      const { status, body: result } = await readJson(await post(body({ guest_email: "not-an-email" })));
+      expect(status).toBe(400);
+      expect(result).toEqual({ error: "Invalid booking data" });
+    });
+
     it.each([
       ["a missing homestay", { homestay_id: undefined }],
       ["a non-uuid homestay", { homestay_id: "nope" }],
@@ -388,14 +395,15 @@ describe("POST /api/bookings", () => {
       );
     });
 
-    it("re-prices options from the database, ignoring what the client sent", async () => {
+    // F-15: the name came from the client too, and went into emails as HTML.
+    it("re-prices and renames options from the database, ignoring what the client sent", async () => {
       const supabase = mockClient({
-        tables: tables({ room_options: { data: [{ id: OPTION_ID, price: 250, pricing_type: "per_night" }] } }),
+        tables: tables({ room_options: { data: [{ id: OPTION_ID, name: "Breakfast", price: 250, pricing_type: "per_night" }] } }),
       });
 
       await post(body({
         total_price: 0,
-        selected_options: [{ id: OPTION_ID, name: "Breakfast", price: 999999 }],
+        selected_options: [{ id: OPTION_ID, name: "<b>Free spa</b>", price: 999999 }],
       }));
 
       expect(supabase.rpc).toHaveBeenCalledWith(
@@ -426,7 +434,9 @@ describe("POST /api/bookings", () => {
       await post(body({ total_price: 0, selected_options: [{ id: OPTION_ID, name: "Ghost", price: 5000 }] }));
       expect(supabase.rpc).toHaveBeenCalledWith(
         "create_booking_atomic",
-        expect.objectContaining({ p_total_price: 2000 }),
+        // Not charged, and not stored either: it used to stay on the booking
+        // (and in its emails) with the client's name and price.
+        expect.objectContaining({ p_total_price: 2000, p_selected_options: [] }),
       );
     });
 

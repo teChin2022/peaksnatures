@@ -82,7 +82,7 @@ export async function verifyRoomLineItem(
     supabase.from("room_seasonal_prices").select("*").eq("room_id", item.room_id),
     supabase.from("room_special_prices").select("*").eq("room_id", item.room_id).eq("is_active", true),
     optionIds.length > 0
-      ? supabase.from("room_options").select("id, price, pricing_type").eq("room_id", item.room_id).in("id", optionIds)
+      ? supabase.from("room_options").select("id, name, price, pricing_type").eq("room_id", item.room_id).in("id", optionIds)
       : Promise.resolve({ data: null }),
     supabase
       .from("room_guest_pricing")
@@ -121,9 +121,9 @@ export async function verifyRoomLineItem(
   const normalizedOptions: SelectedOptionInput[] = [];
   if (optionIds.length > 0) {
     const dbMap = new Map(
-      ((dbOptions as { id: string; price: number; pricing_type: "per_night" | "per_time" }[]) || []).map((o) => [
+      ((dbOptions as { id: string; name: string; price: number; pricing_type: "per_night" | "per_time" }[]) || []).map((o) => [
         o.id,
-        { price: o.price, pricing_type: o.pricing_type },
+        { name: o.name, price: o.price, pricing_type: o.pricing_type },
       ]),
     );
     for (const opt of selectedOptions) {
@@ -133,7 +133,8 @@ export async function verifyRoomLineItem(
         optionsTotal += enforced;
         normalizedOptions.push({
           id: opt.id,
-          name: opt.name,
+          // The house's own name, not the client's (audit F-15).
+          name: row.name,
           price: enforced,
           unit_price: row.price,
           pricing_type: row.pricing_type,

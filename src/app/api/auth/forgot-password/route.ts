@@ -60,7 +60,8 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error("Supabase resetPasswordForEmail error:", error.message);
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      // A fixed code: Supabase's own message stays in the log (F-19, L-07).
+      return NextResponse.json({ error: "REQUEST_FAILED" }, { status: 400 });
     }
 
     return response;

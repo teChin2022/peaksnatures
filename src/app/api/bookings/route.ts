@@ -130,7 +130,7 @@ export async function POST(req: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid booking data", details: parsed.error.flatten() },
+        { error: "Invalid booking data" },
         { status: 400 }
       );
     }
@@ -226,7 +226,7 @@ export async function POST(req: NextRequest) {
       supabase.from("room_seasonal_prices").select("*").eq("room_id", data.room_id),
       supabase.from("room_special_prices").select("*").eq("room_id", data.room_id).eq("is_active", true),
       optionIds.length > 0
-        ? supabase.from("room_options").select("id, price, pricing_type").eq("room_id", data.room_id).in("id", optionIds)
+        ? supabase.from("room_options").select("id, name, price, pricing_type").eq("room_id", data.room_id).in("id", optionIds)
         : Promise.resolve({ data: null }),
       supabase.from("room_guest_pricing").select("id, adults, children, detail, surcharge, sort_order").eq("room_id", data.room_id).eq("is_active", true),
     ]);
@@ -266,13 +266,17 @@ export async function POST(req: NextRequest) {
     let serverOptionsTotal = 0;
     if (optionIds.length > 0) {
       const dbMap = new Map(
-        (dbOptions as { id: string; price: number; pricing_type: 'per_night' | 'per_time' }[] || [])
-          .map((o) => [o.id, { price: o.price, pricing_type: o.pricing_type }])
+        (dbOptions as { id: string; name: string; price: number; pricing_type: 'per_night' | 'per_time' }[] || [])
+          .map((o) => [o.id, { name: o.name, price: o.price, pricing_type: o.pricing_type }])
       );
+      // Only options this house offers, under the house's own names: the
+      // client's name used to reach the booking and its emails (audit F-15).
+      data.selected_options = data.selected_options.filter((opt) => dbMap.has(opt.id));
       for (const opt of data.selected_options) {
         const row = dbMap.get(opt.id);
         if (row !== undefined) {
           const enforced = row.pricing_type === "per_time" ? row.price : row.price * nights;
+          opt.name = row.name;
           opt.price = enforced;
           opt.unit_price = row.price;
           opt.pricing_type = row.pricing_type;

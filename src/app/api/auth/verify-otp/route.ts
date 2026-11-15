@@ -89,10 +89,8 @@ export async function POST(req: NextRequest) {
     });
 
     if (signInError) {
-      return NextResponse.json(
-        { error: signInError.message },
-        { status: 401 }
-      );
+      // One code, not Supabase's own message (F-19).
+      return NextResponse.json({ error: "INVALID_CREDENTIALS" }, { status: 401 });
     }
 
     // Delete used OTP and any other codes for this email

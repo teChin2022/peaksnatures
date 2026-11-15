@@ -343,7 +343,7 @@ export default function ProfilePage() {
       toast.error(t("oldPasswordRequired"));
       return;
     }
-    if (newPassword.length < 6) {
+    if (newPassword.length < 8) {
       toast.error(t("passwordTooShort"));
       return;
     }

@@ -4,7 +4,6 @@ import { createSupabaseMock } from "../../test/helpers/supabase";
 const { createServiceRoleClient } = vi.hoisted(() => ({ createServiceRoleClient: vi.fn() }));
 vi.mock("@/lib/supabase/server", () => ({ createServiceRoleClient }));
 
-/** The 60s cache lives at module scope, so each case uses its own user id. */
 async function loadIsAdmin() {
   return (await import("@/lib/admin")).isAdmin;
 }
@@ -50,54 +49,17 @@ describe("isAdmin", () => {
     expect(supabase.builderFor("platform_admins").eq).toHaveBeenCalledWith("user_id", "user-query");
   });
 
-  it("serves a repeat check from cache instead of hitting the database again", async () => {
-    const supabase = createSupabaseMock({ tables: { platform_admins: { data: { id: "a" } } } });
-    createServiceRoleClient.mockReturnValue(supabase);
-    const isAdmin = await loadIsAdmin();
-
-    await isAdmin("user-cached");
-    await isAdmin("user-cached");
-    await isAdmin("user-cached");
-
-    expect(supabase.from).toHaveBeenCalledTimes(1);
-  });
-
-  it("caches a negative answer too", async () => {
-    const supabase = createSupabaseMock({ tables: { platform_admins: { data: null } } });
-    createServiceRoleClient.mockReturnValue(supabase);
-    const isAdmin = await loadIsAdmin();
-
-    await expect(isAdmin("user-neg-cached")).resolves.toBe(false);
-    await expect(isAdmin("user-neg-cached")).resolves.toBe(false);
-    expect(supabase.from).toHaveBeenCalledTimes(1);
-  });
-
-  it("caches per user, not globally", async () => {
+  // L-03: a 60-second cache let a removed admin keep their access for up to a
+  // minute per server instance. Every check now reads the table.
+  it("refuses an admin on the very next check after their row is removed", async () => {
     const supabase = createSupabaseMock({
       tables: { platform_admins: [{ data: { id: "a" } }, { data: null }] },
     });
     createServiceRoleClient.mockReturnValue(supabase);
     const isAdmin = await loadIsAdmin();
 
-    await expect(isAdmin("user-a")).resolves.toBe(true);
-    await expect(isAdmin("user-b")).resolves.toBe(false);
-    expect(supabase.from).toHaveBeenCalledTimes(2);
-  });
-
-  it("re-checks once the 60 second cache entry expires", async () => {
-    const supabase = createSupabaseMock({
-      tables: { platform_admins: [{ data: { id: "a" } }, { data: null }] },
-    });
-    createServiceRoleClient.mockReturnValue(supabase);
-    const isAdmin = await loadIsAdmin();
-
-    await expect(isAdmin("user-ttl")).resolves.toBe(true);
-    vi.advanceTimersByTime(59_000);
-    await expect(isAdmin("user-ttl")).resolves.toBe(true); // still cached
-    expect(supabase.from).toHaveBeenCalledTimes(1);
-
-    vi.advanceTimersByTime(2_000); // past the 60s TTL
-    await expect(isAdmin("user-ttl")).resolves.toBe(false); // revoked in the DB
+    await expect(isAdmin("user-revoked")).resolves.toBe(true);
+    await expect(isAdmin("user-revoked")).resolves.toBe(false);
     expect(supabase.from).toHaveBeenCalledTimes(2);
   });
 });

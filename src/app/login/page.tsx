@@ -14,6 +14,16 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import OtpModal from "@/components/otp-modal";
 import { isValidEmail } from "@/lib/utils";
 
+/**
+ * Copy for the codes /api/auth/send-otp and /verify-otp answer with. They no
+ * longer pass Supabase's own (English) message through (audit F-19).
+ */
+function authErrorKey(code: unknown) {
+  if (code === "INVALID_CREDENTIALS") return "errorInvalidCredentials";
+  if (code === "EMAIL_NOT_CONFIRMED") return "errorEmailNotConfirmed";
+  return "errorGeneric";
+}
+
 export default function LoginPage() {
   const router = useRouter();
   const searchParams = useSearchParams();
@@ -65,7 +75,7 @@ export default function LoginPage() {
         if (res.status === 403) {
           setError(t("errorCaptcha"));
         } else {
-          setError(data.error || t("errorGeneric"));
+          setError(t(authErrorKey(data.error)));
         }
         turnstileRef.current?.reset();
         setTurnstileToken(null);
@@ -107,7 +117,7 @@ export default function LoginPage() {
         } else if (data.error === "invalid_code") {
           setOtpError(t("otpInvalid"));
         } else {
-          setOtpError(data.error || t("errorGeneric"));
+          setOtpError(t(authErrorKey(data.error)));
         }
         return;
       }
@@ -132,7 +142,7 @@ export default function LoginPage() {
       });
       if (!res.ok) {
         const data = await res.json();
-        setOtpError(data.error || t("errorGeneric"));
+        setOtpError(t(authErrorKey(data.error)));
       }
     } catch {
       setOtpError(t("errorGeneric"));
@@ -153,13 +163,10 @@ export default function LoginPage() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ email: magicLinkEmail.trim() }),
       });
+      // The route answers the same whether or not the email has an account
+      // (F-19), so only a real failure lands here.
       if (!res.ok) {
-        const data = await res.json();
-        if (data.error === "no_account") {
-          setMagicLinkError(t("magicLinkNoAccount"));
-        } else {
-          setMagicLinkError(data.error || t("errorGeneric"));
-        }
+        setMagicLinkError(t("errorGeneric"));
         return;
       }
       setMagicLinkSent(true);

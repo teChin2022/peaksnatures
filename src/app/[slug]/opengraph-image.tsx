@@ -14,12 +14,44 @@ type HomestayRow = {
   hero_image_url: string | null;
 };
 
+/** A hero is a photo, compressed on upload; anything bigger is not one. */
+const MAX_HERO_BYTES = 10 * 1024 * 1024;
+/** Well past any real hero, far below sharp's own 268MP default. */
+const MAX_HERO_PIXELS = 50_000_000;
+
+/**
+ * hero_image_url is whatever the host saved, so the server fetches it only
+ * when it is a file in this project's own public homestay-photos bucket
+ * (audit F-16: the fetch used to go to any URL). Anything else, the card
+ * renders without the photo.
+ */
+function isOwnHomestayPhoto(url: string): boolean {
+  try {
+    const own = new URL(process.env.NEXT_PUBLIC_SUPABASE_URL ?? "");
+    const target = new URL(url);
+    return (
+      target.protocol === "https:" &&
+      target.host === own.host &&
+      target.pathname.startsWith("/storage/v1/object/public/homestay-photos/")
+    );
+  } catch {
+    return false;
+  }
+}
+
 // Satori only decodes PNG/JPEG/GIF/SVG, and hero uploads are WebP (compressImage).
 async function heroAsJpegDataUri(url: string): Promise<string | null> {
+  if (!isOwnHomestayPhoto(url)) return null;
   try {
-    const res = await fetch(url);
+    const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
     if (!res.ok) return null;
-    const jpeg = await sharp(Buffer.from(await res.arrayBuffer()))
+    // Raster only: sharp would hand an SVG to librsvg.
+    const type = res.headers.get("content-type") ?? "";
+    if (!type.startsWith("image/") || type.includes("svg")) return null;
+    if (Number(res.headers.get("content-length") ?? 0) > MAX_HERO_BYTES) return null;
+    const bytes = await res.arrayBuffer();
+    if (bytes.byteLength > MAX_HERO_BYTES) return null;
+    const jpeg = await sharp(Buffer.from(bytes), { limitInputPixels: MAX_HERO_PIXELS })
       .resize(size.width, size.height, { fit: "cover" })
       .jpeg({ quality: 80 })
       .toBuffer();

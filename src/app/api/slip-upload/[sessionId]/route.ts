@@ -1,7 +1,12 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { createRateLimiter } from "@/lib/rate-limit";
 
 const BUCKET = "payment-slips";
+
+// Uploads only: the desktop polls GET every 3 seconds while the guest uses
+// their phone. Generous for a guest who retakes a photo (audit F-18).
+const uploadRateLimit = createRateLimiter({ limit: 20, windowMs: 10 * 60_000, name: "slip-upload" });
 
 // Check if a slip has been uploaded for this session
 export async function GET(
@@ -41,6 +46,9 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ sessionId: string }> }
 ) {
+  const rateLimited = await uploadRateLimit.check(req);
+  if (rateLimited) return rateLimited;
+
   const { sessionId } = await params;
 
   if (!sessionId || sessionId.length < 10) {

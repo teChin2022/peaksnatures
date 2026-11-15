@@ -67,3 +67,16 @@ describe("POST /api/auth/verify-otp: guessing the code", () => {
     expect((await verify(freshEmail(), ip)).status).toBe(429);
   });
 });
+
+describe("POST /api/auth/verify-otp: a refused sign-in after a right code", () => {
+  it("answers INVALID_CREDENTIALS, not Supabase's own message", async () => {
+    h.createServiceRoleClient.mockReturnValue(
+      createSupabaseMock({ tables: { login_otps: { data: { id: "otp-1", expires_at: "2999-01-01T00:00:00Z" } } } }),
+    );
+    h.createServerSupabaseClient.mockResolvedValue({
+      auth: { signInWithPassword: vi.fn(async () => ({ error: { message: "Invalid login credentials" } })) },
+    });
+
+    await expect(verify(freshEmail())).resolves.toEqual({ status: 401, body: { error: "INVALID_CREDENTIALS" } });
+  });
+});

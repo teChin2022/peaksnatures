@@ -37,12 +37,11 @@ export async function POST(req: NextRequest) {
         },
       });
 
+    // No account (or any other failure): the same answer as a sent link, so
+    // this route cannot be used to learn which emails have an account (F-19).
     if (linkError || !linkData) {
-      console.error("[Magic Link] Generate error:", linkError);
-      return NextResponse.json(
-        { error: "no_account" },
-        { status: 404 }
-      );
+      console.error("[Magic Link] Generate error:", linkError?.message);
+      return NextResponse.json({ success: true });
     }
 
     const hashedToken = linkData.properties.hashed_token;

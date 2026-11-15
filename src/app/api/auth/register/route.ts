@@ -12,9 +12,9 @@ const registerSchema = z.object({
   phone: z.string().refine(isValidPhone, "Phone number must be 10 digits"),
   password: z
     .string()
-    .min(6, "Password must be at least 6 characters")
+    .min(8, "Password must be at least 8 characters")
     .regex(
-      /^(?=.*[A-Z])(?=.*[0-9])(?=.*[_#@]).{6,}$/,
+      /^(?=.*[A-Z])(?=.*[0-9])(?=.*[_#@]).{8,}$/,
       "Password must include uppercase, number, and special character (_, #, @)"
     ),
   turnstileToken: z.string(),
@@ -64,7 +64,7 @@ export async function POST(req: NextRequest) {
       }
     );
 
-    const { data: signUpData, error: signUpError } = await supabase.auth.signUp({
+    const { error: signUpError } = await supabase.auth.signUp({
       email,
       password,
       options: {
@@ -74,26 +74,20 @@ export async function POST(req: NextRequest) {
     });
 
     if (signUpError) {
-      // Handle duplicate email (confirmations disabled path)
+      // An existing account answers like a new one (F-19): the page says
+      // "if this email is new, check your inbox", which holds for both.
       if (signUpError.message === "User already registered") {
-        return NextResponse.json(
-          { error: "EMAIL_EXISTS" },
-          { status: 409 }
-        );
+        return response;
       }
       console.error("Supabase signUp error:", signUpError.message);
       return NextResponse.json(
-        { error: signUpError.message },
+        { error: "REGISTRATION_FAILED" },
         { status: 400 }
       );
     }
 
-    // Detect duplicate email when email confirmation is enabled:
-    // Supabase returns no error but an empty identities array for existing emails.
-    if (signUpData?.user && signUpData.user.identities?.length === 0) {
-      return NextResponse.json({ error: "EMAIL_EXISTS" }, { status: 409 });
-    }
-
+    // With email confirmation on, Supabase answers an existing email with an
+    // empty identities list and no error; it gets the same response too (F-19).
     return response;
   } catch (error) {
     console.error("Register route error:", error);

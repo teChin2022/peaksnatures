@@ -1023,3 +1023,83 @@ describe("cart money in the guest email and the host LINE text", () => {
     expect(buildGroupBookingMessage(groupDetails())).not.toContain("ส่วนลด");
   });
 });
+
+// F-15: names and notes typed by guests (or hosts) went into email HTML as-is,
+// so a booking could make Peaksnature's own sender deliver a phishing link to
+// any address. HTML builders escape them; subjects and LINE text stay plain.
+describe("HTML typed by guests or hosts", () => {
+  const ATTACK = '<a href="https://evil.example">Claim your refund</a>';
+  const sentHtml = () => (resendSend.mock.calls[0][0] as { html: string }).html;
+  const sentSubject = () => (resendSend.mock.calls[0][0] as { subject: string }).subject;
+  const expectEscaped = (html: string) => {
+    expect(html).not.toContain('<a href="https://evil.example">');
+    expect(html).toContain("&lt;a href=&quot;https://evil.example&quot;&gt;Claim your refund&lt;/a&gt;");
+  };
+
+  it("escapes the guest's name in the booking confirmation", async () => {
+    await sendBookingConfirmationEmail(details({ guest_name: ATTACK }));
+    expectEscaped(sentHtml());
+  });
+
+  it("escapes an add-on name in the booking confirmation", async () => {
+    await sendBookingConfirmationEmail(
+      details({ selected_options: [{ id: "o1", name: ATTACK, price: 100 }] as never }),
+    );
+    expectEscaped(sentHtml());
+  });
+
+  it("escapes the guest's name in the status update", async () => {
+    await sendBookingStatusUpdateEmail(details({ guest_name: ATTACK }), "confirmed");
+    expectEscaped(sentHtml());
+  });
+
+  it("escapes the host's reason in a refused date change", async () => {
+    await sendDateChangeEmailToGuest(details(), "rejected", "2026-01-12", "2026-01-14", "2026-02-10", "2026-02-13", 3000, "th", ATTACK);
+    expectEscaped(sentHtml());
+  });
+
+  it("escapes the guest's name in a cart confirmation", async () => {
+    await sendGroupBookingConfirmationEmail(groupDetails({ group: makeBookingGroup({ guest_name: ATTACK }) }));
+    expectEscaped(sentHtml());
+  });
+
+  it("escapes the name a new host registered with, in the admins' email", async () => {
+    supabaseFrom.mockReturnValue({
+      select: () => Promise.resolve({ data: [{ email: "admin@peaksnature.com", line_user_id: null, line_channel_access_token: null }], error: null }),
+    });
+    await notifyAdminsNewHostRegistration({ hostName: ATTACK, hostEmail: "new@host.com" });
+    expectEscaped(sentHtml());
+  });
+
+  it("escapes the host's name in the approval email", async () => {
+    await sendHostApprovalEmail("new@host.com", ATTACK);
+    expectEscaped(sentHtml());
+  });
+
+  it("leaves the subject as plain text: an & in a homestay name stays an &", async () => {
+    await sendBookingConfirmationEmail({ ...details(), homestay: makeHomestay({ name: "Coffee & Camping" }) });
+    expect(sentSubject()).toContain("Coffee & Camping");
+    expect(sentSubject()).not.toContain("&amp;");
+  });
+
+  it("leaves LINE text plain: the host reads the name as typed", async () => {
+    await sendHostLineNotification(details({ guest_name: "Nok & Co" }), "confirmed");
+    const linePush = fetchMock.mock.calls.find((c) => c[0] === LINE_ENDPOINT);
+    const text = JSON.parse(linePush![1].body as string).messages[0].text as string;
+    expect(text).toContain("Nok & Co");
+    expect(text).not.toContain("&amp;");
+  });
+});
+
+describe("HTML typed by hosts, in a cart confirmation", () => {
+  it("escapes a house's pricing label", async () => {
+    await sendGroupBookingConfirmationEmail(
+      groupDetails({
+        items: [{ booking: makeBooking({ id: "b-1", guest_pricing_label: "<b>VIP</b>" }), room: makeRoom({ name: "Pine House" }) }],
+      }),
+    );
+    const html = (resendSend.mock.calls[0][0] as { html: string }).html;
+    expect(html).not.toContain("<b>VIP</b>");
+    expect(html).toContain("&lt;b&gt;VIP&lt;/b&gt;");
+  });
+});
