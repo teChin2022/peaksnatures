@@ -261,6 +261,12 @@ From earlier sessions with the owner:
   card and map in one section; check-in and policies side by side from lg;
   closing band over the host's hero photo; phone bar shows the "from" price
   beside the Book button. Header menu and language switcher unchanged.
+- **Header menus on the guest pages (2026-11-15):** the phone/tablet menu
+  and the desktop dropdown hold the same booking tools on `/[slug]` and
+  `/book`: check-in / check-out, change house / dates, write a review
+  (`/book` adds "ดูรายละเอียดที่พัก" first and "ทำรายการจองต่อ"; the
+  landing's phone menu keeps its Book pill). The landing's section links
+  stay only in its xl header row; Location and Policies have no menu link.
 
 From this session (2026-11-11):
 - North Star "The Quiet Retreat".

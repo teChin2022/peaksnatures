@@ -30,7 +30,7 @@ afterEach(() => {
 });
 
 const render = (
-  props: { bookHref?: string; bookingDisabled?: boolean; navItems?: { href: string; label: string; menuOnly?: boolean }[] } = {},
+  props: { bookHref?: string; bookingDisabled?: boolean; navItems?: { href: string; label: string }[]; resumeEnabled?: boolean } = {},
 ) =>
   act(() =>
     root.render(
@@ -76,17 +76,23 @@ describe("BookingHeader", () => {
     expect(menu()!.querySelector('a[href="/baan/book"]')).toBeNull();
   });
 
-  it("lists menu-only sections in the phone menu but not in the header's inline links", () => {
-    render({
-      bookHref: "/baan/book",
-      navItems: [
-        { href: "#about", label: "about" },
-        { href: "#policies", label: "policies", menuOnly: true },
-      ],
-    });
+  // Owner, 2026-11-15: the landing's phone menu holds the booking tools, as on /book; its section links stay in the xl row.
+  it("keeps the landing's section links in the header row, and gives its phone menu the booking tools instead", () => {
+    render({ bookHref: "/baan/book", navItems: [{ href: "#about", label: "about" }, { href: "#reviews", label: "reviews" }] });
     expect(container.querySelector('nav a[href="#about"]')).not.toBeNull();
-    expect(container.querySelector('nav a[href="#policies"]')).toBeNull();
     openMenu();
-    expect(menu()!.querySelector('a[href="#policies"]')).not.toBeNull();
+    const links = [...menu()!.querySelectorAll("a")].map((a) => a.getAttribute("href"));
+    expect(links).toEqual(["/baan/check-in-out", "/baan/change-booking", "/baan/reviews", "/baan/book"]);
+  });
+
+  it("gives the booking page the same tools, after a link back to the homestay's page", () => {
+    render({ resumeEnabled: true });
+    // On /book the phone menu's trigger is named "ตัวเลือกการจอง" (bookingMenu.aria); it comes before the desktop dropdown's.
+    act(() => (container.querySelector('button[aria-label="aria"]') as HTMLButtonElement).click());
+    const items = [...menu()!.querySelectorAll("a, button")]
+      .map((el) => el.getAttribute("href") ?? el.textContent?.trim())
+      .filter((v) => v !== "close" && v !== "");
+    expect(items).toEqual(expect.arrayContaining(["/baan", "/baan/check-in-out", "/baan/change-booking", "resumeBooking", "/baan/reviews"]));
+    expect(items.indexOf("/baan")).toBeLessThan(items.indexOf("/baan/check-in-out"));
   });
 });

@@ -29,8 +29,8 @@ interface BookingHeaderProps {
   bookHref?: string;
   /** Landing mode: the host can't take bookings, so the Book button is left out. */
   bookingDisabled?: boolean;
-  /** Landing section links: inline from xl, in the full-screen menu below it. menuOnly: the menu only (the xl row has no room). */
-  navItems?: { href: string; label: string; menuOnly?: boolean }[];
+  /** Landing section links, inline in the header from xl. The menus hold the booking tools, as on /book. */
+  navItems?: { href: string; label: string }[];
 }
 
 // Solid once the hero's top is scrolled past. Read from the page itself, so a
@@ -81,23 +81,16 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
     e.preventDefault();
   };
 
-  // Phones and tablets: the landing lists its sections; the booking page its tools.
-  const menuItems: MenuItem[] = bookHref
-    ? navItems
-    : [
-        { label: tl("viewDetails"), href: `/${slug}` },
-        { label: t("checkInOut"), href: `/${slug}/check-in-out` },
-        { label: t("changeBooking"), href: `/${slug}/change-booking` },
-        ...(resumeEnabled ? [{ label: t("resumeBooking"), onSelect: openResume }] : []),
-        // Reviews are read on the landing; writing one starts from the booking page's menu.
-        { label: tr("writeReview"), href: `/${slug}/reviews` },
-      ];
-  const menuSecondaryItems: MenuItem[] = bookHref
-    ? [
-        { label: t("checkInOut"), href: `/${slug}/check-in-out` },
-        { label: t("changeBooking"), href: `/${slug}/change-booking` },
-      ]
-    : [];
+  // Phones and tablets: the booking tools, the same on both pages (owner, 2026-11-15). The
+  // landing's section links stay in its xl header row only. "ทำรายการจองต่อ" needs the booking
+  // page (resumeEnabled is false on the landing); /book also links back to the homestay's page.
+  const toolItems: MenuItem[] = [
+    { label: t("checkInOut"), href: `/${slug}/check-in-out` },
+    { label: t("changeBooking"), href: `/${slug}/change-booking` },
+    ...(resumeEnabled ? [{ label: t("resumeBooking"), onSelect: openResume }] : []),
+    { label: tr("writeReview"), href: `/${slug}/reviews` },
+  ];
+  const menuItems: MenuItem[] = bookHref ? toolItems : [{ label: tl("viewDetails"), href: `/${slug}` }, ...toolItems];
 
   return (
     <nav
@@ -129,7 +122,7 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
         </Link>
         {inlineNav && (
           <div className="hidden xl:flex items-center gap-7">
-            {navItems.filter((item) => !item.menuOnly).map((item) => (
+            {navItems.map((item) => (
               <a
                 key={item.href}
                 href={item.href}
@@ -208,14 +201,12 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
                   {t("resumeBooking")}
                 </DropdownMenuItem>
               )}
-              {!bookHref && (
-                <DropdownMenuItem asChild>
-                  <Link href={`/${slug}/reviews`} className="cursor-pointer">
-                    <PenLine className="mr-2 h-4 w-4" />
-                    {tr("writeReview")}
-                  </Link>
-                </DropdownMenuItem>
-              )}
+              <DropdownMenuItem asChild>
+                <Link href={`/${slug}/reviews`} className="cursor-pointer">
+                  <PenLine className="mr-2 h-4 w-4" />
+                  {tr("writeReview")}
+                </Link>
+              </DropdownMenuItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -231,7 +222,6 @@ export function BookingHeader({ homestayName, logoUrl, slug, homestayId, resumeE
         onOpenChange={setMenuOpen}
         title={homestayName}
         items={menuItems}
-        secondaryItems={menuSecondaryItems}
         onCloseAutoFocus={keepFocusForResume}
         // The open menu covers the landing's sticky Book bar, so it offers Book itself.
         action={bookHref && !bookingDisabled ? { label: tb("bookHouse"), href: bookHref } : undefined}
