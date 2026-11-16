@@ -4,10 +4,10 @@ import { makeRequest, readJson, uniqueIp } from "../../../../../test/helpers/req
 import { createSupabaseMock } from "../../../../../test/helpers/supabase";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 
-const h = vi.hoisted(() => ({ signInWithPassword: vi.fn(), verifyTurnstileToken: vi.fn() }));
+const h = vi.hoisted(() => ({ signInWithPassword: vi.fn(), signOut: vi.fn(), verifyTurnstileToken: vi.fn() }));
 
 vi.mock("@supabase/supabase-js", () => ({
-  createClient: () => ({ auth: { signInWithPassword: h.signInWithPassword, signOut: vi.fn(async () => ({})) } }),
+  createClient: () => ({ auth: { signInWithPassword: h.signInWithPassword, signOut: h.signOut } }),
 }));
 vi.mock("@/lib/supabase/server", () => ({ createServerSupabaseClient: vi.fn(), createServiceRoleClient: vi.fn() }));
 vi.mock("@/lib/turnstile", () => ({ verifyTurnstileToken: h.verifyTurnstileToken }));
@@ -25,6 +25,7 @@ const send = async () =>
 
 beforeEach(() => {
   h.verifyTurnstileToken.mockResolvedValue("pass");
+  h.signOut.mockReset().mockResolvedValue({ error: null });
 });
 
 // F-19: Supabase's own message used to go back as-is (and in English to Thai
@@ -77,5 +78,24 @@ describe("POST /api/auth/send-otp: who may skip the login code", () => {
       auth: { signInWithPassword: vi.fn(async () => ({ error: null })) },
     } as never);
     await expect(send()).resolves.toEqual({ status: 200, body: { success: true, otpRequired: false } });
+  });
+});
+
+// The password check signs in on a throwaway client and then signs it out.
+// signOut() defaults to the global scope, which revokes every session the
+// user has: each login attempt signed them out on their other devices (and
+// could race the session it was about to create).
+describe("POST /api/auth/send-otp: ending the throwaway sign-in", () => {
+  beforeEach(() => {
+    h.signInWithPassword.mockResolvedValue({ data: { user: { id: "login-1" } }, error: null });
+    vi.mocked(createServiceRoleClient).mockReturnValue(
+      createSupabaseMock({ tables: { hosts: { data: null }, login_otps: {} } }) as never,
+    );
+  });
+
+  it("ends only that one session", async () => {
+    await send();
+    expect(h.signOut).toHaveBeenCalledTimes(1);
+    expect(h.signOut).toHaveBeenCalledWith({ scope: "local" });
   });
 });

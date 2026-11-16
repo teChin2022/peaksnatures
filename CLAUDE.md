@@ -430,8 +430,8 @@ get my explicit approval first.
   `docs/ui-audit.md`, `docs/ui-improvement-roadmap.md`.
 - Tokens are CSS-first in `src/app/globals.css` (`@theme inline`); there is no
   `tailwind.config`. The real palette is `brand` (#2F5D50) and `earth-*`.
-  shadcn's `--primary` is still near-black, so a `<Button>` without a variant
-  renders black.
+  shadcn's `--primary` is Forest since 2026-11-16 (it was near-black), so a
+  `<Button>` without a variant renders Forest; `--input` is `earth-500`.
 - `motion` ignores the OS reduced-motion setting unless the tree is wrapped in
   `RespectReducedMotion` (`src/components/respect-reduced-motion.tsx`; the
   root layout wraps every page since 2026-11-14). CSS keyframes need their own

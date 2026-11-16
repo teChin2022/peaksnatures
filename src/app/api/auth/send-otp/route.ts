@@ -61,8 +61,10 @@ export async function POST(req: NextRequest) {
       return signInRefusal(signInResult.error.message);
     }
 
-    // Sign out the throwaway client (fire-and-forget — no need to await)
-    supabase.auth.signOut().catch(() => {});
+    // Sign out the throwaway client (fire-and-forget — no need to await).
+    // Local scope: the default (global) revokes every session the user has,
+    // signing them out on their other devices at each login.
+    supabase.auth.signOut({ scope: "local" }).catch(() => {});
 
     // Check if host has OTP disabled (admin logins always require OTP).
     // By the login's user id: hosts.email is editable and may name a staff
