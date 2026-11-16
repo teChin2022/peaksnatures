@@ -6,6 +6,7 @@ import { cartMoney } from "@/lib/booking-carts";
 import { localizeStrings } from "@/lib/translation/localize-strings";
 import type { SupportedLocale } from "@/lib/translation/types";
 import { bookingCode, hostContactLink } from "@/lib/quick-booking";
+import { alertAdmins } from "@/lib/admin-alert";
 
 /**
  * What a new-booking host notification says about payment: `confirmed` (slip
@@ -424,7 +425,37 @@ export function truncateForSms(message: string, maxLen: number = 70): string {
   return message.slice(0, maxLen);
 }
 
+/**
+ * Send one SMS through sms-kub. Every failure alerts the platform admins on
+ * LINE, once per kind of failure per 30 minutes: sms-kub has no webhook, so
+ * this call is the only place an outage (expired key, no credit) shows up.
+ */
 export async function sendSms(phone: string, message: string): Promise<{ success: boolean; error?: unknown }> {
+  const result = await sendSmsOnce(phone, message);
+  if (!result.success) {
+    const { kind, detail } = describeSmsFailure(result.error);
+    await alertAdmins(
+      `⚠️ ส่ง SMS ไม่สำเร็จ (sms-kub)\nสาเหตุ: ${kind}\n${detail}\nเบอร์: …${phone.replace(/\D/g, "").slice(-4)}\nแจ้งซ้ำได้อีกครั้งใน 30 นาที`,
+      `sms:${kind}`,
+    );
+  }
+  return result;
+}
+
+/** A throttle key and a short, secret-free description of a sendSmsOnce error. */
+function describeSmsFailure(error: unknown): { kind: string; detail: string } {
+  if (error === "SMS API key not configured") return { kind: "no_api_key", detail: "SMS_KUB_API_KEY is not set" };
+  if (error === "Invalid phone number") return { kind: "invalid_phone", detail: "Phone number has no digits" };
+  if (error && typeof error === "object" && "status" in error) {
+    const { status, body } = error as { status: number; body: unknown };
+    const text = typeof body === "string" ? body : JSON.stringify(body);
+    return { kind: `http_${status}`, detail: `HTTP ${status}: ${(text ?? "").slice(0, 200)}` };
+  }
+  if (error instanceof Error && error.name === "TimeoutError") return { kind: "timeout", detail: "No answer within 15s" };
+  return { kind: "network", detail: error instanceof Error ? error.message.slice(0, 200) : "Request failed" };
+}
+
+async function sendSmsOnce(phone: string, message: string): Promise<{ success: boolean; error?: unknown }> {
   const apiKey = process.env.SMS_KUB_API_KEY;
   const sender = process.env.SMS_KUB_SENDER || "Peaksnature";
 

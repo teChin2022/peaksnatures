@@ -3,6 +3,9 @@
  * Used by /api/verify-slip (guest bookings) and billing routes (wallet top-up, invoice payment).
  */
 
+import { after } from "next/server";
+import { alertAdmins } from "@/lib/admin-alert";
+
 // --- EasySlip API V2 Types ---
 
 export interface EasySlipV2RawSlip {
@@ -97,7 +100,23 @@ function easySlipError(code: string, message: string): EasySlipV2Error {
 }
 
 /**
+ * Failures caused by the slip the payer sent. Every other code (quota, API key,
+ * IP allowlist, rate limit, timeout, 5xx, unreadable body, codes we have never
+ * seen) is ours or EasySlip's to fix, and alerts the platform admins.
+ */
+const PAYER_SLIP_CODES = new Set([
+  "SLIP_NOT_FOUND",
+  "SLIP_PENDING",
+  "IMAGE_SIZE_TOO_LARGE",
+  "INVALID_IMAGE_FORMAT",
+  "INVALID_IMAGE_TYPE",
+  "IMAGE_URL_UNREACHABLE",
+]);
+
+/**
  * Call EasySlip V2 /verify/bank with auto-retry for SLIP_PENDING.
+ * A system failure alerts the admins on LINE after the response is sent, so the
+ * payer never waits on it. Callers are route handlers, which after() needs.
  *
  * Never throws. Every upstream failure mode — a timeout, a dropped connection,
  * an HTML error page instead of JSON, a body that parses but is not the
@@ -108,6 +127,26 @@ function easySlipError(code: string, message: string): EasySlipV2Error {
  * Degrading here keeps the guest on a real message instead.
  */
 export async function callEasySlipV2(
+  fileBuffer: ArrayBuffer,
+  fileName: string,
+  fileType: string,
+  apiKey: string,
+  expectedAmount: number,
+): Promise<EasySlipV2Response> {
+  const result = await verifyBankSlip(fileBuffer, fileName, fileType, apiKey, expectedAmount);
+  if (!result.success && !PAYER_SLIP_CODES.has(result.error.code)) {
+    const { code, message } = result.error;
+    after(() =>
+      alertAdmins(
+        `⚠️ EasySlip ล้มเหลว\ncode: ${code}\n${message}\nแจ้งซ้ำได้อีกครั้งใน 30 นาที`,
+        `easyslip:${code}`,
+      ),
+    );
+  }
+  return result;
+}
+
+async function verifyBankSlip(
   fileBuffer: ArrayBuffer,
   fileName: string,
   fileType: string,

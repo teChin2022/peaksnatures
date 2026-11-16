@@ -10,7 +10,11 @@ import {
 import { makeBooking, makeHomestay, makeHost, makeRoom } from "../../test/fixtures/db";
 import type { Booking, Host } from "@/types/database";
 
-const { resendSend } = vi.hoisted(() => ({ resendSend: vi.fn() }));
+const { resendSend, alertAdmins } = vi.hoisted(() => ({
+  resendSend: vi.fn(),
+  alertAdmins: vi.fn(() => Promise.resolve()),
+}));
+vi.mock("@/lib/admin-alert", () => ({ alertAdmins }));
 vi.mock("resend", () => ({
   Resend: class {
     emails = { send: resendSend };
@@ -44,6 +48,7 @@ beforeEach(() => {
   fetchMock = vi.fn(() => Promise.resolve(okResponse()));
   vi.stubGlobal("fetch", fetchMock);
   resendSend.mockResolvedValue({ id: "email-1" });
+  alertAdmins.mockClear();
 });
 
 afterEach(() => {
@@ -124,6 +129,45 @@ describe("sendSms", () => {
       text: () => Promise.reject(new Error("stream closed")),
     } as unknown as Response);
     await expect(sendSms("0812345678", "hi")).resolves.toEqual({ success: true });
+  });
+});
+
+describe("sendSms alerting the platform admins", () => {
+  const alertCall = () => alertAdmins.mock.calls[0] as unknown as [string, string];
+
+  it("alerts on a gateway rejection, keyed by status, without the message or full number", async () => {
+    fetchMock.mockResolvedValue(errResponse(402, JSON.stringify({ reason: "no credit" })));
+    await sendSms("0812345678", "secret booking text");
+
+    expect(alertAdmins).toHaveBeenCalledTimes(1);
+    const [text, key] = alertCall();
+    expect(key).toBe("sms:http_402");
+    expect(text).toContain("no credit");
+    expect(text).toContain("…5678");
+    expect(text).not.toContain("0812345678");
+    expect(text).not.toContain("secret booking text");
+    expect(text).not.toContain("sms-key");
+  });
+
+  it.each([
+    ["no API key", () => vi.stubEnv("SMS_KUB_API_KEY", ""), "0812345678", "sms:no_api_key"],
+    ["a number with no digits", () => {}, "not-a-number", "sms:invalid_phone"],
+    [
+      "a timeout",
+      () => fetchMock.mockRejectedValue(Object.assign(new Error("t"), { name: "TimeoutError" })),
+      "0812345678",
+      "sms:timeout",
+    ],
+    ["a dropped connection", () => fetchMock.mockRejectedValue(new TypeError("fetch failed")), "0812345678", "sms:network"],
+  ])("alerts on %s", async (_name, arrange, phone, expectedKey) => {
+    arrange();
+    await sendSms(phone, "hi");
+    expect(alertCall()[1]).toBe(expectedKey);
+  });
+
+  it("stays quiet when the SMS is sent", async () => {
+    await sendSms("0812345678", "hi");
+    expect(alertAdmins).not.toHaveBeenCalled();
   });
 });
 

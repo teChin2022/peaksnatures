@@ -11,6 +11,13 @@ import {
   type EasySlipV2RawSlip,
 } from "@/lib/easyslip";
 
+const { afterCallbacks, alertAdmins } = vi.hoisted(() => ({
+  afterCallbacks: [] as Array<() => unknown>,
+  alertAdmins: vi.fn(() => Promise.resolve()),
+}));
+vi.mock("next/server", () => ({ after: (cb: () => unknown) => afterCallbacks.push(cb) }));
+vi.mock("@/lib/admin-alert", () => ({ alertAdmins }));
+
 const ENDPOINT = "https://api.easyslip.com/v2/verify/bank";
 
 /** A Response stand-in: callEasySlipV2 reads the body with .text(), never .json(). */
@@ -36,7 +43,14 @@ const callWith = (fetchImpls: Array<() => Promise<Response>>, expectedAmount = 1
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
+  afterCallbacks.length = 0;
+  alertAdmins.mockClear();
 });
+
+/** Run what callEasySlipV2 deferred with after(), as Next does once the response is sent. */
+const runAfter = async () => {
+  for (const cb of afterCallbacks) await cb();
+};
 
 afterEach(() => {
   vi.unstubAllGlobals();
@@ -236,6 +250,55 @@ describe("callEasySlipV2", () => {
       const broken = { status: 500, text: () => Promise.reject(new Error("stream closed")) } as unknown as Response;
       const res = await callWith([() => Promise.resolve(broken)]);
       expect(res).toMatchObject({ success: false, error: { code: "HTTP_500" } });
+    });
+  });
+
+  describe("alerting the platform admins", () => {
+    const upstreamError = (code: string) => () =>
+      Promise.resolve(jsonResponse(403, { success: false, error: { code, message: "Monthly quota reached" } }));
+
+    it("alerts once the response is sent, throttled per code, for a quota error", async () => {
+      await callWith([upstreamError("QUOTA_EXCEEDED")]);
+      expect(alertAdmins).not.toHaveBeenCalled();
+
+      await runAfter();
+      expect(alertAdmins).toHaveBeenCalledTimes(1);
+      const [text, key] = alertAdmins.mock.calls[0] as unknown as [string, string];
+      expect(key).toBe("easyslip:QUOTA_EXCEEDED");
+      expect(text).toContain("QUOTA_EXCEEDED");
+      expect(text).toContain("Monthly quota reached");
+      expect(text).not.toContain("key-123");
+    });
+
+    it("alerts on failures of ours or EasySlip's, including codes it has never seen", async () => {
+      const timeout = Object.assign(new Error("timed out"), { name: "TimeoutError" });
+      await callWith([() => Promise.reject(timeout)]);
+      await callWith([() => Promise.resolve(textResponse(502, "<html>Bad Gateway</html>"))]);
+      await callWith([upstreamError("INVALID_API_KEY")]);
+      await callWith([upstreamError("SOMETHING_NEW")]);
+      await runAfter();
+
+      expect(alertAdmins.mock.calls.map((c) => (c as unknown as [string, string])[1])).toEqual([
+        "easyslip:UPSTREAM_TIMEOUT",
+        "easyslip:HTTP_502",
+        "easyslip:INVALID_API_KEY",
+        "easyslip:SOMETHING_NEW",
+      ]);
+    });
+
+    it("stays quiet when the payer's slip is the problem", async () => {
+      for (const code of ["SLIP_NOT_FOUND", "IMAGE_SIZE_TOO_LARGE", "INVALID_IMAGE_FORMAT"]) {
+        await callWith([upstreamError(code)]);
+      }
+      vi.useFakeTimers();
+      const pending = callWith([upstreamError("SLIP_PENDING"), upstreamError("SLIP_PENDING")]);
+      await vi.advanceTimersByTimeAsync(15_000);
+      await pending;
+      await callWith([() => Promise.resolve(jsonResponse(200, success))]);
+      await runAfter();
+
+      expect(afterCallbacks).toHaveLength(0);
+      expect(alertAdmins).not.toHaveBeenCalled();
     });
   });
 

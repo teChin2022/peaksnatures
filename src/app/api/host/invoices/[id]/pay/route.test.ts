@@ -12,7 +12,9 @@ const h = vi.hoisted(() => ({
   getBillingConfig: vi.fn(),
   logEvent: vi.fn(),
   afterCallbacks: [] as Array<() => unknown>,
+  alertStrandedPayment: vi.fn(),
 }));
+vi.mock("@/lib/admin-alert", () => ({ alertStrandedPayment: h.alertStrandedPayment }));
 
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: h.createServerSupabaseClient,
@@ -108,6 +110,7 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.stubEnv("EASYSLIP_API_KEY", "easyslip-key");
   h.afterCallbacks.length = 0;
+  h.alertStrandedPayment.mockClear();
   h.getBillingConfig.mockResolvedValue({ promptpay_id: RECEIVER, bank_account_number: null });
   h.callEasySlipV2.mockResolvedValue(easySlipSuccess(INVOICE.amount));
   mockClient();
@@ -153,6 +156,15 @@ describe("POST /api/host/invoices/[id]/pay", () => {
       expect(paidUpdate(supabase)).toBeNull();
       await expect(rejectionLog()).resolves.toMatchObject({
         data: { reason: "amount_mismatch", expected_amount: 3000, slip_amount: amount, trans_ref: "TXN-1" },
+      });
+      expect(h.alertStrandedPayment).toHaveBeenCalledWith({
+        kind: "invoice",
+        reason: "amount_mismatch",
+        hostName: "Peaks Homestay",
+        hostId: "host-1",
+        expectedAmount: 3000,
+        slipAmount: amount,
+        transRef: "TXN-1",
       });
     });
   });

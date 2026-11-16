@@ -5,6 +5,7 @@ import {
 } from "@/lib/supabase/server";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { logEvent, EventType } from "@/lib/history-log";
+import { alertStrandedPayment } from "@/lib/admin-alert";
 import {
   callEasySlipV2,
   computeSlipHash,
@@ -160,6 +161,17 @@ export async function POST(
             slip_path: slipPath,
           },
           req,
+        }),
+      );
+      after(() =>
+        alertStrandedPayment({
+          kind: "invoice",
+          reason,
+          hostName: typedHost.name,
+          hostId: typedHost.id,
+          expectedAmount: typedInvoice.amount,
+          slipAmount,
+          transRef: rawSlip.transRef || null,
         }),
       );
       return NextResponse.json(body, { status });

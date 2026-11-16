@@ -4,6 +4,7 @@ import {
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
+import { alertStrandedPayment } from "@/lib/admin-alert";
 import {
   callEasySlipV2,
   computeSlipHash,
@@ -146,6 +147,17 @@ export async function POST(req: NextRequest) {
             slip_path: slipPath,
           },
           req,
+        }),
+      );
+      after(() =>
+        alertStrandedPayment({
+          kind: "wallet_topup",
+          reason,
+          hostName: typedHost.name,
+          hostId: typedHost.id,
+          expectedAmount,
+          slipAmount,
+          transRef: rawSlip.transRef || null,
         }),
       );
       return NextResponse.json(body, { status });
