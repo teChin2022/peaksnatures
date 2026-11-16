@@ -81,4 +81,18 @@ describe("POST /api/auth/send-magic-link: unknown emails", () => {
     expect(body).toEqual({ success: true });
     expect(h.send).not.toHaveBeenCalled();
   });
+
+  // White on #16a34a was 3.3:1 for the 16px button text and grey #9ca3af was 2.5:1.
+  it("uses no low-contrast colour", async () => {
+    await send();
+    expect(h.send.mock.calls[0][0].html as string).not.toMatch(/#(16a34a|9ca3af)/i);
+  });
+
+  // The header and the button were Tailwind green, not the brand Forest.
+  it("uses the brand Forest for its header and button", async () => {
+    await send();
+    const html = h.send.mock.calls[0][0].html as string;
+    expect(html).not.toContain("#166534");
+    expect(html.match(/#2F5D50/g)).toHaveLength(2);
+  });
 });

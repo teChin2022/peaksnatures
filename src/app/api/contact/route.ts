@@ -81,7 +81,7 @@ export async function POST(request: NextRequest) {
       subject: `[Contact] ${rawSubject}`,
       html: `
         <div style="font-family: sans-serif; max-width: 600px; margin: 0 auto;">
-          <div style="background: #166534; padding: 24px; border-radius: 12px 12px 0 0;">
+          <div style="background: #2F5D50; padding: 24px; border-radius: 12px 12px 0 0;">
             <h1 style="color: white; margin: 0; font-size: 20px;">New Contact Message</h1>
           </div>
           <div style="padding: 24px; border: 1px solid #e5e7eb; border-top: 0; border-radius: 0 0 12px 12px;">
