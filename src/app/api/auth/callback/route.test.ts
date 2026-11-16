@@ -80,3 +80,32 @@ describe("GET /api/auth/callback, creating the host", () => {
     );
   });
 });
+
+// A staff login (migration 081) goes through here on Forgot password; it works
+// for another host and must never get a host row of its own.
+describe("GET /api/auth/callback, a staff login", () => {
+  const callback = async (staff: { data?: unknown; error?: unknown }) => {
+    h.getUser.mockResolvedValue({
+      data: { user: { id: "staff-1", email: "noi@example.com", user_metadata: {} } },
+    });
+    const db = createSupabaseMock({ tables: { platform_admins: {}, host_staff: staff, hosts: [{}, {}] } });
+    h.createServiceRoleClient.mockReturnValue(db);
+    await GET(makeRequest("/api/auth/callback", { method: "GET", searchParams: { code: "pkce-code" } }));
+    return db;
+  };
+
+  it("creates no host row for a staff login", async () => {
+    const db = await callback({ data: { id: "staff-row" } });
+    expect(db.calls.some((c) => c.table === "hosts")).toBe(false);
+  });
+
+  it("creates no host row when the staff lookup fails", async () => {
+    const db = await callback({ error: { message: "timeout" } });
+    expect(db.calls.some((c) => c.table === "hosts")).toBe(false);
+  });
+
+  it("still creates the host row for a new owner", async () => {
+    const db = await callback({ data: null });
+    expect(db.builderFor("hosts", 1).insert).toHaveBeenCalled();
+  });
+});

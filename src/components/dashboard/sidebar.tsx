@@ -41,6 +41,32 @@ const NAV_ITEMS = [
   { key: "profile", href: "/dashboard/profile", icon: User }
 ] as const;
 
+/** Who is signed in: null until the shell knows. */
+export type DashboardRole = "owner" | "staff" | null;
+
+/**
+ * Pages a staff login (migration 081) cannot use; the middleware sends staff
+ * away from them too. Hidden until the role is known, so a staff login never
+ * sees them flash in.
+ */
+const OWNER_ONLY_NAV = new Set<string>(["billing", "wallet", "profile"]);
+const navItemsFor = (role: DashboardRole) =>
+  role === "owner" ? NAV_ITEMS : NAV_ITEMS.filter((item) => !OWNER_ONLY_NAV.has(item.key));
+
+/** The signed-in email and role above Sign out: owner and staff often share the front-desk device. */
+function SignedInAs({ email, role }: { email?: string | null; role: DashboardRole }) {
+  const t = useTranslations("dashboardNav");
+  if (!email || !role) return null;
+  return (
+    <div className="px-3 pb-1 pt-1.5">
+      <p className="truncate text-xs font-medium text-earth-900" title={email}>
+        {email}
+      </p>
+      <p className="text-xs text-earth-600">{role === "staff" ? t("roleStaff") : t("roleOwner")}</p>
+    </div>
+  );
+}
+
 /** Whether a nav item is the current page: the overview only on its own path. */
 const isNavActive = (href: string, pathname: string) =>
   href === "/dashboard" ? pathname === "/dashboard" : pathname.startsWith(href);
@@ -55,9 +81,11 @@ interface SidebarProps {
   onToggle: () => void;
   brandName?: string;
   brandLogo?: string | null;
+  role?: DashboardRole;
+  accountEmail?: string | null;
 }
 
-export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandLogo }: SidebarProps) {
+export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandLogo, role = null, accountEmail }: SidebarProps) {
   const pathname = usePathname();
   const router = useRouter();
   const t = useTranslations("dashboardNav");
@@ -106,7 +134,7 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
 
       {/* Navigation */}
       <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3 scrollbar-hide">
-        {NAV_ITEMS.map((item) => {
+        {navItemsFor(role).map((item) => {
           const Icon = item.icon;
           const isActive = isNavActive(item.href, pathname);
 
@@ -131,6 +159,7 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
 
       {/* Sign out */}
       <div className="border-t border-earth-100 px-2 py-2">
+        {!collapsed && <SignedInAs email={accountEmail} role={role} />}
         <button
           onClick={handleSignOut}
           className={cn(
@@ -152,11 +181,15 @@ export function MobileSidebar({
   onClose,
   brandName = "Peaksnature",
   brandLogo,
+  role = null,
+  accountEmail,
 }: {
   open: boolean;
   onClose: () => void;
   brandName?: string;
   brandLogo?: string | null;
+  role?: DashboardRole;
+  accountEmail?: string | null;
 }) {
   const pathname = usePathname();
   const router = useRouter();
@@ -202,7 +235,7 @@ export function MobileSidebar({
         </div>
 
         <nav className="flex-1 space-y-0.5 overflow-y-auto px-2 py-3 scrollbar-hide">
-          {NAV_ITEMS.map((item) => {
+          {navItemsFor(role).map((item) => {
             const Icon = item.icon;
             const isActive = isNavActive(item.href, pathname);
 
@@ -226,6 +259,7 @@ export function MobileSidebar({
         </nav>
 
         <div className="border-t border-earth-100 px-2 py-2">
+          <SignedInAs email={accountEmail} role={role} />
           <button
             onClick={handleSignOut}
             className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-earth-600 transition-colors hover:bg-earth-50 hover:text-earth-700"

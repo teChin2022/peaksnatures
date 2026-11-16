@@ -1,5 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
-import { POST } from "./route";
+import { DELETE, POST } from "./route";
 import { createSupabaseMock, type QueryResponse } from "../../../../test/helpers/supabase";
 import { makeRequest, readJson } from "../../../../test/helpers/request";
 
@@ -26,13 +26,12 @@ const HOMESTAY_ID = "homestay-1";
 const ROOM_A = "room-a";
 const ROOM_B = "room-b";
 
-/** The host's own session: ownership, bookings and the blocked_dates write. */
-function sessionClient(tables: Record<string, QueryResponse | QueryResponse[]> = {}) {
+/** The signed-in session: the homestay, bookings and the blocked_dates write. */
+function sessionClient(tables: Record<string, QueryResponse | QueryResponse[]> = {}, userId = "user-1") {
   const client = createSupabaseMock({
-    user: { id: "user-1" },
+    user: { id: userId },
     tables: {
       homestays: { data: { id: HOMESTAY_ID, hosts: { id: "host-1", name: "Somchai" } } },
-      hosts: { data: { id: "host-1" } },
       bookings: { data: [] },
       blocked_dates: [{ data: null }, { data: [{ id: "bd-1" }] }],
       ...tables,
@@ -42,10 +41,19 @@ function sessionClient(tables: Record<string, QueryResponse | QueryResponse[]> =
   return client;
 }
 
-/** The service role: the homestay's houses and the guests' holds on them. */
-function serviceClient(holds: unknown[] = []) {
+/**
+ * The service role: who the user works for (owner by default), the homestay's
+ * houses and the guests' holds on them.
+ */
+function serviceClient(holds: unknown[] = [], access: Record<string, QueryResponse> = {}) {
   const client = createSupabaseMock({
-    tables: { rooms: { data: [{ id: ROOM_A }, { id: ROOM_B }] }, booking_holds: { data: holds } },
+    tables: {
+      hosts: { data: { id: "host-1" } },
+      host_staff: { data: null },
+      rooms: { data: [{ id: ROOM_A }, { id: ROOM_B }] },
+      booking_holds: { data: holds },
+      ...access,
+    },
   });
   h.createServiceRoleClient.mockReturnValue(client);
   return client;
@@ -118,12 +126,63 @@ describe("POST /api/blocked-dates: a guest's hold on the dates", () => {
   });
 
   it("does not read holds before ownership is proven", async () => {
-    sessionClient({ hosts: { data: null } });
-    serviceClient([hold(ROOM_A)]);
+    sessionClient();
+    const sc = serviceClient([hold(ROOM_A)], { hosts: { data: null } });
 
     const { status } = await block();
 
     expect(status).toBe(403);
-    expect(h.createServiceRoleClient).not.toHaveBeenCalled();
+    expect(sc.calls.some((c) => c.table === "booking_holds")).toBe(false);
+  });
+});
+
+// Staff logins (migration 081) block and unblock dates for the host they work for.
+describe("/api/blocked-dates: staff", () => {
+  const STAFF = "staff-1";
+  const staffOf = (hostId: string) => ({ hosts: { data: null }, host_staff: { data: { host_id: hostId } } });
+  const unblock = async () =>
+    readJson(
+      await DELETE(
+        makeRequest("/api/blocked-dates", { method: "DELETE", body: { homestay_id: HOMESTAY_ID, dates: ["2026-12-10"] } }),
+      ),
+    );
+
+  it("lets staff of the host block dates", async () => {
+    sessionClient({}, STAFF);
+    const sc = serviceClient([], staffOf("host-1"));
+
+    const { status } = await block();
+
+    expect(status).toBe(201);
+    expect(sc.builderFor("host_staff").eq).toHaveBeenCalledWith("user_id", STAFF);
+  });
+
+  it("refuses staff of another host", async () => {
+    sessionClient({}, STAFF);
+    serviceClient([], staffOf("host-2"));
+
+    const { status } = await block();
+
+    expect(status).toBe(403);
+  });
+
+  it("lets staff of the host unblock dates", async () => {
+    const session = sessionClient({ blocked_dates: { data: null } }, STAFF);
+    serviceClient([], staffOf("host-1"));
+
+    const { status } = await unblock();
+
+    expect(status).toBe(200);
+    expect(session.builderFor("blocked_dates").delete).toHaveBeenCalled();
+  });
+
+  it("refuses staff of another host an unblock", async () => {
+    const session = sessionClient({ blocked_dates: { data: null } }, STAFF);
+    serviceClient([], staffOf("host-2"));
+
+    const { status } = await unblock();
+
+    expect(status).toBe(403);
+    expect(session.calls.some((c) => c.table === "blocked_dates")).toBe(false);
   });
 });

@@ -20,6 +20,9 @@ export function isValidEmail(value: string): boolean {
   return EMAIL_RE.test(value.trim());
 }
 
+/** The sign-up password rule: 8+ characters with an uppercase letter, a digit and one of _ # @. */
+export const PASSWORD_RE = /^(?=.*[A-Z])(?=.*[0-9])(?=.*[_#@]).{8,}$/;
+
 export function sanitizePhoneInput(value: string): string {
   return value.replace(/\D/g, "").slice(0, 10);
 }

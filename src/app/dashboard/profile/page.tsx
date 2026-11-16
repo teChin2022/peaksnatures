@@ -17,6 +17,7 @@ import { useRouter } from "next/navigation";
 import { logClientEvent } from "@/lib/history-log-client";
 
 import { SecurityPinDialog } from "@/components/security-pin-dialog";
+import { StaffCard } from "@/components/dashboard/staff-card";
 
 interface HostData {
   id: string;
@@ -936,6 +937,8 @@ export default function ProfilePage() {
         onVerified={handlePinVerified}
         onChanged={() => toast.success(t("pinChanged"))}
       />
+
+      <StaffCard />
 
       <Card className="mt-6 border-red-200">
         <CardHeader>

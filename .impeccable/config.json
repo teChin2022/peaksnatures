@@ -1,3 +1,27 @@
 {
-  "telemetry": false
+  "telemetry": false,
+  "detector": {
+    "ignoreRules": [],
+    "ignoreFiles": [],
+    "ignoreValues": [
+      {
+        "rule": "design-system-font",
+        "value": "*",
+        "files": [
+          "src/lib/notifications.ts"
+        ],
+        "createdAt": "2026-11-16T04:08:34.382Z",
+        "reason": "Claude, 2026-11-16: transactional email HTML; email clients need web-safe inline font stacks, the same stack every existing email in this file already uses"
+      },
+      {
+        "rule": "overused-font",
+        "value": "helvetica",
+        "files": [
+          "src/lib/notifications.ts"
+        ],
+        "createdAt": "2026-11-16T04:27:50.751Z",
+        "reason": "Claude, 2026-11-16: transactional email HTML (pre-existing line from ceabee7); email clients need a web-safe inline font stack"
+      }
+    ]
+  }
 }

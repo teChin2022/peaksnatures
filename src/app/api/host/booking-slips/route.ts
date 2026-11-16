@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { z } from "zod";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { slipStoragePath } from "@/lib/slip-path";
+import { getHostAccess } from "@/lib/host-access";
 
 const schema = z.object({ booking_ids: z.array(z.string().uuid()).min(1).max(100) });
 
@@ -33,15 +34,15 @@ export async function POST(req: NextRequest) {
 
     const sc = createServiceRoleClient();
 
-    const { data: host } = await sc.from("hosts").select("id").eq("user_id", user.id).single();
-    if (!host) {
+    const access = await getHostAccess(sc, user.id);
+    if (!access) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
     const { data: homestayRows } = await sc
       .from("homestays")
       .select("id")
-      .eq("host_id", (host as { id: string }).id);
+      .eq("host_id", access.hostId);
     const homestayIds = ((homestayRows as { id: string }[] | null) ?? []).map((h) => h.id);
     if (homestayIds.length === 0) {
       return NextResponse.json({ urls: {} }, { headers: { "Cache-Control": "private, no-store" } });

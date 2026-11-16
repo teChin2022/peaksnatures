@@ -365,3 +365,39 @@ describe("POST /api/bookings/quick", () => {
     });
   });
 });
+
+// Staff logins (migration 081) take walk-in bookings for the host they work for.
+describe("POST /api/bookings/quick: staff", () => {
+  const staffClient = (hostId: string) => {
+    h.createServerSupabaseClient.mockResolvedValue(createSupabaseMock({ user: { id: "staff-1" } }));
+    const supabase = createSupabaseMock({
+      tables: tables({
+        hosts: [{ data: null }, { data: { id: hostId, name: "Somchai" } }],
+        host_staff: { data: { host_id: hostId } },
+      }),
+      rpc: { create_booking_atomic: { data: BOOKING_ID } },
+    });
+    h.createServiceRoleClient.mockReturnValue(supabase);
+    return supabase;
+  };
+
+  it("records the booking for the host the staff member works for", async () => {
+    const supabase = staffClient("host-1");
+
+    const { status } = await readJson(await post(body()));
+
+    expect(status).toBe(201);
+    expect(supabase.builderFor("host_staff").eq).toHaveBeenCalledWith("user_id", "staff-1");
+    expect(supabase.builderFor("hosts", 1).eq).toHaveBeenCalledWith("id", "host-1");
+    expect(supabase.builderFor("homestays").eq).toHaveBeenCalledWith("host_id", "host-1");
+  });
+
+  it("looks the homestay up only under the staff member's own host", async () => {
+    const supabase = staffClient("host-2");
+
+    await post(body());
+
+    expect(supabase.builderFor("homestays").eq).toHaveBeenCalledWith("host_id", "host-2");
+    expect(supabase.builderFor("homestays").eq).not.toHaveBeenCalledWith("host_id", "host-1");
+  });
+});

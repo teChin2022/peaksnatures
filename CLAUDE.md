@@ -272,6 +272,15 @@ Any work touching auth, RLS, storage, user input, or secrets counts as a
 - RLS filters rows, not columns: a host session may update only the `hosts`
   columns granted in migration 069. Writing a new `hosts` column from a
   `"use client"` page needs that grant, or the save fails with 42501.
+- `hosts` SELECT is a column grant too (081): `authenticated` reads only the
+  columns the browser uses. A new column the browser reads needs a GRANT, or
+  the read fails with 42501.
+- Staff logins (081, `host_staff`): extra auth users working for one host.
+  Access is opt-in. Owner-only routes keep `hosts.eq("user_id", user.id)`,
+  which staff never match; routes staff may use go through `getHostAccess` /
+  `canActForHost` (`src/lib/host-access.ts`). Staff RLS policies sit next to
+  the owner's, and guard triggers limit staff writes on `hosts` (booking
+  settings) and `bookings` (status only).
 - Billing columns (plan, term, wallet, overrides, status) are written only by
   API routes with the service-role client.
 - `bookings` has no column limit yet: hosts can still update their own bookings

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
+import { getHostAccess } from "@/lib/host-access";
 
 export async function POST(req: NextRequest) {
   try {
@@ -40,15 +41,10 @@ export async function POST(req: NextRequest) {
     }
 
     const hsJoined = homestayRow as unknown as { id: string; hosts: { id: string; name: string } };
-    // Verify the requesting user owns this host
-    const { data: hostCheck } = await supabase
-      .from("hosts")
-      .select("id")
-      .eq("id", hsJoined.hosts.id)
-      .eq("user_id", user.id)
-      .single();
-
-    if (!hostCheck) {
+    // Verify the requesting user owns this host or is its staff
+    const sc = createServiceRoleClient();
+    const access = await getHostAccess(sc, user.id);
+    if (access?.hostId !== hsJoined.hosts.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 
@@ -58,7 +54,6 @@ export async function POST(req: NextRequest) {
     // On the service role: RLS shows the host session no hold at all, so this
     // check never fired. Scoped to this homestay's houses (only the named one
     // when there is one), which the old query was not either.
-    const sc = createServiceRoleClient();
     const { data: roomRows } = await sc.from("rooms").select("id").eq("homestay_id", homestay_id);
     const homestayRoomIds = ((roomRows as { id: string }[] | null) ?? []).map((r) => r.id);
     const holdRoomIds = room_id ? homestayRoomIds.filter((id) => id === room_id) : homestayRoomIds;
@@ -223,14 +218,8 @@ export async function DELETE(req: NextRequest) {
     }
 
     const hsJoined = homestayRow as unknown as { id: string; hosts: { id: string; name: string } };
-    const { data: hostCheck } = await supabase
-      .from("hosts")
-      .select("id")
-      .eq("id", hsJoined.hosts.id)
-      .eq("user_id", user.id)
-      .single();
-
-    if (!hostCheck) {
+    const access = await getHostAccess(createServiceRoleClient(), user.id);
+    if (access?.hostId !== hsJoined.hosts.id) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

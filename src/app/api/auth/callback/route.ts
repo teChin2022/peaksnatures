@@ -71,7 +71,17 @@ export async function GET(req: NextRequest) {
         .eq("user_id", user.id)
         .single();
 
-      if (!adminRecord) {
+      // A staff login (migration 081) works for another host and must never get
+      // a host row of its own. If the lookup fails, create nothing: the user can
+      // retry, but a stray row would split the staff login from its host.
+      const { data: staffRow, error: staffError } = await serviceClient
+        .from("host_staff")
+        .select("id")
+        .eq("user_id", user.id)
+        .maybeSingle();
+      const mayBeStaff = !!staffRow || !!staffError;
+
+      if (!adminRecord && !mayBeStaff) {
         // Create host record if it doesn't exist yet (first-time email verification)
         const { data: existingHost } = await serviceClient
           .from("hosts")

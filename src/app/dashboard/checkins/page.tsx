@@ -122,10 +122,10 @@ export default function CheckinsPage() {
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) { setLoading(false); return; }
 
+      // No user_id filter: RLS shows a login only its own host, or the one it is staff of (081).
       const { data: hostRow } = await supabase
         .from("hosts")
         .select("id")
-        .eq("user_id", user.id)
         .single();
       if (!hostRow) { setLoading(false); return; }
 

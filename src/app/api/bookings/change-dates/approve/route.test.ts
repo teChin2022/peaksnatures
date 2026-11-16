@@ -108,3 +108,28 @@ describe("POST /api/bookings/change-dates/approve — commission", () => {
     });
   });
 });
+
+// Staff logins (migration 081): user-1 is not the owner here, only a staff row can let it in.
+describe("POST /api/bookings/change-dates/approve: staff", () => {
+  const staffClient = (staffRow: unknown) =>
+    signIn(h, {
+      tables: {
+        date_change_requests: { data: REQUEST },
+        bookings: { data: BOOKING },
+        homestays: { data: { id: "hs-1", hosts: { id: "host-1", user_id: "owner-9", name: "Peaks", plan_type: "commission" } } },
+        host_staff: { data: staffRow },
+      },
+    });
+
+  it("lets staff of the host approve a date change", async () => {
+    const supabase = staffClient({ id: "staff-row" });
+    expect((await approve()).status).toBe(200);
+    expect(supabase.builderFor("host_staff").eq).toHaveBeenCalledWith("host_id", "host-1");
+  });
+
+  it("refuses a login that is not staff of this host", async () => {
+    staffClient(null);
+    expect((await approve()).status).toBe(403);
+    expect(h.deductCommission).not.toHaveBeenCalled();
+  });
+});

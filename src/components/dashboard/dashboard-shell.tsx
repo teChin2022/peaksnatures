@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { usePathname } from "next/navigation";
 import { Menu, AlertTriangle, ShieldAlert } from "lucide-react";
 import { Button } from "@/components/ui/button";
-import { Sidebar, MobileSidebar, navKeyFor } from "./sidebar";
+import { Sidebar, MobileSidebar, navKeyFor, type DashboardRole } from "./sidebar";
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { getPlanExpiryInfo, type PlanExpiryInfo } from "@/lib/plan-expiry";
@@ -29,36 +29,52 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const [brandLogo, setBrandLogo] = useState<string | null>(null);
   const [expiryInfo, setExpiryInfo] = useState<PlanExpiryInfo | null>(null);
   const [invoiceBlocked, setInvoiceBlocked] = useState(false);
+  const [role, setRole] = useState<DashboardRole>(null);
+  const [accountEmail, setAccountEmail] = useState<string | null>(null);
+  // Staff cannot open billing, so they get a plain notice when guests cannot book.
+  const [staffBlocked, setStaffBlocked] = useState(false);
 
   useEffect(() => {
     const fetchBrand = async () => {
       const supabase = createClient();
       const { data: { user } } = await supabase.auth.getUser();
       if (!user) return;
+      setAccountEmail(user.email ?? null);
 
+      // No user_id filter: RLS shows a login only its own host, or the one it is staff of (081).
       const { data: host } = await supabase
         .from("hosts")
-        .select("id, plan_type, plan_free_expires_at, plan_pending_type")
-        .eq("user_id", user.id)
+        .select("id, user_id, plan_type, plan_free_expires_at, plan_pending_type")
         .single();
       if (!host) return;
 
       const hostRow = host as {
         id: string;
+        user_id: string;
         plan_type: string;
         plan_free_expires_at: string | null;
         plan_pending_type: string | null;
       };
 
+      // A staff login works for this host but cannot open billing, so the
+      // billing banners and their links are the owner's alone.
+      const staff = hostRow.user_id !== user.id;
+      setRole(staff ? "staff" : "owner");
+      if (staff) {
+        const res = await fetch("/api/host/profile").catch(() => null);
+        const profile = res?.ok ? ((await res.json()) as { bookingBlocked?: boolean }) : null;
+        setStaffBlocked(profile?.bookingBlocked === true);
+      }
+
       // Compute plan expiry phase — suppress banner if a switch is pending,
       // since the scheduled switch will resolve the expiry.
       const info = getPlanExpiryInfo(hostRow.plan_type, hostRow.plan_free_expires_at);
-      setExpiryInfo(info.phase !== "active" && !hostRow.plan_pending_type ? info : null);
+      setExpiryInfo(!staff && info.phase !== "active" && !hostRow.plan_pending_type ? info : null);
 
       // Fixed-rate hosts are blocked the day after an invoice's due date. The
       // expiry phase above only covers the free plan, so without this they'd
       // lose bookings with no dashboard-wide explanation.
-      if (hostRow.plan_type === "fixed_rate") {
+      if (!staff && hostRow.plan_type === "fixed_rate") {
         const { data: pastDue } = await supabase
           .from("invoices")
           .select("id")
@@ -95,11 +111,11 @@ export function DashboardShell({ children }: DashboardShellProps) {
     <div className="min-h-screen bg-earth-50">
       {/* Desktop sidebar */}
       <div className="hidden lg:block">
-        <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} brandName={brandName} brandLogo={brandLogo} />
+        <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} brandName={brandName} brandLogo={brandLogo} role={role} accountEmail={accountEmail} />
       </div>
 
       {/* Mobile sidebar */}
-      <MobileSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} brandName={brandName} brandLogo={brandLogo} />
+      <MobileSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} brandName={brandName} brandLogo={brandLogo} role={role} accountEmail={accountEmail} />
 
       {/* Main content */}
       <div
@@ -163,6 +179,21 @@ export function DashboardShell({ children }: DashboardShellProps) {
                   {t("payNow")}
                 </Button>
               </Link>
+            </div>
+          </div>
+        )}
+
+        {/* Staff: guests cannot book. No link: billing is the owner's. */}
+        {role === "staff" && staffBlocked && (
+          <div className="mx-4 sm:mx-6 lg:mx-8 mt-4">
+            <div role="status" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-3">
+              <div className="rounded-lg bg-red-100 p-2 shrink-0">
+                <ShieldAlert className="h-4 w-4 text-red-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-red-800">{t("staffBlockedTitle")}</p>
+                <p className="text-sm text-red-700 mt-0.5">{t("staffBlockedDesc")}</p>
+              </div>
             </div>
           </div>
         )}

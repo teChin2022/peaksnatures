@@ -64,13 +64,15 @@ export async function POST(req: NextRequest) {
     // Sign out the throwaway client (fire-and-forget — no need to await)
     supabase.auth.signOut().catch(() => {});
 
-    // Check if host has OTP disabled (admin logins always require OTP)
+    // Check if host has OTP disabled (admin logins always require OTP).
+    // By the login's user id: hosts.email is editable and may name a staff
+    // login, which must never inherit the owner's OTP opt-out.
     const serviceClient = createServiceRoleClient();
     if (source !== "admin") {
       const { data: hostRecord } = await serviceClient
         .from("hosts")
         .select("require_otp")
-        .eq("email", email)
+        .eq("user_id", signInResult.data.user.id)
         .single() as { data: { require_otp: boolean } | null };
 
       if (hostRecord && hostRecord.require_otp === false) {

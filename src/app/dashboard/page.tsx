@@ -53,6 +53,8 @@ import {
 
 interface HostProfile {
   id: string;
+  /** "staff" for a staff login (migration 081): the setup popup is the owner's to fill in. */
+  role: "owner" | "staff";
   hasPhone: boolean;
   hasPromptpay: boolean;
   hasPinSet: boolean;
@@ -189,6 +191,7 @@ export default function DashboardPage() {
       if (profile) {
         setHostProfile({
           id: profile.id,
+          role: profile.role === "staff" ? "staff" : "owner",
           hasPhone: profile.hasPhone,
           hasPromptpay: profile.hasPromptpay,
           hasPinSet: profile.hasPinSet,
@@ -427,7 +430,7 @@ export default function DashboardPage() {
 
   return (
     <div>
-      {profileLoaded && hostProfile && (!hostProfile.hasPhone || !hostProfile.hasPromptpay || !hostProfile.hasPinSet) && (
+      {profileLoaded && hostProfile?.role === "owner" && (!hostProfile.hasPhone || !hostProfile.hasPromptpay || !hostProfile.hasPinSet) && (
         <SetupProfileModal
           hasPhone={hostProfile.hasPhone}
           hasPromptpay={hostProfile.hasPromptpay}

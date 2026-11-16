@@ -229,7 +229,8 @@ export default function RoomsPage() {
     if (!user) return;
     setUserId(user.id);
 
-    const hostQuery = supabase.from("hosts").select("id, name").eq("user_id", user.id);
+    // No user_id filter: RLS shows a login only its own host, or the one it is staff of (081).
+    const hostQuery = supabase.from("hosts").select("id, name");
     const { data: hostRow } = await hostQuery.maybeSingle();
 
     const host = hostRow as { id: string; name: string } | null;

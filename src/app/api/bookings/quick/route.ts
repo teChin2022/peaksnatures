@@ -4,6 +4,7 @@ import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supab
 import { logEvent, EventType } from "@/lib/history-log";
 import { computeRoomRateTotal } from "@/lib/booking-pricing";
 import { deductCommission } from "@/lib/billing";
+import { getHostAccess } from "@/lib/host-access";
 
 const quickBookingSchema = z.object({
   homestay_id: z.string().uuid(),
@@ -50,12 +51,11 @@ export async function POST(req: NextRequest) {
 
     const supabase = createServiceRoleClient();
 
-    // Verify host owns the homestay
-    const { data: hostRow } = await supabase
-      .from("hosts")
-      .select("id, name")
-      .eq("user_id", user.id)
-      .single();
+    // The host this user owns or is staff of
+    const access = await getHostAccess(supabase, user.id);
+    const { data: hostRow } = access
+      ? await supabase.from("hosts").select("id, name").eq("id", access.hostId).single()
+      : { data: null };
 
     if (!hostRow) {
       return NextResponse.json({ error: "Host not found" }, { status: 404 });

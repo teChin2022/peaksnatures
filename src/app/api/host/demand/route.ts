@@ -6,6 +6,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { getDemandStats, parseDemandDays } from "@/lib/demand-stats";
+import { getHostAccess } from "@/lib/host-access";
 
 export async function GET(req: NextRequest) {
   try {
@@ -21,15 +22,15 @@ export async function GET(req: NextRequest) {
 
     const sc = createServiceRoleClient();
 
-    const { data: host } = await sc.from("hosts").select("id").eq("user_id", user.id).single();
-    if (!host) {
+    const access = await getHostAccess(sc, user.id);
+    if (!access) {
       return NextResponse.json({ error: "Host not found" }, { status: 404 });
     }
 
     const { data: homestay } = await sc
       .from("homestays")
       .select("id")
-      .eq("host_id", (host as { id: string }).id)
+      .eq("host_id", access.hostId)
       .single();
 
     if (!homestay) {

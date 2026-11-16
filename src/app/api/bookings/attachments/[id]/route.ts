@@ -3,6 +3,7 @@ import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supab
 import { createRateLimiter } from "@/lib/rate-limit";
 import { EventType, logEvent } from "@/lib/history-log";
 import { ATTACHMENTS_BUCKET } from "@/lib/booking-attachments";
+import { canActForHost } from "@/lib/host-access";
 
 const deleteRateLimit = createRateLimiter({
   limit: 30,
@@ -63,7 +64,7 @@ export async function DELETE(req: NextRequest, ctx: { params: Promise<{ id: stri
     }
 
     const owner = attachment.booking?.homestay?.host;
-    if (!owner || owner.user_id !== user.id) {
+    if (!owner || !(await canActForHost(sc, user.id, owner))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

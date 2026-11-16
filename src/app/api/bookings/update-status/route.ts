@@ -8,6 +8,7 @@ import type { Booking, Homestay, Host, Room } from "@/types/database";
 import { logEvent, EventType } from "@/lib/history-log";
 import { deductCommission } from "@/lib/billing";
 import { cancelRedemptionForBooking } from "@/lib/promo-redemptions-server";
+import { canActForHost } from "@/lib/host-access";
 
 export async function POST(req: NextRequest) {
   try {
@@ -77,7 +78,7 @@ export async function POST(req: NextRequest) {
     const hostData = (hsRow as unknown as { host_id: string; hosts: { id: string; name: string; user_id: string } | null } | null)?.hosts;
     const hostName = hostData?.name || "host";
 
-    if (!hostData || hostData.user_id !== user.id) {
+    if (!hostData || !(await canActForHost(supabase, user.id, hostData))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

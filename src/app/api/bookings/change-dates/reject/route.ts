@@ -4,6 +4,7 @@ import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supab
 import { sendDateChangeEmailToGuest } from "@/lib/notifications";
 import type { Booking, Homestay, Host, Room } from "@/types/database";
 import { logEvent, EventType } from "@/lib/history-log";
+import { canActForHost } from "@/lib/host-access";
 
 export async function POST(req: NextRequest) {
   try {
@@ -79,7 +80,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ error: "Host not found" }, { status: 404 });
     }
 
-    if (host.user_id !== user.id) {
+    if (!(await canActForHost(supabase, user.id, host))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

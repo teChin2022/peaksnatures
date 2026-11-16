@@ -422,3 +422,22 @@ describe("POST /api/bookings/update-status", () => {
     });
   });
 });
+
+// Staff logins (migration 081): user-1 is not the owner here, only a staff row can let it in.
+describe("POST /api/bookings/update-status: staff", () => {
+  const staffed = { host_id: "host-1", hosts: { id: "host-1", name: "Somchai", user_id: "owner-9" } };
+
+  it("lets staff of the host confirm a booking", async () => {
+    const supabase = mockClient({
+      tables: tables({ bookings: { data: booking({ status: "verified" }) }, homestays: { data: staffed }, host_staff: { data: { id: "staff-row" } } }),
+    });
+    expect((await post({ booking_id: BOOKING_ID, status: "confirmed" })).status).toBe(200);
+    expect(supabase.builderFor("host_staff").eq).toHaveBeenCalledWith("host_id", "host-1");
+    expect(supabase.builderFor("host_staff").eq).toHaveBeenCalledWith("user_id", "user-1");
+  });
+
+  it("refuses a login that is not staff of this host", async () => {
+    mockClient({ tables: tables({ homestays: { data: staffed }, host_staff: { data: null } }) });
+    expect((await post({ booking_id: BOOKING_ID, status: "confirmed" })).status).toBe(403);
+  });
+});

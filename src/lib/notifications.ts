@@ -1222,6 +1222,77 @@ export async function sendHostApprovalEmail(hostEmail: string, hostName: string)
   }
 }
 
+export type StaffAccountAction = "added" | "password_reset" | "removed";
+
+const STAFF_ACCOUNT_COPY: Record<StaffAccountAction, { subject: string; th: string; en: string }> = {
+  added: {
+    subject: "มีการเพิ่มบัญชีทีมงาน – Peaksnature",
+    th: "มีการเพิ่มบัญชีทีมงานที่เข้าแดชบอร์ดของคุณได้",
+    en: "A staff login that can use your dashboard was added",
+  },
+  password_reset: {
+    subject: "มีการเปลี่ยนรหัสผ่านบัญชีทีมงาน – Peaksnature",
+    th: "มีการตั้งรหัสผ่านใหม่ให้บัญชีทีมงาน",
+    en: "A staff login's password was reset",
+  },
+  removed: {
+    subject: "มีการลบบัญชีทีมงาน – Peaksnature",
+    th: "มีการลบบัญชีทีมงาน บัญชีนี้เข้าแดชบอร์ดของคุณไม่ได้แล้ว",
+    en: "A staff login was removed and can no longer use your dashboard",
+  },
+};
+
+/**
+ * Tells the owner, at their login email, that a staff login changed. A stolen
+ * owner session should not be able to add a login quietly.
+ */
+export async function sendStaffAccountEmail(
+  ownerEmail: string,
+  info: { ownerName: string; staffName: string; staffEmail: string; action: StaffAccountAction },
+) {
+  const apiKey = (process.env.RESEND_API_KEY || "").replace(/["']/g, "").trim();
+  if (!apiKey) {
+    return { success: true, demo: true };
+  }
+
+  try {
+    const { Resend } = await import("resend");
+    const resend = new Resend(apiKey);
+
+    const DEFAULT_FROM = "Peaksnature <onboarding@resend.dev>";
+    const cleaned = (process.env.RESEND_FROM_EMAIL || "").replace(/["'\r\n]/g, "").trim();
+    const fromEmail = cleaned
+      ? cleaned.replace(/<([^>]+)>/, (_, email: string) => `<${email.replace(/\s+/g, "")}>`)
+      : DEFAULT_FROM;
+
+    const copy = STAFF_ACCOUNT_COPY[info.action];
+
+    await resend.emails.send({
+      from: fromEmail,
+      to: ownerEmail,
+      subject: copy.subject,
+      html: `
+        <div style="font-family: 'Helvetica Neue', Arial, sans-serif; max-width: 600px; margin: 0 auto; background: #ffffff; border: 1px solid #e5e7eb; border-radius: 8px; overflow: hidden;">
+          <div style="background: #f9fafb; padding: 32px 24px; border-bottom: 1px solid #e5e7eb;">
+            <h1 style="color: #111827; margin: 0; font-size: 22px; font-weight: 700;">${copy.th}</h1>
+          </div>
+          <div style="padding: 32px 24px;">
+            <p style="font-size: 16px; color: #111827; margin: 0 0 16px;">เรียน คุณ${escapeHtml(info.ownerName)},</p>
+            <p style="font-size: 14px; color: #374151; margin: 0 0 8px;">${copy.th}: <strong>${escapeHtml(info.staffName)}</strong> (${escapeHtml(info.staffEmail)})</p>
+            <p style="font-size: 14px; color: #6b7280; margin: 0 0 16px;">${copy.en}: ${escapeHtml(info.staffName)} (${escapeHtml(info.staffEmail)})</p>
+            <p style="font-size: 14px; color: #374151; margin: 0 0 8px;">ถ้าคุณไม่ได้ทำรายการนี้ ให้เปลี่ยนรหัสผ่านและลบบัญชีทีมงานที่ไม่รู้จักในหน้าโปรไฟล์ทันที</p>
+            <p style="font-size: 14px; color: #6b7280; margin: 0;">If this wasn't you, change your password and remove any staff login you don't recognise on your profile page.</p>
+          </div>
+        </div>
+      `,
+    });
+    return { success: true };
+  } catch (error) {
+    console.error("[Email] Staff account email error:", error);
+    return { success: false, error };
+  }
+}
+
 // ============================================================
 // DATE CHANGE — LINE Notification to Host
 // ============================================================
