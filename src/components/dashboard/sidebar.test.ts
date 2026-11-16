@@ -19,7 +19,7 @@ let container: HTMLDivElement;
 let root: Root;
 
 const links = () => [...container.querySelectorAll("a")].map((a) => a.getAttribute("href"));
-const OWNER_ONLY = ["/dashboard/billing", "/dashboard/wallet", "/dashboard/profile"];
+const OWNER_ONLY = ["/dashboard/team", "/dashboard/billing", "/dashboard/wallet", "/dashboard/profile"];
 
 beforeEach(() => {
   container = document.createElement("div");
@@ -55,6 +55,12 @@ describe("dashboard nav", () => {
     expect(links()).toEqual(expect.arrayContaining(["/dashboard/bookings", "/dashboard/rooms", "/dashboard/promo-codes"]));
   });
 
+  it("puts Team just before Profile", async () => {
+    await renderBoth({ role: "owner" });
+    const order = links().slice(0, links().indexOf("/dashboard/profile") + 1);
+    expect(order.slice(-2)).toEqual(["/dashboard/team", "/dashboard/profile"]);
+  });
+
   // So a staff login never sees them flash in before the host row loads.
   it("hides them until the role is known", async () => {
     await renderBoth({ role: null });
@@ -82,6 +88,7 @@ describe("navKeyFor (the phone top bar's page title)", () => {
     expect(navKeyFor("/dashboard/bookings")).toBe("bookings");
     expect(navKeyFor("/dashboard/rooms/123")).toBe("rooms");
     expect(navKeyFor("/dashboard/promo-codes")).toBe("promoCodes");
+    expect(navKeyFor("/dashboard/team")).toBe("team");
   });
 
   it("names nothing off the menu, so the bar falls back to the brand", () => {

@@ -2,10 +2,10 @@
 
 import { useEffect, useId, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Check, Copy, Eye, EyeOff, KeyRound, Loader2, Shuffle, Trash2, UserPlus, Users } from "lucide-react";
+import { Check, Copy, Eye, EyeOff, KeyRound, Loader2, Shuffle, Trash2, UserPlus } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { Skeleton } from "@/components/ui/skeleton";
@@ -79,7 +79,7 @@ export function generateStaffPassword(): string {
 }
 
 /**
- * Staff logins (migration 081) on the owner's profile page: the owner adds a
+ * Staff logins (migration 081), on the owner's Team page: the owner adds a
  * login with a real email, resets its password or removes it. Every change asks
  * for the owner's own password again.
  */
@@ -92,6 +92,20 @@ export function StaffCard() {
   const [dialog, setDialog] = useState<DialogState | null>(null);
   const [reloadKey, setReloadKey] = useState(0);
   const load = () => setReloadKey((k) => k + 1);
+  // Shown next to the owner-password field, so it cannot be mistaken for "confirm the staff password".
+  const [ownerEmail, setOwnerEmail] = useState<string | null>(null);
+
+  useEffect(() => {
+    let live = true;
+    createClient()
+      .auth.getUser()
+      .then(({ data }) => {
+        if (live) setOwnerEmail(data.user?.email ?? null);
+      });
+    return () => {
+      live = false;
+    };
+  }, []);
 
   useEffect(() => {
     let live = true;
@@ -115,88 +129,80 @@ export function StaffCard() {
   const atLimit = (staff?.length ?? 0) >= MAX_STAFF;
 
   return (
-    <Card className="mt-6">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2 text-base">
-          <Users className="h-4 w-4" />
-          {t("title")}
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
-        <p className="text-sm text-earth-700">{t("description")}</p>
+    <div className="space-y-4">
+      {loadFailed ? (
+        <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+          <p className="text-sm text-red-700">{t("errorLoad")}</p>
+          <Button variant="outline" className={cn(TAP, "shrink-0")} onClick={load}>
+            {t("retry")}
+          </Button>
+        </div>
+      ) : staff === null ? (
+        <div role="status" className="space-y-2">
+          <span className="sr-only">{tc("loading")}</span>
+          <Skeleton className="h-16 w-full bg-earth-100" />
+          <Skeleton className="h-16 w-full bg-earth-100" />
+        </div>
+      ) : staff.length === 0 ? (
+        <p className="rounded-2xl border border-earth-200 bg-white p-5 text-sm text-earth-600">{t("empty")}</p>
+      ) : (
+        // The list is the page's one surface: flat, Sand border, 18px corners (DESIGN.md cards).
+        <ul aria-label={t("title")} className="divide-y divide-earth-200 rounded-2xl border border-earth-200 bg-white">
+          {staff.map((row) => (
+            <li key={row.id} className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:gap-2 sm:pr-2">
+              <div className="min-w-0 flex-1">
+                <p className="text-sm font-semibold text-earth-900 [overflow-wrap:anywhere]">{row.name}</p>
+                <p className="text-sm break-all text-earth-700">{row.email}</p>
+                <p className="text-xs text-earth-600">{t("addedOn", { date: addedOn(row.created_at) })}</p>
+              </div>
+              <div className="-mr-2 flex shrink-0 justify-end gap-3 sm:mr-0">
+                <Button
+                  variant="ghost"
+                  className={cn(TAP, "px-3 text-earth-700 hover:text-earth-900")}
+                  aria-label={t("resetAria", { name: row.name })}
+                  onClick={() => setDialog({ mode: "reset", row })}
+                >
+                  <KeyRound />
+                  {t("resetPassword")}
+                </Button>
+                <Button
+                  variant="ghost"
+                  className={cn(TAP, "px-3 text-earth-700 hover:bg-red-50 hover:text-red-700")}
+                  aria-label={t("removeAria", { name: row.name })}
+                  onClick={() => setDialog({ mode: "remove", row })}
+                >
+                  <Trash2 />
+                  {t("remove")}
+                </Button>
+              </div>
+            </li>
+          ))}
+        </ul>
+      )}
 
-        {loadFailed ? (
-          <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
-            <p className="text-sm text-red-700">{t("errorLoad")}</p>
-            <Button variant="outline" className={cn(TAP, "shrink-0")} onClick={load}>
-              {t("retry")}
-            </Button>
-          </div>
-        ) : staff === null ? (
-          <div role="status" className="space-y-2">
-            <span className="sr-only">{tc("loading")}</span>
-            <Skeleton className="h-16 w-full bg-earth-100" />
-            <Skeleton className="h-16 w-full bg-earth-100" />
-          </div>
-        ) : staff.length === 0 ? (
-          <p className="text-sm text-earth-600">{t("empty")}</p>
-        ) : (
-          <ul className="divide-y divide-earth-200 rounded-lg border border-earth-200">
-            {staff.map((row) => (
-              <li key={row.id} className="flex flex-col gap-1 px-3 py-2 sm:flex-row sm:items-center sm:gap-2 sm:pr-1">
-                <div className="min-w-0 flex-1">
-                  <p className="text-sm font-semibold text-earth-900 [overflow-wrap:anywhere]">{row.name}</p>
-                  <p className="text-sm break-all text-earth-700">{row.email}</p>
-                  <p className="text-xs text-earth-600">{t("addedOn", { date: addedOn(row.created_at) })}</p>
-                </div>
-                <div className="-mr-2 flex shrink-0 justify-end gap-1 sm:mr-0">
-                  <Button
-                    variant="ghost"
-                    className={cn(TAP, "px-3 text-earth-700 hover:text-earth-900")}
-                    aria-label={t("resetAria", { name: row.name })}
-                    onClick={() => setDialog({ mode: "reset", row })}
-                  >
-                    <KeyRound />
-                    {t("resetPassword")}
-                  </Button>
-                  <Button
-                    variant="ghost"
-                    className={cn(TAP, "px-3 text-earth-700 hover:bg-red-50 hover:text-red-700")}
-                    aria-label={t("removeAria", { name: row.name })}
-                    onClick={() => setDialog({ mode: "remove", row })}
-                  >
-                    <Trash2 />
-                    {t("remove")}
-                  </Button>
-                </div>
-              </li>
-            ))}
-          </ul>
-        )}
+      {atLimit && <p className="text-sm text-earth-700">{t("limitReached", { max: MAX_STAFF })}</p>}
 
-        {atLimit && <p className="text-sm text-earth-700">{t("limitReached", { max: MAX_STAFF })}</p>}
-
-        <Button
-          className={cn(TAP, "w-full bg-brand text-white hover:bg-brand-hover")}
-          disabled={staff === null || atLimit}
-          onClick={() => setDialog({ mode: "add" })}
-        >
-          <UserPlus className="mr-2 h-4 w-4" />
-          {t("add")}
-        </Button>
-      </CardContent>
+      <Button
+        className={cn(TAP, "w-full bg-brand text-white hover:bg-brand-hover")}
+        disabled={staff === null || atLimit}
+        onClick={() => setDialog({ mode: "add" })}
+      >
+        <UserPlus className="mr-2 h-4 w-4" />
+        {t("add")}
+      </Button>
 
       <Dialog open={dialog !== null} onOpenChange={(open) => !open && setDialog(null)}>
         {dialog && (
           <StaffDialog
             key={dialog.mode === "add" ? "add" : `${dialog.mode}-${dialog.row.id}`}
             state={dialog}
+            ownerEmail={ownerEmail}
             onChanged={load}
             onClose={() => setDialog(null)}
           />
         )}
       </Dialog>
-    </Card>
+    </div>
   );
 }
 
@@ -221,9 +227,14 @@ function FieldNotes({ id, hint, error }: { id: string; hint?: string; error?: st
 const describedBy = (id: string, hint?: string, error?: string) =>
   [hint && `${id}-hint`, error && `${id}-error`].filter(Boolean).join(" ") || undefined;
 
-/** The owner's own password: masked, with a show toggle. */
+/**
+ * The owner's own login password, set apart below a rule and named with the
+ * owner's email: right after the staff password it was read as "confirm
+ * password" (seen in testing), so the hint comes first and says whose it is.
+ */
 function OwnerPasswordField({
   id,
+  ownerEmail,
   value,
   onChange,
   error,
@@ -231,6 +242,7 @@ function OwnerPasswordField({
   autoFocus,
 }: {
   id: string;
+  ownerEmail: string | null;
   value: string;
   onChange: (value: string) => void;
   error?: string;
@@ -240,10 +252,13 @@ function OwnerPasswordField({
   const t = useTranslations("hostStaff");
   const ta = useTranslations("auth");
   const [shown, setShown] = useState(false);
-  const hint = t("ownerPasswordHint");
+  const hint = ownerEmail ? t("ownerPasswordHint", { email: ownerEmail }) : t("ownerPasswordHintNoEmail");
   return (
-    <div className="space-y-2">
+    <div className="space-y-2 border-t border-earth-200 pt-4">
       <Label htmlFor={id}>{t("ownerPassword")}</Label>
+      <p id={`${id}-hint`} className="text-xs break-all text-earth-600">
+        {hint}
+      </p>
       <div className="relative">
         <Input
           ref={inputRef}
@@ -266,17 +281,19 @@ function OwnerPasswordField({
           {shown ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
         </button>
       </div>
-      <FieldNotes id={id} hint={hint} error={error} />
+      <FieldNotes id={id} error={error} />
     </div>
   );
 }
 
 function StaffDialog({
   state,
+  ownerEmail,
   onChanged,
   onClose,
 }: {
   state: DialogState;
+  ownerEmail: string | null;
   onChanged: () => void;
   onClose: () => void;
 }) {
@@ -284,7 +301,8 @@ function StaffDialog({
   const ids = useId();
   const [name, setName] = useState("");
   const [email, setEmail] = useState("");
-  const [password, setPassword] = useState("");
+  // Pre-generated, so the only password the owner types is their own.
+  const [password, setPassword] = useState(() => (state.mode === "remove" ? "" : generateStaffPassword()));
   const [ownerPassword, setOwnerPassword] = useState("");
   const [errors, setErrors] = useState<Partial<Record<Field, string>>>({});
   const [formError, setFormError] = useState<string | null>(null);
@@ -313,6 +331,8 @@ function StaffDialog({
     if (mode === "add" && !isValidEmail(email)) invalid.email = t("errorEmailInvalid");
     if (mode !== "remove" && !PASSWORD_RE.test(password)) invalid.password = t("errorPasswordRule");
     if (!ownerPassword) invalid.ownerPassword = t("errorOwnerPasswordRequired");
+    // Caught here, before it costs one of the owner's ten password checks.
+    else if (mode !== "remove" && ownerPassword === password) invalid.ownerPassword = t("errorOwnerSameAsStaff");
     setFormError(null);
     showErrors(invalid);
     if (Object.keys(invalid).length > 0) return;
@@ -439,7 +459,6 @@ function StaffDialog({
                 spellCheck={false}
                 data-1p-ignore
                 data-lpignore="true"
-                autoFocus={mode === "reset"}
                 aria-invalid={!!errors.password}
                 aria-describedby={describedBy(id("password"), passwordHint, errors.password)}
                 className={cn(TAP, "min-w-0 flex-1 font-mono")}
@@ -463,11 +482,12 @@ function StaffDialog({
 
         <OwnerPasswordField
           id={id("ownerPassword")}
+          ownerEmail={ownerEmail}
           value={ownerPassword}
           onChange={setOwnerPassword}
           error={errors.ownerPassword}
           inputRef={ownerPasswordRef}
-          autoFocus={mode === "remove"}
+          autoFocus={mode !== "add"}
         />
 
         <DialogFooter className="gap-2 sm:gap-2">
@@ -515,9 +535,15 @@ function HandoverSummary({
   };
 
   return (
-    <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
+    // Only "Done" closes it: a stray tap or Esc would lose the one view of the password.
+    <DialogContent
+      className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md"
+      showCloseButton={false}
+      onInteractOutside={(e) => e.preventDefault()}
+      onEscapeKeyDown={(e) => e.preventDefault()}
+    >
       <DialogHeader>
-        <DialogTitle className="pr-6 leading-snug [overflow-wrap:anywhere]">{t("doneTitle", { name })}</DialogTitle>
+        <DialogTitle className="leading-snug [overflow-wrap:anywhere]">{t("doneTitle", { name })}</DialogTitle>
         <DialogDescription>{t("doneDesc")}</DialogDescription>
       </DialogHeader>
 
@@ -535,6 +561,7 @@ function HandoverSummary({
           <dd className="font-mono text-base font-medium break-all text-earth-900 select-all">{password}</dd>
         </div>
       </dl>
+      <p className="text-xs text-earth-600">{t("otpNote")}</p>
 
       <p aria-live="polite" className="sr-only">
         {copied ? t("copied") : ""}

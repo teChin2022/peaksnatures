@@ -13,6 +13,9 @@ vi.mock("next-intl", () => ({
   useLocale: () => "th",
 }));
 vi.mock("sonner", () => ({ toast: { success: h.toastSuccess, error: h.toastError } }));
+vi.mock("@/lib/supabase/client", () => ({
+  createClient: () => ({ auth: { getUser: async () => ({ data: { user: { email: "owner@example.com" } } }) } }),
+}));
 
 import { StaffCard, generateStaffPassword, staffErrorKey, type StaffRow } from "./staff-card";
 
@@ -166,6 +169,25 @@ describe("StaffCard: adding a login", () => {
     expect(button("copied")).not.toBeNull();
   });
 
+  // A stray tap or Esc must not lose the only view of the password.
+  it("closes the summary only with Done", async () => {
+    await render([]);
+    await fillAdd();
+    fetchMock.mockResolvedValueOnce(ok({})).mockResolvedValueOnce(ok({ staff: [] }));
+    await submit();
+    const dialog = document.querySelector("[role=dialog]")!;
+    expect(dialog.textContent).toContain("otpNote");
+    expect(dialog.querySelector('[data-slot="dialog-close"]')).toBeNull();
+
+    await act(async () => {
+      dialog.dispatchEvent(new KeyboardEvent("keydown", { key: "Escape", bubbles: true, cancelable: true }));
+    });
+    expect(document.querySelector("[role=dialog]")).not.toBeNull();
+
+    await click(button("done"));
+    expect(document.querySelector("[role=dialog]")).toBeNull();
+  });
+
   it("says so when the copy fails, leaving the details on screen", async () => {
     writeText.mockRejectedValue(new Error("denied"));
     await render([]);
@@ -179,13 +201,39 @@ describe("StaffCard: adding a login", () => {
     expect(document.querySelector("[role=dialog]")?.textContent).toContain("Staff_2026");
   });
 
-  it("generates a password that meets the rule", async () => {
+  // The owner should only ever type their own password (testing showed the
+  // owner field read as "confirm the staff password").
+  it("starts with a generated staff password, and can make a new one", async () => {
     await render([]);
     await click(button("add"));
+    const first = byLabel("password")!.value;
+    expect(first).toMatch(PASSWORD_RE);
 
     await click(button("generate"));
 
-    expect(byLabel("password")?.value).toMatch(PASSWORD_RE);
+    expect(byLabel("password")!.value).toMatch(PASSWORD_RE);
+    expect(byLabel("password")!.value).not.toBe(first);
+  });
+
+  it("says whose password the owner field wants, before the field", async () => {
+    await render([]);
+    await click(button("add"));
+    const owner = byLabel("ownerPassword")!;
+    const hint = document.getElementById(`${owner.id}-hint`);
+    expect(hint?.textContent).toBe("ownerPasswordHint:owner@example.com");
+    expect(owner.getAttribute("aria-describedby")).toContain(`${owner.id}-hint`);
+    expect(hint!.compareDocumentPosition(owner) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
+  });
+
+  it("catches the staff password typed into the owner field without asking the server", async () => {
+    await render([]);
+    await fillAdd();
+    await type("ownerPassword", "Staff_2026");
+
+    await submit();
+
+    expect(errorFor("ownerPassword")).toBe("errorOwnerSameAsStaff");
+    expect(fetchMock).toHaveBeenCalledTimes(1); // only the list
   });
 
   it("keeps the staff password out of password managers", async () => {
@@ -205,7 +253,7 @@ describe("StaffCard: adding a login", () => {
 
     expect(errorFor("name")).toBe("errorNameRequired");
     expect(errorFor("email")).toBe("errorEmailInvalid");
-    expect(errorFor("password")).toBe("errorPasswordRule");
+    expect(errorFor("password")).toBeNull(); // pre-generated
     expect(errorFor("ownerPassword")).toBe("errorOwnerPasswordRequired");
     expect(byLabel("name")?.getAttribute("aria-invalid")).toBe("true");
     expect(document.activeElement).toBe(byLabel("name"));
@@ -233,6 +281,26 @@ describe("StaffCard: adding a login", () => {
     expect(byLabel("email")?.getAttribute("aria-describedby")).toContain(`${byLabel("email")!.id}-error`);
     expect(document.activeElement).toBe(byLabel("email"));
     expect(document.querySelector("[role=dialog]")).not.toBeNull();
+  });
+});
+
+describe("StaffCard: resetting a password", () => {
+  it("sends the pre-generated password with the owner's", async () => {
+    await render();
+    await click(container.querySelector('[aria-label="resetAria:Noi"]'));
+    const generated = byLabel("newPassword")!.value;
+    expect(document.activeElement).toBe(byLabel("ownerPassword"));
+    await type("ownerPassword", "Owner#2026");
+    fetchMock.mockResolvedValueOnce(ok({ success: true })).mockResolvedValueOnce(ok({ staff: [noi] }));
+
+    await submit();
+
+    expect(fetchMock).toHaveBeenCalledWith(`/api/host/staff/${STAFF_ID}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ password: generated, ownerPassword: "Owner#2026" }),
+    });
+    expect(document.querySelector("[role=dialog]")?.textContent).toContain(generated);
   });
 });
 

@@ -133,10 +133,10 @@ export async function middleware(request: NextRequest) {
       }
     }
 
-    // Billing, wallet and the owner's profile are the owner's. Their routes and
-    // RLS refuse staff anyway; this just keeps staff off pages that cannot load.
+    // Team, billing, wallet and the owner's profile are the owner's. Their routes
+    // and RLS refuse staff anyway; this just keeps staff off pages that cannot load.
     const path = request.nextUrl.pathname;
-    const ownerOnly = ["/dashboard/billing", "/dashboard/wallet", "/dashboard/profile"].some(
+    const ownerOnly = ["/dashboard/team", "/dashboard/billing", "/dashboard/wallet", "/dashboard/profile"].some(
       (p) => path === p || path.startsWith(`${p}/`),
     );
     if (status === "staff" && ownerOnly) {

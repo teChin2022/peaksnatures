@@ -900,7 +900,8 @@
     "checkins": "Today's Check-ins",
     "billing": "Billing",
     "wallet": "Wallet & Invoices",
-    "promoCodes": "Discount / Referrer"
+    "promoCodes": "Discount / Referrer",
+    "team": "Team"
   },
   "checkins": {
     "title": "Today's Check-ins",
@@ -970,6 +971,7 @@
     "step5Link": "Go to Houses"
   },
   "dashboardProfile": {
+    "teamMoved": "Staff logins are now in the <link>Team</link> menu.",
     "title": "My Profile",
     "ownerInfo": "Owner Information",
     "avatar": "Profile Photo",
@@ -1052,6 +1054,9 @@
     "otpDisabled": "Disabled"
   },
   "hostStaff": {
+    "ownerPasswordHintNoEmail": "For your owner account, not the staff member's.",
+    "errorOwnerSameAsStaff": "This is your own password, not the staff member's.",
+    "otpNote": "Each time they sign in, a one-time code (OTP) is sent to this email.",
     "resetPassword": "Reset password",
     "remove": "Remove",
     "generate": "Generate",
@@ -1068,10 +1073,10 @@
     "copyAll": "Copy all",
     "copied": "Copied",
     "copyFailed": "Couldn't copy. Select the text and copy it yourself.",
-    "copyText": "Sign in at: {url}\nEmail: {email}\nPassword: {password}",
+    "copyText": "Sign in at: {url}\nEmail: {email}\nPassword: {password}\nA one-time code (OTP) is sent to this email at every sign-in.",
     "done": "Done",
-    "title": "Staff logins",
-    "description": "Give your staff their own email and password instead of yours. Staff can manage bookings, the calendar, check-ins, houses, prices and promo codes, but not your plan, wallet or this profile.",
+    "title": "Team",
+    "description": "Give your staff their own email and password instead of yours. Staff can manage bookings, the calendar, check-ins, houses, prices and promo codes, but not your plan, wallet, profile or this Team page.",
     "empty": "No staff logins yet.",
     "addedOn": "Added {date}",
     "add": "Add staff",
@@ -1087,8 +1092,8 @@
     "password": "Staff member's password",
     "newPassword": "New password",
     "passwordHint": "At least 8 characters, with an uppercase letter, a number and one of _ # @.",
-    "ownerPassword": "Your password",
-    "ownerPasswordHint": "Confirm it's you with the password you sign in with.",
+    "ownerPassword": "The password you sign in with",
+    "ownerPasswordHint": "For your owner account {email}, not the staff member's.",
     "resetTitle": "Reset {name}'s password",
     "resetDesc": "Tell your staff member the new password yourself. To stop their access at once, remove the login instead.",
     "removeTitle": "Remove {name}'s login",
@@ -1098,7 +1103,7 @@
     "confirmRemove": "Remove login",
     "removed": "{name}'s login was removed",
     "errorInvalid": "Check the details: a name, a valid email and a password that meets the rule.",
-    "errorWrongPassword": "Your password is incorrect.",
+    "errorWrongPassword": "That isn't the password you sign in with.",
     "errorEmailInUse": "This email already has a login. Use another email.",
     "errorTooMany": "Too many tries. Wait 15 minutes and try again.",
     "errorGeneric": "Something went wrong. Try again.",

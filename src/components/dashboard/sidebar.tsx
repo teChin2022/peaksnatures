@@ -20,6 +20,7 @@ import {
   Wallet,
   Receipt,
   Tag,
+  Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn, getInitials } from "@/lib/utils";
@@ -38,6 +39,7 @@ const NAV_ITEMS = [
   { key: "billing", href: "/dashboard/billing", icon: Wallet },
   { key: "wallet", href: "/dashboard/wallet", icon: Receipt },
   // { key: "guide", href: "/dashboard/guide", icon: BookOpen },
+  { key: "team", href: "/dashboard/team", icon: Users },
   { key: "profile", href: "/dashboard/profile", icon: User }
 ] as const;
 
@@ -49,7 +51,7 @@ export type DashboardRole = "owner" | "staff" | null;
  * away from them too. Hidden until the role is known, so a staff login never
  * sees them flash in.
  */
-const OWNER_ONLY_NAV = new Set<string>(["billing", "wallet", "profile"]);
+const OWNER_ONLY_NAV = new Set<string>(["team", "billing", "wallet", "profile"]);
 const navItemsFor = (role: DashboardRole) =>
   role === "owner" ? NAV_ITEMS : NAV_ITEMS.filter((item) => !OWNER_ONLY_NAV.has(item.key));
 
