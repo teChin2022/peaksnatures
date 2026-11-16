@@ -1,10 +1,17 @@
 "use client";
 
-import { useEffect, useId, useRef, useState } from "react";
+import { Fragment, useEffect, useId, useRef, useState } from "react";
 import { useLocale, useTranslations } from "next-intl";
-import { Check, Copy, Eye, EyeOff, KeyRound, Loader2, Shuffle, Trash2, UserPlus } from "lucide-react";
+import { Check, Copy, Eye, EyeOff, KeyRound, Loader2, MoreHorizontal, Shuffle, Trash2, UserPlus, Users, X } from "lucide-react";
 import { toast } from "sonner";
 import { Button } from "@/components/ui/button";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { createClient } from "@/lib/supabase/client";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
@@ -24,6 +31,47 @@ const MAX_STAFF = 10;
 
 /** 44px on phones, the dense 36px from the sidebar breakpoint up (DESIGN.md: buttons, inputs). */
 const TAP = "h-11 lg:h-9";
+/**
+ * This page's controls as DESIGN.md draws them: pill buttons, earth outlines
+ * without a shadow, and fields with a visible earth-500 border (the shared
+ * --input border is ~1.3:1, under the 3:1 a control edge needs; fixing that
+ * token app-wide is a separate change).
+ */
+const PRIMARY = "rounded-full bg-brand text-white hover:bg-brand-hover";
+const OUTLINE = "rounded-full border-earth-200 text-earth-800 shadow-none hover:bg-earth-50";
+const FIELD = "rounded-xl border-earth-500 shadow-none";
+
+/** First letter for the avatar disc: skips a Thai leading vowel (เ แ โ ใ ไ) so "เอก" shows "อ". */
+export function initialOf(name: string): string {
+  const chars = Array.from(name.trim());
+  const first = chars.find((c) => !"เแโใไ".includes(c)) ?? chars[0] ?? "?";
+  return first.toLocaleUpperCase();
+}
+
+/** An email that wraps after a dot or before the "@" rather than mid-word. */
+function EmailText({ email }: { email: string }) {
+  const at = email.lastIndexOf("@");
+  if (at <= 0) return <>{email}</>;
+  return (
+    <>
+      {email
+        .slice(0, at)
+        .split(".")
+        .map((part, i) => (
+          <Fragment key={i}>
+            {i > 0 && (
+              <>
+                .<wbr />
+              </>
+            )}
+            {part}
+          </Fragment>
+        ))}
+      <wbr />
+      {email.slice(at)}
+    </>
+  );
+}
 
 export interface StaffRow {
   id: string;
@@ -127,69 +175,136 @@ export function StaffCard() {
     });
 
   const atLimit = (staff?.length ?? 0) >= MAX_STAFF;
+  const openAdd = () => setDialog({ mode: "add" });
+  // The page's one surface: flat, Sand border, 18px corners (DESIGN.md cards).
+  const surface = "rounded-2xl border border-earth-200 bg-white";
 
   return (
-    <div className="space-y-4">
+    <div>
+      <div className="mb-4">
+        <div className="flex items-baseline justify-between gap-3">
+          <h1 className="text-xl font-bold text-earth-900">{t("title")}</h1>
+          {staff && (
+            <p className="shrink-0 text-sm text-earth-600 tabular-nums">
+              {t("count", { count: staff.length, max: MAX_STAFF })}
+            </p>
+          )}
+        </div>
+        <p className="mt-1 text-sm text-earth-700">{t("intro")}</p>
+      </div>
+
       {loadFailed ? (
-        <div role="alert" className="flex items-center justify-between gap-3 rounded-lg border border-red-200 bg-red-50 px-3 py-2">
+        <div role="alert" className="flex items-center justify-between gap-3 rounded-2xl border border-red-200 bg-red-50 px-4 py-3">
           <p className="text-sm text-red-700">{t("errorLoad")}</p>
-          <Button variant="outline" className={cn(TAP, "shrink-0")} onClick={load}>
+          <Button variant="outline" className={cn(TAP, OUTLINE, "shrink-0")} onClick={load}>
             {t("retry")}
           </Button>
         </div>
       ) : staff === null ? (
-        <div role="status" className="space-y-2">
+        <div role="status" className={cn(surface, "divide-y divide-earth-200")}>
           <span className="sr-only">{tc("loading")}</span>
-          <Skeleton className="h-16 w-full bg-earth-100" />
-          <Skeleton className="h-16 w-full bg-earth-100" />
+          {[0, 1].map((i) => (
+            <div key={i} className="flex items-start gap-3 px-4 py-3.5">
+              <Skeleton className="size-10 shrink-0 rounded-full bg-earth-100" />
+              <div className="flex-1 space-y-2 py-1">
+                <Skeleton className="h-4 w-2/5 bg-earth-100" />
+                <Skeleton className="h-3.5 w-3/4 bg-earth-100" />
+              </div>
+            </div>
+          ))}
         </div>
       ) : staff.length === 0 ? (
-        <p className="rounded-2xl border border-earth-200 bg-white p-5 text-sm text-earth-600">{t("empty")}</p>
+        <div className={cn(surface, "px-5 py-8 text-center")}>
+          <span className="mx-auto flex size-12 items-center justify-center rounded-full bg-brand-50 text-brand">
+            <Users className="size-6" aria-hidden />
+          </span>
+          <p className="mt-3 text-base font-semibold text-earth-900">{t("emptyTitle")}</p>
+          <p className="mx-auto mt-1 max-w-xs text-sm text-earth-600">{t("emptyBody")}</p>
+          <Button className={cn("mt-5 h-12 px-6", PRIMARY)} onClick={openAdd}>
+            <UserPlus />
+            {t("add")}
+          </Button>
+        </div>
       ) : (
-        // The list is the page's one surface: flat, Sand border, 18px corners (DESIGN.md cards).
-        <ul aria-label={t("title")} className="divide-y divide-earth-200 rounded-2xl border border-earth-200 bg-white">
+        <ul aria-label={t("title")} className={cn(surface, "divide-y divide-earth-200")}>
           {staff.map((row) => (
-            <li key={row.id} className="flex flex-col gap-1 px-4 py-3 sm:flex-row sm:items-center sm:gap-2 sm:pr-2">
+            <li key={row.id} className="flex items-start gap-3 py-3.5 pr-2 pl-4">
+              <span
+                aria-hidden
+                className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50 text-sm font-semibold text-brand-700"
+              >
+                {initialOf(row.name)}
+              </span>
               <div className="min-w-0 flex-1">
-                <p className="text-sm font-semibold text-earth-900 [overflow-wrap:anywhere]">{row.name}</p>
-                <p className="text-sm break-all text-earth-700">{row.email}</p>
-                <p className="text-xs text-earth-600">{t("addedOn", { date: addedOn(row.created_at) })}</p>
+                <p className="text-base font-semibold text-earth-900 [overflow-wrap:anywhere]">{row.name}</p>
+                <p className="text-sm text-earth-600 [overflow-wrap:anywhere]">
+                  <EmailText email={row.email} />
+                </p>
+                <p className="mt-0.5 text-xs text-earth-600">{t("addedOn", { date: addedOn(row.created_at) })}</p>
               </div>
-              <div className="-mr-2 flex shrink-0 justify-end gap-3 sm:mr-0">
-                <Button
-                  variant="ghost"
-                  className={cn(TAP, "px-3 text-earth-700 hover:text-earth-900")}
-                  aria-label={t("resetAria", { name: row.name })}
-                  onClick={() => setDialog({ mode: "reset", row })}
-                >
-                  <KeyRound />
-                  {t("resetPassword")}
-                </Button>
-                <Button
-                  variant="ghost"
-                  className={cn(TAP, "px-3 text-earth-700 hover:bg-red-50 hover:text-red-700")}
-                  aria-label={t("removeAria", { name: row.name })}
-                  onClick={() => setDialog({ mode: "remove", row })}
-                >
-                  <Trash2 />
-                  {t("remove")}
-                </Button>
-              </div>
+              {/* Not modal: a modal menu closing as the dialog opens can leave the page unclickable. */}
+              <DropdownMenu modal={false}>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="-mt-1 size-11 shrink-0 rounded-full text-earth-600 hover:text-earth-900 lg:size-9"
+                    aria-label={t("rowMenuAria", { name: row.name })}
+                  >
+                    <MoreHorizontal />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end" className="min-w-48 rounded-xl">
+                  <DropdownMenuItem className="min-h-11 lg:min-h-9" onSelect={() => setDialog({ mode: "reset", row })}>
+                    <KeyRound />
+                    {t("resetPassword")}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem
+                    variant="destructive"
+                    className="min-h-11 text-red-700 lg:min-h-9"
+                    onSelect={() => setDialog({ mode: "remove", row })}
+                  >
+                    <Trash2 />
+                    {t("confirmRemove")}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             </li>
           ))}
+          <li>
+            {atLimit ? (
+              <p className="px-4 py-4 text-sm text-earth-700">{t("limitReached", { max: MAX_STAFF })}</p>
+            ) : (
+              <button
+                type="button"
+                onClick={openAdd}
+                className="flex min-h-14 w-full items-center gap-3 rounded-b-2xl px-4 py-2 text-left text-base font-semibold text-brand outline-none transition-colors hover:bg-brand-50 focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-inset"
+              >
+                <span className="flex size-10 shrink-0 items-center justify-center rounded-full bg-brand-50">
+                  <UserPlus className="size-5" aria-hidden />
+                </span>
+                {t("add")}
+              </button>
+            )}
+          </li>
         </ul>
       )}
 
-      {atLimit && <p className="text-sm text-earth-700">{t("limitReached", { max: MAX_STAFF })}</p>}
-
-      <Button
-        className={cn(TAP, "w-full bg-brand text-white hover:bg-brand-hover")}
-        disabled={staff === null || atLimit}
-        onClick={() => setDialog({ mode: "add" })}
-      >
-        <UserPlus className="mr-2 h-4 w-4" />
-        {t("add")}
-      </Button>
+      <ul className="mt-6 space-y-2 text-sm text-earth-700">
+        <li className="flex gap-2">
+          <Check className="mt-0.5 size-4 shrink-0 text-brand" aria-hidden />
+          <span>
+            <span className="font-semibold text-earth-900">{t("canTitle")}</span> {t("canList")}
+          </span>
+        </li>
+        <li className="flex gap-2">
+          <X className="mt-0.5 size-4 shrink-0 text-earth-600" aria-hidden />
+          <span>
+            <span className="font-semibold text-earth-900">{t("cannotTitle")}</span> {t("cannotList")}
+          </span>
+        </li>
+      </ul>
 
       <Dialog open={dialog !== null} onOpenChange={(open) => !open && setDialog(null)}>
         {dialog && (
@@ -256,7 +371,7 @@ function OwnerPasswordField({
   return (
     <div className="space-y-2 border-t border-earth-200 pt-4">
       <Label htmlFor={id}>{t("ownerPassword")}</Label>
-      <p id={`${id}-hint`} className="text-xs break-all text-earth-600">
+      <p id={`${id}-hint`} className="text-xs text-earth-600 [overflow-wrap:anywhere]">
         {hint}
       </p>
       <div className="relative">
@@ -270,11 +385,11 @@ function OwnerPasswordField({
           autoFocus={autoFocus}
           aria-invalid={!!error}
           aria-describedby={describedBy(id, hint, error)}
-          className={cn(TAP, "pr-12")}
+          className={cn(TAP, FIELD, "pr-12")}
         />
         <button
           type="button"
-          className="absolute right-0.5 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-md text-earth-600 hover:text-earth-800 focus-visible:outline-2 focus-visible:outline-brand lg:size-9"
+          className="absolute right-0.5 top-1/2 flex size-11 -translate-y-1/2 items-center justify-center rounded-full text-earth-600 hover:text-earth-800 focus-visible:outline-2 focus-visible:outline-brand lg:size-9"
           aria-label={shown ? ta("hidePassword") : ta("showPassword")}
           onClick={() => setShown(!shown)}
         >
@@ -382,20 +497,25 @@ function StaffDialog({
 
   const title =
     mode === "add" ? t("addTitle") : mode === "reset" ? t("resetTitle", { name: row!.name }) : t("removeTitle", { name: row!.name });
-  const description =
-    mode === "add" ? t("addDesc") : mode === "reset" ? t("resetDesc") : t("removeDesc", { email: row!.email });
+  const description = mode === "add" ? t("addDesc") : mode === "reset" ? t("resetDesc") : t("removeDesc");
   const passwordHint = t("passwordHint");
 
   return (
     <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
       <form onSubmit={submit} noValidate className="space-y-4">
-        <DialogHeader>
+        <DialogHeader className="text-left">
           <DialogTitle className="pr-6 leading-snug [overflow-wrap:anywhere]">{title}</DialogTitle>
-          <DialogDescription className="[overflow-wrap:anywhere]">{description}</DialogDescription>
+          <DialogDescription className="text-earth-600">{description}</DialogDescription>
         </DialogHeader>
 
+        {mode === "remove" && (
+          <p className="rounded-xl bg-earth-50 px-3 py-2 text-sm font-medium text-earth-900 [overflow-wrap:anywhere]">
+            <EmailText email={row!.email} />
+          </p>
+        )}
+
         {formError && (
-          <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+          <div role="alert" className="rounded-xl border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
             {formError}
           </div>
         )}
@@ -415,7 +535,7 @@ function StaffDialog({
                 autoFocus
                 aria-invalid={!!errors.name}
                 aria-describedby={describedBy(id("name"), undefined, errors.name)}
-                className={TAP}
+                className={cn(TAP, FIELD)}
               />
               <FieldNotes id={id("name")} error={errors.name} />
             </div>
@@ -433,7 +553,7 @@ function StaffDialog({
                 autoCapitalize="none"
                 aria-invalid={!!errors.email}
                 aria-describedby={describedBy(id("email"), t("emailHint"), errors.email)}
-                className={TAP}
+                className={cn(TAP, FIELD)}
               />
               <FieldNotes id={id("email")} hint={t("emailHint")} error={errors.email} />
             </div>
@@ -461,12 +581,12 @@ function StaffDialog({
                 data-lpignore="true"
                 aria-invalid={!!errors.password}
                 aria-describedby={describedBy(id("password"), passwordHint, errors.password)}
-                className={cn(TAP, "min-w-0 flex-1 font-mono")}
+                className={cn(TAP, FIELD, "min-w-0 flex-1 font-mono")}
               />
               <Button
                 type="button"
                 variant="outline"
-                className={cn(TAP, "shrink-0")}
+                className={cn(TAP, OUTLINE, "shrink-0")}
                 onClick={() => {
                   setPassword(generateStaffPassword());
                   setErrors((prev) => ({ ...prev, password: undefined }));
@@ -491,14 +611,13 @@ function StaffDialog({
         />
 
         <DialogFooter className="gap-2 sm:gap-2">
-          <Button type="button" variant="outline" className={TAP} onClick={onClose} disabled={busy}>
+          <Button type="button" variant="outline" className={cn(TAP, OUTLINE)} onClick={onClose} disabled={busy}>
             {t("cancel")}
           </Button>
           <Button
             type="submit"
             disabled={busy}
-            variant={mode === "remove" ? "destructive" : undefined}
-            className={cn(TAP, mode !== "remove" && "bg-brand text-white hover:bg-brand-hover")}
+            className={cn(TAP, mode === "remove" ? "rounded-full bg-red-700 text-white hover:bg-red-800" : PRIMARY)}
           >
             {busy && <Loader2 className="h-4 w-4 animate-spin" />}
             {mode === "add" ? t("add") : mode === "reset" ? t("confirmReset") : t("confirmRemove")}
@@ -542,19 +661,21 @@ function HandoverSummary({
       onInteractOutside={(e) => e.preventDefault()}
       onEscapeKeyDown={(e) => e.preventDefault()}
     >
-      <DialogHeader>
+      <DialogHeader className="text-left">
         <DialogTitle className="leading-snug [overflow-wrap:anywhere]">{t("doneTitle", { name })}</DialogTitle>
-        <DialogDescription>{t("doneDesc")}</DialogDescription>
+        <DialogDescription className="text-earth-600">{t("doneDesc")}</DialogDescription>
       </DialogHeader>
 
-      <dl className="space-y-3 rounded-lg bg-earth-50 p-4 text-sm">
+      <dl className="space-y-3 rounded-xl bg-earth-50 p-4 text-sm">
         <div>
           <dt className="text-earth-600">{t("loginAt")}</dt>
           <dd className="font-medium break-all text-earth-900 select-all">{url}</dd>
         </div>
         <div>
           <dt className="text-earth-600">{t("summaryEmail")}</dt>
-          <dd className="font-medium break-all text-earth-900 select-all">{email}</dd>
+          <dd className="font-medium text-earth-900 select-all [overflow-wrap:anywhere]">
+            <EmailText email={email} />
+          </dd>
         </div>
         <div>
           <dt className="text-earth-600">{t("summaryPassword")}</dt>
@@ -568,10 +689,10 @@ function HandoverSummary({
       </p>
 
       <DialogFooter className="gap-2 sm:gap-2">
-        <Button type="button" variant="outline" className={TAP} onClick={onClose}>
+        <Button type="button" variant="outline" className={cn(TAP, OUTLINE)} onClick={onClose}>
           {t("done")}
         </Button>
-        <Button type="button" className={cn(TAP, "bg-brand text-white hover:bg-brand-hover")} onClick={copy}>
+        <Button type="button" className={cn(TAP, PRIMARY)} onClick={copy}>
           {copied ? <Check /> : <Copy />}
           {copied ? t("copied") : t("copyAll")}
         </Button>

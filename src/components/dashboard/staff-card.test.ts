@@ -17,7 +17,7 @@ vi.mock("@/lib/supabase/client", () => ({
   createClient: () => ({ auth: { getUser: async () => ({ data: { user: { email: "owner@example.com" } } }) } }),
 }));
 
-import { StaffCard, generateStaffPassword, staffErrorKey, type StaffRow } from "./staff-card";
+import { StaffCard, generateStaffPassword, initialOf, staffErrorKey, type StaffRow } from "./staff-card";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -69,6 +69,17 @@ const submit = async () => {
   });
   await act(async () => {});
 };
+/** Open a row's "⋯" menu (by keyboard, as the trigger supports) and pick an item. */
+const rowAction = async (name: string, item: "resetPassword" | "confirmRemove") => {
+  const trigger = container.querySelector(`[aria-label="rowMenuAria:${name}"]`) as HTMLElement | null;
+  if (!trigger) throw new Error(`no menu for ${name}`);
+  await act(async () => {
+    trigger.focus();
+    trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+  });
+  const menuItem = [...document.querySelectorAll("[role=menuitem]")].find((el) => el.textContent?.trim() === item);
+  await click(menuItem ?? null);
+};
 const fillAdd = async (password = "Staff_2026") => {
   await click(button("add"));
   await type("name", "Ploy");
@@ -96,15 +107,27 @@ afterEach(() => {
 });
 
 describe("StaffCard: the list", () => {
-  it("shows each staff login in full, with labelled actions named for it", async () => {
+  it("shows each login as a person, with the count and one menu named for them", async () => {
     await render();
 
     expect(fetchMock).toHaveBeenCalledWith("/api/host/staff");
+    expect(container.querySelector("h1")?.textContent).toBe("title");
+    expect(container.textContent).toContain("count:1,10");
     expect(container.textContent).toContain("noi@example.com");
-    const reset = container.querySelector('[aria-label="resetAria:Noi"]');
-    const remove = container.querySelector('[aria-label="removeAria:Noi"]');
-    expect(reset?.textContent).toBe("resetPassword");
-    expect(remove?.textContent).toBe("remove");
+    expect(container.querySelector("li [aria-hidden]")?.textContent).toBe("N");
+    expect(container.querySelector('[aria-label="rowMenuAria:Noi"]')).not.toBeNull();
+    expect(button("add")).not.toBeNull();
+  });
+
+  it("offers reset and remove from the row's menu", async () => {
+    await render();
+    await act(async () => {
+      const trigger = container.querySelector('[aria-label="rowMenuAria:Noi"]') as HTMLElement;
+      trigger.focus();
+      trigger.dispatchEvent(new KeyboardEvent("keydown", { key: "Enter", bubbles: true, cancelable: true }));
+    });
+    const items = [...document.querySelectorAll("[role=menuitem]")].map((el) => el.textContent?.trim());
+    expect(items).toEqual(["resetPassword", "confirmRemove"]);
   });
 
   it("announces the loading state", async () => {
@@ -113,16 +136,16 @@ describe("StaffCard: the list", () => {
     expect(container.querySelector("[role=status]")?.textContent).toBe("loading");
   });
 
-  it("says so when there is nobody yet", async () => {
+  it("shows an empty state with a way to add the first login", async () => {
     await render([]);
-    expect(container.textContent).toContain("empty");
+    expect(container.textContent).toContain("emptyTitle");
     expect(button("add")?.disabled).toBe(false);
   });
 
   it("stops adding at the limit of 10", async () => {
     await render(Array.from({ length: 10 }, (_, i) => ({ ...noi, id: `id-${i}`, name: `Staff ${i}` })));
     expect(container.textContent).toContain("limitReached:10");
-    expect(button("add")?.disabled).toBe(true);
+    expect(button("add")).toBeNull();
   });
 
   it("offers a retry when the list cannot load", async () => {
@@ -287,7 +310,7 @@ describe("StaffCard: adding a login", () => {
 describe("StaffCard: resetting a password", () => {
   it("sends the pre-generated password with the owner's", async () => {
     await render();
-    await click(container.querySelector('[aria-label="resetAria:Noi"]'));
+    await rowAction("Noi", "resetPassword");
     const generated = byLabel("newPassword")!.value;
     expect(document.activeElement).toBe(byLabel("ownerPassword"));
     await type("ownerPassword", "Owner#2026");
@@ -307,7 +330,7 @@ describe("StaffCard: resetting a password", () => {
 describe("StaffCard: removing a login", () => {
   const openRemove = async () => {
     await render();
-    await click(container.querySelector('[aria-label="removeAria:Noi"]'));
+    await rowAction("Noi", "confirmRemove");
     await type("ownerPassword", "Owner#2026");
   };
 
@@ -371,5 +394,18 @@ describe("generateStaffPassword", () => {
       expect(pw).toMatch(PASSWORD_RE);
       expect(pw).not.toMatch(/[0O1lI]/);
     }
+  });
+});
+
+describe("initialOf", () => {
+  it.each([
+    ["Noi", "N"],
+    ["noi", "N"],
+    ["น้อย", "น"],
+    ["เอก", "อ"],
+    ["  ไก่ทอง", "ก"],
+    ["", "?"],
+  ])("shows %j as %j", (name, initial) => {
+    expect(initialOf(name)).toBe(initial);
   });
 });
