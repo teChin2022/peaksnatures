@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useRef, useMemo } from "react";
 import Image from "next/image";
-import { compressImage } from "@/lib/compress-image";
+import { compressImage, PHOTO_OPTIONS } from "@/lib/compress-image";
 import { format, parse } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
 import { createClient } from "@/lib/supabase/client";
@@ -352,7 +352,7 @@ export default function RoomsPage() {
     try {
       let uploadedCount = 0;
       for (const file of filesToUpload) {
-        const compressed = await compressImage(file, { maxDimension: 1920 });
+        const compressed = await compressImage(file, PHOTO_OPTIONS);
         const ext = compressed.name.split(".").pop();
         const path = `${homestayId}/rooms/${Date.now()}-${Math.random().toString(36).slice(2, 8)}.${ext}`;
 

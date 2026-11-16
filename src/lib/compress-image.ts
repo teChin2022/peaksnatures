@@ -17,6 +17,9 @@ interface CompressOptions {
   type?: "image/webp" | "image/jpeg";
 }
 
+/** Host photos (hero, gallery, houses): sharp enough for a full-bleed hero on a Retina screen. */
+export const PHOTO_OPTIONS = { maxDimension: 2560, quality: 0.85 } satisfies CompressOptions;
+
 /**
  * Compress an image file on the client before uploading.
  * Returns a new File in the requested format with the given max dimension.
@@ -55,6 +58,7 @@ export async function compressImage(
     const canvas = new OffscreenCanvas(newWidth, newHeight);
     const ctx = canvas.getContext("2d");
     if (!ctx) return file;
+    ctx.imageSmoothingQuality = "high";
     ctx.drawImage(bitmap, 0, 0, newWidth, newHeight);
     blob = await canvas.convertToBlob({ type, quality });
   } else {
@@ -63,6 +67,7 @@ export async function compressImage(
     canvas.height = newHeight;
     const ctx = canvas.getContext("2d");
     if (!ctx) return file;
+    ctx.imageSmoothingQuality = "high";
     ctx.drawImage(bitmap, 0, 0, newWidth, newHeight);
     blob = await new Promise<Blob>((resolve) => {
       canvas.toBlob(
