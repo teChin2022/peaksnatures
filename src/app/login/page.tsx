@@ -222,7 +222,7 @@ export default function LoginPage() {
                     onBlur={() => setTouched(prev => new Set([...prev, "email"]))}
                     required
                     autoComplete="email"
-                    className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("email") && !email.trim() ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
+                    className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("email") && !email.trim() ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "hover:!border-earth-700 focus-visible:!border-ring"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
                   />
                 </div>
               </div>
@@ -246,7 +246,7 @@ export default function LoginPage() {
                     onBlur={() => setTouched(prev => new Set([...prev, "password"]))}
                     required
                     autoComplete="current-password"
-                    className={`pr-10 p-3.5 !h-auto rounded-xl !border ${touched.has("password") && !password ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
+                    className={`pr-10 p-3.5 !h-auto rounded-xl !border ${touched.has("password") && !password ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "hover:!border-earth-700 focus-visible:!border-ring"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
                   />
                   <button
                     type="button"

@@ -6,6 +6,7 @@ import {
 import { isAdmin } from "@/lib/admin";
 import { sendHostRejectionEmail } from "@/lib/notifications";
 import { logEvent, EventType } from "@/lib/history-log";
+import { deleteStaffLogins } from "@/lib/host-access";
 
 export async function DELETE(
   req: NextRequest,
@@ -54,6 +55,9 @@ export async function DELETE(
     sendHostRejectionEmail(hostRow.email, hostRow.name).catch((err) =>
       console.error("[Admin Reject] email error:", err)
     );
+
+    // Staff logins first: the host delete cascades their rows, not their logins.
+    await deleteStaffLogins(sc, id);
 
     // Delete host record
     const { error: deleteError } = await sc

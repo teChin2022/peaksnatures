@@ -6,11 +6,13 @@ import { readJson } from "../../../../../test/helpers/request";
 const mocks = vi.hoisted(() => ({
   createServerSupabaseClient: vi.fn(),
   createServiceRoleClient: vi.fn(),
+  getHostBlockState: vi.fn(),
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: mocks.createServerSupabaseClient,
   createServiceRoleClient: mocks.createServiceRoleClient,
 }));
+vi.mock("@/lib/billing", () => ({ getHostBlockState: mocks.getHostBlockState }));
 
 const row = (over: Record<string, unknown> = {}) => ({
   id: "host-1",
@@ -45,6 +47,7 @@ describe("GET /api/host/profile", () => {
     expect(status).toBe(200);
     expect(body).toMatchObject({
       id: "host-1",
+      role: "owner",
       name: "Somchai",
       masked: {
         email: "s***@example.com",
@@ -114,6 +117,24 @@ describe("GET /api/host/profile", () => {
   it("reports 404 when the signed-in user is not a host", async () => {
     withHost(null);
     await expect(readJson(await GET())).resolves.toEqual({ status: 404, body: { error: "Host not found" } });
+  });
+
+  // Staff logins (migration 081): the overview needs the host id, nothing of the owner's profile.
+  it("gives a staff login only the host id it works for, and whether guests can book", async () => {
+    mocks.getHostBlockState.mockResolvedValue({ plan_type: "commission", wallet_negative_since: null });
+    signIn(mocks, { userId: "staff-1", tables: { hosts: { data: null }, host_staff: { data: { host_id: "host-1" } } } });
+    await expect(readJson(await GET())).resolves.toEqual({
+      status: 200,
+      body: { id: "host-1", role: "staff", bookingBlocked: false },
+    });
+    expect(mocks.getHostBlockState).toHaveBeenCalledWith("host-1");
+  });
+
+  // The same rule the booking routes refuse guests by (isHostBlocked).
+  it("tells a staff login when guests cannot book", async () => {
+    mocks.getHostBlockState.mockResolvedValue({ plan_type: "free", plan_free_expires_at: "2020-01-01" });
+    signIn(mocks, { userId: "staff-1", tables: { hosts: { data: null }, host_staff: { data: { host_id: "host-1" } } } });
+    expect((await readJson(await GET())).body).toMatchObject({ role: "staff", bookingBlocked: true });
   });
 
   it("reports 500 when something unexpected throws", async () => {

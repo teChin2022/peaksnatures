@@ -180,7 +180,7 @@ export function RecommenderClient({ emptyState }: { emptyState: React.ReactNode 
               placeholder={t("phonePlaceholder")}
               inputMode="numeric"
               aria-describedby="recommender-privacy-hint"
-              className="!h-12 rounded-xl !border-earth-200 !bg-white !pl-10 text-base transition-colors hover:!border-earth-400"
+              className="!h-12 rounded-xl !bg-white !pl-10 text-base transition-colors hover:!border-earth-700"
             />
           </div>
           <Button

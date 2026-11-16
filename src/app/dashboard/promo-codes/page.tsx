@@ -179,6 +179,8 @@ export default function PromoCodesPage() {
 
   const [loading, setLoading] = useState(true);
   const [hostName, setHostName] = useState<string | null>(null);
+  // Partner payouts are money: a staff login (migration 081) sees them but cannot mark them paid.
+  const [isStaff, setIsStaff] = useState(false);
   const [homestayId, setHomestayId] = useState<string | null>(null);
   const [homestaySlug, setHomestaySlug] = useState<string | null>(null);
   const [enabled, setEnabled] = useState(false);
@@ -243,17 +245,18 @@ export default function PromoCodesPage() {
       return;
     }
 
+    // No user_id filter: RLS shows a login only its own host, or the one it is staff of (081).
     const { data: hostRow } = await supabase
       .from("hosts")
-      .select("id, name")
-      .eq("user_id", user.id)
+      .select("id, user_id, name")
       .maybeSingle();
-    const host = hostRow as { id: string; name: string } | null;
+    const host = hostRow as { id: string; user_id: string; name: string } | null;
     if (!host) {
       setLoading(false);
       return;
     }
     setHostName(host.name);
+    setIsStaff(host.user_id !== user.id);
 
     const { data: homestayRow } = await supabase
       .from("homestays")
@@ -1260,6 +1263,7 @@ export default function PromoCodesPage() {
 
           {/* Redemptions tab */}
           <TabsContent value="redemptions" className="mt-4 space-y-3">
+            {isStaff && <p className="text-sm text-earth-600">{t("ownerOnlyPayout")}</p>}
             {redemptions.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
@@ -1328,7 +1332,7 @@ export default function PromoCodesPage() {
                           </p>
                         )}
                       </div>
-                      {r.commission_amount > 0 && r.payout_status === "pending" && (
+                      {!isStaff && r.commission_amount > 0 && r.payout_status === "pending" && (
                         <Button
                           size="sm"
                           variant="outline"
@@ -1357,6 +1361,7 @@ export default function PromoCodesPage() {
 
           {/* Payments tab */}
           <TabsContent value="payments" className="mt-4 space-y-3">
+            {isStaff && <p className="text-sm text-earth-600">{t("ownerOnlyPayout")}</p>}
             {recommenderSummary.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
@@ -1463,18 +1468,20 @@ export default function PromoCodesPage() {
                             </span>
                           </div>
                         </div>
-                        <Button
-                          size="sm"
-                          variant="outline"
-                          onClick={() => openBulkMarkPaid(row)}
-                          disabled={row.pending <= 0}
-                          className="cursor-pointer"
-                        >
-                          <Banknote className="mr-1.5 h-3.5 w-3.5" />
-                          {row.pending > 0
-                            ? t("markAllPaid", { amount: row.pending.toLocaleString() })
-                            : t("allPaid")}
-                        </Button>
+                        {!isStaff && (
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            onClick={() => openBulkMarkPaid(row)}
+                            disabled={row.pending <= 0}
+                            className="cursor-pointer"
+                          >
+                            <Banknote className="mr-1.5 h-3.5 w-3.5" />
+                            {row.pending > 0
+                              ? t("markAllPaid", { amount: row.pending.toLocaleString() })
+                              : t("allPaid")}
+                          </Button>
+                        )}
                       </CardContent>
                     </Card>
                   );

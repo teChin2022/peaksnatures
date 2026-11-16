@@ -4,6 +4,7 @@ import {
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import bcrypt from "bcryptjs";
+import { deleteStaffLogins } from "@/lib/host-access";
 
 export async function DELETE(req: Request) {
   try {
@@ -123,6 +124,9 @@ export async function DELETE(req: Request) {
           .delete()
           .eq("id", homestayRow.id);
       }
+
+      // Staff logins first: the host delete cascades their rows, not their logins.
+      await deleteStaffLogins(serviceClient, hostRow.id);
 
       // Delete host record
       await serviceClient

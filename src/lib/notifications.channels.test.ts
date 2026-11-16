@@ -28,6 +28,7 @@ import {
   makeRoom,
 } from "../../test/fixtures/db";
 import type { Booking, Host } from "@/types/database";
+import { SITE_URL } from "@/lib/seo";
 
 const { resendSend, localizeStrings, supabaseFrom } = vi.hoisted(() => ({
   resendSend: vi.fn(),
@@ -1101,5 +1102,307 @@ describe("HTML typed by hosts, in a cart confirmation", () => {
     const html = (resendSend.mock.calls[0][0] as { html: string }).html;
     expect(html).not.toContain("<b>VIP</b>");
     expect(html).toContain("&lt;b&gt;VIP&lt;/b&gt;");
+  });
+});
+
+// Colours that failed WCAG AA on the backgrounds they sat on (2026-11-16
+// review): white on amber 2.15:1, grey footer 2.54:1, green text 3.15:1,
+// amber text 3.05:1. A guest reads these on a phone in daylight.
+describe("guest and host emails stay readable", () => {
+  const LOW_CONTRAST = /#(f59e0b|9ca3af|16a34a|d97706)/i;
+  const payment = { oldTotalPrice: 3000, priceDifference: 600, amountPaid: 1000, additionalPayment: 600, newAmountPaid: 1600, remainingBalance: 2000 };
+
+  it.each([
+    ["pending confirmation", () => sendBookingConfirmationEmail(details(), "th", "pending")],
+    ["confirmed", () => sendBookingConfirmationEmail(details(), "th", "confirmed")],
+    ["cancelled", () => sendBookingStatusUpdateEmail(details(), "cancelled", "th", "reason")],
+    ["date change with payment summary", () =>
+      sendDateChangeEmailToGuest(details(), "approved", "2026-01-12", "2026-01-14", "2026-02-10", "2026-02-13", 3600, "th", undefined, undefined, undefined, payment)],
+    ["date change rejected", () =>
+      sendDateChangeEmailToGuest(details(), "rejected", "2026-01-12", "2026-01-14", "2026-02-10", "2026-02-13", 3000, "th", "full")],
+    ["cart pending", () => sendGroupBookingConfirmationEmail(groupDetails(), "th", "pending")],
+    ["cart confirmed", () => sendGroupBookingConfirmationEmail(groupDetails(), "th", "confirmed")],
+    ["quick booking", () => sendQuickBookingEmail(details(), "th")],
+    ["host approval", () => sendHostApprovalEmail("new@host.com", "Somchai")],
+    ["host rejection", () => sendHostRejectionEmail("new@host.com", "Somchai")],
+  ])("%s uses no low-contrast colour", async (_name, send) => {
+    await send();
+    const html = (resendSend.mock.calls[0][0] as { html: string }).html;
+    expect(html).not.toMatch(LOW_CONTRAST);
+  });
+});
+
+// Guest-facing wording found unclear in the 2026-11-16 review. The app itself
+// says "ยอดรวม" for the total and "ยอดที่ชำระ" for what was paid (messages/th.json);
+// the confirmed email said "ยอดชำระรวม" for the total, which reads as the amount paid.
+describe("guest email wording", () => {
+  const html = () => (resendSend.mock.calls[0][0] as { html: string }).html;
+  const deposit = { payment_type: "deposit", amount_paid: 1000, total_price: 3000 } as Partial<Booking>;
+
+  it.each([
+    ["confirmed", () => sendBookingConfirmationEmail(details(deposit), "th", "confirmed")],
+    ["host-confirmed", () => sendBookingStatusUpdateEmail(details(deposit), "confirmed", "th")],
+    ["cart confirmed", () => sendGroupBookingConfirmationEmail(groupDetails(), "th", "confirmed")],
+  ])("%s labels the total 'ยอดรวม', never 'ยอดชำระรวม'", async (_name, send) => {
+    await send();
+    expect(html()).not.toContain("ยอดชำระรวม");
+    expect(html()).toMatch(/ยอดรวม<\/td>/);
+  });
+
+  it.each([
+    ["confirmed", "en", () => sendBookingConfirmationEmail(details({ num_guests: 2 }), "en", "confirmed"), "2 guests"],
+    ["confirmed", "th", () => sendBookingConfirmationEmail(details({ num_guests: 2 }), "th", "confirmed"), "2 ท่าน"],
+    ["pending", "en", () => sendBookingConfirmationEmail(details({ num_guests: 2 }), "en", "pending"), "2 guests"],
+    ["pending", "th", () => sendBookingConfirmationEmail(details({ num_guests: 2 }), "th", "pending"), "2 ท่าน"],
+    ["host-confirmed", "en", () => sendBookingStatusUpdateEmail(details({ num_guests: 2 }), "confirmed", "en"), "2 guests"],
+  ])("%s email (%s) gives the guest count its unit", async (_name, _locale, send, expected) => {
+    await send();
+    expect(html()).toContain(expected);
+  });
+
+  it("says '1 guest', not '1 guests'", async () => {
+    await sendBookingConfirmationEmail(details({ num_guests: 1 }), "en", "confirmed");
+    expect(html()).toContain("1 guest<");
+    expect(html()).not.toContain("1 guests");
+  });
+
+  // The header was solid #ef4444 with white text (3.76:1, readable only as large
+  // text). Pending and cancelled now share one pattern: a pale tint, dark text.
+  it.each([
+    ["cancelled", () => sendBookingStatusUpdateEmail(details(), "cancelled", "th", "reason")],
+    ["cart cancelled", () => sendGroupBookingConfirmationEmail(groupDetails(), "th", "cancelled", "reason")],
+  ])("%s has a pale header, not solid red with white text", async (_name, send) => {
+    await send();
+    const html = (resendSend.mock.calls[0][0] as { html: string }).html;
+    expect(html).not.toContain("background: #ef4444");
+    expect(html).toContain("background: #fef2f2");
+  });
+
+  // The reason box had a 4px coloured stripe down its left edge.
+  it.each([
+    ["cancelled", () => sendBookingStatusUpdateEmail(details(), "cancelled", "th", "full")],
+    ["cart cancelled", () => sendGroupBookingConfirmationEmail(groupDetails(), "th", "cancelled", "full")],
+  ])("%s shows the reason in a bordered box, with no side stripe", async (_name, send) => {
+    await send();
+    const html = (resendSend.mock.calls[0][0] as { html: string }).html;
+    expect(html).toContain("full");
+    expect(html).not.toContain("border-left: 4px");
+  });
+
+  // The discount row had no font size, so it rendered larger than its neighbours.
+  it("sets the discount row in the pending email at the size of the rows around it", async () => {
+    await sendBookingConfirmationEmail(details({ discount_amount: 300 }), "th", "pending");
+    const html = (resendSend.mock.calls[0][0] as { html: string }).html;
+    expect(html).toMatch(/font-size: 13px;[^"]*">ส่วนลด<\/td>/);
+  });
+});
+
+// A host who confirms a booking by hand (a quick booking, or a slip EasySlip could
+// not verify) triggers sendBookingStatusUpdateEmail. Its "confirmed" email was a
+// copy of the automatic one that left out the discount and the amount still due
+// on arrival, so a guest who paid a deposit was never told the balance.
+describe("host-confirmed booking email", () => {
+  const sentHtml = (n = 0) => (resendSend.mock.calls[n][0] as { html: string }).html;
+  const confirmByHost = (over: Partial<Booking>) => sendBookingStatusUpdateEmail(details(over), "confirmed", "th");
+
+  it("tells a guest who paid a deposit what is still due on arrival", async () => {
+    await confirmByHost({ payment_type: "deposit", amount_paid: 1000, total_price: 3000 });
+    const html = sentHtml();
+    expect(html).toMatch(/ยอดที่ชำระ<\/td>[^]*?฿1,000/);
+    expect(html).toMatch(/ยอดค้างชำระ<\/td>[^]*?฿2,000/);
+    expect(html).toContain("ชำระเมื่อเข้าพัก");
+  });
+
+  it("shows no balance rows when the guest paid in full", async () => {
+    await confirmByHost({ payment_type: "full", amount_paid: 3000, total_price: 3000 });
+    expect(sentHtml()).not.toContain("ยอดค้างชำระ");
+  });
+
+  it("shows the subtotal and the discount a promo code gave", async () => {
+    await confirmByHost({ discount_amount: 300, total_price: 2700 });
+    const html = sentHtml();
+    expect(html).toMatch(/ยอดก่อนหักส่วนลด<\/td>[^]*?฿3,000/);
+    expect(html).toContain("−฿300");
+  });
+
+  it("is the same email the guest gets when the slip verifies on its own", async () => {
+    const booking = { payment_type: "deposit", amount_paid: 1000, total_price: 3000, discount_amount: 300 } as Partial<Booking>;
+    await sendBookingConfirmationEmail(details(booking), "th", "confirmed");
+    await confirmByHost(booking);
+    expect(sentHtml(1)).toBe(sentHtml(0));
+    expect((resendSend.mock.calls[1][0] as { subject: string }).subject).toBe(
+      (resendSend.mock.calls[0][0] as { subject: string }).subject,
+    );
+  });
+});
+
+// The confirmation email was a dead end: nothing in it led back to the booking
+// site, where the guest can change dates or check in. The links are plain page
+// URLs: those pages ask for the guest's phone and email themselves, and keep
+// them out of URLs on purpose (api/bookings/search), so no booking id or contact
+// detail may ride along in a link.
+describe("links back to the booking site", () => {
+  const SLUG = "doi-inthanon-retreat";
+  const site = `${SITE_URL}/${SLUG}`;
+  const html = (n = 0) => (resendSend.mock.calls[n][0] as { html: string }).html;
+  const hrefs = (h: string) => [...h.matchAll(/href="([^"]*)"/g)].map((m) => m[1]);
+
+  it.each([
+    ["confirmed", "th", () => sendBookingConfirmationEmail(details(), "th", "confirmed"), "เปลี่ยนบ้านพัก / วันที่", "เช็คอิน / เช็คเอาท์"],
+    ["confirmed", "en", () => sendBookingConfirmationEmail(details(), "en", "confirmed"), "Change House / Date", "Check-in / Check-out"],
+    ["host-confirmed", "th", () => sendBookingStatusUpdateEmail(details(), "confirmed", "th"), "เปลี่ยนบ้านพัก / วันที่", "เช็คอิน / เช็คเอาท์"],
+    ["cart confirmed", "th", () => sendGroupBookingConfirmationEmail(groupDetails(), "th", "confirmed"), "เปลี่ยนบ้านพัก / วันที่", "เช็คอิน / เช็คเอาท์"],
+  ])("%s (%s) links to changing the booking and to check-in", async (_n, _l, send, changeLabel, checkInLabel) => {
+    await send();
+    expect(hrefs(html())).toEqual(expect.arrayContaining([`${site}/change-booking`, `${site}/check-in-out`]));
+    expect(html()).toContain(`>${changeLabel}</a>`);
+    expect(html()).toContain(`>${checkInLabel}</a>`);
+  });
+
+  it.each([
+    ["cancelled", "th", () => sendBookingStatusUpdateEmail(details(), "cancelled", "th", "full"), "จองที่พักเลย"],
+    ["cancelled", "en", () => sendBookingStatusUpdateEmail(details(), "cancelled", "en", "full"), "Book your stay"],
+    ["cart cancelled", "th", () => sendGroupBookingConfirmationEmail(groupDetails(), "th", "cancelled", "full"), "จองที่พักเลย"],
+  ])("%s (%s) links back to the homestay's booking page", async (_n, _l, send, label) => {
+    await send();
+    expect(hrefs(html())).toContain(site);
+    expect(html()).toContain(`>${label}</a>`);
+    expect(html()).not.toContain("change-booking");
+  });
+
+  it.each([
+    ["pending", () => sendBookingConfirmationEmail(details(), "th", "pending")],
+    ["cart pending", () => sendGroupBookingConfirmationEmail(groupDetails(), "th", "pending")],
+    ["date change", () => sendDateChangeEmailToGuest(details(), "rejected", "2026-01-12", "2026-01-14", "2026-02-10", "2026-02-13", 3000)],
+  ])("%s has no booking-management link: nothing is confirmed yet", async (_n, send) => {
+    await send();
+    expect(html()).not.toContain("change-booking");
+    expect(html()).not.toContain("check-in-out");
+  });
+
+  it("never puts a booking id, name, phone or email in a link", async () => {
+    const booking = { guest_name: "Somying Jaidee", guest_phone: "0812345678", guest_email: "somying@example.com" } as Partial<Booking>;
+    const d = details(booking);
+    await sendBookingConfirmationEmail(d, "th", "confirmed");
+    await sendBookingStatusUpdateEmail(d, "cancelled", "th", "full");
+    for (const n of [0, 1]) {
+      for (const href of hrefs(html(n))) {
+        expect(href).not.toMatch(/[?#=]/);
+        for (const secret of [d.booking.id, "Somying", "0812345678", "somying@example.com"]) {
+          expect(href).not.toContain(secret);
+        }
+      }
+    }
+  });
+
+  it("keeps an odd slug inside its own link", async () => {
+    const d = { ...details(), homestay: makeHomestay({ slug: 'a"b>c d' }) };
+    await sendBookingConfirmationEmail(d, "th", "confirmed");
+    expect(hrefs(html())).toContain(`${SITE_URL}/a%22b%3Ec%20d/change-booking`);
+    expect(html()).not.toContain('a"b>c');
+  });
+});
+
+// At 375px the label column (a fixed 38%) broke Thai labels across two lines
+// ("ประเภทบ้าน / พัก", "ยอดชำระ / รวม"), and the booking id was a 36-character
+// UUID wrapped over two lines that nobody can read out or type. The host's
+// dashboard and the guest's own checkout already show the first 8 characters
+// (bookingCode), so the emails show that.
+describe("guest email layout on a phone", () => {
+  const ID = "3f2a9c1e-aaaa-4bbb-8ccc-1234567890ab";
+  const CODE = "3f2a9c1e";
+  const html = () => (resendSend.mock.calls[0][0] as { html: string }).html;
+  const withId = (over: Partial<Booking> = {}) => details({ id: ID, ...over });
+
+  const guestEmails: [string, () => Promise<unknown>][] = [
+    ["confirmed", () => sendBookingConfirmationEmail(withId(), "th", "confirmed")],
+    ["pending", () => sendBookingConfirmationEmail(withId(), "th", "pending")],
+    ["cancelled", () => sendBookingStatusUpdateEmail(withId(), "cancelled", "th", "full")],
+    ["date change approved", () => sendDateChangeEmailToGuest(withId(), "approved", "2026-01-12", "2026-01-14", "2026-02-10", "2026-02-13", 3000)],
+    ["date change rejected", () => sendDateChangeEmailToGuest(withId(), "rejected", "2026-01-12", "2026-01-14", "2026-02-10", "2026-02-13", 3000, "th", "full")],
+  ];
+
+  it.each(guestEmails)("%s shows the 8-character code, not the whole id", async (_n, send) => {
+    await send();
+    expect(html()).toContain(`>${CODE}<`);
+    expect(html()).not.toContain(ID);
+  });
+
+  it("shows a cart by its 8-character code too", async () => {
+    const cart = groupDetails({ group: makeBookingGroup({ id: ID }) });
+    await sendGroupBookingConfirmationEmail(cart, "th", "confirmed");
+    expect(html()).toContain(`>${CODE}<`);
+    expect(html()).not.toContain(ID);
+  });
+
+  it.each([
+    ...guestEmails,
+    ["cart", () => sendGroupBookingConfirmationEmail(groupDetails(), "th", "confirmed")],
+    ["quick booking", () => sendQuickBookingEmail(withId(), "th")],
+  ] as [string, () => Promise<unknown>][])("%s keeps each label on one line", async (_n, send) => {
+    await send();
+    const labelCells = [...html().matchAll(/<td style="([^"]*color: #6b7280; font-size: 1[34]px[^"]*)"/g)].map((m) => m[1]);
+    expect(labelCells.length).toBeGreaterThan(0);
+    for (const style of labelCells.filter((s) => /vertical-align: (top|middle)/.test(s))) {
+      expect(style).toContain("white-space: nowrap");
+    }
+    expect(html()).not.toContain("width: 38%");
+  });
+});
+
+// One voice and one palette across the guest emails (2026-11-16 review): the same
+// word was spelt two ways, two emails greeted "สวัสดีคุณ" while the rest opened
+// "เรียน คุณ", and three buttons were near-black rather than the brand Forest.
+describe("one voice and one palette across the emails", () => {
+  const html = () => (resendSend.mock.calls[0][0] as { html: string }).html;
+  const guestEmails: [string, () => Promise<unknown>][] = [
+    ["confirmed", () => sendBookingConfirmationEmail(details(), "th", "confirmed")],
+    ["pending", () => sendBookingConfirmationEmail(details(), "th", "pending")],
+    ["cancelled", () => sendBookingStatusUpdateEmail(details(), "cancelled", "th", "full")],
+    ["cart confirmed", () => sendGroupBookingConfirmationEmail(groupDetails(), "th", "confirmed")],
+    ["quick booking", () => sendQuickBookingEmail(details(), "th")],
+    ["date change", () => sendDateChangeEmailToGuest(details(), "approved", "2026-01-12", "2026-01-14", "2026-02-10", "2026-02-13", 3000)],
+  ];
+
+  it.each(guestEmails)("%s spells check-in/check-out as the app does, and names the house plainly", async (_n, send) => {
+    await send();
+    expect(html()).not.toContain("เช็ก");
+    expect(html()).not.toContain("ประเภทบ้านพัก");
+  });
+
+  it("labels the house 'House', not 'House Type', in English", async () => {
+    await sendBookingConfirmationEmail(details(), "en", "confirmed");
+    expect(html()).not.toContain("House Type");
+  });
+
+  it.each([
+    ["pending", () => sendBookingConfirmationEmail(details(), "th", "pending"), "เรียน คุณ"],
+    ["cancelled", () => sendBookingStatusUpdateEmail(details(), "cancelled", "th", "full"), "เรียน คุณ"],
+    ["pending (en)", () => sendBookingConfirmationEmail(details(), "en", "pending"), "Dear "],
+    ["cancelled (en)", () => sendBookingStatusUpdateEmail(details(), "cancelled", "en", "full"), "Dear "],
+  ])("%s opens the same way as every other guest email", async (_n, send, greeting) => {
+    await send();
+    expect(html()).toContain(greeting);
+    expect(html()).not.toContain("สวัสดีคุณ");
+    expect(html()).not.toMatch(/>Hi /);
+  });
+
+  it.each([
+    // The button only shows when the host has a Facebook page to send the slip to.
+    ["quick booking", () => sendQuickBookingEmail({ ...details(), homestay: makeHomestay({ facebook_url: "https://www.facebook.com/ingkhoacamp" }) }, "th")],
+    ["host approval", () => sendHostApprovalEmail("new@host.com", "Somchai")],
+  ])("%s has a Forest button, not a near-black one", async (_n, send) => {
+    await send();
+    expect(html()).not.toContain("background: #111827");
+    expect(html()).toContain("background: #2F5D50");
+  });
+
+  it("gives the admin email a Forest button too", async () => {
+    supabaseFrom.mockReturnValue({
+      select: () => Promise.resolve({ data: [{ email: "admin@peaksnature.com", line_user_id: null, line_channel_access_token: null }], error: null }),
+    });
+    await notifyAdminsNewHostRegistration({ hostName: "Somchai", hostEmail: "new@host.com", appUrl: "https://peaksnature.com" });
+    expect(html()).not.toContain("background: #111827");
+    expect(html()).toContain("background: #2F5D50");
   });
 });

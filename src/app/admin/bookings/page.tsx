@@ -203,7 +203,7 @@ export default function AdminBookingsPage() {
           </TabsList>
           {activeTab === "bookings" && (
             <Select value={selectedHostId} onValueChange={setSelectedHostId}>
-              <SelectTrigger className="w-[180px] cursor-pointer border-earth-200">
+              <SelectTrigger className="w-[180px] cursor-pointer">
                 <SelectValue placeholder="All Hosts" />
               </SelectTrigger>
               <SelectContent>

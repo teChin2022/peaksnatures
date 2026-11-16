@@ -1497,6 +1497,32 @@ export interface Database {
           updated_by?: string;
         };
       };
+      host_staff: {
+        Row: {
+          id: string;
+          host_id: string;
+          user_id: string;
+          name: string;
+          email: string;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          host_id: string;
+          user_id: string;
+          name: string;
+          email: string;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          host_id?: string;
+          user_id?: string;
+          name?: string;
+          email?: string;
+          created_at?: string;
+        };
+      };
     };
   };
 }
@@ -1524,6 +1550,7 @@ export type WalletTransaction = Database["public"]["Tables"]["wallet_transaction
 export type Invoice = Database["public"]["Tables"]["invoices"]["Row"];
 export type PromoCode = Database["public"]["Tables"]["promo_codes"]["Row"];
 export type PromoRedemption = Database["public"]["Tables"]["promo_redemptions"]["Row"];
+export type HostStaff = Database["public"]["Tables"]["host_staff"]["Row"];
 
 export type PlanType = "free" | "commission" | "fixed_rate";
 export type PromoDiscountType = "percentage" | "fixed";

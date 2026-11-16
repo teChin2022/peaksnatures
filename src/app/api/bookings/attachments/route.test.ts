@@ -297,3 +297,20 @@ describe("POST /api/bookings/attachments", () => {
     expect(statuses.at(-1)).toBe(429);
   });
 });
+
+// Staff logins (migration 081): user-1 is not the owner here, only a staff row can let it in.
+describe("POST /api/bookings/attachments: staff", () => {
+  const staffed = { ...owned, homestay: { host: { id: "host-1", name: "Somchai", user_id: "owner-9" } } };
+
+  it("lets staff of the host attach a file", async () => {
+    const supabase = mockClient({ bookings: { data: staffed }, host_staff: { data: { id: "staff-row" } } });
+    expect((await readJson(await post())).status).toBe(200);
+    expect(supabase.storage.upload).toHaveBeenCalled();
+  });
+
+  it("refuses a login that is not staff of this host", async () => {
+    const supabase = mockClient({ bookings: { data: staffed }, host_staff: { data: null } });
+    expect((await readJson(await post())).status).toBe(403);
+    expect(supabase.storage.upload).not.toHaveBeenCalled();
+  });
+});

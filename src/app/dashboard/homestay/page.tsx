@@ -195,10 +195,10 @@ export default function HomestayPage() {
       if (!user) return;
       setUserId(user.id);
 
+      // No user_id filter: RLS shows a login only its own host, or the one it is staff of (081).
       const { data: hostRow } = await supabase
         .from("hosts")
         .select("id, name, deposit_amount, deposit_by_month, cancellation_days, booking_draft_hours, guest_booking_mode")
-        .eq("user_id", user.id)
         .single();
 
       const host = hostRow as { id: string; name: string; deposit_amount: number; deposit_by_month: Record<string, number> | null; cancellation_days: number; booking_draft_hours: number | null; guest_booking_mode: string | null } | null;

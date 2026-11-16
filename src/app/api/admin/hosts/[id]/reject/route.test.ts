@@ -62,6 +62,22 @@ describe("DELETE /api/admin/hosts/[id]/reject", () => {
     expect(sc.auth.admin.deleteUser).toHaveBeenCalledWith("auth-user-9");
   });
 
+  // The host delete cascades host_staff rows (migration 081) but not the auth
+  // users behind them, which would be left able to sign in.
+  it("deletes the host's staff logins before the host", async () => {
+    const sc = signIn(h, {
+      tables: { hosts: [{ data: applicant }, {}], login_otps: {}, host_staff: { data: [{ user_id: "staff-1" }] } },
+    });
+
+    await del();
+
+    expect(sc.builderFor("host_staff").eq).toHaveBeenCalledWith("host_id", HOST_ID);
+    expect(sc.auth.admin.deleteUser).toHaveBeenCalledWith("staff-1");
+    const staffDelete = sc.auth.admin.deleteUser.mock.invocationCallOrder[0];
+    const hostDelete = (sc.builderFor("hosts", 1).delete as ReturnType<typeof vi.fn>).mock.invocationCallOrder[0];
+    expect(staffDelete).toBeLessThan(hostDelete);
+  });
+
   it("emails the applicant the decision", async () => {
     await del();
     expect(h.sendHostRejectionEmail).toHaveBeenCalledWith("somchai@example.com", "Somchai");

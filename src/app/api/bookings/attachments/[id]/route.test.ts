@@ -166,3 +166,20 @@ describe("DELETE /api/bookings/attachments/[id]", () => {
     });
   });
 });
+
+// Staff logins (migration 081): user-1 is not the owner here, only a staff row can let it in.
+describe("DELETE /api/bookings/attachments/[id]: staff", () => {
+  const staffed = { ...owned, booking: { homestay: { host: { id: "host-1", name: "Somchai", user_id: "owner-9" } } } };
+
+  it("lets staff of the host remove an attachment", async () => {
+    const supabase = mockClient({ booking_attachments: [{ data: staffed }, {}], host_staff: { data: { id: "staff-row" } } });
+    expect((await readJson(await del())).status).toBe(200);
+    expect(supabase.storage.remove).toHaveBeenCalledWith([STORAGE_PATH]);
+  });
+
+  it("refuses a login that is not staff of this host", async () => {
+    const supabase = mockClient({ booking_attachments: [{ data: staffed }], host_staff: { data: null } });
+    expect((await readJson(await del())).status).toBe(403);
+    expect(supabase.storage.remove).not.toHaveBeenCalled();
+  });
+});

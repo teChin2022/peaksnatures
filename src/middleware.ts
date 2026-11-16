@@ -85,9 +85,20 @@ export async function middleware(request: NextRequest) {
   if (isDashboard && user) {
     const HOST_STATUS_COOKIE = "x-host-status";
     const HOST_STATUS_MAX_AGE = 300; // 5 minutes
-    const cachedStatus = request.cookies.get(HOST_STATUS_COOKIE)?.value;
+    // The cached value is "<userId>:<status>": owner and staff often share the
+    // front-desk computer, and one login's status must not carry over to the next.
+    const cached = request.cookies.get(HOST_STATUS_COOKIE)?.value;
+    const cachedStatus = cached?.startsWith(`${user.id}:`) ? cached.slice(user.id.length + 1) : undefined;
 
     let status: string | undefined = cachedStatus;
+    const setStatusCookie = (res: NextResponse, value: string) =>
+      res.cookies.set(HOST_STATUS_COOKIE, `${user.id}:${value}`, {
+        httpOnly: true,
+        secure: process.env.NODE_ENV === "production",
+        sameSite: "lax",
+        maxAge: HOST_STATUS_MAX_AGE,
+        path: "/dashboard",
+      });
 
     // Only query DB if no cached status
     if (!cachedStatus) {
@@ -104,46 +115,50 @@ export async function middleware(request: NextRequest) {
             .single();
           status = (host as { status: string } | null)?.status;
 
-          // Cache the status on the response cookie
-          if (status) {
-            supabaseResponse.cookies.set(HOST_STATUS_COOKIE, status, {
-              httpOnly: true,
-              secure: process.env.NODE_ENV === "production",
-              sameSite: "lax",
-              maxAge: HOST_STATUS_MAX_AGE,
-              path: "/dashboard",
-            });
+          // A staff login (migration 081) has no hosts row of its own.
+          if (!status) {
+            const { data: staff } = await sc
+              .from("host_staff")
+              .select("id")
+              .eq("user_id", user.id)
+              .maybeSingle();
+            if (staff) status = "staff";
           }
+
+          // Cache the status on the response cookie
+          if (status) setStatusCookie(supabaseResponse, status);
         } catch {
           // If check fails, allow through — don't block approved hosts
         }
       }
     }
 
+    // Team, billing, wallet and the owner's profile are the owner's. Their routes
+    // and RLS refuse staff anyway; this just keeps staff off pages that cannot load.
+    const path = request.nextUrl.pathname;
+    const ownerOnly = ["/dashboard/team", "/dashboard/billing", "/dashboard/wallet", "/dashboard/profile"].some(
+      (p) => path === p || path.startsWith(`${p}/`),
+    );
+    if (status === "staff" && ownerOnly) {
+      const url = request.nextUrl.clone();
+      url.pathname = "/dashboard";
+      const redirect = NextResponse.redirect(url);
+      setStatusCookie(redirect, status);
+      return redirect;
+    }
+
     if (status === "pending" && !isPendingPage) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard/pending";
       const redirect = NextResponse.redirect(url);
-      redirect.cookies.set(HOST_STATUS_COOKIE, "pending", {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: HOST_STATUS_MAX_AGE,
-        path: "/dashboard",
-      });
+      setStatusCookie(redirect, "pending");
       return redirect;
     }
     if (status && status !== "pending" && isPendingPage) {
       const url = request.nextUrl.clone();
       url.pathname = "/dashboard";
       const redirect = NextResponse.redirect(url);
-      redirect.cookies.set(HOST_STATUS_COOKIE, status, {
-        httpOnly: true,
-        secure: process.env.NODE_ENV === "production",
-        sameSite: "lax",
-        maxAge: HOST_STATUS_MAX_AGE,
-        path: "/dashboard",
-      });
+      setStatusCookie(redirect, status);
       return redirect;
     }
   }

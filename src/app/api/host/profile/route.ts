@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { getHostAccess } from "@/lib/host-access";
 
 function maskEmail(email: string): string {
   const [local, domain] = email.split("@");
@@ -33,6 +34,22 @@ export async function GET() {
       .single();
 
     if (!hostRow) {
+      // A staff login gets the host id it works for and nothing of the owner's
+      // profile, plus whether guests can book: staff answer the phone when they
+      // cannot, but cannot read the billing state behind it.
+      const access = await getHostAccess(serviceClient, user.id);
+      if (access?.role === "staff") {
+        const [{ getHostBlockState }, { isHostBlocked }] = await Promise.all([
+          import("@/lib/billing"),
+          import("@/lib/plan-expiry"),
+        ]);
+        const blockState = await getHostBlockState(access.hostId);
+        return NextResponse.json({
+          id: access.hostId,
+          role: "staff",
+          bookingBlocked: !!blockState && isHostBlocked(blockState),
+        });
+      }
       return NextResponse.json({ error: "Host not found" }, { status: 404 });
     }
 
@@ -56,6 +73,7 @@ export async function GET() {
 
     return NextResponse.json({
       id: h.id,
+      role: "owner",
       name: h.name,
       line_user_id: h.line_user_id,
       line_token_tail: h.line_channel_access_token ? h.line_channel_access_token.slice(-4) : null,

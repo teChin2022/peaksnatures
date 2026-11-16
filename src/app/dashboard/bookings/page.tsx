@@ -288,10 +288,10 @@ export default function BookingsPage() {
     setUserId(user.id);
 
     // Get host
+    // No user_id filter: RLS shows a login only its own host, or the one it is staff of (081).
     const { data: hostRow } = await supabase
       .from("hosts")
       .select("id, name, plan_type")
-      .eq("user_id", user.id)
       .single();
     const host = hostRow as { id: string; name: string; plan_type: string } | null;
     if (!host) {

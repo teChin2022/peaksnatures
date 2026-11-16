@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { canActForHost } from "@/lib/host-access";
 
 export async function DELETE(
   _req: NextRequest,
@@ -19,10 +20,10 @@ export async function DELETE(
 
     const sc = createServiceRoleClient();
 
-    // Verify ownership: promo_code → homestay → host.user_id === user.id
+    // Verify ownership: promo_code → homestay → host, owned or staffed by the user
     const { data: codeRow } = await sc
       .from("promo_codes")
-      .select("id, code, homestay:homestays(host:hosts(user_id, name))")
+      .select("id, code, homestay:homestays(host:hosts(id, user_id, name))")
       .eq("id", id)
       .maybeSingle();
 
@@ -30,7 +31,7 @@ export async function DELETE(
       id: string;
       code: string;
       homestay: {
-        host: { user_id: string; name: string } | null;
+        host: { id: string; user_id: string; name: string } | null;
       } | null;
     };
     const row = codeRow as unknown as CodeWithChain | null;
@@ -38,7 +39,7 @@ export async function DELETE(
       return NextResponse.json({ error: "Promo code not found" }, { status: 404 });
     }
     const owner = row.homestay?.host;
-    if (!owner || owner.user_id !== user.id) {
+    if (!owner || !(await canActForHost(sc, user.id, owner))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

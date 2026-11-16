@@ -112,3 +112,29 @@ describe("POST /api/host/booking-slips", () => {
     expect((await post(payload)).status).toBe(400);
   });
 });
+
+// Staff logins (migration 081) see the slips of the host they work for.
+describe("POST /api/host/booking-slips: staff", () => {
+  it("signs slips at the homestays of the host the staff member works for", async () => {
+    const sc = mockClients(
+      {
+        hosts: { data: null },
+        host_staff: { data: { host_id: "host-1" } },
+        homestays: { data: [{ id: "homestay-1" }] },
+        bookings: { data: [{ id: OWN, payment_slip_url: "pending/own/slip.jpg" }] },
+      },
+      { id: "staff-1" },
+    );
+
+    const { status, body } = await post({ booking_ids: [OWN] });
+
+    expect(status).toBe(200);
+    expect(body).toEqual({ urls: { [OWN]: "https://storage.test/signed-slip" } });
+    expect(sc.builderFor("homestays").eq).toHaveBeenCalledWith("host_id", "host-1");
+  });
+
+  it("refuses a login that is neither owner nor staff", async () => {
+    mockClients({ hosts: { data: null }, host_staff: { data: null } }, { id: "stranger" });
+    expect((await post({ booking_ids: [OWN] })).status).toBe(403);
+  });
+});

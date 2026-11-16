@@ -97,19 +97,19 @@ export async function POST(req: NextRequest) {
       subject: emailT.subject,
       html: `
         <div style="font-family: sans-serif; max-width: 480px; margin: 0 auto;">
-          <div style="background: #16a34a; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
+          <div style="background: #2F5D50; padding: 24px; border-radius: 12px 12px 0 0; text-align: center;">
             <h1 style="color: white; margin: 0; font-size: 22px;">${emailT.heading}</h1>
           </div>
           <div style="padding: 32px 24px; border: 1px solid #e5e7eb; border-top: 0; border-radius: 0 0 12px 12px; text-align: center;">
             <p style="font-size: 16px; color: #374151; margin-top: 0;">${emailT.body}</p>
             <div style="margin: 24px 0;">
-              <a href="${magicLink}" style="display: inline-block; background: #16a34a; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
+              <a href="${magicLink}" style="display: inline-block; background: #2F5D50; color: white; padding: 14px 28px; border-radius: 8px; text-decoration: none; font-weight: bold; font-size: 16px;">
                 ${emailT.button}
               </a>
             </div>
-            <p style="font-size: 13px; color: #9ca3af; margin-top: 24px;">${emailT.expiry}</p>
+            <p style="font-size: 13px; color: #6b7280; margin-top: 24px;">${emailT.expiry}</p>
             <hr style="border: 0; border-top: 1px solid #e5e7eb; margin: 20px 0;" />
-            <p style="color: #9ca3af; font-size: 12px; margin-bottom: 0;">${emailT.footer}</p>
+            <p style="color: #6b7280; font-size: 12px; margin-bottom: 0;">${emailT.footer}</p>
           </div>
         </div>
       `,

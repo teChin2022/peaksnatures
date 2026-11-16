@@ -175,7 +175,7 @@ export default function RegisterPage() {
                       onChange={(e) => setName(e.target.value)}
                       onBlur={() => setTouched(prev => new Set([...prev, "name"]))}
                       required
-                      className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("name") && !name.trim() ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
+                      className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("name") && !name.trim() ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "hover:!border-earth-700 focus-visible:!border-ring"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
                     />
                   </div>
                 </div>
@@ -192,7 +192,7 @@ export default function RegisterPage() {
                       onBlur={() => setTouched(prev => new Set([...prev, "email"]))}
                       required
                       autoComplete="email"
-                      className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("email") && !email.trim() ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
+                      className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("email") && !email.trim() ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "hover:!border-earth-700 focus-visible:!border-ring"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
                     />
                   </div>
                 </div>
@@ -211,7 +211,7 @@ export default function RegisterPage() {
                       onBlur={() => setTouched(prev => new Set([...prev, "phone"]))}
                       required
                       autoComplete="tel"
-                      className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("phone") && !isValidPhone(phone) ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
+                      className={`!pl-10 p-3.5 !h-auto rounded-xl !border ${touched.has("phone") && !isValidPhone(phone) ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "hover:!border-earth-700 focus-visible:!border-ring"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
                     />
                   </div>
                 </div>
@@ -231,7 +231,7 @@ export default function RegisterPage() {
                       required
                       minLength={8}
                       autoComplete="new-password"
-                      className={`pr-10 p-3.5 !h-auto rounded-xl !border ${touched.has("password") && (!password || !!passwordWarning) ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
+                      className={`pr-10 p-3.5 !h-auto rounded-xl !border ${touched.has("password") && (!password || !!passwordWarning) ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "hover:!border-earth-700 focus-visible:!border-ring"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
                     />
                     <button
                       type="button"
@@ -266,7 +266,7 @@ export default function RegisterPage() {
                       required
                       minLength={8}
                       autoComplete="new-password"
-                      className={`pr-10 p-3.5 !h-auto rounded-xl !border ${touched.has("confirmPassword") && (!confirmPassword || !!confirmPasswordWarning) ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "!border-earth-200 hover:!border-earth-400 focus-visible:!border-earth-400"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
+                      className={`pr-10 p-3.5 !h-auto rounded-xl !border ${touched.has("confirmPassword") && (!confirmPassword || !!confirmPasswordWarning) ? "!border-red-400 hover:!border-red-500 focus-visible:!border-red-400" : "hover:!border-earth-700 focus-visible:!border-ring"} !bg-white transition-all text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-0`}
                     />
                     <button
                       type="button"

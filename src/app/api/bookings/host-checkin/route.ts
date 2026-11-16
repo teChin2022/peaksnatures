@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { after } from "next/server";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
+import { canActForHost } from "@/lib/host-access";
 
 export async function POST(req: NextRequest) {
   try {
@@ -44,7 +45,7 @@ export async function POST(req: NextRequest) {
       .single();
     const hostData = (hsRow as unknown as { host_id: string; hosts: { id: string; name: string; user_id: string } | null } | null)?.hosts;
 
-    if (!hostData || hostData.user_id !== user.id) {
+    if (!hostData || !(await canActForHost(supabase, user.id, hostData))) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 });
     }
 

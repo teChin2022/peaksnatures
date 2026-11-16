@@ -2,6 +2,7 @@ import { NextRequest, NextResponse, after } from "next/server";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { EventType, logEvent } from "@/lib/history-log";
+import { canActForHost } from "@/lib/host-access";
 import {
   ATTACHMENTS_BUCKET,
   ATTACHMENT_SIGNED_URL_TTL_SECONDS,
@@ -96,7 +97,7 @@ export async function POST(req: NextRequest) {
     }
 
     const owner = booking.homestay?.host;
-    if (!owner || owner.user_id !== user.id) {
+    if (!owner || !(await canActForHost(sc, user.id, owner))) {
       return NextResponse.json({ error: "Forbidden", reason: "FORBIDDEN" }, { status: 403 });
     }
 

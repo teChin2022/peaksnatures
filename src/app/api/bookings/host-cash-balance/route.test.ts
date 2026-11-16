@@ -146,3 +146,24 @@ describe("POST /api/bookings/host-cash-balance", () => {
     expect((await post({ booking_id: BOOKING_ID })).status).toBe(500);
   });
 });
+
+// Staff logins (migration 081): user-1 is not the owner here, only a staff row can let it in.
+describe("POST /api/bookings/host-cash-balance: staff", () => {
+  const staffed = { ...owned, hosts: { ...owned.hosts, user_id: "owner-9" } };
+
+  it("lets staff of the host record the cash balance", async () => {
+    const supabase = mockClient({
+      bookings: [{ data: booking() }, { data: null }],
+      homestays: { data: staffed },
+      host_staff: { data: { id: "staff-row" } },
+    });
+    expect((await post({ booking_id: BOOKING_ID })).status).toBe(200);
+    expect(updated(supabase)).toBe(true);
+  });
+
+  it("refuses a login that is not staff of this host", async () => {
+    const supabase = mockClient({ bookings: { data: booking() }, homestays: { data: staffed }, host_staff: { data: null } });
+    expect((await post({ booking_id: BOOKING_ID })).status).toBe(403);
+    expect(updated(supabase)).toBe(false);
+  });
+});
