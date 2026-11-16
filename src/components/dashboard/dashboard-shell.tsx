@@ -125,7 +125,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
         )}
       >
         {/* Mobile header */}
-        <header className="sticky top-0 z-30 flex h-14 items-center border-b border-earth-200/80 bg-white/80 backdrop-blur-md px-4 lg:hidden">
+        {/* Solid white, no glass (DESIGN.md: no backdrop-blur on bars). */}
+        <header className="sticky top-0 z-30 flex h-14 items-center border-b border-earth-200/80 bg-white px-4 lg:hidden">
           <Button
             variant="ghost"
             size="icon"

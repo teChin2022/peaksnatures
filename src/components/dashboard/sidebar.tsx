@@ -212,9 +212,9 @@ export function MobileSidebar({
 
   return (
     <>
-      {/* Backdrop */}
+      {/* Backdrop: a plain dim like the dialogs' overlay (DESIGN.md: no blur on bars and overlays) */}
       <div
-        className="fixed inset-0 z-40 bg-black/20 backdrop-blur-sm lg:hidden"
+        className="fixed inset-0 z-40 bg-black/50 lg:hidden"
         onClick={onClose}
       />
 
@@ -231,7 +231,8 @@ export function MobileSidebar({
             )}
             <span className="font-semibold truncate text-earth-900">{brandName}</span>
           </Link>
-          <Button variant="ghost" size="icon" className="h-7 w-7 text-earth-600 hover:text-earth-700" onClick={onClose} aria-label={tc("close")}>
+          {/* 44px target on phones; -mr-2 keeps the icon where the 28px button had it. */}
+          <Button variant="ghost" size="icon" className="-mr-2 size-11 shrink-0 text-earth-600 hover:text-earth-700" onClick={onClose} aria-label={tc("close")}>
             <X className="h-4 w-4" />
           </Button>
         </div>
