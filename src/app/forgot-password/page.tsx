@@ -46,13 +46,11 @@ export default function ForgotPasswordPage() {
         body: JSON.stringify({ email, turnstileToken: turnstileToken || "" }),
       });
 
-      const data = await res.json();
-
       if (!res.ok) {
         if (res.status === 403) {
           setError(t("errorCaptcha"));
         } else {
-          setError(data.error || t("errorGeneric"));
+          setError(t("errorGeneric"));
         }
         turnstileRef.current?.reset();
         setTurnstileToken(null);

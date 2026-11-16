@@ -8,9 +8,17 @@ import { calculateTotalPrice } from "@/lib/calculate-price";
 import { computeCompositionSurcharge } from "@/lib/guest-pricing";
 import { getDepositForMonth } from "@/lib/get-deposit";
 import { logEvent, EventType } from "@/lib/history-log";
+import { createRateLimiter } from "@/lib/rate-limit";
+import { claimVerifiedSlip, releaseVerifiedSlip } from "@/lib/verified-slips";
+
+/** Generous: the price preview runs on every date the guest picks. */
+const changeDatesRateLimit = createRateLimiter({ limit: 30, windowMs: 60_000, name: "change-dates" });
 
 const changeDatesSchema = z.object({
   booking_id: z.string().uuid(),
+  // The booking id alone used to be enough (audit F-06): it travels in emails
+  // and was searchable. The guest's email must match it too.
+  guest_email: z.string().email(),
   new_check_in: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
   new_check_out: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, "Invalid date format"),
   new_room_id: z.string().uuid().optional(),
@@ -21,17 +29,20 @@ const changeDatesSchema = z.object({
   slip_trans_ref: z.string().nullable().optional(),
   payment_slip_url: z.string().nullable().optional(),
   easyslip_response: z.unknown().optional(),
-  easyslip_verified: z.boolean().optional().default(false),
+  // No `easyslip_verified`: decided on the server (claimVerifiedSlip below).
 });
 
 export async function POST(req: NextRequest) {
+  const rateLimited = await changeDatesRateLimit.check(req);
+  if (rateLimited) return rateLimited;
+
   try {
     const body = await req.json();
     const parsed = changeDatesSchema.safeParse(body);
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid data", details: parsed.error.flatten() },
+        { error: "Invalid data" },
         { status: 400 }
       );
     }
@@ -51,6 +62,10 @@ export async function POST(req: NextRequest) {
     }
 
     const booking = bookingRow as unknown as Booking;
+
+    if ((booking.guest_email || "").toLowerCase() !== data.guest_email.trim().toLowerCase()) {
+      return NextResponse.json({ error: "Email does not match the booking" }, { status: 403 });
+    }
 
     // Only confirmed bookings (not checked in) can change dates
     if (booking.status !== "confirmed") {
@@ -266,6 +281,27 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // Whether the slip paid the difference is the server's call: the record
+    // /api/verify-slip kept, for exactly `additionalPayment`, paid to this
+    // host, unused. The host approves either way; this only tells them.
+    let slipVerified = false;
+    if (additionalPayment > 0 && data.slip_hash) {
+      const { data: hostRow } = await supabase
+        .from("homestays")
+        .select("hosts(promptpay_id, bank_account_number)")
+        .eq("id", booking.homestay_id)
+        .single();
+      const hostAccounts = (hostRow as unknown as {
+        hosts: { promptpay_id: string | null; bank_account_number: string | null } | null;
+      } | null)?.hosts;
+      slipVerified = await claimVerifiedSlip(supabase, {
+        slipHash: data.slip_hash,
+        amount: additionalPayment,
+        promptpayId: hostAccounts?.promptpay_id ?? null,
+        bankAccountNumber: hostAccounts?.bank_account_number ?? null,
+      });
+    }
+
     // Create the date change request
     const { data: requestRow, error: insertError } = await supabase
       .from("date_change_requests")
@@ -288,7 +324,7 @@ export async function POST(req: NextRequest) {
         slip_trans_ref: data.slip_trans_ref || null,
         payment_slip_url: data.payment_slip_url || null,
         easyslip_response: data.easyslip_response || null,
-        easyslip_verified: additionalPayment > 0 ? (data.easyslip_verified || false) : false,
+        easyslip_verified: slipVerified,
         created_by: booking.guest_name,
         updated_by: booking.guest_name,
       } as never)
@@ -297,6 +333,7 @@ export async function POST(req: NextRequest) {
 
     if (insertError) {
       console.error("[ChangeDates] Insert error:", insertError);
+      if (slipVerified && data.slip_hash) await releaseVerifiedSlip(supabase, data.slip_hash);
       return NextResponse.json({ error: "Failed to create date change request" }, { status: 500 });
     }
 

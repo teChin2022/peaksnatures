@@ -15,6 +15,16 @@ function getResendClient(apiKey: string): Resend {
 
 const otpRateLimit = createRateLimiter({ limit: 5, windowMs: 60_000, name: "send-otp" });
 
+/**
+ * Supabase's sign-in errors as two codes (F-19). "Email not confirmed" comes
+ * only with the right password, so naming it tells nobody anything new; every
+ * other refusal reads the same, so the answer cannot reveal which emails exist.
+ */
+function signInRefusal(message: string | undefined) {
+  const error = /not confirmed/i.test(message ?? "") ? "EMAIL_NOT_CONFIRMED" : "INVALID_CREDENTIALS";
+  return NextResponse.json({ error }, { status: 401 });
+}
+
 export async function POST(req: NextRequest) {
   const rateLimited = await otpRateLimit.check(req);
   if (rateLimited) return rateLimited;
@@ -48,10 +58,7 @@ export async function POST(req: NextRequest) {
     }
 
     if (signInResult.error) {
-      return NextResponse.json(
-        { error: signInResult.error.message },
-        { status: 401 }
-      );
+      return signInRefusal(signInResult.error.message);
     }
 
     // Sign out the throwaway client (fire-and-forget — no need to await)
@@ -75,10 +82,7 @@ export async function POST(req: NextRequest) {
         });
 
         if (directSignInError) {
-          return NextResponse.json(
-            { error: directSignInError.message },
-            { status: 401 }
-          );
+          return signInRefusal(directSignInError.message);
         }
 
         after(async () => {

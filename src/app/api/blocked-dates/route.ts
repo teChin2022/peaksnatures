@@ -1,5 +1,5 @@
 import { NextRequest, NextResponse, after } from "next/server";
-import { createServerSupabaseClient } from "@/lib/supabase/server";
+import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
 
 export async function POST(req: NextRequest) {
@@ -54,11 +54,22 @@ export async function POST(req: NextRequest) {
 
     const hostName = hsJoined.hosts.name;
 
-    // Check for active booking holds overlapping the requested dates
-    const { data: activeHolds } = await supabase
-      .from("booking_holds" as never)
-      .select("room_id, check_in, check_out")
-      .gt("expires_at", new Date().toISOString());
+    // Check for active booking holds overlapping the requested dates.
+    // On the service role: RLS shows the host session no hold at all, so this
+    // check never fired. Scoped to this homestay's houses (only the named one
+    // when there is one), which the old query was not either.
+    const sc = createServiceRoleClient();
+    const { data: roomRows } = await sc.from("rooms").select("id").eq("homestay_id", homestay_id);
+    const homestayRoomIds = ((roomRows as { id: string }[] | null) ?? []).map((r) => r.id);
+    const holdRoomIds = room_id ? homestayRoomIds.filter((id) => id === room_id) : homestayRoomIds;
+
+    const { data: activeHolds } = holdRoomIds.length > 0
+      ? await sc
+          .from("booking_holds")
+          .select("room_id, check_in, check_out")
+          .in("room_id", holdRoomIds)
+          .gt("expires_at", new Date().toISOString())
+      : { data: null };
 
     const holds = activeHolds as unknown as { room_id: string; check_in: string; check_out: string }[] | null;
 

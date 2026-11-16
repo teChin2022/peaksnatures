@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { T, expectNoUnexpectedWrites, requireSlug, startSession, stubbedBooking, type Session } from "./support";
+import { T, expectNoUnexpectedWrites, fillGuestLookup, requireSlug, startSession, stubbedBooking, type Session } from "./support";
 
 /**
  * A guest checks in and out on /{slug}/check-in-out. The page is real; the
@@ -12,6 +12,7 @@ const daysAgo = (days: number) => new Date(Date.now() - days * 86_400_000).toISO
 
 let session: Session;
 let checkinCalls: Record<string, unknown>[];
+let searchCalls: { method: string; url: string; body: unknown }[];
 
 test.afterEach(() => {
   if (session) expectNoUnexpectedWrites(session);
@@ -26,27 +27,80 @@ async function open(
   const slug = requireSlug();
   session = await startSession(page, context);
   checkinCalls = [];
-  await page.route("**/api/bookings/search*", (route) =>
-    route.fulfill({ contentType: "application/json", body: JSON.stringify({ bookings: [stubbedBooking(booking)] }) }),
-  );
+  searchCalls = [];
+  await page.route("**/api/bookings/search*", (route) => {
+    const request = route.request();
+    searchCalls.push({ method: request.method(), url: request.url(), body: request.postDataJSON() });
+    return route.fulfill({ contentType: "application/json", body: JSON.stringify({ bookings: [stubbedBooking(booking)] }) });
+  });
   await page.route("**/api/bookings/checkin", (route) => {
     checkinCalls.push(route.request().postDataJSON());
     return route.fulfill({ status: checkinAnswer.status ?? 200, contentType: "application/json", body: JSON.stringify(checkinAnswer.body) });
   });
   await page.goto(`/${slug}/check-in-out`);
-  const search = page.getByPlaceholder(t.placeholder);
-  await expect(search).toBeEnabled();
-  await search.fill("0898765432");
+  await fillGuestLookup(page, t);
   await page.getByRole("button", { name: t.search, exact: true }).click();
 }
 
 const checkInButton = (page: Page) => page.getByRole("button", { name: t.checkIn, exact: true });
 const checkOutButton = (page: Page) => page.getByRole("button", { name: t.checkOut, exact: true });
 
-test("the search field has a visible label tied to it", async ({ page, context }) => {
+test("the phone and email fields have visible labels tied to them", async ({ page, context }) => {
   await open(page, context, {});
-  await expect(page.getByText(t.searchLabel, { exact: true })).toBeVisible();
-  await expect(page.getByLabel(t.searchLabel)).toHaveAttribute("placeholder", t.placeholder);
+  await expect(page.getByText(t.phoneLabel, { exact: true })).toBeVisible();
+  await expect(page.getByLabel(t.phoneLabel)).toHaveAttribute("placeholder", t.phonePlaceholder);
+  await expect(page.getByText(t.emailLabel, { exact: true })).toBeVisible();
+  await expect(page.getByLabel(t.emailLabel)).toHaveAttribute("placeholder", t.emailPlaceholder);
+});
+
+// The search used to take one value in the URL: a phone, an email or a booking
+// id, each enough on its own. It now needs the phone AND the email, in the body.
+test("the search sends the phone and email in the body, not the URL", async ({ page, context }) => {
+  await open(page, context, {});
+  await expect(checkInButton(page)).toBeVisible();
+  expect(searchCalls).toHaveLength(1);
+  const [call] = searchCalls;
+  expect(call.method).toBe("POST");
+  expect(call.url).not.toContain("0898765432");
+  expect(call.body).toEqual({ homestay_id: expect.any(String), phone: "0898765432", email: "e2e@example.com" });
+});
+
+test("the search stays disabled until both the phone and the email are filled in", async ({ page, context }) => {
+  session = await startSession(page, context);
+  await page.goto(`/${requireSlug()}/check-in-out`);
+  const searchButton = page.getByRole("button", { name: t.search, exact: true });
+  const phone = page.getByPlaceholder(t.phonePlaceholder);
+  await expect(phone).toBeEnabled();
+  await phone.fill("0898765432");
+  await expect(searchButton).toBeDisabled();
+  await page.getByPlaceholder(t.emailPlaceholder).fill("e2e@example.com");
+  await expect(searchButton).toBeEnabled();
+});
+
+// F-06: the booking id alone used to be enough to cancel; the route now also
+// checks the guest's email, so the page must send it.
+test("cancelling sends the guest's email along with the booking id", async ({ page, context }) => {
+  session = await startSession(page, context);
+  const cancels: unknown[] = [];
+  await page.route("**/api/bookings/search*", (route) =>
+    route.fulfill({
+      contentType: "application/json",
+      body: JSON.stringify({ bookings: [stubbedBooking()], cancellation_days: 3 }),
+    }),
+  );
+  await page.route("**/api/bookings/cancel", (route) => {
+    cancels.push(route.request().postDataJSON());
+    return route.fulfill({ contentType: "application/json", body: JSON.stringify({ success: true }) });
+  });
+  await page.goto(`/${requireSlug()}/check-in-out`);
+  await fillGuestLookup(page, t);
+  await page.getByRole("button", { name: t.search, exact: true }).click();
+
+  await page.getByRole("button", { name: t.cancelBooking }).click();
+  await page.getByRole("button", { name: t.cancelConfirmButton }).click();
+
+  await expect.poll(() => cancels.length).toBe(1);
+  expect(cancels[0]).toMatchObject({ booking_id: stubbedBooking().id, guest_email: "e2e@example.com" });
 });
 
 test("the back link has a name on every width", async ({ page, context }) => {
@@ -92,6 +146,22 @@ test("with a balance due, check-out shows but stays disabled until it is paid", 
   await expect(checkOutButton(page)).toBeDisabled();
   await expect(page.getByRole("button", { name: t.payRemaining.replace("{amount}", "2,000") })).toBeVisible();
   expect(checkinCalls).toEqual([]);
+});
+
+// The guest used to mark the balance paid in cash themselves. Cash is now the
+// host's to record, so choosing it only says so and sends nothing.
+test("choosing cash tells the guest to pay the host, and marks nothing paid", async ({ page, context }) => {
+  const checkedIn = new Date(Date.now() - 86_400_000).toISOString();
+  await open(page, context, { check_in: daysAgo(1), payment_type: "deposit", amount_paid: 1000, checked_in_at: checkedIn });
+  await page.getByRole("button", { name: t.payRemaining.replace("{amount}", "2,000") }).click();
+  await page.getByRole("button", { name: t.payViaCash }).click();
+
+  await expect(page.getByRole("status").filter({ hasText: t.cashHandToHost.replace("{amount}", "2,000") })).toBeVisible();
+  await expect(checkOutButton(page)).toBeDisabled();
+  // pay-balance is not stubbed here, so a POST to it would land in blockedWrites
+  // and fail the write guard in afterEach as well.
+  expect(session.blockedWrites.filter((w) => w.includes("pay-balance"))).toEqual([]);
+  expect(session.calls.filter((c) => c.path.includes("pay-balance"))).toEqual([]);
 });
 
 test("paid in full, check-out goes through and offers a review", async ({ page, context }) => {

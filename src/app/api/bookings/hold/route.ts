@@ -24,7 +24,7 @@ export async function POST(req: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid hold data", details: parsed.error.flatten() },
+        { error: "Invalid hold data" },
         { status: 400 }
       );
     }

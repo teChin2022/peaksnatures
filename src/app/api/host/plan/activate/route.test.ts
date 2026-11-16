@@ -13,7 +13,9 @@ const h = vi.hoisted(() => ({
   getBillingConfig: vi.fn(),
   logEvent: vi.fn(),
   afterCallbacks: [] as Array<() => unknown>,
+  alertStrandedPayment: vi.fn(),
 }));
+vi.mock("@/lib/admin-alert", () => ({ alertStrandedPayment: h.alertStrandedPayment }));
 
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: h.createServerSupabaseClient,
@@ -118,6 +120,7 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.stubEnv("EASYSLIP_API_KEY", "easyslip-key");
   h.afterCallbacks.length = 0;
+  h.alertStrandedPayment.mockClear();
   h.getBillingConfig.mockResolvedValue(CONFIG);
   h.callEasySlipV2.mockImplementation(async (...args: unknown[]) =>
     easySlipSuccess(args[4] as number),
@@ -308,6 +311,15 @@ describe("POST /api/host/plan/activate", () => {
           }),
         }),
       );
+      expect(h.alertStrandedPayment).toHaveBeenCalledWith({
+        kind: "plan_activation",
+        reason: "amount_mismatch",
+        hostName: "Peaks Homestay",
+        hostId: "host-1",
+        expectedAmount: STUB,
+        slipAmount: 1,
+        transRef: "TXN-123",
+      });
     });
 
     it("is not logged when EasySlip itself could not verify it", async () => {

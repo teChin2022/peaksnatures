@@ -13,10 +13,12 @@ const h = vi.hoisted(() => ({
   sendHostCancellationSmsNotification: vi.fn(),
   sendHostCancellationLineNotification: vi.fn(),
   buildCancellationMessage: vi.fn(() => "message"),
+  rateLimitCheck: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ createServiceRoleClient: h.createServiceRoleClient }));
 vi.mock("next/cache", () => ({ revalidateTag: h.revalidateTag }));
+vi.mock("@/lib/rate-limit", () => ({ createRateLimiter: () => ({ check: h.rateLimitCheck }) }));
 vi.mock("next/server", async (importOriginal) => ({
   ...(await importOriginal<typeof import("next/server")>()),
   after: (cb: () => unknown) => {
@@ -38,6 +40,7 @@ vi.mock("@/lib/notifications", () => ({
 }));
 
 const BOOKING_ID = "booking-1";
+const GUEST_EMAIL = "guest@example.com";
 const HOMESTAY_ID = "homestay-1";
 const NOW = new Date("2026-06-01T09:00:00+07:00");
 
@@ -47,6 +50,7 @@ const booking = (over: Record<string, unknown> = {}) => ({
   room_id: "room-1",
   status: "confirmed",
   guest_name: "Nok Suwan",
+  guest_email: "Guest@Example.com",
   check_in: "2026-06-20",
   ...over,
 });
@@ -86,6 +90,7 @@ beforeEach(() => {
   h.dispatchHostNotification.mockResolvedValue(undefined);
   h.logEvent.mockResolvedValue(undefined);
   h.cancelRedemptionForBooking.mockResolvedValue(undefined);
+  h.rateLimitCheck.mockResolvedValue(null);
   mockClient();
 });
 
@@ -97,7 +102,7 @@ describe("POST /api/bookings/cancel", () => {
   it("cancels the booking in the guest's name", async () => {
     const supabase = mockClient();
 
-    await expect(readJson(await post({ booking_id: BOOKING_ID }))).resolves.toEqual({
+    await expect(readJson(await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL }))).resolves.toEqual({
       status: 200,
       body: { success: true },
     });
@@ -111,7 +116,7 @@ describe("POST /api/bookings/cancel", () => {
 
   it("records the guest's reason when they gave one", async () => {
     const supabase = mockClient();
-    await post({ booking_id: BOOKING_ID, reason: "Plans changed" });
+    await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL, reason: "Plans changed" });
     expect(supabase.builderFor("bookings", 1).update).toHaveBeenCalledWith(
       expect.objectContaining({ cancel_reason: "Plans changed" }),
     );
@@ -120,7 +125,7 @@ describe("POST /api/bookings/cancel", () => {
   it("rejects any pending date-change request and cancels the recommender payout", async () => {
     const supabase = mockClient();
 
-    await post({ booking_id: BOOKING_ID });
+    await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL });
 
     expect(supabase.builderFor("date_change_requests").update).toHaveBeenCalledWith({
       status: "rejected",
@@ -131,7 +136,7 @@ describe("POST /api/bookings/cancel", () => {
   });
 
   it("busts the availability and stats caches", async () => {
-    await post({ booking_id: BOOKING_ID });
+    await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL });
     expect(h.revalidateTag).toHaveBeenCalledWith("admin-stats", "max");
     expect(h.revalidateTag).toHaveBeenCalledWith(`booking-availability:${HOMESTAY_ID}`, "max");
   });
@@ -139,7 +144,7 @@ describe("POST /api/bookings/cancel", () => {
   describe("the cancellation window", () => {
     it("allows a cancellation comfortably ahead of check-in", async () => {
       mockClient({ tables: tables({ homestays: { data: homestayWithHost(7) } }) });
-      expect((await post({ booking_id: BOOKING_ID })).status).toBe(200);
+      expect((await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL })).status).toBe(200);
     });
 
     it("allows a cancellation exactly on the boundary", async () => {
@@ -147,7 +152,7 @@ describe("POST /api/bookings/cancel", () => {
       mockClient({
         tables: tables({ bookings: { data: booking({ check_in: "2026-06-08" }) }, homestays: { data: homestayWithHost(7) } }),
       });
-      expect((await post({ booking_id: BOOKING_ID })).status).toBe(200);
+      expect((await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL })).status).toBe(200);
     });
 
     it("refuses a cancellation a day inside the window", async () => {
@@ -155,7 +160,7 @@ describe("POST /api/bookings/cancel", () => {
         tables: tables({ bookings: { data: booking({ check_in: "2026-06-07" }) }, homestays: { data: homestayWithHost(7) } }),
       });
 
-      const { status, body } = await readJson(await post({ booking_id: BOOKING_ID }));
+      const { status, body } = await readJson(await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL }));
       expect(status).toBe(403);
       expect(body).toMatchObject({
         error: "TOO_LATE",
@@ -166,15 +171,43 @@ describe("POST /api/bookings/cancel", () => {
 
     it("refuses a cancellation after check-in has passed", async () => {
       mockClient({ tables: tables({ bookings: { data: booking({ check_in: "2026-05-01" }) } }) });
-      expect((await post({ booking_id: BOOKING_ID })).status).toBe(403);
+      expect((await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL })).status).toBe(403);
     });
 
     it("refuses when the host has not enabled guest cancellation", async () => {
       mockClient({ tables: tables({ homestays: { data: homestayWithHost(0) } }) });
 
-      const { status, body } = await readJson(await post({ booking_id: BOOKING_ID }));
+      const { status, body } = await readJson(await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL }));
       expect(status).toBe(403);
       expect(body).toMatchObject({ error: "CANCELLATION_DISABLED" });
+    });
+  });
+
+  describe("who may cancel", () => {
+    // F-06: the booking id alone used to cancel anyone's confirmed stay.
+    it("refuses an email that is not the booking's, and changes nothing", async () => {
+      const supabase = mockClient();
+
+      const { status } = await readJson(await post({ booking_id: BOOKING_ID, guest_email: "someone@else.com" }));
+
+      expect(status).toBe(403);
+      expect(supabase.calls.filter((c) => c.table === "bookings")).toHaveLength(1);
+      expect((supabase.builderFor("bookings").update as ReturnType<typeof vi.fn>)).not.toHaveBeenCalled();
+    });
+
+    it("requires the guest's email", async () => {
+      await expect(readJson(await post({ booking_id: BOOKING_ID }))).resolves.toEqual({
+        status: 400,
+        body: { error: "guest_email is required" },
+      });
+    });
+
+    it("answers 429 from the rate limiter before reading the booking", async () => {
+      const supabase = mockClient();
+      h.rateLimitCheck.mockResolvedValue(new Response(JSON.stringify({ error: "Too many requests" }), { status: 429 }));
+
+      expect((await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL })).status).toBe(429);
+      expect(supabase.from).not.toHaveBeenCalled();
     });
   });
 
@@ -192,7 +225,7 @@ describe("POST /api/bookings/cancel", () => {
 
     it("reports 404 for a booking that does not exist", async () => {
       mockClient({ tables: tables({ bookings: { data: null } }) });
-      await expect(readJson(await post({ booking_id: BOOKING_ID }))).resolves.toEqual({
+      await expect(readJson(await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL }))).resolves.toEqual({
         status: 404,
         body: { error: "Booking not found" },
       });
@@ -203,7 +236,7 @@ describe("POST /api/bookings/cancel", () => {
       async (current) => {
         mockClient({ tables: tables({ bookings: { data: booking({ status: current }) } }) });
 
-        const { status, body } = await readJson(await post({ booking_id: BOOKING_ID }));
+        const { status, body } = await readJson(await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL }));
         expect(status).toBe(400);
         expect(body).toMatchObject({ error: "INVALID_STATUS" });
       },
@@ -211,7 +244,7 @@ describe("POST /api/bookings/cancel", () => {
 
     it("reports 404 when the homestay is missing", async () => {
       mockClient({ tables: tables({ homestays: { data: null } }) });
-      await expect(readJson(await post({ booking_id: BOOKING_ID }))).resolves.toEqual({
+      await expect(readJson(await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL }))).resolves.toEqual({
         status: 404,
         body: { error: "Homestay not found" },
       });
@@ -219,7 +252,7 @@ describe("POST /api/bookings/cancel", () => {
 
     it("reports 404 when the homestay has no host attached", async () => {
       mockClient({ tables: tables({ homestays: { data: { id: HOMESTAY_ID, hosts: null } } }) });
-      await expect(readJson(await post({ booking_id: BOOKING_ID }))).resolves.toEqual({
+      await expect(readJson(await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL }))).resolves.toEqual({
         status: 404,
         body: { error: "Host not found" },
       });
@@ -227,7 +260,7 @@ describe("POST /api/bookings/cancel", () => {
 
     it("reports 500 when the cancellation write fails", async () => {
       mockClient({ tables: tables({ bookings: [{ data: booking() }, { error: { message: "constraint" } }] }) });
-      await expect(readJson(await post({ booking_id: BOOKING_ID }))).resolves.toEqual({
+      await expect(readJson(await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL }))).resolves.toEqual({
         status: 500,
         body: { error: "Failed to cancel booking" },
       });
@@ -237,13 +270,13 @@ describe("POST /api/bookings/cancel", () => {
       h.createServiceRoleClient.mockImplementation(() => {
         throw new Error("no database");
       });
-      expect((await post({ booking_id: BOOKING_ID })).status).toBe(500);
+      expect((await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL })).status).toBe(500);
     });
   });
 
   describe("deferred work", () => {
     it("logs the cancellation and tells the host afterwards", async () => {
-      await post({ booking_id: BOOKING_ID, reason: "Plans changed" });
+      await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL, reason: "Plans changed" });
       expect(h.logEvent).not.toHaveBeenCalled();
 
       await runAfter();
@@ -267,7 +300,7 @@ describe("POST /api/bookings/cancel", () => {
         },
       );
 
-      await post({ booking_id: BOOKING_ID });
+      await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL });
       await runAfter();
 
       expect(h.sendHostCancellationSmsNotification).toHaveBeenCalledWith(
@@ -279,7 +312,7 @@ describe("POST /api/bookings/cancel", () => {
     it("copes with a booking that names no room", async () => {
       mockClient({ tables: tables({ bookings: { data: booking({ room_id: null }) } }) });
 
-      await post({ booking_id: BOOKING_ID });
+      await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL });
       await runAfter();
 
       expect(h.dispatchHostNotification).toHaveBeenCalledWith(
@@ -291,7 +324,7 @@ describe("POST /api/bookings/cancel", () => {
     it("survives a notification failure", async () => {
       h.dispatchHostNotification.mockRejectedValue(new Error("sms down"));
 
-      await post({ booking_id: BOOKING_ID });
+      await post({ booking_id: BOOKING_ID, guest_email: GUEST_EMAIL });
       await expect(runAfter()).resolves.toBeUndefined();
       expect(console.error).toHaveBeenCalled();
     });

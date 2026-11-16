@@ -1,7 +1,14 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { createRateLimiter } from "@/lib/rate-limit";
+import { SITE_URL } from "@/lib/seo";
+
+const magicLinkRateLimit = createRateLimiter({ limit: 5, windowMs: 60_000, name: "send-magic-link" });
 
 export async function POST(req: NextRequest) {
+  const rateLimited = await magicLinkRateLimit.check(req);
+  if (rateLimited) return rateLimited;
+
   try {
     const { email } = await req.json();
 
@@ -15,9 +22,11 @@ export async function POST(req: NextRequest) {
     const trimmedEmail = email.trim().toLowerCase();
     const serviceClient = createServiceRoleClient();
 
-    // Generate magic link (only works if user exists in Supabase)
-    const origin =
-      req.headers.get("origin") || process.env.NEXT_PUBLIC_APP_URL || "";
+    // Generate magic link (only works if user exists in Supabase).
+    // Never from the request's Origin or Host: the link carries a live token,
+    // and this route builds it itself, so Supabase's redirect allowlist never
+    // sees it. A forged Origin would send the victim's token to another site.
+    const origin = SITE_URL;
 
     const { data: linkData, error: linkError } =
       await serviceClient.auth.admin.generateLink({
@@ -28,12 +37,11 @@ export async function POST(req: NextRequest) {
         },
       });
 
+    // No account (or any other failure): the same answer as a sent link, so
+    // this route cannot be used to learn which emails have an account (F-19).
     if (linkError || !linkData) {
-      console.error("[Magic Link] Generate error:", linkError);
-      return NextResponse.json(
-        { error: "no_account" },
-        { status: 404 }
-      );
+      console.error("[Magic Link] Generate error:", linkError?.message);
+      return NextResponse.json({ success: true });
     }
 
     const hashedToken = linkData.properties.hashed_token;

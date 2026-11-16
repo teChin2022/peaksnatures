@@ -11,6 +11,7 @@ import type { SupportedLocale } from "@/lib/translation/types";
 import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice, RoomSpecialPrice, RoomOption, RoomGuestPricing, PromoCode } from "@/types/database";
 import { SITE_NAME, buildAlternates } from "@/lib/seo";
 import { resolveIconKeys } from "@/lib/list-icons";
+import { isHostApproved } from "@/lib/public-host";
 
 /*
  * Data for the public homestay pages: the landing (/[slug]) and the booking
@@ -107,6 +108,8 @@ export const getHomestayData = cache(async function getHomestayData(
   ]);
 
   const host = hostRow as unknown as Host | null;
+  // An unapproved host has no public page (see isHostApproved).
+  if (!isHostApproved(host)) return null;
   const roomsWithJoins = (roomRows as unknown as (Room & { room_seasonal_prices: RoomSeasonalPrice[]; room_special_prices: RoomSpecialPrice[]; room_options: RoomOption[]; room_guest_pricing: RoomGuestPricing[] })[]) || [];
   const rooms = roomsWithJoins.map(({ room_seasonal_prices: _, room_special_prices: _s, room_options: _o, room_guest_pricing: _g, ...room }) => room as unknown as Room);
   const seasonalPrices = roomsWithJoins.flatMap((r) => r.room_seasonal_prices || []);

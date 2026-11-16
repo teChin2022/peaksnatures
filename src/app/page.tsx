@@ -2,6 +2,7 @@ import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { isHostBlocked } from "@/lib/plan-expiry";
+import { isHostApproved } from "@/lib/public-host";
 import { fetchPastDueHostIds } from "@/lib/billing";
 import { landingStats } from "@/lib/landing-stats";
 import { compareHomestays } from "@/lib/homestay-order";
@@ -65,7 +66,7 @@ export default async function Home() {
           .eq("is_active", true),
         supabase
           .from("hosts")
-          .select("id, is_verified, plan_type, plan_free_expires_at, wallet_balance, wallet_credit_limit, wallet_negative_since")
+          .select("id, status, is_verified, plan_type, plan_free_expires_at, wallet_balance, wallet_credit_limit, wallet_negative_since")
           .in("id", hostIds),
         supabase
           .from("reviews")
@@ -92,6 +93,7 @@ export default async function Home() {
   const blockedHostIds = new Set<string>();
   for (const host of (hostRows as {
     id: string;
+    status: string;
     is_verified: boolean;
     plan_type: string;
     plan_free_expires_at: string | null;
@@ -101,6 +103,8 @@ export default async function Home() {
   }[]) || []) {
     hostVerifiedMap.set(host.id, host.is_verified);
     if (
+      // Not approved by an admin yet: no public listing (audit F-14).
+      !isHostApproved(host) ||
       isHostBlocked({
         plan_type: host.plan_type,
         plan_free_expires_at: host.plan_free_expires_at,

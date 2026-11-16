@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback, useMemo } from "react";
-import { Search, CalendarDays, Clock, CheckCircle2, XCircle, Loader2, MessageSquare, LogIn, LogOut, Upload, CreditCard, Download, Banknote, AlertTriangle, ArrowRightLeft, ArrowLeft } from "lucide-react";
+import { Search, CalendarDays, Clock, CheckCircle2, XCircle, Loader2, MessageSquare, LogIn, LogOut, Upload, CreditCard, Download, Banknote, AlertTriangle, ArrowRightLeft, ArrowLeft, Phone, Mail } from "lucide-react";
+import { isValidEmail, isValidPhone, sanitizePhoneInput } from "@/lib/utils";
 import { motion, AnimatePresence } from "motion/react";
 import { createClient } from "@/lib/supabase/client";
 import { Calendar } from "@/components/ui/calendar";
@@ -98,7 +99,9 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
   const t = useTranslations("bookingSearch");
   const tr = useTranslations("reviews");
   const locale = useLocale();
-  const [query, setQuery] = useState("");
+  const [phone, setPhone] = useState("");
+  const [email, setEmail] = useState("");
+  const canSearch = isValidPhone(phone) && isValidEmail(email);
   const [results, setResults] = useState<SearchResult[]>([]);
   const [loading, setLoading] = useState(false);
   const [searched, setSearched] = useState(false);
@@ -314,41 +317,6 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
     }
   };
 
-  const handlePayCash = async (booking: SearchResult) => {
-    setSubmittingBalance(true);
-    try {
-      const payRes = await fetch("/api/bookings/pay-balance", {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          booking_id: booking.id,
-          guest_email: booking.guest_email,
-          method: "cash",
-        }),
-      });
-
-      if (!payRes.ok) {
-        toast.error(t("errorPayment"));
-        return;
-      }
-
-      toast.success(t("balancePaid"));
-      setResults((prev) =>
-        prev.map((b) =>
-          b.id === booking.id
-            ? { ...b, amount_paid: b.total_price, payment_type: "full" }
-            : b
-        )
-      );
-      setPayingBalanceId(null);
-      setBalancePayMethod(null);
-    } catch {
-      toast.error(t("errorPayment"));
-    } finally {
-      setSubmittingBalance(false);
-    }
-  };
-
   const handleReviewSuccess = (bookingId: string) => {
     setResults((prev) =>
       prev.map((b) => (b.id === bookingId ? { ...b, has_review: true } : b))
@@ -365,6 +333,8 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           booking_id: bookingId,
+          // The route checks it against the booking (the id alone is not enough).
+          guest_email: results.find((b) => b.id === bookingId)?.guest_email,
           reason: cancelReason.trim() || undefined,
         }),
       });
@@ -422,6 +392,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
 
       const body: Record<string, unknown> = {
         booking_id: booking.id,
+        guest_email: booking.guest_email,
         new_check_in: newCheckIn,
         new_check_out: newCheckOut,
         payment_option: dcPaymentOption,
@@ -545,6 +516,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
     try {
       const body: Record<string, unknown> = {
         booking_id: booking.id,
+        guest_email: booking.guest_email,
         new_check_in: format(from, "yyyy-MM-dd"),
         new_check_out: format(to, "yyyy-MM-dd"),
         preview: true,
@@ -684,11 +656,15 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
   }, [dateChangePriceInfo, dcEffectiveAdditional, dateChangeSlipFile, dcPhoneSlipReceived, isMobile, dcUploadSessionId, t]);
 
   const handleSearch = async () => {
-    if (!query.trim()) return;
+    if (!canSearch) return;
     setLoading(true);
     setSearched(true);
     try {
-      const res = await fetch(`/api/bookings/search?query=${encodeURIComponent(query.trim())}&homestay_id=${homestayId}`);
+      const res = await fetch("/api/bookings/search", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ homestay_id: homestayId, phone, email: email.trim() }),
+      });
       const data = await res.json();
       setResults(data.bookings || []);
       if (data.cancellation_days !== undefined) {
@@ -708,35 +684,59 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
   return (
     <>
       <div className="space-y-4">
-        {/* Same label, field + button as the reviews lookup (review-submission.tsx): keep the two in step. */}
-        <div>
-        <Label htmlFor="booking-search-query" className="block text-sm font-semibold text-earth-700">
-          {t("searchLabel")}
-        </Label>
-        <div className="mt-2 flex flex-col gap-2 sm:flex-row">
-          <div className="relative flex-1">
-            <Search className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-500" size={16} aria-hidden="true" />
-            <Input
-              id="booking-search-query"
-              enterKeyHint="search"
-              autoComplete="off"
-              placeholder={t("placeholder")}
-              value={query}
-              onChange={(e) => setQuery(e.target.value)}
-              onKeyDown={handleKeyDown}
-              disabled={!turnstilePassed}
-              className="!pl-10 p-3.5 !h-12 rounded-xl !border !border-earth-500 !bg-white hover:!border-earth-700 transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2"
-            />
+        {/* Same fields + button as the reviews lookup (review-submission.tsx): keep the two in step.
+            Phone AND email, as /api/bookings/search requires (src/lib/guest-lookup.ts). */}
+        <div className="grid gap-3 sm:grid-cols-[1fr_1fr_auto] sm:items-end">
+          <div>
+            <Label htmlFor="booking-search-phone" className="block text-sm font-semibold text-earth-700">
+              {t("phoneLabel")}
+            </Label>
+            <div className="relative mt-2">
+              <Phone className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-500" size={16} aria-hidden="true" />
+              <Input
+                id="booking-search-phone"
+                type="tel"
+                inputMode="numeric"
+                autoComplete="tel"
+                maxLength={10}
+                placeholder={t("phonePlaceholder")}
+                value={phone}
+                onChange={(e) => setPhone(sanitizePhoneInput(e.target.value))}
+                onKeyDown={handleKeyDown}
+                disabled={!turnstilePassed}
+                className="!pl-10 p-3.5 !h-12 rounded-xl !border !border-earth-500 !bg-white hover:!border-earth-700 transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2"
+              />
+            </div>
+          </div>
+          <div>
+            <Label htmlFor="booking-search-email" className="block text-sm font-semibold text-earth-700">
+              {t("emailLabel")}
+            </Label>
+            <div className="relative mt-2">
+              <Mail className="pointer-events-none absolute left-3.5 top-1/2 -translate-y-1/2 text-earth-500" size={16} aria-hidden="true" />
+              <Input
+                id="booking-search-email"
+                type="email"
+                inputMode="email"
+                enterKeyHint="search"
+                autoComplete="email"
+                placeholder={t("emailPlaceholder")}
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                onKeyDown={handleKeyDown}
+                disabled={!turnstilePassed}
+                className="!pl-10 p-3.5 !h-12 rounded-xl !border !border-earth-500 !bg-white hover:!border-earth-700 transition-all text-base md:text-sm font-medium text-earth-900 !shadow-none focus-visible:!ring-2 focus-visible:!ring-brand focus-visible:!ring-offset-2"
+              />
+            </div>
           </div>
           <button
             type="button"
             onClick={handleSearch}
-            disabled={loading || !query.trim() || !turnstilePassed}
+            disabled={loading || !canSearch || !turnstilePassed}
             className="inline-flex h-12 w-full shrink-0 items-center justify-center rounded-full bg-brand px-6 text-sm font-semibold text-white transition-colors hover:bg-brand-hover disabled:cursor-not-allowed disabled:opacity-50 focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-brand sm:w-auto sm:min-w-28"
           >
             {loading ? <Loader2 className="h-4 w-4 animate-spin" /> : t("search")}
           </button>
-        </div>
         </div>
         {turnstileSiteKey && !turnstilePassed && (
           <div className="flex justify-center">
@@ -1126,19 +1126,11 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                                     </div>
                                   )}
 
+                                  {/* Cash is recorded by the host (/dashboard/checkins), not by the guest. */}
                                   {balancePayMethod === "cash" && (
-                                    <Button
-                                      className="h-11 w-full rounded-full bg-brand text-white hover:bg-brand-hover"
-                                      onClick={() => handlePayCash(booking)}
-                                      disabled={submittingBalance}
-                                    >
-                                      {submittingBalance ? (
-                                        <Loader2 className="mr-1.5 h-4 w-4 animate-spin" aria-hidden="true" />
-                                      ) : (
-                                        <Banknote className="mr-1.5 h-4 w-4" aria-hidden="true" />
-                                      )}
-                                      {t("cashConfirm")} ฿{balanceDue.toLocaleString()}
-                                    </Button>
+                                    <p role="status" className="rounded-xl bg-earth-50 p-3 text-sm leading-relaxed text-earth-700">
+                                      {t("cashHandToHost", { amount: balanceDue.toLocaleString() })}
+                                    </p>
                                   )}
                                 </div>
                               ) : (

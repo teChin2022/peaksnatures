@@ -3,7 +3,7 @@ import { NextResponse } from "next/server";
 import { POST } from "./route";
 import { EventType } from "@/lib/history-log";
 import { buildBookingRequest, type BookingSlipFields } from "@/lib/booking-request";
-import { createSupabaseMock, type QueryResponse } from "../../../../../test/helpers/supabase";
+import { createQueryBuilder, createSupabaseMock, type QueryResponse } from "../../../../../test/helpers/supabase";
 import { makeRequest, readJson } from "../../../../../test/helpers/request";
 
 // Scope: the slip/verification rules and the guest quick booking gate this
@@ -29,6 +29,8 @@ const h = vi.hoisted(() => ({
   buildGroupBookingMessage: vi.fn(),
   rateLimitCheck: vi.fn(),
   verifyTurnstileToken: vi.fn(),
+  claimVerifiedSlip: vi.fn(),
+  releaseVerifiedSlip: vi.fn(),
 }));
 
 vi.mock("@/lib/supabase/server", () => ({ createServiceRoleClient: h.createServiceRoleClient }));
@@ -65,6 +67,10 @@ vi.mock("@/lib/notifications", () => ({
 }));
 vi.mock("@/lib/rate-limit", () => ({ createRateLimiter: () => ({ check: h.rateLimitCheck }) }));
 vi.mock("@/lib/turnstile", () => ({ verifyTurnstileToken: h.verifyTurnstileToken }));
+vi.mock("@/lib/verified-slips", () => ({
+  claimVerifiedSlip: h.claimVerifiedSlip,
+  releaseVerifiedSlip: h.releaseVerifiedSlip,
+}));
 
 const uuid = (n: number) => `${String(n).repeat(8)}-1111-4111-8111-111111111111`;
 const HOMESTAY_ID = uuid(1);
@@ -100,7 +106,14 @@ const quickBody = (over: Record<string, unknown> = {}) => body({ quick: true, sl
 const homestay = (mode: string | undefined, deposit = 0) => ({
   host_id: "host-1",
   promo_codes_enabled: false,
-  hosts: { deposit_amount: deposit, deposit_by_month: null, guest_booking_mode: mode },
+  hosts: {
+    deposit_amount: deposit,
+    deposit_by_month: null,
+    guest_booking_mode: mode,
+    promptpay_id: "0812345678",
+    bank_account_number: null,
+    status: "approved",
+  },
 });
 
 /** `lookup` is the waiting-bookings check a quick request makes first. */
@@ -157,6 +170,9 @@ beforeEach(() => {
   );
   h.rateLimitCheck.mockResolvedValue(null);
   h.verifyTurnstileToken.mockResolvedValue("pass");
+  // The slip matches the server's record unless a test says otherwise.
+  h.claimVerifiedSlip.mockResolvedValue(true);
+  h.releaseVerifiedSlip.mockResolvedValue(undefined);
   h.verifyRoomLineItem.mockImplementation(async (_s: unknown, _h: string, it: ReturnType<typeof item>) => ({
     ok: true,
     data: {
@@ -178,6 +194,19 @@ beforeEach(() => {
 });
 
 describe("POST /api/bookings/group", () => {
+  // F-14: a host nobody approved could publish a page and take bookings.
+  it("refuses a cart at a pending host's homestay", async () => {
+    const supabase = mockClient("normal");
+    supabase.from.mockImplementation((table: string) => {
+      const pending = { ...homestay("normal"), hosts: { ...homestay("normal").hosts, status: "pending" } };
+      return createQueryBuilder(table === "homestays" ? { data: pending } : {});
+    });
+
+    expect((await post(body())).status).toBe(403);
+    expect(supabase.rpc).not.toHaveBeenCalled();
+    expect(h.claimVerifiedSlip).not.toHaveBeenCalled();
+  });
+
   describe("a normal (slip-verified) booking", () => {
     it("creates the group confirmed and charges commission per member", async () => {
       const supabase = mockClient("normal");
@@ -199,9 +228,31 @@ describe("POST /api/bookings/group", () => {
       expect(h.revalidateTag).toHaveBeenCalledWith("admin-stats", "max");
     });
 
-    it("keeps an unverified slip pending and charges nothing", async () => {
+    it("claims the slip once, for the combined amount, paid to this host's accounts", async () => {
+      mockClient("normal");
+      await post(body());
+
+      expect(h.claimVerifiedSlip).toHaveBeenCalledTimes(1);
+      expect(h.claimVerifiedSlip).toHaveBeenCalledWith(expect.anything(), {
+        slipHash: "a".repeat(64),
+        amount: 4000,
+        promptpayId: "0812345678",
+        bankAccountNumber: null,
+      });
+    });
+
+    it("frees the slip again when a house was taken first", async () => {
       const supabase = mockClient("normal");
-      await post(body({ easyslip_verified: false }));
+      supabase.rpc.mockResolvedValue({ data: null, error: { message: "DATES_UNAVAILABLE" } });
+
+      expect((await post(body())).status).toBe(409);
+      expect(h.releaseVerifiedSlip).toHaveBeenCalledWith(expect.anything(), "a".repeat(64));
+    });
+
+    it("keeps a slip the server could not match pending and charges nothing", async () => {
+      const supabase = mockClient("normal");
+      h.claimVerifiedSlip.mockResolvedValue(false);
+      await post(body({ easyslip_verified: true }));
 
       expect(supabase.rpc).toHaveBeenCalledWith(
         "create_booking_group_atomic",
@@ -447,7 +498,8 @@ describe("POST /api/bookings/group", () => {
 
     it("keeps the pending email and flagged wording for a slip that failed verification", async () => {
       mockClient("normal");
-      await post(body({ easyslip_verified: false }));
+      h.claimVerifiedSlip.mockResolvedValue(false);
+      await post(body());
       await runAfter();
 
       expect(h.sendGroupBookingConfirmationEmail).toHaveBeenCalledWith(expect.anything(), "th", "pending");

@@ -3,11 +3,14 @@ import { z } from "zod";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { after } from "next/server";
 import { logEvent, EventType } from "@/lib/history-log";
+import { claimVerifiedSlip, releaseVerifiedSlip } from "@/lib/verified-slips";
 
 const payBalanceSchema = z.object({
   booking_id: z.string().uuid(),
   guest_email: z.string().email(),
-  method: z.enum(["transfer", "cash"]).default("transfer"),
+  // Transfer only. Cash used to be the guest marking the balance paid
+  // themselves; the host now records cash (/api/bookings/host-cash-balance).
+  method: z.enum(["transfer"]).default("transfer"),
   slip_hash: z.string().nullable().optional(),
   slip_trans_ref: z.string().nullable().optional(),
   payment_slip_url: z.string().nullable().optional(),
@@ -26,15 +29,15 @@ export async function POST(req: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid request data", details: parsed.error.flatten() },
+        { error: "Invalid request data" },
         { status: 400 }
       );
     }
 
     const data = parsed.data;
 
-    // Transfer method requires a verified slip
-    if (data.method === "transfer" && !data.slip_hash) {
+    // A transfer needs the slip /api/verify-slip recorded
+    if (!data.slip_hash) {
       return NextResponse.json(
         { error: "Slip hash is required for transfer payments" },
         { status: 400 }
@@ -68,10 +71,14 @@ export async function POST(req: NextRequest) {
     // Block if host is in bad standing
     const { data: hsRow } = await supabase
       .from("homestays")
-      .select("host_id")
+      .select("host_id, hosts(promptpay_id, bank_account_number)")
       .eq("id", booking.homestay_id)
       .single();
-    const hostId = (hsRow as { host_id: string } | null)?.host_id;
+    const homestay = hsRow as {
+      host_id: string;
+      hosts: { promptpay_id: string | null; bank_account_number: string | null } | null;
+    } | null;
+    const hostId = homestay?.host_id;
     if (hostId) {
       const [{ isHostBlocked }, { getHostBlockState }] = await Promise.all([
         import("@/lib/plan-expiry"),
@@ -111,6 +118,23 @@ export async function POST(req: NextRequest) {
       );
     }
 
+    // The slip must be one /api/verify-slip recorded, for exactly the balance
+    // due, paid to this host, and not used before. Checked last, after every
+    // other refusal, so a refusal above never consumes a real slip.
+    const slipHash = data.slip_hash;
+    const paid = await claimVerifiedSlip(supabase, {
+      slipHash,
+      amount: balanceDue,
+      promptpayId: homestay?.hosts?.promptpay_id ?? null,
+      bankAccountNumber: homestay?.hosts?.bank_account_number ?? null,
+    });
+    if (!paid) {
+      return NextResponse.json(
+        { error: "SLIP_NOT_VERIFIED", message: "The slip does not show the balance due paid to this homestay" },
+        { status: 400 }
+      );
+    }
+
     // Update booking: mark as fully paid
     const { error: updateError } = await supabase
       .from("bookings")
@@ -123,6 +147,7 @@ export async function POST(req: NextRequest) {
 
     if (updateError) {
       console.error("[PayBalance] Update error:", updateError);
+      await releaseVerifiedSlip(supabase, slipHash);
       return NextResponse.json(
         { error: "Failed to update booking payment" },
         { status: 500 }

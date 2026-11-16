@@ -34,7 +34,7 @@ export async function POST(req: NextRequest) {
 
     if (!parsed.success) {
       return NextResponse.json(
-        { error: "Invalid booking data", details: parsed.error.flatten() },
+        { error: "Invalid booking data" },
         { status: 400 }
       );
     }

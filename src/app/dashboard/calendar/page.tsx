@@ -66,6 +66,7 @@ import type { BookingStatus } from "@/types/database";
 import { QuickBookingDialog } from "@/components/dashboard/quick-booking-dialog";
 import { BookingAttachments } from "@/components/dashboard/booking-attachments";
 import { statusToneClass } from "@/components/admin/status-badge";
+import { slipStoragePath } from "@/lib/slip-path";
 
 interface BookingRow {
   id: string;
@@ -97,24 +98,24 @@ interface FullBookingRow extends BookingRow {
   booking_source: string | null;
 }
 
-function extractStoragePath(value: string | null): string | null {
-  if (!value) return null;
-  if (!value.startsWith("http")) return value;
-  const match = value.match(/\/payment-slips\/([^?]+)/);
-  return match ? decodeURIComponent(match[1]) : null;
-}
-
-async function resolveSingleSlipUrl(
-  row: FullBookingRow,
-  supabase: ReturnType<typeof createClient>
-): Promise<FullBookingRow> {
-  const path = extractStoragePath(row.payment_slip_url);
-  if (!path) return row;
-  const { data } = await supabase.storage
-    .from("payment-slips")
-    .createSignedUrl(path, 60 * 60);
-  if (!data?.signedUrl) return row;
-  return { ...row, payment_slip_url: data.signedUrl };
+/**
+ * The server signs the slip (/api/host/booking-slips) after checking the
+ * booking is this host's; the browser has no read access to the bucket.
+ */
+async function resolveSingleSlipUrl(row: FullBookingRow): Promise<FullBookingRow> {
+  if (!slipStoragePath(row.payment_slip_url)) return row;
+  try {
+    const res = await fetch("/api/host/booking-slips", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ booking_ids: [row.id] }),
+    });
+    if (!res.ok) return row;
+    const signed = ((await res.json()) as { urls: Record<string, string> }).urls[row.id];
+    return signed ? { ...row, payment_slip_url: signed } : row;
+  } catch {
+    return row;
+  }
 }
 
 const STATUS_BADGE: Record<BookingStatus, string> = {
@@ -199,7 +200,7 @@ export default function CalendarPage() {
           .eq("id", id)
           .single();
         if (data) {
-          const resolved = await resolveSingleSlipUrl(data as unknown as FullBookingRow, supabase);
+          const resolved = await resolveSingleSlipUrl(data as unknown as FullBookingRow);
           setFullBookingCache((prev) => ({ ...prev, [id]: resolved }));
         }
       } finally {

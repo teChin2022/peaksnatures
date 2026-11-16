@@ -29,3 +29,12 @@ export type BookingHost = Pick<Host, (typeof BOOKING_HOST_FIELDS)[number]>;
 export function toBookingHost(host: Host): BookingHost {
   return Object.fromEntries(BOOKING_HOST_FIELDS.map((key) => [key, host[key]])) as BookingHost;
 }
+
+/**
+ * Only an admin-approved host is public: page, listings, sitemap, bookings.
+ * A new host is `pending` until approved (migration 026), and could otherwise
+ * publish a page that takes bookings and shows their PromptPay (audit F-14).
+ */
+export function isHostApproved(host: { status?: string | null } | null | undefined): boolean {
+  return host?.status === "approved";
+}

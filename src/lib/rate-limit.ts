@@ -169,9 +169,8 @@ export function createRateLimiter({
     }
   }
 
-  async function check(req: NextRequest): Promise<NextResponse | null> {
-    const bucket = await Promise.resolve((key ?? defaultKey)(req));
-
+  /** Meter a bucket the caller names: a user id or an email known only after auth or the body. */
+  async function checkKey(bucket: string): Promise<NextResponse | null> {
     if (process.env.REDIS_URL && !redisProcessDisabled) {
       const redisResult = await checkRedis(bucket);
       if (redisResult !== "fallback") return redisResult;
@@ -180,5 +179,9 @@ export function createRateLimiter({
     return checkInMemory(bucket);
   }
 
-  return { check };
+  async function check(req: NextRequest): Promise<NextResponse | null> {
+    return checkKey(await Promise.resolve((key ?? defaultKey)(req)));
+  }
+
+  return { check, checkKey };
 }

@@ -12,7 +12,9 @@ const h = vi.hoisted(() => ({
   getBillingConfig: vi.fn(),
   logEvent: vi.fn(),
   afterCallbacks: [] as Array<() => unknown>,
+  alertStrandedPayment: vi.fn(),
 }));
+vi.mock("@/lib/admin-alert", () => ({ alertStrandedPayment: h.alertStrandedPayment }));
 
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: h.createServerSupabaseClient,
@@ -87,6 +89,7 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.stubEnv("EASYSLIP_API_KEY", "easyslip-key");
   h.afterCallbacks.length = 0;
+  h.alertStrandedPayment.mockClear();
   h.getBillingConfig.mockResolvedValue({ promptpay_id: RECEIVER, bank_account_number: null });
   h.callEasySlipV2.mockImplementation(
     (_buf: ArrayBuffer, _n: string, _t: string, _k: string, amount: number) =>
@@ -284,6 +287,15 @@ describe("POST /api/host/wallet/topup", () => {
           }),
         }),
       );
+      expect(h.alertStrandedPayment).toHaveBeenCalledWith({
+        kind: "wallet_topup",
+        reason: "amount_mismatch",
+        hostName: "Peaks Homestay",
+        hostId: "host-1",
+        expectedAmount: 1000,
+        slipAmount: 2000,
+        transRef: "TXN-123",
+      });
     });
   });
 });

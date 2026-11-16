@@ -429,7 +429,6 @@ export default function DashboardPage() {
     <div>
       {profileLoaded && hostProfile && (!hostProfile.hasPhone || !hostProfile.hasPromptpay || !hostProfile.hasPinSet) && (
         <SetupProfileModal
-          hostId={hostProfile.id}
           hasPhone={hostProfile.hasPhone}
           hasPromptpay={hostProfile.hasPromptpay}
           hasPinSet={hostProfile.hasPinSet}

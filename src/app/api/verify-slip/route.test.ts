@@ -85,6 +85,33 @@ describe("POST /api/verify-slip", () => {
     expect((body as { payment_slip_url: string }).payment_slip_url).toMatch(/^pending\/.+\/slip\.jpg$/);
   });
 
+  // The booking routes decide from this record, not from what the browser
+  // relays back (F-01). It is what the slip says, whatever the client expected.
+  it("records what EasySlip read off the slip, on the server", async () => {
+    const supabase = mockClient();
+
+    const { body } = await readJson(await post({ expected_amount: "1" }));
+
+    expect(supabase.builderFor("verified_slips").upsert).toHaveBeenCalledWith(
+      {
+        slip_hash: (body as { slip_hash: string }).slip_hash,
+        trans_ref: "TXN-123",
+        amount: 2000,
+        receiver: { account: { proxy: { type: "MSISDN", account: "xxx-xxx-5678" } } },
+      },
+      { onConflict: "slip_hash", ignoreDuplicates: true },
+    );
+  });
+
+  it("records nothing for a slip EasySlip flags as reused", async () => {
+    const supabase = mockClient();
+    callEasySlipV2.mockResolvedValue(easySlipSuccess({ isDuplicate: true }));
+
+    await post();
+
+    expect(supabase.calls.some((c) => c.table === "verified_slips")).toBe(false);
+  });
+
   it("uploads the slip and signs a preview URL for an hour", async () => {
     const supabase = mockClient();
     await post();

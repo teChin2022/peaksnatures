@@ -28,6 +28,12 @@ describe("LandingBookBar", () => {
     expect(html).toContain("฿1,500");
   });
 
+  it("labels the price as a minimum: houses are priced apart", async () => {
+    const html = await bar();
+    expect(html).toContain("card.from");
+    expect(html).not.toContain("ratePrice");
+  });
+
   it("is a dimmed label, not a link, while the host can't take bookings", async () => {
     const html = await bar({ bookingDisabled: true });
     expect(html).not.toContain("href=");

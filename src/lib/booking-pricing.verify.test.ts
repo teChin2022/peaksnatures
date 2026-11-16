@@ -149,8 +149,9 @@ describe("verifyRoomLineItem", () => {
   describe("options are priced from the database, never from the client", () => {
     it("charges a per-night option once per night", async () => {
       const result = await verify(
-        roomTables({ room_options: { data: [{ id: "opt-1", price: 250, pricing_type: "per_night" }] } }),
-        line({ selected_options: [{ id: "opt-1", name: "Breakfast", price: 999999 }] }),
+        roomTables({ room_options: { data: [{ id: "opt-1", name: "Breakfast", price: 250, pricing_type: "per_night" }] } }),
+        // The client's name is ignored like its price (F-15).
+        line({ selected_options: [{ id: "opt-1", name: "<b>Free spa</b>", price: 999999 }] }),
       );
 
       expect(result).toMatchObject({

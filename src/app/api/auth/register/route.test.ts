@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import { POST } from "./route";
+import { SITE_URL } from "@/lib/seo";
 import { makeRequest, readJson } from "../../../../../test/helpers/request";
 
 const h = vi.hoisted(() => ({
@@ -41,12 +42,45 @@ describe("POST /api/auth/register", () => {
     );
   });
 
+  it("points the confirmation link at the app's own URL, whatever Origin the request claims", async () => {
+    await readJson(
+      await POST(makeRequest("/api/auth/register", { body: body(), headers: { origin: "https://attacker.example" } })),
+    );
+
+    expect(h.signUp).toHaveBeenCalledWith(
+      expect.objectContaining({
+        options: expect.objectContaining({ emailRedirectTo: `${SITE_URL}/api/auth/callback?next=/dashboard` }),
+      }),
+    );
+  });
+
   it.each([
     ["missing", undefined],
     ["nine digits", "081234567"],
     ["formatted", "081-234-5678"],
   ])("rejects a phone that is %s before signing up", async (_, phone) => {
     const { status } = await register(body({ phone }));
+
+    expect(status).toBe(400);
+    expect(h.signUp).not.toHaveBeenCalled();
+  });
+});
+
+// F-19: EMAIL_EXISTS (409) told anyone which emails have an account here.
+describe("POST /api/auth/register: an email that already has an account", () => {
+  it.each([
+    ["Supabase reports it (confirmations off)", () => h.signUp.mockResolvedValue({ data: null, error: { message: "User already registered" } })],
+    ["Supabase hides it (confirmations on)", () => h.signUp.mockResolvedValue({ data: { user: { identities: [] } }, error: null })],
+  ])("answers exactly as for a new one when %s", async (_, arrange) => {
+    arrange();
+    await expect(register(body())).resolves.toEqual({ status: 200, body: { success: true } });
+  });
+});
+
+// L-02: 6 characters was the minimum.
+describe("POST /api/auth/register: password length", () => {
+  it("refuses a 7-character password, even with every required kind of character", async () => {
+    const { status } = await register(body({ password: "Secr_1A" }));
 
     expect(status).toBe(400);
     expect(h.signUp).not.toHaveBeenCalled();

@@ -1,6 +1,6 @@
 import { describe, expect, it } from "vitest";
 import type { Host } from "@/types/database";
-import { BOOKING_HOST_FIELDS, toBookingHost } from "@/lib/public-host";
+import { BOOKING_HOST_FIELDS, isHostApproved, toBookingHost } from "@/lib/public-host";
 
 // A full row as `hosts.select("*")` returns it, secrets included.
 const host = {
@@ -59,5 +59,20 @@ describe("toBookingHost", () => {
 
   it("passes the guest booking mode and the phone the quick-booking contact block needs", () => {
     expect(toBookingHost(host)).toMatchObject({ guest_booking_mode: "quick", phone: "0812345678" });
+  });
+});
+
+describe("isHostApproved", () => {
+  it("is true only for an approved host", () => {
+    expect(isHostApproved({ status: "approved" })).toBe(true);
+  });
+
+  it.each([["pending"], ["rejected"], [""], [null], [undefined]])("is false for status %j", (status) => {
+    expect(isHostApproved({ status })).toBe(false);
+  });
+
+  it("is false when there is no host row", () => {
+    expect(isHostApproved(null)).toBe(false);
+    expect(isHostApproved(undefined)).toBe(false);
   });
 });

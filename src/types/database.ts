@@ -1199,6 +1199,32 @@ export interface Database {
           created_at?: string;
         };
       };
+      verified_slips: {
+        Row: {
+          slip_hash: string;
+          trans_ref: string | null;
+          amount: number;
+          receiver: Json | null;
+          verified_at: string;
+          consumed_at: string | null;
+        };
+        Insert: {
+          slip_hash: string;
+          trans_ref?: string | null;
+          amount: number;
+          receiver?: Json | null;
+          verified_at?: string;
+          consumed_at?: string | null;
+        };
+        Update: {
+          slip_hash?: string;
+          trans_ref?: string | null;
+          amount?: number;
+          receiver?: Json | null;
+          verified_at?: string;
+          consumed_at?: string | null;
+        };
+      };
       invoices: {
         Row: {
           id: string;

@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse, after } from "next/server";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
+import { pinAttemptKey, pinAttemptLimit } from "@/lib/security-pin";
 import bcrypt from "bcryptjs";
 import { logEvent, EventType } from "@/lib/history-log";
 
@@ -26,8 +27,11 @@ export async function POST(req: NextRequest) {
     if (!user) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
     }
+    // Per-host PIN tries (src/lib/security-pin.ts, audit F-13).
+    const pinLimited = await pinAttemptLimit.checkKey(pinAttemptKey(user.id));
+    if (pinLimited) return pinLimited;
 
-    const { pin, email, phone, promptpay_id, payment_display, bank_name, bank_account_number, bank_account_name } = await req.json();
+    const { pin, email, phone, promptpay_id, payment_display, bank_name, bank_account_number, bank_account_name, require_otp } = await req.json();
 
     if (!pin || typeof pin !== "string") {
       return NextResponse.json({ error: "PIN is required" }, { status: 400 });
@@ -65,8 +69,10 @@ export async function POST(req: NextRequest) {
     if (bank_name !== undefined) updateData.bank_name = bank_name || null;
     if (bank_account_number !== undefined) updateData.bank_account_number = bank_account_number || null;
     if (bank_account_name !== undefined) updateData.bank_account_name = bank_account_name || null;
+    // Behind the PIN: turning login OTP off is a downgrade (audit F-11/F-13).
+    const otpUpdate = typeof require_otp === "boolean" ? { require_otp } : {};
 
-    if (Object.keys(updateData).length === 0) {
+    if (Object.keys(updateData).length === 0 && !("require_otp" in otpUpdate)) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 });
     }
 
@@ -74,7 +80,7 @@ export async function POST(req: NextRequest) {
 
     const { error } = await serviceClient
       .from("hosts")
-      .update(updateData as never)
+      .update({ ...updateData, ...otpUpdate } as never)
       .eq("id", host.id);
 
     if (error) {
@@ -90,7 +96,7 @@ export async function POST(req: NextRequest) {
         eventType: EventType.PROFILE_UPDATED,
         actorType: "host",
         actorId: user.id,
-        data: { fields_updated: Object.keys(updateData).filter(k => k !== "updated_by"), sensitive: true },
+        data: { fields_updated: Object.keys({ ...updateData, ...otpUpdate }).filter(k => k !== "updated_by"), sensitive: true },
         req,
       });
     });

@@ -1,5 +1,5 @@
 import { expect, test, type Page } from "@playwright/test";
-import { CHANGE, T, chooseNewStay, expectNoUnexpectedWrites, findBooking, requireSlug, startSession, stubChangeBooking, stubbedBooking, type Session } from "./support";
+import { CHANGE, T, chooseNewStay, expectNoUnexpectedWrites, fillGuestLookup, findBooking, requireSlug, startSession, stubChangeBooking, stubbedBooking, type Session } from "./support";
 
 /**
  * A guest asks to change their house or dates on /{slug}/change-booking. The
@@ -84,7 +84,7 @@ test("after a house change, the dialog names the new house", async ({ page, cont
 
   const dialog = page.getByRole("dialog");
   await expect(dialog.getByText(t.dcSentRoom.replace("{room}", HOUSES[1].name))).toBeVisible();
-  expect(changePosts()[0].body).toMatchObject({ booking_id: BOOKING_ID, new_room_id: HOUSES[1].id });
+  expect(changePosts()[0].body).toMatchObject({ booking_id: BOOKING_ID, guest_email: "e2e@example.com", new_room_id: HOUSES[1].id });
 });
 
 test("the page's controls have names a screen reader can read", async ({ page, context }) => {
@@ -131,7 +131,7 @@ test("a booking that cannot be changed says why", async ({ page, context }) => {
     route.fulfill({ contentType: "application/json", body: JSON.stringify({ bookings: [stubbedBooking({ status: "pending" })] }) }),
   );
   await page.goto(`/${slug}/change-booking`);
-  await page.getByPlaceholder(t.placeholder).fill(BOOKING_ID.slice(0, 8));
+  await fillGuestLookup(page, t);
   await page.getByRole("button", { name: t.search, exact: true }).click();
   await expect(page.getByText(t.dcNotChangeable)).toBeVisible();
   await expect(page.getByRole("button", { name: t.changeDates })).toHaveCount(0);
@@ -168,6 +168,6 @@ test("a change that costs more shows what to pay before anything is sent", async
   await expect(page.getByRole("button", { name: t.uploadSlip })).toBeVisible();
   await expect(page.getByRole("button", { name: t.dcConfirmPaySubmit.replace("{amount}", "1,500") })).toBeDisabled();
   expect(previews()).toHaveLength(1);
-  expect(previews()[0].body).toMatchObject({ booking_id: BOOKING_ID, preview: true });
+  expect(previews()[0].body).toMatchObject({ booking_id: BOOKING_ID, guest_email: "e2e@example.com", preview: true });
   expect(changePosts()).toHaveLength(0);
 });

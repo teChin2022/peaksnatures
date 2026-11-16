@@ -3,6 +3,7 @@ import { z } from "zod";
 import { createServerClient } from "@supabase/ssr";
 import type { Database } from "@/types/database";
 import { verifyTurnstileToken } from "@/lib/turnstile";
+import { SITE_URL } from "@/lib/seo";
 
 const forgotPasswordSchema = z.object({
   email: z.string().email("Invalid email"),
@@ -30,7 +31,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const origin = req.headers.get("origin") || req.nextUrl.origin;
+    // The app's own URL, never the request's Origin (see send-magic-link).
+    const origin = SITE_URL;
 
     // Use SSR client so the PKCE code_verifier is persisted in response cookies
     const response = NextResponse.json({ success: true });
@@ -58,7 +60,8 @@ export async function POST(req: NextRequest) {
 
     if (error) {
       console.error("Supabase resetPasswordForEmail error:", error.message);
-      return NextResponse.json({ error: error.message }, { status: 400 });
+      // A fixed code: Supabase's own message stays in the log (F-19, L-07).
+      return NextResponse.json({ error: "REQUEST_FAILED" }, { status: 400 });
     }
 
     return response;
