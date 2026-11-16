@@ -249,7 +249,7 @@ export function ReviewFormInline({
             onChange={(e) => setComment(e.target.value)}
             rows={3}
             maxLength={1000}
-            className="!rounded-xl !border-earth-200 hover:!border-earth-400"
+            className="!rounded-xl !border-line-strong hover:!border-ink-2"
           />
         </div>
 
@@ -339,7 +339,7 @@ export function ReviewFormInline({
             value={stayHighlight}
             onChange={(e) => setStayHighlight(e.target.value)}
             maxLength={200}
-            className="!h-12 rounded-xl !border-earth-200 hover:!border-earth-400"
+            className="!h-12 rounded-xl !border-line-strong hover:!border-ink-2"
           />
         </div>
 

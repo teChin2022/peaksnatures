@@ -33,13 +33,11 @@ const MAX_STAFF = 10;
 const TAP = "h-11 lg:h-9";
 /**
  * This page's controls as DESIGN.md draws them: pill buttons, earth outlines
- * without a shadow, and fields with a visible earth-500 border (the shared
- * --input border is ~1.3:1, under the 3:1 a control edge needs; fixing that
- * token app-wide is a separate change).
+ * without a shadow, 14px fields (their earth-500 border comes from --input).
  */
 const PRIMARY = "rounded-full bg-brand text-white hover:bg-brand-hover";
 const OUTLINE = "rounded-full border-earth-200 text-earth-800 shadow-none hover:bg-earth-50";
-const FIELD = "rounded-xl border-earth-500 shadow-none";
+const FIELD = "rounded-xl shadow-none";
 
 /** First letter for the avatar disc: skips a Thai leading vowel (เ แ โ ใ ไ) so "เอก" shows "อ". */
 export function initialOf(name: string): string {

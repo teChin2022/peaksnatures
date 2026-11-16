@@ -1282,7 +1282,6 @@ export default function RoomsPage() {
                       <Switch
                         checked={room.is_active}
                         onCheckedChange={(checked) => handleToggleActive(room.id, checked)}
-                        className="data-[state=checked]:bg-green-500"
                       />
                       <Button
                         variant="ghost"

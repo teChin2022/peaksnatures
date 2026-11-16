@@ -907,7 +907,7 @@ export function BookingSearchView({ mode, homestayId, promptpayId, cancellationD
                                   placeholder={t("cancelReasonPlaceholder")}
                                   aria-label={t("cancelReasonPlaceholder")}
                                   rows={2}
-                                  className="bg-white text-base sm:text-sm"
+                                  className="border-line-strong bg-white text-base sm:text-sm"
                                 />
                                 <div className="flex flex-col-reverse gap-2 sm:flex-row">
                                   <Button
