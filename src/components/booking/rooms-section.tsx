@@ -23,11 +23,11 @@ import { CartLineList } from "@/components/booking/cart-line-list";
 import { BookingCalendarDialog } from "@/components/booking/booking-calendar-dialog";
 import { PromoLinkBanner, type PromoLink } from "@/components/booking/promo-link-banner";
 import { BOOKED_DAY_MODIFIER, CalendarLegend, LEGEND_SWATCH } from "@/components/booking/calendar-legend";
-import { calculateTotalPrice, getPriceRange } from "@/lib/calculate-price";
+import { calculateTotalPrice } from "@/lib/calculate-price";
 import { freeUnitsForStay, getFullyBookedForRoom } from "@/lib/booking-dates";
 import { fmtDate } from "@/lib/format-date";
 import { billingTodayStr } from "@/lib/billing-dates";
-import { upcomingSeasons } from "@/lib/room-rates";
+import { cardPrice, upcomingSeasons } from "@/lib/room-rates";
 import { HTMLContent } from "@/components/ui/html-content";
 import { thumbScroll } from "@/components/booking/gallery-section";
 import { Calendar } from "@/components/ui/calendar";
@@ -359,8 +359,7 @@ export function SingleRoomHero({
   const next = useCallback(() => goTo(index + 1), [goTo, index]);
   useSwipe(containerEl, { onSwipeLeft: next, onSwipeRight: prev });
 
-  const { min, max } = getPriceRange({ basePricePerNight: room.price_per_night, seasons: seasonalPrices, specialPrices });
-  const hasRange = min !== max;
+  const shown = cardPrice(room.price_per_night, seasonalPrices, specialPrices);
   const ctaState = roomCtaState({ datesChosen: !!datesChosen, inCart, remaining });
 
   if (!room.is_active) {
@@ -524,10 +523,10 @@ export function SingleRoomHero({
             </p>
           ) : (
             <p className="whitespace-nowrap">
-              {hasRange && <span className="mr-1.5 text-[13px] text-ink-2">{t("priceFrom")}</span>}
+              {shown.from && <span className="mr-1.5 text-[13px] text-ink-2">{t("priceFrom")}</span>}
               {/* Lining figures: the serif's old-style ones read "฿100" as "฿1OO". */}
               <span className="font-serif text-3xl leading-tight text-ink" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>
-                ฿{(hasRange ? min : room.price_per_night).toLocaleString()}
+                ฿{shown.price.toLocaleString()}
               </span>
               <span className="ml-1 text-[13px] text-ink-2">{tc("perNight")}</span>
             </p>

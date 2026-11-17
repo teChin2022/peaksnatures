@@ -643,6 +643,55 @@ test.describe("prices and a refresh on the house list", () => {
     await expect(page.getByRole("dialog")).toContainText(total);
   });
 
+  test("each house shows its price the same way on the homestay page and on /book, 'from' included", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    // Name → the price line as read ("เริ่มต้น ฿1,200/คืน" or "฿1,500/คืน"), from each page's house cards.
+    const prices = (cards: string) =>
+      page.locator(cards).evaluateAll((els) =>
+        els.map((el) => {
+          const price = [...el.querySelectorAll("p")].map((p) => p.textContent ?? "").find((t) => t.includes("฿")) ?? "";
+          return [el.querySelector("h3")?.textContent ?? "", price.replace(/\s+/g, "")] as const;
+        }),
+      );
+    await page.goto(`/${slug}`);
+    // On the homestay page the "from" word sits on its own line above the figure.
+    const landing = await page.locator("#rooms article").evaluateAll((els) =>
+      els.map((el) => [el.querySelector("h3")?.textContent ?? "", (el.querySelector(".border-t")?.textContent ?? "").replace(/\s+/g, "")] as const),
+    );
+    await page.goto(`/${slug}/book`);
+    const book = await prices("#rooms-section [data-room-id]");
+    expect(book.length).toBeGreaterThan(0);
+    for (const [name, price] of book) {
+      const onLanding = landing.find(([n]) => n === name);
+      expect(onLanding, `${name} is on the homestay page`).toBeDefined();
+      // The landing line also holds the "check availability" link; the price comes first.
+      expect(onLanding![1].startsWith(price), `${name}: "${onLanding![1]}" starts with "${price}"`).toBe(true);
+    }
+  });
+
+  test("the homestay page's structured data quotes the prices its cards show", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.goto(`/${slug}`);
+    const ld = JSON.parse((await page.locator("script#ld-lodging").textContent())!) as {
+      priceRange?: string;
+      makesOffer?: { name: string; price: number }[];
+    };
+    const digits = (t: string) => Number(t.replace(/[^\d]/g, ""));
+    // Name → the card's figure (the first ฿ amount on its price line).
+    const cards = await page.locator("#rooms article").evaluateAll((els) =>
+      els.map((el) => [el.querySelector("h3")?.textContent ?? "", (el.querySelector(".border-t")?.textContent ?? "").match(/฿[\d,]+/)?.[0] ?? ""] as const),
+    );
+    expect(ld.makesOffer?.length).toBeGreaterThan(0);
+    for (const offer of ld.makesOffer!) {
+      const card = cards.find(([name]) => name === offer.name);
+      expect(card, `${offer.name} has a card`).toBeDefined();
+      expect(offer.price, offer.name).toBe(digits(card![1]));
+    }
+    expect(digits(ld.priceRange!)).toBe(Math.min(...ld.makesOffer!.map((o) => o.price)));
+  });
+
   test("a reload keeps the stay and the chosen house", async ({ page, context }) => {
     const slug = requireSlug();
     await open(page, context, "normal");
