@@ -74,3 +74,17 @@ describe("WalletPage: top-up", () => {
     expect(container.textContent).not.toContain("threshold_multiple");
   });
 });
+
+describe("WalletPage: a negative balance", () => {
+  it("names the moment bookings may close", async () => {
+    vi.stubGlobal("fetch", vi.fn(async (url: string) => ({
+      ok: true,
+      json: async () => url.startsWith("/api/host/billing")
+        ? { plan_type: "commission", wallet_balance: -400, wallet_negative_since: "2026-11-10T03:00:00Z", effective_commission_pct: 3, effective_quick_commission_pct: 1, platform_payment: null, invoices: [] }
+        : url.startsWith("/api/host/wallet/transactions") ? { transactions: [], total: 0 } : { invoices: [] },
+    })));
+    await act(async () => root.render(createElement(WalletPage)));
+    await act(async () => {});
+    expect(container.textContent).toMatch(/blockFrom:18 พ\.ย\. 2569/);
+  });
+});

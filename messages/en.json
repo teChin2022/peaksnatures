@@ -2167,6 +2167,7 @@
     "threshold_low": "Below ฿{min}. Top up at least ฿{short} before the balance goes negative (staying negative too long can pause bookings).",
     "threshold_negative": "Negative balance. Top up at least ฿{short} to get back to ฿{min}.",
     "threshold_multiple": "One top-up is at most ฿{max}, so it may take more than one.",
+    "blockFrom": "If the balance stays below your credit limit, new bookings may close from {date}.",
     "threshold_enoughForCommission": "Enough to switch to the Commission plan (needs at least ฿{min}).",
     "threshold_needForCommission": "Switching to the Commission plan needs at least ฿{min} (฿{short} more).",
     "topUp": "Top Up",

@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { GRACE_PERIOD_DAYS, getPlanExpiryInfo, isHostBlocked } from "@/lib/plan-expiry";
+import { GRACE_PERIOD_DAYS, getPlanExpiryInfo, isHostBlocked, walletBlockFrom } from "@/lib/plan-expiry";
 
 const NOW = new Date("2026-06-10T12:00:00Z");
 /** An expiry `days` before NOW, so daysSinceExpiry lands exactly on `days`. */
@@ -195,5 +195,23 @@ describe("isHostBlocked", () => {
 
   it("never blocks a host on an unrecognised plan", () => {
     expect(isHostBlocked({ plan_type: "enterprise", plan_free_expires_at: expiryDaysAgo(400) })).toBe(false);
+  });
+});
+
+
+// The wallet page names the moment a negative balance may start blocking bookings;
+// it must be the same moment isHostBlocked starts saying so.
+describe("walletBlockFrom", () => {
+  const since = "2026-11-10T03:00:00Z";
+  const state = { plan_type: "commission", plan_free_expires_at: null, wallet_balance: -400, wallet_credit_limit: 0, wallet_negative_since: since };
+
+  it("is the first moment isHostBlocked turns true", () => {
+    const from = walletBlockFrom(since).getTime();
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(from - 1);
+    expect(isHostBlocked(state)).toBe(false);
+    vi.setSystemTime(from);
+    expect(isHostBlocked(state)).toBe(true);
+    vi.useRealTimers();
   });
 });

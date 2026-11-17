@@ -7,7 +7,8 @@ import { slipErrorKey, type SlipErrorKey } from "@/lib/slip-error";
 import { LOW_WALLET_THRESHOLD, walletStatus } from "@/lib/wallet-thresholds";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
-import { fmtDateStr } from "@/lib/format-date";
+import { fmtDate, fmtDateStr } from "@/lib/format-date";
+import { walletBlockFrom } from "@/lib/plan-expiry";
 import { QRCodeSVG } from "qrcode.react";
 import {
   ArrowUpCircle,
@@ -39,6 +40,8 @@ import { TOPUP_AMOUNTS } from "@/lib/topup-amounts";
 interface BillingData {
   plan_type: string;
   wallet_balance: number;
+  /** When the balance went negative (null when it is not). */
+  wallet_negative_since?: string | null;
   effective_commission_pct: number | null;
   effective_quick_commission_pct: number | null;
   platform_payment: {
@@ -416,6 +419,12 @@ export default function WalletPage() {
                         {t(`threshold_${st.kind}`, values)}
                         {"short" in st && st.short > TOPUP_AMOUNTS[TOPUP_AMOUNTS.length - 1] && (
                           <> {t("threshold_multiple", { max: TOPUP_AMOUNTS[TOPUP_AMOUNTS.length - 1].toLocaleString() })}</>
+                        )}
+                        {/* "Too long" used to have no date: the same moment isHostBlocked uses. */}
+                        {st.kind === "negative" && billing.wallet_negative_since && (
+                          <span className="mt-1 block text-red-700">
+                            {t("blockFrom", { date: fmtDate(walletBlockFrom(billing.wallet_negative_since), "d MMM yyyy HH:mm", locale) })}
+                          </span>
                         )}
                       </p>
                     );
