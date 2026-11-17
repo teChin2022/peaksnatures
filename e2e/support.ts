@@ -30,7 +30,10 @@ const FAKE_TURNSTILE = `
   window.turnstile = {
     render: function (el, options) {
       window.__turnstileRendered = true;
-      setTimeout(function () { if (options && options.callback) options.callback("e2e-token"); }, 50);
+      setTimeout(function () {
+        if (options && options.callback) options.callback("e2e-token");
+        window.__turnstilePassed = true;
+      }, 50);
       return "widget-e2e";
     },
     reset: function () {}, remove: function () {}, execute: function () {},

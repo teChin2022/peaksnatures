@@ -629,6 +629,7 @@
     "otpSubmit": "ยืนยัน",
     "otpResend": "ส่งรหัสอีกครั้ง",
     "otpResendIn": "ส่งอีกครั้งใน {seconds} วินาที",
+    "otpDigit": "หลักที่ {n} จาก 6",
     "otpExpired": "รหัสหมดอายุ กรุณาขอรหัสใหม่",
     "otpInvalid": "รหัสไม่ถูกต้อง กรุณาลองใหม่",
     "errorPasswordSameAsCurrent": "รหัสผ่านใหม่ต้องไม่ซ้ำกับรหัสผ่านเดิม",

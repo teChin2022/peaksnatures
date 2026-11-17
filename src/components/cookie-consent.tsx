@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
 import { Cookie, X } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useTranslations } from "next-intl";
@@ -31,6 +32,7 @@ export function CookieConsent() {
     getConsentServerSnapshot,
   );
   const [dismissed, setDismissed] = useState(false);
+  const pathname = usePathname();
 
   const handleAccept = () => {
     setCookie("cookie_consent", "accepted", 365);
@@ -42,7 +44,9 @@ export function CookieConsent() {
     setDismissed(true);
   };
 
-  if (consented || dismissed) return null;
+  // Admin pages are English-only staff tools and send no demand events (the only consent reader, demand-track.ts).
+  const isAdmin = pathname === "/admin" || pathname?.startsWith("/admin/");
+  if (consented || dismissed || isAdmin) return null;
 
   return (
     <div

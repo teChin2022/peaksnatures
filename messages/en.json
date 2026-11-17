@@ -629,6 +629,7 @@
     "otpSubmit": "Verify",
     "otpResend": "Resend Code",
     "otpResendIn": "Resend in {seconds}s",
+    "otpDigit": "Digit {n} of 6",
     "otpExpired": "Code expired. Please request a new one.",
     "otpInvalid": "Invalid code. Please try again.",
     "errorPasswordSameAsCurrent": "New password must be different from the current one.",

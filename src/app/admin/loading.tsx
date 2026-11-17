@@ -1,10 +1,12 @@
 import { Card, CardContent } from "@/components/ui/card";
 import { Skeleton } from "@/components/ui/skeleton";
+import { PageHeader } from "@/components/admin/page-header";
 
 export default function AdminLoading() {
   return (
     <div>
-      <h1 className="text-xl font-bold text-gray-900 mb-6">Platform Overview</h1>
+      {/* Same header as the page it stands in for (admin/page.tsx), so nothing jumps when it loads. */}
+      <PageHeader eyebrow="Dashboard" title="Platform Overview" />
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3">
         {[1, 2, 3, 4, 5, 6].map((i) => (
           <Card key={i}>
