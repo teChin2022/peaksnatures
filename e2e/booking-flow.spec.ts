@@ -643,10 +643,10 @@ test.describe("prices and a refresh on the house list", () => {
     await expect(page.getByRole("dialog")).toContainText(total);
   });
 
-  test("each house shows its price the same way on the homestay page and on /book, 'from' included", async ({ page, context }) => {
+  test("each house shows tonight's price the same way on the homestay page and on /book, labelled ราคา", async ({ page, context }) => {
     const slug = requireSlug();
     await open(page, context, "normal");
-    // Name → the price line as read ("เริ่มต้น ฿1,200/คืน" or "฿1,500/คืน"), from each page's house cards.
+    // Name → the price line as read ("ราคา฿1,500/คืน"), from each page's house cards.
     const prices = (cards: string) =>
       page.locator(cards).evaluateAll((els) =>
         els.map((el) => {
@@ -655,7 +655,7 @@ test.describe("prices and a refresh on the house list", () => {
         }),
       );
     await page.goto(`/${slug}`);
-    // On the homestay page the "from" word sits on its own line above the figure.
+    // On the homestay page the label sits on its own line above the figure.
     const landing = await page.locator("#rooms article").evaluateAll((els) =>
       els.map((el) => [el.querySelector("h3")?.textContent ?? "", (el.querySelector(".border-t")?.textContent ?? "").replace(/\s+/g, "")] as const),
     );
@@ -663,6 +663,8 @@ test.describe("prices and a refresh on the house list", () => {
     const book = await prices("#rooms-section [data-room-id]");
     expect(book.length).toBeGreaterThan(0);
     for (const [name, price] of book) {
+      // Tonight's price, never a "from" floor (owner, 2026-11-18).
+      expect(price.startsWith(T.rooms.priceTonight + "฿"), `${name}: "${price}"`).toBe(true);
       const onLanding = landing.find(([n]) => n === name);
       expect(onLanding, `${name} is on the homestay page`).toBeDefined();
       // The landing line also holds the "check availability" link; the price comes first.

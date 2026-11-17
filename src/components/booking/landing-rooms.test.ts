@@ -23,7 +23,6 @@ const ROOM: LandingRoom = {
   name: "บ้านริมธาร",
   description: "<p>ตื่นมากับทะเลหมอก</p>",
   price: 1500,
-  price_from: false,
   max_guests: 2,
   images: [],
   is_active: true,
@@ -57,13 +56,10 @@ describe("LandingRooms", () => {
     expect(container.textContent).toContain("฿1,500");
   });
 
-  it("says 'from' only when the house has more than one rate, as the /book card does", () => {
+  it("labels the house's one price 'price', as the /book card does, never 'from'", () => {
     render([ROOM]);
-    expect(container.textContent).not.toContain("priceFrom");
-    expect(container.textContent).not.toContain("ratePrice");
-    render([{ ...ROOM, price: 1200, price_from: true }]);
-    expect(container.textContent).toContain("priceFrom");
-    expect(container.textContent).toContain("฿1,200");
+    expect(container.textContent).toContain("priceTonight");
+    expect(container.textContent).not.toContain("from");
   });
 
   it("renders nothing without houses", () => {

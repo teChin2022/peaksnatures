@@ -159,6 +159,7 @@
     },
     "card": {
       "from": "เริ่มต้น",
+      "price": "ราคา",
       "perNight": "/ คืน",
       "closed": "ไม่พร้อมรับจองชั่วคราว",
       "noImage": "ยังไม่มีรูปภาพ",
@@ -307,7 +308,7 @@
     "popular": "ยอดนิยม",
     "temporarilyClosed": "บ้านพักนี้ปิดให้บริการชั่วคราวเพื่อการปรับปรุง",
     "ratePrice": "ราคา",
-    "priceFrom": "เริ่มต้น",
+    "priceTonight": "ราคา",
     "stayPriceNights": "สำหรับ {count} คืน"
   },
   "booking": {

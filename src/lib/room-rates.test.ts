@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { cardPrice, upcomingSeasons } from "@/lib/room-rates";
+import { cardPrice, homestayPrice, upcomingSeasons } from "@/lib/room-rates";
 
 const TODAY = "2026-11-05";
 
@@ -14,20 +14,48 @@ describe("upcomingSeasons", () => {
   });
 });
 
+const season = (start_date: string, end_date: string, price_per_night: number) => ({ start_date, end_date, price_per_night });
+
 describe("cardPrice", () => {
-  const season = (price: number) => ({ start_date: "2026-12-01", end_date: "2026-12-31", price_per_night: price });
-  const special = (surcharge: number) => ({ id: "s", room_id: "r", name: "weekend", surcharge, start_date: null, end_date: null, day_of_week: [6], is_active: true });
-
-  it("is the one rate, with no 'from', when the house has only its base price", () => {
-    expect(cardPrice(1500, [], [])).toEqual({ price: 1500, from: false });
+  it("is the base price when no season covers tonight", () => {
+    expect(cardPrice(1500, [], TODAY)).toBe(1500);
   });
 
-  it("is the lowest night, marked 'from', when a season is cheaper", () => {
-    expect(cardPrice(1500, [season(1200)], [])).toEqual({ price: 1200, from: true });
+  it("is the season's price when one covers tonight, dearer or cheaper", () => {
+    expect(cardPrice(1500, [season("2026-11-01", "2026-11-30", 2500)], TODAY)).toBe(2500);
+    expect(cardPrice(1500, [season("2026-11-01", "2026-11-30", 1200)], TODAY)).toBe(1200);
   });
 
-  it("stays the base price, marked 'from', when a season or a special only costs more", () => {
-    expect(cardPrice(1500, [season(2000)], [])).toEqual({ price: 1500, from: true });
-    expect(cardPrice(1500, [], [special(300)] as never)).toEqual({ price: 1500, from: true });
+  it("never quotes a cheaper season that has not started, or one that has ended", () => {
+    expect(cardPrice(1500, [season("2027-05-01", "2027-05-31", 900)], TODAY)).toBe(1500);
+    expect(cardPrice(1500, [season("2026-08-01", "2026-08-31", 900)], TODAY)).toBe(1500);
+  });
+
+  it("counts a season's first and last day as in it", () => {
+    expect(cardPrice(1500, [season("2026-11-05", "2026-11-10", 2000)], TODAY)).toBe(2000);
+    expect(cardPrice(1500, [season("2026-11-01", "2026-11-05", 2000)], TODAY)).toBe(2000);
+  });
+});
+
+describe("homestayPrice", () => {
+  const room = (id: string, price_per_night: number) => ({ id, price_per_night });
+  const own = (room_id: string, price: number) => ({ ...season("2026-11-01", "2026-11-30", price), room_id });
+
+  it("is the one price, not 'from', when every house costs the same tonight", () => {
+    expect(homestayPrice([room("a", 1500), room("b", 1500)], [], TODAY)).toEqual({ price: 1500, from: false });
+  });
+
+  it("is the cheapest house tonight, marked 'from', when they differ", () => {
+    expect(homestayPrice([room("a", 1500), room("b", 900)], [], TODAY)).toEqual({ price: 900, from: true });
+  });
+
+  it("prices each house over its own season only", () => {
+    expect(homestayPrice([room("a", 1500), room("b", 1500)], [own("a", 2500)], TODAY)).toEqual({ price: 1500, from: true });
+    expect(homestayPrice([room("a", 1500)], [own("b", 500)], TODAY)).toEqual({ price: 1500, from: false });
+  });
+
+  it("is null when no house has a price", () => {
+    expect(homestayPrice([], [], TODAY)).toBeNull();
+    expect(homestayPrice([room("a", 0)], [], TODAY)).toBeNull();
   });
 });

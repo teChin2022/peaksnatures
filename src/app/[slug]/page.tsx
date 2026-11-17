@@ -4,9 +4,8 @@ import { getTranslations } from "next-intl/server";
 import { resolveSlugRedirect } from "@/lib/slug-redirect";
 import { richTextToPlainText } from "@/lib/sanitize";
 import { bookingPath } from "@/lib/booking-path";
-import { lowestNightlyPrice } from "@/lib/calculate-price";
 import { billingTodayStr } from "@/lib/billing-dates";
-import { cardPrice, upcomingSeasons } from "@/lib/room-rates";
+import { cardPrice, homestayPrice } from "@/lib/room-rates";
 import { lodgingPrices } from "@/lib/lodging-prices";
 import { galleryPhotos } from "@/lib/gallery-layout";
 import { BookingHeader } from "@/components/booking/booking-header";
@@ -65,30 +64,26 @@ export default async function HomestayLandingPage({ params, searchParams }: Page
     notFound();
   }
 
-  const { homestay, rooms, seasonalPrices, specialPrices, reviews, averageRating, categoryAverages, reviewCount, totalBookings, lastBookingDate, amenityIcons, prohibitionIcons, bookingDisabled } = data;
+  const { homestay, rooms, seasonalPrices, reviews, averageRating, categoryAverages, reviewCount, totalBookings, lastBookingDate, amenityIcons, prohibitionIcons, bookingDisabled } = data;
 
   const activeRooms = rooms.filter((r) => r.is_active);
   // No open house means nothing to book: the landing shows the booking-off notice instead of Book links. /book is unchanged.
   const canBook = !bookingDisabled && activeRooms.length > 0;
-  // The "from" price counts only seasons that have not ended: an ended one can't be booked.
-  const bookableSeasons = upcomingSeasons(seasonalPrices, billingTodayStr());
-  const fromPrice = lowestNightlyPrice(activeRooms, bookableSeasons);
-  // Each house's price as its card shows it, for the cards and the structured data alike.
-  const shownPrice = (r: { id: string; price_per_night: number }) =>
-    cardPrice(r.price_per_night, bookableSeasons.filter((s) => s.room_id === r.id), specialPrices.filter((s) => s.room_id === r.id));
+  // Every price on the page is tonight's (Bangkok): the season covering today, else the base price.
+  const today = billingTodayStr();
+  const barPrice = homestayPrice(activeRooms, seasonalPrices, today);
   const bookHref = bookingPath(homestay.slug);
   const photos = galleryPhotos(homestay.gallery || [], activeRooms.map((r) => r.images ?? []));
   // Every house, bookable ones first as on the booking page; only the fields the cards show.
   const landingRooms: LandingRoom[] = [...activeRooms, ...rooms.filter((r) => !r.is_active)].map((r) => {
-    // The same price and "from" rule as the house card on /book.
-    const shown = shownPrice(r);
+    // The same price as the house card on /book.
+    const price = cardPrice(r.price_per_night, seasonalPrices.filter((s) => s.room_id === r.id), today);
     return {
       id: r.id,
       name: r.name,
       // Sanitized by getHomestayData; an editor left empty ("<p></p>") has no text and counts as none.
       description: richTextToPlainText(r.description) ? r.description : null,
-      price: shown.price,
-      price_from: shown.from,
+      price,
       max_guests: r.max_guests,
       images: r.images ?? [],
       is_active: r.is_active,
@@ -122,7 +117,7 @@ export default async function HomestayLandingPage({ params, searchParams }: Page
     petsAllowed: (homestay.prohibitions || []).some((p) => /pet|สัตว์/i.test(p)) ? false : undefined,
   };
   // Search engines get the prices the page shows: each card's price, and the lowest as the range.
-  const ldPrices = lodgingPrices(activeRooms, bookableSeasons, specialPrices);
+  const ldPrices = lodgingPrices(activeRooms, seasonalPrices, today);
   if (ldPrices) Object.assign(lodgingLd, ldPrices);
   if (reviewCount > 0 && averageRating > 0) {
     lodgingLd.aggregateRating = {
@@ -199,7 +194,7 @@ export default async function HomestayLandingPage({ params, searchParams }: Page
         navItems={navItems}
       />
       {/* Fixed to the bottom on phones; this early in the page so screen readers meet it before the footer. */}
-      <LandingBookBar bookHref={bookHref} fromPrice={fromPrice} bookingDisabled={!canBook} />
+      <LandingBookBar bookHref={bookHref} price={barPrice} bookingDisabled={!canBook} />
 
       <RespectReducedMotion>
       {/* Resets the counter that numbers each SectionMark. */}

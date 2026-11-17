@@ -159,6 +159,7 @@
     },
     "card": {
       "from": "From",
+      "price": "Price",
       "perNight": "/ night",
       "closed": "Not taking bookings right now",
       "noImage": "No photo yet",
@@ -307,7 +308,7 @@
     "popular": "Popular",
     "temporarilyClosed": "This house is temporarily closed for renovation",
     "ratePrice": "Price",
-    "priceFrom": "From",
+    "priceTonight": "Price",
     "stayPriceNights": "for {count, plural, one {# night} other {# nights}}"
   },
   "booking": {

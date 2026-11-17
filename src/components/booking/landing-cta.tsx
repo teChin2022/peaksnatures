@@ -57,7 +57,7 @@ export async function LandingCta({
 }
 
 /**
- * The landing's sticky Book bar on phones: the "from" price on the left, the
+ * The landing's sticky Book bar on phones: tonight's price on the left, the
  * Book button on the right. A plain link: dates and the cart live on /book.
  * The page renders it right after the header, so screen readers meet it
  * early, and puts its spacer (`h-[calc(5rem+env(safe-area-inset-bottom))]`)
@@ -65,11 +65,12 @@ export async function LandingCta({
  */
 export async function LandingBookBar({
   bookHref,
-  fromPrice,
+  price,
   bookingDisabled = false,
 }: {
   bookHref: string;
-  fromPrice: number | null;
+  /** homestayPrice: the cheapest house tonight, "from" when the houses differ. */
+  price: { price: number; from: boolean } | null;
   bookingDisabled?: boolean;
 }) {
   const tb = await getTranslations("booking");
@@ -89,17 +90,17 @@ export async function LandingBookBar({
           <div className={`${button} w-full opacity-40`}>{tb("unavailableTitle")}</div>
         ) : (
           <>
-            {fromPrice !== null && (
+            {price !== null && (
               <p className="min-w-0">
-                <span className="block text-[13px] text-ink-2">{/* "From": the cheapest house's floor, not what every house costs. */}
-                {th("card.from")}</span>
-                <span className="font-serif text-2xl leading-tight text-ink lining-nums">฿{fromPrice.toLocaleString()}</span>
+                <span className="block text-[13px] text-ink-2">{/* "From" only when the houses differ: then it is the cheapest one, not what every house costs. */}
+                {th(price.from ? "card.from" : "card.price")}</span>
+                <span className="font-serif text-2xl leading-tight text-ink lining-nums">฿{price.price.toLocaleString()}</span>
                 <span className="ml-1 text-sm text-ink-2">{tc("perNight")}</span>
               </p>
             )}
             <Link
               href={bookHref}
-              className={`${button} ${fromPrice === null ? "w-full" : ""} transition-colors hover:bg-pine-hover outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2`}
+              className={`${button} ${price === null ? "w-full" : ""} transition-colors hover:bg-pine-hover outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2`}
             >
               {tb("bookHouse")}
             </Link>

@@ -14,10 +14,8 @@ export interface LandingRoom {
   name: string;
   /** Sanitized rich text (getHomestayData), or null when it has no text. */
   description: string | null;
-  /** The card's price (cardPrice): the lowest night when `price_from`, else the house's one rate. */
+  /** The house's price tonight (cardPrice), as its card on /book shows it. */
   price: number;
-  /** More than one rate: say "from" (เริ่มต้น), as /book does. */
-  price_from: boolean;
   max_guests: number;
   images: string[];
   is_active: boolean;
@@ -105,7 +103,7 @@ export function LandingRooms({ rooms, bookHref, bookingDisabled = false }: Landi
                 )}
                 <div className="mt-auto flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-t border-line pt-4">
                   <div>
-                    {room.price_from && <p className="text-[13px] text-ink-2">{t("priceFrom")}</p>}
+                    <p className="text-[13px] text-ink-2">{t("priceTonight")}</p>
                     <p className="whitespace-nowrap">
                       {/* Lining figures: the serif's old-style ones read "฿100" as "฿1OO". Set here, not with .tabular-nums, which resets the feature list. */}
                       <span className="font-serif text-3xl leading-tight text-ink" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>

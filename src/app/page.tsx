@@ -6,7 +6,9 @@ import { isHostApproved } from "@/lib/public-host";
 import { fetchPastDueHostIds } from "@/lib/billing";
 import { landingStats } from "@/lib/landing-stats";
 import { compareHomestays } from "@/lib/homestay-order";
-import type { Homestay, Room } from "@/types/database";
+import { billingTodayStr } from "@/lib/billing-dates";
+import { homestayPrice } from "@/lib/room-rates";
+import type { Homestay, Room, RoomSeasonalPrice } from "@/types/database";
 import { LandingNavbar } from "@/components/landing/navbar";
 import { LandingContent } from "@/components/landing/landing-content";
 import { LandingFooter } from "@/components/landing/footer";
@@ -61,7 +63,7 @@ export default async function Home() {
     ? await Promise.all([
         supabase
           .from("rooms")
-          .select("homestay_id, price_per_night")
+          .select("id, homestay_id, price_per_night, room_seasonal_prices(room_id, start_date, end_date, price_per_night)")
           .in("homestay_id", homestayIds)
           .eq("is_active", true),
         supabase
@@ -80,14 +82,17 @@ export default async function Home() {
       ])
     : [{ data: [] }, { data: [] }, { data: [] }, new Set<string>(), { count: 0 }];
 
-  const rooms = (roomRows as unknown as Pick<Room, "homestay_id" | "price_per_night">[]) || [];
-  const minPriceMap = new Map<string, number>();
-  for (const r of rooms) {
-    const cur = minPriceMap.get(r.homestay_id);
-    if (cur === undefined || r.price_per_night < cur) {
-      minPriceMap.set(r.homestay_id, r.price_per_night);
-    }
-  }
+  const rooms = (roomRows as unknown as (Pick<Room, "id" | "homestay_id" | "price_per_night"> & {
+    room_seasonal_prices: Pick<RoomSeasonalPrice, "room_id" | "start_date" | "end_date" | "price_per_night">[] | null;
+  })[]) || [];
+  // Tonight's price per homestay, as its /[slug] Book bar shows it: the cheapest house, "from" when they differ.
+  const today = billingTodayStr();
+  const priceMap = new Map(
+    [...new Set(rooms.map((r) => r.homestay_id))].map((id) => {
+      const own = rooms.filter((r) => r.homestay_id === id);
+      return [id, homestayPrice(own, own.flatMap((r) => r.room_seasonal_prices ?? []), today)];
+    }),
+  );
 
   const hostVerifiedMap = new Map<string, boolean>();
   const blockedHostIds = new Set<string>();
@@ -145,7 +150,8 @@ export default async function Home() {
       location: h.location,
       hero_image_url: h.hero_image_url,
       gallery: h.gallery || [],
-      min_price: minPriceMap.get(h.id) ?? null,
+      min_price: priceMap.get(h.id)?.price ?? null,
+      price_from: priceMap.get(h.id)?.from ?? false,
       max_guests: h.max_guests,
       tagline: h.tagline,
       review_count: count,
