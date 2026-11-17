@@ -26,7 +26,7 @@ export async function BeforeYouStaySection({ checkInTime, checkOutTime, cancella
 
   return (
     <section aria-labelledby="before-you-stay" className="py-14 md:py-20">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <h2 id="before-you-stay" className="font-serif text-2xl text-ink md:text-3xl">
           {t("beforeYouStay")}
         </h2>

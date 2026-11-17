@@ -62,6 +62,18 @@ describe("DesktopDateSearch date panel", () => {
     rooms.remove();
   });
 
+  // WCAG 2.5.3: a fixed "check-in — select dates" label hid the chosen day from screen readers.
+  it("names each date field by what it shows, so the chosen day is read out", () => {
+    withCart({ from: new Date(2026, 10, 20), to: new Date(2026, 10, 22) }, 2);
+    render();
+    const checkIn = button("checkInLabel")!;
+    const checkOut = button("checkOutLabel")!;
+    expect(checkIn.hasAttribute("aria-label")).toBe(false);
+    expect(checkOut.hasAttribute("aria-label")).toBe(false);
+    expect(checkIn.textContent).toContain("20");
+    expect(checkOut.textContent).toContain("22");
+  });
+
   it("opens the calendar from either date field", () => {
     withCart(undefined);
     render();

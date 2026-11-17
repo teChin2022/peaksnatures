@@ -4,6 +4,8 @@ import { useTranslations, useLocale } from "next-intl";
 import { Sparkles } from "lucide-react";
 import { formatSpecialPriceRule } from "@/lib/special-price-label";
 import { fmtDateStr } from "@/lib/format-date";
+import { billingTodayStr } from "@/lib/billing-dates";
+import { upcomingSeasons } from "@/lib/room-rates";
 import { cn } from "@/lib/utils";
 import type { Room, RoomSeasonalPrice, RoomSpecialPrice } from "@/types/database";
 
@@ -26,7 +28,8 @@ export function RoomRateTable({
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
   const locale = useLocale();
-  const seasons = seasonalPrices.slice().sort((a, b) => a.start_date.localeCompare(b.start_date));
+  // A season that has ended is not a price the guest can get.
+  const seasons = upcomingSeasons(seasonalPrices, billingTodayStr()).sort((a, b) => a.start_date.localeCompare(b.start_date));
 
   return (
     <div className={cn("rounded-2xl bg-mist px-5 py-5", className)}>

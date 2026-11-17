@@ -19,6 +19,8 @@ import {
 import { Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope, CheckCircle2, Loader2, ImageIcon, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle, Download, Shield, Minus, Plus, ShieldUser, ListPlus, HelpCircle, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { billingTodayStr } from "@/lib/billing-dates";
+import { cancellationNote } from "@/lib/cancellation-note";
+import { forgetSavedStay } from "@/lib/booking-session-store";
 import { reconcileDraftWithCatalog, type ResumeDraftDetail } from "@/lib/booking-draft";
 import { useTranslations, useLocale } from "next-intl";
 import type { Homestay, Room, BlockedDate, RoomSeasonalPrice, RoomSpecialPrice, RoomOption, RoomGuestPricing } from "@/types/database";
@@ -179,6 +181,8 @@ export function BookingSection({
   const [holdProgress, setHoldProgress] = useState<{ done: number; total: number } | null>(null);
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
+  // Why the slip was refused, shown in the upload card itself (a toast at the top was gone before a phone guest looked up).
+  const [slipError, setSlipError] = useState<string | null>(null);
   // The hold ran out on the payment page: the overlay shows the expired page until the guest starts over.
   const [holdExpired, setHoldExpired] = useState(false);
   // A slip is with /api/verify-slip: the overlay shows the "checking your slip" card.
@@ -229,6 +233,7 @@ export function BookingSection({
 
   const handleSlipSelect = async (file: File | null) => {
     if (slipPreview) URL.revokeObjectURL(slipPreview);
+    setSlipError(null);
 
     // Shrink before it ever hits the network. Guests here are often on rural
     // mobile data, where an untouched 2-4MB phone screenshot is several
@@ -559,14 +564,8 @@ export function BookingSection({
     return totalPrice;
   }, [paymentOption, depositAvailable, resolvedDeposit, totalPrice]);
 
-  // Same cut-off as /api/bookings/cancel (cancel allowed while days-to-check-in
-  // >= cancellation_days), so the last free day is check-in minus N. Hidden once passed.
-  const cancellationDays = host.cancellation_days || 0;
-  const freeCancelDeadline = cancellationDays > 0 && dateRange?.from ? subDays(dateRange.from, cancellationDays) : null;
-  const freeCancelUntil =
-    freeCancelDeadline && format(freeCancelDeadline, "yyyy-MM-dd") >= billingTodayStr()
-      ? fmtDate(freeCancelDeadline, "d MMM yyyy", locale)
-      : null;
+  // The review step's cancellation line: free until a date, window passed, or no online cancellation.
+  const cancelNote = dateRange?.from ? cancellationNote(host.cancellation_days || 0, dateRange.from, billingTodayStr()) : null;
 
   const handleSaveQr = useCallback(() => {
     const container = qrContainerRef.current;
@@ -1091,6 +1090,7 @@ export function BookingSection({
 
     if (!dateRange?.from || !dateRange?.to) return;
 
+    setSlipError(null);
     setIsSubmitting(true);
     setVerifyingSlip(true);
 
@@ -1144,14 +1144,14 @@ export function BookingSection({
       }
 
       if (verifyRes.status === 409 && verifyData.duplicate) {
-        toast.error(t("errorDuplicateSlip"));
+        setSlipError(t("errorDuplicateSlip"));
         handleRemoveSlip();
         setIsSubmitting(false);
         return;
       }
 
       if (verifyData.slip_pending) {
-        toast.error(t("errorSlipPending"));
+        setSlipError(t("errorSlipPending"));
         setIsSubmitting(false);
         return;
       }
@@ -1173,7 +1173,7 @@ export function BookingSection({
           `[Slip] verification failed (HTTP ${verifyRes.status}, reason=${reason ?? "none"}):`,
           verifyData.error || verifyData.message || "no message",
         );
-        toast.error(reason && t.has(key) ? t(key) : t("errorSlipVerifyFailed"));
+        setSlipError(reason && t.has(key) ? t(key) : t("errorSlipVerifyFailed"));
         setIsSubmitting(false);
         return;
       }
@@ -1290,18 +1290,32 @@ export function BookingSection({
   const handleStayInBooking = () => {
     setShowLeaveWarning(false);
     armBackGuard(); // re-arm for the next Back
-    // Bring the houses back into view (steps 2–3 sit over them; step 1 has no
-    // card on the page). Deferred so it runs after the dialog's exit animation
-    // releases Radix's body scroll lock (~200ms).
+    // On the page, bring the houses back into view; inside the checkout the guest
+    // stays where they were (scrolling the page behind it showed nothing).
+    // Deferred so it runs after the dialog's exit animation releases Radix's
+    // body scroll lock (~200ms).
+    if (checkoutOpen) return;
     setTimeout(() => {
       document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 250);
+  };
+
+  // Back inside the checkout: one step back, the same as its own back arrow. A
+  // click, so re-arming the guard here is safe (unlike inside popstate).
+  const handleStepBack = () => {
+    setShowLeaveWarning(false);
+    armBackGuard();
+    checkoutBack?.();
   };
 
   const handleLeaveAndClear = () => {
     leavingRef.current = true;
     setShowLeaveWarning(false);
     if (stepRef.current === "payment") releaseHoldRef.current(); // free the room hold on exit
+    // "Clear" means it: the stay kept for a refresh goes too, or the same tab would bring it back.
+    forgetSavedStay(homestay.id);
+    clearCart();
+    setDateRange(undefined);
     window.history.back();
   };
 
@@ -1670,7 +1684,7 @@ export function BookingSection({
                                   value={promoInput}
                                   onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
                                   placeholder={t("promoPlaceholder")}
-                                  className={`${CO_INPUT} flex-1 font-mono uppercase`}
+                                  className={`${CO_INPUT} flex-1 font-mono uppercase placeholder:font-sans`}
                                 />
                                 <button
                                   type="button"
@@ -1753,7 +1767,7 @@ export function BookingSection({
                           <span className="text-ink">฿{subtotalPrice.toLocaleString()}</span>
                         </div>
                         {appliedPromo && promoDiscount > 0 && (
-                          <div className="flex justify-between gap-4 text-emerald-700">
+                          <div className="flex justify-between gap-4 text-pine">
                             <span>{t("promoLabel")} ({appliedPromo.code})</span>
                             <span>−฿{promoDiscount.toLocaleString()}</span>
                           </div>
@@ -1797,8 +1811,14 @@ export function BookingSection({
                           {t("payFull")} <span className={CO_MONEY_LG}>฿{totalPrice.toLocaleString()}</span>
                         </p>
                       )}
-                      {freeCancelUntil && (
-                        <p className="mt-3 text-[13px] text-emerald-700">{t("freeCancellationUntil", { date: freeCancelUntil })}</p>
+                      {cancelNote?.kind === "free" && (
+                        <p className="mt-3 text-[13px] text-pine">{t("freeCancellationUntil", { date: fmtDate(cancelNote.deadline, "d MMM yyyy", locale) })}</p>
+                      )}
+                      {cancelNote?.kind === "passed" && (
+                        <p className="mt-3 text-[13px] leading-relaxed text-ink-2">{t("cancellationPassed", { days: cancelNote.days })}</p>
+                      )}
+                      {cancelNote?.kind === "none" && (
+                        <p className="mt-3 text-[13px] leading-relaxed text-ink-2">{t("cancellationNone")}</p>
                       )}
                       <button disabled={isSubmitting} onClick={() => handleProceedToPayment()} className={`${CO_PRIMARY} mt-5`}>
                         {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -1890,7 +1910,7 @@ export function BookingSection({
                           {slipPreview ? (
                             <div className="space-y-3">
                               {phoneSlipReceived && (
-                                <p role="status" className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2.5 text-[15px] font-medium text-emerald-800">
+                                <p role="status" className="flex items-center gap-2 rounded-xl bg-pine-mist px-4 py-2.5 text-[15px] font-medium text-pine">
                                   <CheckCircle2 className="h-4 w-4 shrink-0" />{t("slipReceived")}
                                 </p>
                               )}
@@ -1933,6 +1953,9 @@ export function BookingSection({
                             </>
                           )}
                         </div>
+                        {slipError && (
+                          <p role="alert" className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-[15px] leading-relaxed text-red-800">{slipError}</p>
+                        )}
                         <button onClick={handleSubmitBooking} disabled={isSubmitting || !slipFile} className={`${CO_PRIMARY} mt-5`}>
                           {isSubmitting && verifyingSlip ? (<><Loader2 className="h-4 w-4 animate-spin" />{t("verifying")}</>) : t("submitBooking")}
                         </button>
@@ -1971,7 +1994,8 @@ export function BookingSection({
                     )}
 
                     {/* Only promise the resume route when this host actually keeps drafts; otherwise the menu item the copy points at is not rendered. */}
-                    <p className="px-2 text-center text-[13px] leading-relaxed text-ink-2">{t(resumeEnabled ? "doNotClosePageResume" : "doNotClosePage")}</p>
+                    <p className="px-2 text-center text-[13px] leading-relaxed text-pretty text-ink-2">{t(resumeEnabled ? "doNotClosePageResume" : "doNotClosePage")}</p>
+                    <HostContactLinks variant="inline" facebookUrl={homestay.facebook_url} hostPhone={host.phone} />
                   </motion.div>
                 )}
 
@@ -2108,6 +2132,12 @@ export function BookingSection({
         open={showLeaveWarning}
         onContinue={handleStayInBooking}
         onLeave={handleLeaveAndClear}
+        onStepBack={checkoutOpen && checkoutBack ? handleStepBack : null}
+        // Going back from payment lets the held houses go: staying stays the main action there.
+        stepBackReleasesHold={checkoutView === "pay"}
+        stepBackLabel={
+          checkoutView === "details" ? t("leaveBackToHouses") : checkoutView === "review" ? t("leaveBackToDetails") : checkoutView === "pay" ? t("leaveBackToReview") : null
+        }
         roomName={
           cartLines.length === 1
             ? rooms.find((r) => r.id === cartLines[0].roomId)?.name ?? null

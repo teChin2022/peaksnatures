@@ -13,3 +13,10 @@ process.env.SUPABASE_SERVICE_ROLE_KEY = "test-service-role-key";
 process.env.NEXT_PUBLIC_APP_URL = "http://localhost:3000";
 
 // REDIS_URL is deliberately left unset so rate-limit.ts uses its in-memory path.
+
+// The booking cart keeps the stay in sessionStorage across reloads; in a DOM
+// test file one test's stay would otherwise come back in the next one.
+import { afterEach } from "vitest";
+afterEach(() => {
+  if (typeof sessionStorage !== "undefined") sessionStorage.clear();
+});

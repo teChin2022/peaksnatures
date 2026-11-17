@@ -7,6 +7,7 @@ import {
   chooseDates,
   expectNoUnexpectedWrites,
   reachPayment,
+  reachReview,
   requireSlug,
   startSession,
   type HostMode,
@@ -36,7 +37,7 @@ async function open(
   page: Page,
   context: Parameters<typeof startSession>[1],
   mode: HostMode,
-  options: { holdMs?: number; turnstile?: "pass" | "blocked" } = {},
+  options: { holdMs?: number; turnstile?: "pass" | "blocked"; cancellationDays?: number } = {},
 ) {
   session = await startSession(page, context, { mode, ...options });
   return session;
@@ -556,6 +557,108 @@ test.describe("a host who changed the mode while the page was open", () => {
   });
 });
 
+test.describe("the availability calendar once the stay is chosen", () => {
+  test("folds away so the houses come first, and opens on the stay with its days marked", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.goto(`/${slug}/book`);
+    const section = page.locator("section").filter({ has: page.getByRole("heading", { name: T.availability.title }) });
+    const grid = section.getByRole("button", { name: / — / });
+    await expect(grid.first()).toBeVisible();
+
+    await chooseDates(page);
+    const toggle = section.getByRole("button", { name: T.availability.showCalendar });
+    await expect(toggle).toHaveAttribute("aria-expanded", "false");
+    await expect(grid).toHaveCount(0);
+    // Folded to one row: the houses start right under its heading.
+    const gap = await page.locator("#rooms-section").evaluate((rooms, head) => {
+      const h = [...document.querySelectorAll("h2")].find((e) => e.textContent === head)!;
+      return rooms.getBoundingClientRect().top - h.getBoundingClientRect().bottom;
+    }, T.availability.title);
+    expect(gap).toBeLessThan(160);
+
+    await toggle.click();
+    await expect(section.getByRole("button", { name: T.availability.hideCalendar })).toHaveAttribute("aria-expanded", "true");
+    // chooseDates picks one night: check-in and check-out are marked.
+    await expect(section.getByRole("button", { name: new RegExp(`, ${T.availability.legendStay} — `) })).toHaveCount(2);
+    await expect(section.getByText(T.availability.legendStay, { exact: true })).toBeVisible();
+  });
+});
+
+test.describe("before paying: can the guest cancel, and how to reach the host", () => {
+  const cases: [string, number, RegExp][] = [
+    ["no online cancellation (0 days)", 0, new RegExp(`^${T.booking.cancellationNone}$`)],
+    ["the free window still open", 1, new RegExp(`^${T.booking.freeCancellationUntil.replace("{date}", ".+")}$`)],
+    ["the free window already passed", 3650, new RegExp(`^${T.booking.cancellationPassed.replace("{days}", "3650").replace(/[()]/g, "\\$&")}$`)],
+  ];
+  for (const [name, days, line] of cases) {
+    test(`the review step always has a cancellation line: ${name}`, async ({ page, context }) => {
+      const slug = requireSlug();
+      await open(page, context, "normal", { cancellationDays: days });
+      await reachReview(page, slug);
+      const review = page.locator('[data-checkout="open"]');
+      await expect(review.getByText(line)).toBeVisible();
+    });
+  }
+
+  // Needs an E2E_SLUG host with a phone or a Facebook page: without either the line is left out on purpose.
+  test("the payment step offers the host's contact under the do-not-close note", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await reachPayment(page, slug);
+    const contact = page.locator('[data-checkout="open"] p').filter({ hasText: T.booking.hostContactQuestion });
+    await expect(contact).toBeVisible();
+    await expect(contact.getByRole("link").first()).toHaveAttribute("href", /^(tel:|https:\/\/(m\.me|www\.facebook\.com)\/)/);
+  });
+});
+
+test.describe("a house's config dialog", () => {
+  test("opens ready to book: Book Now is on at once, with the normal-price group chosen when the house has groups", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.goto(`/${slug}/book`);
+    await chooseDates(page);
+    await page.getByRole("button", { name: T.rooms.selectThisRoom, disabled: false }).first().click();
+    const dialog = page.getByRole("dialog");
+    await expect(dialog.getByRole("button", { name: new RegExp(`^${T.common.bookNow}`) })).toBeEnabled();
+    const groups = dialog.locator("button[aria-pressed]");
+    if ((await groups.count()) > 0) await expect(dialog.locator('button[aria-pressed="true"]')).toHaveCount(1);
+  });
+});
+
+test.describe("prices and a refresh on the house list", () => {
+  test("with a stay chosen, a card prices the whole stay, the same total its dialog opens on", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.goto(`/${slug}/book`);
+    await chooseDates(page);
+    const card = page.locator("#rooms-section [data-room-id]").filter({ has: page.getByRole("button", { name: T.rooms.selectThisRoom, disabled: false }) }).first();
+    const nights = new RegExp(T.rooms.stayPriceNights.replace("{count}", "\\d+"));
+    const price = card.locator("p").filter({ hasText: nights });
+    await expect(price).toBeVisible();
+    const total = (await price.textContent())!.match(/฿[\d,]+/)![0];
+
+    await card.getByRole("button", { name: T.rooms.selectThisRoom }).click();
+    // The normal-price group is chosen for the guest, so the dialog opens on the same total.
+    await expect(page.getByRole("dialog")).toContainText(total);
+  });
+
+  test("a reload keeps the stay and the chosen house", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.goto(`/${slug}/book`);
+    await chooseDates(page);
+    await addHouses(page, 1);
+    const chosen = page.locator("#rooms-section [data-room-id]").getByText(T.rooms.chosen, { exact: true });
+    await expect(chosen.first()).toBeVisible();
+
+    await page.reload();
+    await expect(chosen.first()).toBeVisible();
+    // The houses heading names the stay (and offers to change it) only for a full stay.
+    await expect(page.locator("#rooms-section").getByRole("button", { name: T.booking.changeDates, exact: true })).toBeVisible();
+  });
+});
+
 test.describe("booking without a cart", () => {
   test("one house: the list starts at it, its Book Now opens the guest details, and Back returns to it, still chosen", async ({ page, context }) => {
     const slug = requireSlug();
@@ -622,6 +725,24 @@ test.describe("the checkout overlay", () => {
     await expect(overlay(page).getByText(T.booking.confirmedTitle)).toBeVisible();
     await overlay(page).getByRole("button", { name: T.booking.backToHomestay }).click();
     await expect(page.locator('[data-checkout="closed"]')).toBeAttached();
+  });
+
+  test("Back inside the checkout goes one step back at a time, from the review to the details to the houses", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await reachReview(page, slug);
+    const leave = page.getByRole("dialog").filter({ hasText: T.booking.leaveTitle });
+
+    await page.goBack();
+    await leave.getByRole("button", { name: T.booking.leaveBackToDetails }).click();
+    await expect(leave).toBeHidden();
+    await expect(page.locator("#bk-name")).toBeVisible();
+
+    // The guard is armed again: the next Back asks again, one more step back.
+    await page.goBack();
+    await leave.getByRole("button", { name: T.booking.leaveBackToHouses }).click();
+    await expect(page.locator('[data-checkout="closed"]')).toBeAttached();
+    await expect(page.locator("#rooms-section [data-room-id]").getByText(T.rooms.chosen, { exact: true }).first()).toBeVisible();
   });
 
   test("asks before leaving on Back, over the overlay, and staying keeps the checkout open", async ({ page, context }) => {

@@ -69,10 +69,18 @@ vi.mock("@/components/booking/booking-tutorial-dialog", () => ({
   BookingTutorialDialog: ({ quickOnly }: { quickOnly?: boolean }) =>
     createElement("i", { "data-testid": "tutorial", "data-quick-only": String(!!quickOnly) }),
 }));
-// Stands in for the leave warning, but shows the stay it was handed.
+// Stands in for the leave warning: shows the stay it was handed, whether its
+// step back would release the hold, and buttons for its actions.
 vi.mock("@/components/booking/leave-booking-dialog", () => ({
-  LeaveBookingDialog: ({ open, dateLabel }: { open: boolean; dateLabel: string | null }) =>
-    open ? createElement("p", { "data-testid": "leave" }, dateLabel) : null,
+  LeaveBookingDialog: ({ open, dateLabel, onLeave, stepBackReleasesHold }: { open: boolean; dateLabel: string | null; onLeave: () => void; stepBackReleasesHold?: boolean }) =>
+    open
+      ? createElement(
+          "div",
+          { "data-testid": "leave-dialog", "data-releases-hold": String(!!stepBackReleasesHold) },
+          createElement("p", { "data-testid": "leave" }, dateLabel),
+          createElement("button", { type: "button", onClick: onLeave }, "leave-and-clear"),
+        )
+      : null,
 }));
 vi.mock("@/components/booking/cart-line-list", () => ({ CartLineList: () => null }));
 
@@ -652,6 +660,51 @@ describe("the slip-verified booking, after the creation code was shared with qui
   });
 });
 
+// ── A refused slip says why, in the upload card ─────────────────────────────
+describe("a refused slip", () => {
+  const alertText = () => document.body.querySelector('[data-checkout] [role="alert"]')?.textContent ?? null;
+  async function attach(name = "slip.jpg") {
+    const input = document.body.querySelector<HTMLInputElement>('input[type="file"]')!;
+    Object.defineProperty(input, "files", { value: [new File(["x"], name, { type: "image/jpeg" })], configurable: true });
+    await act(async () => void input.dispatchEvent(new Event("change", { bubbles: true })));
+    await vi.waitFor(() => expect((buttonByText("submitBooking") as HTMLButtonElement).disabled).toBe(false));
+  }
+  async function submit() {
+    await waitForText("waitingForSlip");
+    await attach();
+    await click(buttonByText("submitBooking"));
+  }
+
+  it("says a slip was already used, in the card and not in a passing toast, and books nothing", async () => {
+    responses["POST /api/verify-slip"] = () => json({ duplicate: true }, 409);
+    await renderForm("normal");
+    await reachPayment();
+    await submit();
+    await vi.waitFor(() => expect(alertText()).toBe("errorDuplicateSlip"));
+    expect(h.toastError).not.toHaveBeenCalledWith("errorDuplicateSlip");
+    expect(bookingPosts()).toHaveLength(0);
+  });
+
+  it("says a slip is still being processed by the bank", async () => {
+    responses["POST /api/verify-slip"] = () => json({ slip_pending: true });
+    await renderForm("normal");
+    await reachPayment();
+    await submit();
+    await vi.waitFor(() => expect(alertText()).toBe("errorSlipPending"));
+    expect(bookingPosts()).toHaveLength(0);
+  });
+
+  it("says verification failed, and the message goes once the guest picks another slip", async () => {
+    responses["POST /api/verify-slip"] = () => json({ error: "boom" }, 500);
+    await renderForm("normal");
+    await reachPayment();
+    await submit();
+    await vi.waitFor(() => expect(alertText()).toBe("errorSlipVerifyFailed"));
+    await attach("another.jpg");
+    expect(alertText()).toBeNull();
+  });
+});
+
 // ── The hold running out ────────────────────────────────────────────────────
 // Every host mode gets the same expired page: the houses are released, and a guest who
 // may already have transferred is pointed at the host.
@@ -824,6 +877,39 @@ describe("starting checkout from the cart", () => {
     expect(buttonByText("reopen")).toBeUndefined();
     await openDetails();
     expect(document.body.querySelector("[data-checkout]")!.textContent).toContain("reopen");
+  });
+});
+
+// ── Back's leave warning ────────────────────────────────────────────────────
+describe("the leave warning", () => {
+  const leaveDialog = () => document.body.querySelector<HTMLElement>('[data-testid="leave-dialog"]');
+  const back = async () => {
+    await act(async () => void window.dispatchEvent(new PopStateEvent("popstate")));
+    await vi.waitFor(() => expect(leaveDialog()).not.toBeNull());
+  };
+
+  // Regression (f12e21e): the stay kept for a refresh outlived "ออกและล้างข้อมูล".
+  it("leave-and-clear forgets the stay kept for a refresh", async () => {
+    await renderForm("normal");
+    await vi.waitFor(() => expect(sessionStorage.getItem("pn_stay:homestay-1")).not.toBeNull());
+    await back();
+    await act(async () => void buttonByText("leave-and-clear")!.click());
+    expect(sessionStorage.getItem("pn_stay:homestay-1")).toBeNull();
+  });
+
+  // Regression (f12e21e): on the payment step a step back releases the hold, so it must not be the main action.
+  it("marks the step back as releasing the hold on the payment step", async () => {
+    await renderForm("normal");
+    await reachPayment();
+    await back();
+    expect(leaveDialog()!.dataset.releasesHold).toBe("true");
+  });
+
+  it("does not on the guest details step, where nothing is held", async () => {
+    await renderForm("normal");
+    await openDetails();
+    await back();
+    expect(leaveDialog()!.dataset.releasesHold).toBe("false");
   });
 });
 

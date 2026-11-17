@@ -1,7 +1,7 @@
 "use client";
 
 import * as React from "react";
-import { useCallback, useEffect, useMemo, useRef, useState, useSyncExternalStore } from "react";
+import { useCallback, useEffect, useId, useMemo, useRef, useState, useSyncExternalStore } from "react";
 import Image from "next/image";
 import { format, startOfToday, addDays, addMonths } from "date-fns";
 import { th as thLocale } from "date-fns/locale";
@@ -9,7 +9,7 @@ import { type DateRange, type DayButton, type Modifiers } from "react-day-picker
 import { useTranslations, useLocale } from "next-intl";
 import { motion } from "motion/react";
 import { toast } from "sonner";
-import { ArrowLeft, ChevronLeft, ChevronRight, Users } from "lucide-react";
+import { ArrowLeft, ChevronDown, ChevronLeft, ChevronRight, ChevronUp, Users } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Calendar } from "@/components/ui/calendar";
 import {
@@ -65,6 +65,7 @@ const STATUS_CLASS: Record<DayAvailability, string> = {
 function makeAvailabilityDay(
   getStatus: (key: string) => DayAvailability,
   statusLabel: (status: DayAvailability) => string,
+  stayLabel: string,
 ) {
   return function AvailabilityDay({
     day,
@@ -85,7 +86,7 @@ function makeAvailabilityDay(
         type="button"
         aria-label={
           status
-            ? `${format(day.date, "d MMM yyyy")} — ${statusLabel(status)}`
+            ? `${format(day.date, "d MMM yyyy")}${modifiers.stay ? `, ${stayLabel}` : ""} — ${statusLabel(status)}`
             : undefined
         }
         className={cn(
@@ -100,6 +101,9 @@ function makeAvailabilityDay(
           // Today is marked by its number alone — bold and brand-green. twMerge
           // drops the status text colour so the green wins on any background.
           modifiers.today && "font-bold text-pine",
+          // The guest's chosen stay: an outline, so the status fill still shows.
+          // Focus drops it (outline-none) and draws its own ring instead.
+          modifiers.stay && "outline-2 -outline-offset-2 outline-pine",
           className,
         )}
       >
@@ -122,7 +126,7 @@ function RoomStatusText({ row }: { row: RoomDayStatus }) {
     cls = "text-red-700";
     label = t("roomBooked");
   } else if (row.booked === 0) {
-    cls = "text-emerald-700";
+    cls = "text-pine";
     label = row.total > 1 ? t("roomFreeCount", { count: row.free }) : t("roomAvailable");
   } else {
     cls = "text-amber-800";
@@ -258,11 +262,14 @@ function BackHeader({
   description,
   onBack,
   className,
+  titleClassName,
 }: {
   title: string;
   description: string;
   onBack: () => void;
   className?: string;
+  /** A house name is set in the serif; the picker's "select dates" is not a name. */
+  titleClassName?: string;
 }) {
   const tc = useTranslations("common");
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -285,7 +292,7 @@ function BackHeader({
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <DialogTitle ref={titleRef} tabIndex={-1} className="min-w-0 truncate outline-none">
+        <DialogTitle ref={titleRef} tabIndex={-1} className={cn("min-w-0 truncate outline-none", titleClassName)}>
           {title}
         </DialogTitle>
       </div>
@@ -354,6 +361,7 @@ function RoomDayDetail({
         description={fmtDate(date, "EEEE d MMMM yyyy", locale)}
         onBack={onBack}
         className="px-6 pr-12 pt-6 pb-3"
+        titleClassName="font-serif text-2xl font-normal leading-snug"
       />
 
       {/* A block wrapper, so the photo's aspect-ratio box (all absolute
@@ -366,7 +374,7 @@ function RoomDayDetail({
             <Users className="h-3.5 w-3.5" />
             {ta("upToGuests", { count: room.max_guests })}
           </span>
-          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+          <span className="inline-flex items-center rounded-full bg-pine-mist px-2.5 py-1 font-semibold text-pine">
             {tr("available", { count: freeCount })}
           </span>
         </div>
@@ -384,7 +392,7 @@ function RoomDayDetail({
       <div className="flex items-center gap-3 border-t border-line px-6 py-4">
         <div className="min-w-0 flex-1">
           <p className="flex items-baseline gap-1 tabular-nums">
-            <span className="text-xl font-bold text-ink">
+            <span className="font-serif text-2xl text-ink" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>
               ฿{(night?.price ?? room.price_per_night).toLocaleString()}
             </span>
             <span className="text-xs text-ink-3">{tc("perNight")}</span>
@@ -460,10 +468,20 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
     return (status: DayAvailability) => labels[status];
   }, [t]);
 
+  const stayLabel = t("legendStay");
   const DayComponent = useMemo(
-    () => makeAvailabilityDay(lookup.getStatus, statusLabel),
-    [lookup, statusLabel],
+    () => makeAvailabilityDay(lookup.getStatus, statusLabel, stayLabel),
+    [lookup, statusLabel, stayLabel],
   );
+
+  // With a full stay chosen the houses matter more than the month: the grid
+  // folds away behind a toggle, and shows the stay when opened.
+  const stay = dateRange?.from && dateRange?.to ? { from: dateRange.from, to: dateRange.to } : undefined;
+  // Opened for one stay only: new dates fold it again, so the houses come first.
+  const stayKey = stay ? `${stay.from.getTime()}-${stay.to.getTime()}` : null;
+  const [openForStay, setOpenForStay] = useState<string | null>(null);
+  const collapsed = !!stay && openForStay !== stayKey;
+  const gridId = useId();
 
   const handleDayClick = (date: Date, modifiers: Modifiers) => {
     if (modifiers.disabled) return;
@@ -537,12 +555,12 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
   const showDetail = !!detailRoom && !!detailRow && !!selectedDate;
   const pickRoom = pickRoomId ? activeRooms.find((r) => r.id === pickRoomId) : undefined;
 
-  // Fires calendar_view once the guest actually scrolls the availability
-  // calendar into view. Disconnects on the first hit; trackDemandOnce guards
-  // against a second observer from a re-mount.
-  const sectionRef = useRef<HTMLElement | null>(null);
+  // Fires calendar_view once the guest actually scrolls the month grid into
+  // view (not the folded row). Disconnects on the first hit; trackDemandOnce
+  // guards against a second observer when the grid is folded and reopened.
+  const [gridEl, setGridEl] = useState<HTMLDivElement | null>(null);
   useEffect(() => {
-    const node = sectionRef.current;
+    const node = gridEl;
     if (!node || typeof IntersectionObserver === "undefined") return;
     const observer = new IntersectionObserver(
       (entries) => {
@@ -558,37 +576,59 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
     );
     observer.observe(node);
     return () => observer.disconnect();
-  }, [homestayId, locale]);
+  }, [gridEl, homestayId, locale]);
 
   if (activeRooms.length === 0) return null;
 
+  // Folded: no bottom padding; the houses section's own top padding is the gap.
   return (
-    <section ref={sectionRef} className="py-14 md:py-20">
+    <section className={collapsed ? "pt-6 md:pt-10" : "py-14 md:py-20"}>
       <div className="mx-auto max-w-4xl px-4 sm:px-6">
-        <div className="overflow-hidden pt-4 -mt-4">
-          <motion.h2
-            initial={{ y: "100%" }}
-            whileInView={{ y: 0 }}
-            viewport={{ once: true }}
-            transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
-            className="text-2xl md:text-3xl font-serif leading-tight text-ink tracking-tight"
-          >
-            {t("title")}
-          </motion.h2>
+        <div className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1">
+          <div className="overflow-hidden pt-4 -mt-4">
+            <motion.h2
+              initial={{ y: "100%" }}
+              whileInView={{ y: 0 }}
+              viewport={{ once: true }}
+              transition={{ duration: 0.7, ease: [0.33, 1, 0.68, 1] }}
+              className="text-2xl md:text-3xl font-serif leading-tight text-ink tracking-tight"
+            >
+              {t("title")}
+            </motion.h2>
+          </div>
+          {stay && (
+            <button
+              type="button"
+              aria-expanded={!collapsed}
+              aria-controls={gridId}
+              onClick={() => setOpenForStay(collapsed ? stayKey : null)}
+              className="-mx-1 inline-flex min-h-11 items-center gap-1 rounded-sm px-1 text-sm font-medium text-pine underline underline-offset-4 hover:text-pine-hover outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
+            >
+              {collapsed ? t("showCalendar") : t("hideCalendar")}
+              {collapsed ? <ChevronDown aria-hidden="true" className="size-4" /> : <ChevronUp aria-hidden="true" className="size-4" />}
+            </button>
+          )}
         </div>
-        <p className="mt-2 text-sm text-ink-3">{t("subtitle")}</p>
+        {!collapsed && <p className="mt-2 text-sm text-ink-3">{t("subtitle")}</p>}
 
-        <div className="mx-auto mt-6 max-w-3xl rounded-2xl border border-line bg-white p-3 shadow-sm sm:p-6">
-          {mounted ? (
+        <div
+          ref={setGridEl}
+          id={gridId}
+          hidden={collapsed}
+          className="mx-auto mt-6 max-w-3xl rounded-2xl border border-line bg-white p-3 shadow-sm sm:p-6"
+        >
+          {mounted && !collapsed ? (
             <Calendar
               showOutsideDays
               locale={locale === "th" ? thLocale : undefined}
               captionLayout="dropdown"
               classNames={{
                 weekday:
-                  "flex-1 text-[0.7rem] md:text-sm font-semibold text-ink-3 text-center py-2 md:py-3 select-none",
+                  "flex-1 text-xs md:text-sm font-semibold text-ink-3 text-center py-2 md:py-3 select-none",
               }}
-              defaultMonth={startOfToday()}
+              // Opens on the stay's month; the grid remounts on each unfold, so this applies every time.
+              defaultMonth={stay?.from ?? startOfToday()}
+              modifiers={stay ? { stay } : undefined}
               startMonth={startOfToday()}
               endMonth={addMonths(startOfToday(), 12)}
               formatters={
@@ -616,6 +656,7 @@ export function AvailabilityCalendarSection({ homestayId }: { homestayId: string
               { swatch: LEGEND_SWATCH.free, label: t("legendAvailable") },
               { swatch: LEGEND_SWATCH.partial, label: t("legendPartial") },
               { swatch: LEGEND_SWATCH.full, label: t("legendFull") },
+              ...(stay ? [{ swatch: "bg-white ring-2 ring-pine", label: t("legendStay") }] : []),
             ]}
           />
         </div>

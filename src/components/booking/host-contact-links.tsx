@@ -14,15 +14,41 @@ export function HostContactLinks({
   facebookUrl,
   hostPhone,
   messengerLabel,
+  variant = "buttons",
 }: {
   facebookUrl: string | null | undefined;
   hostPhone: string | null | undefined;
   /** Replaces the default "send your slip" wording on the Messenger button. */
   messengerLabel?: string;
+  /** "inline": one quiet line of text links, for a page whose main action is elsewhere (the payment step). */
+  variant?: "buttons" | "inline";
 }) {
   const t = useTranslations("booking");
   const contact = hostContactLink(facebookUrl);
   const phone = hostPhone?.trim() || null;
+
+  if (variant === "inline") {
+    // Nothing to offer: say nothing, rather than the quick flow's "the host will call you".
+    if (!contact && !phone) return null;
+    const link =
+      "-my-3 inline-flex min-h-11 items-center rounded-sm font-medium text-pine underline underline-offset-4 hover:text-pine-hover outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2";
+    return (
+      <p className="px-2 text-center text-[13px] leading-relaxed text-ink-2">
+        {t("hostContactQuestion")}{" "}
+        {contact && (
+          <a href={contact.href} target="_blank" rel="noopener noreferrer" className={link}>
+            {contact.kind === "messenger" ? t("hostContactMessengerShort") : t("hostContactPageShort")}
+          </a>
+        )}
+        {contact && phone && <span aria-hidden="true"> · </span>}
+        {phone && (
+          <a href={`tel:${phone.replace(/[^\d+]/g, "")}`} className={link}>
+            {t("hostContactCall", { phone })}
+          </a>
+        )}
+      </p>
+    );
+  }
 
   if (!contact && !phone) {
     return <p className="text-sm text-earth-600">{t("hostContactNone")}</p>;

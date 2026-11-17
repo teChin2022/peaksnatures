@@ -147,6 +147,28 @@ describe("SingleRoomHero house card", () => {
     expect(container.textContent).toContain("3 / 3");
   });
 
+  it("is visible from the first paint, with no entrance waiting on a scroll", () => {
+    card();
+    const el = container.querySelector<HTMLElement>("[data-room-id]")!;
+    expect(el.style.opacity).toBe("");
+    expect(el.style.transform).toBe("");
+    card({ room: room({ is_active: false }) });
+    expect(container.querySelector<HTMLElement>("[data-room-id]")!.style.opacity).toBe("");
+  });
+
+  it("says 'from' before the lowest price when the house has more than one rate", () => {
+    card({ seasonalPrices: [{ id: "s1", room_id: "r1", name: "High", start_date: "2099-01-01", end_date: "2099-01-31", price_per_night: 2500 } as never] });
+    expect(container.textContent).toContain("priceFrom");
+    expect(container.textContent).toContain("฿1,500");
+  });
+
+  it("prices the whole stay once one is chosen, instead of a night", () => {
+    card({ datesChosen: true, remaining: 2, stay: { total: 3000, nights: 2 } });
+    expect(container.textContent).toContain("฿3,000");
+    expect(container.textContent).toContain("stayPriceNights:2");
+    expect(container.textContent).not.toContain("perNight");
+  });
+
   it("shows a closed house without any booking action", () => {
     card({ room: room({ is_active: false }), datesChosen: true, remaining: 2 });
     expect(container.textContent).toContain("temporarilyClosed");
@@ -250,6 +272,74 @@ describe("the house list after the date picker's Done", () => {
     choose("l1", "a");
     act(() => void document.dispatchEvent(new CustomEvent("house-chosen", { detail: { lineId: "l1", more: true } })));
     expect(shownIds()).toEqual(["a", "b"]);
+  });
+});
+
+describe("a house card's price on the list", () => {
+  const ended = { id: "old", room_id: "a", name: "August", start_date: "2026-08-01", end_date: "2026-08-31", price_per_night: 3 } as never;
+  const renderWith = (seasonalPrices: never[]) =>
+    act(() =>
+      root.render(
+        createElement(
+          BookingCartProvider,
+          providerProps({ catalog: { rooms: [house("a")], seasonalPrices, specialPrices: [], roomOptions: [], guestPricing: [], blockedDates: [], bookedRanges: [] }, homestayId: "h1" }),
+          createElement(Probe, { onCart: keepCart }),
+          createElement(RoomsSection, { rooms: [house("a")], seasonalPrices }),
+        ),
+      ),
+    );
+  // 17 Nov 2026 in Bangkok: August's season has ended.
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-17T05:00:00Z"));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("never quotes a season that has ended as the lowest price", () => {
+    renderWith([ended]);
+    expect(container.textContent).toContain("฿1,500");
+    expect(container.textContent).not.toContain("฿3");
+    expect(container.textContent).not.toContain("priceFrom");
+  });
+
+  it("prices the chosen stay at the normal rate: two nights of ฿1,500", () => {
+    renderWith([]);
+    act(() => cart.setDates(stay));
+    expect(container.textContent).toContain("฿3,000");
+    expect(container.textContent).toContain("stayPriceNights:2");
+  });
+});
+
+describe("a refresh", () => {
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-17T05:00:00Z"));
+  });
+  afterEach(() => vi.useRealTimers());
+  const reload = () => {
+    act(() => root.unmount());
+    root = createRoot(container);
+  };
+
+  it("keeps the stay and the chosen house, in this tab only", () => {
+    renderList([house("a"), house("b")]);
+    act(() => cart.setDates(stay));
+    choose("l1", "b");
+    reload();
+    renderList([house("a"), house("b")]);
+    expect(cart.dateRange).toEqual(stay);
+    expect(cart.lines.map((l) => l.roomId)).toEqual(["b"]);
+    expect(container.querySelector('[data-room-id="b"]')?.textContent).toContain("chosen");
+  });
+
+  it("forgets them once the dates are cleared", () => {
+    renderList([house("a")]);
+    act(() => cart.setDates(stay));
+    choose("l1", "a");
+    act(() => cart.setDates(undefined));
+    reload();
+    renderList([house("a")]);
+    expect(cart.dateRange).toBeUndefined();
   });
 });
 

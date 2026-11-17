@@ -26,6 +26,8 @@ import { BOOKED_DAY_MODIFIER, CalendarLegend, LEGEND_SWATCH } from "@/components
 import { calculateTotalPrice, getPriceRange } from "@/lib/calculate-price";
 import { freeUnitsForStay, getFullyBookedForRoom } from "@/lib/booking-dates";
 import { fmtDate } from "@/lib/format-date";
+import { billingTodayStr } from "@/lib/billing-dates";
+import { upcomingSeasons } from "@/lib/room-rates";
 import { HTMLContent } from "@/components/ui/html-content";
 import { thumbScroll } from "@/components/booking/gallery-section";
 import { Calendar } from "@/components/ui/calendar";
@@ -171,9 +173,10 @@ interface RoomsSectionProps {
 export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, specialPrices = EMPTY_SPECIAL_PRICES, bookedRanges = EMPTY_BOOKED_RANGES, blockedDates = EMPTY_BLOCKED_DATES, popularRoomIds = EMPTY_POPULAR_IDS, promo = null }: RoomsSectionProps) {
   const t = useTranslations("rooms");
 
+  // Seasons that have ended never price a stay again; left in, one could set a card's lowest price.
   const seasonsByRoom = useMemo(() => {
     const map: Record<string, RoomSeasonalPrice[]> = {};
-    for (const s of seasonalPrices) {
+    for (const s of upcomingSeasons(seasonalPrices, billingTodayStr())) {
       if (!map[s.room_id]) map[s.room_id] = [];
       map[s.room_id].push(s);
     }
@@ -193,7 +196,7 @@ export function RoomsSection({ rooms, seasonalPrices = EMPTY_SEASONAL_PRICES, sp
 
   return (
     <section id="rooms-section" className="py-14 md:py-20">
-      <div className="mx-auto max-w-7xl px-4 sm:px-6">
+      <div className="mx-auto max-w-6xl px-4 sm:px-6">
         <div className="overflow-hidden pt-2 -mt-2">
           <motion.h2
             // Checkout's Back lands here (booking-section), so it can take focus.
@@ -288,13 +291,6 @@ function RoomDescriptionWithReadMore({ content, onReadMore }: { content: string;
   );
 }
 
-const CARD_ENTRANCE = {
-  initial: { opacity: 0, y: 30 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true },
-  transition: { duration: 0.5, ease: [0.25, 0.1, 0, 1] as const },
-};
-
 /**
  * One house on /book: a white card with its photos (swipe, arrows, thumbnails,
  * tap for the lightbox) and, below on phones or beside from md, the name,
@@ -318,6 +314,7 @@ export function SingleRoomHero({
   datesChosen,
   remaining = 0,
   inCart = 0,
+  stay,
 }: {
   room: Room;
   seasonalPrices: RoomSeasonalPrice[];
@@ -335,6 +332,8 @@ export function SingleRoomHero({
   remaining?: number;
   /** Units of this house the guest has chosen for these dates. */
   inCart?: number;
+  /** The whole stay's price at the normal rate, once a full stay is chosen. */
+  stay?: { total: number; nights: number };
 }) {
   const t = useTranslations("rooms");
   const tc = useTranslations("common");
@@ -367,7 +366,7 @@ export function SingleRoomHero({
   if (!room.is_active) {
     const cover = images[0];
     return (
-      <motion.div data-room-id={room.id} {...CARD_ENTRANCE} aria-disabled="true" className="grid overflow-hidden rounded-[20px] bg-white md:grid-cols-[52%_1fr]">
+      <div data-room-id={room.id} aria-disabled="true" className="grid overflow-hidden rounded-[20px] bg-white md:grid-cols-[52%_1fr]">
         <div className="relative aspect-[4/3] bg-mist-2 md:aspect-auto md:min-h-[280px]">
           {cover && (
             <Image src={cover} alt={room.name} fill sizes="(max-width: 768px) 100vw, 52vw" placeholder="blur" blurDataURL={BLUR_DATA_URL} className="object-cover opacity-60 grayscale" />
@@ -380,7 +379,7 @@ export function SingleRoomHero({
             {t("temporarilyClosed")}
           </p>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
@@ -398,9 +397,9 @@ export function SingleRoomHero({
   const showMain = cartEnabled && ctaState !== "full";
 
   return (
-    <motion.div
+    // No entrance: a task surface starts its content visible (DESIGN.md); the cards used to wait at opacity 0.
+    <div
       data-room-id={room.id}
-      {...CARD_ENTRANCE}
       // Chosen: a Pine outline, so the guest sees at a glance which houses are chosen.
       // scroll-mt clears the fixed site header when "see other houses" scrolls a card into view.
       className={`grid scroll-mt-24 overflow-hidden rounded-[20px] bg-white md:grid-cols-[52%_1fr] ${inCart > 0 ? "ring-[1.5px] ring-inset ring-pine" : ""}`}
@@ -515,14 +514,24 @@ export function SingleRoomHero({
         </div>
 
         <div className="mt-auto flex flex-col gap-3 border-t border-line pt-4">
-          <p className="whitespace-nowrap">
-            {hasRange && <span className="mr-1.5 text-[13px] text-ink-2">{t("ratePrice")}</span>}
-            {/* Lining figures: the serif's old-style ones read "฿100" as "฿1OO". */}
-            <span className="font-serif text-3xl leading-tight text-ink" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>
-              ฿{(hasRange ? min : room.price_per_night).toLocaleString()}
-            </span>
-            <span className="ml-1 text-[13px] text-ink-2">{tc("perNight")}</span>
-          </p>
+          {stay ? (
+            // The stay's price, the same total the house's dialog starts on.
+            <p className="whitespace-nowrap">
+              <span className="font-serif text-3xl leading-tight text-ink" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>
+                ฿{stay.total.toLocaleString()}
+              </span>
+              <span className="ml-1.5 text-[13px] text-ink-2">{t("stayPriceNights", { count: stay.nights })}</span>
+            </p>
+          ) : (
+            <p className="whitespace-nowrap">
+              {hasRange && <span className="mr-1.5 text-[13px] text-ink-2">{t("priceFrom")}</span>}
+              {/* Lining figures: the serif's old-style ones read "฿100" as "฿1OO". */}
+              <span className="font-serif text-3xl leading-tight text-ink" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>
+                ฿{(hasRange ? min : room.price_per_night).toLocaleString()}
+              </span>
+              <span className="ml-1 text-[13px] text-ink-2">{tc("perNight")}</span>
+            </p>
+          )}
 
           {datesChosen && inCart > 0 && <CartLineList roomId={room.id} />}
 
@@ -556,7 +565,7 @@ export function SingleRoomHero({
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 
@@ -764,6 +773,14 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
             datesChosen={datesChosen}
             remaining={cart?.remainingForRoom(room)}
             inCart={datesChosen ? (cart?.countForRoom(room.id) ?? 0) : 0}
+            stay={
+              datesChosen && from && to
+                ? {
+                    total: calculateTotalPrice({ basePricePerNight: room.price_per_night, checkIn: from, checkOut: to, seasons: seasonsByRoom[room.id] || [], specialPrices: specialsByRoom[room.id] || [] }).total,
+                    nights,
+                  }
+                : undefined
+            }
           />
         ))}
         {datesChosen && visibleRooms.length === 0 && (

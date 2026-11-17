@@ -53,7 +53,8 @@ const render = (editingLine: CartLine | null = null) =>
         BookingCartProvider,
         providerProps({ catalog, homestayId: "h1" }),
         createElement(Probe, { onCart: keepCart }),
-        createElement(RoomConfigDialog, { room, open: true, onClose, editingLine }),
+        // Keyed per edited line, as every call site does, so its initial state applies.
+        createElement(RoomConfigDialog, { key: editingLine?.lineId ?? room.id, room, open: true, onClose, editingLine }),
       ),
     ),
   );
@@ -83,10 +84,26 @@ const nextTask = () => act(() => new Promise<void>((r) => setTimeout(r, 0)));
 const line = (lineId: string): CartLine => ({ lineId, roomId: "r1", numGuests: 2, tierIds: ["t2"], optionIds: [] });
 
 describe("RoomConfigDialog guest tiers and total", () => {
-  it("says which tier is chosen, and none until the guest picks one", () => {
+  it("starts on the host's normal-price tier, and says which tier is chosen", () => {
     expect(tierButtons()).toHaveLength(2);
-    expect(tierButtons().map((b) => b.getAttribute("aria-pressed"))).toEqual(["false", "false"]);
+    expect(tierButtons().map((b) => b.getAttribute("aria-pressed"))).toEqual(["true", "false"]);
     act(() => tierButtons()[1].click());
+    expect(tierButtons().map((b) => b.getAttribute("aria-pressed"))).toEqual(["false", "true"]);
+  });
+
+  it("starts on the normal-price tier even when it is not listed first", () => {
+    const saved = catalog.guestPricing;
+    catalog.guestPricing = [tier("t3", 3, 500, 0), tier("t2", 2, 0, 1)];
+    act(() => root.unmount());
+    root = createRoot(container);
+    render();
+    expect(tierButtons().map((b) => b.getAttribute("aria-pressed"))).toEqual(["false", "true"]);
+    catalog.guestPricing = saved;
+  });
+
+  it("keeps an edited house's own tier instead of the default", () => {
+    act(() => cart.addLine({ lineId: "l3", roomId: "r1", numGuests: 3, tierIds: ["t3"], optionIds: [] }));
+    render(cart.lines[0]);
     expect(tierButtons().map((b) => b.getAttribute("aria-pressed"))).toEqual(["false", "true"]);
   });
 
@@ -97,10 +114,7 @@ describe("RoomConfigDialog guest tiers and total", () => {
 });
 
 describe("RoomConfigDialog without a cart", () => {
-  it("offers Book Now and Choose another house, both off until a guest tier is picked", () => {
-    expect(button("bookNow")?.disabled).toBe(true);
-    expect(button("chooseAnotherHouse")?.disabled).toBe(true);
-    act(() => tierButtons()[0].click());
+  it("offers Book Now and Choose another house, both ready at once: the normal-price tier is chosen for the guest", () => {
     expect(button("bookNow")?.disabled).toBe(false);
     expect(button("chooseAnotherHouse")?.disabled).toBe(false);
   });

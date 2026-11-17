@@ -30,6 +30,28 @@ const season = (id: string, start: string, price: number) =>
   ({ id, name: id, start_date: start, end_date: start, price_per_night: price }) as RoomSeasonalPrice;
 
 describe("RoomRateTable", () => {
+  // Seasons are listed only until they end, so "today" is pinned (01:00 on 1 Mar 2026 in Bangkok).
+  beforeEach(() => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-02-28T18:00:00Z"));
+  });
+  afterEach(() => vi.useRealTimers());
+
+  it("leaves out a season that has already ended, and keeps one ending today", () => {
+    act(() =>
+      root.render(
+        createElement(RoomRateTable, {
+          room,
+          seasonalPrices: [season("ended", "2026-02-28", 900), season("today", "2026-03-01", 2000)],
+          specialPrices: [],
+        }),
+      ),
+    );
+    expect(container.textContent).not.toContain("ended");
+    expect(container.textContent).not.toContain("฿900");
+    expect(container.textContent).toContain("today");
+  });
+
   it("lists the base price, the special surcharges and the seasons in date order", () => {
     act(() =>
       root.render(

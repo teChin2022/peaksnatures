@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { compressImage } from "@/lib/compress-image";
+import { compressImage, PHOTO_OPTIONS } from "@/lib/compress-image";
 
 const imageFile = (name = "photo.jpg", type = "image/jpeg", bytes = 4096) =>
   new File([new Uint8Array(bytes)], name, { type });
@@ -124,6 +124,25 @@ describe("compressImage", () => {
   it("defaults to 1920px at quality 0.8", async () => {
     await compressImage(imageFile());
     expect(convertToBlob).toHaveBeenCalledWith({ type: "image/webp", quality: 0.8 });
+  });
+
+  // The canvas default ("low") resamples a large downscale softly.
+  it("downscales with high-quality smoothing on the offscreen canvas", async () => {
+    const ctx: { drawImage: unknown; imageSmoothingQuality?: string } = { drawImage };
+    useOffscreenCanvas(ctx);
+    await compressImage(imageFile());
+    expect(ctx.imageSmoothingQuality).toBe("high");
+  });
+
+  it("downscales with high-quality smoothing on the document canvas", async () => {
+    const ctx: { drawImage: unknown; imageSmoothingQuality?: string } = { drawImage };
+    useDocumentCanvas(ctx);
+    await compressImage(imageFile());
+    expect(ctx.imageSmoothingQuality).toBe("high");
+  });
+
+  it("exposes the host-photo preset: 2560px at quality 0.85", () => {
+    expect(PHOTO_OPTIONS).toEqual({ maxDimension: 2560, quality: 0.85 });
   });
 
   it("releases the decoded bitmap", async () => {
