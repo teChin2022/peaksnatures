@@ -113,7 +113,7 @@ export function SlipPaymentFields({
       {/* Payment method */}
       {showBank ? (
         <div className="rounded-xl bg-brand-50 border border-brand-100 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-brand mb-3">
+          <p className="text-xs font-semibold text-brand mb-3">
             {t("transferTo")}
           </p>
           <div className="space-y-2 text-sm text-earth-800">

@@ -17,3 +17,20 @@
  * a host can never adopt the plan already below the level that would warn them.
  */
 export const LOW_WALLET_THRESHOLD = 300;
+
+/** Where a host's wallet stands against LOW_WALLET_THRESHOLD, for the wallet page. */
+export type WalletStatus =
+  | { kind: "ok" }
+  | { kind: "low"; short: number }
+  | { kind: "negative"; short: number }
+  | { kind: "enoughForCommission" }
+  | { kind: "needForCommission"; short: number };
+
+export function walletStatus(planType: string, balance: number): WalletStatus {
+  const short = LOW_WALLET_THRESHOLD - balance;
+  if (planType === "commission") {
+    if (balance < 0) return { kind: "negative", short };
+    return short > 0 ? { kind: "low", short } : { kind: "ok" };
+  }
+  return short > 0 ? { kind: "needForCommission", short } : { kind: "enoughForCommission" };
+}

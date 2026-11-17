@@ -123,3 +123,10 @@ describe("MobileSidebar (phone drawer)", () => {
     expect(document.querySelector("[role=dialog]")).toBeNull();
   });
 });
+
+describe("MobileSidebar: focus outline scope", () => {
+  it("carries the dashboard surface marker, since it renders outside the shell", async () => {
+    await act(async () => root.render(createElement(MobileSidebar, { open: true, onClose: vi.fn(), role: "owner" })));
+    expect(document.querySelector("[role=dialog]")?.getAttribute("data-surface")).toBe("dashboard");
+  });
+});

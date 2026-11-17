@@ -2156,7 +2156,7 @@ export default function RoomsPage() {
                       {/* Optional window */}
                       <div>
                         <Label className="text-xs">{t("specialWindow")}</Label>
-                        <p className="mb-1 text-[11px] text-earth-600">{t("specialWindowHint")}</p>
+                        <p className="mb-1 text-xs text-earth-600">{t("specialWindowHint")}</p>
                         <div className="grid grid-cols-2 gap-2">
                           <Popover>
                             <PopoverTrigger asChild>
@@ -2217,7 +2217,7 @@ export default function RoomsPage() {
                           <button
                             type="button"
                             onClick={() => setSpecialForm((f) => ({ ...f, start_date: "", end_date: "" }))}
-                            className="mt-1.5 text-[11px] font-medium text-earth-600 transition-colors hover:text-brand"
+                            className="mt-1.5 text-xs font-medium text-earth-600 transition-colors hover:text-brand"
                           >
                             {t("specialWindowClear")}
                           </button>
@@ -2295,12 +2295,12 @@ export default function RoomsPage() {
                     {/* Spell the arithmetic out. The whole point of this tier is that the
                         number ADDS to whatever sits under the night, and a bare number in
                         a box is exactly what got read as a replacement price before. */}
-                    <p className="mt-1 text-[11px] text-earth-600">
+                    <p className="mt-1 text-xs text-earth-600">
                       {specialSurchargePreview ?? t("specialSurchargeHint")}
                     </p>
                   </div>
 
-                  <p className="text-[11px] text-earth-600">{t("specialPrecedenceHint")}</p>
+                  <p className="text-xs text-earth-600">{t("specialPrecedenceHint")}</p>
 
                   <div className="flex gap-2">
                     <Button

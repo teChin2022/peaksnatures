@@ -1128,7 +1128,7 @@ export default function CalendarPage() {
                           <div className="flex items-center gap-1.5">
                             <Badge
                               variant="outline"
-                              className={`text-[10px] px-1.5 py-0 ${
+                              className={`text-xs px-1.5 py-0 ${
                                 bi.position === "start"
                                   ? "border-brand/30 text-brand bg-brand-50"
                                   : bi.position === "end"
@@ -1140,7 +1140,7 @@ export default function CalendarPage() {
                             </Badge>
                             <Badge
                               variant="secondary"
-                              className={`text-[10px] px-1.5 py-0 ${STATUS_BADGE[bi.booking.status]}`}
+                              className={`text-xs px-1.5 py-0 ${STATUS_BADGE[bi.booking.status]}`}
                             >
                               {bi.booking.status}
                             </Badge>
@@ -1165,7 +1165,7 @@ export default function CalendarPage() {
                               ฿{bi.booking.total_price.toLocaleString()}
                             </span>
                             {bi.booking.payment_type === "deposit" && bi.booking.amount_paid < bi.booking.total_price && (
-                              <span className="ml-1.5 text-[10px] font-medium text-amber-800">
+                              <span className="ml-1.5 text-xs font-medium text-amber-800">
                                 (มัดจำ ฿{bi.booking.amount_paid.toLocaleString()})
                               </span>
                             )}

@@ -4,6 +4,7 @@ import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
 import { slipErrorKey, type SlipErrorKey } from "@/lib/slip-error";
+import { LOW_WALLET_THRESHOLD, walletStatus } from "@/lib/wallet-thresholds";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { fmtDateStr } from "@/lib/format-date";
@@ -389,7 +390,7 @@ export default function WalletPage() {
               }`}>
 
                 <div className="relative">
-                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-earth-600 mb-1">
+                  <p className="text-xs font-semibold text-earth-600 mb-1">
                     {t("balance")}
                   </p>
                   <motion.div
@@ -405,6 +406,18 @@ export default function WalletPage() {
                     </span>
                   </motion.div>
 
+                  {/* Where ฿300 sits: hosts used to meet the rule only when refused. */}
+                  {(() => {
+                    const st = walletStatus(billing.plan_type, billing.wallet_balance);
+                    const values = { min: LOW_WALLET_THRESHOLD.toLocaleString(), short: "short" in st ? st.short.toLocaleString() : "" };
+                    const warn = st.kind === "low" || st.kind === "negative";
+                    return (
+                      <p className={`mt-2 text-sm ${warn ? "font-medium text-amber-800" : "text-earth-700"}`}>
+                        {t(`threshold_${st.kind}`, values)}
+                      </p>
+                    );
+                  })()}
+
                   {billing.plan_type === "commission" && billing.effective_commission_pct != null && (
                     <p className="text-xs text-earth-600 mt-2">
                       {`${locale === "th" ? "คอมมิชชั่น" : "Commission"}: ${t("channelGuest")} ${billing.effective_commission_pct}% · ${t("channelQuick")} ${billing.effective_quick_commission_pct}%`}
@@ -417,11 +430,11 @@ export default function WalletPage() {
                         <TrendingUp className="h-4 w-4 text-brand" />
                       </div>
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-earth-600">{t("income")}</p>
+                        <p className="text-xs font-semibold text-earth-600">{t("income")}</p>
                         <p className="text-lg font-serif text-earth-900 leading-tight">
                           ฿{monthlyIncome.toLocaleString()}
                         </p>
-                        <p className="text-[10px] text-earth-600">{t("thisMonth")}</p>
+                        <p className="text-xs text-earth-600">{t("thisMonth")}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -429,11 +442,11 @@ export default function WalletPage() {
                         <TrendingDown className="h-4 w-4 text-amber-600" />
                       </div>
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-earth-600">{t("deductions")}</p>
+                        <p className="text-xs font-semibold text-earth-600">{t("deductions")}</p>
                         <p className="text-lg font-serif text-earth-900 leading-tight">
                           ฿{monthlyDeductions.toLocaleString()}
                         </p>
-                        <p className="text-[10px] text-earth-600">{t("thisMonth")}</p>
+                        <p className="text-xs text-earth-600">{t("thisMonth")}</p>
                       </div>
                     </div>
                   </div>
@@ -450,7 +463,7 @@ export default function WalletPage() {
                   </div>
                   <div>
                     <h2 className="text-sm font-semibold text-earth-900">{t("topUp")}</h2>
-                    <p className="text-[11px] text-earth-600">{t("topUpInlineDesc")}</p>
+                    <p className="text-xs text-earth-600">{t("topUpInlineDesc")}</p>
                   </div>
                 </div>
 
@@ -458,7 +471,7 @@ export default function WalletPage() {
                 {billing.platform_payment?.promptpay_id && (
                   <div className="mb-5">
                     <div className="flex flex-col items-center p-4 bg-earth-50 rounded-2xl border border-earth-100">
-                      <p className="text-[11px] font-medium uppercase tracking-wider text-earth-600 mb-3">
+                      <p className="text-xs font-medium text-earth-600 mb-3">
                         {t("scanToPay")}
                       </p>
                       <PromptPayQr
@@ -719,7 +732,7 @@ export default function WalletPage() {
                               {getBookingDetail(tx.booking)}
                             </p>
                           )}
-                          <p className="text-[11px] text-earth-600 font-mono mt-0.5">
+                          <p className="text-xs text-earth-600 tabular-nums mt-0.5">
                             {fmtDateStr(tx.created_at, "d MMM yyyy, HH:mm", locale)}
                           </p>
                         </div>
@@ -731,7 +744,7 @@ export default function WalletPage() {
                           }`}>
                             {isPositive ? "+" : ""}฿{Math.abs(tx.amount).toLocaleString()}
                           </p>
-                          <p className="text-[10px] text-earth-600 font-mono mt-0.5">
+                          <p className="text-xs text-earth-600 tabular-nums mt-0.5">
                             {t("balanceAfter")} ฿{tx.balance_after.toLocaleString()}
                           </p>
                         </div>

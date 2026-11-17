@@ -43,3 +43,11 @@ describe("DemandPanel", () => {
     expect(container.querySelector("[role=alert]")).toBeNull();
   });
 });
+
+describe("DemandPanel: range buttons", () => {
+  it("expose which range is chosen", async () => {
+    await render({ ok: true, json: async () => ({ funnel: [], topDates: [] }) });
+    const pressed = [...container.querySelectorAll("button[aria-pressed=true]")].map((b) => b.textContent);
+    expect(pressed).toEqual(["30"]);
+  });
+});

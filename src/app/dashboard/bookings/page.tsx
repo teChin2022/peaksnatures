@@ -835,7 +835,7 @@ export default function BookingsPage() {
           {t(config.labelKey)}
         </Badge>
         {b.status === "cancelled" && b.cancelled_by && (
-          <Badge variant="secondary" className={`${statusToneClass("cancelled")} text-[11px]`}>
+          <Badge variant="secondary" className={`${statusToneClass("cancelled")} text-xs`}>
             {b.cancelled_by === b.guest_name ? t("cancelledByGuest") : t("cancelledByHost")}
           </Badge>
         )}
@@ -889,7 +889,7 @@ export default function BookingsPage() {
             </span>
           )}
           {dateChangeRequests[booking.id].easyslip_verified && (
-            <Badge variant="secondary" className="bg-brand-50 text-brand text-[10px] py-0">
+            <Badge variant="secondary" className="bg-brand-50 text-brand text-xs py-0">
               <ShieldCheck className="mr-0.5 h-2.5 w-2.5" />
               {t("dateChangeSlipVerified")}
             </Badge>

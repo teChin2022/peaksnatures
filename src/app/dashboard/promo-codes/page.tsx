@@ -1042,7 +1042,7 @@ export default function PromoCodesPage() {
                   {t("tabRedemptions")} <span className="text-earth-600">({redemptions.length})</span>
                 </span>
                 {pendingPayouts.count > 0 && (
-                  <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-700">
+                  <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-700">
                     {pendingPayouts.count}
                   </span>
                 )}
@@ -1053,7 +1053,7 @@ export default function PromoCodesPage() {
                   <span className="text-earth-600">({recommenderSummary.length})</span>
                 </span>
                 {pendingByRecommenderCount > 0 && (
-                  <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-700">
+                  <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-xs font-semibold text-amber-700">
                     {pendingByRecommenderCount}
                   </span>
                 )}
@@ -1221,7 +1221,7 @@ export default function PromoCodesPage() {
                                 {c.recommender_name}
                               </p>
                               {c.commission_type && c.commission_value != null && (
-                                <p className="text-[11px] text-earth-800">
+                                <p className="text-xs text-earth-800">
                                   {t("commission")}:{" "}
                                   {c.commission_type === "percentage"
                                     ? `${c.commission_value}%`

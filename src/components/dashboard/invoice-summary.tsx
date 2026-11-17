@@ -41,7 +41,7 @@ export function InvoiceStatusBadge({ status, className = "" }: { status: string;
   const conf = STATUS_CONFIG[status] || STATUS_CONFIG.pending;
   const Icon = conf.icon;
   return (
-    <Badge className={`rounded-full text-[11px] font-medium border ${conf.bg} ${conf.color} ${className}`}>
+    <Badge className={`rounded-full text-xs font-medium border ${conf.bg} ${conf.color} ${className}`}>
       <Icon className="h-3 w-3 mr-1" />
       {t(status)}
     </Badge>

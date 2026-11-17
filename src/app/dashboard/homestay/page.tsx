@@ -125,6 +125,11 @@ function pickedIcons(labels: string[], icons: Record<string, string>): Record<st
 }
 
 const MONTH_KEYS = ["1","2","3","4","5","6","7","8","9","10","11","12"] as const;
+/** The page's cards, in order, for the jump row (each Card carries id="hs-<key>"). */
+const SECTION_KEYS = [
+  "basicInfo", "locationInfo", "checkInOutTimes", "amenities", "prohibitions", "checkInInfoTitle",
+  "policiesTitle", "faqTitle", "depositSettings", "socialMedia", "images",
+] as const;
 
 export default function HomestayPage() {
   const t = useTranslations("dashboardHomestay");
@@ -683,13 +688,32 @@ export default function HomestayPage() {
 
   return (
     <div className="mx-auto max-w-3xl">
-      <h1 className="text-xl font-bold text-earth-900 mb-6">
+      <h1 className="text-xl font-bold text-earth-900 mb-4">
         {isNew ? t("createTitle") : t("editTitle")}
       </h1>
 
+      {/* A long form on a phone: jump straight to a section. Sticks under the phone top bar. */}
+      <nav
+        aria-label={t("sections")}
+        className="sticky top-14 z-10 -mx-4 mb-6 border-b border-earth-200 bg-earth-50 px-4 py-2 sm:mx-0 sm:px-0 lg:top-0"
+      >
+        <ul className="flex gap-2 overflow-x-auto">
+          {SECTION_KEYS.map((key) => (
+            <li key={key} className="shrink-0">
+              <a
+                href={`#hs-${key}`}
+                className="inline-flex min-h-9 items-center rounded-full border border-earth-300 bg-white px-3 text-sm text-earth-800 hover:border-earth-500 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+              >
+                {t(key)}
+              </a>
+            </li>
+          ))}
+        </ul>
+      </nav>
+
       <div className="space-y-6">
         {/* Basic Info */}
-        <Card>
+        <Card id="hs-basicInfo" className="scroll-mt-28 lg:scroll-mt-16">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Home className="h-4 w-4" />
@@ -751,7 +775,7 @@ export default function HomestayPage() {
         </Card>
 
         {/* Location & Map */}
-        <Card>
+        <Card id="hs-locationInfo" className="scroll-mt-28 lg:scroll-mt-16">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <MapPin className="h-4 w-4" />
@@ -796,7 +820,7 @@ export default function HomestayPage() {
         </Card>
 
         {/* Check-in / Check-out Times */}
-        <Card>
+        <Card id="hs-checkInOutTimes" className="scroll-mt-28 lg:scroll-mt-16">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Clock className="h-4 w-4" />
@@ -826,7 +850,7 @@ export default function HomestayPage() {
         </Card>
 
         {/* Amenities */}
-        <Card>
+        <Card id="hs-amenities" className="scroll-mt-28 lg:scroll-mt-16">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Tag className="h-4 w-4" />
@@ -914,7 +938,7 @@ export default function HomestayPage() {
         </Card>
 
         {/* Prohibitions / House Rules */}
-        <Card>
+        <Card id="hs-prohibitions" className="scroll-mt-28 lg:scroll-mt-16">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <ShieldAlert className="h-4 w-4" />
@@ -1002,7 +1026,7 @@ export default function HomestayPage() {
         </Card>
 
         {/* Check-in Information */}
-        <Card>
+        <Card id="hs-checkInInfoTitle" className="scroll-mt-28 lg:scroll-mt-16">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Info className="h-4 w-4" />
@@ -1020,7 +1044,7 @@ export default function HomestayPage() {
         </Card>
 
         {/* Policies */}
-        <Card>
+        <Card id="hs-policiesTitle" className="scroll-mt-28 lg:scroll-mt-16">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Shield className="h-4 w-4" />
@@ -1038,7 +1062,7 @@ export default function HomestayPage() {
         </Card>
 
         {/* FAQ */}
-        <Card>
+        <Card id="hs-faqTitle" className="scroll-mt-28 lg:scroll-mt-16">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <HelpCircle className="h-4 w-4" />
@@ -1126,7 +1150,7 @@ export default function HomestayPage() {
         </Card>
 
         {/* Deposit & Cancellation */}
-        <Card>
+        <Card id="hs-depositSettings" className="scroll-mt-28 lg:scroll-mt-16">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Calendar className="h-4 w-4" />
@@ -1168,7 +1192,7 @@ export default function HomestayPage() {
               <div className="grid grid-cols-4 gap-2">
                 {MONTH_KEYS.map((m) => (
                   <div key={m} className="space-y-1">
-                    <label className="text-[11px] text-earth-600 block text-center">
+                    <label className="text-xs text-earth-600 block text-center">
                       {t(`month${m}`)}
                     </label>
                     <Input
@@ -1261,7 +1285,7 @@ export default function HomestayPage() {
         </Card>
 
         {/* Social Media */}
-        <Card>
+        <Card id="hs-socialMedia" className="scroll-mt-28 lg:scroll-mt-16">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <Share2 className="h-4 w-4" />
@@ -1308,7 +1332,7 @@ export default function HomestayPage() {
         </Card>
 
         {/* Images */}
-        <Card>
+        <Card id="hs-images" className="scroll-mt-28 lg:scroll-mt-16">
           <CardHeader>
             <CardTitle className="flex items-center gap-2 text-base">
               <ImageIcon className="h-4 w-4" />

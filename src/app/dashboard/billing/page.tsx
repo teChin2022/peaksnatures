@@ -569,18 +569,18 @@ export default function DashboardBillingPage() {
                           {t("nMonths", { n: data.fixed_rate_term_months })} {t("termSuffix")}
                         </p>
                         {currentDiscountPct > 0 && (
-                          <span className="bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wider py-0.5 px-2 rounded-full">
+                          <span className="bg-amber-100 text-amber-700 text-xs font-bold py-0.5 px-2 rounded-full">
                             {t("saveX", { pct: currentDiscountPct })}
                           </span>
                         )}
                       </div>
                       <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-earth-600">
                         <div>
-                          <p className="uppercase tracking-wider text-[10px] text-earth-600">{t("termStartsOn")}</p>
+                          <p className=" text-xs text-earth-600">{t("termStartsOn")}</p>
                           <p className="text-earth-700 mt-0.5">{fmtDateStr(data.fixed_rate_term_started_at, "d MMM yyyy", locale)}</p>
                         </div>
                         <div>
-                          <p className="uppercase tracking-wider text-[10px] text-earth-600">{t("termEndsOn")}</p>
+                          <p className=" text-xs text-earth-600">{t("termEndsOn")}</p>
                           <p className="text-earth-700 mt-0.5">{fmtDateStr(data.fixed_rate_term_ends_at, "d MMM yyyy", locale)}</p>
                         </div>
                       </div>
@@ -677,7 +677,7 @@ export default function DashboardBillingPage() {
                 {/* Invoice History */}
                 {data.invoices.length > 0 && (
                   <CardContent className="px-6 pb-6 pt-4">
-                    <p className="text-xs font-medium uppercase tracking-wider text-earth-600 mb-3">
+                    <p className="text-xs font-medium text-earth-600 mb-3">
                       {t("invoices")}
                     </p>
                     <div className="space-y-3">
@@ -712,11 +712,12 @@ export default function DashboardBillingPage() {
       })()}
 
       {/* ── Pricing Cards ── */}
-      <h2 className="text-base font-semibold text-earth-900 -mb-3">{t("changePlan")}</h2>
+      <h2 className="text-base font-semibold text-earth-900 mb-3">{t("changePlan")}</h2>
       <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
         {PLANS.map((plan, index) => {
           const isCurrent = data.plan_type === plan.key;
-          const isPopular = plan.popular;
+          // No "pick me" emphasis on a plan the host's wallet cannot take yet.
+          const isPopular = plan.popular && !(plan.key === "commission" && data.wallet_balance < LOW_WALLET_THRESHOLD);
           const canSwitch = !isCurrent && !data.plan_pending_type && !switching && plan.key !== "free";
           const features = locale === "th" ? plan.featuresTh : plan.features;
           const { price, period: periodEn, periodTh } = getPlanPrice(plan.key, data);
@@ -741,7 +742,7 @@ export default function DashboardBillingPage() {
               {/* Current plan badge */}
               {isCurrent && (
                 <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                  <span className="bg-brand text-white text-[11px] font-bold uppercase tracking-wider py-1 px-3 rounded-full whitespace-nowrap">
+                  <span className="bg-brand text-white text-xs font-bold py-1 px-3 rounded-full whitespace-nowrap">
                     {t("currentPlan")}
                   </span>
                 </div>
@@ -761,6 +762,10 @@ export default function DashboardBillingPage() {
                   {plan.key === "free" && (locale === "th" ? "เหมาะสำหรับเริ่มต้นทดลองใช้งาน" : "Perfect for getting started and testing the waters.")}
                   {plan.key === "commission" && (locale === "th" ? "จ่ายตามการใช้งาน เหมาะสำหรับโฮสต์ตามฤดูกาล" : "Pay as you go. Best for seasonal or occasional hosts.")}
                   {plan.key === "fixed_rate" && (locale === "th" ? "เก็บรายได้ 100% เหมาะสำหรับโฮสต์เต็มเวลา" : "Keep 100% of your earnings. Ideal for full-time hosts.")}
+                </p>
+                {/* How each plan is paid: the feature lists below are nearly the same. */}
+                <p className="mt-2 rounded-lg bg-earth-50 px-3 py-2 text-sm text-earth-800">
+                  {t(`payHow_${plan.key}` as "payHow_free", { min: LOW_WALLET_THRESHOLD.toLocaleString() })}
                 </p>
               </div>
 
@@ -803,6 +808,9 @@ export default function DashboardBillingPage() {
                   <CheckCircle className="w-4 h-4 mr-2" />
                   {locale === "th" ? "แพลนปัจจุบันของคุณ" : "Your Current Plan"}
                 </div>
+              ) : plan.key === "free" ? (
+                // Not a faded button with no reason: the plan simply can't be chosen again.
+                <p className="mt-auto py-3.5 text-center text-sm text-earth-700">{t("freeNotAvailable")}</p>
               ) : (
                 <button
                   type="button"
@@ -986,7 +994,7 @@ export default function DashboardBillingPage() {
                   }`}
                 >
                   {tier.discount_pct > 0 && (
-                    <span className="absolute top-2 right-2 bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wider py-0.5 px-2 rounded-full">
+                    <span className="absolute top-2 right-2 bg-amber-100 text-amber-700 text-xs font-bold py-0.5 px-2 rounded-full">
                       {t("saveX", { pct: tier.discount_pct })}
                     </span>
                   )}

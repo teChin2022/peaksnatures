@@ -154,6 +154,14 @@
   * {
     @apply border-border outline-ring/50;
   }
+  /* Host dashboard: a full-strength focus outline for controls with no ring of
+     their own (Forest at /50 is about 2.4:1, under the 3:1 a focus indicator
+     needs). In the base layer, so a component's focus-visible:outline-none +
+     ring utilities still win and nothing gets two indicators. */
+  [data-surface="dashboard"] :focus-visible {
+    outline: 2px solid var(--ring);
+    outline-offset: 2px;
+  }
   body {
     /* The next/font variables are set on <body>, so html's default font cannot resolve them. */
     @apply bg-background text-foreground font-sans;

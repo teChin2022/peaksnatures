@@ -146,7 +146,7 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
               key={item.key}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 isActive
                   ? "bg-brand/8 text-brand"
                   : "text-earth-600 hover:bg-earth-50 hover:text-earth-900"
@@ -167,7 +167,7 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
         <button
           onClick={handleSignOut}
           className={cn(
-            "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-earth-600 transition-colors hover:bg-earth-50 hover:text-earth-700"
+            "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-earth-600 transition-colors hover:bg-earth-50 hover:text-earth-700"
           )}
           title={collapsed ? ta("signOut") : undefined}
         >
@@ -215,6 +215,7 @@ export function MobileSidebar({
     // focus returns to the menu button. Plain dim overlay, no blur (DESIGN.md).
     <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
       <SheetContent
+        data-surface="dashboard"
         side="left"
         showCloseButton={false}
         className="w-60 gap-0 border-earth-200/80 bg-white p-0 data-[state=closed]:duration-200 data-[state=open]:duration-300 motion-reduce:animate-none sm:max-w-none lg:hidden"
@@ -226,7 +227,7 @@ export function MobileSidebar({
             {brandLogo ? (
               <Image src={brandLogo} alt={brandName} width={28} height={28} className="h-7 w-7 shrink-0 rounded-lg object-cover" />
             ) : (
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-[10px] font-bold text-brand">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-xs font-bold text-brand">
                 {getInitials(brandName)}
               </div>
             )}

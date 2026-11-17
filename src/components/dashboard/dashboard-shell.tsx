@@ -108,7 +108,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-earth-50">
+    <div data-surface="dashboard" className="min-h-screen bg-earth-50">
       {/* Desktop sidebar */}
       <div className="hidden lg:block">
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} brandName={brandName} brandLogo={brandLogo} role={role} accountEmail={accountEmail} />

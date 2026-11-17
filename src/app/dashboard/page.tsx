@@ -502,9 +502,6 @@ export default function DashboardPage() {
             className="flex items-end justify-between"
           >
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-earth-600 mb-0.5">
-                {ta("hostDashboard")}
-              </p>
               <h1 className="text-xl font-bold text-earth-900">
                 {stats.homestayName || ta("hostDashboard")}
               </h1>
@@ -567,6 +564,8 @@ export default function DashboardPage() {
             {(["overview", "insights"] as const).map((t2) => (
               <button
                 key={t2}
+                type="button"
+                aria-pressed={tab === t2}
                 onClick={() => setTab(t2)}
                 className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${
                   tab === t2

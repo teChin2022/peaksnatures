@@ -135,6 +135,7 @@ export function DemandPanel({
                 <button
                   key={r}
                   type="button"
+                  aria-pressed={days === r}
                   onClick={() => setDays(r)}
                   className={cn(
                     "rounded-full px-3 py-1 text-xs font-medium transition-colors",
