@@ -291,13 +291,6 @@ function RoomDescriptionWithReadMore({ content, onReadMore }: { content: string;
   );
 }
 
-const CARD_ENTRANCE = {
-  initial: { opacity: 0, y: 30 },
-  whileInView: { opacity: 1, y: 0 },
-  viewport: { once: true },
-  transition: { duration: 0.5, ease: [0.25, 0.1, 0, 1] as const },
-};
-
 /**
  * One house on /book: a white card with its photos (swipe, arrows, thumbnails,
  * tap for the lightbox) and, below on phones or beside from md, the name,
@@ -373,7 +366,7 @@ export function SingleRoomHero({
   if (!room.is_active) {
     const cover = images[0];
     return (
-      <motion.div data-room-id={room.id} {...CARD_ENTRANCE} aria-disabled="true" className="grid overflow-hidden rounded-[20px] bg-white md:grid-cols-[52%_1fr]">
+      <div data-room-id={room.id} aria-disabled="true" className="grid overflow-hidden rounded-[20px] bg-white md:grid-cols-[52%_1fr]">
         <div className="relative aspect-[4/3] bg-mist-2 md:aspect-auto md:min-h-[280px]">
           {cover && (
             <Image src={cover} alt={room.name} fill sizes="(max-width: 768px) 100vw, 52vw" placeholder="blur" blurDataURL={BLUR_DATA_URL} className="object-cover opacity-60 grayscale" />
@@ -386,7 +379,7 @@ export function SingleRoomHero({
             {t("temporarilyClosed")}
           </p>
         </div>
-      </motion.div>
+      </div>
     );
   }
 
@@ -404,9 +397,9 @@ export function SingleRoomHero({
   const showMain = cartEnabled && ctaState !== "full";
 
   return (
-    <motion.div
+    // No entrance: a task surface starts its content visible (DESIGN.md); the cards used to wait at opacity 0.
+    <div
       data-room-id={room.id}
-      {...CARD_ENTRANCE}
       // Chosen: a Pine outline, so the guest sees at a glance which houses are chosen.
       // scroll-mt clears the fixed site header when "see other houses" scrolls a card into view.
       className={`grid scroll-mt-24 overflow-hidden rounded-[20px] bg-white md:grid-cols-[52%_1fr] ${inCart > 0 ? "ring-[1.5px] ring-inset ring-pine" : ""}`}
@@ -572,7 +565,7 @@ export function SingleRoomHero({
           </div>
         </div>
       </div>
-    </motion.div>
+    </div>
   );
 }
 

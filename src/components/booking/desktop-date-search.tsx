@@ -68,11 +68,12 @@ export function DesktopDateSearch({ bookingDisabled = false }: { bookingDisabled
         className="mx-auto -mt-8 max-w-4xl px-4 sm:px-6 md:-mt-12"
       >
         <div className="grid grid-cols-2 gap-1 rounded-[20px] bg-white p-2 shadow-[0_18px_40px_-18px_rgba(19,38,34,0.35)] md:grid-cols-[1fr_1fr_0.8fr_auto] md:items-center">
-          <button type="button" onClick={() => setCalendarOpen(true)} aria-label={`${tb("checkInLabel")} — ${tb("selectDates")}`} className={field}>
+          {/* No aria-label: the name is the visible label and date, so a screen reader hears the chosen day (WCAG 2.5.3). */}
+          <button type="button" onClick={() => setCalendarOpen(true)} className={field}>
             <span className="text-xs font-medium text-ink-2">{tb("checkInLabel")}</span>
             {dateValue(hasDates ? dateRange!.from : undefined)}
           </button>
-          <button type="button" onClick={() => setCalendarOpen(true)} aria-label={`${tb("checkOutLabel")} — ${tb("selectDates")}`} // A straight divider: a border on the rounded field would curve with its corners.
+          <button type="button" onClick={() => setCalendarOpen(true)} // A straight divider: a border on the rounded field would curve with its corners.
             className={`${field} relative before:absolute before:inset-y-3 before:left-0 before:w-px before:bg-line`}>
             <span className="text-xs font-medium text-ink-2">{tb("checkOutLabel")}</span>
             {dateValue(hasDates ? dateRange!.to : undefined)}

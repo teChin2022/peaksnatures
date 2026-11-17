@@ -164,7 +164,7 @@ export function RoomConfigDialog({
         }}
       >
         <DialogHeader className="px-6 pt-6 pb-3 pr-12 text-left">
-          <DialogTitle>{room?.name}</DialogTitle>
+          <DialogTitle className="font-serif text-2xl font-normal">{room?.name}</DialogTitle>
         </DialogHeader>
 
         {/* Scrollable body */}
@@ -308,7 +308,8 @@ export function RoomConfigDialog({
               <div className="flex items-center justify-between text-base font-bold text-ink">
                 {/* With other houses chosen, this price is for this house only; the grand total follows. */}
                 <span>{otherCount > 0 ? t("thisHouse") : tc("total")}</span>
-                <span>฿{(unitPrice * (isEditing ? 1 : qty)).toLocaleString()}</span>
+                {/* Prices in the serif, as on the house card (DESIGN.md: names of places and prices). */}
+                <span className="font-serif text-2xl font-normal" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>฿{(unitPrice * (isEditing ? 1 : qty)).toLocaleString()}</span>
               </div>
               {/* The stay the total is for, so the price never floats free of its dates (B16). */}
               {dateRange?.from && dateRange?.to && (
@@ -319,7 +320,7 @@ export function RoomConfigDialog({
               {otherCount > 0 && (
                 <p className="mt-2 flex items-center justify-between border-t border-dashed border-line-strong pt-2 text-sm text-ink-2">
                   <span>{t("allHousesTotal", { count: houseCount })}</span>
-                  <span className="text-base font-bold text-ink">฿{(subtotal + unitPrice * qty).toLocaleString()}</span>
+                  <span className="font-serif text-xl text-ink" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>฿{(subtotal + unitPrice * qty).toLocaleString()}</span>
                 </p>
               )}
             </div>

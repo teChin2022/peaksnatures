@@ -228,7 +228,8 @@ export async function reachReview(page: Page, slug: string, options: { houses?: 
 /** Picks two consecutive free nights some days ahead, trying later pairs when a house is not free for them. */
 export async function chooseDates(page: Page) {
   for (let attempt = 0; attempt < 10; attempt += 1) {
-    await page.getByRole("button", { name: T.booking.selectDates }).last().click();
+    // The date panel's check-out field: its name is its label and the date, so it is found on a retry too.
+    await page.locator("#date-panel").getByRole("button", { name: new RegExp(`^${T.booking.checkOutLabel}`) }).click();
     const dialog = page.getByRole("dialog");
     const days = dialog.locator("button[data-day]");
     await expect(days.first()).toBeVisible();

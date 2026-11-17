@@ -126,7 +126,7 @@ function RoomStatusText({ row }: { row: RoomDayStatus }) {
     cls = "text-red-700";
     label = t("roomBooked");
   } else if (row.booked === 0) {
-    cls = "text-emerald-700";
+    cls = "text-pine";
     label = row.total > 1 ? t("roomFreeCount", { count: row.free }) : t("roomAvailable");
   } else {
     cls = "text-amber-800";
@@ -262,11 +262,14 @@ function BackHeader({
   description,
   onBack,
   className,
+  titleClassName,
 }: {
   title: string;
   description: string;
   onBack: () => void;
   className?: string;
+  /** A house name is set in the serif; the picker's "select dates" is not a name. */
+  titleClassName?: string;
 }) {
   const tc = useTranslations("common");
   const titleRef = useRef<HTMLHeadingElement>(null);
@@ -289,7 +292,7 @@ function BackHeader({
         >
           <ArrowLeft className="h-4 w-4" />
         </button>
-        <DialogTitle ref={titleRef} tabIndex={-1} className="min-w-0 truncate outline-none">
+        <DialogTitle ref={titleRef} tabIndex={-1} className={cn("min-w-0 truncate outline-none", titleClassName)}>
           {title}
         </DialogTitle>
       </div>
@@ -358,6 +361,7 @@ function RoomDayDetail({
         description={fmtDate(date, "EEEE d MMMM yyyy", locale)}
         onBack={onBack}
         className="px-6 pr-12 pt-6 pb-3"
+        titleClassName="font-serif text-2xl font-normal leading-snug"
       />
 
       {/* A block wrapper, so the photo's aspect-ratio box (all absolute
@@ -370,7 +374,7 @@ function RoomDayDetail({
             <Users className="h-3.5 w-3.5" />
             {ta("upToGuests", { count: room.max_guests })}
           </span>
-          <span className="inline-flex items-center rounded-full bg-emerald-50 px-2.5 py-1 font-semibold text-emerald-700 ring-1 ring-inset ring-emerald-200">
+          <span className="inline-flex items-center rounded-full bg-pine-mist px-2.5 py-1 font-semibold text-pine">
             {tr("available", { count: freeCount })}
           </span>
         </div>
@@ -388,7 +392,7 @@ function RoomDayDetail({
       <div className="flex items-center gap-3 border-t border-line px-6 py-4">
         <div className="min-w-0 flex-1">
           <p className="flex items-baseline gap-1 tabular-nums">
-            <span className="text-xl font-bold text-ink">
+            <span className="font-serif text-2xl text-ink" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>
               ฿{(night?.price ?? room.price_per_night).toLocaleString()}
             </span>
             <span className="text-xs text-ink-3">{tc("perNight")}</span>

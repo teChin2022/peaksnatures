@@ -20,6 +20,7 @@ import { Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Tel
 import { toast } from "sonner";
 import { billingTodayStr } from "@/lib/billing-dates";
 import { cancellationNote } from "@/lib/cancellation-note";
+import { forgetSavedStay } from "@/lib/booking-session-store";
 import { reconcileDraftWithCatalog, type ResumeDraftDetail } from "@/lib/booking-draft";
 import { useTranslations, useLocale } from "next-intl";
 import type { Homestay, Room, BlockedDate, RoomSeasonalPrice, RoomSpecialPrice, RoomOption, RoomGuestPricing } from "@/types/database";
@@ -180,6 +181,8 @@ export function BookingSection({
   const [holdProgress, setHoldProgress] = useState<{ done: number; total: number } | null>(null);
   const [slipFile, setSlipFile] = useState<File | null>(null);
   const [slipPreview, setSlipPreview] = useState<string | null>(null);
+  // Why the slip was refused, shown in the upload card itself (a toast at the top was gone before a phone guest looked up).
+  const [slipError, setSlipError] = useState<string | null>(null);
   // The hold ran out on the payment page: the overlay shows the expired page until the guest starts over.
   const [holdExpired, setHoldExpired] = useState(false);
   // A slip is with /api/verify-slip: the overlay shows the "checking your slip" card.
@@ -230,6 +233,7 @@ export function BookingSection({
 
   const handleSlipSelect = async (file: File | null) => {
     if (slipPreview) URL.revokeObjectURL(slipPreview);
+    setSlipError(null);
 
     // Shrink before it ever hits the network. Guests here are often on rural
     // mobile data, where an untouched 2-4MB phone screenshot is several
@@ -1086,6 +1090,7 @@ export function BookingSection({
 
     if (!dateRange?.from || !dateRange?.to) return;
 
+    setSlipError(null);
     setIsSubmitting(true);
     setVerifyingSlip(true);
 
@@ -1139,14 +1144,14 @@ export function BookingSection({
       }
 
       if (verifyRes.status === 409 && verifyData.duplicate) {
-        toast.error(t("errorDuplicateSlip"));
+        setSlipError(t("errorDuplicateSlip"));
         handleRemoveSlip();
         setIsSubmitting(false);
         return;
       }
 
       if (verifyData.slip_pending) {
-        toast.error(t("errorSlipPending"));
+        setSlipError(t("errorSlipPending"));
         setIsSubmitting(false);
         return;
       }
@@ -1168,7 +1173,7 @@ export function BookingSection({
           `[Slip] verification failed (HTTP ${verifyRes.status}, reason=${reason ?? "none"}):`,
           verifyData.error || verifyData.message || "no message",
         );
-        toast.error(reason && t.has(key) ? t(key) : t("errorSlipVerifyFailed"));
+        setSlipError(reason && t.has(key) ? t(key) : t("errorSlipVerifyFailed"));
         setIsSubmitting(false);
         return;
       }
@@ -1307,6 +1312,10 @@ export function BookingSection({
     leavingRef.current = true;
     setShowLeaveWarning(false);
     if (stepRef.current === "payment") releaseHoldRef.current(); // free the room hold on exit
+    // "Clear" means it: the stay kept for a refresh goes too, or the same tab would bring it back.
+    forgetSavedStay(homestay.id);
+    clearCart();
+    setDateRange(undefined);
     window.history.back();
   };
 
@@ -1758,7 +1767,7 @@ export function BookingSection({
                           <span className="text-ink">฿{subtotalPrice.toLocaleString()}</span>
                         </div>
                         {appliedPromo && promoDiscount > 0 && (
-                          <div className="flex justify-between gap-4 text-emerald-700">
+                          <div className="flex justify-between gap-4 text-pine">
                             <span>{t("promoLabel")} ({appliedPromo.code})</span>
                             <span>−฿{promoDiscount.toLocaleString()}</span>
                           </div>
@@ -1803,7 +1812,7 @@ export function BookingSection({
                         </p>
                       )}
                       {cancelNote?.kind === "free" && (
-                        <p className="mt-3 text-[13px] text-emerald-700">{t("freeCancellationUntil", { date: fmtDate(cancelNote.deadline, "d MMM yyyy", locale) })}</p>
+                        <p className="mt-3 text-[13px] text-pine">{t("freeCancellationUntil", { date: fmtDate(cancelNote.deadline, "d MMM yyyy", locale) })}</p>
                       )}
                       {cancelNote?.kind === "passed" && (
                         <p className="mt-3 text-[13px] leading-relaxed text-ink-2">{t("cancellationPassed", { days: cancelNote.days })}</p>
@@ -1901,7 +1910,7 @@ export function BookingSection({
                           {slipPreview ? (
                             <div className="space-y-3">
                               {phoneSlipReceived && (
-                                <p role="status" className="flex items-center gap-2 rounded-xl bg-emerald-50 px-4 py-2.5 text-[15px] font-medium text-emerald-800">
+                                <p role="status" className="flex items-center gap-2 rounded-xl bg-pine-mist px-4 py-2.5 text-[15px] font-medium text-pine">
                                   <CheckCircle2 className="h-4 w-4 shrink-0" />{t("slipReceived")}
                                 </p>
                               )}
@@ -1944,6 +1953,9 @@ export function BookingSection({
                             </>
                           )}
                         </div>
+                        {slipError && (
+                          <p role="alert" className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-[15px] leading-relaxed text-red-800">{slipError}</p>
+                        )}
                         <button onClick={handleSubmitBooking} disabled={isSubmitting || !slipFile} className={`${CO_PRIMARY} mt-5`}>
                           {isSubmitting && verifyingSlip ? (<><Loader2 className="h-4 w-4 animate-spin" />{t("verifying")}</>) : t("submitBooking")}
                         </button>
@@ -2121,6 +2133,8 @@ export function BookingSection({
         onContinue={handleStayInBooking}
         onLeave={handleLeaveAndClear}
         onStepBack={checkoutOpen && checkoutBack ? handleStepBack : null}
+        // Going back from payment lets the held houses go: staying stays the main action there.
+        stepBackReleasesHold={checkoutView === "pay"}
         stepBackLabel={
           checkoutView === "details" ? t("leaveBackToHouses") : checkoutView === "review" ? t("leaveBackToDetails") : checkoutView === "pay" ? t("leaveBackToReview") : null
         }

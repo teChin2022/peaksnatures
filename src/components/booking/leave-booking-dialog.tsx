@@ -13,6 +13,9 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 
+const PRIMARY = "h-12 w-full cursor-pointer rounded-full bg-pine text-[15px] font-bold text-white shadow-sm transition-colors hover:bg-pine-hover";
+const SECONDARY = "h-12 w-full cursor-pointer rounded-full border-line-strong bg-white text-[15px] font-medium text-ink transition-colors hover:bg-mist";
+
 interface LeaveBookingDialogProps {
   open: boolean;
   /** Keep the guest in the funnel (also fires on overlay click / Escape). */
@@ -30,6 +33,8 @@ interface LeaveBookingDialogProps {
   onStepBack?: (() => void) | null;
   /** Names where that step lands, e.g. "Back to guest details". */
   stepBackLabel?: string | null;
+  /** The step back lets the held houses go (from payment): it becomes the second choice, and says so. */
+  stepBackReleasesHold?: boolean;
 }
 
 export function LeaveBookingDialog({
@@ -42,9 +47,12 @@ export function LeaveBookingDialog({
   guestsLabel,
   onStepBack,
   stepBackLabel,
+  stepBackReleasesHold = false,
 }: LeaveBookingDialogProps) {
   const t = useTranslations("booking");
   const reduce = useReducedMotion();
+
+  const stepBack = Boolean(onStepBack && stepBackLabel);
 
   // Compact meta line — only the parts the guest has actually chosen.
   const meta = [dateLabel, nightsLabel, guestsLabel].filter(Boolean).join(" · ");
@@ -103,25 +111,22 @@ export function LeaveBookingDialog({
         </div>
 
         <DialogFooter className="flex-col gap-2 border-t border-line bg-mist/40 px-6 py-4 sm:flex-col">
-          {onStepBack && stepBackLabel && (
-            <Button
-              onClick={onStepBack}
-              className="h-12 w-full cursor-pointer rounded-full bg-pine text-[15px] font-bold text-white shadow-sm transition-colors hover:bg-pine-hover"
-            >
+          {stepBack && !stepBackReleasesHold && (
+            <Button onClick={onStepBack!} className={PRIMARY}>
               {stepBackLabel}
             </Button>
           )}
-          <Button
-            onClick={onContinue}
-            variant={onStepBack && stepBackLabel ? "outline" : "default"}
-            className={
-              onStepBack && stepBackLabel
-                ? "h-12 w-full cursor-pointer rounded-full border-line-strong bg-white text-[15px] font-medium text-ink transition-colors hover:bg-mist"
-                : "h-12 w-full cursor-pointer rounded-full bg-pine text-[15px] font-bold text-white shadow-sm transition-colors hover:bg-pine-hover"
-            }
-          >
+          <Button onClick={onContinue} variant={stepBack && !stepBackReleasesHold ? "outline" : "default"} className={stepBack && !stepBackReleasesHold ? SECONDARY : PRIMARY}>
             {t("leaveStay")}
           </Button>
+          {stepBack && stepBackReleasesHold && (
+            <div className="w-full">
+              <Button onClick={onStepBack!} variant="outline" className={SECONDARY}>
+                {stepBackLabel}
+              </Button>
+              <p className="mt-1.5 text-center text-xs text-ink-3">{t("leaveStepBackReleasesHold")}</p>
+            </div>
+          )}
           <Button
             onClick={onLeave}
             variant="ghost"

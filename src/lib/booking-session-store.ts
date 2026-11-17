@@ -28,6 +28,15 @@ interface CatalogRefs {
 
 export const savedStayKey = (homestayId: string) => `pn_stay:${homestayId}`;
 
+/** Drops the kept stay at once, for a guest who chose to leave and clear (the page may unload before any effect runs). */
+export function forgetSavedStay(homestayId: string) {
+  try {
+    sessionStorage.removeItem(savedStayKey(homestayId));
+  } catch {
+    // Storage blocked: nothing was kept.
+  }
+}
+
 const DAY = /^\d{4}-\d{2}-\d{2}$/;
 const ymd = (d: Date) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, "0")}-${String(d.getDate()).padStart(2, "0")}`;

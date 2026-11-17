@@ -147,6 +147,15 @@ describe("SingleRoomHero house card", () => {
     expect(container.textContent).toContain("3 / 3");
   });
 
+  it("is visible from the first paint, with no entrance waiting on a scroll", () => {
+    card();
+    const el = container.querySelector<HTMLElement>("[data-room-id]")!;
+    expect(el.style.opacity).toBe("");
+    expect(el.style.transform).toBe("");
+    card({ room: room({ is_active: false }) });
+    expect(container.querySelector<HTMLElement>("[data-room-id]")!.style.opacity).toBe("");
+  });
+
   it("says 'from' before the lowest price when the house has more than one rate", () => {
     card({ seasonalPrices: [{ id: "s1", room_id: "r1", name: "High", start_date: "2099-01-01", end_date: "2099-01-31", price_per_night: 2500 } as never] });
     expect(container.textContent).toContain("priceFrom");

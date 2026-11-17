@@ -45,4 +45,15 @@ describe("LeaveBookingDialog", () => {
     expect(onStepBack).toHaveBeenCalledTimes(1);
     expect(onContinue).not.toHaveBeenCalled();
   });
+
+  // Regression (f12e21e): on the payment step the green button released the hold.
+  it("when the step back would release the hold: staying is the main action, and the step back says so", () => {
+    act(() =>
+      root.render(
+        createElement(LeaveBookingDialog, { open: true, onContinue: () => {}, onLeave: () => {}, onStepBack: () => {}, stepBackLabel: "Back to the review", stepBackReleasesHold: true }),
+      ),
+    );
+    expect(buttons()).toEqual(["leaveStay", "Back to the review", "leaveConfirm"]);
+    expect(document.body.textContent).toContain("leaveStepBackReleasesHold");
+  });
 });
