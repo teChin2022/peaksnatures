@@ -481,131 +481,7 @@ export default function DashboardBillingPage() {
         )}
       </AnimatePresence>
 
-      {/* ── Pricing Cards ── */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
-        {PLANS.map((plan, index) => {
-          const isCurrent = data.plan_type === plan.key;
-          const isPopular = plan.popular;
-          const canSwitch = !isCurrent && !data.plan_pending_type && !switching && plan.key !== "free";
-          const features = locale === "th" ? plan.featuresTh : plan.features;
-          const { price, period: periodEn, periodTh } = getPlanPrice(plan.key, data);
-          const period = locale === "th" ? periodTh : periodEn;
-
-          return (
-            <motion.div
-              key={plan.key}
-              initial={{ opacity: 0, y: 24 }}
-              animate={{ opacity: 1, y: 0 }}
-              transition={{ duration: 0.45, delay: 0.15 + index * 0.08 }}
-              onMouseEnter={() => setHoveredPlan(plan.key)}
-              onMouseLeave={() => setHoveredPlan(null)}
-              className={`relative bg-white rounded-2xl p-7 border-2 transition-all duration-300 flex flex-col ${
-                isCurrent
-                  ? "border-brand shadow-lg shadow-brand-50 ring-1 ring-brand/10"
-                  : hoveredPlan === plan.key
-                    ? "border-earth-300 shadow-md"
-                    : "border-earth-100 shadow-sm"
-              }`}
-            >
-              {/* Current plan badge */}
-              {isCurrent && (
-                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
-                  <span className="bg-brand text-white text-[11px] font-bold uppercase tracking-wider py-1 px-3 rounded-full whitespace-nowrap">
-                    {t("currentPlan")}
-                  </span>
-                </div>
-              )}
-
-              {/* Plan header */}
-              <div className="mb-6">
-                <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-5 ${
-                  isCurrent ? "bg-brand-50" : "bg-earth-50"
-                }`}>
-                  {plan.icon}
-                </div>
-                <h3 className="text-xl font-serif font-bold text-earth-900 mb-1">
-                  {planLabel(plan.key)}
-                </h3>
-                <p className="text-earth-500 text-sm min-h-[36px]">
-                  {plan.key === "free" && (locale === "th" ? "เหมาะสำหรับเริ่มต้นทดลองใช้งาน" : "Perfect for getting started and testing the waters.")}
-                  {plan.key === "commission" && (locale === "th" ? "จ่ายตามการใช้งาน เหมาะสำหรับโฮสต์ตามฤดูกาล" : "Pay as you go. Best for seasonal or occasional hosts.")}
-                  {plan.key === "fixed_rate" && (locale === "th" ? "เก็บรายได้ 100% เหมาะสำหรับโฮสต์เต็มเวลา" : "Keep 100% of your earnings. Ideal for full-time hosts.")}
-                </p>
-              </div>
-
-              {/* Price — uses real data from API */}
-              <div className="mb-6">
-                <div className="flex items-baseline">
-                  <span className="text-4xl font-extrabold tracking-tight text-earth-900">{price}</span>
-                  <span className="text-earth-400 ml-2 font-medium">{period}</span>
-                </div>
-                {plan.key === "commission" && (
-                  <div className="flex items-baseline">
-                    <span className="text-4xl font-extrabold tracking-tight text-earth-900">
-                      {data.effective_quick_commission_pct != null ? `${data.effective_quick_commission_pct}%` : "—"}
-                    </span>
-                    <span className="text-earth-400 ml-2 font-medium">/{QUICK_BOOKING[lang]}</span>
-                  </div>
-                )}
-                {isCurrent && plan.key === "free" && data.plan_free_expires_at && (
-                  <p className="text-xs text-earth-500 mt-1">
-                    {t("expiresOn")} {fmtDateStr(data.plan_free_expires_at, "d MMM yyyy", locale)}
-                  </p>
-                )}
-              </div>
-
-              {/* Features */}
-              <ul className="space-y-3 mb-7 flex-grow">
-                {features.map((feature, i) => (
-                  <li key={i} className="flex items-start">
-                    <Check className={`w-4.5 h-4.5 mr-2.5 shrink-0 mt-0.5 ${
-                      isCurrent ? "text-brand" : "text-earth-400"
-                    }`} />
-                    <span className="text-sm text-earth-800">{feature}</span>
-                  </li>
-                ))}
-              </ul>
-
-              {/* CTA */}
-              {isCurrent ? (
-                <div className="w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center bg-brand-50 text-brand border border-brand/15 mt-auto">
-                  <CheckCircle className="w-4 h-4 mr-2" />
-                  {locale === "th" ? "แพลนปัจจุบันของคุณ" : "Your Current Plan"}
-                </div>
-              ) : (
-                <button
-                  type="button"
-                  onClick={() => canSwitch && handlePlanCtaClick(plan.key)}
-                  disabled={!canSwitch}
-                  className={`w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center transition-colors mt-auto disabled:opacity-50 disabled:cursor-not-allowed ${
-                    isPopular && !isCurrent
-                      ? "bg-brand text-white hover:bg-brand-hover"
-                      : "bg-earth-50 text-earth-800 hover:bg-earth-100"
-                  }`}
-                >
-                  {t("switchToPlan", { plan: planLabel(plan.key) })}
-                  <ArrowRight className="w-4 h-4 ml-2" />
-                </button>
-              )}
-            </motion.div>
-          );
-        })}
-      </div>
-
-      {/* ── Switch note ── */}
-      <motion.div
-        initial={{ opacity: 0 }}
-        animate={{ opacity: 1 }}
-        transition={{ duration: 0.4, delay: 0.5 }}
-        className="text-center"
-      >
-        <p className="text-earth-400 text-sm flex items-center justify-center">
-          <HelpCircle className="w-4 h-4 mr-1.5" />
-          {t("switchNote")}
-        </p>
-      </motion.div>
-
-      {/* ── Plan Detail Card ── */}
+      {/* ── Plan Detail Card: the host's own plan and what they owe, before any sales material ── */}
       {data.plan_type === "free" && (
         <motion.div
           initial={{ opacity: 0, y: 12 }}
@@ -613,16 +489,16 @@ export default function DashboardBillingPage() {
           transition={{ duration: 0.4, delay: 0.2 }}
         >
           <Card className="overflow-hidden">
-            <div className="bg-gradient-to-br from-earth-50/60 via-white to-earth-50/40 px-6 pt-6 pb-8">
+            <div className="bg-white px-6 pt-6 pb-8">
               <div className="flex items-center gap-2 mb-6">
                 <Leaf className="h-4 w-4 text-earth-600" />
                 <span className="text-sm font-medium text-earth-700">{t("freePlan")}</span>
               </div>
               <div className="text-center">
                 <p className="text-4xl sm:text-5xl font-serif tracking-tight text-earth-900">฿0</p>
-                <p className="text-sm text-earth-400 mt-1">/{locale === "th" ? "เดือน" : "month"}</p>
+                <p className="text-sm text-earth-600 mt-1">/{locale === "th" ? "เดือน" : "month"}</p>
                 {data.plan_free_expires_at && (
-                  <p className="text-sm text-earth-500 mt-3">
+                  <p className="text-sm text-earth-600 mt-3">
                     {t("expiresOn")} {fmtDateStr(data.plan_free_expires_at, "d MMM yyyy", locale)}
                   </p>
                 )}
@@ -639,7 +515,7 @@ export default function DashboardBillingPage() {
           transition={{ duration: 0.4, delay: 0.2 }}
         >
           <Card className="overflow-hidden">
-            <div className="bg-gradient-to-br from-brand-50/60 via-white to-brand-50/40 px-6 pt-6 pb-8">
+            <div className="bg-white px-6 pt-6 pb-8">
               <div className="flex items-center gap-2 mb-6">
                 <Percent className="h-4 w-4 text-brand" />
                 <span className="text-sm font-medium text-earth-700">{t("commissionPlan")}</span>
@@ -652,11 +528,11 @@ export default function DashboardBillingPage() {
                   ].map(({ pct, label }) => (
                     <div key={label}>
                       <p className="text-4xl sm:text-5xl font-serif tracking-tight text-earth-900">{pct ?? 0}%</p>
-                      <p className="text-sm text-earth-400 mt-1">/{label}</p>
+                      <p className="text-sm text-earth-600 mt-1">/{label}</p>
                     </div>
                   ))}
                 </div>
-                <p className="text-sm text-earth-500 mt-3">
+                <p className="text-sm text-earth-600 mt-3">
                   {locale === "th"
                     ? "จ่ายตามการใช้งาน เหมาะสำหรับโฮสต์ตามฤดูกาล"
                     : "Pay as you go. Best for seasonal or occasional hosts."}
@@ -679,7 +555,7 @@ export default function DashboardBillingPage() {
               transition={{ duration: 0.4, delay: 0.2 }}
             >
               <Card className="overflow-hidden">
-                <div className="bg-gradient-to-br from-brand-50/60 via-white to-brand-50/40 px-6 pt-6 pb-8">
+                <div className="bg-white px-6 pt-6 pb-8">
                   <div className="flex items-center gap-2 mb-6">
                     <CalendarClock className="h-4 w-4 text-earth-700" />
                     <span className="text-sm font-medium text-earth-700">{t("fixedRatePlan")}</span>
@@ -693,28 +569,37 @@ export default function DashboardBillingPage() {
                           {t("nMonths", { n: data.fixed_rate_term_months })} {t("termSuffix")}
                         </p>
                         {currentDiscountPct > 0 && (
-                          <span className="bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wider py-0.5 px-2 rounded-full">
+                          <span className="bg-amber-100 text-amber-700 text-xs font-bold py-0.5 px-2 rounded-full">
                             {t("saveX", { pct: currentDiscountPct })}
                           </span>
                         )}
                       </div>
-                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-earth-500">
+                      <div className="mt-2 grid grid-cols-2 gap-2 text-xs text-earth-600">
                         <div>
-                          <p className="uppercase tracking-wider text-[10px] text-earth-400">{t("termStartsOn")}</p>
+                          <p className=" text-xs text-earth-600">{t("termStartsOn")}</p>
                           <p className="text-earth-700 mt-0.5">{fmtDateStr(data.fixed_rate_term_started_at, "d MMM yyyy", locale)}</p>
                         </div>
                         <div>
-                          <p className="uppercase tracking-wider text-[10px] text-earth-400">{t("termEndsOn")}</p>
+                          <p className=" text-xs text-earth-600">{t("termEndsOn")}</p>
                           <p className="text-earth-700 mt-0.5">{fmtDateStr(data.fixed_rate_term_ends_at, "d MMM yyyy", locale)}</p>
                         </div>
                       </div>
                       {daysUntilTermEnd != null && !termExpired && (
-                        <p className={`mt-2 text-xs ${daysUntilTermEnd <= 14 ? "text-amber-700" : "text-earth-400"}`}>
+                        <p className={`mt-2 text-sm ${daysUntilTermEnd <= 14 ? "font-medium text-amber-800" : "text-earth-700"}`}>
                           {t("daysLeft", { n: daysUntilTermEnd })}
                         </p>
                       )}
+                      {/* What happens next, which hosts used to see only inside the term picker (cron: lapsed.ts bills monthly). */}
+                      {!termExpired && !data.plan_pending_type && data.effective_fixed_rate != null && (
+                        <p className="mt-1 text-sm text-earth-700">
+                          {t("afterTerm", {
+                            date: fmtDateStr(data.fixed_rate_term_ends_at, "d MMM yyyy", locale),
+                            rate: data.effective_fixed_rate.toLocaleString(),
+                          })}
+                        </p>
+                      )}
                       {termExpired && (
-                        <p className="mt-2 text-xs text-red-600">{t("termExpired")}</p>
+                        <p className="mt-2 text-sm text-red-700">{t("termExpired")}</p>
                       )}
                       {!data.plan_pending_type && (
                         <Button
@@ -735,44 +620,44 @@ export default function DashboardBillingPage() {
                       <div className="flex flex-col items-center p-5 bg-white rounded-2xl border border-earth-100">
                         {data.platform_payment?.payment_display === "bank" && data.platform_payment.bank_name && data.platform_payment.bank_account_number ? (
                           <>
-                            <p className="text-sm text-earth-500 mb-3">{t("transferTo")}</p>
+                            <p className="text-sm text-earth-600 mb-3">{t("transferTo")}</p>
                             <div className="w-full space-y-2 bg-earth-50 rounded-xl p-4 border border-earth-100">
                               <div className="flex justify-between text-sm">
-                                <span className="text-earth-500">{locale === "th" ? "ธนาคาร" : "Bank"}</span>
+                                <span className="text-earth-600">{locale === "th" ? "ธนาคาร" : "Bank"}</span>
                                 <span className="font-medium text-earth-900">{data.platform_payment.bank_name}</span>
                               </div>
                               <div className="border-t border-earth-200" />
                               <div className="flex justify-between text-sm">
-                                <span className="text-earth-500">{locale === "th" ? "เลขบัญชี" : "Account No."}</span>
+                                <span className="text-earth-600">{locale === "th" ? "เลขบัญชี" : "Account No."}</span>
                                 <span className="font-mono font-medium text-earth-900">{data.platform_payment.bank_account_number}</span>
                               </div>
                               <div className="border-t border-earth-200" />
                               <div className="flex justify-between text-sm">
-                                <span className="text-earth-500">{locale === "th" ? "ชื่อบัญชี" : "Account Name"}</span>
+                                <span className="text-earth-600">{locale === "th" ? "ชื่อบัญชี" : "Account Name"}</span>
                                 <span className="font-medium text-earth-900">{data.platform_payment.bank_account_name}</span>
                               </div>
                             </div>
                           </>
                         ) : data.platform_payment?.promptpay_id ? (
                           <>
-                            <p className="text-sm text-earth-500 mb-3">{locale === "th" ? "สแกน QR เพื่อชำระเงิน" : "Scan QR to pay"}</p>
+                            <p className="text-sm text-earth-600 mb-3">{locale === "th" ? "สแกน QR เพื่อชำระเงิน" : "Scan QR to pay"}</p>
                             <PromptPayQr promptpayId={data.platform_payment.promptpay_id} amount={paymentAmount} />
                             {data.platform_payment.bank_account_name && (
                               <p className="mt-3 text-sm font-medium text-earth-700">{data.platform_payment.bank_account_name}</p>
                             )}
-                            <p className="text-xs text-earth-400">{locale === "th" ? "พร้อมเพย์" : "PromptPay"}: {data.platform_payment.promptpay_id}</p>
+                            <p className="text-xs text-earth-600">{locale === "th" ? "พร้อมเพย์" : "PromptPay"}: {data.platform_payment.promptpay_id}</p>
                           </>
                         ) : null}
 
                         <p className="mt-3 text-2xl font-bold text-earth-900">฿{paymentAmount.toLocaleString()}</p>
-                        <p className="text-xs text-earth-400 mt-0.5">
+                        <p className="text-xs text-earth-600 mt-0.5">
                           {fmtDateStr(pendingInvoice.period_start, "d MMM", locale)} — {fmtDateStr(pendingInvoice.period_end, "d MMM yyyy", locale)}
                         </p>
                         {invoiceStatus(pendingInvoice) === "overdue" && (
                           <InvoiceStatusBadge status="overdue" className="mt-2" />
                         )}
-                        <p className="text-xs text-earth-400 mt-1">
-                          {t("dueDate")}: {fmtDateStr(pendingInvoice.due_date, "d MMM yyyy", locale)}
+                        <p className="mt-2 max-w-xs text-center text-sm text-earth-800">
+                          {t("payByConsequence", { date: fmtDateStr(pendingInvoice.due_date, "d MMM yyyy", locale) })}
                         </p>
                       </div>
 
@@ -790,8 +675,8 @@ export default function DashboardBillingPage() {
                       <p className="text-4xl sm:text-5xl font-serif tracking-tight text-earth-900">
                         ฿{(data.effective_fixed_rate ?? 0).toLocaleString()}
                       </p>
-                      <p className="text-sm text-earth-400 mt-1">/{locale === "th" ? "เดือน" : "month"}</p>
-                      <p className="text-sm text-earth-500 mt-3">
+                      <p className="text-sm text-earth-600 mt-1">/{locale === "th" ? "เดือน" : "month"}</p>
+                      <p className="text-sm text-earth-600 mt-3">
                         {locale === "th" ? "ไม่มีใบแจ้งหนี้ค้างชำระ" : "No pending invoices"}
                       </p>
                     </div>
@@ -801,7 +686,7 @@ export default function DashboardBillingPage() {
                 {/* Invoice History */}
                 {data.invoices.length > 0 && (
                   <CardContent className="px-6 pb-6 pt-4">
-                    <p className="text-xs font-medium uppercase tracking-wider text-earth-600 mb-3">
+                    <p className="text-xs font-medium text-earth-600 mb-3">
                       {t("invoices")}
                     </p>
                     <div className="space-y-3">
@@ -834,6 +719,139 @@ export default function DashboardBillingPage() {
           </>
         );
       })()}
+
+      {/* ── Pricing Cards ── */}
+      <h2 className="text-base font-semibold text-earth-900 mb-3">{t("changePlan")}</h2>
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-5 items-stretch">
+        {PLANS.map((plan, index) => {
+          const isCurrent = data.plan_type === plan.key;
+          // No "pick me" emphasis on a plan the host's wallet cannot take yet.
+          const isPopular = plan.popular && !(plan.key === "commission" && data.wallet_balance < LOW_WALLET_THRESHOLD);
+          const canSwitch = !isCurrent && !data.plan_pending_type && !switching && plan.key !== "free";
+          const features = locale === "th" ? plan.featuresTh : plan.features;
+          const { price, period: periodEn, periodTh } = getPlanPrice(plan.key, data);
+          const period = locale === "th" ? periodTh : periodEn;
+
+          return (
+            <motion.div
+              key={plan.key}
+              initial={{ opacity: 0, y: 24 }}
+              animate={{ opacity: 1, y: 0 }}
+              transition={{ duration: 0.45, delay: 0.15 + index * 0.08 }}
+              onMouseEnter={() => setHoveredPlan(plan.key)}
+              onMouseLeave={() => setHoveredPlan(null)}
+              className={`relative bg-white rounded-2xl p-7 border-2 transition-all duration-300 flex flex-col ${
+                isCurrent
+                  ? "border-brand shadow-lg shadow-brand-50 ring-1 ring-brand/10"
+                  : hoveredPlan === plan.key
+                    ? "border-earth-300 shadow-md"
+                    : "border-earth-100 shadow-sm"
+              }`}
+            >
+              {/* Current plan badge */}
+              {isCurrent && (
+                <div className="absolute top-0 left-1/2 -translate-x-1/2 -translate-y-1/2">
+                  <span className="bg-brand text-white text-xs font-bold py-1 px-3 rounded-full whitespace-nowrap">
+                    {t("currentPlan")}
+                  </span>
+                </div>
+              )}
+
+              {/* Plan header */}
+              <div className="mb-6">
+                <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-5 ${
+                  isCurrent ? "bg-brand-50" : "bg-earth-50"
+                }`}>
+                  {plan.icon}
+                </div>
+                <h3 className="text-xl font-serif font-bold text-earth-900 mb-1">
+                  {planLabel(plan.key)}
+                </h3>
+                <p className="text-earth-600 text-sm min-h-[36px]">
+                  {plan.key === "free" && (locale === "th" ? "เหมาะสำหรับเริ่มต้นทดลองใช้งาน" : "Perfect for getting started and testing the waters.")}
+                  {plan.key === "commission" && (locale === "th" ? "จ่ายตามการใช้งาน เหมาะสำหรับโฮสต์ตามฤดูกาล" : "Pay as you go. Best for seasonal or occasional hosts.")}
+                  {plan.key === "fixed_rate" && (locale === "th" ? "เก็บรายได้ 100% เหมาะสำหรับโฮสต์เต็มเวลา" : "Keep 100% of your earnings. Ideal for full-time hosts.")}
+                </p>
+                {/* How each plan is paid: the feature lists below are nearly the same. */}
+                <p className="mt-2 rounded-lg bg-earth-50 px-3 py-2 text-sm text-earth-800">
+                  {t(`payHow_${plan.key}` as "payHow_free", { min: LOW_WALLET_THRESHOLD.toLocaleString() })}
+                </p>
+              </div>
+
+              {/* Price — uses real data from API */}
+              <div className="mb-6">
+                <div className="flex items-baseline">
+                  <span className="text-4xl font-extrabold tracking-tight text-earth-900">{price}</span>
+                  <span className="text-earth-600 ml-2 font-medium">{period}</span>
+                </div>
+                {plan.key === "commission" && (
+                  <div className="flex items-baseline">
+                    <span className="text-4xl font-extrabold tracking-tight text-earth-900">
+                      {data.effective_quick_commission_pct != null ? `${data.effective_quick_commission_pct}%` : "—"}
+                    </span>
+                    <span className="text-earth-600 ml-2 font-medium">/{QUICK_BOOKING[lang]}</span>
+                  </div>
+                )}
+                {isCurrent && plan.key === "free" && data.plan_free_expires_at && (
+                  <p className="text-xs text-earth-600 mt-1">
+                    {t("expiresOn")} {fmtDateStr(data.plan_free_expires_at, "d MMM yyyy", locale)}
+                  </p>
+                )}
+              </div>
+
+              {/* Features */}
+              <ul className="space-y-3 mb-7 flex-grow">
+                {features.map((feature, i) => (
+                  <li key={i} className="flex items-start">
+                    <Check className={`w-4.5 h-4.5 mr-2.5 shrink-0 mt-0.5 ${
+                      isCurrent ? "text-brand" : "text-earth-600"
+                    }`} />
+                    <span className="text-sm text-earth-800">{feature}</span>
+                  </li>
+                ))}
+              </ul>
+
+              {/* CTA */}
+              {isCurrent ? (
+                <div className="w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center bg-brand-50 text-brand border border-brand/15 mt-auto">
+                  <CheckCircle className="w-4 h-4 mr-2" />
+                  {locale === "th" ? "แพลนปัจจุบันของคุณ" : "Your Current Plan"}
+                </div>
+              ) : plan.key === "free" ? (
+                // Not a faded button with no reason: the plan simply can't be chosen again.
+                <p className="mt-auto py-3.5 text-center text-sm text-earth-700">{t("freeNotAvailable")}</p>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => canSwitch && handlePlanCtaClick(plan.key)}
+                  disabled={!canSwitch}
+                  className={`w-full py-3.5 rounded-xl font-semibold text-sm flex items-center justify-center transition-colors mt-auto disabled:opacity-50 disabled:cursor-not-allowed ${
+                    isPopular && !isCurrent
+                      ? "bg-brand text-white hover:bg-brand-hover"
+                      : "bg-earth-50 text-earth-800 hover:bg-earth-100"
+                  }`}
+                >
+                  {t("switchToPlan", { plan: planLabel(plan.key) })}
+                  <ArrowRight className="w-4 h-4 ml-2" />
+                </button>
+              )}
+            </motion.div>
+          );
+        })}
+      </div>
+
+      {/* ── Switch note ── */}
+      <motion.div
+        initial={{ opacity: 0 }}
+        animate={{ opacity: 1 }}
+        transition={{ duration: 0.4, delay: 0.5 }}
+        className="text-center"
+      >
+        <p className="text-earth-600 text-sm flex items-center justify-center">
+          <HelpCircle className="w-4 h-4 mr-1.5" />
+          {t("switchNote")}
+        </p>
+      </motion.div>
 
       {/* ══════════════════════════════════════════════
           DIALOGS & SHEETS
@@ -985,7 +1003,7 @@ export default function DashboardBillingPage() {
                   }`}
                 >
                   {tier.discount_pct > 0 && (
-                    <span className="absolute top-2 right-2 bg-amber-100 text-amber-700 text-[10px] font-bold uppercase tracking-wider py-0.5 px-2 rounded-full">
+                    <span className="absolute top-2 right-2 bg-amber-100 text-amber-700 text-xs font-bold py-0.5 px-2 rounded-full">
                       {t("saveX", { pct: tier.discount_pct })}
                     </span>
                   )}
@@ -995,7 +1013,7 @@ export default function DashboardBillingPage() {
                   <p className="text-2xl font-bold tracking-tight text-earth-900 mt-1">
                     ฿{total.toLocaleString()}
                   </p>
-                  <p className="text-xs text-earth-500 mt-0.5">
+                  <p className="text-xs text-earth-600 mt-0.5">
                     ≈ ฿{perMonth.toLocaleString()} {t("perMonth")}
                   </p>
                 </button>
@@ -1039,7 +1057,7 @@ export default function DashboardBillingPage() {
           </DialogHeader>
 
           <div className="rounded-xl border border-earth-100 bg-earth-50/60 px-4 py-3 flex items-center justify-between">
-            <span className="text-sm text-earth-500">{t("walletBalance")}</span>
+            <span className="text-sm text-earth-600">{t("walletBalance")}</span>
             <span className="text-lg font-serif text-earth-900">
               ฿{data.wallet_balance.toLocaleString()}
             </span>

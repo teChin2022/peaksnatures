@@ -8,7 +8,7 @@ import {
   MapPin,
   CreditCard,
   CalendarDays,
-  ExternalLink,
+  ArrowRight,
   BookOpen,
   CheckCircle2,
 } from "lucide-react";
@@ -118,20 +118,16 @@ export default function GuidePage() {
                           <CheckCircle2
                             className="h-4 w-4 shrink-0 mt-0.5 text-brand"
                           />
-                          <span>{t(itemKey)}</span>
+                          <span className="min-w-0 [overflow-wrap:anywhere]">{t(itemKey)}</span>
                         </li>
                       ))}
                     </ul>
-                    <Link href={step.href}>
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        className="gap-1.5 border-brand/25 text-brand"
-                      >
+                    <Button asChild size="sm" variant="outline" className="gap-1.5 border-brand/25 text-brand">
+                      <Link href={step.href}>
                         {t(step.linkKey)}
-                        <ExternalLink className="h-3.5 w-3.5" />
-                      </Button>
-                    </Link>
+                        <ArrowRight className="h-3.5 w-3.5" />
+                      </Link>
+                    </Button>
                   </div>
                 </div>
               </CardContent>

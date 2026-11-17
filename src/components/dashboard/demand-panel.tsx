@@ -22,6 +22,8 @@ export interface DemandPanelLabels {
   lostDemand: string;
   soldOutSuffix: string;
   empty: string;
+  /** The request failed: not the same as "no demand yet". */
+  error: string;
   ranges: { d7: string; d30: string; d90: string };
 }
 
@@ -88,9 +90,10 @@ export function DemandPanel({
   // a second piece of state, and a slow response for 90d can never overwrite a
   // newer one for 7d.
   const requestKey = `${endpoint}|${days}`;
-  const [result, setResult] = useState<{ key: string; stats: DemandStats | null } | null>(null);
+  const [result, setResult] = useState<{ key: string; stats: DemandStats | null; failed?: boolean } | null>(null);
   const loading = result?.key !== requestKey;
   const stats = result?.key === requestKey ? result.stats : null;
+  const failed = result?.key === requestKey && !!result.failed;
 
   useEffect(() => {
     let cancelled = false;
@@ -98,12 +101,12 @@ export function DemandPanel({
     const url = new URL(endpoint, window.location.origin);
     url.searchParams.set("days", String(days));
     fetch(url.toString())
-      .then((res) => (res.ok ? (res.json() as Promise<DemandStats>) : null))
+      .then((res) => (res.ok ? (res.json() as Promise<DemandStats>) : Promise.reject(new Error(String(res.status)))))
       .then((json) => {
         if (!cancelled) setResult({ key: requestKey, stats: json });
       })
       .catch(() => {
-        if (!cancelled) setResult({ key: requestKey, stats: null });
+        if (!cancelled) setResult({ key: requestKey, stats: null, failed: true });
       });
     return () => {
       cancelled = true;
@@ -132,6 +135,7 @@ export function DemandPanel({
                 <button
                   key={r}
                   type="button"
+                  aria-pressed={days === r}
                   onClick={() => setDays(r)}
                   className={cn(
                     "rounded-full px-3 py-1 text-xs font-medium transition-colors",
@@ -153,8 +157,10 @@ export function DemandPanel({
               <div key={i} className="h-6 animate-pulse rounded bg-earth-100" />
             ))}
           </div>
+        ) : failed ? (
+          <p role="alert" className="py-10 text-center text-sm text-red-700">{labels.error}</p>
         ) : !stats || !hasData ? (
-          <p className="py-10 text-center text-sm text-earth-300">{labels.empty}</p>
+          <p className="py-10 text-center text-sm text-earth-600">{labels.empty}</p>
         ) : (
           <div className="space-y-6">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -207,7 +213,7 @@ export function DemandPanel({
               <p className="text-xs font-semibold text-earth-800">{labels.topDatesTitle}</p>
               <p className="mb-2 text-xs text-earth-600">{labels.topDatesHint}</p>
               {stats.topDates.length === 0 ? (
-                <p className="py-6 text-center text-sm text-earth-300">{labels.empty}</p>
+                <p className="py-6 text-center text-sm text-earth-600">{labels.empty}</p>
               ) : (
                 <div className="space-y-1.5">
                   {stats.topDates.map((d) => {
@@ -222,7 +228,7 @@ export function DemandPanel({
                         value={d.requested.toLocaleString()}
                         trailing={
                           d.unavailable > 0 ? (
-                            <span className="text-amber-600">
+                            <span className="text-amber-800">
                               {`${d.unavailable} ${labels.soldOutSuffix}`}
                             </span>
                           ) : null

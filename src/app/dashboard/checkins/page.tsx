@@ -12,6 +12,7 @@ import {
   Users,
   BedDouble,
   Phone,
+  LogOut,
   Mail,
   MapPin,
   CheckCircle2,
@@ -60,6 +61,8 @@ export default function CheckinsPage() {
   const t = useTranslations("checkins");
   const locale = useLocale();
   const [bookings, setBookings] = useState<CheckinBooking[]>([]);
+  // Today's departures: the home page's "check-outs today" tile lands on #checkouts.
+  const [departures, setDepartures] = useState<{ id: string; guest_name: string; guest_phone: string; room_name: string }[]>([]);
   const [loading, setLoading] = useState(true);
   const [checkingInId, setCheckingInId] = useState<string | null>(null);
   // Two taps: money recorded here has no undo.
@@ -140,13 +143,21 @@ export default function CheckinsPage() {
       const today = new Date();
       const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
-      const [{ data: bookingRows }, { data: roomRows }] = await Promise.all([
+      const [{ data: bookingRows }, { data: departureRows }, { data: roomRows }] = await Promise.all([
         supabase
           .from("bookings")
           .select("id, guest_name, guest_email, guest_phone, guest_province, check_in, check_out, num_guests, total_price, amount_paid, payment_type, status, checked_in_at, selected_options, notes, room_id")
           .in("homestay_id", homestayIds)
           .eq("check_in", todayStr)
           .in("status", ["confirmed", "completed"])
+          .order("guest_name", { ascending: true }),
+        // Same rule as the home page's tile (lib/today-work): confirmed, leaving today.
+        supabase
+          .from("bookings")
+          .select("id, guest_name, guest_phone, room_id")
+          .in("homestay_id", homestayIds)
+          .eq("check_out", todayStr)
+          .eq("status", "confirmed")
           .order("guest_name", { ascending: true }),
         supabase
           .from("rooms")
@@ -174,11 +185,24 @@ export default function CheckinsPage() {
       const counts = countAttachmentsByBooking(attachmentRows as { booking_id: string }[] | null);
 
       setBookings(rows.map((b) => ({ ...b, attachment_count: counts[b.id] ?? 0 })));
+      setDepartures(
+        ((departureRows as { id: string; guest_name: string; guest_phone: string; room_id: string | null }[]) || []).map((d) => ({
+          ...d,
+          room_name: d.room_id ? roomMap[d.room_id] || "-" : "-",
+        })),
+      );
       setLoading(false);
     };
 
     fetchCheckins();
   }, []);
+
+  // #checkouts (the home tile) points at a section that only exists after loading.
+  useEffect(() => {
+    if (!loading && window.location.hash === "#checkouts") {
+      document.getElementById("checkouts")?.scrollIntoView({ block: "start" });
+    }
+  }, [loading]);
 
   return (
     <div>
@@ -210,7 +234,7 @@ export default function CheckinsPage() {
       ) : bookings.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <ClipboardCheck className="h-12 w-12 text-earth-300 mb-3" />
+            <ClipboardCheck className="h-12 w-12 text-earth-500 mb-3" />
             <p className="text-earth-600">{t("noCheckins")}</p>
           </CardContent>
         </Card>
@@ -241,7 +265,7 @@ export default function CheckinsPage() {
                         {booking.attachment_count > 0 && (
                           <Link
                             href={`/dashboard/bookings?booking=${booking.id}`}
-                            className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 transition-colors pointer-fine:hover:bg-slate-200"
+                            className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-earth-100 px-2 py-0.5 text-xs font-medium text-earth-800 transition-colors pointer-fine:hover:bg-earth-200"
                           >
                             <Paperclip className="h-3 w-3" />
                             {t("attachments")} ({booking.attachment_count})
@@ -258,7 +282,7 @@ export default function CheckinsPage() {
                           size="sm"
                           onClick={() => handleCheckIn(booking.id)}
                           disabled={checkingInId === booking.id}
-                          className="shrink-0 h-8 bg-brand hover:bg-brand/90 text-white"
+                          className="shrink-0 h-11 sm:h-9 bg-brand hover:bg-brand/90 text-white"
                         >
                           {checkingInId === booking.id ? (
                             <>
@@ -315,7 +339,7 @@ export default function CheckinsPage() {
                               size="sm"
                               onClick={() => handleRecordCash(booking.id)}
                               disabled={recordingCashId === booking.id}
-                              className="h-8 bg-brand hover:bg-brand/90 text-white"
+                              className="h-11 sm:h-9 bg-brand hover:bg-brand/90 text-white"
                             >
                               <Banknote className="mr-1 h-3.5 w-3.5" />
                               {t("recordCashConfirm", { amount: (booking.total_price - booking.amount_paid).toLocaleString() })}
@@ -325,7 +349,7 @@ export default function CheckinsPage() {
                               variant="outline"
                               onClick={() => setConfirmingCashId(null)}
                               disabled={recordingCashId === booking.id}
-                              className="h-8"
+                              className="h-11 sm:h-9"
                             >
                               {t("recordCashCancel")}
                             </Button>
@@ -335,7 +359,7 @@ export default function CheckinsPage() {
                             size="sm"
                             variant="outline"
                             onClick={() => setConfirmingCashId(booking.id)}
-                            className="h-8 border-earth-300 text-earth-800"
+                            className="h-11 sm:h-9 border-earth-500 text-earth-800"
                           >
                             <Banknote className="mr-1 h-3.5 w-3.5" />
                             {t("recordCash")}
@@ -362,10 +386,10 @@ export default function CheckinsPage() {
 
                     {/* Contact + province */}
                     <div className="flex flex-wrap gap-x-4 gap-y-1 text-xs text-earth-600">
-                      <span className="flex items-center gap-1">
+                      <a href={`tel:${booking.guest_phone}`} className="flex min-h-6 items-center gap-1 underline-offset-4 hover:underline">
                         <Phone className="h-3 w-3" />
                         {booking.guest_phone}
-                      </span>
+                      </a>
                       <span className="flex items-center gap-1">
                         <Mail className="h-3 w-3" />
                         {booking.guest_email}
@@ -391,6 +415,38 @@ export default function CheckinsPage() {
             );
           })}
         </div>
+      )}
+
+      {!loading && (
+        <section id="checkouts" aria-labelledby="checkouts-title" className="mt-8 scroll-mt-20">
+          <h2 id="checkouts-title" className="mb-3 flex items-center gap-2 text-base font-semibold text-earth-900">
+            <LogOut className="h-4 w-4 text-earth-600" aria-hidden />
+            {t("checkOutsToday")} ({departures.length})
+          </h2>
+          {departures.length === 0 ? (
+            <p className="text-sm text-earth-600">{t("noCheckouts")}</p>
+          ) : (
+            <ul className="divide-y divide-earth-100 rounded-xl border border-earth-200 bg-white">
+              {departures.map((d) => (
+                <li key={d.id} className="flex flex-wrap items-center justify-between gap-x-4 gap-y-1 px-4 py-3">
+                  <div className="min-w-0">
+                    <Link
+                      href={`/dashboard/bookings?booking=${d.id}`}
+                      className="font-medium text-earth-900 underline-offset-4 hover:underline"
+                    >
+                      {d.guest_name}
+                    </Link>
+                    <p className="text-xs text-earth-600">{t("room")}: {d.room_name}</p>
+                  </div>
+                  <a href={`tel:${d.guest_phone}`} className="flex min-h-11 items-center gap-1 text-sm text-earth-700 underline-offset-4 hover:underline">
+                    <Phone className="h-3.5 w-3.5" aria-hidden />
+                    {d.guest_phone}
+                  </a>
+                </li>
+              ))}
+            </ul>
+          )}
+        </section>
       )}
     </div>
   );

@@ -12,6 +12,8 @@ interface HomestayCardProps {
   heroImageUrl: string | null;
   gallery: string[];
   minPrice: number | null;
+  /** The houses cost different amounts, so minPrice is the cheapest: say "from". */
+  priceFrom?: boolean;
   maxGuests: number;
   tagline: string | null;
   reviewCount: number;
@@ -28,6 +30,7 @@ export function HomestayCard({
   heroImageUrl,
   gallery,
   minPrice,
+  priceFrom = false,
   tagline,
   reviewCount,
   averageRating,
@@ -79,10 +82,10 @@ export function HomestayCard({
                 {t("verifiedHost")}
               </p>
             )}
-            {/* min_price is the cheapest active house, so it is a starting price; null means no house is open. */}
+            {/* Tonight's price of the cheapest open house; "from" only when the houses differ. Null means no house is open. */}
             {minPrice !== null ? (
               <p className="mt-3 text-sm text-earth-600">
-                {t("from")} ฿
+                {t(priceFrom ? "from" : "price")} ฿
                 {/* DESIGN.md Price role: serif, lining tabular figures (old-style ones read ฿100 as ฿1OO). */}
                 <span className="font-serif text-2xl text-earth-900" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>
                   {minPrice.toLocaleString("th-TH")}

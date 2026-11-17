@@ -2,9 +2,16 @@
 
 import { useState, useRef, useEffect, useCallback } from "react";
 import { Loader2, ShieldCheck, X } from "lucide-react";
-import { useTranslations } from "next-intl";
+import { useLocale, useTranslations } from "next-intl";
 import { Button } from "@/components/ui/button";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
+import {
+  Dialog,
+  DialogClose,
+  DialogContent,
+  DialogDescription,
+  DialogHeader,
+  DialogTitle,
+} from "@/components/ui/dialog";
 
 interface OtpModalProps {
   email: string;
@@ -13,6 +20,8 @@ interface OtpModalProps {
   onClose: () => void;
   error: string | null;
   loading: boolean;
+  /** Where focus goes when the dialog closes. Radix would return it to the opener, but Sign In was disabled while sending, so it would land on <body>. */
+  returnFocusRef?: React.RefObject<HTMLElement | null>;
 }
 
 export default function OtpModal({
@@ -22,12 +31,26 @@ export default function OtpModal({
   onClose,
   error,
   loading,
+  returnFocusRef,
 }: OtpModalProps) {
   const t = useTranslations("auth");
   const tc = useTranslations("common");
+  const locale = useLocale();
   const [digits, setDigits] = useState<string[]>(["", "", "", "", "", ""]);
   const [resendCooldown, setResendCooldown] = useState(60);
   const inputRefs = useRef<(HTMLInputElement | null)[]>([]);
+
+  // A new error means the code was refused: clear it so the next one can be typed straight in.
+  // Set during render (React's "adjusting state when a prop changes"), not in an effect.
+  const [seenError, setSeenError] = useState(error);
+  if (error !== seenError) {
+    setSeenError(error);
+    if (error) setDigits(["", "", "", "", "", ""]);
+  }
+  // The fields were disabled while checking, which dropped focus; give it back once they are enabled.
+  useEffect(() => {
+    if (error && !loading) inputRefs.current[0]?.focus();
+  }, [error, loading]);
 
   // Cooldown timer for resend
   useEffect(() => {
@@ -37,11 +60,6 @@ export default function OtpModal({
     }, 1000);
     return () => clearInterval(timer);
   }, [resendCooldown]);
-
-  // Auto-focus first input on mount
-  useEffect(() => {
-    inputRefs.current[0]?.focus();
-  }, []);
 
   const handleChange = useCallback(
     (index: number, value: string) => {
@@ -116,32 +134,41 @@ export default function OtpModal({
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50 px-4">
-      <Card className="w-full max-w-sm relative">
-        <button
-          type="button"
-          aria-label={tc("close")} onClick={onClose}
-          className="absolute right-4 top-4 text-gray-400 hover:text-gray-600"
-          disabled={loading}
-        >
-          <X className="h-5 w-5" />
-        </button>
-        <CardHeader className="text-center pb-2">
-          <div className="mx-auto mb-3 flex h-14 w-14 items-center justify-center rounded-full bg-brand-50">
-            <ShieldCheck className="h-7 w-7 text-brand" />
+    <Dialog open onOpenChange={(open) => { if (!open && !loading) onClose(); }}>
+      <DialogContent
+        showCloseButton={false}
+        // Portalled to <body>, outside any page-level lang (the English /admin/login sits on a Thai <html>).
+        lang={locale}
+        className="gap-5 sm:max-w-sm"
+        // A stray tap beside the dialog must not throw away the code step; Escape and the X still close it.
+        onInteractOutside={(e) => e.preventDefault()}
+        onOpenAutoFocus={(e) => {
+          e.preventDefault();
+          inputRefs.current[0]?.focus();
+        }}
+        onCloseAutoFocus={(e) => {
+          if (!returnFocusRef?.current) return;
+          e.preventDefault();
+          returnFocusRef.current.focus();
+        }}
+      >
+        <DialogHeader className="items-center text-center sm:text-center">
+          <div className="mb-1 flex h-14 w-14 items-center justify-center rounded-full bg-brand-50">
+            <ShieldCheck className="h-7 w-7 text-brand" aria-hidden="true" />
           </div>
-          <CardTitle className="text-lg">{t("otpTitle")}</CardTitle>
-          <CardDescription>{t("otpDesc", { email })}</CardDescription>
-        </CardHeader>
+          <DialogTitle>{t("otpTitle")}</DialogTitle>
+          <DialogDescription className="text-earth-600">{t("otpDesc", { email })}</DialogDescription>
+        </DialogHeader>
         <form onSubmit={handleSubmit}>
-          <CardContent className="space-y-5">
+          <div className="space-y-5">
             {error && (
-              <div className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 text-center">
+              <div role="alert" className="rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700 text-center">
                 {error}
               </div>
             )}
 
-            <div className="flex justify-center gap-2" onPaste={handlePaste}>
+            {/* gap-1.5: six 44px fields fit the 295px a 375px phone leaves inside the dialog. */}
+            <div className="flex justify-center gap-1.5 sm:gap-2" onPaste={handlePaste}>
               {digits.map((digit, i) => (
                 <input
                   key={i}
@@ -155,8 +182,9 @@ export default function OtpModal({
                   onChange={(e) => handleChange(i, e.target.value)}
                   onKeyDown={(e) => handleKeyDown(i, e)}
                   disabled={loading}
-                  className="h-12 w-11 rounded-lg border border-gray-300 text-center text-xl font-bold
-                    focus:border-brand focus:outline-none focus:ring-2 focus:ring-brand/20
+                  aria-label={t("otpDigit", { n: i + 1 })}
+                  className="h-12 w-11 rounded-lg border border-input text-center text-xl font-bold text-earth-900
+                    outline-none focus-visible:border-brand focus-visible:ring-1 focus-visible:ring-brand
                     disabled:opacity-50"
                   autoComplete="one-time-code"
                 />
@@ -174,23 +202,31 @@ export default function OtpModal({
 
             <div className="text-center">
               {resendCooldown > 0 ? (
-                <p className="text-sm text-gray-400">
+                <p className="text-sm text-earth-600">
                   {t("otpResendIn", { seconds: resendCooldown })}
                 </p>
               ) : (
                 <button
                   type="button"
                   onClick={handleResend}
-                  className="text-sm font-medium text-brand hover:text-brand-hover"
+                  className="rounded-sm text-sm font-medium text-brand hover:text-brand-hover outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
                   disabled={loading}
                 >
                   {t("otpResend")}
                 </button>
               )}
             </div>
-          </CardContent>
+          </div>
         </form>
-      </Card>
-    </div>
+        {/* Last in the DOM so Tab runs digits, Verify, Resend, then Close. */}
+        <DialogClose
+          aria-label={tc("close")}
+          disabled={loading}
+          className="absolute right-2 top-2 inline-flex size-11 items-center justify-center rounded-full text-earth-600 transition-colors hover:bg-earth-100 hover:text-earth-900 outline-none focus-visible:ring-2 focus-visible:ring-brand disabled:opacity-50"
+        >
+          <X className="h-5 w-5" aria-hidden="true" />
+        </DialogClose>
+      </DialogContent>
+    </Dialog>
   );
 }

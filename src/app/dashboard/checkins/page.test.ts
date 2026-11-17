@@ -52,14 +52,15 @@ let container: HTMLDivElement;
 let root: Root;
 let fetchMock: ReturnType<typeof vi.fn>;
 
-async function render(booking = arrival()) {
+async function render(booking = arrival(), departures: Record<string, unknown>[] = []) {
   h.createClient.mockReturnValue(
     createSupabaseMock({
       user: { id: "user-1" },
       tables: {
         hosts: { data: { id: "host-1" } },
         homestays: { data: [{ id: "homestay-1" }] },
-        bookings: { data: [booking] },
+        // Arrivals first, then today's departures (the order the page queries them).
+        bookings: [{ data: [booking] }, { data: departures }],
         rooms: { data: [] },
         booking_attachments: { data: [] },
       },
@@ -145,5 +146,28 @@ describe("CheckinsPage: recording a cash balance", () => {
 
     expect(h.toastError).toHaveBeenCalledWith("recordCashError");
     expect(container.textContent).toContain("balanceDue:2,000");
+  });
+});
+
+// The home page's "check-outs today" tile lands here; departures used to be nowhere.
+describe("CheckinsPage: today's departures", () => {
+  it("lists who leaves today, with a link to the booking and a tappable phone", async () => {
+    await render(arrival(), [{ id: "dep-1", guest_name: "Ploy Leaving", guest_phone: "0811111111", room_id: null }]);
+
+    const section = container.querySelector("#checkouts");
+    expect(section?.textContent).toContain("Ploy Leaving");
+    const hrefs = [...(section?.querySelectorAll("a") ?? [])].map((a) => a.getAttribute("href"));
+    expect(hrefs).toContain("/dashboard/bookings?booking=dep-1");
+    expect(hrefs).toContain("tel:0811111111");
+  });
+
+  it("says so when nobody leaves today", async () => {
+    await render();
+    expect(container.querySelector("#checkouts")?.textContent).toContain("noCheckouts");
+  });
+
+  it("makes an arrival's phone tappable too", async () => {
+    await render();
+    expect([...container.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toContain("tel:0898765432");
   });
 });

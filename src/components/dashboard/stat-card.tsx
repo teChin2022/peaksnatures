@@ -47,11 +47,11 @@ export function StatCard({
         {!isNeutral && (
           <div className="flex items-center gap-1 mt-1.5">
             {greenCondition ? (
-              <TrendingUp className="h-3.5 w-3.5 text-emerald-500" />
+              <TrendingUp className="h-3.5 w-3.5 text-brand" />
             ) : (
-              <TrendingDown className="h-3.5 w-3.5 text-rose-400" />
+              <TrendingDown className="h-3.5 w-3.5 text-red-700" />
             )}
-            <span className={`text-xs font-medium ${greenCondition ? "text-emerald-600" : "text-rose-500"}`}>
+            <span className={`text-xs font-medium ${greenCondition ? "text-brand" : "text-red-700"}`}>
               {isDelta
                 ? `${change! > 0 ? "+" : ""}${change}`
                 : `${change! > 0 ? "+" : ""}${change}%`

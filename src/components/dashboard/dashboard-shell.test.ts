@@ -4,10 +4,10 @@ import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { createSupabaseMock } from "../../../test/helpers/supabase";
 
-const h = vi.hoisted(() => ({ createClient: vi.fn() }));
+const h = vi.hoisted(() => ({ createClient: vi.fn(), pathname: "/dashboard" }));
 
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key }));
-vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard", useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
+vi.mock("next/navigation", () => ({ usePathname: () => h.pathname, useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }) }));
 vi.mock("next/link", () => ({
   default: ({ children, href }: { children: unknown; href: string }) => createElement("a", { href }, children as never),
 }));
@@ -49,6 +49,7 @@ beforeEach(() => {
 });
 
 afterEach(() => {
+  h.pathname = "/dashboard";
   act(() => root.unmount());
   container.remove();
   vi.unstubAllGlobals();
@@ -62,6 +63,7 @@ describe("DashboardShell: who is signed in", () => {
     expect(container.textContent).toContain("blockedTitle");
     expect(container.textContent).not.toContain("staffBlockedTitle");
     expect(links()).toContain("/dashboard/billing");
+    expect(container.querySelector("a button, button a")).toBeNull(); // one control, one tab stop
     expect(fetchMock).not.toHaveBeenCalled();
     expect(container.textContent).toContain("roleOwner");
   });
@@ -82,5 +84,23 @@ describe("DashboardShell: who is signed in", () => {
     await render("staff-1");
 
     expect(container.textContent).not.toContain("staffBlockedTitle");
+  });
+});
+
+// D4: the pending-approval overlay used to render the page a second time, behind
+// the overlay too: double effects and fetches, duplicate ids.
+describe("DashboardShell: pending approval", () => {
+  it("renders the pending page once", async () => {
+    h.pathname = "/dashboard/pending";
+    h.createClient.mockReturnValue(
+      createSupabaseMock({
+        user: { id: "owner-1" } as { id: string },
+        tables: { hosts: { data: { id: "host-1", user_id: "owner-1", plan_type: "free", plan_free_expires_at: null, plan_pending_type: null } }, homestays: { data: null } },
+      }),
+    );
+    await act(async () => root.render(createElement(DashboardShell, null, createElement("p", { "data-child": "" }, "pending page"))));
+    await act(async () => {});
+
+    expect(document.querySelectorAll("[data-child]")).toHaveLength(1);
   });
 });

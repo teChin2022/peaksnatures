@@ -23,6 +23,7 @@ import {
   Users,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
+import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
 import { cn, getInitials } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 import { useRouter } from "next/navigation";
@@ -145,12 +146,13 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
               key={item.key}
               href={item.href}
               className={cn(
-                "flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+                "flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                 isActive
                   ? "bg-brand/8 text-brand"
                   : "text-earth-600 hover:bg-earth-50 hover:text-earth-900"
               )}
               title={collapsed ? t(item.key) : undefined}
+              aria-current={isActive ? "page" : undefined}
             >
               <Icon className={cn("h-[18px] w-[18px] shrink-0", isActive ? "text-brand" : "text-earth-600")} />
               {!collapsed && <span className="truncate">{t(item.key)}</span>}
@@ -165,7 +167,7 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
         <button
           onClick={handleSignOut}
           className={cn(
-            "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-earth-600 transition-colors hover:bg-earth-50 hover:text-earth-700"
+            "flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-earth-600 transition-colors hover:bg-earth-50 hover:text-earth-700"
           )}
           title={collapsed ? ta("signOut") : undefined}
         >
@@ -208,24 +210,24 @@ export function MobileSidebar({
     router.refresh();
   };
 
-  if (!open) return null;
-
   return (
-    <>
-      {/* Backdrop: a plain dim like the dialogs' overlay (DESIGN.md: no blur on bars and overlays) */}
-      <div
-        className="fixed inset-0 z-40 bg-black/50 lg:hidden"
-        onClick={onClose}
-      />
-
-      {/* Drawer */}
-      <aside className="fixed left-0 top-0 z-50 flex h-full w-60 flex-col border-r border-earth-200/80 bg-white lg:hidden">
+    // A real dialog: focus moves in and is trapped, Esc and the backdrop close it,
+    // focus returns to the menu button. Plain dim overlay, no blur (DESIGN.md).
+    <Sheet open={open} onOpenChange={(next) => !next && onClose()}>
+      <SheetContent
+        data-surface="dashboard"
+        side="left"
+        showCloseButton={false}
+        className="w-60 gap-0 border-earth-200/80 bg-white p-0 data-[state=closed]:duration-200 data-[state=open]:duration-300 motion-reduce:animate-none sm:max-w-none lg:hidden"
+      >
+        <SheetTitle className="sr-only">{tc("menu")}</SheetTitle>
+        <SheetDescription className="sr-only">{brandName}</SheetDescription>
         <div className="flex h-14 items-center justify-between border-b border-earth-100 px-3">
           <Link href="/" className="flex items-center gap-2.5 overflow-hidden">
             {brandLogo ? (
               <Image src={brandLogo} alt={brandName} width={28} height={28} className="h-7 w-7 shrink-0 rounded-lg object-cover" />
             ) : (
-              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-[10px] font-bold text-brand">
+              <div className="flex h-7 w-7 shrink-0 items-center justify-center rounded-lg bg-brand/10 text-xs font-bold text-brand">
                 {getInitials(brandName)}
               </div>
             )}
@@ -247,8 +249,10 @@ export function MobileSidebar({
                 key={item.key}
                 href={item.href}
                 onClick={onClose}
+                aria-current={isActive ? "page" : undefined}
                 className={cn(
-                  "flex items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium transition-colors",
+                  // 44px rows, 14px text on phones (DESIGN: Body-sm for the dashboard)
+                  "flex min-h-11 items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors",
                   isActive
                     ? "bg-brand/8 text-brand"
                     : "text-earth-600 hover:bg-earth-50 hover:text-earth-900"
@@ -265,13 +269,13 @@ export function MobileSidebar({
           <SignedInAs email={accountEmail} role={role} />
           <button
             onClick={handleSignOut}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-[13px] font-medium text-earth-600 transition-colors hover:bg-earth-50 hover:text-earth-700"
+            className="flex min-h-11 w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-earth-600 transition-colors hover:bg-earth-50 hover:text-earth-700"
           >
             <LogOut className="h-[18px] w-[18px] shrink-0" />
             <span className="truncate">{ta("signOut")}</span>
           </button>
         </div>
-      </aside>
-    </>
+      </SheetContent>
+    </Sheet>
   );
 }

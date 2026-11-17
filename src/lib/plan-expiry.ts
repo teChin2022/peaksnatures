@@ -134,3 +134,13 @@ export function isHostBlocked(state: HostBlockState): boolean {
 
   return false;
 }
+
+/**
+ * The first moment isHostBlocked can block a Commission host whose wallet went
+ * negative at `since` (it also needs the balance below the credit limit). Same
+ * whole-day count as isHostBlocked: more than GRACE_PERIOD_DAYS full days.
+ */
+export function walletBlockFrom(since: string): Date {
+  const msPerDay = 24 * 60 * 60 * 1000;
+  return new Date(new Date(since).getTime() + (GRACE_PERIOD_DAYS + 1) * msPerDay);
+}

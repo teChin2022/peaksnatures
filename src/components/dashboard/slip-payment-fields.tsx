@@ -113,21 +113,21 @@ export function SlipPaymentFields({
       {/* Payment method */}
       {showBank ? (
         <div className="rounded-xl bg-brand-50 border border-brand-100 p-4">
-          <p className="text-xs font-semibold uppercase tracking-wider text-brand mb-3">
+          <p className="text-xs font-semibold text-brand mb-3">
             {t("transferTo")}
           </p>
           <div className="space-y-2 text-sm text-earth-800">
             <div className="flex justify-between">
-              <span className="text-earth-500">{t("bankLabel")}</span>
+              <span className="text-earth-600">{t("bankLabel")}</span>
               <span className="font-medium text-earth-900">{platformPayment!.bank_name}</span>
             </div>
             <div className="flex justify-between">
-              <span className="text-earth-500">{t("accountNoLabel")}</span>
+              <span className="text-earth-600">{t("accountNoLabel")}</span>
               <span className="font-mono font-medium text-earth-900">{platformPayment!.bank_account_number}</span>
             </div>
             {platformPayment!.bank_account_name && (
               <div className="flex justify-between">
-                <span className="text-earth-500">{t("accountNameLabel")}</span>
+                <span className="text-earth-600">{t("accountNameLabel")}</span>
                 <span className="font-medium text-earth-900">{platformPayment!.bank_account_name}</span>
               </div>
             )}
@@ -149,7 +149,7 @@ export function SlipPaymentFields({
 
         {file ? (
           <div className="rounded-2xl border bg-earth-50 p-3">
-            <p className="mb-2 text-center text-xs font-medium text-earth-500">{t("slipPreview")}</p>
+            <p className="mb-2 text-center text-xs font-medium text-earth-600">{t("slipPreview")}</p>
             {preview && (
               <img src={preview} alt={t("slipPreview")} className="mx-auto max-h-52 rounded-xl object-contain" />
             )}
@@ -185,7 +185,7 @@ export function SlipPaymentFields({
               </div>
               <div>
                 <p className="text-sm font-medium text-earth-700">{t("chooseFromGallery")}</p>
-                <p className="text-xs text-earth-400">{t("clickUpload")}</p>
+                <p className="text-xs text-earth-600">{t("clickUpload")}</p>
               </div>
             </button>
             <input
@@ -199,15 +199,15 @@ export function SlipPaymentFields({
               <>
                 <div className="relative flex items-center gap-3 py-1">
                   <div className="flex-1 border-t border-earth-200" />
-                  <span className="text-xs font-medium text-earth-400">{t("orUploadFromPhone")}</span>
+                  <span className="text-xs font-medium text-earth-600">{t("orUploadFromPhone")}</span>
                   <div className="flex-1 border-t border-earth-200" />
                 </div>
                 <div className="rounded-2xl border bg-earth-50 p-4 text-center">
-                  <p className="mb-3 text-xs text-earth-500">{t("scanToUploadSlip")}</p>
+                  <p className="mb-3 text-xs text-earth-600">{t("scanToUploadSlip")}</p>
                   <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-xl border bg-white p-2">
                     <QRCodeSVG value={uploadLink} size={100} level="M" />
                   </div>
-                  <div className="mt-3 flex items-center justify-center gap-2 text-xs text-earth-400">
+                  <div className="mt-3 flex items-center justify-center gap-2 text-xs text-earth-600">
                     <Loader2 className="h-3 w-3 animate-spin" />
                     {t("waitingForPhoneUpload")}
                   </div>

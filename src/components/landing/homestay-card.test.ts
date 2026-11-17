@@ -23,12 +23,17 @@ const card = (props: Partial<ComponentProps<typeof HomestayCard>> = {}) =>
   );
 
 describe("HomestayCard", () => {
-  it("labels the lowest house price as a starting price", () => {
+  it("labels the price 'ราคา' when the houses cost the same", () => {
     const html = card();
-    expect(html).toContain("เริ่มต้น");
+    expect(html).toContain("ราคา");
+    expect(html).not.toContain("เริ่มต้น");
     expect(html).toContain("1,200");
     // DESIGN.md Price role: serif with lining, tabular figures (old-style ones read ฿100 as ฿1OO).
     expect(html).toMatch(/font-serif[^"]*"[^>]*font-feature-settings:&quot;lnum&quot;, &quot;tnum&quot;/);
+  });
+
+  it("labels it a starting price when the houses are priced apart", () => {
+    expect(card({ priceFrom: true })).toContain("เริ่มต้น");
   });
 
   it("sets the homestay name in the serif Title role", () => {

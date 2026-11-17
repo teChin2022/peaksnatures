@@ -14,6 +14,8 @@ interface HomestayData {
   hero_image_url: string | null;
   gallery: string[];
   min_price: number | null;
+  /** min_price is the cheapest of houses that cost different amounts: say "from". */
+  price_from: boolean;
   max_guests: number;
   tagline: string | null;
   review_count: number;
@@ -103,6 +105,7 @@ export function UniqueHomestays({
                     heroImageUrl={h.hero_image_url}
                     gallery={h.gallery}
                     minPrice={h.min_price}
+                    priceFrom={h.price_from}
                     maxGuests={h.max_guests}
                     tagline={h.tagline}
                     reviewCount={h.review_count}

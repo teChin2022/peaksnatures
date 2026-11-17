@@ -11,6 +11,7 @@ const homestay = {
   hero_image_url: null,
   gallery: [],
   min_price: 1200,
+  price_from: false,
   max_guests: 4,
   tagline: null,
   review_count: 0,
@@ -63,7 +64,7 @@ describe("LandingContent server render", () => {
     const html = serverHtml("en");
     expect(html).toContain("Where are you going?");
     expect(html).toContain("Book directly with ");
-    expect(html).toContain("From");
+    expect(html).toContain("Price");
     // Only the homestay's own data (name, location) may stay Thai.
     const thai = html.replaceAll(homestay.name, "").replaceAll(homestay.location, "").match(/[ก-ฺเ-๛]+/g); // Thai letters, not the ฿ sign (U+0E3F)
     expect(thai).toBeNull();

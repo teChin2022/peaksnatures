@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useMemo } from "react";
+import Link from "next/link";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations, useLocale } from "next-intl";
 import { motion } from "motion/react";
@@ -8,7 +9,6 @@ import {
   parseISO,
   format,
   subMonths,
-  subDays,
   startOfMonth,
   endOfMonth,
   getDaysInMonth,
@@ -20,8 +20,11 @@ import {
   CheckCircle2,
   AlertTriangle,
   TrendingUp,
-  DollarSign,
+  Banknote,
   LogIn,
+  LogOut,
+  Inbox,
+  ChevronRight,
   Percent,
   XCircle,
   Compass,
@@ -34,8 +37,11 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { SetupProfileModal } from "@/components/setup-profile-modal";
 import { getProvinceLabel } from "@/lib/provinces";
 import { getInitials } from "@/lib/utils";
+import { todayWorkCounts } from "@/lib/today-work";
 import { QuickBookingDialog } from "@/components/dashboard/quick-booking-dialog";
 import { StatCard } from "@/components/dashboard/stat-card";
+import { ErrorView } from "@/components/error-view";
+import { statusToneClass } from "@/components/admin/status-badge";
 import { DemandPanel, type DemandPanelLabels } from "@/components/dashboard/demand-panel";
 import {
   AreaChart,
@@ -64,15 +70,14 @@ interface Stats {
   homestayName: string | null;
   homestaySlug: string | null;
   // Overview
-  totalRevenue: number;
-  totalBookings: number;
+  /** Revenue of bookings checking in this month: the same basis as its % change. */
+  monthRevenue: number;
   occupancyRate: number;
   todayCheckins: number;
   // Changes
   revenuePctChange: number | null;
   bookingsPctChange: number | null;
   occupancyPctChange: number | null;
-  checkinsDelta: number;
   // Charts
   monthlyRevenue: { month: string; label: string; revenue: number }[];
   bookingsByRoom: { name: string; count: number }[];
@@ -92,31 +97,13 @@ interface Stats {
   // Quick links
   roomCount: number;
   confirmed: number;
-  pending: number;
+  // Today's work
+  needsAction: number;
+  todayCheckouts: number;
 }
-
-const AVATAR_COLORS = [
-  "bg-brand", "bg-emerald-500", "bg-sky-500",
-  "bg-amber-500", "bg-violet-500", "bg-teal-500",
-  "bg-rose-400", "bg-indigo-500",
-];
 
 const CHART_COLORS = ["#2F5D50", "#3d7a6a", "#5a9485", "#7db0a3", "#a0ccc0", "#c3e2db", "#d9ede9", "#eef6f4"];
 
-const STATUS_BADGE: Record<string, string> = {
-  confirmed: "bg-emerald-500 text-white",
-  completed: "bg-brand text-white",
-  pending: "border border-earth-300 text-earth-700",
-  verified: "bg-sky-500 text-white",
-  rejected: "bg-rose-50 text-rose-600",
-  cancelled: "bg-rose-50 text-rose-600",
-};
-
-function hashName(name: string) {
-  let h = 0;
-  for (let i = 0; i < name.length; i++) h = (h * 31 + name.charCodeAt(i)) | 0;
-  return Math.abs(h);
-}
 
 function pctChange(current: number, previous: number): number | null {
   if (previous === 0) return current > 0 ? 100 : null;
@@ -126,6 +113,7 @@ function pctChange(current: number, previous: number): number | null {
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
   const ta = useTranslations("auth");
+  const te = useTranslations("errorPage");
   const locale = useLocale();
 
   const demandLabels: DemandPanelLabels = useMemo(
@@ -150,6 +138,7 @@ export default function DashboardPage() {
       lostDemand: t("demandLost"),
       soldOutSuffix: t("demandSoldOut"),
       empty: t("demandEmpty"),
+      error: t("demandError"),
       ranges: { d7: t("demandRange7"), d30: t("demandRange30"), d90: t("demandRange90") },
     }),
     [t],
@@ -157,19 +146,22 @@ export default function DashboardPage() {
   const [hostProfile, setHostProfile] = useState<HostProfile | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Failures used to look like data: an endless skeleton, or a dashboard of zeros.
+  const [loadError, setLoadError] = useState(false);
+  const [noHomestay, setNoHomestay] = useState(false);
   const [tab, setTab] = useState<"overview" | "insights">("overview");
   const [homestayId, setHomestayId] = useState<string | null>(null);
   const [quickBookingOpen, setQuickBookingOpen] = useState(false);
   const [quickBookingRooms, setQuickBookingRooms] = useState<{ id: string; name: string; price_per_night: number; max_guests: number }[]>([]);
   const [stats, setStats] = useState<Stats>({
     homestayName: null, homestaySlug: null,
-    totalRevenue: 0, totalBookings: 0, occupancyRate: 0, todayCheckins: 0,
-    revenuePctChange: null, bookingsPctChange: null, occupancyPctChange: null, checkinsDelta: 0,
+    monthRevenue: 0, occupancyRate: 0, todayCheckins: 0,
+    revenuePctChange: null, bookingsPctChange: null, occupancyPctChange: null,
     monthlyRevenue: [], bookingsByRoom: [], recentBookings: [], currentMonthBookingCount: 0,
     adr: 0, revpar: 0, cancelledCount: 0, directBookingPct: 0,
     adrPctChange: null, revparPctChange: null, cancelledDelta: 0, directPctChange: null,
     bookingsBySource: [], provinceDistribution: [],
-    roomCount: 0, confirmed: 0, pending: 0,
+    roomCount: 0, confirmed: 0, needsAction: 0, todayCheckouts: 0,
   });
 
   const localeOpts = locale === "th" ? { locale: thLocale } : undefined;
@@ -187,6 +179,7 @@ export default function DashboardPage() {
       if (signal.aborted) return;
       const profile = profileRes.ok ? await profileRes.json() : null;
       if (signal.aborted) return;
+      if (!profile) { setLoadError(true); setLoading(false); return; }
 
       if (profile) {
         setHostProfile({
@@ -209,17 +202,18 @@ export default function DashboardPage() {
       if (signal.aborted) return;
 
       const homestay = homestayRow as { id: string; name: string; slug: string } | null;
-      if (!homestay) { setLoading(false); return; }
+      if (!homestay) { setNoHomestay(true); setLoading(false); return; }
       setHomestayId(homestay.id);
 
       // Parallel fetch
-      const [{ count: roomCount }, { data: bookingRows }, { data: roomRows }, { data: recentRows }] = await Promise.all([
+      const [{ count: roomCount }, { data: bookingRows, error: bookingsError }, { data: roomRows }, { data: recentRows }] = await Promise.all([
         supabase.from("rooms").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id),
         supabase.from("bookings").select("status, total_price, guest_province, check_in, check_out, room_id, booking_source").eq("homestay_id", homestay.id),
         supabase.from("rooms").select("id, name, quantity, price_per_night, max_guests").eq("homestay_id", homestay.id).eq("is_active", true),
         supabase.from("bookings").select("id, guest_name, guest_email, status, total_price").eq("homestay_id", homestay.id).order("created_at", { ascending: false }).limit(5),
       ]);
       if (signal.aborted) return;
+      if (bookingsError) { setLoadError(true); setLoading(false); return; }
 
       const bookings = (bookingRows as { status: string; total_price: number; guest_province: string | null; check_in: string; check_out: string; room_id: string | null; booking_source: string }[]) || [];
       const rooms = (roomRows as { id: string; name: string; quantity: number; price_per_night: number; max_guests: number }[]) || [];
@@ -228,7 +222,6 @@ export default function DashboardPage() {
 
       const now = new Date();
       const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-      const yesterdayStr = format(subDays(now, 1), "yyyy-MM-dd");
       const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
       const lastMonth = subMonths(now, 1);
       const lastMonthStr = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, "0")}`;
@@ -237,7 +230,6 @@ export default function DashboardPage() {
 
       // Revenue bookings (confirmed + completed)
       const revenueBookings = bookings.filter((b) => b.status === "confirmed" || b.status === "completed");
-      const totalRevenue = revenueBookings.reduce((sum, b) => sum + b.total_price, 0);
 
       // Current vs last month revenue
       const currentMonthRevenue = revenueBookings.filter((b) => b.check_in.startsWith(currentMonthStr)).reduce((sum, b) => sum + b.total_price, 0);
@@ -273,8 +265,8 @@ export default function DashboardPage() {
       const lastMonthOccupancy = calcOccupancy(revenueBookings, lastMonthStart, lastMonthEnd, lastMonthTotalNights);
 
       // Check-ins
-      const todayCheckins = bookings.filter((b) => b.check_in === todayStr && (b.status === "confirmed" || b.status === "completed")).length;
-      const yesterdayCheckins = bookings.filter((b) => b.check_in === yesterdayStr && (b.status === "confirmed" || b.status === "completed")).length;
+      const today = todayWorkCounts(bookings, todayStr);
+      const todayCheckins = today.checkins;
 
       // Monthly revenue (last 6 months)
       const monthlyRevenue: { month: string; label: string; revenue: number }[] = [];
@@ -300,7 +292,7 @@ export default function DashboardPage() {
 
       // Status counts
       const confirmed = bookings.filter((b) => b.status === "confirmed").length;
-      const pending = bookings.filter((b) => b.status === "pending").length;
+
 
       // === Insights ===
 
@@ -373,14 +365,12 @@ export default function DashboardPage() {
       setStats({
         homestayName: homestay.name,
         homestaySlug: homestay.slug,
-        totalRevenue,
-        totalBookings: bookings.length,
+        monthRevenue: currentMonthRevenue,
         occupancyRate,
         todayCheckins,
         revenuePctChange: pctChange(currentMonthRevenue, lastMonthRevenue),
         bookingsPctChange: pctChange(currentMonthBookings.length, lastMonthBookings.length),
         occupancyPctChange: pctChange(occupancyRate, lastMonthOccupancy),
-        checkinsDelta: todayCheckins - yesterdayCheckins,
         monthlyRevenue,
         bookingsByRoom,
         recentBookings: recent,
@@ -395,14 +385,16 @@ export default function DashboardPage() {
         bookingsBySource,
         provinceDistribution,
         roomCount: roomCount || 0,
-        confirmed, pending,
+        confirmed, needsAction: today.needsAction, todayCheckouts: today.checkouts,
       });
 
       setLoading(false);
     };
 
     fetchData().catch((e: unknown) => {
-      if ((e as Error)?.name !== "AbortError") throw e;
+      if ((e as Error)?.name === "AbortError") return;
+      setLoadError(true);
+      setLoading(false);
     });
 
     return () => ctrl.abort();
@@ -480,6 +472,26 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+      ) : loadError ? (
+        <ErrorView
+          title={te("title")}
+          description={te("description")}
+          retryLabel={te("retry")}
+          onRetry={() => window.location.reload()}
+          backHref="/dashboard/bookings"
+          backLabel={t("viewAllBookings")}
+        />
+      ) : noHomestay ? (
+        <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
+          <h1 className="text-xl font-bold text-earth-900">{t("noHomestayTitle")}</h1>
+          <p className="mt-2 max-w-md text-sm text-earth-700">{t("noHomestayDesc")}</p>
+          <Link
+            href="/dashboard/homestay"
+            className="mt-6 inline-flex h-11 items-center justify-center rounded-full bg-brand px-6 text-sm font-semibold text-white hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+          >
+            {t("noHomestayCta")}
+          </Link>
+        </div>
       ) : (
         <div className="space-y-6">
           {/* Header */}
@@ -490,9 +502,6 @@ export default function DashboardPage() {
             className="flex items-end justify-between"
           >
             <div>
-              <p className="text-[11px] font-medium uppercase tracking-[0.12em] text-earth-600 mb-0.5">
-                {ta("hostDashboard")}
-              </p>
               <h1 className="text-xl font-bold text-earth-900">
                 {stats.homestayName || ta("hostDashboard")}
               </h1>
@@ -519,11 +528,44 @@ export default function DashboardPage() {
             />
           )}
 
+          {/* Today's work: what needs the host now, before any chart */}
+          <section aria-labelledby="today-work" className="space-y-2">
+            <h2 id="today-work" className="text-sm font-semibold text-earth-900">{t("todayWork")}</h2>
+            <div className="grid grid-cols-3 gap-2 sm:gap-3">
+              {([
+                { href: "/dashboard/bookings?tab=pending", label: t("needsAction"), value: stats.needsAction, icon: Inbox, alert: stats.needsAction > 0 },
+                { href: "/dashboard/checkins", label: t("checkinsToday"), value: stats.todayCheckins, icon: LogIn, alert: false },
+                { href: "/dashboard/checkins#checkouts", label: t("checkoutsToday"), value: stats.todayCheckouts, icon: LogOut, alert: false },
+              ] as const).map(({ href, label, value, icon: Icon, alert }) => (
+                <Link
+                  key={href}
+                  href={href}
+                  className={`group flex min-h-[76px] flex-col justify-between rounded-xl border p-3 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 ${
+                    alert
+                      ? "border-amber-300 bg-amber-50 text-amber-900 hover:border-amber-400"
+                      : "border-earth-200 bg-white text-earth-900 hover:border-earth-400"
+                  }`}
+                >
+                  <span className="flex items-center justify-between gap-1">
+                    <Icon className={`h-4 w-4 shrink-0 ${alert ? "text-amber-800" : "text-earth-600"}`} aria-hidden />
+                    <ChevronRight className="h-4 w-4 shrink-0 text-earth-500 transition-transform group-hover:translate-x-0.5 motion-reduce:transition-none" aria-hidden />
+                  </span>
+                  <span>
+                    <span className="block text-2xl font-semibold leading-tight tabular-nums">{value}</span>
+                    <span className={`block text-xs leading-snug sm:text-sm ${alert ? "text-amber-900" : "text-earth-700"}`}>{label}</span>
+                  </span>
+                </Link>
+              ))}
+            </div>
+          </section>
+
           {/* Tab Switcher */}
           <div className="inline-flex rounded-full border border-earth-200 p-0.5">
             {(["overview", "insights"] as const).map((t2) => (
               <button
                 key={t2}
+                type="button"
+                aria-pressed={tab === t2}
                 onClick={() => setTab(t2)}
                 className={`px-4 py-1.5 text-sm font-medium rounded-full transition-colors ${
                   tab === t2
@@ -545,37 +587,106 @@ export default function DashboardPage() {
               className="space-y-6"
             >
               {/* Stat Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* Check-ins today live in the "today's work" row above, not here too. */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <StatCard
-                  title={t("totalRevenue")}
-                  value={`฿${stats.totalRevenue.toLocaleString()}`}
+                  title={t("revenueThisMonth")}
+                  value={`฿${stats.monthRevenue.toLocaleString()}`}
                   change={stats.revenuePctChange}
                   changeLabel={t("fromLastMonth")}
-                  icon={<DollarSign className="h-4 w-4 text-earth-600" />}
+                  icon={<Banknote className="h-4 w-4 text-earth-600" />}
                 />
                 <StatCard
-                  title={t("totalBookings")}
-                  value={`+${stats.totalBookings}`}
+                  title={t("bookingsThisMonth")}
+                  value={String(stats.currentMonthBookingCount)}
                   change={stats.bookingsPctChange}
                   changeLabel={t("fromLastMonth")}
                   icon={<CalendarDays className="h-4 w-4 text-earth-600" />}
                 />
-                <StatCard
-                  title={t("occupancyRate")}
-                  value={`${stats.occupancyRate}%`}
-                  change={stats.occupancyPctChange}
-                  changeLabel={t("fromLastMonth")}
-                  icon={<Percent className="h-4 w-4 text-earth-600" />}
-                />
-                <StatCard
-                  title={t("checkinsToday")}
-                  value={String(stats.todayCheckins)}
-                  change={stats.checkinsDelta}
-                  changeLabel={t("sinceYesterday")}
-                  icon={<LogIn className="h-4 w-4 text-earth-600" />}
-                  isDelta
-                />
+                <div className="col-span-2 md:col-span-1">
+                  <StatCard
+                    title={t("occupancyRate")}
+                    value={`${stats.occupancyRate}%`}
+                    change={stats.occupancyPctChange}
+                    changeLabel={t("fromLastMonth")}
+                    icon={<Percent className="h-4 w-4 text-earth-600" />}
+                  />
+                </div>
               </div>
+
+              {/* Recent Bookings */}
+              <Card className="border border-earth-100 shadow-sm rounded-2xl">
+                <CardHeader className="pb-2 px-6 pt-5">
+                  <div className="flex items-start justify-between gap-3">
+                    <div>
+                      <CardTitle className="text-sm font-semibold text-earth-900">
+                        {t("recentBookings")}
+                      </CardTitle>
+                      <p className="text-xs text-earth-600">
+                        {t("recentBookingsDesc", { count: stats.currentMonthBookingCount })}
+                      </p>
+                    </div>
+                    <Link
+                      href="/dashboard/bookings"
+                      className="-my-2 inline-flex min-h-11 shrink-0 items-center text-sm font-medium text-brand underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                    >
+                      {t("viewAllBookings")}
+                    </Link>
+                  </div>
+                </CardHeader>
+                <CardContent className="px-6 pb-4">
+                  {stats.recentBookings.length > 0 ? (
+                    <div className="overflow-x-auto">
+                      <table className="w-full text-sm">
+                        <thead>
+                          <tr className="border-b border-earth-100">
+                            <th className="text-left py-3 font-medium text-earth-600">{t("guest")}</th>
+                            <th className="text-left py-3 font-medium text-earth-600">{t("status")}</th>
+                            <th className="text-right py-3 font-medium text-earth-600">{t("amount")}</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          {stats.recentBookings.map((b) => {
+                            const initials = getInitials(b.guest_name);
+                            const statusKey = `status${b.status.charAt(0).toUpperCase()}${b.status.slice(1)}` as
+                              "statusPending" | "statusVerified" | "statusConfirmed" | "statusRejected" | "statusCancelled" | "statusCompleted";
+                            return (
+                              <tr key={b.id} className="border-b border-earth-50 last:border-0">
+                                <td className="py-3">
+                                  <div className="flex items-center gap-3">
+                                    <div className="h-9 w-9 rounded-full bg-brand-50 flex items-center justify-center shrink-0">
+                                      <span className="text-xs font-semibold text-brand">{initials}</span>
+                                    </div>
+                                    <div className="min-w-0">
+                                      <Link
+                                        href={`/dashboard/bookings?booking=${b.id}`}
+                                        className="block truncate font-medium text-earth-900 underline-offset-4 hover:underline focus-visible:rounded-sm focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                                      >
+                                        {b.guest_name}
+                                      </Link>
+                                      <p className="text-xs text-earth-600 truncate">{b.guest_email}</p>
+                                    </div>
+                                  </div>
+                                </td>
+                                <td className="py-3">
+                                  <span className={`inline-flex whitespace-nowrap rounded-full border px-2.5 py-0.5 text-xs font-medium ${statusToneClass(b.status)}`}>
+                                    {t(statusKey)}
+                                  </span>
+                                </td>
+                                <td className="py-3 text-right font-medium text-earth-900 tabular-nums">
+                                  ฿{b.total_price.toLocaleString()}
+                                </td>
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-earth-600 text-center py-8">{t("noRecentBookings")}</p>
+                  )}
+                </CardContent>
+              </Card>
 
               {/* Charts */}
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -596,17 +707,17 @@ export default function DashboardPage() {
                               <stop offset="95%" stopColor="#2F5D50" stopOpacity={0} />
                             </linearGradient>
                           </defs>
-                          <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} />
-                          <YAxis tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `฿${(v / 1000).toFixed(0)}k` : `฿${v}`} width={55} />
+                          <XAxis dataKey="label" tick={{ fontSize: 12, fill: "#75604e" }} axisLine={false} tickLine={false} />
+                          <YAxis tick={{ fontSize: 12, fill: "#75604e" }} axisLine={false} tickLine={false} tickFormatter={(v) => v >= 1000 ? `฿${(v / 1000).toFixed(0)}k` : `฿${v}`} width={55} />
                           <Tooltip
                             formatter={(value) => [`฿${Number(value).toLocaleString()}`, t("totalRevenue")]}
-                            contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13 }}
+                            contentStyle={{ borderRadius: 8, border: "1px solid #e0d5c8", fontSize: 13 }}
                           />
                           <Area type="monotone" dataKey="revenue" stroke="#2F5D50" strokeWidth={2} fill="url(#brandGradient)" />
                         </AreaChart>
                       </ResponsiveContainer>
                     ) : (
-                      <p className="text-sm text-earth-300 text-center py-16">{t("noChartData")}</p>
+                      <p className="text-sm text-earth-600 text-center py-16">{t("noChartData")}</p>
                     )}
                   </CardContent>
                 </Card>
@@ -623,84 +734,24 @@ export default function DashboardPage() {
                     {stats.bookingsByRoom.length > 0 ? (
                       <ResponsiveContainer width="100%" height={240}>
                         <BarChart data={stats.bookingsByRoom} margin={{ top: 20, right: 20, left: 10, bottom: 0 }}>
-                          <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#9ca3af" }} axisLine={false} tickLine={false} interval={0} />
-                          <YAxis tick={{ fontSize: 12, fill: "#9ca3af" }} axisLine={false} tickLine={false} allowDecimals={false} />
+                          <XAxis dataKey="name" tick={{ fontSize: 11, fill: "#75604e" }} axisLine={false} tickLine={false} interval={0} />
+                          <YAxis tick={{ fontSize: 12, fill: "#75604e" }} axisLine={false} tickLine={false} allowDecimals={false} />
                           <Tooltip
-                            contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13 }}
+                            contentStyle={{ borderRadius: 8, border: "1px solid #e0d5c8", fontSize: 13 }}
                           />
                           <Bar dataKey="count" fill="#2F5D50" radius={[4, 4, 0, 0]} maxBarSize={48} />
                         </BarChart>
                       </ResponsiveContainer>
                     ) : (
-                      <p className="text-sm text-earth-300 text-center py-16">{t("noChartData")}</p>
+                      <p className="text-sm text-earth-600 text-center py-16">{t("noChartData")}</p>
                     )}
                   </CardContent>
                 </Card>
               </div>
 
-              {/* Guest demand — funnel + most-wanted dates, above the booking list
-                  because it explains the bookings that did NOT happen. */}
+              {/* Guest demand — funnel + most-wanted dates: the bookings that did NOT happen.
+                  Analysis, so it sits after today's work and the booking list (owner, 2026-11-17). */}
               <DemandPanel endpoint="/api/host/demand" labels={demandLabels} locale={locale} />
-
-              {/* Recent Bookings */}
-              <Card className="border border-earth-100 shadow-sm rounded-2xl">
-                <CardHeader className="pb-2 px-6 pt-5">
-                  <CardTitle className="text-sm font-semibold text-earth-900">
-                    {t("recentBookings")}
-                  </CardTitle>
-                  <p className="text-xs text-earth-600">
-                    {t("recentBookingsDesc", { count: stats.currentMonthBookingCount })}
-                  </p>
-                </CardHeader>
-                <CardContent className="px-6 pb-4">
-                  {stats.recentBookings.length > 0 ? (
-                    <div className="overflow-x-auto">
-                      <table className="w-full text-sm">
-                        <thead>
-                          <tr className="border-b border-earth-100">
-                            <th className="text-left py-3 font-medium text-earth-600">{t("guest")}</th>
-                            <th className="text-left py-3 font-medium text-earth-600">{t("status")}</th>
-                            <th className="text-right py-3 font-medium text-earth-600">{t("amount")}</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          {stats.recentBookings.map((b) => {
-                            const initials = getInitials(b.guest_name);
-                            const colorIdx = hashName(b.guest_name) % AVATAR_COLORS.length;
-                            const statusKey = `status${b.status.charAt(0).toUpperCase()}${b.status.slice(1)}` as
-                              "statusPending" | "statusVerified" | "statusConfirmed" | "statusRejected" | "statusCancelled" | "statusCompleted";
-                            return (
-                              <tr key={b.id} className="border-b border-earth-50 last:border-0">
-                                <td className="py-3">
-                                  <div className="flex items-center gap-3">
-                                    <div className={`h-9 w-9 rounded-full ${AVATAR_COLORS[colorIdx]} flex items-center justify-center shrink-0`}>
-                                      <span className="text-xs font-semibold text-white">{initials}</span>
-                                    </div>
-                                    <div className="min-w-0">
-                                      <p className="font-medium text-earth-900 truncate">{b.guest_name}</p>
-                                      <p className="text-xs text-earth-600 truncate">{b.guest_email}</p>
-                                    </div>
-                                  </div>
-                                </td>
-                                <td className="py-3">
-                                  <span className={`inline-flex px-2.5 py-0.5 rounded-full text-xs font-medium ${STATUS_BADGE[b.status] || "bg-earth-100 text-earth-700"}`}>
-                                    {t(statusKey)}
-                                  </span>
-                                </td>
-                                <td className="py-3 text-right font-medium text-earth-900 tabular-nums">
-                                  ฿{b.total_price.toLocaleString()}
-                                </td>
-                              </tr>
-                            );
-                          })}
-                        </tbody>
-                      </table>
-                    </div>
-                  ) : (
-                    <p className="text-sm text-earth-300 text-center py-8">{t("noRecentBookings")}</p>
-                  )}
-                </CardContent>
-              </Card>
 
             </motion.div>
           ) : (
@@ -775,7 +826,7 @@ export default function DashboardPage() {
                             </Pie>
                             <Tooltip
                               formatter={(value, _name, props) => [value, sourceLabel((props as unknown as { payload: { name: string } }).payload.name)]}
-                              contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13 }}
+                              contentStyle={{ borderRadius: 8, border: "1px solid #e0d5c8", fontSize: 13 }}
                             />
                           </PieChart>
                         </ResponsiveContainer>
@@ -793,7 +844,7 @@ export default function DashboardPage() {
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm text-earth-300 text-center py-16">{t("noChartData")}</p>
+                      <p className="text-sm text-earth-600 text-center py-16">{t("noChartData")}</p>
                     )}
                   </CardContent>
                 </Card>
@@ -829,7 +880,7 @@ export default function DashboardPage() {
                               ))}
                             </Pie>
                             <Tooltip
-                              contentStyle={{ borderRadius: 8, border: "1px solid #e5e7eb", fontSize: 13 }}
+                              contentStyle={{ borderRadius: 8, border: "1px solid #e0d5c8", fontSize: 13 }}
                             />
                           </PieChart>
                         </ResponsiveContainer>
@@ -847,7 +898,7 @@ export default function DashboardPage() {
                         </div>
                       </div>
                     ) : (
-                      <p className="text-sm text-earth-300 text-center py-16">{t("noChartData")}</p>
+                      <p className="text-sm text-earth-600 text-center py-16">{t("noChartData")}</p>
                     )}
                   </CardContent>
                 </Card>

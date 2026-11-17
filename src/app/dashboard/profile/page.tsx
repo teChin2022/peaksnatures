@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { useTranslations } from "next-intl";
-import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key, Lock, Eye, EyeOff, Bell, Trash2, AlertTriangle, ShieldCheck, Unlock, Camera } from "lucide-react";
+import { User, Phone, CreditCard, Mail, MessageCircle, Loader2, Save, Key, Lock, Eye, EyeOff, Bell, Trash2, AlertTriangle, ShieldCheck, Unlock, Camera, Check } from "lucide-react";
 import Image from "next/image";
 import { compressImage } from "@/lib/compress-image";
 import { getInitials, isValidEmail, isValidPhone, sanitizePhoneInput } from "@/lib/utils";
@@ -310,7 +310,7 @@ export default function ProfilePage() {
   };
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirmText !== "DELETE") {
+    if (deleteConfirmText.trim() !== t("deleteConfirmWord")) {
       toast.error(t("deleteConfirmMismatch"));
       return;
     }
@@ -586,14 +586,16 @@ export default function ProfilePage() {
                     key={option}
                     type="button"
                     disabled={!sensitiveUnlocked}
-                    className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-colors ${!sensitiveUnlocked ? "opacity-60 cursor-not-allowed" : ""}`}
-                    style={
+                    aria-pressed={paymentDisplay === option}
+                    // The chosen option keeps full colour while locked: locked is not the same as unselected.
+                    className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed ${
                       paymentDisplay === option
-                        ? { backgroundColor: "#2F5D50", color: "white", borderColor: "#2F5D50" }
-                        : { borderColor: "#d1d5db", color: "#374151" }
-                    }
+                        ? "border-brand bg-brand text-white"
+                        : "border-earth-300 text-earth-800 hover:border-earth-400 disabled:opacity-60 disabled:hover:border-earth-300"
+                    }`}
                     onClick={() => setPaymentDisplay(option)}
                   >
+                    {paymentDisplay === option && <Check className="h-4 w-4" aria-hidden />}
                     {t(option === "qr" ? "paymentDisplayQr" : "paymentDisplayBank")}
                   </button>
                 ))}
@@ -686,17 +688,14 @@ export default function ProfilePage() {
                   key={option}
                   type="button"
                   onClick={() => setNotificationPreference(option)}
-                  className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-colors ${
+                  aria-pressed={notificationPreference === option}
+                  className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-colors ${
                     notificationPreference === option
-                      ? "border-current text-white"
-                      : "border-earth-200 text-earth-700 hover:border-earth-300"
+                      ? "border-brand bg-brand text-white"
+                      : "border-earth-300 text-earth-800 hover:border-earth-400"
                   }`}
-                  style={
-                    notificationPreference === option
-                      ? { backgroundColor: "#2F5D50", borderColor: "#2F5D50" }
-                      : undefined
-                  }
                 >
+                  {notificationPreference === option && <Check className="h-4 w-4" aria-hidden />}
                   {t(`notification${option.charAt(0).toUpperCase() + option.slice(1)}` as "notificationSms" | "notificationLine")}
                 </button>
               ))}
@@ -777,17 +776,14 @@ export default function ProfilePage() {
                 type="button"
                 onClick={() => setRequireOtp(option)}
                 disabled={!sensitiveUnlocked}
-                className={`flex-1 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed disabled:opacity-60 ${
+                aria-pressed={requireOtp === option}
+                className={`flex flex-1 items-center justify-center gap-1.5 rounded-lg border-2 px-3 py-2 text-sm font-medium transition-colors disabled:cursor-not-allowed ${
                   requireOtp === option
-                    ? "border-current text-white"
-                    : "border-earth-200 text-earth-700 hover:border-earth-300"
+                    ? "border-brand bg-brand text-white"
+                    : "border-earth-300 text-earth-800 hover:border-earth-400 disabled:opacity-60 disabled:hover:border-earth-300"
                 }`}
-                style={
-                  requireOtp === option
-                    ? { backgroundColor: "#2F5D50", borderColor: "#2F5D50" }
-                    : undefined
-                }
               >
+                {requireOtp === option && <Check className="h-4 w-4" aria-hidden />}
                 {t(option ? "otpEnabled" : "otpDisabled")}
               </button>
             ))}
@@ -975,11 +971,13 @@ export default function ProfilePage() {
             </Button>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm text-earth-700">{t("deleteConfirmInstructions")}</p>
+              <p id="delete-confirm-instructions" className="text-sm text-earth-700">{t("deleteConfirmInstructions")}</p>
               <Input
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
-                placeholder='DELETE'
+                // A word in the host's own language: typing Latin "DELETE" on a Thai keyboard was the hurdle.
+                placeholder={t("deleteConfirmWord")}
+                aria-labelledby="delete-confirm-instructions"
                 className="border-red-300 focus-visible:ring-red-500"
               />
               <div className="flex gap-2">
@@ -995,7 +993,7 @@ export default function ProfilePage() {
                   variant="destructive"
                   className="flex-1"
                   onClick={handleDeleteAccount}
-                  disabled={deleting || deleteConfirmText !== "DELETE"}
+                  disabled={deleting || deleteConfirmText.trim() !== t("deleteConfirmWord")}
                 >
                   {deleting ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

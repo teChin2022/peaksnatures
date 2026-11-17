@@ -7,7 +7,7 @@ const TONE_CLASSES: Record<Tone, string> = {
   brand:       "bg-brand-50 text-brand border-brand/15",
   earth:       "bg-earth-50 text-earth-700 border-earth-200/60",
   amber:       "bg-amber-50 text-amber-700 border-amber-200/70",
-  destructive: "bg-destructive/10 text-destructive border-destructive/20",
+  destructive: "bg-red-50 text-red-700 border-red-200",
   muted:       "bg-earth-100/60 text-earth-600 border-earth-200",
 };
 

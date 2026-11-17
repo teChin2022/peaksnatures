@@ -120,6 +120,20 @@ interface DisplayBooking extends BookingRow {
 const PAGE_SIZE = 20;
 const SEARCH_MIN_CHARS = 3;
 
+const DCR_COLUMNS = "id, booking_id, old_check_in, old_check_out, new_check_in, new_check_out, old_total_price, new_total_price, price_difference, status, requested_by, easyslip_verified, payment_slip_url, old_room_id, new_room_id";
+const PENDING_STATUSES: BookingStatus[] = ["pending", "verified"];
+
+type TabKey = "pending" | "confirmed";
+/** A Pending/Confirmed tab's own server-paged list. */
+interface TabList {
+  rows: DisplayBooking[];
+  paged: number;
+  lastPageFull: boolean;
+  loaded: boolean;
+}
+const EMPTY_TAB: TabList = { rows: [], paged: 0, lastPageFull: false, loaded: false };
+const EMPTY_TAB_LISTS: Record<TabKey, TabList> = { pending: EMPTY_TAB, confirmed: EMPTY_TAB };
+
 /** /api/host/booking-slips takes at most this many ids per request. */
 const SLIP_IDS_PER_REQUEST = 100;
 
@@ -273,11 +287,55 @@ export default function BookingsPage() {
   const [filteredCount, setFilteredCount] = useState(0);
   const [hasMoreFiltered, setHasMoreFiltered] = useState(false);
 
+  // Pending and Confirmed page their own status from the server. Filtering the All
+  // tab's newest 20 hid older bookings that still needed the host.
+  const [activeTab, setActiveTab] = useState<"all" | TabKey>("all");
+  const [tabLists, setTabLists] = useState<Record<TabKey, TabList>>(EMPTY_TAB_LISTS);
+  // Booking status behind every pending date-change request of this host, loaded or not.
+  const [dcrBookingStatus, setDcrBookingStatus] = useState<Record<string, BookingStatus>>({});
+
   // Debounce searchInput → searchQuery
   useEffect(() => {
     const timer = setTimeout(() => setSearchQuery(searchInput), 300);
     return () => clearTimeout(timer);
   }, [searchInput]);
+
+  const loadTab = async (tab: TabKey, from = 0, dcrStatus = dcrBookingStatus) => {
+    if (homestayIdsRef.current.length === 0) return;
+    setLoadingMore(true);
+    const supabase = createClient();
+    const base = supabase.from("bookings").select("*").in("homestay_id", homestayIdsRef.current);
+    const { data } = await (tab === "pending" ? base.in("status", PENDING_STATUSES) : base.eq("status", "confirmed"))
+      .order("created_at", { ascending: false })
+      .range(from, from + PAGE_SIZE - 1);
+    const pageRows = (data as unknown as BookingRow[]) || [];
+
+    // A date-change request can sit on a booking of any status: the first page brings those in.
+    const dcrIds = tab === "pending" && from === 0
+      ? Object.keys(dcrStatus).filter((id) => !PENDING_STATUSES.includes(dcrStatus[id]))
+      : [];
+    const { data: dcrRows } = dcrIds.length > 0
+      ? await supabase.from("bookings").select("*").in("id", dcrIds)
+      : { data: null };
+
+    const rawRows = await withCartSiblings(mergeById(pageRows, (dcrRows as unknown as BookingRow[]) || []), supabase);
+    const [rows, counts] = await Promise.all([
+      resolveSlipUrls(rawRows),
+      fetchAttachmentCounts(rawRows.map((b) => b.id), supabase),
+    ]);
+    setAttachmentCounts((prev) => ({ ...prev, ...counts }));
+    const shown = toDisplay(rows);
+    setTabLists((prev) => ({
+      ...prev,
+      [tab]: {
+        rows: from === 0 ? shown : mergeById(prev[tab].rows, shown),
+        paged: from + pageRows.length,
+        lastPageFull: pageRows.length === PAGE_SIZE,
+        loaded: true,
+      },
+    }));
+    setLoadingMore(false);
+  };
 
   const fetchBookings = async () => {
     const supabase = createClient();
@@ -324,12 +382,15 @@ export default function BookingsPage() {
       { count: pendingCnt },
       { count: confirmedCnt },
       { data: bookingRows },
+      dcrResult,
     ] = await Promise.all([
       supabase.from("rooms").select("id, name, price_per_night, max_guests").in("homestay_id", homestayIds),
       supabase.from("bookings").select("id", { count: "exact", head: true }).in("homestay_id", homestayIds),
       supabase.from("bookings").select("id", { count: "exact", head: true }).in("homestay_id", homestayIds).in("status", ["pending", "verified"]),
       supabase.from("bookings").select("id", { count: "exact", head: true }).in("homestay_id", homestayIds).eq("status", "confirmed"),
       supabase.from("bookings").select("*").in("homestay_id", homestayIds).order("created_at", { ascending: false }).range(0, PAGE_SIZE - 1),
+      // Every pending date-change request of this host, not only those on the first page.
+      supabase.from("date_change_requests").select(`${DCR_COLUMNS}, bookings!inner(homestay_id, status)`).in("bookings.homestay_id", homestayIds).eq("status", "pending"),
     ]);
 
     const typedRooms = (roomRows as { id: string; name: string; price_per_night: number; max_guests: number }[]) || [];
@@ -345,13 +406,9 @@ export default function BookingsPage() {
     const pageRows = (bookingRows as unknown as BookingRow[]) || [];
     const rawRows = await withCartSiblings(pageRows, supabase);
 
-    // Parallel: resolve slip URLs + fetch date change requests (independent)
     const bookingIds = rawRows.map((b) => b.id);
-    const [rows, dcrResult, counts] = await Promise.all([
+    const [rows, counts] = await Promise.all([
       resolveSlipUrls(rawRows),
-      bookingIds.length > 0
-        ? supabase.from("date_change_requests").select("id, booking_id, old_check_in, old_check_out, new_check_in, new_check_out, old_total_price, new_total_price, price_difference, status, requested_by, easyslip_verified, payment_slip_url, old_room_id, new_room_id").in("booking_id", bookingIds).eq("status", "pending")
-        : Promise.resolve({ data: null }),
       fetchAttachmentCounts(bookingIds, supabase),
     ]);
 
@@ -361,19 +418,26 @@ export default function BookingsPage() {
     setPagedCount(pageRows.length);
     setHasMore(pageRows.length === PAGE_SIZE && pageRows.length < (total || 0));
 
+    const statusMap: Record<string, BookingStatus> = {};
     if (dcrResult.data) {
       const map: Record<string, DateChangeRequestRow> = {};
-      for (const row of dcrResult.data as unknown as DateChangeRequestRow[]) {
+      for (const { bookings: joined, ...row } of dcrResult.data as unknown as (DateChangeRequestRow & { bookings: { status: BookingStatus } })[]) {
         map[row.booking_id] = {
           ...row,
           old_room_name: row.old_room_id ? roomMapRef.current[row.old_room_id] || null : null,
           new_room_name: row.new_room_id ? roomMapRef.current[row.new_room_id] || null : null,
         };
+        statusMap[row.booking_id] = joined.status;
       }
       setDateChangeRequests(map);
     }
+    setDcrBookingStatus(statusMap);
 
     setLoading(false);
+
+    // A refetch (e.g. after a quick booking) refreshes the open tab too.
+    setTabLists(EMPTY_TAB_LISTS);
+    if (activeTab !== "all") void loadTab(activeTab, 0, statusMap);
 
     /**
      * ?booking=<id> opens that booking's detail dialog — the landing spot for
@@ -386,9 +450,19 @@ export default function BookingsPage() {
      * value read exactly once on mount.
      */
     if (deepLinkHandledRef.current) return;
-    const wanted = new URLSearchParams(window.location.search).get("booking");
-    if (!wanted) return;
     deepLinkHandledRef.current = true;
+    const params = new URLSearchParams(window.location.search);
+    // ?tab= opens a tab: the home page's "today's work" tiles land here.
+    const wanted = params.get("booking");
+    // Without one, open on Pending when something needs the host (same count as its tab).
+    const needsAction =
+      (pendingCnt || 0) + Object.values(statusMap).filter((st) => !PENDING_STATUSES.includes(st)).length;
+    const wantedTab = params.get("tab") ?? (!wanted && needsAction > 0 ? "pending" : null);
+    if (wantedTab === "pending" || wantedTab === "confirmed") {
+      setActiveTab(wantedTab);
+      void loadTab(wantedTab, 0, statusMap);
+    }
+    if (!wanted) return;
 
     const loaded = groupIntoCarts(displayed).find((cart) => cart.some((b) => b.id === wanted));
     if (loaded) {
@@ -564,7 +638,7 @@ export default function BookingsPage() {
     }
 
     for (const id of ids) {
-      const booking = bookings.find((b) => b.id === id);
+      const booking = findLoaded(id);
       logClientEvent({
         homestay_id: booking?.homestay_id,
         entity_type: "booking",
@@ -574,9 +648,7 @@ export default function BookingsPage() {
       });
     }
 
-    setBookings((prev) =>
-      prev.map((b) => (ids.includes(b.id) ? { ...b, status } : b))
-    );
+    applyStatus(ids, { status });
     toast.success(
       status === "confirmed" ? t("confirm") + "!" :
       status === "completed" ? t("markCompleted") + "!" :
@@ -614,7 +686,15 @@ export default function BookingsPage() {
     const update = (list: DisplayBooking[]) => list.map((b) => (ids.includes(b.id) ? { ...b, ...patch } : b));
     setBookings(update);
     setFilteredBookings(update);
+    setTabLists((prev) => ({
+      pending: { ...prev.pending, rows: update(prev.pending.rows) },
+      confirmed: { ...prev.confirmed, rows: update(prev.confirmed.rows) },
+    }));
   };
+
+  // A booking on screen may come from any list (All, a filter, or a tab's own page).
+  const findLoaded = (id: string) =>
+    [...bookings, ...filteredBookings, ...tabLists.pending.rows, ...tabLists.confirmed.rows].find((b) => b.id === id);
 
   const handleCancelClick = (booking: DisplayBooking) => {
     setCancelTarget(booking);
@@ -687,20 +767,14 @@ export default function BookingsPage() {
       }
       toast.success(t("dateChangeApproved"));
       // Update local state
-      setBookings((prev) =>
-        prev.map((b) =>
-          b.id === dcr.booking_id
-            ? { ...b, check_in: dcr.new_check_in, check_out: dcr.new_check_out, total_price: dcr.new_total_price }
-            : b
-        )
-      );
+      applyStatus([dcr.booking_id], { check_in: dcr.new_check_in, check_out: dcr.new_check_out, total_price: dcr.new_total_price });
       setDateChangeRequests((prev) => {
         const next = { ...prev };
         delete next[dcr.booking_id];
         return next;
       });
       logClientEvent({
-        homestay_id: bookings.find((b) => b.id === dcr.booking_id)?.homestay_id,
+        homestay_id: findLoaded(dcr.booking_id)?.homestay_id,
         entity_type: "booking",
         entity_id: dcr.booking_id,
         event_type: "BOOKING_DATE_CHANGE_APPROVED",
@@ -733,7 +807,7 @@ export default function BookingsPage() {
         return next;
       });
       logClientEvent({
-        homestay_id: bookings.find((b) => b.id === rejectTarget.booking_id)?.homestay_id,
+        homestay_id: findLoaded(rejectTarget.booking_id)?.homestay_id,
         entity_type: "booking",
         entity_id: rejectTarget.booking_id,
         event_type: "BOOKING_DATE_CHANGE_REJECTED",
@@ -761,7 +835,7 @@ export default function BookingsPage() {
           {t(config.labelKey)}
         </Badge>
         {b.status === "cancelled" && b.cancelled_by && (
-          <Badge variant="secondary" className={`${statusToneClass("cancelled")} text-[11px]`}>
+          <Badge variant="secondary" className={`${statusToneClass("cancelled")} text-xs`}>
             {b.cancelled_by === b.guest_name ? t("cancelledByGuest") : t("cancelledByHost")}
           </Badge>
         )}
@@ -797,25 +871,25 @@ export default function BookingsPage() {
   // each one under its own house.
   const renderDateChange = (booking: DisplayBooking) =>
     dateChangeRequests[booking.id] && (
-      <div className="rounded-lg border border-blue-200 bg-blue-50 p-2.5 mt-1">
-        <div className="flex items-center gap-1.5 text-xs font-medium text-blue-700 mb-1">
+      <div className="rounded-lg border border-earth-200 bg-earth-50 p-2.5 mt-1">
+        <div className="flex items-center gap-1.5 text-xs font-medium text-earth-800 mb-1">
           <ArrowRightLeft className="h-3.5 w-3.5" />
           {t("dateChangeRequest")}
-          <span className="text-blue-500 font-normal">({dateChangeRequests[booking.id].requested_by})</span>
+          <span className="text-earth-700 font-normal">({dateChangeRequests[booking.id].requested_by})</span>
         </div>
-        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-blue-600 mb-2">
+        <div className="flex flex-wrap gap-x-3 gap-y-1 text-xs text-earth-700 mb-2">
           <span>{t("dateChangeFrom")}: {fmtDateStr(dateChangeRequests[booking.id].old_check_in, "d MMM yyyy", locale)}</span>
           <span>{t("dateChangeTo")}: {fmtDateStr(dateChangeRequests[booking.id].new_check_in, "d MMM yyyy", locale)} → {fmtDateStr(dateChangeRequests[booking.id].new_check_out, "d MMM yyyy", locale)}</span>
           {dateChangeRequests[booking.id].old_room_id && dateChangeRequests[booking.id].new_room_id && dateChangeRequests[booking.id].old_room_id !== dateChangeRequests[booking.id].new_room_id && (
             <span>{t("dateChangeRoom")}: {dateChangeRequests[booking.id].old_room_name ?? "—"} → {dateChangeRequests[booking.id].new_room_name ?? "—"}</span>
           )}
           {dateChangeRequests[booking.id].price_difference !== 0 && (
-            <span className={dateChangeRequests[booking.id].price_difference > 0 ? "text-red-600 font-medium" : "text-green-600 font-medium"}>
+            <span className={dateChangeRequests[booking.id].price_difference > 0 ? "text-red-600 font-medium" : "text-brand font-medium"}>
               {t("dateChangePriceDiff")}: {dateChangeRequests[booking.id].price_difference > 0 ? "+" : ""}฿{dateChangeRequests[booking.id].price_difference.toLocaleString()}
             </span>
           )}
           {dateChangeRequests[booking.id].easyslip_verified && (
-            <Badge variant="secondary" className="bg-brand-50 text-brand text-[10px] py-0">
+            <Badge variant="secondary" className="bg-brand-50 text-brand text-xs py-0">
               <ShieldCheck className="mr-0.5 h-2.5 w-2.5" />
               {t("dateChangeSlipVerified")}
             </Badge>
@@ -915,14 +989,22 @@ export default function BookingsPage() {
         />
       )}
 
-      <Tabs defaultValue="all">
+      <Tabs
+        value={activeTab}
+        onValueChange={(v) => {
+          const tab = v as "all" | TabKey;
+          setActiveTab(tab);
+          if (tab !== "all") void loadTab(tab); // fresh each visit: slips arrive while the page is open
+        }}
+      >
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <TabsList>
+          {/* Scrolls inside its own row on phones instead of widening the page. */}
+          <TabsList className="max-w-full justify-start overflow-x-auto">
             <TabsTrigger value="all">
               {t("allBookings")} ({filtersActive ? filteredCount : totalCount})
             </TabsTrigger>
             <TabsTrigger value="pending">
-              {t("pending")} ({totalPendingCount + Object.keys(dateChangeRequests).filter(bid => { const b = bookings.find(bk => bk.id === bid); return b && b.status !== "pending" && b.status !== "verified"; }).length})
+              {t("pending")} ({totalPendingCount + Object.keys(dateChangeRequests).filter((id) => dcrBookingStatus[id] && !PENDING_STATUSES.includes(dcrBookingStatus[id])).length})
             </TabsTrigger>
             <TabsTrigger value="confirmed">
               {t("confirmedTab")} ({totalConfirmedCount})
@@ -974,7 +1056,13 @@ export default function BookingsPage() {
         </div>
 
         {(["all", "pending", "confirmed"] as const).map((tab) => {
-          const sourceList = filtersActive ? filteredBookings : bookings;
+          const sourceList = filtersActive ? filteredBookings : tab === "all" ? bookings : tabLists[tab].rows;
+          const tabLoading = !filtersActive && tab !== "all" && !tabLists[tab].loaded;
+          const tabHasMore = filtersActive
+            ? hasMoreFiltered
+            : tab === "all"
+              ? hasMore
+              : tabLists[tab].lastPageFull && tabLists[tab].paged < getTabTotal(tab);
           // A cart shows in a tab when any of its houses belongs there, and always whole.
           const carts = groupIntoCarts(sourceList).filter((cart) =>
             cart.some(
@@ -983,9 +1071,11 @@ export default function BookingsPage() {
           );
           return (
             <TabsContent key={tab} value={tab} className="mt-4 space-y-3">
-              {carts.length === 0 ? (
+              {tabLoading ? (
+                [1, 2, 3].map((i) => <Skeleton key={i} className="h-28 w-full rounded-xl" />)
+              ) : carts.length === 0 ? (
                 <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-earth-200 py-12 text-center">
-                  <CalendarDays className="h-10 w-10 text-earth-300" />
+                  <CalendarDays className="h-10 w-10 text-earth-500" />
                   <p className="mt-3 text-sm font-medium text-earth-600">
                     {filtersActive ? t("noFilterResults") : t("noBookings")}
                   </p>
@@ -1014,7 +1104,7 @@ export default function BookingsPage() {
                             >
                               <Image
                                 src={booking.payment_slip_url}
-                                alt="Payment slip"
+                                alt={t("paymentSlip")}
                                 fill
                                 sizes="144px"
                                 className="object-cover transition-opacity group-hover:opacity-75"
@@ -1025,7 +1115,7 @@ export default function BookingsPage() {
                             </button>
                           ) : (
                             <div className="flex h-full w-full items-center justify-center bg-earth-100">
-                              <ImageIcon className="h-6 w-6 text-earth-300" />
+                              <ImageIcon className="h-6 w-6 text-earth-500" />
                               <span className="sr-only">{t("noSlip")}</span>
                             </div>
                           )}
@@ -1033,20 +1123,20 @@ export default function BookingsPage() {
 
                         <div className="flex flex-1 min-w-0 flex-col gap-4 p-4 sm:flex-row sm:items-start">
                           <div className="flex-1 min-w-0 space-y-1">
-                            <h3 className="font-semibold text-earth-900">
+                            <h2 className="font-semibold text-earth-900">
                               {booking.guest_name}
-                            </h3>
+                            </h2>
                             <div className="flex flex-wrap items-center gap-1.5">
                               {!perHouse && renderStatusBadges(booking)}
                               {booking.group_id && (
-                                <Badge variant="secondary" className="bg-indigo-50 text-indigo-700">
+                                <Badge variant="secondary" className="bg-earth-50 text-earth-800">
                                   {t("groupBadge")}
                                 </Badge>
                               )}
                               {booking.booking_source && booking.booking_source !== "guest" ? (
                                 <Badge
                                   variant="secondary"
-                                  className="bg-indigo-50 text-indigo-600"
+                                  className="bg-earth-50 text-earth-700"
                                 >
                                   ⚡ {t(`source${booking.booking_source.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join("")}` as Parameters<typeof t>[0])}
                                 </Badge>
@@ -1082,7 +1172,7 @@ export default function BookingsPage() {
                               {attachmentCount > 0 && (
                                 <Badge
                                   variant="secondary"
-                                  className="bg-slate-100 text-slate-700"
+                                  className="bg-earth-100 text-earth-800"
                                   title={t("attachmentsTitle")}
                                 >
                                   <Paperclip className="mr-1 h-3 w-3" />
@@ -1101,7 +1191,7 @@ export default function BookingsPage() {
                                 ฿{money.total.toLocaleString()}
                               </span>
                               {money.paid < money.total && (
-                                <span className="font-medium text-amber-600">
+                                <span className="font-medium text-amber-800">
                                   {t("balanceDue", { amount: (money.total - money.paid).toLocaleString() })}
                                 </span>
                               )}
@@ -1133,13 +1223,17 @@ export default function BookingsPage() {
                             )}
                             <p className="text-xs text-earth-600">
                               ID: {(booking.group_id ?? booking.id).slice(0, 8)}… ·{" "}
-                              {booking.guest_email} · {booking.guest_phone}
+                              {booking.guest_email} ·{" "}
+                              <a href={`tel:${booking.guest_phone}`} className="underline-offset-4 hover:underline">
+                                {booking.guest_phone}
+                              </a>
                             </p>
 
                             {!isGroup && renderDateChange(booking)}
                           </div>
 
-                          <div className="flex flex-wrap items-center gap-2">
+                          {/* 40px actions on phones (DESIGN: dense dashboard rows) */}
+                          <div className="flex flex-wrap items-center gap-2 max-sm:*:h-10">
                             <Button
                               variant="outline"
                               size="sm"
@@ -1184,8 +1278,9 @@ export default function BookingsPage() {
                                 >
                                   {t("confirm")}
                                 </Button>
+                                {/* Outline, as on confirmed cards: red next to Confirm invited the wrong tap. */}
                                 <Button
-                                  variant="destructive"
+                                  variant="outline"
                                   size="sm"
                                   onClick={() => handleCancelClick(pending)}
                                 >
@@ -1222,18 +1317,18 @@ export default function BookingsPage() {
                 })}
 
                 {/* Load More */}
-                {tab === "all" && (filtersActive ? hasMoreFiltered : hasMore) && (
+                {tabHasMore && (
                   <div className="flex flex-col items-center gap-2 pt-4">
                     <p className="text-xs text-earth-600">
                       {t("showingCount", {
-                        count: filtersActive ? pagedFilteredCount : pagedCount,
-                        total: filtersActive ? filteredCount : totalCount,
+                        count: filtersActive ? pagedFilteredCount : tab === "all" ? pagedCount : tabLists[tab].paged,
+                        total: filtersActive ? filteredCount : getTabTotal(tab),
                       })}
                     </p>
                     <Button
                       variant="outline"
                       size="sm"
-                      onClick={loadMore}
+                      onClick={filtersActive || tab === "all" ? loadMore : () => loadTab(tab, tabLists[tab].paged)}
                       disabled={loadingMore}
                     >
                       {loadingMore ? (
@@ -1296,7 +1391,7 @@ export default function BookingsPage() {
                   <div className="rounded-lg border bg-earth-50 p-2">
                     <Image
                       src={detail.payment_slip_url}
-                      alt="Payment slip"
+                      alt={t("paymentSlip")}
                       width={400}
                       height={320}
                       className="mx-auto max-h-80 rounded-lg object-contain"
@@ -1340,7 +1435,9 @@ export default function BookingsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Phone className="h-4 w-4 text-earth-600" />
-                  <span className="text-earth-700">{detail.guest_phone}</span>
+                  <a href={`tel:${detail.guest_phone}`} className="text-earth-700 underline-offset-4 hover:underline">
+                    {detail.guest_phone}
+                  </a>
                 </div>
                 {detail.guest_province && (
                   <div className="flex items-center gap-2">
@@ -1412,8 +1509,8 @@ export default function BookingsPage() {
                         <span className="font-medium text-earth-900">฿{(detailMoney.total + detailMoney.discount).toLocaleString()}</span>
                       </div>
                       <div className="flex justify-between text-sm">
-                        <span className="text-emerald-700">{t("promoDiscount")}</span>
-                        <span className="font-medium text-emerald-700">−฿{detailMoney.discount.toLocaleString()}</span>
+                        <span className="text-brand">{t("promoDiscount")}</span>
+                        <span className="font-medium text-brand">−฿{detailMoney.discount.toLocaleString()}</span>
                       </div>
                     </>
                   )}
@@ -1427,8 +1524,8 @@ export default function BookingsPage() {
                   </div>
                   {detailMoney.paid < detailMoney.total && (
                     <div className="flex justify-between">
-                      <span className="text-amber-600">{t("balanceDue", { amount: "" }).replace(/[:\s฿]+$/, "")}</span>
-                      <span className="font-medium text-amber-600">฿{(detailMoney.total - detailMoney.paid).toLocaleString()}</span>
+                      <span className="text-amber-800">{t("balanceDue", { amount: "" }).replace(/[:\s฿]+$/, "")}</span>
+                      <span className="font-medium text-amber-800">฿{(detailMoney.total - detailMoney.paid).toLocaleString()}</span>
                     </div>
                   )}
                 </div>
@@ -1526,8 +1623,8 @@ export default function BookingsPage() {
             </div>
           )}
           {cancelTarget?.group_id && (
-            <div className="rounded-lg border border-indigo-200 bg-indigo-50 px-3 py-2.5">
-              <p className="text-xs text-indigo-800">{t("groupCancelNote")}</p>
+            <div className="rounded-lg border border-earth-200 bg-earth-50 px-3 py-2.5">
+              <p className="text-xs text-earth-900">{t("groupCancelNote")}</p>
             </div>
           )}
           <div>

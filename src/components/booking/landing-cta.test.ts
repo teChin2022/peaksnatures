@@ -16,22 +16,28 @@ beforeEach(() => {
   intl.locale = "th";
 });
 
-const bar = async (props: { fromPrice?: number | null; bookingDisabled?: boolean } = {}) =>
-  renderToStaticMarkup(await LandingBookBar({ bookHref: "/baan/book", fromPrice: 1500, ...props }));
+const bar = async (props: { price?: { price: number; from: boolean } | null; bookingDisabled?: boolean } = {}) =>
+  renderToStaticMarkup(await LandingBookBar({ bookHref: "/baan/book", price: { price: 1500, from: true }, ...props }));
 const band = async (bookingDisabled?: boolean, imageUrl: string | null = null) =>
   renderToStaticMarkup(await LandingCta({ bookHref: "/baan/book", bookingDisabled, imageUrl }));
 
 describe("LandingBookBar", () => {
-  it("links to the booking page with the from-price", async () => {
+  it("links to the booking page with tonight's price", async () => {
     const html = await bar();
     expect(html).toContain('href="/baan/book"');
     expect(html).toContain("฿1,500");
   });
 
-  it("labels the price as a minimum: houses are priced apart", async () => {
+  it("labels the price as a minimum when the houses are priced apart", async () => {
     const html = await bar();
     expect(html).toContain("card.from");
-    expect(html).not.toContain("ratePrice");
+    expect(html).not.toContain("card.price");
+  });
+
+  it("labels it 'price' when every house costs the same", async () => {
+    const html = await bar({ price: { price: 1500, from: false } });
+    expect(html).toContain("card.price");
+    expect(html).not.toContain("card.from");
   });
 
   it("is a dimmed label, not a link, while the host can't take bookings", async () => {
@@ -47,8 +53,8 @@ describe("LandingBookBar", () => {
     expect(await bar()).not.toContain("uppercase");
   });
 
-  it("gives the button the whole bar when there is no from-price", async () => {
-    const html = await bar({ fromPrice: null });
+  it("gives the button the whole bar when there is no price", async () => {
+    const html = await bar({ price: null });
     expect(html).not.toContain("฿");
     expect(html).toMatch(/<a [^>]*class="[^"]*\bw-full\b/);
   });

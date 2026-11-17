@@ -14,7 +14,8 @@ export interface LandingRoom {
   name: string;
   /** Sanitized rich text (getHomestayData), or null when it has no text. */
   description: string | null;
-  price_per_night: number;
+  /** The house's price tonight (cardPrice), as its card on /book shows it. */
+  price: number;
   max_guests: number;
   images: string[];
   is_active: boolean;
@@ -102,11 +103,11 @@ export function LandingRooms({ rooms, bookHref, bookingDisabled = false }: Landi
                 )}
                 <div className="mt-auto flex flex-wrap items-end justify-between gap-x-4 gap-y-3 border-t border-line pt-4">
                   <div>
-                    <p className="text-[13px] text-ink-2">{t("ratePrice")}</p>
+                    <p className="text-[13px] text-ink-2">{t("priceTonight")}</p>
                     <p className="whitespace-nowrap">
                       {/* Lining figures: the serif's old-style ones read "฿100" as "฿1OO". Set here, not with .tabular-nums, which resets the feature list. */}
                       <span className="font-serif text-3xl leading-tight text-ink" style={{ fontFeatureSettings: '"lnum", "tnum"' }}>
-                        ฿{room.price_per_night.toLocaleString()}
+                        ฿{room.price.toLocaleString()}
                       </span>
                       <span className="ml-1 text-sm text-ink-2">{tc("perNight")}</span>
                     </p>

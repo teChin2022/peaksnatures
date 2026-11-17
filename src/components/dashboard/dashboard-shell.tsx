@@ -108,7 +108,7 @@ export function DashboardShell({ children }: DashboardShellProps) {
   }, []);
 
   return (
-    <div className="min-h-screen bg-earth-50">
+    <div data-surface="dashboard" className="min-h-screen bg-earth-50">
       {/* Desktop sidebar */}
       <div className="hidden lg:block">
         <Sidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} brandName={brandName} brandLogo={brandLogo} role={role} accountEmail={accountEmail} />
@@ -133,6 +133,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
             className="-ml-2 size-11 text-earth-600 hover:text-earth-800"
             onClick={() => setMobileOpen(true)}
             aria-label={tc("menu")}
+            aria-expanded={mobileOpen}
+            aria-haspopup="dialog"
           >
             <Menu className="h-5 w-5" />
           </Button>
@@ -155,11 +157,10 @@ export function DashboardShell({ children }: DashboardShellProps) {
                   {t("graceDesc", { days: expiryInfo.graceDaysRemaining ?? 0 })}
                 </p>
               </div>
-              <Link href="/dashboard/billing">
-                <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white text-xs shrink-0">
-                  {t("upgradePlan")}
-                </Button>
-              </Link>
+              {/* Button asChild: one control, not a button inside a link (two tab stops). */}
+              <Button asChild size="sm" className="bg-amber-800 hover:bg-amber-900 text-white text-sm shrink-0 max-sm:h-10">
+                <Link href="/dashboard/billing">{t("upgradePlan")}</Link>
+              </Button>
             </div>
           </div>
         )}
@@ -175,11 +176,10 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 <p className="text-sm font-medium text-red-800">{t("blockedTitle")}</p>
                 <p className="text-sm text-red-700 mt-0.5">{t("invoiceBlockedDesc")}</p>
               </div>
-              <Link href="/dashboard/billing">
-                <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white text-xs shrink-0">
-                  {t("payNow")}
-                </Button>
-              </Link>
+              {/* Button asChild: one control, not a button inside a link (two tab stops). */}
+              <Button asChild size="sm" className="bg-red-600 hover:bg-red-700 text-white text-sm shrink-0 max-sm:h-10">
+                <Link href="/dashboard/billing">{t("payNow")}</Link>
+              </Button>
             </div>
           </div>
         )}
@@ -210,23 +210,23 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 <p className="text-sm font-medium text-red-800">{t("blockedTitle")}</p>
                 <p className="text-sm text-red-700 mt-0.5">{t("blockedDesc")}</p>
               </div>
-              <Link href="/dashboard/billing">
-                <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white text-xs shrink-0">
-                  {t("upgradePlan")}
-                </Button>
-              </Link>
+              {/* Button asChild: one control, not a button inside a link (two tab stops). */}
+              <Button asChild size="sm" className="bg-red-600 hover:bg-red-700 text-white text-sm shrink-0 max-sm:h-10">
+                <Link href="/dashboard/billing">{t("upgradePlan")}</Link>
+              </Button>
             </div>
           </div>
         )}
 
+        {/* The pending page renders once, in the overlay below (D4). */}
         <main className="p-4 sm:p-6 lg:p-8">
-          {children}
+          {!isPending && children}
         </main>
       </div>
 
-      {/* Blur overlay for pending approval */}
+      {/* Pending approval: a plain dim over the shell, no blur (DESIGN.md) */}
       {isPending && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-earth-50/90">
           <div className="pointer-events-auto">
             {children}
           </div>

@@ -96,7 +96,6 @@ function card(props: Partial<Parameters<typeof SingleRoomHero>[0]> = {}) {
       createElement(SingleRoomHero, {
         room: room(),
         seasonalPrices: [],
-        specialPrices: [],
         onLightbox: () => {},
         onCalendar: () => calls.calendar++,
         onDesc: () => {},
@@ -156,9 +155,10 @@ describe("SingleRoomHero house card", () => {
     expect(container.querySelector<HTMLElement>("[data-room-id]")!.style.opacity).toBe("");
   });
 
-  it("says 'from' before the lowest price when the house has more than one rate", () => {
+  it("labels its price 'price', never 'from', even with a season ahead", () => {
     card({ seasonalPrices: [{ id: "s1", room_id: "r1", name: "High", start_date: "2099-01-01", end_date: "2099-01-31", price_per_night: 2500 } as never] });
-    expect(container.textContent).toContain("priceFrom");
+    expect(container.textContent).toContain("priceTonight");
+    expect(container.textContent).not.toContain("from");
     expect(container.textContent).toContain("฿1,500");
   });
 
@@ -299,7 +299,24 @@ describe("a house card's price on the list", () => {
     renderWith([ended]);
     expect(container.textContent).toContain("฿1,500");
     expect(container.textContent).not.toContain("฿3");
-    expect(container.textContent).not.toContain("priceFrom");
+  });
+
+  it("shows tonight's season price, not the base price", () => {
+    renderWith([{ id: "nov", room_id: "a", name: "High", start_date: "2026-11-01", end_date: "2026-11-30", price_per_night: 2500 } as never]);
+    expect(container.textContent).toContain("฿2,500");
+    expect(container.textContent).not.toContain("฿1,500");
+  });
+
+  it("never quotes a cheaper season that has not started yet", () => {
+    renderWith([{ id: "may", room_id: "a", name: "Low", start_date: "2027-05-01", end_date: "2027-05-31", price_per_night: 900 } as never]);
+    expect(container.textContent).toContain("฿1,500");
+    expect(container.textContent).not.toContain("฿900");
+  });
+
+  it("takes tonight from the Bangkok day: 01:00 on 1 Dec is December's season, though UTC still says 30 Nov", () => {
+    vi.setSystemTime(new Date("2026-11-30T18:00:00Z"));
+    renderWith([{ id: "dec", room_id: "a", name: "New Year", start_date: "2026-12-01", end_date: "2026-12-31", price_per_night: 3200 } as never]);
+    expect(container.textContent).toContain("฿3,200");
   });
 
   it("prices the chosen stay at the normal rate: two nights of ฿1,500", () => {

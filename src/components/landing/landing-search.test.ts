@@ -12,6 +12,7 @@ const base = {
   hero_image_url: null,
   gallery: [],
   min_price: 1200,
+  price_from: false,
   max_guests: 4,
   review_count: 0,
   average_rating: 0,
