@@ -40,6 +40,7 @@ import { getInitials } from "@/lib/utils";
 import { todayWorkCounts } from "@/lib/today-work";
 import { QuickBookingDialog } from "@/components/dashboard/quick-booking-dialog";
 import { StatCard } from "@/components/dashboard/stat-card";
+import { ErrorView } from "@/components/error-view";
 import { statusToneClass } from "@/components/admin/status-badge";
 import { DemandPanel, type DemandPanelLabels } from "@/components/dashboard/demand-panel";
 import {
@@ -112,6 +113,7 @@ function pctChange(current: number, previous: number): number | null {
 export default function DashboardPage() {
   const t = useTranslations("dashboard");
   const ta = useTranslations("auth");
+  const te = useTranslations("errorPage");
   const locale = useLocale();
 
   const demandLabels: DemandPanelLabels = useMemo(
@@ -136,6 +138,7 @@ export default function DashboardPage() {
       lostDemand: t("demandLost"),
       soldOutSuffix: t("demandSoldOut"),
       empty: t("demandEmpty"),
+      error: t("demandError"),
       ranges: { d7: t("demandRange7"), d30: t("demandRange30"), d90: t("demandRange90") },
     }),
     [t],
@@ -143,6 +146,9 @@ export default function DashboardPage() {
   const [hostProfile, setHostProfile] = useState<HostProfile | null>(null);
   const [profileLoaded, setProfileLoaded] = useState(false);
   const [loading, setLoading] = useState(true);
+  // Failures used to look like data: an endless skeleton, or a dashboard of zeros.
+  const [loadError, setLoadError] = useState(false);
+  const [noHomestay, setNoHomestay] = useState(false);
   const [tab, setTab] = useState<"overview" | "insights">("overview");
   const [homestayId, setHomestayId] = useState<string | null>(null);
   const [quickBookingOpen, setQuickBookingOpen] = useState(false);
@@ -173,6 +179,7 @@ export default function DashboardPage() {
       if (signal.aborted) return;
       const profile = profileRes.ok ? await profileRes.json() : null;
       if (signal.aborted) return;
+      if (!profile) { setLoadError(true); setLoading(false); return; }
 
       if (profile) {
         setHostProfile({
@@ -195,17 +202,18 @@ export default function DashboardPage() {
       if (signal.aborted) return;
 
       const homestay = homestayRow as { id: string; name: string; slug: string } | null;
-      if (!homestay) { setLoading(false); return; }
+      if (!homestay) { setNoHomestay(true); setLoading(false); return; }
       setHomestayId(homestay.id);
 
       // Parallel fetch
-      const [{ count: roomCount }, { data: bookingRows }, { data: roomRows }, { data: recentRows }] = await Promise.all([
+      const [{ count: roomCount }, { data: bookingRows, error: bookingsError }, { data: roomRows }, { data: recentRows }] = await Promise.all([
         supabase.from("rooms").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id),
         supabase.from("bookings").select("status, total_price, guest_province, check_in, check_out, room_id, booking_source").eq("homestay_id", homestay.id),
         supabase.from("rooms").select("id, name, quantity, price_per_night, max_guests").eq("homestay_id", homestay.id).eq("is_active", true),
         supabase.from("bookings").select("id, guest_name, guest_email, status, total_price").eq("homestay_id", homestay.id).order("created_at", { ascending: false }).limit(5),
       ]);
       if (signal.aborted) return;
+      if (bookingsError) { setLoadError(true); setLoading(false); return; }
 
       const bookings = (bookingRows as { status: string; total_price: number; guest_province: string | null; check_in: string; check_out: string; room_id: string | null; booking_source: string }[]) || [];
       const rooms = (roomRows as { id: string; name: string; quantity: number; price_per_night: number; max_guests: number }[]) || [];
@@ -384,7 +392,9 @@ export default function DashboardPage() {
     };
 
     fetchData().catch((e: unknown) => {
-      if ((e as Error)?.name !== "AbortError") throw e;
+      if ((e as Error)?.name === "AbortError") return;
+      setLoadError(true);
+      setLoading(false);
     });
 
     return () => ctrl.abort();
@@ -462,6 +472,26 @@ export default function DashboardPage() {
             </CardContent>
           </Card>
         </div>
+      ) : loadError ? (
+        <ErrorView
+          title={te("title")}
+          description={te("description")}
+          retryLabel={te("retry")}
+          onRetry={() => window.location.reload()}
+          backHref="/dashboard/bookings"
+          backLabel={t("viewAllBookings")}
+        />
+      ) : noHomestay ? (
+        <div className="flex min-h-[60vh] flex-col items-center justify-center px-4 text-center">
+          <h1 className="text-xl font-bold text-earth-900">{t("noHomestayTitle")}</h1>
+          <p className="mt-2 max-w-md text-sm text-earth-700">{t("noHomestayDesc")}</p>
+          <Link
+            href="/dashboard/homestay"
+            className="mt-6 inline-flex h-11 items-center justify-center rounded-full bg-brand px-6 text-sm font-semibold text-white hover:bg-brand-hover focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+          >
+            {t("noHomestayCta")}
+          </Link>
+        </div>
       ) : (
         <div className="space-y-6">
           {/* Header */}
@@ -508,7 +538,7 @@ export default function DashboardPage() {
               {([
                 { href: "/dashboard/bookings?tab=pending", label: t("needsAction"), value: stats.needsAction, icon: Inbox, alert: stats.needsAction > 0 },
                 { href: "/dashboard/checkins", label: t("checkinsToday"), value: stats.todayCheckins, icon: LogIn, alert: false },
-                { href: "/dashboard/bookings?tab=confirmed", label: t("checkoutsToday"), value: stats.todayCheckouts, icon: LogOut, alert: false },
+                { href: "/dashboard/checkins#checkouts", label: t("checkoutsToday"), value: stats.todayCheckouts, icon: LogOut, alert: false },
               ] as const).map(({ href, label, value, icon: Icon, alert }) => (
                 <Link
                   key={href}

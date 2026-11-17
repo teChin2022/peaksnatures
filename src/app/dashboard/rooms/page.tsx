@@ -48,7 +48,7 @@ import { logClientEvent } from "@/lib/history-log-client";
 import { composeTierLabel } from "@/lib/guest-pricing";
 import { getPriceRange } from "@/lib/calculate-price";
 import { formatSpecialPriceRule } from "@/lib/special-price-label";
-import { parseRoomPrice } from "@/lib/room-form";
+import { parseRoomPrice, unaddedSections, type RoomSubForm } from "@/lib/room-form";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 
 interface RoomData {
@@ -193,6 +193,8 @@ export default function RoomsPage() {
   const [pendingTiers, setPendingTiers] = useState<Omit<RoomGuestPricing, "id" | "room_id" | "created_at" | "created_by" | "updated_at" | "updated_by">[]>([]);
 
   const [priceError, setPriceError] = useState(false);
+  // Sub-forms holding input never added with their own "เพิ่ม": Save would drop it.
+  const [unadded, setUnadded] = useState<RoomSubForm[]>([]);
   const priceInputRef = useRef<HTMLInputElement>(null);
 
   // Unsaved edits in the house dialog. Seasons/options/tiers/specials of an existing
@@ -332,6 +334,7 @@ export default function RoomsPage() {
     setRoomQuantity("1");
     setRoomImages([]);
     setPriceError(false);
+    setUnadded([]);
     setEditingRoom(null);
     setPendingSeasons([]);
     setPendingSpecials([]);
@@ -357,6 +360,7 @@ export default function RoomsPage() {
     setRoomQuantity(room.quantity.toString());
     setRoomImages(room.images || []);
     setPriceError(false);
+    setUnadded([]);
     setDialogOpen(true);
   };
 
@@ -462,6 +466,18 @@ export default function RoomsPage() {
     if (price === null) {
       setPriceError(true);
       priceInputRef.current?.focus();
+      return;
+    }
+    const pending = unaddedSections({
+      tier: tierForm,
+      option: optionForm,
+      season: seasonForm,
+      special: specialForm,
+      editing: { tier: !!editingTier, option: !!editingOption, season: !!editingSeason, special: !!editingSpecial },
+    });
+    setUnadded(pending);
+    if (pending.length > 0) {
+      document.getElementById(`room-section-${pending[0]}`)?.scrollIntoView({ behavior: "smooth", block: "start" });
       return;
     }
 
@@ -1460,7 +1476,7 @@ export default function RoomsPage() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <Users className="h-4 w-4 text-brand" />
-                  <h3 className="text-sm font-semibold text-earth-900">{t("guestPricing")}</h3>
+                  <h3 id="room-section-tier" className="scroll-mt-4 text-sm font-semibold text-earth-900">{t("guestPricing")}</h3>
                 </div>
                 {canCopy("tiers") && (
                   <button
@@ -1636,7 +1652,7 @@ export default function RoomsPage() {
               <div className="flex items-center justify-between gap-2">
                 <div className="flex items-center gap-2">
                   <ListPlus className="h-4 w-4 text-brand" />
-                  <h3 className="text-sm font-semibold text-earth-900">{t("roomOptions")}</h3>
+                  <h3 id="room-section-option" className="scroll-mt-4 text-sm font-semibold text-earth-900">{t("roomOptions")}</h3>
                 </div>
                 {canCopy("options") && (
                   <button
@@ -1786,7 +1802,7 @@ export default function RoomsPage() {
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <CalendarDays className="h-4 w-4 text-brand" />
-                    <h3 className="text-sm font-semibold text-earth-900">{t("seasonalPricing")}</h3>
+                    <h3 id="room-section-season" className="scroll-mt-4 text-sm font-semibold text-earth-900">{t("seasonalPricing")}</h3>
                   </div>
                   {canCopy("seasons") && (
                     <button
@@ -1985,7 +2001,7 @@ export default function RoomsPage() {
                 <div className="flex items-center justify-between gap-2">
                   <div className="flex items-center gap-2">
                     <CalendarRange className="h-4 w-4 text-brand" />
-                    <h3 className="text-sm font-semibold text-earth-900">{t("specialPricing")}</h3>
+                    <h3 id="room-section-special" className="scroll-mt-4 text-sm font-semibold text-earth-900">{t("specialPricing")}</h3>
                   </div>
                   {canCopy("specials") && (
                     <button
@@ -2361,6 +2377,15 @@ export default function RoomsPage() {
 
             {/* Save stays in reach at the bottom of the scrolling dialog */}
             <div className="sticky -bottom-6 z-10 -mx-6 -mb-6 border-t border-earth-200 bg-white px-6 pt-3 pb-4">
+              {unadded.length > 0 && (
+                <p role="alert" className="mb-2 text-sm text-red-700">
+                  {t("unaddedItems", {
+                    sections: unadded
+                      .map((k) => t(({ tier: "guestPricing", option: "roomOptions", season: "seasonalPricing", special: "specialPricing" } as const)[k]))
+                      .join(", "),
+                  })}
+                </p>
+              )}
               <Button
                 onClick={handleSaveRoom}
                 disabled={saving}

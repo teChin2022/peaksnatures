@@ -453,12 +453,15 @@ export default function BookingsPage() {
     deepLinkHandledRef.current = true;
     const params = new URLSearchParams(window.location.search);
     // ?tab= opens a tab: the home page's "today's work" tiles land here.
-    const wantedTab = params.get("tab");
+    const wanted = params.get("booking");
+    // Without one, open on Pending when something needs the host (same count as its tab).
+    const needsAction =
+      (pendingCnt || 0) + Object.values(statusMap).filter((st) => !PENDING_STATUSES.includes(st)).length;
+    const wantedTab = params.get("tab") ?? (!wanted && needsAction > 0 ? "pending" : null);
     if (wantedTab === "pending" || wantedTab === "confirmed") {
       setActiveTab(wantedTab);
       void loadTab(wantedTab, 0, statusMap);
     }
-    const wanted = params.get("booking");
     if (!wanted) return;
 
     const loaded = groupIntoCarts(displayed).find((cart) => cart.some((b) => b.id === wanted));
@@ -1220,7 +1223,10 @@ export default function BookingsPage() {
                             )}
                             <p className="text-xs text-earth-600">
                               ID: {(booking.group_id ?? booking.id).slice(0, 8)}… ·{" "}
-                              {booking.guest_email} · {booking.guest_phone}
+                              {booking.guest_email} ·{" "}
+                              <a href={`tel:${booking.guest_phone}`} className="underline-offset-4 hover:underline">
+                                {booking.guest_phone}
+                              </a>
                             </p>
 
                             {!isGroup && renderDateChange(booking)}
@@ -1429,7 +1435,9 @@ export default function BookingsPage() {
                 </div>
                 <div className="flex items-center gap-2">
                   <Phone className="h-4 w-4 text-earth-600" />
-                  <span className="text-earth-700">{detail.guest_phone}</span>
+                  <a href={`tel:${detail.guest_phone}`} className="text-earth-700 underline-offset-4 hover:underline">
+                    {detail.guest_phone}
+                  </a>
                 </div>
                 {detail.guest_province && (
                   <div className="flex items-center gap-2">

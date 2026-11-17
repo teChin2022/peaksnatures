@@ -3,6 +3,7 @@
 import { useState, useEffect, useCallback, useRef, useMemo } from "react";
 import Link from "next/link";
 import { useTranslations, useLocale } from "next-intl";
+import { slipErrorKey, type SlipErrorKey } from "@/lib/slip-error";
 import { motion, AnimatePresence } from "motion/react";
 import { toast } from "sonner";
 import { fmtDateStr } from "@/lib/format-date";
@@ -84,6 +85,7 @@ const TXN_TYPE_CONFIG: Record<string, { icon: typeof ArrowUpCircle; color: strin
 export default function WalletPage() {
   const t = useTranslations("walletPage");
   const td = useTranslations("dashboard");
+  const ts = useTranslations("slipErrors");
   const locale = useLocale();
 
   const getTxLabel = (tx: Transaction): string => {
@@ -149,7 +151,10 @@ export default function WalletPage() {
   const [topupLoading, setTopupLoading] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
 
+  // Shown in place, above the button, in Thai (a toast with the server's English vanished).
+  const [topupError, setTopupError] = useState<SlipErrorKey | "network" | null>(null);
   const setTopupFile = useCallback((file: File | null) => {
+    setTopupError(null);
     if (topupPreview) URL.revokeObjectURL(topupPreview);
     setTopupFileRaw(file);
     setTopupPreview(file ? URL.createObjectURL(file) : null);
@@ -286,6 +291,7 @@ export default function WalletPage() {
     e.preventDefault();
     if (!topupFile || !topupAmount) return;
     setTopupLoading(true);
+    setTopupError(null);
     try {
       const form = new FormData();
       form.append("file", topupFile);
@@ -299,13 +305,10 @@ export default function WalletPage() {
         fetchBilling();
         fetchTransactions(1);
       } else {
-        // Thai first; the server's own (English) reason stays as the detail.
-        toast.error(d.duplicate ? t("topupDuplicate") : t("topupFailed"), {
-          description: d.duplicate ? undefined : d.error || d.message,
-        });
+        setTopupError(slipErrorKey(d));
       }
     } catch {
-      toast.error(t("topupError"));
+      setTopupError("network");
     } finally {
       setTopupLoading(false);
     }
@@ -565,6 +568,12 @@ export default function WalletPage() {
                               </>
                             )}
                           </div>
+                        )}
+
+                        {topupError && (
+                          <p role="alert" className="text-sm text-red-700">
+                            {ts(topupError)}
+                          </p>
                         )}
 
                         <Button

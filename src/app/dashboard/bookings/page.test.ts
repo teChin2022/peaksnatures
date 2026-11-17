@@ -135,6 +135,7 @@ afterEach(() => {
 describe("BookingsPage tabs", () => {
   it("shows a pending booking older than the newest 20 in the pending tab", async () => {
     await render();
+    await openTab("allBookings");
     expect(panelText()).not.toContain("Old Pending Guest"); // all tab: newest 20 only
 
     await openTab("pending");
@@ -145,6 +146,12 @@ describe("BookingsPage tabs", () => {
     await render();
     await openTab("pending");
     expect(panelText()).toContain("Date Change Guest");
+  });
+
+  it("opens on the pending tab when something needs the host", async () => {
+    await render();
+    expect(container.querySelector("[role=tab][aria-selected=true]")?.textContent).toMatch(/^pending/);
+    expect(panelText()).toContain("Old Pending Guest");
   });
 
   it("counts the date-change request in the pending tab's total", async () => {

@@ -3,6 +3,7 @@
 import { useState, useEffect } from "react";
 import { useTranslations, useLocale } from "next-intl";
 import { toast } from "sonner";
+import { slipErrorKey, type SlipErrorKey } from "@/lib/slip-error";
 import { Loader2, Upload } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import {
@@ -60,18 +61,25 @@ export function PlanActivationDialog({
 }: PlanActivationDialogProps) {
   const t = useTranslations("planActivation");
   const ti = useTranslations("invoicePay");
+  const ts = useTranslations("slipErrors");
   const locale = useLocale();
 
   const [file, setFile] = useState<File | null>(null);
   const [loading, setLoading] = useState(false);
+  // Shown in place, under the slip, in Thai: a toast with the server's English vanished.
+  const [slipError, setSlipError] = useState<SlipErrorKey | "network" | null>(null);
 
   useEffect(() => {
-    if (!open) setFile(null);
+    if (!open) {
+      setFile(null);
+      setSlipError(null);
+    }
   }, [open]);
 
   const handleSubmit = async () => {
     if (!quote || !file) return;
     setLoading(true);
+    setSlipError(null);
     try {
       const form = new FormData();
       form.append("file", file);
@@ -83,10 +91,10 @@ export function PlanActivationDialog({
         onOpenChange(false);
         onActivated();
       } else {
-        toast.error(d.error || d.message || t("verifyFailed"));
+        setSlipError(slipErrorKey(d));
       }
     } catch {
-      toast.error(t("somethingWrong"));
+      setSlipError("network");
     } finally {
       setLoading(false);
     }
@@ -172,9 +180,18 @@ export function PlanActivationDialog({
           amount={quote?.amount ?? 0}
           platformPayment={platformPayment}
           file={file}
-          onFileChange={setFile}
+          onFileChange={(f) => {
+            setFile(f);
+            setSlipError(null);
+          }}
           breakdown={breakdown}
         />
+
+        {slipError && (
+          <p role="alert" className="text-sm text-red-700">
+            {ts(slipError)}
+          </p>
+        )}
 
         <DialogFooter>
           <Button variant="outline" onClick={() => onOpenChange(false)}>

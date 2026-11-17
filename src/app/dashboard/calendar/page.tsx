@@ -592,6 +592,7 @@ export default function CalendarPage() {
   const goToToday = () => setCurrentMonth(startOfMonth(new Date()));
 
   const weekdayLabels = locale === "th" ? WEEKDAYS_TH : WEEKDAYS;
+  const pendingCount = bookings.filter((b) => b.status === "pending").length;
 
   if (loading) {
     return (
@@ -655,90 +656,6 @@ export default function CalendarPage() {
           onSuccess={() => fetchData()}
         />
       )}
-
-      {/* Monthly revenue + bookings per room */}
-      <div className="mb-3 grid gap-3 sm:grid-cols-2">
-        <Card className="overflow-hidden border-brand/15 bg-brand-50">
-          <CardContent className="flex items-center gap-4 p-4 sm:p-5">
-            <div
-              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand"
-              aria-hidden="true"
-            >
-              <Wallet className="h-6 w-6" />
-            </div>
-            <div className="min-w-0">
-              <p className="text-xs font-medium text-earth-600">
-                {t("monthlyRevenue")} · {fmtDate(currentMonth, "MMMM yyyy", locale)}
-              </p>
-              <p className="mt-0.5 text-3xl font-bold tracking-tight text-brand tabular-nums">
-                <span className="mr-0.5 text-xl font-semibold text-brand/60">฿</span>
-                {monthlyRevenue.toLocaleString()}
-              </p>
-            </div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardContent className="p-4 sm:p-5">
-            <p className="text-xs font-medium text-earth-600">
-              {tDash("bookingsByRoom")} · {fmtDate(currentMonth, "MMMM yyyy", locale)}
-            </p>
-            {roomBookings.length > 0 ? (
-              <ul className="mt-3 space-y-2">
-                {roomBookings.map((r) => (
-                  <li key={r.id} className="flex items-center gap-3">
-                    <span className="w-24 shrink-0 truncate text-sm text-earth-800">{r.name}</span>
-                    <div className="h-2 flex-1 rounded-full bg-earth-100" aria-hidden="true">
-                      <div
-                        className="h-full rounded-full bg-brand transition-all"
-                        style={{ width: `${(r.count / maxRoomCount) * 100}%` }}
-                      />
-                    </div>
-                    <span className="w-6 shrink-0 text-right text-sm font-semibold tabular-nums text-earth-900">
-                      {r.count}
-                    </span>
-                  </li>
-                ))}
-              </ul>
-            ) : (
-              <p className="py-6 text-center text-sm text-earth-600">{tDash("noChartData")}</p>
-            )}
-          </CardContent>
-        </Card>
-      </div>
-
-      {/* Stats */}
-      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-earth-600">{t("available")}</p>
-            <p className="text-2xl font-bold text-brand">
-              {monthStats.available}
-            </p>
-            <p className="text-xs text-earth-600">{monthStats.pct}%</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-earth-600">{t("booked")}</p>
-            <p className="text-2xl font-bold text-brand">{monthStats.booked}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-earth-600">{t("blocked")}</p>
-            <p className="text-2xl font-bold text-red-700">{monthStats.blocked}</p>
-          </CardContent>
-        </Card>
-        <Card>
-          <CardContent className="p-4">
-            <p className="text-xs text-earth-600">{t("pending")}</p>
-            <p className="text-2xl font-bold text-amber-700">
-              {bookings.filter((b) => b.status === "pending").length}
-            </p>
-          </CardContent>
-        </Card>
-      </div>
 
       {/* Selection action modal — single modal for block/unblock */}
       <Dialog open={actionModalOpen} onOpenChange={setActionModalOpen}>
@@ -1043,6 +960,93 @@ export default function CalendarPage() {
         </CardContent>
       </Card>
 
+
+      {/* The month in numbers: after the grid, which is what hosts come here for. */}
+      <div className="mt-6">
+      {/* Monthly revenue + bookings per room */}
+      <div className="mb-3 grid gap-3 sm:grid-cols-2">
+        <Card className="overflow-hidden border-brand/15 bg-brand-50">
+          <CardContent className="flex items-center gap-4 p-4 sm:p-5">
+            <div
+              className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand"
+              aria-hidden="true"
+            >
+              <Wallet className="h-6 w-6" />
+            </div>
+            <div className="min-w-0">
+              <p className="text-xs font-medium text-earth-600">
+                {t("monthlyRevenue")} · {fmtDate(currentMonth, "MMMM yyyy", locale)}
+              </p>
+              <p className="mt-0.5 text-3xl font-bold tracking-tight text-brand tabular-nums">
+                <span className="mr-0.5 text-xl font-semibold text-brand/60">฿</span>
+                {monthlyRevenue.toLocaleString()}
+              </p>
+            </div>
+          </CardContent>
+        </Card>
+
+        <Card>
+          <CardContent className="p-4 sm:p-5">
+            <p className="text-xs font-medium text-earth-600">
+              {tDash("bookingsByRoom")} · {fmtDate(currentMonth, "MMMM yyyy", locale)}
+            </p>
+            {roomBookings.length > 0 ? (
+              <ul className="mt-3 space-y-2">
+                {roomBookings.map((r) => (
+                  <li key={r.id} className="flex items-center gap-3">
+                    <span className="w-24 shrink-0 truncate text-sm text-earth-800">{r.name}</span>
+                    <div className="h-2 flex-1 rounded-full bg-earth-100" aria-hidden="true">
+                      <div
+                        className="h-full rounded-full bg-brand transition-all"
+                        style={{ width: `${(r.count / maxRoomCount) * 100}%` }}
+                      />
+                    </div>
+                    <span className="w-6 shrink-0 text-right text-sm font-semibold tabular-nums text-earth-900">
+                      {r.count}
+                    </span>
+                  </li>
+                ))}
+              </ul>
+            ) : (
+              <p className="py-6 text-center text-sm text-earth-600">{tDash("noChartData")}</p>
+            )}
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Stats */}
+      <div className="grid grid-cols-2 gap-3 sm:grid-cols-4 mb-6">
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-earth-600">{t("available")}</p>
+            <p className="text-2xl font-bold text-brand">
+              {monthStats.available}
+            </p>
+            <p className="text-xs text-earth-600">{monthStats.pct}%</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-earth-600">{t("booked")}</p>
+            <p className="text-2xl font-bold text-brand">{monthStats.booked}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-earth-600">{t("blocked")}</p>
+            <p className={`text-2xl font-bold ${monthStats.blocked > 0 ? "text-red-700" : "text-earth-900"}`}>{monthStats.blocked}</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardContent className="p-4">
+            <p className="text-xs text-earth-600">{t("pending")}</p>
+            <p className={`text-2xl font-bold ${pendingCount > 0 ? "text-amber-700" : "text-earth-900"}`}>
+              {pendingCount}
+            </p>
+          </CardContent>
+        </Card>
+      </div>
+      </div>
 
       {/* Booking Detail Modal */}
       <Dialog

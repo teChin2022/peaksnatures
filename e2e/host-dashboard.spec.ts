@@ -97,3 +97,15 @@ test("bookings: a pending booking is confirmed from the Pending tab", async ({ p
   await expect(confirm).toHaveCount(before - 1);
   expect(session!.writes.map((w) => w.key)).toContain("POST /api/bookings/update-status");
 });
+
+test("houses: a season typed but not added stops Save and says so", async ({ page }) => {
+  await openDashboard(page, "/dashboard/rooms");
+  await page.getByRole("button", { name: T.dashboardRooms.addRoom }).first().click();
+  await page.locator("#rooms-roomName").fill("e2e house");
+  await page.locator("#room-price").fill("1500");
+  await page.locator("#rooms-seasonPrice").fill("2500"); // never pressed "เพิ่มช่วงราคา"
+  await page.getByRole("button", { name: T.dashboardRooms.createRoom }).click();
+
+  await expect(page.getByRole("alert").filter({ hasText: T.dashboardRooms.seasonalPricing })).toBeVisible();
+  await expect(page.getByRole("dialog", { name: T.dashboardRooms.addRoom })).toBeVisible(); // not closed, nothing written
+});

@@ -32,6 +32,7 @@ const LABELS: DemandPanelLabels = {
   lostDemand: "Lost demand",
   soldOutSuffix: "sold out",
   empty: "No demand data for this period yet.",
+  error: "Couldn't load demand data. Refresh to try again.",
   ranges: { d7: "7d", d30: "30d", d90: "90d" },
 };
 
