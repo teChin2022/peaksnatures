@@ -13,12 +13,15 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { useEffect, useRef } from "react";
+import { useTranslations } from "next-intl";
 
 interface RichTextEditorProps {
   value: string;
   onChange: (value: string) => void;
   placeholder?: string;
   className?: string;
+  /** id of the visible label: the editable area has no accessible name otherwise. */
+  ariaLabelledBy?: string;
 }
 
 export function RichTextEditor({
@@ -26,7 +29,9 @@ export function RichTextEditor({
   onChange,
   placeholder = "Start typing...",
   className = "",
+  ariaLabelledBy,
 }: RichTextEditorProps) {
+  const t = useTranslations("common");
   const lastEmittedRef = useRef<string>(value || "");
 
   const editor = useEditor({
@@ -51,6 +56,9 @@ export function RichTextEditor({
     },
     editorProps: {
       attributes: {
+        role: "textbox",
+        "aria-multiline": "true",
+        ...(ariaLabelledBy ? { "aria-labelledby": ariaLabelledBy } : {}),
         class:
           "prose prose-sm max-w-none focus:outline-none min-h-[120px] px-3 py-2 [&_ul]:list-disc [&_ul]:ml-6 [&_ol]:list-decimal [&_ol]:ml-6 [&_li]:ml-0 [&_p]:my-2",
       },
@@ -69,8 +77,8 @@ export function RichTextEditor({
   }
 
   return (
-    <div className={`rounded-md border border-gray-200 ${className}`}>
-      <div className="flex flex-wrap items-center gap-1 border-b border-gray-200 bg-gray-50 p-2">
+    <div className={`rounded-md border border-input focus-within:border-brand focus-within:ring-2 focus-within:ring-brand/30 ${className}`}>
+      <div className="flex flex-wrap items-center gap-1 border-b border-earth-200 bg-earth-50 p-2">
         <Button
           type="button"
           variant="ghost"
@@ -80,9 +88,10 @@ export function RichTextEditor({
             editor.chain().focus().toggleBold().run();
           }}
           className={`h-8 w-8 p-0 ${
-            editor.isActive("bold") ? "bg-gray-200" : ""
+            editor.isActive("bold") ? "bg-earth-200" : ""
           }`}
-          title="Bold"
+          title={t("editorBold")}
+          aria-label={t("editorBold")}
         >
           <Bold className="h-4 w-4" />
         </Button>
@@ -95,13 +104,14 @@ export function RichTextEditor({
             editor.chain().focus().toggleItalic().run();
           }}
           className={`h-8 w-8 p-0 ${
-            editor.isActive("italic") ? "bg-gray-200" : ""
+            editor.isActive("italic") ? "bg-earth-200" : ""
           }`}
-          title="Italic"
+          title={t("editorItalic")}
+          aria-label={t("editorItalic")}
         >
           <Italic className="h-4 w-4" />
         </Button>
-        <div className="mx-1 h-6 w-px bg-gray-300" />
+        <div className="mx-1 h-6 w-px bg-earth-300" />
         <Button
           type="button"
           variant="ghost"
@@ -111,9 +121,10 @@ export function RichTextEditor({
             editor.chain().focus().toggleBulletList().run();
           }}
           className={`h-8 w-8 p-0 ${
-            editor.isActive("bulletList") ? "bg-gray-200" : ""
+            editor.isActive("bulletList") ? "bg-earth-200" : ""
           }`}
-          title="Bullet List"
+          title={t("editorBullets")}
+          aria-label={t("editorBullets")}
         >
           <List className="h-4 w-4" />
         </Button>
@@ -126,13 +137,14 @@ export function RichTextEditor({
             editor.chain().focus().toggleOrderedList().run();
           }}
           className={`h-8 w-8 p-0 ${
-            editor.isActive("orderedList") ? "bg-gray-200" : ""
+            editor.isActive("orderedList") ? "bg-earth-200" : ""
           }`}
-          title="Numbered List"
+          title={t("editorNumbered")}
+          aria-label={t("editorNumbered")}
         >
           <ListOrdered className="h-4 w-4" />
         </Button>
-        <div className="mx-1 h-6 w-px bg-gray-300" />
+        <div className="mx-1 h-6 w-px bg-earth-300" />
         <Button
           type="button"
           variant="ghost"
@@ -143,7 +155,8 @@ export function RichTextEditor({
           }}
           disabled={!editor.can().undo()}
           className="h-8 w-8 p-0"
-          title="Undo"
+          title={t("editorUndo")}
+          aria-label={t("editorUndo")}
         >
           <Undo className="h-4 w-4" />
         </Button>
@@ -157,7 +170,8 @@ export function RichTextEditor({
           }}
           disabled={!editor.can().redo()}
           className="h-8 w-8 p-0"
-          title="Redo"
+          title={t("editorRedo")}
+          aria-label={t("editorRedo")}
         >
           <Redo className="h-4 w-4" />
         </Button>

@@ -414,6 +414,9 @@ export default function WalletPage() {
                     return (
                       <p className={`mt-2 text-sm ${warn ? "font-medium text-amber-800" : "text-earth-700"}`}>
                         {t(`threshold_${st.kind}`, values)}
+                        {"short" in st && st.short > TOPUP_AMOUNTS[TOPUP_AMOUNTS.length - 1] && (
+                          <> {t("threshold_multiple", { max: TOPUP_AMOUNTS[TOPUP_AMOUNTS.length - 1].toLocaleString() })}</>
+                        )}
                       </p>
                     );
                   })()}
@@ -467,8 +470,30 @@ export default function WalletPage() {
                   </div>
                 </div>
 
-                {/* PromptPay QR — always visible */}
-                {billing.platform_payment?.promptpay_id && (
+                {/* Amount selection */}
+                <div className="space-y-3 mb-5">
+                  <Label className="text-sm text-earth-800">{t("amount")} (THB)</Label>
+                  <div className="grid grid-cols-3 gap-2">
+                    {TOPUP_AMOUNTS.map((amt) => (
+                      <button
+                        key={amt}
+                        type="button"
+                        onClick={() => setTopupAmount(String(amt))}
+                        aria-pressed={topupAmount === String(amt)}
+                        className={`min-h-11 rounded-xl border py-2.5 text-sm font-medium transition-all ${
+                          topupAmount === String(amt)
+                            ? "border-brand/30 bg-brand-50 text-brand ring-1 ring-brand/20"
+                            : "border-earth-200 text-earth-700 hover:bg-earth-50 hover:border-earth-300"
+                        }`}
+                      >
+                        ฿{amt.toLocaleString()}
+                      </button>
+                    ))}
+                  </div>
+                </div>
+
+                {/* PromptPay QR: after the amount, and only with it (a QR for ฿0 invited a hand-typed amount the upload then refused) */}
+                {billing.platform_payment?.promptpay_id && Number(topupAmount) > 0 && (
                   <div className="mb-5">
                     <div className="flex flex-col items-center p-4 bg-earth-50 rounded-2xl border border-earth-100">
                       <p className="text-xs font-medium text-earth-600 mb-3">
@@ -492,27 +517,6 @@ export default function WalletPage() {
                     </div>
                   </div>
                 )}
-
-                {/* Amount selection */}
-                <div className="space-y-3 mb-5">
-                  <Label className="text-sm text-earth-800">{t("amount")} (THB)</Label>
-                  <div className="grid grid-cols-3 gap-2">
-                    {TOPUP_AMOUNTS.map((amt) => (
-                      <button
-                        key={amt}
-                        type="button"
-                        onClick={() => setTopupAmount(String(amt))}
-                        className={`rounded-xl border py-2.5 text-sm font-medium transition-all ${
-                          topupAmount === String(amt)
-                            ? "border-brand/30 bg-brand-50 text-brand ring-1 ring-brand/20"
-                            : "border-earth-200 text-earth-700 hover:bg-earth-50 hover:border-earth-300"
-                        }`}
-                      >
-                        ฿{amt.toLocaleString()}
-                      </button>
-                    ))}
-                  </div>
-                </div>
 
                 {/* Upload slip — shown when amount is set */}
                 <AnimatePresence>

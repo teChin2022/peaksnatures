@@ -48,6 +48,7 @@ import { LIST_ICONS, ListIcon } from "@/components/booking/list-icon";
 import { GuestBookingModeField } from "@/components/dashboard/guest-booking-mode-field";
 import { guestBookingModeOf } from "@/lib/quick-booking";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
+import { ErrorView } from "@/components/error-view";
 import type { GuestBookingMode } from "@/types/database";
 
 interface HomestayData {
@@ -134,11 +135,13 @@ const SECTION_KEYS = [
 export default function HomestayPage() {
   const t = useTranslations("dashboardHomestay");
   const tc = useTranslations("common");
+  const te = useTranslations("errorPage");
   const [homestay, setHomestay] = useState<HomestayData | null>(null);
   const [hostId, setHostId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [hostName, setHostName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [isNew, setIsNew] = useState(false);
 
@@ -215,10 +218,11 @@ export default function HomestayPage() {
       setUserId(user.id);
 
       // No user_id filter: RLS shows a login only its own host, or the one it is staff of (081).
-      const { data: hostRow } = await supabase
+      const { data: hostRow, error: hostError } = await supabase
         .from("hosts")
         .select("id, name, deposit_amount, deposit_by_month, cancellation_days, booking_draft_hours, guest_booking_mode")
         .single();
+      if (hostError) { setLoadError(true); setLoading(false); return; }
 
       const host = hostRow as { id: string; name: string; deposit_amount: number; deposit_by_month: Record<string, number> | null; cancellation_days: number; booking_draft_hours: number | null; guest_booking_mode: string | null } | null;
       if (!host) {
@@ -236,12 +240,14 @@ export default function HomestayPage() {
       setBookingDraftHours(host.booking_draft_hours ?? 1);
       setGuestBookingMode(guestBookingModeOf(host));
 
-      const { data } = await supabase
+      // maybeSingle: no row is a new host (create form), an error is not.
+      const { data, error: homestayError } = await supabase
         .from("homestays")
         .select("*")
         .eq("host_id", host.id)
         .limit(1)
-        .single();
+        .maybeSingle();
+      if (homestayError) { setLoadError(true); setLoading(false); return; }
 
       if (data) {
         const h = data as unknown as HomestayData;
@@ -630,6 +636,21 @@ export default function HomestayPage() {
     }
   };
 
+  // A failed load must not look like an empty account (rooms: "add your first house";
+  // homestay: an empty create form that could make a second homestay).
+  if (loadError) {
+    return (
+      <ErrorView
+        title={te("title")}
+        description={te("description")}
+        retryLabel={te("retry")}
+        onRetry={() => window.location.reload()}
+        backHref="/dashboard"
+        backLabel={te("dashboard")}
+      />
+    );
+  }
+
   if (loading) {
     return (
       <div className="mx-auto max-w-3xl">
@@ -761,11 +782,12 @@ export default function HomestayPage() {
             </div>
 
             <div className="space-y-2">
-              <Label className="flex items-center gap-2">
+              <Label id="hs-description-label" className="flex items-center gap-2">
                 <FileText className="h-3.5 w-3.5" />
                 {t("description")}
               </Label>
               <RichTextEditor
+                ariaLabelledBy="hs-description-label"
                 value={description}
                 onChange={setDescription}
                 placeholder={t("descriptionPlaceholder")}
@@ -1034,8 +1056,9 @@ export default function HomestayPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Label className="text-sm text-earth-600">{t("checkInInfoHint")}</Label>
+            <Label id="hs-checkin-info-label" className="text-sm text-earth-600">{t("checkInInfoHint")}</Label>
             <RichTextEditor
+              ariaLabelledBy="hs-checkin-info-label"
               value={checkInInfo}
               onChange={setCheckInInfo}
               placeholder={t("checkInInfoPlaceholder")}
@@ -1052,8 +1075,9 @@ export default function HomestayPage() {
             </CardTitle>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Label className="text-sm text-earth-600">{t("policiesHint")}</Label>
+            <Label id="hs-policies-label" className="text-sm text-earth-600">{t("policiesHint")}</Label>
             <RichTextEditor
+              ariaLabelledBy="hs-policies-label"
               value={policies}
               onChange={setPolicies}
               placeholder={t("policiesPlaceholder")}
@@ -1198,7 +1222,7 @@ export default function HomestayPage() {
                     <Input
                       type="number"
                       min={0}
-                      className="h-8 text-center text-sm px-1"
+                      className="h-10 text-center px-1"
                       value={depositByMonth[m] ?? ""}
                       onChange={(e) => {
                         const val = parseInt(e.target.value) || 0;

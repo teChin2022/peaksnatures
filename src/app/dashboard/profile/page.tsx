@@ -310,7 +310,7 @@ export default function ProfilePage() {
   };
 
   const handleDeleteAccount = async () => {
-    if (deleteConfirmText !== "DELETE") {
+    if (deleteConfirmText.trim() !== t("deleteConfirmWord")) {
       toast.error(t("deleteConfirmMismatch"));
       return;
     }
@@ -971,11 +971,13 @@ export default function ProfilePage() {
             </Button>
           ) : (
             <div className="space-y-3">
-              <p className="text-sm text-earth-700">{t("deleteConfirmInstructions")}</p>
+              <p id="delete-confirm-instructions" className="text-sm text-earth-700">{t("deleteConfirmInstructions")}</p>
               <Input
                 value={deleteConfirmText}
                 onChange={(e) => setDeleteConfirmText(e.target.value)}
-                placeholder='DELETE'
+                // A word in the host's own language: typing Latin "DELETE" on a Thai keyboard was the hurdle.
+                placeholder={t("deleteConfirmWord")}
+                aria-labelledby="delete-confirm-instructions"
                 className="border-red-300 focus-visible:ring-red-500"
               />
               <div className="flex gap-2">
@@ -991,7 +993,7 @@ export default function ProfilePage() {
                   variant="destructive"
                   className="flex-1"
                   onClick={handleDeleteAccount}
-                  disabled={deleting || deleteConfirmText !== "DELETE"}
+                  disabled={deleting || deleteConfirmText.trim() !== t("deleteConfirmWord")}
                 >
                   {deleting ? (
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />

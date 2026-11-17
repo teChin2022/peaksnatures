@@ -585,12 +585,21 @@ export default function DashboardBillingPage() {
                         </div>
                       </div>
                       {daysUntilTermEnd != null && !termExpired && (
-                        <p className={`mt-2 text-xs ${daysUntilTermEnd <= 14 ? "text-amber-700" : "text-earth-600"}`}>
+                        <p className={`mt-2 text-sm ${daysUntilTermEnd <= 14 ? "font-medium text-amber-800" : "text-earth-700"}`}>
                           {t("daysLeft", { n: daysUntilTermEnd })}
                         </p>
                       )}
+                      {/* What happens next, which hosts used to see only inside the term picker (cron: lapsed.ts bills monthly). */}
+                      {!termExpired && !data.plan_pending_type && data.effective_fixed_rate != null && (
+                        <p className="mt-1 text-sm text-earth-700">
+                          {t("afterTerm", {
+                            date: fmtDateStr(data.fixed_rate_term_ends_at, "d MMM yyyy", locale),
+                            rate: data.effective_fixed_rate.toLocaleString(),
+                          })}
+                        </p>
+                      )}
                       {termExpired && (
-                        <p className="mt-2 text-xs text-red-600">{t("termExpired")}</p>
+                        <p className="mt-2 text-sm text-red-700">{t("termExpired")}</p>
                       )}
                       {!data.plan_pending_type && (
                         <Button

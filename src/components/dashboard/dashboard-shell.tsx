@@ -157,11 +157,10 @@ export function DashboardShell({ children }: DashboardShellProps) {
                   {t("graceDesc", { days: expiryInfo.graceDaysRemaining ?? 0 })}
                 </p>
               </div>
-              <Link href="/dashboard/billing">
-                <Button size="sm" className="bg-amber-600 hover:bg-amber-700 text-white text-xs shrink-0">
-                  {t("upgradePlan")}
-                </Button>
-              </Link>
+              {/* Button asChild: one control, not a button inside a link (two tab stops). */}
+              <Button asChild size="sm" className="bg-amber-800 hover:bg-amber-900 text-white text-sm shrink-0 max-sm:h-10">
+                <Link href="/dashboard/billing">{t("upgradePlan")}</Link>
+              </Button>
             </div>
           </div>
         )}
@@ -177,11 +176,10 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 <p className="text-sm font-medium text-red-800">{t("blockedTitle")}</p>
                 <p className="text-sm text-red-700 mt-0.5">{t("invoiceBlockedDesc")}</p>
               </div>
-              <Link href="/dashboard/billing">
-                <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white text-xs shrink-0">
-                  {t("payNow")}
-                </Button>
-              </Link>
+              {/* Button asChild: one control, not a button inside a link (two tab stops). */}
+              <Button asChild size="sm" className="bg-red-600 hover:bg-red-700 text-white text-sm shrink-0 max-sm:h-10">
+                <Link href="/dashboard/billing">{t("payNow")}</Link>
+              </Button>
             </div>
           </div>
         )}
@@ -212,11 +210,10 @@ export function DashboardShell({ children }: DashboardShellProps) {
                 <p className="text-sm font-medium text-red-800">{t("blockedTitle")}</p>
                 <p className="text-sm text-red-700 mt-0.5">{t("blockedDesc")}</p>
               </div>
-              <Link href="/dashboard/billing">
-                <Button size="sm" className="bg-red-600 hover:bg-red-700 text-white text-xs shrink-0">
-                  {t("upgradePlan")}
-                </Button>
-              </Link>
+              {/* Button asChild: one control, not a button inside a link (two tab stops). */}
+              <Button asChild size="sm" className="bg-red-600 hover:bg-red-700 text-white text-sm shrink-0 max-sm:h-10">
+                <Link href="/dashboard/billing">{t("upgradePlan")}</Link>
+              </Button>
             </div>
           </div>
         )}

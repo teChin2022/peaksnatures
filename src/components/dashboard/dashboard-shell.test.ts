@@ -63,6 +63,7 @@ describe("DashboardShell: who is signed in", () => {
     expect(container.textContent).toContain("blockedTitle");
     expect(container.textContent).not.toContain("staffBlockedTitle");
     expect(links()).toContain("/dashboard/billing");
+    expect(container.querySelector("a button, button a")).toBeNull(); // one control, one tab stop
     expect(fetchMock).not.toHaveBeenCalled();
     expect(container.textContent).toContain("roleOwner");
   });

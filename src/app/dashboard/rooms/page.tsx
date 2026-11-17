@@ -50,6 +50,7 @@ import { getPriceRange } from "@/lib/calculate-price";
 import { formatSpecialPriceRule } from "@/lib/special-price-label";
 import { parseRoomPrice, unaddedSections, type RoomSubForm } from "@/lib/room-form";
 import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
+import { ErrorView } from "@/components/error-view";
 
 interface RoomData {
   id: string;
@@ -144,12 +145,14 @@ const EMPTY_SPECIAL_FORM: SpecialFormData = {
 export default function RoomsPage() {
   const t = useTranslations("dashboardRooms");
   const tc = useTranslations("common");
+  const te = useTranslations("errorPage");
   const locale = useLocale();
   const [rooms, setRooms] = useState<RoomData[]>([]);
   const [homestayId, setHomestayId] = useState<string | null>(null);
   const [userId, setUserId] = useState<string | null>(null);
   const [hostName, setHostName] = useState<string | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadError, setLoadError] = useState(false);
   const [saving, setSaving] = useState(false);
   const [uploading, setUploading] = useState(false);
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -265,7 +268,8 @@ export default function RoomsPage() {
 
     // No user_id filter: RLS shows a login only its own host, or the one it is staff of (081).
     const hostQuery = supabase.from("hosts").select("id, name");
-    const { data: hostRow } = await hostQuery.maybeSingle();
+    const { data: hostRow, error: hostError } = await hostQuery.maybeSingle();
+    if (hostError) { setLoadError(true); setLoading(false); return; }
 
     const host = hostRow as { id: string; name: string } | null;
     if (!host) {
@@ -274,12 +278,13 @@ export default function RoomsPage() {
     }
     setHostName(host.name);
 
-    const { data: homestayRow } = await supabase
+    const { data: homestayRow, error: homestayError } = await supabase
       .from("homestays")
       .select("id")
       .eq("host_id", host.id)
       .limit(1)
-      .single();
+      .maybeSingle();
+    if (homestayError) { setLoadError(true); setLoading(false); return; }
 
     const homestay = homestayRow as { id: string } | null;
     if (!homestay) {
@@ -290,11 +295,12 @@ export default function RoomsPage() {
     setHomestayId(homestay.id);
 
     // Fetch rooms with seasonal + special prices + options + guest pricing in one joined query
-    const { data: roomRows } = await supabase
+    const { data: roomRows, error: roomsError } = await supabase
       .from("rooms")
       .select("*, room_seasonal_prices(*), room_special_prices(*), room_options(*), room_guest_pricing(*)")
       .eq("homestay_id", homestay.id)
       .order("created_at", { ascending: true });
+    if (roomsError) { setLoadError(true); setLoading(false); return; }
 
     if (roomRows) {
       const roomsWithJoins = roomRows as unknown as (RoomData & { room_seasonal_prices: RoomSeasonalPrice[]; room_special_prices: RoomSpecialPrice[]; room_options: RoomOption[]; room_guest_pricing: RoomGuestPricing[] })[];
@@ -1233,6 +1239,21 @@ export default function RoomsPage() {
   const allTargetsSelected =
     otherRooms.length > 0 && otherRooms.every((r) => copyTargets.has(r.id));
 
+  // A failed load must not look like an empty account (rooms: "add your first house";
+  // homestay: an empty create form that could make a second homestay).
+  if (loadError) {
+    return (
+      <ErrorView
+        title={te("title")}
+        description={te("description")}
+        retryLabel={te("retry")}
+        onRetry={() => window.location.reload()}
+        backHref="/dashboard"
+        backLabel={te("dashboard")}
+      />
+    );
+  }
+
   if (loading) {
     return (
       <div className="mx-auto max-w-3xl">
@@ -1401,6 +1422,8 @@ export default function RoomsPage() {
             <DialogTitle>
               {editingRoom ? t("editRoom") : t("addRoom")}
             </DialogTitle>
+            {/* Two save models while editing: say which is which instead of leaving hosts to guess. */}
+            {editingRoom && <DialogDescription className="text-sm text-earth-700">{t("saveModelEdit")}</DialogDescription>}
           </DialogHeader>
 
           <div className="space-y-4">
@@ -1414,8 +1437,9 @@ export default function RoomsPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>{t("roomDescription")}</Label>
+              <Label id="room-description-label">{t("roomDescription")}</Label>
               <RichTextEditor
+                ariaLabelledBy="room-description-label"
                 value={roomDesc}
                 onChange={setRoomDesc}
                 placeholder={t("roomDescPlaceholder")}
@@ -1578,7 +1602,6 @@ export default function RoomsPage() {
                     <Input id="rooms-tierAdults"
                       type="number"
                       min="1"
-                      className="text-sm"
                       value={tierForm.adults}
                       onChange={(e) => setTierForm((f) => ({ ...f, adults: e.target.value }))}
                     />
@@ -1588,7 +1611,6 @@ export default function RoomsPage() {
                     <Input id="rooms-tierChildren"
                       type="number"
                       min="0"
-                      className="text-sm"
                       value={tierForm.children}
                       onChange={(e) => setTierForm((f) => ({ ...f, children: e.target.value }))}
                     />
@@ -1598,7 +1620,6 @@ export default function RoomsPage() {
                   <Label htmlFor="rooms-tierDetail" className="text-xs">{t("tierDetail")}</Label>
                   <Input id="rooms-tierDetail"
                     placeholder={t("tierDetailPlaceholder")}
-                    className="text-sm"
                     value={tierForm.detail}
                     onChange={(e) => setTierForm((f) => ({ ...f, detail: e.target.value }))}
                   />
@@ -1620,7 +1641,7 @@ export default function RoomsPage() {
                       <Input id="rooms-tierSurcharge"
                         type="number"
                         min="0"
-                        className="pl-7 text-sm"
+                        className="pl-7"
                         value={tierForm.surcharge}
                         onChange={(e) => setTierForm((f) => ({ ...f, surcharge: e.target.value }))}
                       />
@@ -1744,7 +1765,6 @@ export default function RoomsPage() {
                   placeholder={t("optionNamePlaceholder")}
                   value={optionForm.name}
                   onChange={(e) => setOptionForm((f) => ({ ...f, name: e.target.value }))}
-                  className="text-sm"
                 />
                 <div>
                   <Label htmlFor="rooms-optionPrice" className="text-xs">{t("optionPrice")}</Label>
@@ -1752,7 +1772,7 @@ export default function RoomsPage() {
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-earth-600">฿</span>
                     <Input id="rooms-optionPrice"
                       type="number"
-                      className="pl-7 text-sm"
+                      className="pl-7"
                       value={optionForm.price}
                       onChange={(e) => setOptionForm((f) => ({ ...f, price: e.target.value }))}
                     />
@@ -1894,7 +1914,6 @@ export default function RoomsPage() {
                     placeholder={t("seasonNamePlaceholder")}
                     value={seasonForm.name}
                     onChange={(e) => setSeasonForm((f) => ({ ...f, name: e.target.value }))}
-                    className="text-sm"
                   />
                   <div className="grid grid-cols-2 gap-2">
                     <div>
@@ -1970,7 +1989,7 @@ export default function RoomsPage() {
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-earth-600">฿</span>
                       <Input id="rooms-seasonPrice"
                         type="number"
-                        className="pl-7 text-sm"
+                        className="pl-7"
                         value={seasonForm.price_per_night}
                         onChange={(e) => setSeasonForm((f) => ({ ...f, price_per_night: e.target.value }))}
                       />
@@ -2092,7 +2111,7 @@ export default function RoomsPage() {
                       placeholder={t("specialNamePlaceholder")}
                       value={specialForm.name}
                       onChange={(e) => setSpecialForm((f) => ({ ...f, name: e.target.value }))}
-                      className="mt-1 text-sm"
+                      className="mt-1"
                     />
                   </div>
 
@@ -2287,7 +2306,7 @@ export default function RoomsPage() {
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-earth-600">+฿</span>
                       <Input id="rooms-specialSurcharge"
                         type="number"
-                        className="pl-9 text-sm"
+                        className="pl-9"
                         value={specialForm.surcharge}
                         onChange={(e) => setSpecialForm((f) => ({ ...f, surcharge: e.target.value }))}
                       />
@@ -2415,7 +2434,7 @@ export default function RoomsPage() {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>{t("discardTitle")}</DialogTitle>
-            <DialogDescription className="text-sm text-earth-700">{t("discardDesc")}</DialogDescription>
+            <DialogDescription className="text-sm text-earth-700">{editingRoom ? t("discardDescEdit") : t("discardDesc")}</DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex gap-2 sm:justify-end">
             <Button

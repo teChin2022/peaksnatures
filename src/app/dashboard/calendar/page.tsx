@@ -127,6 +127,16 @@ const STATUS_BADGE: Record<BookingStatus, string> = {
   completed: statusToneClass("completed"),
 };
 
+/** The bookings page's status words, so the calendar never shows a raw enum. */
+const STATUS_LABEL_KEY: Record<BookingStatus, "statusPending" | "statusVerified" | "statusConfirmed" | "statusRejected" | "statusCancelled" | "statusCompleted"> = {
+  pending: "statusPending",
+  verified: "statusVerified",
+  confirmed: "statusConfirmed",
+  rejected: "statusRejected",
+  cancelled: "statusCancelled",
+  completed: "statusCompleted",
+};
+
 interface BlockedDateRow {
   id: string;
   homestay_id: string;
@@ -359,7 +369,8 @@ export default function CalendarPage() {
     daysInMonth.forEach((d) => {
       const key = format(d, "yyyy-MM-dd");
       if (blockedDateMap.has(key)) blocked++;
-      else if (bookingDateMap.has(key)) booked++;
+      // A night is taken by a stay that has not ended: the check-out morning is free to sell.
+      else if (bookingDateMap.get(key)?.some((bi) => bi.position !== "end")) booked++;
     });
     const total = daysInMonth.length;
     const available = total - booked - blocked;
@@ -789,10 +800,12 @@ export default function CalendarPage() {
             {calendarDays.map((dayInfo) => {
               const isSelected = selectedDates.has(dayInfo.dateStr);
               const hasBookings = dayInfo.bookings.length > 0;
-              const hasConfirmed = dayInfo.bookings.some(
+              // Departures alone do not make a day booked: the house is free that night.
+              const nights = dayInfo.bookings.filter((bi) => bi.position !== "end");
+              const hasConfirmed = nights.some(
                 (bi) => bi.booking.status === "confirmed" || bi.booking.status === "completed" || bi.booking.status === "verified"
               );
-              const hasPending = dayInfo.bookings.some(
+              const hasPending = nights.some(
                 (bi) => bi.booking.status === "pending"
               );
 
@@ -1142,7 +1155,7 @@ export default function CalendarPage() {
                               variant="secondary"
                               className={`text-xs px-1.5 py-0 ${STATUS_BADGE[bi.booking.status]}`}
                             >
-                              {bi.booking.status}
+                              {tDash(STATUS_LABEL_KEY[bi.booking.status])}
                             </Badge>
                           </div>
                         </div>
@@ -1245,7 +1258,7 @@ export default function CalendarPage() {
                       <div className="max-h-[70vh] overflow-y-auto space-y-4 pr-1">
                         <div className="flex items-center gap-2">
                           <Badge variant="secondary" className={STATUS_BADGE[fb.status]}>
-                            {fb.status}
+                            {tDash(STATUS_LABEL_KEY[fb.status])}
                           </Badge>
                         </div>
 

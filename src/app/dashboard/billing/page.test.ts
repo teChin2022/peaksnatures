@@ -81,3 +81,14 @@ describe("BillingPage: plan cards", () => {
     expect(ctaFor("commission")?.className).toContain("bg-brand");
   });
 });
+
+// The next charge used to appear only inside the term picker dialog.
+describe("BillingPage: a running Fixed Rate term", () => {
+  it("says what happens when the term ends", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-17T05:00:00Z"));
+    await render(billing({ fixed_rate_term_months: 3, fixed_rate_term_started_at: "2026-09-01", fixed_rate_term_ends_at: "2026-11-30" }));
+    vi.useRealTimers();
+    expect(container.textContent).toContain("afterTerm");
+  });
+});
