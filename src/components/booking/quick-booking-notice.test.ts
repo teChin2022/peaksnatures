@@ -30,6 +30,35 @@ afterEach(() => {
 
 const links = () => [...container.querySelectorAll("a")];
 
+describe("HostContactLinks, inline (the payment step)", () => {
+  const render = (facebookUrl: string | null, hostPhone: string | null) =>
+    act(() => root.render(createElement(HostContactLinks, { facebookUrl, hostPhone, variant: "inline" })));
+
+  it("is one line of text links: Messenger in a new tab, then the phone", () => {
+    render("https://www.facebook.com/ingkhoacamp", "081-234-5678");
+    const p = container.querySelector("p")!;
+    expect(p.textContent).toBe("hostContactQuestion hostContactMessengerShort · hostContactCall:081-234-5678");
+    const [messenger, call] = links();
+    expect(messenger.getAttribute("href")).toBe("https://m.me/ingkhoacamp");
+    expect(messenger.getAttribute("target")).toBe("_blank");
+    expect(messenger.getAttribute("rel")).toBe("noopener noreferrer");
+    expect(call.getAttribute("href")).toBe("tel:0812345678");
+    // A 44px tap target on each, without a 44px-tall line.
+    for (const a of links()) expect(a.className).toContain("min-h-11");
+  });
+
+  it("names the Facebook page when the link cannot open Messenger", () => {
+    render("https://www.facebook.com/pages/Ing-Khoa/123456789", null);
+    expect(container.textContent).toBe("hostContactQuestion hostContactPageShort");
+    expect(links()).toHaveLength(1);
+  });
+
+  it("shows nothing when the host has neither, instead of the quick flow's call-back promise", () => {
+    render(null, "  ");
+    expect(container.innerHTML).toBe("");
+  });
+});
+
 describe("HostContactLinks", () => {
   const render = (facebookUrl: string | null, hostPhone: string | null) =>
     act(() => root.render(createElement(HostContactLinks, { facebookUrl, hostPhone })));

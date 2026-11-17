@@ -67,7 +67,13 @@ export function RoomConfigDialog({
       .reduce((s, t) => s + t.adults + t.children, 0);
     return Math.max(1, editingLine.numGuests - extras);
   });
-  const [tierIds, setTierIds] = useState<string[]>(editingLine?.tierIds ?? []);
+  // A new house starts on the host's "ใช้ราคาปกติ" tier, so จองเลย is never greyed out
+  // by a choice the guest did not know they had to make. Stepper mode starts with none.
+  const [tierIds, setTierIds] = useState<string[]>(() => {
+    if (editingLine) return editingLine.tierIds;
+    const base = hasBaseTier ? tiers.find((t) => t.surcharge === 0) : undefined;
+    return base ? [base.id] : [];
+  });
   const [optionIds, setOptionIds] = useState<string[]>(editingLine?.optionIds ?? []);
   const [quantity, setQuantity] = useState(1);
 

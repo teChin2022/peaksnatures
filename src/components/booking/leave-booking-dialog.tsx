@@ -26,6 +26,10 @@ interface LeaveBookingDialogProps {
   nightsLabel?: string | null;
   /** Pre-formatted, e.g. "2 guests". */
   guestsLabel?: string | null;
+  /** Inside the checkout: go back one step, which is what Back usually means there. */
+  onStepBack?: (() => void) | null;
+  /** Names where that step lands, e.g. "Back to guest details". */
+  stepBackLabel?: string | null;
 }
 
 export function LeaveBookingDialog({
@@ -36,6 +40,8 @@ export function LeaveBookingDialog({
   dateLabel,
   nightsLabel,
   guestsLabel,
+  onStepBack,
+  stepBackLabel,
 }: LeaveBookingDialogProps) {
   const t = useTranslations("booking");
   const reduce = useReducedMotion();
@@ -97,9 +103,22 @@ export function LeaveBookingDialog({
         </div>
 
         <DialogFooter className="flex-col gap-2 border-t border-line bg-mist/40 px-6 py-4 sm:flex-col">
+          {onStepBack && stepBackLabel && (
+            <Button
+              onClick={onStepBack}
+              className="h-12 w-full cursor-pointer rounded-full bg-pine text-[15px] font-bold text-white shadow-sm transition-colors hover:bg-pine-hover"
+            >
+              {stepBackLabel}
+            </Button>
+          )}
           <Button
             onClick={onContinue}
-            className="h-12 w-full cursor-pointer rounded-full bg-pine text-[15px] font-bold text-white shadow-sm transition-colors hover:bg-pine-hover"
+            variant={onStepBack && stepBackLabel ? "outline" : "default"}
+            className={
+              onStepBack && stepBackLabel
+                ? "h-12 w-full cursor-pointer rounded-full border-line-strong bg-white text-[15px] font-medium text-ink transition-colors hover:bg-mist"
+                : "h-12 w-full cursor-pointer rounded-full bg-pine text-[15px] font-bold text-white shadow-sm transition-colors hover:bg-pine-hover"
+            }
           >
             {t("leaveStay")}
           </Button>

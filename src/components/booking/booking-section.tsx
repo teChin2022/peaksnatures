@@ -19,6 +19,7 @@ import {
 import { Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope, CheckCircle2, Loader2, ImageIcon, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle, Download, Shield, Minus, Plus, ShieldUser, ListPlus, HelpCircle, MessageCircle } from "lucide-react";
 import { toast } from "sonner";
 import { billingTodayStr } from "@/lib/billing-dates";
+import { cancellationNote } from "@/lib/cancellation-note";
 import { reconcileDraftWithCatalog, type ResumeDraftDetail } from "@/lib/booking-draft";
 import { useTranslations, useLocale } from "next-intl";
 import type { Homestay, Room, BlockedDate, RoomSeasonalPrice, RoomSpecialPrice, RoomOption, RoomGuestPricing } from "@/types/database";
@@ -559,14 +560,8 @@ export function BookingSection({
     return totalPrice;
   }, [paymentOption, depositAvailable, resolvedDeposit, totalPrice]);
 
-  // Same cut-off as /api/bookings/cancel (cancel allowed while days-to-check-in
-  // >= cancellation_days), so the last free day is check-in minus N. Hidden once passed.
-  const cancellationDays = host.cancellation_days || 0;
-  const freeCancelDeadline = cancellationDays > 0 && dateRange?.from ? subDays(dateRange.from, cancellationDays) : null;
-  const freeCancelUntil =
-    freeCancelDeadline && format(freeCancelDeadline, "yyyy-MM-dd") >= billingTodayStr()
-      ? fmtDate(freeCancelDeadline, "d MMM yyyy", locale)
-      : null;
+  // The review step's cancellation line: free until a date, window passed, or no online cancellation.
+  const cancelNote = dateRange?.from ? cancellationNote(host.cancellation_days || 0, dateRange.from, billingTodayStr()) : null;
 
   const handleSaveQr = useCallback(() => {
     const container = qrContainerRef.current;
@@ -1290,12 +1285,22 @@ export function BookingSection({
   const handleStayInBooking = () => {
     setShowLeaveWarning(false);
     armBackGuard(); // re-arm for the next Back
-    // Bring the houses back into view (steps 2–3 sit over them; step 1 has no
-    // card on the page). Deferred so it runs after the dialog's exit animation
-    // releases Radix's body scroll lock (~200ms).
+    // On the page, bring the houses back into view; inside the checkout the guest
+    // stays where they were (scrolling the page behind it showed nothing).
+    // Deferred so it runs after the dialog's exit animation releases Radix's
+    // body scroll lock (~200ms).
+    if (checkoutOpen) return;
     setTimeout(() => {
       document.getElementById("rooms-section")?.scrollIntoView({ behavior: "smooth", block: "center" });
     }, 250);
+  };
+
+  // Back inside the checkout: one step back, the same as its own back arrow. A
+  // click, so re-arming the guard here is safe (unlike inside popstate).
+  const handleStepBack = () => {
+    setShowLeaveWarning(false);
+    armBackGuard();
+    checkoutBack?.();
   };
 
   const handleLeaveAndClear = () => {
@@ -1670,7 +1675,7 @@ export function BookingSection({
                                   value={promoInput}
                                   onChange={(e) => setPromoInput(e.target.value.toUpperCase())}
                                   placeholder={t("promoPlaceholder")}
-                                  className={`${CO_INPUT} flex-1 font-mono uppercase`}
+                                  className={`${CO_INPUT} flex-1 font-mono uppercase placeholder:font-sans`}
                                 />
                                 <button
                                   type="button"
@@ -1797,8 +1802,14 @@ export function BookingSection({
                           {t("payFull")} <span className={CO_MONEY_LG}>฿{totalPrice.toLocaleString()}</span>
                         </p>
                       )}
-                      {freeCancelUntil && (
-                        <p className="mt-3 text-[13px] text-emerald-700">{t("freeCancellationUntil", { date: freeCancelUntil })}</p>
+                      {cancelNote?.kind === "free" && (
+                        <p className="mt-3 text-[13px] text-emerald-700">{t("freeCancellationUntil", { date: fmtDate(cancelNote.deadline, "d MMM yyyy", locale) })}</p>
+                      )}
+                      {cancelNote?.kind === "passed" && (
+                        <p className="mt-3 text-[13px] leading-relaxed text-ink-2">{t("cancellationPassed", { days: cancelNote.days })}</p>
+                      )}
+                      {cancelNote?.kind === "none" && (
+                        <p className="mt-3 text-[13px] leading-relaxed text-ink-2">{t("cancellationNone")}</p>
                       )}
                       <button disabled={isSubmitting} onClick={() => handleProceedToPayment()} className={`${CO_PRIMARY} mt-5`}>
                         {isSubmitting && <Loader2 className="h-4 w-4 animate-spin" />}
@@ -1971,7 +1982,8 @@ export function BookingSection({
                     )}
 
                     {/* Only promise the resume route when this host actually keeps drafts; otherwise the menu item the copy points at is not rendered. */}
-                    <p className="px-2 text-center text-[13px] leading-relaxed text-ink-2">{t(resumeEnabled ? "doNotClosePageResume" : "doNotClosePage")}</p>
+                    <p className="px-2 text-center text-[13px] leading-relaxed text-pretty text-ink-2">{t(resumeEnabled ? "doNotClosePageResume" : "doNotClosePage")}</p>
+                    <HostContactLinks variant="inline" facebookUrl={homestay.facebook_url} hostPhone={host.phone} />
                   </motion.div>
                 )}
 
@@ -2108,6 +2120,10 @@ export function BookingSection({
         open={showLeaveWarning}
         onContinue={handleStayInBooking}
         onLeave={handleLeaveAndClear}
+        onStepBack={checkoutOpen && checkoutBack ? handleStepBack : null}
+        stepBackLabel={
+          checkoutView === "details" ? t("leaveBackToHouses") : checkoutView === "review" ? t("leaveBackToDetails") : checkoutView === "pay" ? t("leaveBackToReview") : null
+        }
         roomName={
           cartLines.length === 1
             ? rooms.find((r) => r.id === cartLines[0].roomId)?.name ?? null

@@ -83,13 +83,19 @@ const config = () => document.body.querySelector('[data-testid="config"]');
 const dialogs = () => document.body.querySelectorAll('[role="dialog"]');
 const title = () => document.body.querySelector('[role="dialog"] h2')?.textContent;
 
+const render = () => act(() => root.render(createElement(AvailabilityCalendarSection, { homestayId: "h1" })));
+const days = () =>
+  [...container.querySelectorAll<HTMLButtonElement>("button[aria-label]")].filter((b) =>
+    b.getAttribute("aria-label")?.includes(" — "),
+  );
+
 /** Renders the section and taps the first day that has a status (past days have none). */
 function openDay() {
-  act(() => root.render(createElement(AvailabilityCalendarSection, { homestayId: "h1" })));
-  const day = [...container.querySelectorAll("button[aria-label]")].find((b) =>
-    b.getAttribute("aria-label")?.includes(" — "),
-  ) as HTMLButtonElement;
-  act(() => day.click());
+  render();
+  // A full stay folds the grid; unfold it first.
+  const show = button("showCalendar");
+  if (show) act(() => show.click());
+  act(() => days()[0].click());
 }
 
 /** Day → ดูรายละเอียด → จองบ้านพักนี้ → เสร็จสิ้น. */
@@ -246,6 +252,66 @@ describe("AvailabilityCalendarSection: leaving the check-out picker", () => {
     act(() => button("picker-done").click());
     tick();
     expect(h.setDates).toHaveBeenCalledTimes(1);
+    expect(config()?.textContent).toBe("Baan Mok");
+  });
+});
+
+describe("AvailabilityCalendarSection: folding the month grid once the stay is chosen", () => {
+  const gridBox = () => container.querySelector<HTMLElement>("section div[id]")!;
+  const ahead = (n: number) => new Date(new Date().getFullYear(), new Date().getMonth(), new Date().getDate() + n);
+  const stayDays = () => days().filter((b) => b.getAttribute("aria-label")?.includes(", legendStay — "));
+
+  it("shows the grid and no toggle while the stay is not complete", () => {
+    h.dateRange = { from: ahead(3), to: undefined };
+    render();
+    expect(button("showCalendar")).toBeUndefined();
+    expect(gridBox().hidden).toBe(false);
+    expect(days().length).toBeGreaterThan(0);
+    expect(container.textContent).toContain("subtitle");
+  });
+
+  it("folds the grid behind ดูปฏิทินว่างทั้งเดือน once check-in and check-out are chosen", () => {
+    h.dateRange = { from: ahead(3), to: ahead(5) };
+    render();
+    const toggle = button("showCalendar");
+    expect(toggle.getAttribute("aria-expanded")).toBe("false");
+    expect(toggle.getAttribute("aria-controls")).toBe(gridBox().id);
+    expect(gridBox().hidden).toBe(true);
+    expect(days()).toHaveLength(0);
+    expect(container.textContent).not.toContain("subtitle");
+    // The heading stays, so the section can still be found and reopened.
+    expect(container.querySelector("h2")?.textContent).toBe("title");
+  });
+
+  it("unfolds on the stay, marks its days and names them in the legend, then folds again", () => {
+    h.dateRange = { from: ahead(3), to: ahead(5) };
+    render();
+    act(() => button("showCalendar").click());
+    expect(gridBox().hidden).toBe(false);
+    expect(button("hideCalendar").getAttribute("aria-expanded")).toBe("true");
+    // Check-in, the night between and check-out.
+    expect(stayDays()).toHaveLength(3);
+    expect(stayDays()[0].className).toContain("outline-pine");
+    expect(days().filter((b) => b.className.includes("outline-pine"))).toHaveLength(3);
+    expect(container.textContent).toContain("legendStay");
+
+    act(() => button("hideCalendar").click());
+    expect(gridBox().hidden).toBe(true);
+  });
+
+  it("folds again for new dates, so the houses come first each time", () => {
+    h.dateRange = { from: ahead(3), to: ahead(5) };
+    render();
+    act(() => button("showCalendar").click());
+    h.dateRange = { from: ahead(10), to: ahead(12) };
+    render();
+    expect(gridBox().hidden).toBe(true);
+    expect(button("showCalendar")).toBeDefined();
+  });
+
+  it("still opens the house's config dialog after a booking from the unfolded grid", () => {
+    h.dateRange = { from: ahead(3), to: ahead(5) };
+    bookFromDetail();
     expect(config()?.textContent).toBe("Baan Mok");
   });
 });

@@ -1,12 +1,14 @@
 "use client";
 
-import { createContext, useContext, useReducer, useMemo, useCallback, useEffect, type ReactNode } from "react";
+import { createContext, useContext, useReducer, useMemo, useCallback, useEffect, useRef, type ReactNode } from "react";
 import type { DateRange } from "react-day-picker";
 import { format, subDays, eachDayOfInterval } from "date-fns";
 import type { Room, RoomSeasonalPrice, RoomSpecialPrice, RoomOption, RoomGuestPricing, BlockedDate } from "@/types/database";
 import { calculateTotalPrice } from "@/lib/calculate-price";
 import { computeCompositionSurcharge } from "@/lib/guest-pricing";
 import { getFullyBookedForRoom, freeUnitsForStay } from "@/lib/booking-dates";
+import { billingTodayStr } from "@/lib/billing-dates";
+import { parseSavedStay, savedStayKey, serializeStay } from "@/lib/booking-session-store";
 
 /**
  * One room added to the cart. Dates are shared across the whole cart (stored on
@@ -49,7 +51,8 @@ type CartAction =
   | { type: "ADD_LINE"; line: CartLine }
   | { type: "REMOVE_LINE"; lineId: string }
   | { type: "UPDATE_LINE"; lineId: string; patch: Partial<Omit<CartLine, "lineId">> }
-  | { type: "CLEAR" };
+  | { type: "CLEAR" }
+  | { type: "RESTORE"; dateRange: DateRange; lines: CartLine[] };
 
 function reducer(state: CartState, action: CartAction): CartState {
   switch (action.type) {
@@ -66,6 +69,8 @@ function reducer(state: CartState, action: CartAction): CartState {
       };
     case "CLEAR":
       return { dateRange: state.dateRange, lines: [] };
+    case "RESTORE":
+      return { dateRange: action.dateRange, lines: action.lines };
     default:
       return state;
   }
@@ -117,6 +122,33 @@ export function BookingCartProvider({
   );
   const clear = useCallback(() => dispatch({ type: "CLEAR" }), []);
   const setLiveBookedRanges = useCallback((ranges: BookedRange[]) => setLiveBookedRangesState(ranges), []);
+
+  // A refresh keeps the stay and the chosen houses (booking-session-store). Read
+  // after mount, not during render: the server has no sessionStorage, and the
+  // first client render must match it.
+  const restored = useRef(false);
+  // The catalog the page was rendered with; a restore checks the saved houses against it once.
+  const firstCatalog = useRef(catalog);
+  useEffect(() => {
+    let saved = null;
+    try {
+      saved = parseSavedStay(sessionStorage.getItem(savedStayKey(homestayId)), firstCatalog.current, billingTodayStr());
+    } catch {
+      // Storage blocked (private mode, site data off): start empty.
+    }
+    restored.current = true;
+    if (saved) dispatch({ type: "RESTORE", dateRange: saved.dateRange, lines: saved.lines });
+  }, [homestayId]);
+  useEffect(() => {
+    if (!restored.current) return;
+    try {
+      const value = serializeStay(state.dateRange, state.lines);
+      if (value) sessionStorage.setItem(savedStayKey(homestayId), value);
+      else sessionStorage.removeItem(savedStayKey(homestayId));
+    } catch {
+      // Storage blocked: nothing to keep, the booking still works.
+    }
+  }, [state, homestayId]);
 
   // Refresh live availability client-side so every booking surface (date bars,
   // rooms, checkout) sees the latest bookings, not just the server snapshot.

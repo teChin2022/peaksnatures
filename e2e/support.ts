@@ -77,14 +77,15 @@ const bodyOf = (request: Request): Record<string, unknown> | null => {
  * Prepares a page for a booking test. `mode` is the host's guest_booking_mode
  * the page should behave as: it is written into the page's own payload, so the
  * database is not touched and the host does not have to be set up. `holdMs` is
- * how long the stubbed room hold lasts.
+ * how long the stubbed room hold lasts. `cancellationDays` replaces the host's
+ * cancellation_days in the same payload.
  */
 export async function startSession(
   page: Page,
   context: BrowserContext,
-  options: { mode?: HostMode; holdMs?: number; turnstile?: TurnstileBehaviour } = {},
+  options: { mode?: HostMode; holdMs?: number; turnstile?: TurnstileBehaviour; cancellationDays?: number } = {},
 ): Promise<Session> {
-  const { mode, holdMs = 10 * 60_000, turnstile = "pass" } = options;
+  const { mode, holdMs = 10 * 60_000, turnstile = "pass", cancellationDays } = options;
   const origin = new URL(page.context().browser() ? (process.env.E2E_BASE_URL ?? "http://localhost:3000") : "http://localhost:3000").origin;
 
   await context.addCookies([
@@ -161,19 +162,29 @@ export async function startSession(
     stub(route, () => ({ status: 201, body: { group: { id: CREATED_ID }, bookings: [{ id: "member-e2e" }] } })),
   );
 
-  if (mode) {
+  if (mode || cancellationDays !== undefined) {
     // The booking page is server-rendered; its client props travel in the HTML
     // as escaped JSON. Only the document is rewritten.
     await page.route(/\/book(\?.*)?$/, async (route) => {
       if (route.request().resourceType() !== "document") return route.fallback();
       const response = await route.fetch();
       let html = await response.text();
-      let replaced = 0;
-      html = html.replace(/(guest_booking_mode\\*"\s*:\s*\\*")([^"\\]*)(\\*")/g, (_m, a: string, _old: string, b: string) => {
-        replaced += 1;
-        return `${a}${mode}${b}`;
-      });
-      expect(replaced, "the host mode was not found in the page payload; has the Next.js payload format changed?").toBeGreaterThan(0);
+      if (mode) {
+        let replaced = 0;
+        html = html.replace(/(guest_booking_mode\\*"\s*:\s*\\*")([^"\\]*)(\\*")/g, (_m, a: string, _old: string, b: string) => {
+          replaced += 1;
+          return `${a}${mode}${b}`;
+        });
+        expect(replaced, "the host mode was not found in the page payload; has the Next.js payload format changed?").toBeGreaterThan(0);
+      }
+      if (cancellationDays !== undefined) {
+        let replaced = 0;
+        html = html.replace(/(cancellation_days\\*"\s*:\s*)(\d+)/g, (_m, a: string) => {
+          replaced += 1;
+          return `${a}${cancellationDays}`;
+        });
+        expect(replaced, "cancellation_days was not found in the page payload; has the Next.js payload format changed?").toBeGreaterThan(0);
+      }
       return route.fulfill({ response, body: html });
     });
   }
@@ -183,6 +194,15 @@ export async function startSession(
 
 /** Opens /{slug}/book and works through the date picker, the houses (the last one's "Book Now") and the guest details to the payment step. */
 export async function reachPayment(page: Page, slug: string, options: { houses?: number; province?: boolean } = {}) {
+  await reachReview(page, slug, options);
+  await page.getByRole("button", { name: T.booking.confirmProceed }).click();
+  // The payment page's heading is for screen readers; the amount to transfer is its headline.
+  await expect(page.getByRole("heading", { name: T.booking.stepPayment, exact: true })).toBeAttached();
+  await expect(page.getByText(T.booking.amountToTransfer).first()).toBeVisible();
+}
+
+/** The same path, stopping on the review step (before anything is held). */
+export async function reachReview(page: Page, slug: string, options: { houses?: number; province?: boolean } = {}) {
   const { houses = 1, province = true } = options;
   await page.goto(`/${slug}/book`);
   await expect(page.getByRole("button", { name: T.booking.selectDates }).first()).toBeVisible();
@@ -202,10 +222,7 @@ export async function reachPayment(page: Page, slug: string, options: { houses?:
   }
 
   await page.getByRole("button", { name: T.booking.continuePayment }).click();
-  await page.getByRole("button", { name: T.booking.confirmProceed }).click();
-  // The payment page's heading is for screen readers; the amount to transfer is its headline.
-  await expect(page.getByRole("heading", { name: T.booking.stepPayment, exact: true })).toBeAttached();
-  await expect(page.getByText(T.booking.amountToTransfer).first()).toBeVisible();
+  await expect(page.getByRole("button", { name: T.booking.confirmProceed })).toBeVisible();
 }
 
 /** Picks two consecutive free nights some days ahead, trying later pairs when a house is not free for them. */
@@ -250,9 +267,8 @@ export async function addHouses(page: Page, count: number, { book = false }: { b
     test.skip((await choose.count()) === 0, `needs ${count} houses free for the chosen dates`);
     await choose.first().click();
     const dialog = page.getByRole("dialog");
-    // A house priced by guest group cannot be chosen until one group is.
+    // Ready at once: a house priced by guest group opens on its normal-price group.
     const more = dialog.getByRole("button", { name: T.booking.chooseAnotherHouse });
-    if (await more.isDisabled()) await dialog.getByRole("button", { name: /฿/ }).first().click();
     if (book && i === count - 1) {
       await dialog.getByRole("button", { name: new RegExp(`^${T.common.bookNow}`) }).click();
       await expect(page.locator('[data-checkout="open"]')).toBeVisible();
