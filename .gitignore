@@ -72,3 +72,6 @@ next-env.d.ts
 /test-results/
 /playwright-report/
 /blob-report/
+
+# host E2E login (session cookies)
+/e2e/.auth/

@@ -1564,6 +1564,7 @@
     "confirmOffDesc": "แขกจะใช้โค้ดส่วนลดไม่ได้จนกว่าคุณจะเปิดอีกครั้ง โค้ดที่สร้างไว้ยังอยู่ครบ",
     "confirmOffAction": "ปิดโค้ดทั้งหมด",
     "confirmOffCancel": "ไม่ปิด",
+    "otherRecommenders": "ผู้แนะนำอื่นๆ",
     "kpiActiveCodes": "รหัสที่ใช้งานได้",
     "kpiActiveOf": "จากทั้งหมด {total} รหัส",
     "kpiRedemptions30d": "การใช้งาน (30 วัน)",

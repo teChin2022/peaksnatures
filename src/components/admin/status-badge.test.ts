@@ -7,7 +7,8 @@ describe("statusToneClass", () => {
     expect(statusToneClass("verified")).toBe(statusToneClass("confirmed"));
     expect(statusToneClass("pending")).toContain("bg-amber-50");
     expect(statusToneClass("completed")).toContain("bg-earth-50");
-    expect(statusToneClass("cancelled")).toContain("text-destructive");
+    // red-700 on red-50 (about 6:1): the shadcn destructive red on its 10% tint was 4.0:1.
+    expect(statusToneClass("cancelled")).toContain("text-red-700");
     expect(statusToneClass("rejected")).toBe(statusToneClass("cancelled"));
   });
 

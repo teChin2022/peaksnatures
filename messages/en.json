@@ -1564,6 +1564,7 @@
     "confirmOffDesc": "Guests can't use any promo code until you turn them back on. Your codes are kept.",
     "confirmOffAction": "Turn off all codes",
     "confirmOffCancel": "Keep them on",
+    "otherRecommenders": "Other recommenders",
     "kpiActiveCodes": "Active codes",
     "kpiActiveOf": "of {total} total",
     "kpiRedemptions30d": "Redemptions (30d)",

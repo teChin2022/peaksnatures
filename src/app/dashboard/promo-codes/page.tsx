@@ -63,21 +63,8 @@ import {
   type ChartConfig,
 } from "@/components/ui/chart";
 
-const LINE_PALETTE = [
-  "#2F5D50", // brand green
-  "#F59E0B", // amber
-  "#7C3AED", // violet
-  "#DC2626", // red
-  "#0EA5E9", // sky
-  "#EC4899", // pink
-  "#10B981", // emerald
-  "#6366F1", // indigo
-  "#F97316", // orange
-  "#14B8A6", // teal
-  "#A855F7", // purple
-  "#EAB308", // yellow
-];
 const MONTHS_WINDOW = 6;
+import { assignLines, OTHER_ALIAS } from "@/lib/chart-lines";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -690,12 +677,11 @@ export default function PromoCodesPage() {
 
     // Step 2: alias each recommender as r0/r1/... so names work as CSS-var keys.
     const chartConfig: ChartConfig = {};
-    const aliasOfName = new Map<string, string>();
-    allNames.forEach((name, i) => {
-      const alias = `r${i}`;
-      aliasOfName.set(name, alias);
-      chartConfig[alias] = { label: name, color: LINE_PALETTE[i % LINE_PALETTE.length] };
-    });
+    // Recommenders past the palette share one "other" line (lib/chart-lines).
+    const { aliasOf: aliasOfName, colorOf } = assignLines(allNames);
+    for (const [name, alias] of aliasOfName) {
+      chartConfig[alias] = { label: alias === OTHER_ALIAS ? t("otherRecommenders") : name, color: colorOf[alias] };
+    }
 
     // Step 3: build the last 6 month buckets (oldest → newest).
     const now = new Date();
@@ -728,10 +714,10 @@ export default function PromoCodesPage() {
 
     return {
       data: rows,
-      aliases: Array.from(aliasOfName.values()),
+      aliases: [...new Set(aliasOfName.values())],
       chartConfig,
     };
-  }, [codes, redemptions, locale]);
+  }, [codes, redemptions, locale, t]);
 
   const filteredRedemptions = useMemo(() => {
     const q = redemptionSearch.trim().toLowerCase();

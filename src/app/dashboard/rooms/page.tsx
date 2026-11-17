@@ -214,7 +214,8 @@ export default function RoomsPage() {
     dialogBaseline !== null &&
     (dialogSnapshot !== dialogBaseline || JSON.stringify(roomImages) !== JSON.stringify(savedImages));
   const [discardOpen, setDiscardOpen] = useState(false);
-  useUnsavedChangesGuard(dialogDirty); // reload/close; the modal already blocks in-app links
+  // Reload/close and browser Back; the modal already blocks in-app links.
+  const leaveGuard = useUnsavedChangesGuard(dialogDirty);
 
   const requestCloseDialog = () => {
     if (dialogDirty && !saving) setDiscardOpen(true);
@@ -2378,7 +2379,14 @@ export default function RoomsPage() {
       </Dialog>
 
       {/* Close the house dialog with unsaved edits */}
-      <Dialog open={discardOpen} onOpenChange={setDiscardOpen}>
+      <Dialog
+        open={discardOpen || leaveGuard.pendingHref !== null}
+        onOpenChange={(open) => {
+          if (open) return;
+          setDiscardOpen(false);
+          leaveGuard.stay();
+        }}
+      >
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle>{t("discardTitle")}</DialogTitle>
@@ -2390,11 +2398,18 @@ export default function RoomsPage() {
               onClick={() => {
                 setDiscardOpen(false);
                 setDialogOpen(false);
+                if (leaveGuard.pendingHref !== null) leaveGuard.leave(); // Back: carry on going back
               }}
             >
               {t("discardConfirm")}
             </Button>
-            <Button onClick={() => setDiscardOpen(false)} className="hover:brightness-90 bg-brand">
+            <Button
+              onClick={() => {
+                setDiscardOpen(false);
+                leaveGuard.stay();
+              }}
+              className="hover:brightness-90 bg-brand"
+            >
               {t("discardKeep")}
             </Button>
           </DialogFooter>

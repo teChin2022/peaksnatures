@@ -1,20 +1,28 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
+
+/** pendingHref value when the host pressed the browser's Back. */
+export const BACK = "__back__";
 
 /**
  * Warns before unsaved edits are lost. While `dirty`:
  * - reload / tab close shows the browser's own prompt (beforeunload);
  * - a click on an in-app link to another page is held, and `pendingHref`
- *   is set so the page can ask; `leave()` then navigates, `stay()` cancels.
+ *   is set so the page can ask; `leave()` then navigates, `stay()` cancels;
+ * - browser Back (and mobile swipe-back) is caught with a guard history entry,
+ *   the same way booking-section.tsx does it: armed outside popstate, never
+ *   re-pushed inside it (that makes the App Router reload the page).
  *
- * shortcut: browser Back is not guarded (the App Router popstate dance in
- * booking-section.tsx is fragile); add it if hosts lose edits that way.
+ * shortcut: once the edits are saved the guard entry stays in history, so the
+ * next Back is a no-op on this page; drop it if hosts notice.
  */
 export function useUnsavedChangesGuard(dirty: boolean) {
   const router = useRouter();
   const [pendingHref, setPendingHref] = useState<string | null>(null);
+  const armedRef = useRef(false);
+  const leavingRef = useRef(false);
 
   useEffect(() => {
     if (!dirty) return;
@@ -38,21 +46,46 @@ export function useUnsavedChangesGuard(dirty: boolean) {
       setPendingHref(url.pathname + url.search + url.hash);
     };
 
+    // Back pops the guard entry: the page stays, and we ask.
+    const onPopState = () => {
+      if (leavingRef.current) return;
+      armedRef.current = false;
+      setPendingHref(BACK);
+    };
+
+    if (!armedRef.current) {
+      window.history.pushState(null, "");
+      armedRef.current = true;
+    }
     window.addEventListener("beforeunload", onBeforeUnload);
     document.addEventListener("click", onClick, true);
+    window.addEventListener("popstate", onPopState);
     return () => {
       window.removeEventListener("beforeunload", onBeforeUnload);
       document.removeEventListener("click", onClick, true);
+      window.removeEventListener("popstate", onPopState);
     };
   }, [dirty]);
 
   return {
     pendingHref,
-    stay: () => setPendingHref(null),
+    stay: () => {
+      // Re-arm for the next Back, from a click, never from inside popstate.
+      if (pendingHref === BACK && !armedRef.current) {
+        window.history.pushState(null, "");
+        armedRef.current = true;
+      }
+      setPendingHref(null);
+    },
     leave: () => {
       const href = pendingHref;
       setPendingHref(null);
-      if (href) router.push(href);
+      if (href === BACK) {
+        leavingRef.current = true;
+        window.history.back(); // the guard entry is already gone: this is the real Back
+      } else if (href) {
+        router.push(href);
+      }
     },
   };
 }

@@ -9,7 +9,6 @@ import {
   parseISO,
   format,
   subMonths,
-  subDays,
   startOfMonth,
   endOfMonth,
   getDaysInMonth,
@@ -78,7 +77,6 @@ interface Stats {
   revenuePctChange: number | null;
   bookingsPctChange: number | null;
   occupancyPctChange: number | null;
-  checkinsDelta: number;
   // Charts
   monthlyRevenue: { month: string; label: string; revenue: number }[];
   bookingsByRoom: { name: string; count: number }[];
@@ -152,7 +150,7 @@ export default function DashboardPage() {
   const [stats, setStats] = useState<Stats>({
     homestayName: null, homestaySlug: null,
     monthRevenue: 0, occupancyRate: 0, todayCheckins: 0,
-    revenuePctChange: null, bookingsPctChange: null, occupancyPctChange: null, checkinsDelta: 0,
+    revenuePctChange: null, bookingsPctChange: null, occupancyPctChange: null,
     monthlyRevenue: [], bookingsByRoom: [], recentBookings: [], currentMonthBookingCount: 0,
     adr: 0, revpar: 0, cancelledCount: 0, directBookingPct: 0,
     adrPctChange: null, revparPctChange: null, cancelledDelta: 0, directPctChange: null,
@@ -216,7 +214,6 @@ export default function DashboardPage() {
 
       const now = new Date();
       const todayStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`;
-      const yesterdayStr = format(subDays(now, 1), "yyyy-MM-dd");
       const currentMonthStr = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}`;
       const lastMonth = subMonths(now, 1);
       const lastMonthStr = `${lastMonth.getFullYear()}-${String(lastMonth.getMonth() + 1).padStart(2, "0")}`;
@@ -262,7 +259,6 @@ export default function DashboardPage() {
       // Check-ins
       const today = todayWorkCounts(bookings, todayStr);
       const todayCheckins = today.checkins;
-      const yesterdayCheckins = bookings.filter((b) => b.check_in === yesterdayStr && (b.status === "confirmed" || b.status === "completed")).length;
 
       // Monthly revenue (last 6 months)
       const monthlyRevenue: { month: string; label: string; revenue: number }[] = [];
@@ -367,7 +363,6 @@ export default function DashboardPage() {
         revenuePctChange: pctChange(currentMonthRevenue, lastMonthRevenue),
         bookingsPctChange: pctChange(currentMonthBookings.length, lastMonthBookings.length),
         occupancyPctChange: pctChange(occupancyRate, lastMonthOccupancy),
-        checkinsDelta: todayCheckins - yesterdayCheckins,
         monthlyRevenue,
         bookingsByRoom,
         recentBookings: recent,
@@ -563,7 +558,8 @@ export default function DashboardPage() {
               className="space-y-6"
             >
               {/* Stat Cards */}
-              <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
+              {/* Check-ins today live in the "today's work" row above, not here too. */}
+              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
                 <StatCard
                   title={t("revenueThisMonth")}
                   value={`฿${stats.monthRevenue.toLocaleString()}`}
@@ -578,21 +574,15 @@ export default function DashboardPage() {
                   changeLabel={t("fromLastMonth")}
                   icon={<CalendarDays className="h-4 w-4 text-earth-600" />}
                 />
-                <StatCard
-                  title={t("occupancyRate")}
-                  value={`${stats.occupancyRate}%`}
-                  change={stats.occupancyPctChange}
-                  changeLabel={t("fromLastMonth")}
-                  icon={<Percent className="h-4 w-4 text-earth-600" />}
-                />
-                <StatCard
-                  title={t("checkinsToday")}
-                  value={String(stats.todayCheckins)}
-                  change={stats.checkinsDelta}
-                  changeLabel={t("sinceYesterday")}
-                  icon={<LogIn className="h-4 w-4 text-earth-600" />}
-                  isDelta
-                />
+                <div className="col-span-2 md:col-span-1">
+                  <StatCard
+                    title={t("occupancyRate")}
+                    value={`${stats.occupancyRate}%`}
+                    change={stats.occupancyPctChange}
+                    changeLabel={t("fromLastMonth")}
+                    icon={<Percent className="h-4 w-4 text-earth-600" />}
+                  />
+                </div>
               </div>
 
               {/* Recent Bookings */}

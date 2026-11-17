@@ -896,16 +896,15 @@ export default function HomestayPage() {
               <Label className="mb-2 block text-sm text-earth-600">{t("commonAmenities")}</Label>
               <div className="flex flex-wrap gap-2">
                 {AMENITY_PRESETS.filter((a) => !amenities.includes(a)).map((a) => (
-                  <Badge key={a} variant="outline" asChild>
-                    {/* A real button: reachable by keyboard; long presets wrap instead of widening the page. */}
+                  <Badge key={a} variant="outline" asChild className="min-h-8 max-w-full shrink cursor-pointer justify-start whitespace-normal text-left hover:bg-earth-100 [&>svg]:shrink-0">
+                    {/* A real button (keyboard). Classes sit on Badge so cn() beats its whitespace-nowrap: Slot only concatenates. */}
                     <button
                       type="button"
-                      className="min-h-8 max-w-full shrink cursor-pointer whitespace-normal text-left hover:bg-earth-100"
                       onClick={() => toggleAmenity(a)}
                     >
                       <Plus className="mr-0.5 h-3 w-3" />
                       <ListIcon name={autoIconKey(a, "amenity")} kind="amenity" className="text-earth-600" />
-                      {a}
+                      <span className="min-w-0">{a}</span>
                     </button>
                   </Badge>
                 ))}
@@ -985,16 +984,15 @@ export default function HomestayPage() {
               <Label className="mb-2 block text-sm text-earth-600">{t("commonProhibitions")}</Label>
               <div className="flex flex-wrap gap-2">
                 {RULE_PRESETS.filter((p) => !prohibitions.includes(p)).map((p) => (
-                  <Badge key={p} variant="outline" asChild>
-                    {/* A real button: reachable by keyboard; long presets wrap instead of widening the page. */}
+                  <Badge key={p} variant="outline" asChild className="min-h-8 max-w-full shrink cursor-pointer justify-start whitespace-normal text-left hover:bg-earth-100 [&>svg]:shrink-0">
+                    {/* A real button (keyboard). Classes sit on Badge so cn() beats its whitespace-nowrap: Slot only concatenates. */}
                     <button
                       type="button"
-                      className="min-h-8 max-w-full shrink cursor-pointer whitespace-normal text-left hover:bg-earth-100"
                       onClick={() => toggleProhibition(p)}
                     >
                       <Plus className="mr-0.5 h-3 w-3" />
                       <ListIcon name={autoIconKey(p, "rule")} kind="rule" className="text-earth-600" />
-                      {p}
+                      <span className="min-w-0">{p}</span>
                     </button>
                   </Badge>
                 ))}

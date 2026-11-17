@@ -261,9 +261,9 @@ export function QuickBookingDialog({
               />
             </div>
             <div className="space-y-1.5">
-              <Label>{t("bookingSourceLabel")}</Label>
+              <Label htmlFor="qb-source">{t("bookingSourceLabel")}</Label>
               <Select value={bookingSource} onValueChange={setBookingSource}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="qb-source" className="w-full">
                   <SelectValue placeholder={t("bookingSourcePlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>
@@ -280,10 +280,11 @@ export function QuickBookingDialog({
           {/* Check-in / Check-out */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>{t("checkInLabel")}</Label>
+              <Label htmlFor="qb-checkin">{t("checkInLabel")}</Label>
               <Popover open={checkInOpen} onOpenChange={setCheckInOpen}>
                 <PopoverTrigger asChild>
                   <Button
+                    id="qb-checkin"
                     variant="outline"
                     className="w-full justify-start text-left font-normal"
                   >
@@ -312,10 +313,11 @@ export function QuickBookingDialog({
               </Popover>
             </div>
             <div className="space-y-1.5">
-              <Label>{t("checkOutLabel")}</Label>
+              <Label htmlFor="qb-checkout">{t("checkOutLabel")}</Label>
               <Popover open={checkOutOpen} onOpenChange={setCheckOutOpen}>
                 <PopoverTrigger asChild>
                   <Button
+                    id="qb-checkout"
                     variant="outline"
                     className="w-full justify-start text-left font-normal"
                   >
@@ -352,9 +354,9 @@ export function QuickBookingDialog({
           {/* House + Guests row — which unit, and how many people in it */}
           <div className="grid grid-cols-2 gap-3">
             <div className="space-y-1.5">
-              <Label>{t("selectRoomLabel")}</Label>
+              <Label htmlFor="qb-room">{t("selectRoomLabel")}</Label>
               <Select value={roomId} onValueChange={setRoomId}>
-                <SelectTrigger className="w-full">
+                <SelectTrigger id="qb-room" className="w-full">
                   <SelectValue placeholder={t("selectRoomPlaceholder")} />
                 </SelectTrigger>
                 <SelectContent>

@@ -6,7 +6,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({ push: vi.fn() }));
 vi.mock("next/navigation", () => ({ useRouter: () => ({ push: h.push }) }));
 
-import { useUnsavedChangesGuard } from "./use-unsaved-changes-guard";
+import { BACK, useUnsavedChangesGuard } from "./use-unsaved-changes-guard";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
 
@@ -98,5 +98,45 @@ describe("useUnsavedChangesGuard", () => {
     click("other");
     expect(onLink).toHaveBeenCalled();
     expect(unload()).toBe(false);
+  });
+});
+
+describe("useUnsavedChangesGuard: browser Back", () => {
+  it("arms one guard entry while edits are unsaved, and none before", () => {
+    const push = vi.spyOn(window.history, "pushState");
+    render(false);
+    expect(push).not.toHaveBeenCalled();
+    render(true);
+    render(true);
+    expect(push).toHaveBeenCalledTimes(1);
+    push.mockRestore();
+  });
+
+  it("asks on Back; Stay re-arms, Leave goes back for real", () => {
+    const push = vi.spyOn(window.history, "pushState");
+    const back = vi.spyOn(window.history, "back").mockImplementation(() => {});
+    render(true);
+
+    act(() => { window.dispatchEvent(new PopStateEvent("popstate")); });
+    expect(latest().pendingHref).toBe(BACK);
+    expect(push).toHaveBeenCalledTimes(1); // never re-pushed inside popstate
+
+    act(() => latest().stay());
+    expect(latest().pendingHref).toBeNull();
+    expect(push).toHaveBeenCalledTimes(2);
+
+    act(() => { window.dispatchEvent(new PopStateEvent("popstate")); });
+    act(() => latest().leave());
+    expect(back).toHaveBeenCalledTimes(1);
+    expect(h.push).not.toHaveBeenCalled();
+    push.mockRestore();
+    back.mockRestore();
+  });
+
+  it("ignores Back once nothing is unsaved", () => {
+    render(true);
+    render(false);
+    act(() => { window.dispatchEvent(new PopStateEvent("popstate")); });
+    expect(latest().pendingHref).toBeNull();
   });
 });
