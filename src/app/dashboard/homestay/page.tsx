@@ -47,6 +47,7 @@ import { AMENITY_PRESETS, RULE_PRESETS, autoIconKey, type ListKind } from "@/lib
 import { LIST_ICONS, ListIcon } from "@/components/booking/list-icon";
 import { GuestBookingModeField } from "@/components/dashboard/guest-booking-mode-field";
 import { guestBookingModeOf } from "@/lib/quick-booking";
+import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 import type { GuestBookingMode } from "@/types/database";
 
 interface HomestayData {
@@ -185,6 +186,19 @@ export default function HomestayPage() {
   const heroInputRef = useRef<HTMLInputElement>(null);
   const logoInputRef = useRef<HTMLInputElement>(null);
   const galleryInputRef = useRef<HTMLInputElement>(null);
+
+  // Everything handleSave writes. Equal to savedSnapshot = nothing to lose.
+  const snapshot = JSON.stringify([
+    name, slug, description, tagline, location, mapEmbedUrl, amenities, prohibitions,
+    amenityIcons, prohibitionIcons, checkInTime, checkOutTime, heroImageUrl, logoUrl, gallery,
+    facebookUrl, tiktokUrl, instagramUrl, lineId, checkInInfo, policies, faq,
+    depositAmount, depositByMonth, cancellationDays, bookingDraftHours, guestBookingMode,
+  ]);
+  const [savedSnapshot, setSavedSnapshot] = useState<string | null>(null);
+  // Baseline = the form as first loaded (set during render, React's "adjust state on change" pattern).
+  if (!loading && savedSnapshot === null) setSavedSnapshot(snapshot);
+  const dirty = savedSnapshot !== null && snapshot !== savedSnapshot;
+  const leaveGuard = useUnsavedChangesGuard(dirty);
 
   useEffect(() => {
     const fetch = async () => {
@@ -602,6 +616,7 @@ export default function HomestayPage() {
         return;
       }
 
+      setSavedSnapshot(snapshot); // this render's values are what was just written
       toast.success(wasNew ? t("created") : t("saved"));
     } catch {
       toast.error(t("errorSave"));
@@ -683,8 +698,8 @@ export default function HomestayPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>{t("name")}</Label>
-              <Input
+              <Label htmlFor="homestay-name">{t("name")}</Label>
+              <Input id="homestay-name"
                 value={name}
                 onChange={(e) => {
                   setName(e.target.value);
@@ -713,8 +728,8 @@ export default function HomestayPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>{t("tagline")}</Label>
-              <Input
+              <Label htmlFor="homestay-tagline">{t("tagline")}</Label>
+              <Input id="homestay-tagline"
                 value={tagline}
                 onChange={(e) => setTagline(e.target.value)}
                 placeholder={t("taglinePlaceholder")}
@@ -745,8 +760,8 @@ export default function HomestayPage() {
           </CardHeader>
           <CardContent className="space-y-4">
             <div className="space-y-2">
-              <Label>{t("location")}</Label>
-              <Input
+              <Label htmlFor="homestay-location">{t("location")}</Label>
+              <Input id="homestay-location"
                 value={location}
                 onChange={(e) => setLocation(e.target.value)}
                 placeholder={t("locationPlaceholder")}
@@ -754,8 +769,8 @@ export default function HomestayPage() {
             </div>
 
             <div className="space-y-2">
-              <Label>{t("mapEmbedUrl")}</Label>
-              <Input
+              <Label htmlFor="homestay-mapEmbedUrl">{t("mapEmbedUrl")}</Label>
+              <Input id="homestay-mapEmbedUrl"
                 value={mapEmbedUrl}
                 onChange={(e) => setMapEmbedUrl(e.target.value)}
                 placeholder={t("mapEmbedUrlPlaceholder")}
@@ -773,7 +788,7 @@ export default function HomestayPage() {
                   loading="lazy"
                   allowFullScreen
                   referrerPolicy="no-referrer-when-downgrade"
-                  title="Map preview"
+                  title={t("mapEmbedUrl")}
                 />
               </div>
             )}
@@ -791,16 +806,16 @@ export default function HomestayPage() {
           <CardContent className="space-y-4">
             <div className="grid grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>{t("checkInTime")}</Label>
-                <Input
+                <Label htmlFor="homestay-checkInTime">{t("checkInTime")}</Label>
+                <Input id="homestay-checkInTime"
                   type="time"
                   value={checkInTime}
                   onChange={(e) => setCheckInTime(e.target.value)}
                 />
               </div>
               <div className="space-y-2">
-                <Label>{t("checkOutTime")}</Label>
-                <Input
+                <Label htmlFor="homestay-checkOutTime">{t("checkOutTime")}</Label>
+                <Input id="homestay-checkOutTime"
                   type="time"
                   value={checkOutTime}
                   onChange={(e) => setCheckOutTime(e.target.value)}
@@ -838,7 +853,7 @@ export default function HomestayPage() {
                       {a}
                       <button
                         type="button"
-                        className="ml-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full hover:brightness-75"
+                        className="-my-1 ml-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full hover:brightness-75"
                         aria-label={`${t("remove")} ${a}`} onClick={() => removeAmenity(a)}
                       >
                         <X className="h-3 w-3" />
@@ -851,9 +866,9 @@ export default function HomestayPage() {
 
             {/* Add custom amenity */}
             <div>
-              <Label className="mb-2 block text-sm text-earth-600">{t("addCustomAmenity")}</Label>
+              <Label htmlFor="homestay-addCustomAmenity" className="mb-2 block text-sm text-earth-600">{t("addCustomAmenity")}</Label>
               <div className="flex gap-2">
-                <Input
+                <Input id="homestay-addCustomAmenity"
                   value={customAmenity}
                   onChange={(e) => setCustomAmenity(e.target.value)}
                   placeholder={t("customAmenityPlaceholder")}
@@ -881,15 +896,17 @@ export default function HomestayPage() {
               <Label className="mb-2 block text-sm text-earth-600">{t("commonAmenities")}</Label>
               <div className="flex flex-wrap gap-2">
                 {AMENITY_PRESETS.filter((a) => !amenities.includes(a)).map((a) => (
-                  <Badge
-                    key={a}
-                    variant="outline"
-                    className="cursor-pointer hover:bg-earth-100"
-                    onClick={() => toggleAmenity(a)}
-                  >
-                    <Plus className="mr-0.5 h-3 w-3" />
-                    <ListIcon name={autoIconKey(a, "amenity")} kind="amenity" className="text-earth-600" />
-                    {a}
+                  <Badge key={a} variant="outline" asChild>
+                    {/* A real button: reachable by keyboard; long presets wrap instead of widening the page. */}
+                    <button
+                      type="button"
+                      className="min-h-8 max-w-full shrink cursor-pointer whitespace-normal text-left hover:bg-earth-100"
+                      onClick={() => toggleAmenity(a)}
+                    >
+                      <Plus className="mr-0.5 h-3 w-3" />
+                      <ListIcon name={autoIconKey(a, "amenity")} kind="amenity" className="text-earth-600" />
+                      {a}
+                    </button>
                   </Badge>
                 ))}
               </div>
@@ -925,7 +942,7 @@ export default function HomestayPage() {
                       {p}
                       <button
                         type="button"
-                        className="ml-1 inline-flex h-4 w-4 shrink-0 items-center justify-center rounded-full hover:brightness-75"
+                        className="-my-1 ml-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full hover:brightness-75"
                         aria-label={`${t("remove")} ${p}`} onClick={() => removeProhibition(p)}
                       >
                         <X className="h-3 w-3" />
@@ -938,9 +955,9 @@ export default function HomestayPage() {
 
             {/* Add custom prohibition */}
             <div>
-              <Label className="mb-2 block text-sm text-earth-600">{t("addCustomProhibition")}</Label>
+              <Label htmlFor="homestay-addCustomProhibition" className="mb-2 block text-sm text-earth-600">{t("addCustomProhibition")}</Label>
               <div className="flex gap-2">
-                <Input
+                <Input id="homestay-addCustomProhibition"
                   value={customProhibition}
                   onChange={(e) => setCustomProhibition(e.target.value)}
                   placeholder={t("customProhibitionPlaceholder")}
@@ -968,15 +985,17 @@ export default function HomestayPage() {
               <Label className="mb-2 block text-sm text-earth-600">{t("commonProhibitions")}</Label>
               <div className="flex flex-wrap gap-2">
                 {RULE_PRESETS.filter((p) => !prohibitions.includes(p)).map((p) => (
-                  <Badge
-                    key={p}
-                    variant="outline"
-                    className="cursor-pointer hover:bg-earth-100"
-                    onClick={() => toggleProhibition(p)}
-                  >
-                    <Plus className="mr-0.5 h-3 w-3" />
-                    <ListIcon name={autoIconKey(p, "rule")} kind="rule" className="text-earth-600" />
-                    {p}
+                  <Badge key={p} variant="outline" asChild>
+                    {/* A real button: reachable by keyboard; long presets wrap instead of widening the page. */}
+                    <button
+                      type="button"
+                      className="min-h-8 max-w-full shrink cursor-pointer whitespace-normal text-left hover:bg-earth-100"
+                      onClick={() => toggleProhibition(p)}
+                    >
+                      <Plus className="mr-0.5 h-3 w-3" />
+                      <ListIcon name={autoIconKey(p, "rule")} kind="rule" className="text-earth-600" />
+                      {p}
+                    </button>
                   </Badge>
                 ))}
               </div>
@@ -1079,16 +1098,18 @@ export default function HomestayPage() {
                       </div>
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs text-earth-600">{t("faqQuestion")}</Label>
+                      <Label htmlFor={`faq-question-${i}`} className="text-xs text-earth-600">{t("faqQuestion")}</Label>
                       <Input
+                        id={`faq-question-${i}`}
                         value={item.question}
                         onChange={(e) => updateFaqItem(i, "question", e.target.value)}
                         placeholder={t("faqQuestionPlaceholder")}
                       />
                     </div>
                     <div className="space-y-1">
-                      <Label className="text-xs text-earth-600">{t("faqAnswer")}</Label>
+                      <Label htmlFor={`faq-answer-${i}`} className="text-xs text-earth-600">{t("faqAnswer")}</Label>
                       <Textarea
+                        id={`faq-answer-${i}`}
                         value={item.answer}
                         rows={3}
                         onChange={(e) => updateFaqItem(i, "answer", e.target.value)}
@@ -1189,12 +1210,10 @@ export default function HomestayPage() {
                     <button
                       key={days}
                       type="button"
-                      className="rounded-full px-3 py-1.5 text-sm font-medium border transition-colors"
-                      style={
-                        cancellationDays === days
-                          ? { backgroundColor: "#2F5D50", color: "white", borderColor: "#2F5D50" }
-                          : { borderColor: "#d1d5db", color: "#374151" }
-                      }
+                      aria-pressed={cancellationDays === days}
+                      className={`min-h-9 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                        cancellationDays === days ? "border-brand bg-brand text-white" : "border-earth-300 text-earth-800 hover:border-earth-400"
+                      }`}
                       onClick={() => setCancellationDays(days)}
                     >
                       {days === 0 ? t("cancellationDisabled") : t("cancellationDaysLabel", { days })}
@@ -1217,12 +1236,10 @@ export default function HomestayPage() {
                     <button
                       key={hours}
                       type="button"
-                      className="rounded-full px-3 py-1.5 text-sm font-medium border transition-colors"
-                      style={
-                        bookingDraftHours === hours
-                          ? { backgroundColor: "#2F5D50", color: "white", borderColor: "#2F5D50" }
-                          : { borderColor: "#d1d5db", color: "#374151" }
-                      }
+                      aria-pressed={bookingDraftHours === hours}
+                      className={`min-h-9 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors ${
+                        bookingDraftHours === hours ? "border-brand bg-brand text-white" : "border-earth-300 text-earth-800 hover:border-earth-400"
+                      }`}
                       onClick={() => setBookingDraftHours(hours)}
                     >
                       {hours === 0
@@ -1257,32 +1274,32 @@ export default function HomestayPage() {
             <p className="text-xs text-earth-600">{t("socialMediaHint")}</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="space-y-2">
-                <Label>{t("facebookUrl")}</Label>
-                <Input
+                <Label htmlFor="homestay-facebookUrl">{t("facebookUrl")}</Label>
+                <Input id="homestay-facebookUrl"
                   value={facebookUrl}
                   onChange={(e) => setFacebookUrl(e.target.value)}
                   placeholder={t("facebookPlaceholder")}
                 />
               </div>
               <div className="space-y-2">
-                <Label>{t("instagramUrl")}</Label>
-                <Input
+                <Label htmlFor="homestay-instagramUrl">{t("instagramUrl")}</Label>
+                <Input id="homestay-instagramUrl"
                   value={instagramUrl}
                   onChange={(e) => setInstagramUrl(e.target.value)}
                   placeholder={t("instagramPlaceholder")}
                 />
               </div>
               <div className="space-y-2">
-                <Label>{t("tiktokUrl")}</Label>
-                <Input
+                <Label htmlFor="homestay-tiktokUrl">{t("tiktokUrl")}</Label>
+                <Input id="homestay-tiktokUrl"
                   value={tiktokUrl}
                   onChange={(e) => setTiktokUrl(e.target.value)}
                   placeholder={t("tiktokPlaceholder")}
                 />
               </div>
               <div className="space-y-2">
-                <Label>{t("lineId")}</Label>
-                <Input
+                <Label htmlFor="homestay-lineId">{t("lineId")}</Label>
+                <Input id="homestay-lineId"
                   value={lineId}
                   onChange={(e) => setLineId(e.target.value)}
                   placeholder={t("lineIdPlaceholder")}
@@ -1333,18 +1350,19 @@ export default function HomestayPage() {
                   </button>
                 </div>
               ) : (
-                <div
-                  className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-earth-200 transition-colors"
+                <button
+                  type="button"
+                  aria-label={t("logo")}
+                  disabled={uploadingLogo}
+                  className="flex h-20 w-20 cursor-pointer items-center justify-center rounded-lg border-2 border-dashed border-earth-200 transition-colors hover:border-brand/40 hover:bg-brand/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-wait"
                   onClick={() => logoInputRef.current?.click()}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2F5D5066'; e.currentTarget.style.backgroundColor = '#2F5D500d'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
                 >
                   {uploadingLogo ? (
                     <Loader2 className="h-6 w-6 animate-spin text-earth-600" />
                   ) : (
                     <Upload className="h-6 w-6 text-earth-600" />
                   )}
-                </div>
+                </button>
               )}
               <p className="text-xs text-earth-600">{t("logoHint")}</p>
               <input
@@ -1389,22 +1407,22 @@ export default function HomestayPage() {
                   </button>
                 </div>
               ) : (
-                <div
-                  className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-earth-200 py-10 transition-colors"
+                <button
+                  type="button"
+                  disabled={uploadingHero}
+                  className="flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-earth-200 py-10 transition-colors hover:border-brand/40 hover:bg-brand/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-wait"
                   onClick={() => heroInputRef.current?.click()}
-                  onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2F5D5066'; e.currentTarget.style.backgroundColor = '#2F5D500d'; }}
-                  onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
                 >
                   {uploadingHero ? (
                     <Loader2 className="h-8 w-8 animate-spin text-earth-600" />
                   ) : (
                     <>
                       <Upload className="h-8 w-8 text-earth-600" />
-                      <p className="mt-2 text-sm font-medium text-earth-600">{t("clickUploadHero")}</p>
-                      <p className="mt-1 text-xs text-earth-600">{t("imageHint")}</p>
+                      <span className="mt-2 block text-sm font-medium text-earth-700">{t("clickUploadHero")}</span>
+                      <span className="mt-1 block text-xs text-earth-600">{t("imageHint")}</span>
                     </>
                   )}
-                </div>
+                </button>
               )}
               <input
                 ref={heroInputRef}
@@ -1418,22 +1436,22 @@ export default function HomestayPage() {
             {/* Gallery upload */}
             <div className="space-y-2">
               <Label>{t("gallery")}</Label>
-              <div
-                className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-earth-200 py-8 transition-colors"
+              <button
+                type="button"
+                disabled={uploadingGallery}
+                className="flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-earth-200 py-8 transition-colors hover:border-brand/40 hover:bg-brand/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-wait"
                 onClick={() => galleryInputRef.current?.click()}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2F5D5066'; e.currentTarget.style.backgroundColor = '#2F5D500d'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
               >
                 {uploadingGallery ? (
                   <Loader2 className="h-6 w-6 animate-spin text-earth-600" />
                 ) : (
                   <>
                     <Upload className="h-6 w-6 text-earth-600" />
-                    <p className="mt-2 text-sm font-medium text-earth-600">{t("clickUploadGallery")}</p>
-                    <p className="mt-1 text-xs text-earth-600">{t("imageHintMulti")}</p>
+                    <span className="mt-2 block text-sm font-medium text-earth-700">{t("clickUploadGallery")}</span>
+                    <span className="mt-1 block text-xs text-earth-600">{t("imageHintMulti")}</span>
                   </>
                 )}
-              </div>
+              </button>
               <input
                 ref={galleryInputRef}
                 type="file"
@@ -1448,7 +1466,7 @@ export default function HomestayPage() {
                     <div key={i} className="group relative aspect-[4/3] overflow-hidden rounded-lg border">
                       <Image
                         src={img}
-                        alt={`Gallery ${i + 1}`}
+                        alt={`${t("gallery")} ${i + 1}`}
                         fill
                         sizes="(max-width: 640px) 33vw, 25vw"
                         className="h-full w-full object-cover"
@@ -1467,21 +1485,52 @@ export default function HomestayPage() {
           </CardContent>
         </Card>
 
-        {/* Save */}
-        <Button
-          onClick={handleSave}
-          disabled={saving}
-          className="w-full hover:brightness-90 bg-brand"
-          size="lg"
+        {/* Save: pinned to the bottom of the screen while there are unsaved edits */}
+        <div
+          className={
+            dirty
+              ? "sticky bottom-0 z-20 -mx-4 flex items-center gap-3 border-t border-earth-200 bg-white px-4 pt-3 pb-[calc(0.75rem+env(safe-area-inset-bottom))] sm:mx-0 sm:rounded-t-xl sm:border-x"
+              : undefined
+          }
         >
-          {saving ? (
-            <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-          ) : (
-            <Save className="mr-2 h-4 w-4" />
+          {dirty && (
+            <p role="status" className="min-w-0 flex-1 text-sm font-medium text-earth-800">
+              {t("unsavedChanges")}
+            </p>
           )}
-          {isNew ? t("create") : t("save")}
-        </Button>
+          <Button
+            onClick={handleSave}
+            disabled={saving}
+            className={dirty ? "shrink-0 hover:brightness-90 bg-brand" : "w-full hover:brightness-90 bg-brand"}
+            size="lg"
+          >
+            {saving ? (
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+            ) : (
+              <Save className="mr-2 h-4 w-4" />
+            )}
+            {isNew ? t("create") : t("save")}
+          </Button>
+        </div>
       </div>
+
+      {/* Leave with unsaved edits */}
+      <Dialog open={leaveGuard.pendingHref !== null} onOpenChange={(open) => !open && leaveGuard.stay()}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("leaveTitle")}</DialogTitle>
+            <DialogDescription className="text-sm text-earth-700">{t("leaveDesc")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button variant="outline" onClick={leaveGuard.leave}>
+              {t("leaveConfirm")}
+            </Button>
+            <Button onClick={leaveGuard.stay} className="hover:brightness-90 bg-brand">
+              {t("leaveStay")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* Slug Change Confirmation Dialog */}
       <Dialog open={showSlugWarning} onOpenChange={setShowSlugWarning}>

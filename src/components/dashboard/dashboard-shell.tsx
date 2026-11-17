@@ -133,6 +133,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
             className="-ml-2 size-11 text-earth-600 hover:text-earth-800"
             onClick={() => setMobileOpen(true)}
             aria-label={tc("menu")}
+            aria-expanded={mobileOpen}
+            aria-haspopup="dialog"
           >
             <Menu className="h-5 w-5" />
           </Button>
@@ -219,14 +221,15 @@ export function DashboardShell({ children }: DashboardShellProps) {
           </div>
         )}
 
+        {/* The pending page renders once, in the overlay below (D4). */}
         <main className="p-4 sm:p-6 lg:p-8">
-          {children}
+          {!isPending && children}
         </main>
       </div>
 
-      {/* Blur overlay for pending approval */}
+      {/* Pending approval: a plain dim over the shell, no blur (DESIGN.md) */}
       {isPending && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-white/60 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-earth-50/90">
           <div className="pointer-events-auto">
             {children}
           </div>

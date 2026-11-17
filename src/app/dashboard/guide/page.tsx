@@ -8,7 +8,7 @@ import {
   MapPin,
   CreditCard,
   CalendarDays,
-  ExternalLink,
+  ArrowRight,
   BookOpen,
   CheckCircle2,
 } from "lucide-react";
@@ -129,7 +129,7 @@ export default function GuidePage() {
                         className="gap-1.5 border-brand/25 text-brand"
                       >
                         {t(step.linkKey)}
-                        <ExternalLink className="h-3.5 w-3.5" />
+                        <ArrowRight className="h-3.5 w-3.5" />
                       </Button>
                     </Link>
                   </div>

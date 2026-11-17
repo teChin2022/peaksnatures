@@ -73,9 +73,9 @@ const TXN_TYPE_FILTERS = ["all", "topup", "commission", "refund", "adjustment"] 
 const INVOICE_STATUS_FILTERS = ["all", "pending", "paid", "overdue"] as const;
 
 const TXN_TYPE_CONFIG: Record<string, { icon: typeof ArrowUpCircle; color: string; bg: string }> = {
-  topup:      { icon: ArrowUpCircle,     color: "text-emerald-600", bg: "bg-emerald-50 border-emerald-200" },
-  commission: { icon: ArrowDownCircle,   color: "text-amber-600",   bg: "bg-amber-50 border-amber-200" },
-  refund:     { icon: RotateCcw,         color: "text-blue-600",    bg: "bg-blue-50 border-blue-200" },
+  topup:      { icon: ArrowUpCircle,     color: "text-brand", bg: "bg-brand-50 border-brand/20" },
+  commission: { icon: ArrowDownCircle,   color: "text-amber-800",   bg: "bg-amber-50 border-amber-200" },
+  refund:     { icon: RotateCcw,         color: "text-earth-700",    bg: "bg-earth-50 border-earth-200" },
   adjustment: { icon: SlidersHorizontal, color: "text-earth-700",    bg: "bg-earth-50 border-earth-200" },
 };
 
@@ -293,16 +293,19 @@ export default function WalletPage() {
       const res = await fetch("/api/host/wallet/topup", { method: "POST", body: form });
       const d = await res.json();
       if (d.success) {
-        toast.success(`Top-up successful! New balance: ฿${d.new_balance.toLocaleString()}`);
+        toast.success(t("topupSuccess", { balance: d.new_balance.toLocaleString() }));
         setTopupFile(null);
         setTopupAmount("");
         fetchBilling();
         fetchTransactions(1);
       } else {
-        toast.error(d.error || d.message || "Verification failed");
+        // Thai first; the server's own (English) reason stays as the detail.
+        toast.error(d.duplicate ? t("topupDuplicate") : t("topupFailed"), {
+          description: d.duplicate ? undefined : d.error || d.message,
+        });
       }
     } catch {
-      toast.error("Something went wrong");
+      toast.error(t("topupError"));
     } finally {
       setTopupLoading(false);
     }
@@ -375,17 +378,15 @@ export default function WalletPage() {
       >
           <div className="grid grid-cols-1 md:grid-cols-5 gap-4">
             {/* ── Balance + Income/Deductions Card ── */}
-            <Card className="md:col-span-2 overflow-hidden border-0 shadow-lg">
+            <Card className="md:col-span-2 overflow-hidden">
               <div className={`relative p-6 h-full ${
                 isNegative
-                  ? "bg-gradient-to-br from-red-50 via-white to-red-50/60"
-                  : "bg-gradient-to-br from-brand-50/80 via-white to-earth-50/60"
+                  ? "bg-red-50"
+                  : "bg-white"
               }`}>
-                <div className={`absolute -right-8 -top-8 h-32 w-32 rounded-full opacity-[0.07] ${isNegative ? "bg-red-500" : "bg-brand"}`} />
-                <div className={`absolute right-16 -bottom-6 h-20 w-20 rounded-full opacity-[0.05] ${isNegative ? "bg-red-500" : "bg-brand"}`} />
 
                 <div className="relative">
-                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-earth-400 mb-1">
+                  <p className="text-xs font-semibold uppercase tracking-[0.15em] text-earth-600 mb-1">
                     {t("balance")}
                   </p>
                   <motion.div
@@ -402,22 +403,22 @@ export default function WalletPage() {
                   </motion.div>
 
                   {billing.plan_type === "commission" && billing.effective_commission_pct != null && (
-                    <p className="text-xs text-earth-400 mt-2">
+                    <p className="text-xs text-earth-600 mt-2">
                       {`${locale === "th" ? "คอมมิชชั่น" : "Commission"}: ${t("channelGuest")} ${billing.effective_commission_pct}% · ${t("channelQuick")} ${billing.effective_quick_commission_pct}%`}
                     </p>
                   )}
 
                   <div className="grid grid-cols-2 gap-3 mt-6">
                     <div className="flex items-center gap-3">
-                      <div className="h-9 w-9 rounded-xl bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
-                        <TrendingUp className="h-4 w-4 text-emerald-600" />
+                      <div className="h-9 w-9 rounded-xl bg-brand-50 border border-brand/20 flex items-center justify-center shrink-0">
+                        <TrendingUp className="h-4 w-4 text-brand" />
                       </div>
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-earth-400">{t("income")}</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-earth-600">{t("income")}</p>
                         <p className="text-lg font-serif text-earth-900 leading-tight">
                           ฿{monthlyIncome.toLocaleString()}
                         </p>
-                        <p className="text-[10px] text-earth-400">{t("thisMonth")}</p>
+                        <p className="text-[10px] text-earth-600">{t("thisMonth")}</p>
                       </div>
                     </div>
                     <div className="flex items-center gap-3">
@@ -425,11 +426,11 @@ export default function WalletPage() {
                         <TrendingDown className="h-4 w-4 text-amber-600" />
                       </div>
                       <div>
-                        <p className="text-[11px] font-semibold uppercase tracking-wider text-earth-400">{t("deductions")}</p>
+                        <p className="text-[11px] font-semibold uppercase tracking-wider text-earth-600">{t("deductions")}</p>
                         <p className="text-lg font-serif text-earth-900 leading-tight">
                           ฿{monthlyDeductions.toLocaleString()}
                         </p>
-                        <p className="text-[10px] text-earth-400">{t("thisMonth")}</p>
+                        <p className="text-[10px] text-earth-600">{t("thisMonth")}</p>
                       </div>
                     </div>
                   </div>
@@ -441,12 +442,12 @@ export default function WalletPage() {
             <Card className="md:col-span-3 overflow-hidden border-0 shadow-md">
               <CardContent className="p-6">
                 <div className="flex items-center gap-2 mb-5">
-                  <div className="h-8 w-8 rounded-lg bg-emerald-50 border border-emerald-100 flex items-center justify-center shrink-0">
-                    <ArrowUpCircle className="h-4 w-4 text-emerald-600" />
+                  <div className="h-8 w-8 rounded-lg bg-brand-50 border border-brand/20 flex items-center justify-center shrink-0">
+                    <ArrowUpCircle className="h-4 w-4 text-brand" />
                   </div>
                   <div>
-                    <h3 className="text-sm font-semibold text-earth-900">{t("topUp")}</h3>
-                    <p className="text-[11px] text-earth-400">{t("topUpInlineDesc")}</p>
+                    <h2 className="text-sm font-semibold text-earth-900">{t("topUp")}</h2>
+                    <p className="text-[11px] text-earth-600">{t("topUpInlineDesc")}</p>
                   </div>
                 </div>
 
@@ -454,7 +455,7 @@ export default function WalletPage() {
                 {billing.platform_payment?.promptpay_id && (
                   <div className="mb-5">
                     <div className="flex flex-col items-center p-4 bg-earth-50 rounded-2xl border border-earth-100">
-                      <p className="text-[11px] font-medium uppercase tracking-wider text-earth-400 mb-3">
+                      <p className="text-[11px] font-medium uppercase tracking-wider text-earth-600 mb-3">
                         {t("scanToPay")}
                       </p>
                       <PromptPayQr
@@ -469,7 +470,7 @@ export default function WalletPage() {
                       {billing.platform_payment.bank_account_name && (
                         <p className="text-sm font-medium text-earth-700 mt-2">{billing.platform_payment.bank_account_name}</p>
                       )}
-                      <p className="text-xs text-earth-400">
+                      <p className="text-xs text-earth-600">
                         {locale === "th" ? "พร้อมเพย์" : "PromptPay"}: {billing.platform_payment.promptpay_id}
                       </p>
                     </div>
@@ -511,7 +512,7 @@ export default function WalletPage() {
 
                         {topupFile ? (
                           <div className="rounded-2xl border bg-earth-50 p-3">
-                            <p className="mb-2 text-center text-xs font-medium text-earth-500">{t("slipPreview")}</p>
+                            <p className="mb-2 text-center text-xs font-medium text-earth-600">{t("slipPreview")}</p>
                             {topupPreview && (
                               <img src={topupPreview} alt={t("slipPreview")} className="mx-auto max-h-52 rounded-xl object-contain" />
                             )}
@@ -535,7 +536,7 @@ export default function WalletPage() {
                               <div className="rounded-xl bg-earth-100 p-2.5"><ImageIcon className="h-5 w-5 text-earth-500" /></div>
                               <div>
                                 <p className="text-sm font-medium text-earth-700">{t("chooseFromGallery")}</p>
-                                <p className="text-xs text-earth-400">{t("clickUpload")}</p>
+                                <p className="text-xs text-earth-600">{t("clickUpload")}</p>
                               </div>
                             </button>
                             <input
@@ -549,15 +550,15 @@ export default function WalletPage() {
                               <>
                                 <div className="relative flex items-center gap-3 py-1">
                                   <div className="flex-1 border-t border-earth-200" />
-                                  <span className="text-xs font-medium text-earth-400">{t("orUploadFromPhone")}</span>
+                                  <span className="text-xs font-medium text-earth-600">{t("orUploadFromPhone")}</span>
                                   <div className="flex-1 border-t border-earth-200" />
                                 </div>
                                 <div className="rounded-2xl border bg-earth-50 p-4 text-center">
-                                  <p className="mb-3 text-xs text-earth-500">{t("scanToUploadSlip")}</p>
+                                  <p className="mb-3 text-xs text-earth-600">{t("scanToUploadSlip")}</p>
                                   <div className="mx-auto flex h-32 w-32 items-center justify-center rounded-xl border bg-white p-2">
                                     <QRCodeSVG value={topupUploadLink} size={100} level="M" />
                                   </div>
-                                  <div className="mt-3 flex items-center justify-center gap-2 text-xs text-earth-400">
+                                  <div className="mt-3 flex items-center justify-center gap-2 text-xs text-earth-600">
                                     <Loader2 className="h-3 w-3 animate-spin" />{t("waitingForPhoneUpload")}
                                   </div>
                                 </div>
@@ -604,7 +605,7 @@ export default function WalletPage() {
               className={`relative px-5 py-3 text-sm font-medium transition-colors ${
                 activeTab === tab
                   ? "text-brand"
-                  : "text-earth-400 hover:text-earth-800"
+                  : "text-earth-600 hover:text-earth-800"
               }`}
             >
               {t(tab)}
@@ -648,7 +649,7 @@ export default function WalletPage() {
                   className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
                     isActive
                       ? "bg-brand text-white shadow-sm"
-                      : "bg-earth-50 text-earth-500 hover:bg-earth-100 hover:text-earth-700"
+                      : "bg-earth-50 text-earth-600 hover:bg-earth-100 hover:text-earth-700"
                   }`}
                 >
                   {t(labelKey)}
@@ -676,9 +677,9 @@ export default function WalletPage() {
               ) : filteredTxns.length === 0 ? (
                 <div className="py-16 text-center">
                   <div className="mx-auto h-12 w-12 rounded-2xl bg-earth-50 flex items-center justify-center mb-3">
-                    <Banknote className="h-5 w-5 text-earth-300" />
+                    <Banknote className="h-5 w-5 text-earth-500" />
                   </div>
-                  <p className="text-sm text-earth-400">{t("noTransactions")}</p>
+                  <p className="text-sm text-earth-600">{t("noTransactions")}</p>
                 </div>
               ) : (
                 <div className="divide-y divide-earth-50">
@@ -705,11 +706,11 @@ export default function WalletPage() {
                             {getTxLabel(tx)}
                           </p>
                           {tx.booking && (
-                            <p className="text-xs text-earth-500 truncate mt-0.5">
+                            <p className="text-xs text-earth-600 truncate mt-0.5">
                               {getBookingDetail(tx.booking)}
                             </p>
                           )}
-                          <p className="text-[11px] text-earth-400 font-mono mt-0.5">
+                          <p className="text-[11px] text-earth-600 font-mono mt-0.5">
                             {fmtDateStr(tx.created_at, "d MMM yyyy, HH:mm", locale)}
                           </p>
                         </div>
@@ -717,18 +718,18 @@ export default function WalletPage() {
                         {/* Amount + balance */}
                         <div className="text-right shrink-0">
                           <p className={`text-sm font-semibold font-mono tabular-nums ${
-                            isPositive ? "text-emerald-600" : "text-red-500"
+                            isPositive ? "text-brand" : "text-red-700"
                           }`}>
                             {isPositive ? "+" : ""}฿{Math.abs(tx.amount).toLocaleString()}
                           </p>
-                          <p className="text-[10px] text-earth-400 font-mono mt-0.5">
+                          <p className="text-[10px] text-earth-600 font-mono mt-0.5">
                             {t("balanceAfter")} ฿{tx.balance_after.toLocaleString()}
                           </p>
                         </div>
 
                         {/* Spacer on plain rows keeps every amount in one column */}
                         {href
-                          ? <ChevronRight className="h-4 w-4 text-earth-300 shrink-0" />
+                          ? <ChevronRight className="h-4 w-4 text-earth-500 shrink-0" />
                           : <span className="w-4 shrink-0" aria-hidden />}
                       </>
                     );
@@ -755,7 +756,7 @@ export default function WalletPage() {
                   <Button
                     variant="ghost"
                     size="sm"
-                    className="text-xs text-earth-500 hover:text-brand"
+                    className="text-xs text-earth-600 hover:text-brand"
                     onClick={() => fetchTransactions(txnPage + 1, true)}
                     disabled={txnLoading}
                   >
@@ -796,7 +797,7 @@ export default function WalletPage() {
                   className={`px-3.5 py-1.5 rounded-full text-xs font-medium transition-all ${
                     isActive
                       ? "bg-brand text-white shadow-sm"
-                      : "bg-earth-50 text-earth-500 hover:bg-earth-100 hover:text-earth-700"
+                      : "bg-earth-50 text-earth-600 hover:bg-earth-100 hover:text-earth-700"
                   }`}
                 >
                   {t(f)}
@@ -816,9 +817,9 @@ export default function WalletPage() {
             <Card className="border-0 shadow-md">
               <CardContent className="py-16 text-center">
                 <div className="mx-auto h-12 w-12 rounded-2xl bg-earth-50 flex items-center justify-center mb-3">
-                  <Receipt className="h-5 w-5 text-earth-300" />
+                  <Receipt className="h-5 w-5 text-earth-500" />
                 </div>
-                <p className="text-sm text-earth-400">{t("noInvoices")}</p>
+                <p className="text-sm text-earth-600">{t("noInvoices")}</p>
               </CardContent>
             </Card>
           ) : (

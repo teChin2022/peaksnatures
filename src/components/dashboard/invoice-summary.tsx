@@ -31,7 +31,7 @@ export function invoiceStatus(
 
 const STATUS_CONFIG: Record<string, { color: string; bg: string; icon: typeof CheckCircle }> = {
   pending: { color: "text-amber-700",  bg: "bg-amber-50 border-amber-200",  icon: Clock },
-  paid:    { color: "text-emerald-700", bg: "bg-emerald-50 border-emerald-200", icon: CheckCircle },
+  paid:    { color: "text-brand", bg: "bg-brand-50 border-brand/20", icon: CheckCircle },
   overdue: { color: "text-red-700",    bg: "bg-red-50 border-red-200",    icon: AlertTriangle },
 };
 
@@ -77,14 +77,14 @@ export function InvoiceSummary({ invoice: inv, planType, onPay }: InvoiceSummary
       <div className="flex items-start justify-between gap-4">
         {/* Left: what it's for, amount, period */}
         <div className="min-w-0">
-          <p className="text-xs font-medium text-earth-500">
+          <p className="text-xs font-medium text-earth-600">
             {t("invoiceTitle")}
             {inv.term_months > 1 && ` · ${t("invoiceTerm", { months: inv.term_months })}`}
           </p>
           <p className="text-2xl font-serif text-earth-900 leading-tight mt-1">
             ฿{inv.amount.toLocaleString()}
           </p>
-          <p className="text-xs text-earth-400 mt-1">
+          <p className="text-xs text-earth-600 mt-1">
             {fmtDateStr(inv.period_start, startPattern, locale)} — {fmtDateStr(inv.period_end, "d MMM yyyy", locale)}
             {inv.discount_pct > 0 && ` · ${t("invoiceDiscount", { pct: inv.discount_pct })}`}
           </p>
@@ -96,7 +96,7 @@ export function InvoiceSummary({ invoice: inv, planType, onPay }: InvoiceSummary
 
       {/* Footer: how it was paid, or when it's due and what overdue costs */}
       <div className="mt-4 pt-3 border-t border-earth-50 flex items-center justify-between gap-4">
-        <div className="text-xs text-earth-400 space-y-0.5 min-w-0">
+        <div className="text-xs text-earth-600 space-y-0.5 min-w-0">
           {status === "paid" ? (
             <p>
               {[

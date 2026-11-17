@@ -154,7 +154,7 @@ export function DemandPanel({
             ))}
           </div>
         ) : !stats || !hasData ? (
-          <p className="py-10 text-center text-sm text-earth-300">{labels.empty}</p>
+          <p className="py-10 text-center text-sm text-earth-600">{labels.empty}</p>
         ) : (
           <div className="space-y-6">
             <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
@@ -207,7 +207,7 @@ export function DemandPanel({
               <p className="text-xs font-semibold text-earth-800">{labels.topDatesTitle}</p>
               <p className="mb-2 text-xs text-earth-600">{labels.topDatesHint}</p>
               {stats.topDates.length === 0 ? (
-                <p className="py-6 text-center text-sm text-earth-300">{labels.empty}</p>
+                <p className="py-6 text-center text-sm text-earth-600">{labels.empty}</p>
               ) : (
                 <div className="space-y-1.5">
                   {stats.topDates.map((d) => {
@@ -222,7 +222,7 @@ export function DemandPanel({
                         value={d.requested.toLocaleString()}
                         trailing={
                           d.unavailable > 0 ? (
-                            <span className="text-amber-600">
+                            <span className="text-amber-800">
                               {`${d.unavailable} ${labels.soldOutSuffix}`}
                             </span>
                           ) : null

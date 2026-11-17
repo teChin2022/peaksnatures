@@ -425,7 +425,7 @@ export function QuickBookingDialog({
               ) : agreedNum > 0 ? (
                 <p
                   id="qb-paid-hint"
-                  className={`text-xs font-medium ${balance > 0 ? "text-amber-600" : "text-brand"}`}
+                  className={`text-xs font-medium ${balance > 0 ? "text-amber-800" : "text-brand"}`}
                 >
                   {balance > 0
                     ? t("balanceDue", { amount: balance.toLocaleString() })

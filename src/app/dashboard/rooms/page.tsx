@@ -48,6 +48,8 @@ import { logClientEvent } from "@/lib/history-log-client";
 import { composeTierLabel } from "@/lib/guest-pricing";
 import { getPriceRange } from "@/lib/calculate-price";
 import { formatSpecialPriceRule } from "@/lib/special-price-label";
+import { parseRoomPrice } from "@/lib/room-form";
+import { useUnsavedChangesGuard } from "@/hooks/use-unsaved-changes-guard";
 
 interface RoomData {
   id: string;
@@ -190,6 +192,35 @@ export default function RoomsPage() {
   const [savingTier, setSavingTier] = useState(false);
   const [pendingTiers, setPendingTiers] = useState<Omit<RoomGuestPricing, "id" | "room_id" | "created_at" | "created_by" | "updated_at" | "updated_by">[]>([]);
 
+  const [priceError, setPriceError] = useState(false);
+  const priceInputRef = useRef<HTMLInputElement>(null);
+
+  // Unsaved edits in the house dialog. Seasons/options/tiers/specials of an existing
+  // house save on their own; image removal too, so images keep their own baseline.
+  const dialogSnapshot = JSON.stringify([
+    roomName, roomDesc, roomPrice, roomMaxGuests, roomQuantity,
+    pendingSeasons, pendingSpecials, pendingOptions, pendingTiers,
+    seasonForm, specialForm, optionForm, tierForm,
+  ]);
+  const [dialogBaseline, setDialogBaseline] = useState<string | null>(null);
+  const [savedImages, setSavedImages] = useState<string[]>([]);
+  // Baseline taken on the first render with the dialog open (React's "adjust state on change" pattern).
+  if (dialogOpen && dialogBaseline === null) {
+    setDialogBaseline(dialogSnapshot);
+    setSavedImages(roomImages);
+  }
+  if (!dialogOpen && dialogBaseline !== null) setDialogBaseline(null);
+  const dialogDirty =
+    dialogBaseline !== null &&
+    (dialogSnapshot !== dialogBaseline || JSON.stringify(roomImages) !== JSON.stringify(savedImages));
+  const [discardOpen, setDiscardOpen] = useState(false);
+  useUnsavedChangesGuard(dialogDirty); // reload/close; the modal already blocks in-app links
+
+  const requestCloseDialog = () => {
+    if (dialogDirty && !saving) setDiscardOpen(true);
+    else setDialogOpen(false);
+  };
+
   // Copy-to-other-rooms state (null section = dialog closed)
   const [copySection, setCopySection] = useState<CopySection | null>(null);
   const [copyTargets, setCopyTargets] = useState<Set<string>>(new Set());
@@ -299,6 +330,7 @@ export default function RoomsPage() {
     setRoomMaxGuests("2");
     setRoomQuantity("1");
     setRoomImages([]);
+    setPriceError(false);
     setEditingRoom(null);
     setPendingSeasons([]);
     setPendingSpecials([]);
@@ -323,6 +355,7 @@ export default function RoomsPage() {
     setRoomMaxGuests(room.max_guests.toString());
     setRoomQuantity(room.quantity.toString());
     setRoomImages(room.images || []);
+    setPriceError(false);
     setDialogOpen(true);
   };
 
@@ -410,6 +443,7 @@ export default function RoomsPage() {
         setRooms((prev) =>
           prev.map((r) => (r.id === editingRoom.id ? { ...r, images: next } : r))
         );
+        setSavedImages(next); // already written: not an unsaved edit
       } catch {
         toast.error(t("errorSave"));
         setRoomImages(prevImages); // revert on failure
@@ -423,6 +457,12 @@ export default function RoomsPage() {
       toast.error(t("errorName"));
       return;
     }
+    const price = parseRoomPrice(roomPrice);
+    if (price === null) {
+      setPriceError(true);
+      priceInputRef.current?.focus();
+      return;
+    }
 
     setSaving(true);
     try {
@@ -431,7 +471,7 @@ export default function RoomsPage() {
         homestay_id: homestayId,
         name: roomName.trim(),
         description: roomDesc.trim() || null,
-        price_per_night: parseInt(roomPrice) || 0,
+        price_per_night: price,
         max_guests: parseInt(roomMaxGuests) || 2,
         quantity: parseInt(roomQuantity) || 1,
         images: roomImages,
@@ -1230,7 +1270,7 @@ export default function RoomsPage() {
 
       {rooms.length === 0 ? (
         <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-earth-200 py-16 text-center">
-          <BedDouble className="h-10 w-10 text-earth-300" />
+          <BedDouble className="h-10 w-10 text-earth-500" />
           <p className="mt-3 text-sm font-medium text-earth-600">{t("noRooms")}</p>
           <Button
             variant="outline"
@@ -1257,7 +1297,7 @@ export default function RoomsPage() {
                     />
                   ) : (
                     <div className="flex h-full w-full items-center justify-center bg-earth-100">
-                      <ImageIcon className="h-8 w-8 text-earth-300" />
+                      <ImageIcon className="h-8 w-8 text-earth-500" />
                     </div>
                   )}
                 </div>
@@ -1265,7 +1305,7 @@ export default function RoomsPage() {
                   <div className="flex items-start justify-between">
                     <div>
                       <div className="flex items-center gap-2">
-                        <h3 className="font-semibold text-earth-900">{room.name}</h3>
+                        <h2 className="font-semibold text-earth-900">{room.name}</h2>
                         {!room.is_active && (
                           <span className="inline-flex items-center rounded-full bg-earth-100 px-2 py-0.5 text-xs font-medium text-earth-600">
                             {t("inactive")}
@@ -1282,6 +1322,7 @@ export default function RoomsPage() {
                       <Switch
                         checked={room.is_active}
                         onCheckedChange={(checked) => handleToggleActive(room.id, checked)}
+                        aria-label={`${t("active")}: ${room.name}`}
                       />
                       <Button
                         variant="ghost"
@@ -1310,7 +1351,7 @@ export default function RoomsPage() {
                       {room.max_guests}
                     </span>
                     <span>
-                      {room.quantity} {t("available")}
+                      {t("unitCount", { count: room.quantity })}
                     </span>
                     <span className="flex items-center gap-1">
                       <ImageIcon className="h-3.5 w-3.5" />
@@ -1325,9 +1366,9 @@ export default function RoomsPage() {
       )}
 
       {/* Create/Edit Dialog */}
-      <Dialog open={dialogOpen} onOpenChange={setDialogOpen}>
+      <Dialog open={dialogOpen} onOpenChange={(open) => (open ? setDialogOpen(true) : requestCloseDialog())}>
         <DialogContent
-          className="max-h-[90vh] overflow-y-auto sm:max-w-lg"
+          className="max-h-[90dvh] overflow-y-auto sm:max-w-lg"
           // Keep this dialog open when interacting with the nested confirm
           // dialog (delete image/season/option/tier). On touch devices the
           // confirm dialog's closing tap would otherwise be treated as an
@@ -1347,8 +1388,8 @@ export default function RoomsPage() {
 
           <div className="space-y-4">
             <div className="space-y-2">
-              <Label>{t("roomName")}</Label>
-              <Input
+              <Label htmlFor="rooms-roomName">{t("roomName")}</Label>
+              <Input id="rooms-roomName"
                 value={roomName}
                 onChange={(e) => setRoomName(e.target.value)}
                 placeholder={t("roomNamePlaceholder")}
@@ -1366,22 +1407,31 @@ export default function RoomsPage() {
 
             <div className="grid grid-cols-3 gap-3">
               <div className="space-y-2">
-                <Label>{t("price")}</Label>
+                <Label htmlFor="room-price">{t("price")}</Label>
                 <div className="relative">
                   <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-earth-600">
                     ฿
                   </span>
                   <Input
+                    id="room-price"
+                    ref={priceInputRef}
                     type="number"
+                    inputMode="numeric"
+                    min="1"
                     className="pl-7"
                     value={roomPrice}
-                    onChange={(e) => setRoomPrice(e.target.value)}
+                    aria-invalid={priceError || undefined}
+                    aria-describedby={priceError ? "room-price-error" : undefined}
+                    onChange={(e) => {
+                      setRoomPrice(e.target.value);
+                      setPriceError(false);
+                    }}
                   />
                 </div>
               </div>
               <div className="space-y-2">
-                <Label>{t("maxGuests")}</Label>
-                <Input
+                <Label htmlFor="rooms-maxGuests">{t("maxGuests")}</Label>
+                <Input id="rooms-maxGuests"
                   type="number"
                   min="1"
                   value={roomMaxGuests}
@@ -1389,14 +1439,19 @@ export default function RoomsPage() {
                 />
               </div>
               <div className="space-y-2">
-                <Label>{t("quantity")}</Label>
-                <Input
+                <Label htmlFor="rooms-quantity">{t("quantity")}</Label>
+                <Input id="rooms-quantity"
                   type="number"
                   min="1"
                   value={roomQuantity}
                   onChange={(e) => setRoomQuantity(e.target.value)}
                 />
               </div>
+              {priceError && (
+                <p id="room-price-error" className="col-span-3 -mt-1 text-sm text-destructive">
+                  {t("errorPrice")}
+                </p>
+              )}
             </div>
 
             {/* Guest Pricing (composition tiers) Section */}
@@ -1502,8 +1557,8 @@ export default function RoomsPage() {
                 </p>
                 <div className="grid grid-cols-2 gap-2">
                   <div>
-                    <Label className="text-xs">{t("tierAdults")}</Label>
-                    <Input
+                    <Label htmlFor="rooms-tierAdults" className="text-xs">{t("tierAdults")}</Label>
+                    <Input id="rooms-tierAdults"
                       type="number"
                       min="1"
                       className="text-sm"
@@ -1512,8 +1567,8 @@ export default function RoomsPage() {
                     />
                   </div>
                   <div>
-                    <Label className="text-xs">{t("tierChildren")}</Label>
-                    <Input
+                    <Label htmlFor="rooms-tierChildren" className="text-xs">{t("tierChildren")}</Label>
+                    <Input id="rooms-tierChildren"
                       type="number"
                       min="0"
                       className="text-sm"
@@ -1523,8 +1578,8 @@ export default function RoomsPage() {
                   </div>
                 </div>
                 <div>
-                  <Label className="text-xs">{t("tierDetail")}</Label>
-                  <Input
+                  <Label htmlFor="rooms-tierDetail" className="text-xs">{t("tierDetail")}</Label>
+                  <Input id="rooms-tierDetail"
                     placeholder={t("tierDetailPlaceholder")}
                     className="text-sm"
                     value={tierForm.detail}
@@ -1532,8 +1587,9 @@ export default function RoomsPage() {
                   />
                 </div>
                 <div className="flex items-center justify-between rounded-md border bg-earth-50 px-3 py-2">
-                  <Label className="text-xs font-medium text-earth-800">{t("useDefaultPrice")}</Label>
+                  <Label htmlFor="rooms-useDefaultPrice" className="text-xs font-medium text-earth-800">{t("useDefaultPrice")}</Label>
                   <Switch
+                    id="rooms-useDefaultPrice"
                     checked={tierForm.useDefaultPrice}
                     onCheckedChange={(checked) => setTierForm((f) => ({ ...f, useDefaultPrice: checked }))}
                     className="data-[state=checked]:bg-brand"
@@ -1541,10 +1597,10 @@ export default function RoomsPage() {
                 </div>
                 {!tierForm.useDefaultPrice && (
                   <div>
-                    <Label className="text-xs">{t("tierSurcharge")}</Label>
+                    <Label htmlFor="rooms-tierSurcharge" className="text-xs">{t("tierSurcharge")}</Label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-earth-600">฿</span>
-                      <Input
+                      <Input id="rooms-tierSurcharge"
                         type="number"
                         min="0"
                         className="pl-7 text-sm"
@@ -1674,10 +1730,10 @@ export default function RoomsPage() {
                   className="text-sm"
                 />
                 <div>
-                  <Label className="text-xs">{t("optionPrice")}</Label>
+                  <Label htmlFor="rooms-optionPrice" className="text-xs">{t("optionPrice")}</Label>
                   <div className="relative">
                     <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-earth-600">฿</span>
-                    <Input
+                    <Input id="rooms-optionPrice"
                       type="number"
                       className="pl-7 text-sm"
                       value={optionForm.price}
@@ -1892,10 +1948,10 @@ export default function RoomsPage() {
                     </div>
                   </div>
                   <div>
-                    <Label className="text-xs">{t("seasonPrice")}</Label>
+                    <Label htmlFor="rooms-seasonPrice" className="text-xs">{t("seasonPrice")}</Label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-earth-600">฿</span>
-                      <Input
+                      <Input id="rooms-seasonPrice"
                         type="number"
                         className="pl-7 text-sm"
                         value={seasonForm.price_per_night}
@@ -2014,8 +2070,8 @@ export default function RoomsPage() {
                 {/* Special price add/edit form */}
                 <div className="space-y-3 rounded-md border bg-white p-3">
                   <div>
-                    <Label className="text-xs">{t("specialName")}</Label>
-                    <Input
+                    <Label htmlFor="rooms-specialName" className="text-xs">{t("specialName")}</Label>
+                    <Input id="rooms-specialName"
                       placeholder={t("specialNamePlaceholder")}
                       value={specialForm.name}
                       onChange={(e) => setSpecialForm((f) => ({ ...f, name: e.target.value }))}
@@ -2209,10 +2265,10 @@ export default function RoomsPage() {
                   )}
 
                   <div>
-                    <Label className="text-xs">{t("specialSurcharge")}</Label>
+                    <Label htmlFor="rooms-specialSurcharge" className="text-xs">{t("specialSurcharge")}</Label>
                     <div className="relative">
                       <span className="absolute left-3 top-1/2 -translate-y-1/2 text-sm text-earth-600">+฿</span>
-                      <Input
+                      <Input id="rooms-specialSurcharge"
                         type="number"
                         className="pl-9 text-sm"
                         value={specialForm.surcharge}
@@ -2252,21 +2308,21 @@ export default function RoomsPage() {
             {/* Image upload */}
             <div className="space-y-2">
               <Label>{t("roomImages")}</Label>
-              <div
-                className="flex cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-earth-200 p-6 transition-colors"
+              <button
+                type="button"
+                disabled={uploading}
+                className="flex w-full cursor-pointer flex-col items-center justify-center rounded-lg border-2 border-dashed border-earth-200 p-6 transition-colors hover:border-brand/40 hover:bg-brand/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 disabled:cursor-wait"
                 onClick={() => fileInputRef.current?.click()}
-                onMouseEnter={(e) => { e.currentTarget.style.borderColor = '#2F5D5066'; e.currentTarget.style.backgroundColor = '#2F5D500d'; }}
-                onMouseLeave={(e) => { e.currentTarget.style.borderColor = ''; e.currentTarget.style.backgroundColor = ''; }}
               >
                 {uploading ? (
                   <Loader2 className="h-6 w-6 animate-spin text-earth-600" />
                 ) : (
                   <>
                     <Upload className="h-6 w-6 text-earth-600" />
-                    <p className="mt-2 text-sm text-earth-600">{t("clickUpload")}</p>
+                    <span className="mt-2 block text-sm text-earth-700">{t("clickUpload")}</span>
                   </>
                 )}
-              </div>
+              </button>
               <input
                 ref={fileInputRef}
                 type="file"
@@ -2302,19 +2358,46 @@ export default function RoomsPage() {
               )}
             </div>
 
-            <Button
-              onClick={handleSaveRoom}
-              disabled={saving}
-              className="w-full hover:brightness-90 bg-brand"
-            >
-              {saving ? (
-                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-              ) : (
-                <Save className="mr-2 h-4 w-4" />
-              )}
-              {editingRoom ? t("saveRoom") : t("createRoom")}
-            </Button>
+            {/* Save stays in reach at the bottom of the scrolling dialog */}
+            <div className="sticky -bottom-6 z-10 -mx-6 -mb-6 border-t border-earth-200 bg-white px-6 pt-3 pb-4">
+              <Button
+                onClick={handleSaveRoom}
+                disabled={saving}
+                className="w-full hover:brightness-90 bg-brand"
+              >
+                {saving ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <Save className="mr-2 h-4 w-4" />
+                )}
+                {editingRoom ? t("saveRoom") : t("createRoom")}
+              </Button>
+            </div>
           </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Close the house dialog with unsaved edits */}
+      <Dialog open={discardOpen} onOpenChange={setDiscardOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("discardTitle")}</DialogTitle>
+            <DialogDescription className="text-sm text-earth-700">{t("discardDesc")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button
+              variant="outline"
+              onClick={() => {
+                setDiscardOpen(false);
+                setDialogOpen(false);
+              }}
+            >
+              {t("discardConfirm")}
+            </Button>
+            <Button onClick={() => setDiscardOpen(false)} className="hover:brightness-90 bg-brand">
+              {t("discardKeep")}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

@@ -210,7 +210,7 @@ export default function CheckinsPage() {
       ) : bookings.length === 0 ? (
         <Card>
           <CardContent className="flex flex-col items-center justify-center py-16 text-center">
-            <ClipboardCheck className="h-12 w-12 text-earth-300 mb-3" />
+            <ClipboardCheck className="h-12 w-12 text-earth-500 mb-3" />
             <p className="text-earth-600">{t("noCheckins")}</p>
           </CardContent>
         </Card>
@@ -241,7 +241,7 @@ export default function CheckinsPage() {
                         {booking.attachment_count > 0 && (
                           <Link
                             href={`/dashboard/bookings?booking=${booking.id}`}
-                            className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-700 transition-colors pointer-fine:hover:bg-slate-200"
+                            className="mt-1.5 inline-flex items-center gap-1 rounded-full bg-earth-100 px-2 py-0.5 text-xs font-medium text-earth-800 transition-colors pointer-fine:hover:bg-earth-200"
                           >
                             <Paperclip className="h-3 w-3" />
                             {t("attachments")} ({booking.attachment_count})

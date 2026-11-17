@@ -291,4 +291,6 @@ From this session (2026-11-11):
 7. **Platform home order.** Put homestays before the "why" manifesto and the
    host pitch (proposed in the audit).
 8. **Host dashboard home.** Today's work first, analytics second (proposed in
-   the audit).
+   the audit). **Settled 2026-11-17 (owner):** a "งานวันนี้" row (needs action,
+   check-ins today, check-outs today) above the tabs; recent bookings before the
+   charts.

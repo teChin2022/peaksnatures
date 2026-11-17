@@ -152,7 +152,7 @@ export function PlanActivationDialog({
         <span className="font-semibold text-earth-900">฿{quote.amount.toLocaleString()}</span>
       </div>
       {monthlyRate > 0 && (
-        <p className="text-xs text-earth-500">
+        <p className="text-xs text-earth-600">
           {t("afterwards", { date: fmtDateStr(nextBilled, "d MMM yyyy", locale), amount: monthlyRate.toLocaleString() })}
         </p>
       )}

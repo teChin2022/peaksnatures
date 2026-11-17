@@ -143,7 +143,7 @@ homestay cards render with JavaScript disabled).
 
 | Item | Fixes | Notes |
 |---|---|---|
-| Today's work first | D2 | Check-ins, slips to verify and new bookings above the charts. **Owner decides** (direction §10.8). |
+| Today's work first | D2 | Check-ins, slips to verify and new bookings above the charts. **Owner decided 2026-11-17** (direction §10.8); **done 2026-11-17** (uncommitted). |
 | One visual language | D3, S7 | `earth-*` instead of `gray-*`; remove `bg-[#f8f9fa]`. Page by page, starting with the shell, then bookings and check-ins. **Done 2026-11-14:** all 483 `gray-*` in the dashboard mapped to `earth-*` (text darker: 400/500→600, 600→700, 700→800); `bg-[#f8f9fa]` → `earth-50`. |
 | Shared status tones | S12 | Admin's `StatusBadge` (add "verified") replaces the rainbow `statusConfig`. **Done 2026-11-14:** `statusToneClass()` from `status-badge.tsx` (with `verified`) on bookings, calendar and promo codes. |
 | Pending-approval render | D4 | Render `children` once. This is a bug fix, so it needs a failing test first (CLAUDE.md §3). |

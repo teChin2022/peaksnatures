@@ -267,7 +267,7 @@ export function BookingAttachments({ bookingId, onCountChange }: BookingAttachme
 
       {loading ? (
         <div className="flex items-center justify-center rounded-lg border border-dashed border-earth-200 p-4">
-          <Loader2 className="h-4 w-4 animate-spin text-earth-300" />
+          <Loader2 className="h-4 w-4 animate-spin text-earth-500" />
         </div>
       ) : attachments.length === 0 ? (
         <div className="flex items-center gap-2 rounded-lg border border-dashed border-earth-200 p-4 text-sm text-earth-600">
@@ -303,7 +303,7 @@ export function BookingAttachments({ bookingId, onCountChange }: BookingAttachme
                 </a>
               ) : (
                 <div className="flex h-full w-full items-center justify-center">
-                  <ImagePlus className="h-5 w-5 text-earth-300" />
+                  <ImagePlus className="h-5 w-5 text-earth-500" />
                 </div>
               )}
               {/* Always visible on touch, hover-revealed on a fine pointer. A

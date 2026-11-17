@@ -624,7 +624,7 @@ export default function CalendarPage() {
   if (!homestayId) {
     return (
       <div className="flex flex-col items-center justify-center rounded-xl border-2 border-dashed border-earth-200 py-16 text-center">
-        <CalendarDays className="h-10 w-10 text-earth-300" />
+        <CalendarDays className="h-10 w-10 text-earth-500" />
         <p className="mt-3 text-sm font-medium text-earth-600">{t("noHomestay")}</p>
       </div>
     );
@@ -658,7 +658,7 @@ export default function CalendarPage() {
 
       {/* Monthly revenue + bookings per room */}
       <div className="mb-3 grid gap-3 sm:grid-cols-2">
-        <Card className="overflow-hidden border-brand/15 bg-gradient-to-br from-brand/10 to-brand/5">
+        <Card className="overflow-hidden border-brand/15 bg-brand-50">
           <CardContent className="flex items-center gap-4 p-4 sm:p-5">
             <div
               className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-brand/10 text-brand"
@@ -701,7 +701,7 @@ export default function CalendarPage() {
                 ))}
               </ul>
             ) : (
-              <p className="py-6 text-center text-sm text-earth-300">{tDash("noChartData")}</p>
+              <p className="py-6 text-center text-sm text-earth-600">{tDash("noChartData")}</p>
             )}
           </CardContent>
         </Card>
@@ -721,19 +721,19 @@ export default function CalendarPage() {
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-earth-600">{t("booked")}</p>
-            <p className="text-2xl font-bold text-blue-600">{monthStats.booked}</p>
+            <p className="text-2xl font-bold text-brand">{monthStats.booked}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-earth-600">{t("blocked")}</p>
-            <p className="text-2xl font-bold text-red-500">{monthStats.blocked}</p>
+            <p className="text-2xl font-bold text-red-700">{monthStats.blocked}</p>
           </CardContent>
         </Card>
         <Card>
           <CardContent className="p-4">
             <p className="text-xs text-earth-600">{t("pending")}</p>
-            <p className="text-2xl font-bold text-yellow-600">
+            <p className="text-2xl font-bold text-amber-700">
               {bookings.filter((b) => b.status === "pending").length}
             </p>
           </CardContent>
@@ -884,14 +884,14 @@ export default function CalendarPage() {
 
               if (!dayInfo.isCurrentMonth) {
                 bgClass = "bg-earth-50/50";
-                textClass = "text-earth-300";
+                textClass = "text-earth-600";
               } else if (dayInfo.isBlocked) {
                 bgClass = "bg-red-50 hover:bg-red-100";
                 textClass = "text-red-700";
               }
 
               if (isSelected) {
-                bgClass += " ring-2 ring-offset-1";
+                bgClass += " ring-2 ring-brand ring-offset-1";
               }
 
               // Range bar style helper
@@ -918,30 +918,28 @@ export default function CalendarPage() {
                   onContextMenu={(e) => { if (dayInfo.isBlocked || dayInfo.bookings.length > 0) e.preventDefault(); }}
                   disabled={!dayInfo.isCurrentMonth}
                   title={blockedTitle}
+                  aria-pressed={dayInfo.isCurrentMonth ? isSelected : undefined}
+                  aria-label={[
+                    fmtDate(dayInfo.date, "d MMMM yyyy", locale),
+                    hasBookings ? t("dayBookings", { count: dayInfo.bookings.length }) : null,
+                    dayInfo.isBlocked ? blockedTitle : null,
+                  ].filter(Boolean).join(", ")}
                   className={`
                     relative flex h-14 sm:h-24 w-full flex-col items-start rounded-lg border p-1 sm:p-1.5 text-left transition-all overflow-hidden
                     ${bgClass} ${textClass}
                     ${dayInfo.isCurrentMonth ? "cursor-pointer" : "cursor-default opacity-40"}
                     ${dayInfo.isPast && !dayInfo.isBlocked ? "opacity-60" : ""}
                     ${dayInfo.isBlocked && dayInfo.isCurrentMonth ? "border-red-200" : ""}
-                    ${hasConfirmed && dayInfo.isCurrentMonth && !dayInfo.isBlocked ? "border-2" : ""}
-                    ${hasPending && !hasConfirmed && dayInfo.isCurrentMonth && !dayInfo.isBlocked ? "border-yellow-300 border-2" : ""}
+                    ${hasConfirmed && dayInfo.isCurrentMonth && !dayInfo.isBlocked ? "border-2 border-brand" : ""}
+                    ${hasPending && !hasConfirmed && dayInfo.isCurrentMonth && !dayInfo.isBlocked ? "border-amber-300 border-2" : ""}
                   `}
-                  style={{
-                    borderColor: isSelected
-                      ? "#2F5D50"
-                      : hasConfirmed && dayInfo.isCurrentMonth && !dayInfo.isBlocked
-                      ? "#2F5D50"
-                      : undefined,
-                  }}
                 >
                   <span
                     className={`text-xs font-medium sm:text-sm ${
                       dayInfo.isToday
-                        ? "flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full text-white"
+                        ? "flex h-5 w-5 sm:h-6 sm:w-6 items-center justify-center rounded-full bg-brand text-white"
                         : ""
                     }`}
-                    style={dayInfo.isToday ? { backgroundColor: "#2F5D50" } : undefined}
                   >
                     {format(dayInfo.date, "d")}
                   </span>
@@ -951,32 +949,27 @@ export default function CalendarPage() {
                     <div className="mt-auto flex w-full flex-col gap-0.5">
                       {dayInfo.bookings.slice(0, 2).map((bi) => {
                         const isPending = bi.booking.status === "pending";
-                        const barColor = isPending ? "#eab308" : "#2F5D50";
-                        const barBg = isPending ? "rgba(234,179,8,0.15)" : "#2F5D5018";
+                        // Phones: a plain bar (its rounded ends mark arrival and departure); the
+                        // day's aria-label and detail dialog carry the words. sm+: guest name.
                         return (
                           <div
                             key={bi.booking.id + bi.position}
-                            className={`flex items-center h-3.5 sm:h-4 px-1 text-[8px] sm:text-[10px] font-medium leading-none truncate ${getRangeBarClass(bi.position)}`}
-                            style={{ backgroundColor: barBg, color: barColor }}
+                            className={`flex items-center h-1.5 sm:h-5 sm:px-1 sm:text-xs font-medium leading-none truncate ${
+                              isPending ? "bg-amber-300 sm:bg-amber-100 text-amber-900" : "bg-brand/70 sm:bg-brand/10 text-brand"
+                            } ${getRangeBarClass(bi.position)}`}
                             title={`${bi.booking.guest_name} (${bi.booking.check_in} → ${bi.booking.check_out})`}
                           >
                             {(bi.position === "start" || bi.position === "single") && (
-                              <span className="truncate">
-                                <span className="hidden sm:inline">{bi.booking.guest_name}</span>
-                                <span className="sm:hidden">IN</span>
-                              </span>
+                              <span className="hidden truncate sm:inline">{bi.booking.guest_name}</span>
                             )}
                             {bi.position === "end" && (
-                              <span className="truncate">
-                                <span className="hidden sm:inline">{t("checkOut")}</span>
-                                <span className="sm:hidden">OUT</span>
-                              </span>
+                              <span className="hidden truncate sm:inline">{t("checkOut")}</span>
                             )}
                           </div>
                         );
                       })}
                       {dayInfo.bookings.length > 2 && (
-                        <p className="text-[8px] text-earth-600 pl-0.5">+{dayInfo.bookings.length - 2}</p>
+                        <p className="text-xs leading-none text-earth-700 pl-0.5">+{dayInfo.bookings.length - 2}</p>
                       )}
                     </div>
                   )}
@@ -985,10 +978,13 @@ export default function CalendarPage() {
                   {dayInfo.isCurrentMonth && dayInfo.isBlocked && !hasBookings && (
                     <div className="mt-auto w-full">
                       {(dayInfo.blockedRoomName || dayInfo.blockedReason) ? (
-                        <div className="text-[8px] sm:text-[10px] leading-tight text-red-500" title={[dayInfo.blockedRoomName, dayInfo.blockedReason].filter(Boolean).join(" — ")}>
-                          {dayInfo.blockedRoomName && <span className="block truncate font-medium">{dayInfo.blockedRoomName}</span>}
-                          {dayInfo.blockedReason && <span className="block truncate opacity-70">{dayInfo.blockedReason}</span>}
-                        </div>
+                        <>
+                          <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400 sm:hidden" />
+                          <div className="hidden text-xs leading-tight text-red-700 sm:block" title={[dayInfo.blockedRoomName, dayInfo.blockedReason].filter(Boolean).join(" — ")}>
+                            {dayInfo.blockedRoomName && <span className="block truncate font-medium">{dayInfo.blockedRoomName}</span>}
+                            {dayInfo.blockedReason && <span className="block truncate">{dayInfo.blockedReason}</span>}
+                          </div>
+                        </>
                       ) : (
                         <span className="inline-block h-1.5 w-1.5 rounded-full bg-red-400" title={t("blocked")} />
                       )}
@@ -1010,7 +1006,7 @@ export default function CalendarPage() {
               {t("legendBooked")}
             </div>
             <div className="flex items-center gap-1.5">
-              <span className="inline-block h-3 w-3 rounded-full bg-yellow-400" />
+              <span className="inline-block h-3 w-3 rounded-full bg-amber-300" />
               {t("legendPending")}
             </div>
             <div className="flex items-center gap-1.5">
@@ -1037,9 +1033,9 @@ export default function CalendarPage() {
                 <Button size="sm" variant="ghost" onClick={clearSelection}>
                   {t("clearSelection")}
                 </Button>
-                <Button size="sm" variant="destructive" onClick={() => setActionModalOpen(true)}>
+                <Button size="sm" variant={selectionType === "blocked" ? "outline" : "destructive"} onClick={() => setActionModalOpen(true)}>
                   <Ban className="mr-1.5 h-3.5 w-3.5" />
-                  {t("blockDate")}
+                  {selectionType === "blocked" ? t("unblockDate") : t("blockDate")}
                 </Button>
               </div>
             </div>
@@ -1132,8 +1128,8 @@ export default function CalendarPage() {
                                 bi.position === "start"
                                   ? "border-brand/30 text-brand bg-brand-50"
                                   : bi.position === "end"
-                                  ? "border-orange-300 text-orange-700 bg-orange-50"
-                                  : "border-blue-300 text-blue-700 bg-blue-50"
+                                  ? "border-amber-300 text-amber-800 bg-amber-50"
+                                  : "border-earth-200 text-earth-800 bg-earth-50"
                               }`}
                             >
                               {bi.position === "start" ? t("checkIn") : bi.position === "end" ? t("checkOut") : t("staying")}
@@ -1151,8 +1147,8 @@ export default function CalendarPage() {
                             <p className="text-brand font-medium mb-0.5">{t("checkIn")}</p>
                             <p className="text-earth-900 font-semibold">{fmtDateStr(bi.booking.check_in, "d MMM yyyy", locale)}</p>
                           </div>
-                          <div className="rounded-md bg-orange-50 px-2.5 py-1.5">
-                            <p className="text-orange-600 font-medium mb-0.5">{t("checkOut")}</p>
+                          <div className="rounded-md bg-amber-50 px-2.5 py-1.5">
+                            <p className="text-amber-800 font-medium mb-0.5">{t("checkOut")}</p>
                             <p className="text-earth-900 font-semibold">{fmtDateStr(bi.booking.check_out, "d MMM yyyy", locale)}</p>
                           </div>
                         </div>
@@ -1165,7 +1161,7 @@ export default function CalendarPage() {
                               ฿{bi.booking.total_price.toLocaleString()}
                             </span>
                             {bi.booking.payment_type === "deposit" && bi.booking.amount_paid < bi.booking.total_price && (
-                              <span className="ml-1.5 text-[10px] font-medium text-amber-600">
+                              <span className="ml-1.5 text-[10px] font-medium text-amber-800">
                                 (มัดจำ ฿{bi.booking.amount_paid.toLocaleString()})
                               </span>
                             )}
@@ -1271,7 +1267,7 @@ export default function CalendarPage() {
                             <div className="rounded-lg border bg-earth-50 p-2">
                               <Image
                                 src={fb.payment_slip_url}
-                                alt="Payment slip"
+                                alt={tDash("paymentSlip")}
                                 width={400}
                                 height={320}
                                 className="mx-auto max-h-72 rounded-lg object-contain"
@@ -1353,8 +1349,8 @@ export default function CalendarPage() {
                                   </span>
                                 </div>
                                 <div className="flex justify-between text-sm">
-                                  <span className="text-emerald-700">{tDash("promoDiscount")}</span>
-                                  <span className="font-medium text-emerald-700">
+                                  <span className="text-brand">{tDash("promoDiscount")}</span>
+                                  <span className="font-medium text-brand">
                                     −฿{(fb.discount_amount ?? 0).toLocaleString()}
                                   </span>
                                 </div>
@@ -1370,10 +1366,10 @@ export default function CalendarPage() {
                             </div>
                             {balance > 0 && (
                               <div className="flex justify-between">
-                                <span className="text-amber-600">
+                                <span className="text-amber-800">
                                   {tDash("balanceDue", { amount: "" }).replace(/[:\s฿]+$/, "")}
                                 </span>
-                                <span className="font-medium text-amber-600">฿{balance.toLocaleString()}</span>
+                                <span className="font-medium text-amber-800">฿{balance.toLocaleString()}</span>
                               </div>
                             )}
                           </div>
@@ -1389,6 +1385,19 @@ export default function CalendarPage() {
 
           {detailView === "list" && (
             <DialogFooter>
+              {/* The visible, keyboard-reachable way to unblock (long-press stays as a shortcut). */}
+              {detailDay?.isBlocked && (
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    setSelectedDates(new Set([detailDay.dateStr]));
+                    setDetailDay(null);
+                    setActionModalOpen(true);
+                  }}
+                >
+                  {t("unblockDate")}
+                </Button>
+              )}
               <Button variant="outline" onClick={() => setDetailDay(null)}>
                 {t("closeAction")}
               </Button>

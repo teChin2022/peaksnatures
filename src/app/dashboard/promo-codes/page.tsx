@@ -184,6 +184,8 @@ export default function PromoCodesPage() {
   const [homestayId, setHomestayId] = useState<string | null>(null);
   const [homestaySlug, setHomestaySlug] = useState<string | null>(null);
   const [enabled, setEnabled] = useState(false);
+  // Turning every code off is one tap from a thumb: ask first. Turning on needs no guard.
+  const [confirmOffOpen, setConfirmOffOpen] = useState(false);
   const [savingFlag, setSavingFlag] = useState(false);
   const [codes, setCodes] = useState<PromoCode[]>([]);
   const [redemptions, setRedemptions] = useState<RedemptionRow[]>([]);
@@ -860,7 +862,7 @@ export default function PromoCodesPage() {
   }
 
   if (!homestayId) {
-    return <div className="p-6 text-sm text-earth-500">{t("noHomestay")}</div>;
+    return <div className="p-6 text-sm text-earth-600">{t("noHomestay")}</div>;
   }
 
   return (
@@ -873,25 +875,25 @@ export default function PromoCodesPage() {
           </div>
           <div>
             <h1 className="text-2xl font-bold text-earth-900">{t("title")}</h1>
-            <p className="mt-0.5 text-sm text-earth-500">{t("subtitle")}</p>
+            <p className="mt-0.5 text-sm text-earth-600">{t("subtitle")}</p>
           </div>
         </div>
         <div className="flex items-center gap-2">
           <button
             type="button"
-            onClick={() => toggleEnabled(!enabled)}
+            onClick={() => (enabled ? setConfirmOffOpen(true) : toggleEnabled(true))}
             disabled={savingFlag}
             aria-pressed={enabled}
             className={`group inline-flex cursor-pointer items-center gap-2 rounded-full border px-3 py-1.5 text-sm font-medium transition-colors duration-200 disabled:cursor-not-allowed disabled:opacity-60 ${
               enabled
-                ? "border-emerald-200 bg-emerald-50 text-emerald-700 hover:bg-emerald-100"
+                ? "border-brand/20 bg-brand-50 text-brand hover:bg-brand-50"
                 : "border-earth-200 bg-earth-50 text-earth-600 hover:bg-earth-100"
             }`}
           >
             {savingFlag ? (
               <Loader2 className="h-3.5 w-3.5 animate-spin" />
             ) : (
-              <span className={`h-2 w-2 rounded-full ${enabled ? "bg-emerald-500" : "bg-earth-400"}`} />
+              <span className={`h-2 w-2 rounded-full ${enabled ? "bg-brand" : "bg-earth-400"}`} />
             )}
             {enabled ? t("masterStatusOn") : t("masterStatusOff")}
           </button>
@@ -901,6 +903,29 @@ export default function PromoCodesPage() {
           </Button>
         </div>
       </div>
+
+      <Dialog open={confirmOffOpen} onOpenChange={setConfirmOffOpen}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>{t("confirmOffTitle")}</DialogTitle>
+            <DialogDescription className="text-sm text-earth-700">{t("confirmOffDesc")}</DialogDescription>
+          </DialogHeader>
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => setConfirmOffOpen(false)}>
+              {t("confirmOffCancel")}
+            </Button>
+            <Button
+              variant="destructive"
+              onClick={() => {
+                setConfirmOffOpen(false);
+                void toggleEnabled(false);
+              }}
+            >
+              {t("confirmOffAction")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* KPI strip */}
       <div className={`grid grid-cols-2 gap-3 md:grid-cols-4 ${enabled ? "" : "opacity-70"}`}>
@@ -940,7 +965,7 @@ export default function PromoCodesPage() {
           <CardTitle className="text-sm font-semibold text-earth-900">
             {t("chartCommissionTitle")}
           </CardTitle>
-          <p className="text-xs text-earth-400">{t("chartCommissionDesc")}</p>
+          <p className="text-xs text-earth-600">{t("chartCommissionDesc")}</p>
         </CardHeader>
         <CardContent className="px-2 pb-4">
           {recommenderTrendData.aliases.length > 0 ? (
@@ -1009,7 +1034,7 @@ export default function PromoCodesPage() {
               </LineChart>
             </ChartContainer>
           ) : (
-            <p className="py-16 text-center text-sm text-earth-400">{t("chartEmpty")}</p>
+            <p className="py-16 text-center text-sm text-earth-600">{t("chartEmpty")}</p>
           )}
         </CardContent>
       </Card>
@@ -1024,11 +1049,11 @@ export default function PromoCodesPage() {
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <TabsList>
               <TabsTrigger value="codes">
-                {t("tabCodes")} <span className="ml-1 text-earth-500">({codes.length})</span>
+                {t("tabCodes")} <span className="ml-1 text-earth-600">({codes.length})</span>
               </TabsTrigger>
               <TabsTrigger value="redemptions">
                 <span>
-                  {t("tabRedemptions")} <span className="text-earth-500">({redemptions.length})</span>
+                  {t("tabRedemptions")} <span className="text-earth-600">({redemptions.length})</span>
                 </span>
                 {pendingPayouts.count > 0 && (
                   <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-700">
@@ -1039,7 +1064,7 @@ export default function PromoCodesPage() {
               <TabsTrigger value="payments">
                 <span>
                   {t("tabPayments")}{" "}
-                  <span className="text-earth-500">({recommenderSummary.length})</span>
+                  <span className="text-earth-600">({recommenderSummary.length})</span>
                 </span>
                 {pendingByRecommenderCount > 0 && (
                   <span className="ml-2 inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-amber-100 px-1.5 text-[11px] font-semibold text-amber-700">
@@ -1076,7 +1101,7 @@ export default function PromoCodesPage() {
                   ))}
                 </div>
                 <div className="relative md:w-72">
-                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-earth-400" />
+                  <Search className="pointer-events-none absolute left-2.5 top-1/2 h-4 w-4 -translate-y-1/2 text-earth-500" />
                   <Input
                     value={redemptionSearch}
                     onChange={(e) => {
@@ -1099,7 +1124,7 @@ export default function PromoCodesPage() {
                   <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-50">
                     <Tag className="h-6 w-6 text-brand" />
                   </div>
-                  <p className="text-sm text-earth-500">{t("emptyCodes")}</p>
+                  <p className="text-sm text-earth-600">{t("emptyCodes")}</p>
                   <Button onClick={openCreate} className="mt-1 cursor-pointer bg-brand text-white hover:brightness-90">
                     <Plus className="mr-2 h-4 w-4" />
                     {t("newCode")}
@@ -1139,7 +1164,7 @@ export default function PromoCodesPage() {
                               type="button"
                               size="icon"
                               variant="ghost"
-                              className="h-9 w-9 cursor-pointer text-earth-400 hover:text-brand"
+                              className="h-9 w-9 cursor-pointer text-earth-600 hover:text-brand"
                               aria-label={t("copyCode")}
                               onClick={() => copyCode(c.code)}
                             >
@@ -1149,7 +1174,7 @@ export default function PromoCodesPage() {
                               type="button"
                               size="icon"
                               variant="ghost"
-                              className="h-9 w-9 cursor-pointer text-earth-400 hover:text-brand disabled:opacity-40"
+                              className="h-9 w-9 cursor-pointer text-earth-600 hover:text-brand disabled:opacity-40"
                               aria-label={t("copyLink")}
                               title={t("copyLink")}
                               disabled={!homestaySlug}
@@ -1167,8 +1192,8 @@ export default function PromoCodesPage() {
                               ? `${c.discount_value}% ${t("off")}`
                               : `฿${c.discount_value.toLocaleString()} ${t("off")}`}
                           </div>
-                          <div className="flex items-center gap-1.5 text-xs text-earth-500">
-                            <CalendarDays className="h-3.5 w-3.5 text-earth-400" />
+                          <div className="flex items-center gap-1.5 text-xs text-earth-600">
+                            <CalendarDays className="h-3.5 w-3.5 text-earth-500" />
                             {c.start_at || c.expires_at ? (
                               <span>
                                 {c.start_at ? fmtDate(c.start_at) : t("anytime")} →{" "}
@@ -1201,16 +1226,16 @@ export default function PromoCodesPage() {
 
                         {/* Recommender */}
                         {c.recommender_name && (
-                          <div className="flex items-center gap-2 rounded-lg bg-violet-50 p-2">
-                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-violet-200 text-xs font-bold text-violet-800">
+                          <div className="flex items-center gap-2 rounded-lg bg-earth-50 p-2">
+                            <div className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-earth-200 text-xs font-bold text-earth-900">
                               {getInitials(c.recommender_name)}
                             </div>
                             <div className="min-w-0 flex-1">
-                              <p className="truncate text-xs font-medium text-violet-900">
+                              <p className="truncate text-xs font-medium text-earth-900">
                                 {c.recommender_name}
                               </p>
                               {c.commission_type && c.commission_value != null && (
-                                <p className="text-[11px] text-violet-700">
+                                <p className="text-[11px] text-earth-800">
                                   {t("commission")}:{" "}
                                   {c.commission_type === "percentage"
                                     ? `${c.commission_value}%`
@@ -1267,10 +1292,10 @@ export default function PromoCodesPage() {
             {redemptions.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-emerald-50">
-                    <Percent className="h-6 w-6 text-emerald-600" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-brand-50">
+                    <Percent className="h-6 w-6 text-brand" />
                   </div>
-                  <p className="text-sm text-earth-500">{t("emptyRedemptions")}</p>
+                  <p className="text-sm text-earth-600">{t("emptyRedemptions")}</p>
                 </CardContent>
               </Card>
             ) : filteredRedemptions.length === 0 ? (
@@ -1299,7 +1324,7 @@ export default function PromoCodesPage() {
                               {t("statusPending")}
                             </Badge>
                           ) : r.payout_status === "paid" ? (
-                            <Badge className="bg-emerald-100 text-emerald-700">
+                            <Badge className="bg-brand-50 text-brand">
                               <CheckCircle2 className="mr-1 h-3 w-3" />
                               {t("statusPaid")}
                             </Badge>
@@ -1308,9 +1333,9 @@ export default function PromoCodesPage() {
                               {t("statusCancelled")}
                             </Badge>
                           )}
-                          <span className="text-xs text-earth-400">{fmtDateTime(r.created_at)}</span>
+                          <span className="text-xs text-earth-600">{fmtDateTime(r.created_at)}</span>
                         </div>
-                        <p className="text-xs text-earth-500">
+                        <p className="text-xs text-earth-600">
                           {r.guest_phone} · {r.guest_email}
                         </p>
                         <p className="text-xs text-earth-600">
@@ -1319,7 +1344,7 @@ export default function PromoCodesPage() {
                             <>
                               {" · "}
                               {t("commission")}:{" "}
-                              <span className="font-semibold text-violet-700">
+                              <span className="font-semibold text-earth-800">
                                 ฿{r.commission_amount.toLocaleString()}
                               </span>
                               {r.promo_code?.recommender_name && ` (${r.promo_code.recommender_name})`}
@@ -1327,7 +1352,7 @@ export default function PromoCodesPage() {
                           )}
                         </p>
                         {r.paid_note && (
-                          <p className="text-xs italic text-earth-500">
+                          <p className="text-xs italic text-earth-600">
                             {t("paidNote")}: {r.paid_note}
                           </p>
                         )}
@@ -1365,10 +1390,10 @@ export default function PromoCodesPage() {
             {recommenderSummary.length === 0 ? (
               <Card>
                 <CardContent className="flex flex-col items-center gap-3 p-10 text-center">
-                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-violet-50">
-                    <Users className="h-6 w-6 text-violet-600" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-full bg-earth-50">
+                    <Users className="h-6 w-6 text-earth-700" />
                   </div>
-                  <p className="text-sm text-earth-500">{t("paymentsEmpty")}</p>
+                  <p className="text-sm text-earth-600">{t("paymentsEmpty")}</p>
                 </CardContent>
               </Card>
             ) : (
@@ -1385,13 +1410,13 @@ export default function PromoCodesPage() {
                             <span className="text-sm font-semibold text-earth-900">
                               {row.name}
                             </span>
-                            <span className="text-xs text-earth-400">
+                            <span className="text-xs text-earth-600">
                               {row.count} {t("recommenderColCount")}
                             </span>
                           </div>
                           <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs text-earth-600">
                             <span className="inline-flex items-center gap-1">
-                              <Phone className="h-3.5 w-3.5 text-earth-400" />
+                              <Phone className="h-3.5 w-3.5 text-earth-500" />
                               {row.phone ? (
                                 <a
                                   href={`tel:${row.phone}`}
@@ -1400,13 +1425,13 @@ export default function PromoCodesPage() {
                                   {row.phone}
                                 </a>
                               ) : (
-                                <span className="italic text-earth-400">
+                                <span className="italic text-earth-600">
                                   {t("recommenderNoPhone")}
                                 </span>
                               )}
                             </span>
                             <span className="inline-flex items-center gap-1">
-                              <Wallet className="h-3.5 w-3.5 text-earth-400" />
+                              <Wallet className="h-3.5 w-3.5 text-earth-500" />
                               {row.promptpay ? (
                                 <>
                                   <span className="font-mono text-earth-800">
@@ -1422,14 +1447,14 @@ export default function PromoCodesPage() {
                                         // clipboard unavailable
                                       }
                                     }}
-                                    className="cursor-pointer rounded p-0.5 text-earth-400 hover:bg-earth-100 hover:text-earth-700"
+                                    className="cursor-pointer rounded p-0.5 text-earth-600 hover:bg-earth-100 hover:text-earth-700"
                                     aria-label={t("copied")}
                                   >
                                     <Copy className="h-3 w-3" />
                                   </button>
                                 </>
                               ) : (
-                                <span className="italic text-earth-400">
+                                <span className="italic text-earth-600">
                                   {t("recommenderNoPromptpay")}
                                 </span>
                               )}
@@ -1437,21 +1462,21 @@ export default function PromoCodesPage() {
                           </div>
                           <div className="flex flex-wrap items-center gap-x-4 gap-y-1 pt-1 text-xs">
                             <span>
-                              <span className="text-earth-500">
+                              <span className="text-earth-600">
                                 {t("recommenderColPending")}:{" "}
                               </span>
                               <span
                                 className={
                                   row.pending > 0
                                     ? "font-semibold text-amber-700"
-                                    : "text-earth-500"
+                                    : "text-earth-600"
                                 }
                               >
                                 ฿{row.pending.toLocaleString()}
                               </span>
                             </span>
                             <span>
-                              <span className="text-earth-500">
+                              <span className="text-earth-600">
                                 {t("recommenderColPaid")}:{" "}
                               </span>
                               <span className="text-earth-700">
@@ -1459,10 +1484,10 @@ export default function PromoCodesPage() {
                               </span>
                             </span>
                             <span>
-                              <span className="text-earth-500">
+                              <span className="text-earth-600">
                                 {t("recommenderColTotal")}:{" "}
                               </span>
-                              <span className="font-semibold text-violet-700">
+                              <span className="font-semibold text-earth-800">
                                 ฿{row.total.toLocaleString()}
                               </span>
                             </span>
@@ -1513,7 +1538,7 @@ export default function PromoCodesPage() {
             <div className="flex items-center justify-between rounded-lg bg-earth-50 px-3 py-2.5">
               <div className="flex items-center gap-2">
                 <span
-                  className={`h-2 w-2 rounded-full ${form.is_active ? "bg-emerald-500" : "bg-earth-400"}`}
+                  className={`h-2 w-2 rounded-full ${form.is_active ? "bg-brand" : "bg-earth-400"}`}
                 />
                 <Label htmlFor="is-active" className="text-sm font-medium text-earth-800">
                   {t("active")}
@@ -1529,9 +1554,9 @@ export default function PromoCodesPage() {
 
             {/* Code */}
             <div className="space-y-1.5">
-              <Label>{t("codeLabel")}</Label>
+              <Label htmlFor="promo-codes-codeLabel">{t("codeLabel")}</Label>
               <div className="relative">
-                <Input
+                <Input id="promo-codes-codeLabel"
                   value={form.code}
                   onChange={(e) => setForm({ ...form, code: e.target.value.toUpperCase() })}
                   placeholder="SUMMER25"
@@ -1539,7 +1564,7 @@ export default function PromoCodesPage() {
                   disabled={!!editing}
                 />
                 {editing ? (
-                  <Lock className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-earth-400" />
+                  <Lock className="pointer-events-none absolute right-3 top-1/2 h-4 w-4 -translate-y-1/2 text-earth-500" />
                 ) : (
                   <Button
                     type="button"
@@ -1550,13 +1575,13 @@ export default function PromoCodesPage() {
                     }
                     aria-label={t("generateCode")}
                     title={t("generateCode")}
-                    className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 cursor-pointer text-earth-500 hover:text-brand"
+                    className="absolute right-1 top-1/2 h-7 w-7 -translate-y-1/2 cursor-pointer text-earth-600 hover:text-brand"
                   >
                     <RefreshCw className="h-3.5 w-3.5" />
                   </Button>
                 )}
               </div>
-              <p className="text-xs text-earth-500">{t("codeHelpAuto")}</p>
+              <p className="text-xs text-earth-600">{t("codeHelpAuto")}</p>
             </div>
 
             {/* Discount section */}
@@ -1585,16 +1610,16 @@ export default function PromoCodesPage() {
                   </Select>
                 </div>
                 <div className="space-y-1.5">
-                  <Label>{t("discountValue")}</Label>
+                  <Label htmlFor="promo-codes-discountValue">{t("discountValue")}</Label>
                   <div className="relative">
-                    <Input
+                    <Input id="promo-codes-discountValue"
                       type="number"
                       value={form.discount_value}
                       onChange={(e) => setForm({ ...form, discount_value: e.target.value })}
                       placeholder={form.discount_type === "percentage" ? "10" : "500"}
                       className={form.discount_type === "fixed" ? "pl-7" : "pr-7"}
                     />
-                    <span className="pointer-events-none absolute top-1/2 -translate-y-1/2 text-sm text-earth-500"
+                    <span className="pointer-events-none absolute top-1/2 -translate-y-1/2 text-sm text-earth-600"
                       style={form.discount_type === "fixed" ? { left: 12 } : { right: 12 }}>
                       {form.discount_type === "fixed" ? "฿" : "%"}
                     </span>
@@ -1640,7 +1665,7 @@ export default function PromoCodesPage() {
                 </div>
               </div>
               {!form.start_at && !form.expires_at && (
-                <p className="text-xs text-earth-500">{t("validityAnytime")}</p>
+                <p className="text-xs text-earth-600">{t("validityAnytime")}</p>
               )}
             </section>
 
@@ -1649,14 +1674,14 @@ export default function PromoCodesPage() {
               <h3 className="text-sm font-semibold text-earth-800">{t("sectionLimits")}</h3>
               <div className="grid grid-cols-2 gap-3">
                 <div className="space-y-1.5">
-                  <Label>{t("maxUses")}</Label>
-                  <Input
+                  <Label htmlFor="promo-codes-maxUses">{t("maxUses")}</Label>
+                  <Input id="promo-codes-maxUses"
                     type="number"
                     value={form.max_uses}
                     onChange={(e) => setForm({ ...form, max_uses: e.target.value })}
                     placeholder={t("unlimited")}
                   />
-                  <p className="text-xs text-earth-500">{t("maxUsesHelp")}</p>
+                  <p className="text-xs text-earth-600">{t("maxUsesHelp")}</p>
                 </div>
                 <div className="flex items-end gap-2 pb-1">
                   <Switch
@@ -1676,7 +1701,7 @@ export default function PromoCodesPage() {
             <section className="space-y-3 border-t border-earth-100 pt-4">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <UserPlus className="h-4 w-4 text-violet-600" />
+                  <UserPlus className="h-4 w-4 text-earth-700" />
                   <h3 className="text-sm font-semibold text-earth-800">{t("sectionRecommender")}</h3>
                 </div>
                 <Switch
@@ -1686,19 +1711,19 @@ export default function PromoCodesPage() {
                 />
               </div>
               {form.recommender_enabled && (
-                <div className="space-y-3 rounded-lg border border-violet-100 bg-violet-50/40 p-3">
-                  <p className="text-xs text-violet-800">{t("recommenderHelp")}</p>
+                <div className="space-y-3 rounded-lg border border-earth-200 bg-earth-50/40 p-3">
+                  <p className="text-xs text-earth-900">{t("recommenderHelp")}</p>
                   <div className="space-y-1.5">
-                    <Label>{t("recommenderName")}</Label>
-                    <Input
+                    <Label htmlFor="promo-codes-recommenderName">{t("recommenderName")}</Label>
+                    <Input id="promo-codes-recommenderName"
                       value={form.recommender_name}
                       onChange={(e) => setForm({ ...form, recommender_name: e.target.value })}
                     />
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div className="space-y-1.5">
-                      <Label>{t("recommenderPhone")}</Label>
-                      <Input
+                      <Label htmlFor="promo-codes-recommenderPhone">{t("recommenderPhone")}</Label>
+                      <Input id="promo-codes-recommenderPhone"
                         type="tel"
                         inputMode="numeric"
                         maxLength={10}
@@ -1707,16 +1732,16 @@ export default function PromoCodesPage() {
                       />
                     </div>
                     <div className="space-y-1.5">
-                      <Label>{t("recommenderPromptpay")}</Label>
-                      <Input
+                      <Label htmlFor="promo-codes-recommenderPromptpay">{t("recommenderPromptpay")}</Label>
+                      <Input id="promo-codes-recommenderPromptpay"
                         value={form.recommender_promptpay}
                         onChange={(e) => setForm({ ...form, recommender_promptpay: e.target.value })}
                       />
                     </div>
                   </div>
                   <div className="space-y-1.5">
-                    <Label>{t("recommenderNote")}</Label>
-                    <Textarea
+                    <Label htmlFor="promo-codes-recommenderNote">{t("recommenderNote")}</Label>
+                    <Textarea id="promo-codes-recommenderNote"
                       value={form.recommender_note}
                       onChange={(e) => setForm({ ...form, recommender_note: e.target.value })}
                       rows={2}
@@ -1741,15 +1766,15 @@ export default function PromoCodesPage() {
                       </Select>
                     </div>
                     <div className="space-y-1.5">
-                      <Label>{t("commissionValue")}</Label>
+                      <Label htmlFor="promo-codes-commissionValue">{t("commissionValue")}</Label>
                       <div className="relative">
-                        <Input
+                        <Input id="promo-codes-commissionValue"
                           type="number"
                           value={form.commission_value}
                           onChange={(e) => setForm({ ...form, commission_value: e.target.value })}
                           className={form.commission_type === "fixed" ? "pl-7" : "pr-7"}
                         />
-                        <span className="pointer-events-none absolute top-1/2 -translate-y-1/2 text-sm text-earth-500"
+                        <span className="pointer-events-none absolute top-1/2 -translate-y-1/2 text-sm text-earth-600"
                           style={form.commission_type === "fixed" ? { left: 12 } : { right: 12 }}>
                           {form.commission_type === "fixed" ? "฿" : "%"}
                         </span>
@@ -1790,8 +1815,8 @@ export default function PromoCodesPage() {
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Label>{t("paidNote")}</Label>
-            <Textarea
+            <Label htmlFor="promo-codes-paidNote">{t("paidNote")}</Label>
+            <Textarea id="promo-codes-paidNote"
               value={payNote}
               onChange={(e) => setPayNote(e.target.value)}
               placeholder={t("paidNotePlaceholder")}
@@ -1843,13 +1868,13 @@ export default function PromoCodesPage() {
             <div className="space-y-1.5 rounded-md bg-earth-50 p-3 text-xs text-earth-700">
               {bulkPayTarget.phone && (
                 <div className="flex items-center gap-2">
-                  <Phone className="h-3.5 w-3.5 text-earth-400" />
+                  <Phone className="h-3.5 w-3.5 text-earth-500" />
                   <span className="font-mono">{bulkPayTarget.phone}</span>
                 </div>
               )}
               {bulkPayTarget.promptpay && (
                 <div className="flex items-center gap-2">
-                  <Wallet className="h-3.5 w-3.5 text-earth-400" />
+                  <Wallet className="h-3.5 w-3.5 text-earth-500" />
                   <span className="font-mono">{bulkPayTarget.promptpay}</span>
                   <button
                     type="button"
@@ -1861,7 +1886,7 @@ export default function PromoCodesPage() {
                         // clipboard unavailable
                       }
                     }}
-                    className="cursor-pointer rounded p-0.5 text-earth-400 hover:bg-earth-100 hover:text-earth-700"
+                    className="cursor-pointer rounded p-0.5 text-earth-600 hover:bg-earth-100 hover:text-earth-700"
                     aria-label={t("copied")}
                   >
                     <Copy className="h-3 w-3" />
@@ -1871,8 +1896,8 @@ export default function PromoCodesPage() {
             </div>
           )}
           <div className="space-y-2">
-            <Label>{t("paidNote")}</Label>
-            <Textarea
+            <Label htmlFor="promo-codes-paidNote-2">{t("paidNote")}</Label>
+            <Textarea id="promo-codes-paidNote-2"
               value={bulkPayNote}
               onChange={(e) => setBulkPayNote(e.target.value)}
               placeholder={t("paidNotePlaceholder")}
@@ -1911,7 +1936,7 @@ export default function PromoCodesPage() {
             <DialogTitle>{tc("delete")}</DialogTitle>
             <DialogDescription>
               {!deleteStats ? (
-                <span className="flex items-center gap-2 text-earth-500">
+                <span className="flex items-center gap-2 text-earth-600">
                   <Loader2 className="h-4 w-4 animate-spin" />
                 </span>
               ) : deleteStats.blockingCount > 0 ? (
@@ -1981,9 +2006,9 @@ function KpiTile({
 }) {
   const toneClasses: Record<typeof tone, string> = {
     brand: "bg-brand-50 text-brand",
-    emerald: "bg-emerald-50 text-emerald-600",
-    amber: "bg-amber-50 text-amber-600",
-    violet: "bg-violet-50 text-violet-600",
+    emerald: "bg-brand-50 text-brand",
+    amber: "bg-amber-50 text-amber-800",
+    violet: "bg-earth-50 text-earth-700",
   };
   return (
     <Card className="border-earth-100">
@@ -1992,10 +2017,10 @@ function KpiTile({
           <span className={`flex h-7 w-7 items-center justify-center rounded-lg ${toneClasses[tone]}`}>
             {icon}
           </span>
-          <span className="text-xs font-medium text-earth-500">{label}</span>
+          <span className="text-xs font-medium text-earth-600">{label}</span>
         </div>
         <p className="text-2xl font-semibold text-earth-900">{value}</p>
-        <p className="truncate text-xs text-earth-500">{sub}</p>
+        <p className="truncate text-xs text-earth-600">{sub}</p>
       </CardContent>
     </Card>
   );
@@ -2024,7 +2049,7 @@ function DatePickerField({
       <PopoverTrigger asChild>
         <Button
           variant="outline"
-          className={`w-full cursor-pointer justify-start text-left font-normal ${value ? "" : "text-earth-400"}`}
+          className={`w-full cursor-pointer justify-start text-left font-normal ${value ? "" : "text-earth-600"}`}
         >
           <CalendarDays className="mr-2 h-4 w-4" />
           {value || placeholder}
@@ -2089,7 +2114,7 @@ function PaginationBar({
   const to = Math.min(page * pageSize, total);
   return (
     <div className="flex flex-col items-center justify-between gap-2 pt-2 sm:flex-row">
-      <p className="text-xs text-earth-500">
+      <p className="text-xs text-earth-600">
         {t("showingRange", { from, to, total })}
       </p>
       <div className="flex items-center gap-2">
