@@ -8,6 +8,7 @@ import { fmtBangkokTime } from "@/lib/format-date";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/admin/page-header";
 import { EmptyState } from "@/components/admin/empty-state";
+import { STICKY_END } from "@/components/admin/table-classes";
 import { REJECTED_LIMIT, getRejectedPayments, type RejectedKind } from "./data";
 import { SettleControl } from "./settle-control";
 
@@ -20,9 +21,6 @@ const th = "px-4 py-2.5 font-medium";
 const td = "px-4 py-2.5 align-top";
 const num = `${td} text-right tabular-nums whitespace-nowrap`;
 const baht = (n: number | null) => (n == null ? "—" : fmtTHB(n));
-
-/** Settle stays on screen while the table scrolls sideways on phones and tablets. */
-const stickyEnd = "sticky right-0 bg-white shadow-[inset_1px_0_0_var(--color-earth-100)]";
 
 export default async function RejectedPaymentsPage() {
   const supabase = await createServerSupabaseClient();
@@ -53,7 +51,7 @@ export default async function RejectedPaymentsPage() {
       {payments.length === 0 ? (
         <EmptyState title="No rejected payments" description="Nothing is waiting to be settled." />
       ) : (
-        <Card className="border-earth-100 bg-white">
+        <Card className="overflow-hidden border-earth-100 bg-white">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[860px] text-sm">
@@ -66,7 +64,7 @@ export default async function RejectedPaymentsPage() {
                     <th scope="col" className={`${th} text-right`}>Expected</th>
                     <th scope="col" className={th}>Bank ref</th>
                     <th scope="col" className={th}>Reason</th>
-                    <th scope="col" className={`${th} ${stickyEnd}`}>Status</th>
+                    <th scope="col" className={`${th} ${STICKY_END}`}>Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-earth-100 text-earth-800">
@@ -104,7 +102,7 @@ export default async function RejectedPaymentsPage() {
                         )}
                       </td>
                       <td className={`${td} font-mono text-xs text-earth-600`}>{p.reason ?? "—"}</td>
-                      <td className={`${td} ${stickyEnd}`}>
+                      <td className={`${td} ${STICKY_END}`}>
                         <SettleControl logId={p.id} hostName={p.host_name} settlement={p.settlement} />
                       </td>
                     </tr>

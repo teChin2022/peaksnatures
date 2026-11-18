@@ -53,7 +53,7 @@ describe("Admin logs: filters from the URL", () => {
     await render();
 
     expect(container.querySelector('[aria-label="Active filters"]')?.textContent).toContain(
-      "Event:PLATFORM_PAYMENT_REJECTED",
+      "Event:Payment refused after verification",
     );
     expect(fetchedUrls().at(-1)).toContain("event_type=PLATFORM_PAYMENT_REJECTED");
   });

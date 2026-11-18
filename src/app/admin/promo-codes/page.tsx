@@ -2,7 +2,6 @@
 
 import { useEffect, useState, useCallback } from "react";
 import { Card, CardContent } from "@/components/ui/card";
-import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Tag, Loader2, ChevronLeft, ChevronRight } from "lucide-react";
@@ -10,6 +9,9 @@ import type { PromoCode, PromoRedemption } from "@/types/database";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
+import { LoadError } from "@/components/admin/load-error";
+import { STICKY_START, TD, TH, TH_ROW } from "@/components/admin/table-classes";
+import { cn } from "@/lib/utils";
 
 const PAGE_SIZE = 20;
 
@@ -36,6 +38,8 @@ export default function AdminPromoCodesPage() {
   const [redemptions, setRedemptions] = useState<AdminRedemptionRow[]>([]);
   const [loadingCodes, setLoadingCodes] = useState(true);
   const [loadingRedemptions, setLoadingRedemptions] = useState(true);
+  const [codesFailed, setCodesFailed] = useState(false);
+  const [redemptionsFailed, setRedemptionsFailed] = useState(false);
 
   const [codesPage, setCodesPage] = useState(1);
   const [codesHasMore, setCodesHasMore] = useState(false);
@@ -45,12 +49,16 @@ export default function AdminPromoCodesPage() {
   const loadCodes = useCallback(async (page: number) => {
     setLoadingCodes(true);
     try {
-      const res = await fetch(`/api/admin/promo-codes?page=${page}&limit=${PAGE_SIZE}`).then((r) => r.json());
+      const r = await fetch(`/api/admin/promo-codes?page=${page}&limit=${PAGE_SIZE}`);
+      if (!r.ok) throw new Error(String(r.status));
+      const res = await r.json();
       setCodes((res.data as AdminCodeRow[]) || []);
       setCodesHasMore(!!res.hasMore);
+      setCodesFailed(false);
     } catch {
       setCodes([]);
       setCodesHasMore(false);
+      setCodesFailed(true);
     } finally {
       setLoadingCodes(false);
     }
@@ -59,12 +67,16 @@ export default function AdminPromoCodesPage() {
   const loadRedemptions = useCallback(async (page: number) => {
     setLoadingRedemptions(true);
     try {
-      const res = await fetch(`/api/admin/promo-redemptions?page=${page}&limit=${PAGE_SIZE}`).then((r) => r.json());
+      const r = await fetch(`/api/admin/promo-redemptions?page=${page}&limit=${PAGE_SIZE}`);
+      if (!r.ok) throw new Error(String(r.status));
+      const res = await r.json();
       setRedemptions((res.data as AdminRedemptionRow[]) || []);
       setRedemptionsHasMore(!!res.hasMore);
+      setRedemptionsFailed(false);
     } catch {
       setRedemptions([]);
       setRedemptionsHasMore(false);
+      setRedemptionsFailed(true);
     } finally {
       setLoadingRedemptions(false);
     }
@@ -110,9 +122,11 @@ export default function AdminPromoCodesPage() {
           </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="codes" className="space-y-2">
+        <TabsContent value="codes" className="space-y-3">
           {loadingCodes ? (
             <div className="skeleton-warm h-40 w-full rounded-xl" />
+          ) : codesFailed ? (
+            <LoadError what="promo codes" onRetry={() => loadCodes(codesPage)} />
           ) : codes.length === 0 ? (
             <EmptyState
               icon={Tag}
@@ -121,35 +135,50 @@ export default function AdminPromoCodesPage() {
             />
           ) : (
             <>
-              {codes.map((c) => (
-                <Card key={c.id} className="dashboard-card border-earth-100">
-                  <CardContent className="flex flex-col gap-2 p-4 md:flex-row md:items-center md:justify-between">
-                    <div className="space-y-1">
-                      <div className="flex items-center gap-2 flex-wrap">
-                        <Tag className="h-4 w-4 text-earth-400" />
-                        <span className="font-mono font-semibold text-earth-900">{c.code}</span>
-                        <Badge variant="outline" className="border-earth-200 text-earth-700 tabular-nums">
-                          {c.discount_type === "percentage" ? `${c.discount_value}%` : `฿${c.discount_value}`}
-                        </Badge>
-                        {!c.is_active && <StatusBadge status="inactive" />}
-                        {c.recommender_name && (
-                          <Badge className="bg-brand-50 text-brand border border-brand/15 text-xs px-2 py-0.5">
-                            {c.recommender_name}
-                          </Badge>
-                        )}
-                      </div>
-                      <p className="text-xs text-earth-600">
-                        {c.homestay?.host?.name || "—"} · {c.homestay?.name || "—"}
-                      </p>
-                      <p className="text-xs text-earth-600 tabular-nums">
-                        Used: {c.times_used}{c.max_uses != null ? ` / ${c.max_uses}` : ""}
-                        {c.start_at && ` · From ${c.start_at}`}
-                        {c.expires_at && ` · Until ${c.expires_at}`}
-                      </p>
-                    </div>
-                  </CardContent>
-                </Card>
-              ))}
+              <Card className="overflow-hidden border-earth-100 bg-white py-0">
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[760px] text-sm">
+                      <thead>
+                        <tr className={TH_ROW}>
+                          <th scope="col" className={cn(TH, STICKY_START)}>Code</th>
+                          <th scope="col" className={cn(TH, "text-right")}>Discount</th>
+                          <th scope="col" className={TH}>Host · homestay</th>
+                          <th scope="col" className={cn(TH, "text-right")}>Used</th>
+                          <th scope="col" className={TH}>Valid</th>
+                          <th scope="col" className={TH}>Status</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-earth-100 text-earth-800">
+                        {codes.map((c) => (
+                          <tr key={c.id} className="align-top">
+                            <td className={cn(TD, STICKY_START)}>
+                              <span className="font-mono font-semibold text-earth-900">{c.code}</span>
+                              {c.recommender_name && <p className="mt-0.5 text-xs text-earth-600">Recommended by {c.recommender_name}</p>}
+                            </td>
+                            <td className={cn(TD, "whitespace-nowrap text-right tabular-nums")}>
+                              {c.discount_type === "percentage" ? `${c.discount_value}%` : `฿${c.discount_value.toLocaleString()}`}
+                            </td>
+                            <td className={TD}>
+                              {c.homestay?.host?.name || "—"}
+                              <p className="text-xs text-earth-600">{c.homestay?.name || "—"}</p>
+                            </td>
+                            <td className={cn(TD, "whitespace-nowrap text-right tabular-nums")}>
+                              {c.times_used}{c.max_uses != null ? ` / ${c.max_uses}` : ""}
+                            </td>
+                            <td className={cn(TD, "whitespace-nowrap text-xs tabular-nums text-earth-600")}>
+                              {c.start_at || c.expires_at ? `${c.start_at ?? "Any time"} → ${c.expires_at ?? "No end"}` : "Always"}
+                            </td>
+                            <td className={TD}>
+                              <StatusBadge status={c.is_active ? "active" : "inactive"} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
               <PaginationBar
                 page={codesPage}
                 hasMore={codesHasMore}
@@ -160,9 +189,11 @@ export default function AdminPromoCodesPage() {
           )}
         </TabsContent>
 
-        <TabsContent value="redemptions" className="space-y-2">
+        <TabsContent value="redemptions" className="space-y-3">
           {loadingRedemptions ? (
             <div className="skeleton-warm h-40 w-full rounded-xl" />
+          ) : redemptionsFailed ? (
+            <LoadError what="redemptions" onRetry={() => loadRedemptions(redemptionsPage)} />
           ) : redemptions.length === 0 ? (
             <EmptyState
               icon={Tag}
@@ -171,25 +202,43 @@ export default function AdminPromoCodesPage() {
             />
           ) : (
             <>
-              {redemptions.map((r) => (
-                <Card key={r.id} className="dashboard-card border-earth-100">
-                  <CardContent className="flex flex-col gap-1 p-4">
-                    <div className="flex items-center gap-2">
-                      <span className="font-mono text-sm font-semibold text-earth-900">{r.promo_code?.code || "—"}</span>
-                      <StatusBadge status={r.payout_status} />
-                    </div>
-                    <p className="text-xs text-earth-600">
-                      {r.promo_code?.homestay?.host?.name || "—"} · {r.promo_code?.homestay?.name || "—"}
-                    </p>
-                    <p className="text-xs text-earth-600 tabular-nums">
-                      Discount ฿{r.discount_amount.toLocaleString()}
-                      {r.commission_amount > 0 && (
-                        <> · Commission ฿{r.commission_amount.toLocaleString()} → {r.promo_code?.recommender_name || "—"}</>
-                      )}
-                    </p>
-                  </CardContent>
-                </Card>
-              ))}
+              <Card className="overflow-hidden border-earth-100 bg-white py-0">
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[720px] text-sm">
+                      <thead>
+                        <tr className={TH_ROW}>
+                          <th scope="col" className={cn(TH, STICKY_START)}>Code</th>
+                          <th scope="col" className={TH}>Host · homestay</th>
+                          <th scope="col" className={cn(TH, "text-right")}>Discount</th>
+                          <th scope="col" className={cn(TH, "text-right")}>Commission</th>
+                          <th scope="col" className={TH}>Recommender</th>
+                          <th scope="col" className={TH}>Payout</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-earth-100 text-earth-800">
+                        {redemptions.map((r) => (
+                          <tr key={r.id} className="align-top">
+                            <td className={cn(TD, "font-mono font-semibold text-earth-900", STICKY_START)}>{r.promo_code?.code || "—"}</td>
+                            <td className={TD}>
+                              {r.promo_code?.homestay?.host?.name || "—"}
+                              <p className="text-xs text-earth-600">{r.promo_code?.homestay?.name || "—"}</p>
+                            </td>
+                            <td className={cn(TD, "whitespace-nowrap text-right tabular-nums")}>฿{r.discount_amount.toLocaleString()}</td>
+                            <td className={cn(TD, "whitespace-nowrap text-right tabular-nums")}>
+                              {r.commission_amount > 0 ? `฿${r.commission_amount.toLocaleString()}` : "—"}
+                            </td>
+                            <td className={TD}>{r.commission_amount > 0 ? r.promo_code?.recommender_name || "—" : "—"}</td>
+                            <td className={TD}>
+                              <StatusBadge status={r.payout_status} />
+                            </td>
+                          </tr>
+                        ))}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
               <PaginationBar
                 page={redemptionsPage}
                 hasMore={redemptionsHasMore}

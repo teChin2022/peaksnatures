@@ -21,12 +21,11 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
+import { STICKY_START } from "@/components/admin/table-classes";
+import { LoadError, NETWORK_ERROR, actionFailed } from "@/components/admin/load-error";
 import { fmtDateStr, fmtDate } from "@/lib/format-date";
 import { fmtTHB } from "@/lib/format-currency";
 import { cn } from "@/lib/utils";
-
-/** The guest and status stay on screen while the table scrolls sideways on phones and tablets. */
-const STICKY_FIRST = "sticky left-0 z-10 bg-white shadow-[inset_-1px_0_0_var(--color-earth-100)]";
 
 function nightsBetween(checkIn: string, checkOut: string): number {
   const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
@@ -93,6 +92,8 @@ export default function AdminBookingsPage() {
   const [holds, setHolds] = useState<HoldRow[]>([]);
   const [holdsLoading, setHoldsLoading] = useState(true);
   const [deletingHoldId, setDeletingHoldId] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [holdsFailed, setHoldsFailed] = useState(false);
   const [confirmDeleteHold, setConfirmDeleteHold] = useState<HoldRow | null>(null);
 
   useEffect(() => {
@@ -118,8 +119,9 @@ export default function AdminBookingsPage() {
         const res = await r.json();
         setHolds(res.data);
       }
-    } catch (err) {
-      console.error("Failed to fetch holds:", err);
+      setHoldsFailed(!r.ok);
+    } catch {
+      setHoldsFailed(true);
     } finally {
       setHoldsLoading(false);
     }
@@ -142,10 +144,10 @@ export default function AdminBookingsPage() {
         setHolds((prev) => prev.filter((h) => h.id !== holdId));
       } else {
         const data = await r.json();
-        toast.error(data.error || "Failed to delete");
+        toast.error(data.error || actionFailed("delete the hold"));
       }
     } catch {
-      toast.error("Failed to delete hold");
+      toast.error(NETWORK_ERROR);
     } finally {
       setDeletingHoldId(null);
       setConfirmDeleteHold(null);
@@ -164,8 +166,10 @@ export default function AdminBookingsPage() {
         if (res.total != null) setTotal(res.total);
         setHasMore(res.hasMore ?? (p < res.totalPages));
       }
-    } catch (err) {
-      console.error("Failed to fetch bookings:", err);
+      // A failed "Load More" keeps the rows already shown; only a first load swaps in the error.
+      if (append) { if (!r.ok) toast.error(actionFailed("load more bookings")); } else setLoadFailed(!r.ok);
+    } catch {
+      if (append) toast.error(NETWORK_ERROR); else setLoadFailed(true);
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -239,6 +243,8 @@ export default function AdminBookingsPage() {
                 <div key={i} className="skeleton-warm h-40 w-full rounded-xl" />
               ))}
             </div>
+          ) : loadFailed ? (
+            <LoadError what="bookings" onRetry={() => fetchBookings(1, false, selectedHostId)} />
           ) : bookings.length === 0 ? (
             <EmptyState
               icon={CalendarDays}
@@ -248,13 +254,13 @@ export default function AdminBookingsPage() {
           ) : (
             <>
               {/* A table scans faster than cards for staff working a list (audit X3). */}
-              <Card className="border-earth-100 bg-white">
+              <Card className="overflow-hidden border-earth-100 bg-white">
                 <CardContent className="p-0">
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[900px] text-sm">
                       <thead>
                         <tr className="border-b border-earth-100 text-left text-xs text-earth-600">
-                          <th scope="col" className={cn("px-4 py-2.5 font-medium", STICKY_FIRST)}>Guest</th>
+                          <th scope="col" className={cn("px-4 py-2.5 font-medium", STICKY_START)}>Guest</th>
                           <th scope="col" className="px-4 py-2.5 font-medium">Stay</th>
                           <th scope="col" className="px-4 py-2.5 font-medium">Homestay · house</th>
                           <th scope="col" className="px-4 py-2.5 font-medium">Guests</th>
@@ -267,7 +273,7 @@ export default function AdminBookingsPage() {
                           const nights = nightsBetween(booking.check_in, booking.check_out);
                           return (
                             <tr key={booking.id} className="align-top">
-                              <td className={cn("max-w-56 px-4 py-3 sm:max-w-none", STICKY_FIRST)}>
+                              <td className={cn("max-w-56 px-4 py-3 sm:max-w-none", STICKY_START)}>
                                 <div className="flex flex-wrap items-center gap-1.5">
                                   <span className="font-semibold text-earth-900">{booking.guest_name}</span>
                                   <StatusBadge status={booking.status} />
@@ -337,6 +343,8 @@ export default function AdminBookingsPage() {
                 <div key={i} className="skeleton-warm h-32 w-full rounded-xl" />
               ))}
             </div>
+          ) : holdsFailed ? (
+            <LoadError what="booking holds" onRetry={fetchHolds} />
           ) : holds.length === 0 ? (
             <EmptyState
               icon={Timer}

@@ -9,9 +9,11 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
+import { LoadError, NETWORK_ERROR, actionFailed } from "@/components/admin/load-error";
 import { cn } from "@/lib/utils";
 import { fmtDate } from "@/lib/format-date";
-import { EventType } from "@/lib/history-event-types";
+import { toast } from "sonner";
+import { EventType, eventLabel, fieldLabel } from "@/lib/history-event-types";
 
 interface LogRow {
   id: string;
@@ -75,6 +77,7 @@ const ACTOR_TONES: Record<string, EventTone> = {
 export default function AdminLogsPage() {
   const [logs, setLogs] = useState<LogRow[]>([]);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [nextCursor, setNextCursor] = useState<string | null>(null);
@@ -104,8 +107,10 @@ export default function AdminLogsPage() {
         setHasMore(res.hasMore);
         setNextCursor(res.nextCursor);
       }
-    } catch (err) {
-      console.error("Failed to fetch logs:", err);
+      // A failed "Load More" keeps the rows already shown; only a first load swaps in the error.
+      if (append) { if (!r.ok) toast.error(actionFailed("load more logs")); } else setLoadFailed(!r.ok);
+    } catch {
+      if (append) toast.error(NETWORK_ERROR); else setLoadFailed(true);
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -143,7 +148,7 @@ export default function AdminLogsPage() {
       <div className="mt-1.5 flex flex-wrap gap-1">
         {shown.map(([k, v]) => (
           <span key={k} className="inline-flex items-center rounded bg-earth-50 px-1.5 py-0.5 text-xs text-earth-600">
-            <span className="font-medium text-earth-700 mr-0.5">{k}:</span>
+            <span className="font-medium text-earth-700 mr-0.5" title={k}>{fieldLabel(k)}:</span>
             {typeof v === "object" ? JSON.stringify(v).slice(0, 40) : String(v).slice(0, 40)}
           </span>
         ))}
@@ -161,7 +166,7 @@ export default function AdminLogsPage() {
       <dl className="grid grid-cols-[minmax(7rem,auto)_1fr] gap-x-3 gap-y-1.5 text-sm">
         {entries.map(([k, v]) => (
           <Fragment key={k}>
-            <dt className="font-mono text-xs text-earth-600 pt-0.5 break-words">{k}</dt>
+            <dt className="text-xs text-earth-600 pt-0.5 break-words" title={k}>{fieldLabel(k)}</dt>
             <dd className="text-earth-800 break-words whitespace-pre-wrap">
               {typeof v === "object" ? JSON.stringify(v, null, 2) : String(v)}
             </dd>
@@ -212,7 +217,7 @@ export default function AdminLogsPage() {
                 >
                   <option value="">All events</option>
                   {EVENT_TYPE_OPTIONS.map((e) => (
-                    <option key={e} value={e}>{e}</option>
+                    <option key={e} value={e}>{eventLabel(e)}</option>
                   ))}
                 </select>
               </div>
@@ -258,9 +263,9 @@ export default function AdminLogsPage() {
       {!showFilters && hasActiveFilters && (
         <div className="mb-4 flex flex-wrap items-center gap-2" aria-label="Active filters">
           {[
-            { name: "Event", value: eventType, clear: () => setEventType("") },
-            { name: "Entity", value: entityType, clear: () => setEntityType("") },
-            { name: "Actor", value: actorType, clear: () => setActorType("") },
+            { name: "Event", value: eventType, shown: eventLabel(eventType), clear: () => setEventType("") },
+            { name: "Entity", value: entityType, shown: entityType, clear: () => setEntityType("") },
+            { name: "Actor", value: actorType, shown: actorType, clear: () => setActorType("") },
           ]
             .filter((f) => f.value)
             .map((f) => (
@@ -269,7 +274,7 @@ export default function AdminLogsPage() {
                 className="inline-flex items-center gap-1 rounded-full border border-earth-200 bg-white py-1 pl-3 pr-1 text-xs text-earth-800"
               >
                 <span className="text-earth-600">{f.name}:</span>
-                <span className="font-mono">{f.value}</span>
+                <span>{f.shown}</span>
                 <button
                   type="button"
                   onClick={f.clear}
@@ -289,6 +294,8 @@ export default function AdminLogsPage() {
             <div key={i} className="skeleton-warm h-12 w-full rounded-xl" />
           ))}
         </div>
+      ) : loadFailed ? (
+        <LoadError what="logs" onRetry={() => fetchLogs(null, false, { eventType, entityType, actorType })} />
       ) : logs.length === 0 ? (
         <EmptyState
           icon={ScrollText}
@@ -305,7 +312,7 @@ export default function AdminLogsPage() {
       ) : (
         <>
           {/* A table scans faster than cards for staff working a list (audit X3). */}
-          <Card className="border-earth-100 bg-white">
+          <Card className="overflow-hidden border-earth-100 bg-white">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[900px] text-sm">
@@ -336,14 +343,14 @@ export default function AdminLogsPage() {
                               e.stopPropagation();
                               setSelectedLog(log);
                             }}
-                            aria-label={`Details for ${log.event_type}`}
+                            aria-label={`Details for ${eventLabel(log.event_type)}`}
                             className="flex cursor-pointer flex-wrap items-center gap-1.5 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                           >
                             <StatusBadge
                               status={log.event_type}
                               tone={getEventTone(log.event_type)}
-                              label={log.event_type}
-                              className="font-mono normal-case"
+                              label={eventLabel(log.event_type)}
+                              className="normal-case"
                             />
                             <StatusBadge
                               status={log.actor_type}
@@ -391,8 +398,8 @@ export default function AdminLogsPage() {
                   <StatusBadge
                     status={selectedLog.event_type}
                     tone={getEventTone(selectedLog.event_type)}
-                    label={selectedLog.event_type}
-                    className="font-mono normal-case"
+                    label={eventLabel(selectedLog.event_type)}
+                    className="normal-case"
                   />
                   <StatusBadge
                     status={selectedLog.actor_type}

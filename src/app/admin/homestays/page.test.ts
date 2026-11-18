@@ -104,7 +104,7 @@ describe("Admin homestays: the on/off switch", () => {
     fetchMock.mockImplementation(async () => ({ ok: false, json: async () => ({ error: "Failed to update" }) }));
 
     await act(async () => switchEl().click());
-    expect(toast.error).toHaveBeenCalledWith("Couldn't change the homestay. Reload and try again.");
+    expect(toast.error).toHaveBeenCalledWith("Couldn't change the homestay. Reload the page and try again.");
     expect(switchEl().getAttribute("aria-checked")).toBe("false");
   });
 });

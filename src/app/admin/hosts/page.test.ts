@@ -126,3 +126,24 @@ describe("Admin hosts: wallet adjustment", () => {
     expect(document.querySelector("#wallet-preview")?.textContent).toBe("Balance ฿500 → ฿800");
   });
 });
+
+describe("Admin hosts: a list that fails to load", () => {
+  it("says it could not load, not that there are no hosts, and retries", async () => {
+    fetchMock.mockImplementation(async (url: string) =>
+      String(url).startsWith("/api/admin/hosts") ? { ok: false, json: async () => ({}) } : { ok: true, json: async () => null },
+    );
+    await render();
+
+    expect(container.textContent).toContain("Couldn't load hosts");
+    expect(container.textContent).not.toContain("No hosts found");
+
+    fetchMock.mockImplementation(async (url: string) =>
+      String(url).startsWith("/api/admin/hosts")
+        ? { ok: true, json: async () => ({ data: [host], total: 1, page: 1, limit: 20, totalPages: 1 }) }
+        : { ok: true, json: async () => null },
+    );
+    await act(async () => button("Try again", container)!.click());
+    expect(container.textContent).toContain("Wang");
+    expect(container.textContent).not.toContain("Couldn't load hosts");
+  });
+});

@@ -22,6 +22,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
+import { STICKY_END } from "@/components/admin/table-classes";
+import { LoadError, NETWORK_ERROR, actionFailed } from "@/components/admin/load-error";
 import { cn } from "@/lib/utils";
 import { fmtDate, fmtDateStr } from "@/lib/format-date";
 import { getPlanExpiryInfo } from "@/lib/plan-expiry";
@@ -83,11 +85,6 @@ const PLAN_TONES: Record<string, string> = {
   fixed_rate: "bg-earth-100/60 text-earth-700 border-earth-200",
 };
 
-/**
- * The Actions column stays on screen while the table scrolls sideways on phones and
- * tablets; the inset shadow is its left edge (a border would not move with a sticky cell).
- */
-const STICKY_ACTIONS = "sticky right-0 bg-white shadow-[inset_1px_0_0_var(--color-earth-100)]";
 /** One even stack at every width, so the pinned column stays one button wide. */
 const ACTIONS_LAYOUT = "grid gap-1.5";
 
@@ -115,6 +112,7 @@ export default function AdminHostsPage() {
   const router = useRouter();
   const [res, setRes] = useState<PaginatedResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
     (searchParams.get("status") as StatusFilter) || "all"
@@ -145,8 +143,9 @@ export default function AdminHostsPage() {
       if (status !== "all") params.set("status", status);
       const r = await fetch(`/api/admin/hosts?${params}`);
       if (r.ok) setRes(await r.json());
-    } catch (err) {
-      console.error("Failed to fetch hosts:", err);
+      setLoadFailed(!r.ok);
+    } catch {
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -184,10 +183,10 @@ export default function AdminHostsPage() {
         fetchHosts(page, statusFilter);
       } else {
         const data = await r.json();
-        toast.error(data.error || "Failed to approve");
+        toast.error(data.error || actionFailed("approve this host"));
       }
     } catch {
-      toast.error("Failed to approve");
+      toast.error(NETWORK_ERROR);
     } finally {
       setActionLoading(null);
       setDialog(null);
@@ -203,10 +202,10 @@ export default function AdminHostsPage() {
         fetchHosts(page, statusFilter);
       } else {
         const data = await r.json();
-        toast.error(data.error || "Failed to reject");
+        toast.error(data.error || actionFailed("reject this host"));
       }
     } catch {
-      toast.error("Failed to reject");
+      toast.error(NETWORK_ERROR);
     } finally {
       setActionLoading(null);
       setDialog(null);
@@ -227,10 +226,10 @@ export default function AdminHostsPage() {
         toast.success(is_verified ? "Host verified" : "Verification removed");
       } else {
         const data = await r.json();
-        toast.error(data.error || "Failed to update");
+        toast.error(data.error || actionFailed("change verification"));
       }
     } catch {
-      toast.error("Failed to update verification");
+      toast.error(NETWORK_ERROR);
     } finally {
       setActionLoading(null);
       setDialog(null);
@@ -272,10 +271,10 @@ export default function AdminHostsPage() {
         fetchHosts(page, statusFilter);
       } else {
         const data = await r.json();
-        toast.error(data.error || "Failed to set plan");
+        toast.error(data.error || actionFailed("save the plan"));
       }
     } catch {
-      toast.error("Failed to set plan");
+      toast.error(NETWORK_ERROR);
     } finally {
       setActionLoading(null);
       setDialog(null);
@@ -301,10 +300,10 @@ export default function AdminHostsPage() {
         fetchHosts(page, statusFilter);
       } else {
         const data = await r.json();
-        toast.error(data.error || "Failed to adjust wallet");
+        toast.error(data.error || actionFailed("adjust the wallet"));
       }
     } catch {
-      toast.error("Failed to adjust wallet");
+      toast.error(NETWORK_ERROR);
     } finally {
       setActionLoading(null);
       setDialog(null);
@@ -319,13 +318,13 @@ export default function AdminHostsPage() {
     const fixed_rate_override = rateFixed === "" ? null : parseInt(rateFixed);
 
     if (commission_pct_override !== null && isNaN(commission_pct_override)) {
-      toast.error("Invalid commission percentage"); return;
+      toast.error("Guest booking commission must be a number from 0 to 100."); return;
     }
     if (quick_commission_pct_override !== null && isNaN(quick_commission_pct_override)) {
-      toast.error("Invalid quick booking commission percentage"); return;
+      toast.error("Quick booking commission must be a number from 0 to 100."); return;
     }
     if (fixed_rate_override !== null && isNaN(fixed_rate_override)) {
-      toast.error("Invalid fixed rate"); return;
+      toast.error("Fixed rate must be a whole number of baht."); return;
     }
 
     setActionLoading(dialog.host.id);
@@ -340,10 +339,10 @@ export default function AdminHostsPage() {
         fetchHosts(page, statusFilter);
       } else {
         const data = await r.json();
-        toast.error(data.error || "Failed to set rate override");
+        toast.error(data.error || actionFailed("save the rate override"));
       }
     } catch {
-      toast.error("Failed to set rate override");
+      toast.error(NETWORK_ERROR);
     } finally {
       setActionLoading(null);
       setDialog(null);
@@ -421,6 +420,8 @@ export default function AdminHostsPage() {
             <div key={i} className="skeleton-warm h-16 w-full rounded-xl" />
           ))}
         </div>
+      ) : loadFailed ? (
+        <LoadError what="hosts" onRetry={() => fetchHosts(page, statusFilter)} />
       ) : !res || res.data.length === 0 ? (
         <EmptyState
           icon={Users}
@@ -430,7 +431,7 @@ export default function AdminHostsPage() {
       ) : (
         <>
           {/* A table scans faster than cards for staff working a list (audit X3). */}
-          <Card className="border-earth-100 bg-white">
+          <Card className="overflow-hidden border-earth-100 bg-white">
             <CardContent className="p-0">
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[960px] text-sm">
@@ -440,7 +441,7 @@ export default function AdminHostsPage() {
                       <th scope="col" className="px-4 py-2.5 font-medium">Homestay</th>
                       <th scope="col" className="px-4 py-2.5 font-medium">Plan</th>
                       <th scope="col" className="px-4 py-2.5 font-medium">Joined</th>
-                      <th scope="col" className={cn("w-px px-4 py-2.5 text-right font-medium", STICKY_ACTIONS)}>Actions</th>
+                      <th scope="col" className={cn("w-px px-4 py-2.5 text-right font-medium", STICKY_END)}>Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-earth-100 text-earth-800">
@@ -557,7 +558,7 @@ export default function AdminHostsPage() {
                         <td className="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-earth-600">
                           {fmtDate(new Date(host.created_at), "MMM d, yyyy · HH:mm", "en")}
                         </td>
-                        <td className={cn("px-4 py-3", STICKY_ACTIONS)}>
+                        <td className={cn("px-4 py-3", STICKY_END)}>
                           {host.status === "approved" && (
                             <div className={ACTIONS_LAYOUT}>
                               <Button

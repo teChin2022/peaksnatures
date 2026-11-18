@@ -9,6 +9,7 @@ import { getPlanExpiryInfo } from "@/lib/plan-expiry";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
+import { eventLabel } from "@/lib/history-event-types";
 import { DETAIL_LIMITS, getAdminHostDetail } from "./data";
 
 const PLAN_LABELS: Record<string, string> = { free: "Free", commission: "Commission", fixed_rate: "Fixed Rate" };
@@ -253,7 +254,7 @@ export default async function AdminHostDetailPage({ params }: { params: Promise<
             {logs.map((l) => (
               <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm">
                 <span className="flex items-center gap-2">
-                  <span className="font-mono text-xs text-earth-800">{l.event_type}</span>
+                  <span className="text-earth-800">{eventLabel(l.event_type)}</span>
                   <StatusBadge status={l.actor_type} />
                 </span>
                 <span className="text-xs tabular-nums text-earth-600">{fmtBangkokTime(l.created_at)}</span>

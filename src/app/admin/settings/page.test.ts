@@ -102,3 +102,30 @@ describe("Admin settings: billing configuration", () => {
     expect(puts()).toHaveLength(0);
   });
 });
+
+describe("Admin settings: billing configuration that fails to load", () => {
+  const rerender = async () => {
+    act(() => root.unmount());
+    root = createRoot(container);
+    await act(async () => {
+      root.render(createElement(AdminSettingsPage));
+    });
+  };
+
+  // Blank defaults under a Save button would overwrite the real commission and payout account.
+  it("shows the error and no form, then loads the form on retry", async () => {
+    fetchMock.mockImplementation(async () => ({ ok: false, json: async () => ({ error: "Failed" }) }));
+    await rerender();
+
+    expect(container.textContent).toContain("Couldn't load the billing configuration");
+    expect(document.getElementById("commission_pct")).toBeNull();
+    expect([...container.querySelectorAll("button")].some((b) => b.textContent?.includes("Save Billing Configuration"))).toBe(false);
+
+    fetchMock.mockImplementation(async (url: string) =>
+      url === "/api/admin/billing-config" ? { ok: true, json: async () => config } : { ok: true, json: async () => ({ data: [] }) },
+    );
+    await click("Try again");
+    expect((document.getElementById("commission_pct") as HTMLInputElement).value).toBe("7");
+    expect(puts()).toHaveLength(0);
+  });
+});

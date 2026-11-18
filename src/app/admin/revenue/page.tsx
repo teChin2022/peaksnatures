@@ -6,6 +6,7 @@ import { fmtTHB } from "@/lib/format-currency";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/admin/page-header";
 import { KpiCard } from "@/components/admin/kpi-card";
+import { STICKY_START } from "@/components/admin/table-classes";
 import { REVENUE_MONTHS, getPlatformRevenue, monthLabel } from "./data";
 
 const signed = (n: number) => (n === 0 ? fmtTHB(0) : `${n < 0 ? "−" : "+"}${fmtTHB(Math.abs(n))}`);
@@ -44,13 +45,13 @@ export default async function AdminRevenuePage() {
           Income is commission charged minus commission refunded, plus Fixed Rate invoices paid, by Bangkok calendar
           month. Wallet top-ups are hosts&apos; prepaid money, not income. Admin wallet adjustments are shown but not counted.
         </p>
-        <Card className="border-earth-100 bg-white">
+        <Card className="overflow-hidden border-earth-100 bg-white">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] text-sm">
                 <thead>
                   <tr className="border-b border-earth-100 text-left text-xs text-earth-600">
-                    <th scope="col" className={`${th} sticky left-0 z-10 bg-white`}>Month</th>
+                    <th scope="col" className={`${th} ${STICKY_START}`}>Month</th>
                     <th scope="col" className={`${th} text-right`}>Income</th>
                     <th scope="col" className={`${th} text-right`}>Commission</th>
                     <th scope="col" className={`${th} text-right`}>Refunds</th>
@@ -61,7 +62,7 @@ export default async function AdminRevenuePage() {
                 <tbody className="divide-y divide-earth-100 text-earth-800">
                   {newestFirst.map((m) => (
                     <tr key={m.month}>
-                      <th scope="row" className="sticky left-0 z-10 bg-white px-4 py-2.5 text-left font-normal whitespace-nowrap shadow-[inset_-1px_0_0_var(--color-earth-100)]">{monthLabel(m.month)}</th>
+                      <th scope="row" className={`px-4 py-2.5 text-left font-normal whitespace-nowrap ${STICKY_START}`}>{monthLabel(m.month)}</th>
                       <td className={`${num} font-semibold ${m.income < 0 ? "text-red-700" : "text-earth-900"}`}>{money(m.income)}</td>
                       <td className={num}>{fmtTHB(m.commission)}</td>
                       <td className={`${num} ${m.refunds > 0 ? "text-red-700" : ""}`}>{m.refunds > 0 ? `−${fmtTHB(m.refunds)}` : fmtTHB(0)}</td>

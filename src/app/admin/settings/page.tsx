@@ -12,6 +12,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/admin/page-header";
+import { LoadError, NETWORK_ERROR, actionFailed } from "@/components/admin/load-error";
 import { AdminListCard } from "@/components/admin/admin-list-card";
 import { cn } from "@/lib/utils";
 import type { FixedRateTermTier } from "@/types/database";
@@ -117,6 +118,8 @@ export default function AdminSettingsPage() {
   const [payoutConfirm, setPayoutConfirm] = useState<FixedRateTermTier[] | null>(null);
   const [billingLoading, setBillingLoading] = useState(true);
   const [billingSaving, setBillingSaving] = useState(false);
+  // Never show the form over blank defaults: saving it would overwrite the real config.
+  const [billingLoadFailed, setBillingLoadFailed] = useState(false);
   const [billingForm, setBillingForm] = useState({
     commission_pct: "",
     quick_commission_pct: "",
@@ -132,6 +135,7 @@ export default function AdminSettingsPage() {
   const [confirmRemoveTier, setConfirmRemoveTier] = useState<number | null>(null);
 
   const fetchBillingConfig = useCallback(async () => {
+    setBillingLoading(true);
     try {
       const res = await fetch("/api/admin/billing-config");
       if (res.ok) {
@@ -154,8 +158,9 @@ export default function AdminSettingsPage() {
           })),
         );
       }
+      setBillingLoadFailed(!res.ok);
     } catch {
-      console.error("Failed to fetch billing config");
+      setBillingLoadFailed(true);
     } finally {
       setBillingLoading(false);
     }
@@ -229,10 +234,10 @@ export default function AdminSettingsPage() {
         );
       } else {
         const data = await res.json();
-        toast.error(data.error || "Failed to save");
+        toast.error(data.error || actionFailed("save the billing configuration"));
       }
     } catch {
-      toast.error("Something went wrong");
+      toast.error(NETWORK_ERROR);
     } finally {
       setBillingSaving(false);
     }
@@ -284,7 +289,7 @@ export default function AdminSettingsPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || "Failed to change password");
+        toast.error(data.error || actionFailed("change the password"));
         return;
       }
 
@@ -293,7 +298,7 @@ export default function AdminSettingsPage() {
       setNewPassword("");
       setConfirmPassword("");
     } catch {
-      toast.error("Something went wrong");
+      toast.error(NETWORK_ERROR);
     } finally {
       setLoading(false);
     }
@@ -320,6 +325,8 @@ export default function AdminSettingsPage() {
         <CardContent>
           {billingLoading ? (
             <BillingFormSkeleton />
+          ) : billingLoadFailed ? (
+            <LoadError what="the billing configuration" onRetry={fetchBillingConfig} />
           ) : (
             <form onSubmit={handleBillingSave} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">

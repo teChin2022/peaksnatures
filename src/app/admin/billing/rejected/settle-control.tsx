@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { toast } from "sonner";
+import { NETWORK_ERROR, actionFailed } from "@/components/admin/load-error";
 import { CheckCircle, Loader2 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Label } from "@/components/ui/label";
@@ -35,7 +36,7 @@ export function SettleControl({ logId, hostName, settlement }: Props) {
       });
       const data = await r.json().catch(() => ({}));
       if (!r.ok) {
-        toast.error(data.error || "Something went wrong");
+        toast.error(data.error || actionFailed(open === "undo" ? "remove the settled mark" : "mark this payment settled"));
       } else {
         toast.success(open === "undo" ? "Settled mark removed" : "Marked settled");
         setOpen(null);
@@ -44,7 +45,7 @@ export function SettleControl({ logId, hostName, settlement }: Props) {
       // Refresh either way: on 409 another admin settled it first.
       router.refresh();
     } catch {
-      toast.error("Something went wrong");
+      toast.error(NETWORK_ERROR);
     } finally {
       setBusy(false);
     }

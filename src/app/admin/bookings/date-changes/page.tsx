@@ -47,7 +47,7 @@ export default async function PendingDateChangesPage() {
       {requests.length === 0 ? (
         <EmptyState title="No pending date changes" description="Every request has an answer." />
       ) : (
-        <Card className="border-earth-100 bg-white">
+        <Card className="overflow-hidden border-earth-100 bg-white">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-sm">

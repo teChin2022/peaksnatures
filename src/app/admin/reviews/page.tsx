@@ -35,7 +35,7 @@ export default async function AdminReviewsPage() {
       {reviews.length === 0 ? (
         <EmptyState icon={MessageSquare} title="No reviews yet" description="Guest reviews appear here after their stay." />
       ) : (
-        <Card className="border-earth-100 bg-white">
+        <Card className="overflow-hidden border-earth-100 bg-white">
           <CardContent className="p-0">
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-sm">

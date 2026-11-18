@@ -83,3 +83,45 @@ export const EventType = {
 } as const;
 
 export type EventTypeValue = (typeof EventType)[keyof typeof EventType];
+
+// ============================================================
+// Readable labels (admin is English-only)
+// ============================================================
+
+/** Words that read wrong when an enum is just lower-cased: user-facing copy says House and Homestay. */
+const WORD_LABELS: Record<string, string> = {
+  room: "house",
+  rooms: "houses",
+  property: "homestay",
+  checkin: "check-in",
+  checkout: "check-out",
+  topup: "top-up",
+  id: "ID",
+  ip: "IP",
+  otp: "OTP",
+  url: "URL",
+  pct: "%",
+};
+
+/** Events whose plain reading would mislead. */
+const EVENT_LABELS: Partial<Record<string, string>> = {
+  HOST_VERIFIED: "Host verification changed",
+  PROPERTY_TOGGLED: "Homestay turned on or off",
+  PLATFORM_PAYMENT_REJECTED: "Payment refused after verification",
+};
+
+function humanize(raw: string): string {
+  const words = raw.replace(/([a-z])([A-Z])/g, "$1 $2").toLowerCase().split(/[_\s]+/).filter(Boolean).map((w) => WORD_LABELS[w] ?? w);
+  const text = words.join(" ");
+  return text.charAt(0).toUpperCase() + text.slice(1);
+}
+
+/** "HOST_LOGOUT" → "Host logout". Unknown events still read as words, never as the raw code. */
+export function eventLabel(eventType: string): string {
+  return EVENT_LABELS[eventType] ?? humanize(eventType);
+}
+
+/** A metadata key for people: "room_id" → "House ID". */
+export function fieldLabel(key: string): string {
+  return humanize(key);
+}
