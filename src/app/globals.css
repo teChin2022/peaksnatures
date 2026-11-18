@@ -94,9 +94,9 @@
   --secondary: oklch(0.97 0 0);
   --secondary-foreground: oklch(0.205 0 0);
   --muted: oklch(0.97 0 0);
-  --muted-foreground: oklch(0.556 0 0);
-  --accent: oklch(0.97 0 0);
-  --accent-foreground: oklch(0.205 0 0);
+  --muted-foreground: #75604e; /* earth-600: DESIGN.md secondary text and placeholders, 5.93:1 on white. Was cool grey #737373. */
+  --accent: #f0ebe4; /* earth-100 Linen: menu and select highlight, ghost-button hover, skeleton. Was cool grey. */
+  --accent-foreground: #3a2e27; /* earth-900 on Linen, 11.7:1. */
   --destructive: oklch(0.577 0.245 27.325);
   --border: oklch(0.922 0 0);
   --input: #8d7560; /* earth-500: DESIGN.md field border, 4.33:1. Was grey, ~1.3:1, under the 3:1 a control edge needs. */
