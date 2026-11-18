@@ -340,12 +340,6 @@
   }
 }
 
-/* Sidebar active glow */
-.sidebar-active-glow {
-  box-shadow: inset 3px 0 0 0 #a89279, 0 0 12px rgba(168, 146, 121, 0.1);
-  background: rgba(168, 146, 121, 0.08);
-}
-
 /* Warm skeleton pulse */
 @keyframes warm-pulse {
   0%, 100% { opacity: 1; }

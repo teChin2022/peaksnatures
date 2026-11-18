@@ -24,7 +24,7 @@ export default async function AdminReviewsPage() {
 
   return (
     <div>
-      <PageHeader eyebrow="Guest feedback" title="Reviews" />
+      <PageHeader subtitle="Guest feedback" title="Reviews" />
 
       <div className="mb-6 grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
         <KpiCard label={`Reviews (latest ${REVIEWS_LIMIT})`} value={reviews.length} icon={MessageSquare} tone="earth" />
@@ -40,7 +40,7 @@ export default async function AdminReviewsPage() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-sm">
                 <thead>
-                  <tr className="border-b border-earth-100 text-left text-xs text-earth-500">
+                  <tr className="border-b border-earth-100 text-left text-xs text-earth-600">
                     <th scope="col" className={th}>Date</th>
                     <th scope="col" className={th}>Homestay</th>
                     <th scope="col" className={th}>Guest</th>
@@ -56,7 +56,7 @@ export default async function AdminReviewsPage() {
                         {r.host_id ? (
                           <Link
                             href={`/admin/hosts/${r.host_id}`}
-                            className="rounded underline-offset-4 hover:text-brand hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                            className="rounded underline-offset-4 hover:text-brand hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                           >
                             {r.homestay_name ?? "Unknown homestay"}
                           </Link>
@@ -69,9 +69,9 @@ export default async function AdminReviewsPage() {
                         {r.rating} / 5
                       </td>
                       <td className={`${td} min-w-64 text-earth-700`}>
-                        {r.comment ? <p className="line-clamp-3 whitespace-pre-line">{r.comment}</p> : <span className="text-earth-400">No comment</span>}
+                        {r.comment ? <p className="line-clamp-3 whitespace-pre-line">{r.comment}</p> : <span className="text-earth-600">No comment</span>}
                         {(r.photo_count > 0 || r.would_return) && (
-                          <p className="mt-1 text-xs text-earth-500">
+                          <p className="mt-1 text-xs text-earth-600">
                             {[r.photo_count > 0 && `${r.photo_count} photo${r.photo_count > 1 ? "s" : ""}`, r.would_return && `Would return: ${r.would_return}`]
                               .filter(Boolean)
                               .join(" · ")}

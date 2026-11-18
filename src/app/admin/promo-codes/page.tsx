@@ -81,7 +81,7 @@ export default function AdminPromoCodesPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Read-only audit"
+        subtitle="Read-only audit"
         title="Promo Codes"
         icon={Tag}
         actions={
@@ -133,15 +133,15 @@ export default function AdminPromoCodesPage() {
                         </Badge>
                         {!c.is_active && <StatusBadge status="inactive" />}
                         {c.recommender_name && (
-                          <Badge className="bg-brand-50 text-brand border border-brand/15 text-[10px] px-1.5 py-0.5">
+                          <Badge className="bg-brand-50 text-brand border border-brand/15 text-xs px-2 py-0.5">
                             {c.recommender_name}
                           </Badge>
                         )}
                       </div>
-                      <p className="text-xs text-earth-500">
+                      <p className="text-xs text-earth-600">
                         {c.homestay?.host?.name || "—"} · {c.homestay?.name || "—"}
                       </p>
-                      <p className="text-xs text-earth-500 tabular-nums">
+                      <p className="text-xs text-earth-600 tabular-nums">
                         Used: {c.times_used}{c.max_uses != null ? ` / ${c.max_uses}` : ""}
                         {c.start_at && ` · From ${c.start_at}`}
                         {c.expires_at && ` · Until ${c.expires_at}`}
@@ -178,7 +178,7 @@ export default function AdminPromoCodesPage() {
                       <span className="font-mono text-sm font-semibold text-earth-900">{r.promo_code?.code || "—"}</span>
                       <StatusBadge status={r.payout_status} />
                     </div>
-                    <p className="text-xs text-earth-500">
+                    <p className="text-xs text-earth-600">
                       {r.promo_code?.homestay?.host?.name || "—"} · {r.promo_code?.homestay?.name || "—"}
                     </p>
                     <p className="text-xs text-earth-600 tabular-nums">
@@ -218,7 +218,7 @@ function PaginationBar({
   if (page === 1 && !hasMore) return null;
   return (
     <div className="flex items-center justify-between gap-2 pt-2">
-      <span className="text-xs text-earth-500">Page {page}</span>
+      <span className="text-xs text-earth-600">Page {page}</span>
       <div className="flex items-center gap-2">
         <Button
           variant="outline"

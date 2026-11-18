@@ -300,9 +300,9 @@ export default function AdminSettingsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="max-w-3xl">
       <PageHeader
-        eyebrow="Platform billing and your admin account"
+        subtitle="Platform billing and your admin account"
         title="Settings"
         icon={Settings}
       />
@@ -313,7 +313,7 @@ export default function AdminSettingsPage() {
             <CreditCard className="h-4 w-4 text-brand" />
             Billing Configuration
           </CardTitle>
-          <CardDescription className="text-earth-500">
+          <CardDescription className="text-earth-600">
             Platform commission, fixed rate, and payment details for hosts
           </CardDescription>
         </CardHeader>
@@ -361,12 +361,12 @@ export default function AdminSettingsPage() {
 
               <div className="border-t border-earth-100 pt-4">
                 <p className="text-sm font-medium text-earth-900 mb-1">Fixed Rate Subscription Terms</p>
-                <p className="text-xs text-earth-500 mb-3">
+                <p className="text-xs text-earth-600 mb-3">
                   Durations (in months) that hosts can choose. Hosts pay upfront for the whole term; the discount % reduces the total.
                 </p>
                 <div className="space-y-2">
                   {tierDrafts.length === 0 && (
-                    <p className="text-xs text-earth-400 italic">No terms configured. Hosts will only see the default 1-month option after their term expires.</p>
+                    <p className="text-xs text-earth-600 italic">No terms configured. Hosts will only see the default 1-month option after their term expires.</p>
                   )}
                   {tierDrafts.map((tier, i) => (
                     <div key={i} className="flex items-end gap-2">
@@ -424,7 +424,7 @@ export default function AdminSettingsPage() {
 
               <div className="border-t border-earth-100 pt-4">
                 <p className="text-sm font-medium text-earth-900 mb-1">Platform Payment Details</p>
-                <p className="text-xs text-earth-500 mb-3">
+                <p className="text-xs text-earth-600 mb-3">
                   Shown to hosts when they need to pay (wallet top-up or monthly invoice).
                 </p>
                 <div className="space-y-3">
@@ -509,7 +509,7 @@ export default function AdminSettingsPage() {
             <Lock className="h-4 w-4 text-brand" />
             Change Password
           </CardTitle>
-          <CardDescription className="text-earth-500">Update your admin login password</CardDescription>
+          <CardDescription className="text-earth-600">Update your admin login password</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -528,7 +528,7 @@ export default function AdminSettingsPage() {
                 <button
                   type="button"
                   aria-label={showCurrent ? "Hide password" : "Show password"} onClick={() => setShowCurrent(!showCurrent)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-400 hover:text-brand"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-600 hover:text-brand"
                   tabIndex={-1}
                 >
                   {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -552,13 +552,13 @@ export default function AdminSettingsPage() {
                 <button
                   type="button"
                   aria-label={showNew ? "Hide password" : "Show password"} onClick={() => setShowNew(!showNew)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-400 hover:text-brand"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-600 hover:text-brand"
                   tabIndex={-1}
                 >
                   {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <p className="text-xs text-earth-500">Minimum 8 characters</p>
+              <p className="text-xs text-earth-600">Minimum 8 characters</p>
             </div>
 
             <div className="space-y-2">
@@ -577,7 +577,7 @@ export default function AdminSettingsPage() {
                 <button
                   type="button"
                   aria-label={showConfirm ? "Hide password" : "Show password"} onClick={() => setShowConfirm(!showConfirm)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-400 hover:text-brand"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-600 hover:text-brand"
                   tabIndex={-1}
                 >
                   {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -638,9 +638,9 @@ export default function AdminSettingsPage() {
           <dl className="space-y-2 text-sm">
             {payoutChanges.map((c) => (
               <div key={c.label}>
-                <dt className="text-xs text-earth-500">{c.label}</dt>
+                <dt className="text-xs text-earth-600">{c.label}</dt>
                 <dd className="break-all text-earth-800">
-                  <span className="text-earth-500 line-through">{c.from}</span> → <span className="font-medium">{c.to}</span>
+                  <span className="text-earth-600 line-through">{c.from}</span> → <span className="font-medium">{c.to}</span>
                 </dd>
               </div>
             ))}

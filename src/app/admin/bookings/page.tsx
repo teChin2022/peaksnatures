@@ -23,6 +23,10 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
 import { fmtDateStr, fmtDate } from "@/lib/format-date";
 import { fmtTHB } from "@/lib/format-currency";
+import { cn } from "@/lib/utils";
+
+/** The guest and status stay on screen while the table scrolls sideways on phones and tablets. */
+const STICKY_FIRST = "sticky left-0 z-10 bg-white shadow-[inset_-1px_0_0_var(--color-earth-100)]";
 
 function nightsBetween(checkIn: string, checkOut: string): number {
   const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
@@ -182,13 +186,13 @@ export default function AdminBookingsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow={loading ? "Loading…" : `${total} total`}
+        subtitle={loading ? "Loading…" : `${total} total`}
         title="Bookings"
         icon={CalendarDays}
         actions={
           <Link
             href="/admin/bookings/date-changes"
-            className="rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-700 hover:border-brand/40 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            className="rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-700 hover:border-brand/40 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
           >
             Date changes
           </Link>
@@ -204,7 +208,7 @@ export default function AdminBookingsPage() {
             <TabsTrigger value="holds" className="cursor-pointer data-[state=active]:bg-white data-[state=active]:text-brand data-[state=active]:shadow-sm">
               Holds
               {holds.length > 0 && (
-                <Badge className="ml-1.5 bg-amber-50 text-amber-700 border border-amber-200/70 text-[10px] px-1.5">
+                <Badge className="ml-1.5 bg-amber-50 text-amber-700 border border-amber-200/70 text-xs px-1.5">
                   {holds.length}
                 </Badge>
               )}
@@ -249,8 +253,8 @@ export default function AdminBookingsPage() {
                   <div className="overflow-x-auto">
                     <table className="w-full min-w-[900px] text-sm">
                       <thead>
-                        <tr className="border-b border-earth-100 text-left text-xs text-earth-500">
-                          <th scope="col" className="px-4 py-2.5 font-medium">Guest</th>
+                        <tr className="border-b border-earth-100 text-left text-xs text-earth-600">
+                          <th scope="col" className={cn("px-4 py-2.5 font-medium", STICKY_FIRST)}>Guest</th>
                           <th scope="col" className="px-4 py-2.5 font-medium">Stay</th>
                           <th scope="col" className="px-4 py-2.5 font-medium">Homestay · house</th>
                           <th scope="col" className="px-4 py-2.5 font-medium">Guests</th>
@@ -263,17 +267,17 @@ export default function AdminBookingsPage() {
                           const nights = nightsBetween(booking.check_in, booking.check_out);
                           return (
                             <tr key={booking.id} className="align-top">
-                              <td className="px-4 py-3">
+                              <td className={cn("max-w-56 px-4 py-3 sm:max-w-none", STICKY_FIRST)}>
                                 <div className="flex flex-wrap items-center gap-1.5">
                                   <span className="font-semibold text-earth-900">{booking.guest_name}</span>
                                   <StatusBadge status={booking.status} />
                                 </div>
-                                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-earth-500">
+                                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-earth-600">
                                   <Mail className="h-3 w-3 shrink-0" />
                                   <span className="break-all">{booking.guest_email}</span>
                                 </p>
                                 {booking.guest_phone && (
-                                  <p className="mt-0.5 flex items-center gap-1.5 text-xs text-earth-500">
+                                  <p className="mt-0.5 flex items-center gap-1.5 text-xs text-earth-600">
                                     <Phone className="h-3 w-3 shrink-0" />
                                     {booking.guest_phone}
                                   </p>
@@ -281,16 +285,16 @@ export default function AdminBookingsPage() {
                               </td>
                               <td className="whitespace-nowrap px-4 py-3 tabular-nums">
                                 {fmtDateStr(booking.check_in, "MMM d", "en")} → {fmtDateStr(booking.check_out, "MMM d, yyyy", "en")}
-                                <p className="text-xs text-earth-500">
+                                <p className="text-xs text-earth-600">
                                   {nights} night{nights === 1 ? "" : "s"}
                                 </p>
                               </td>
                               <td className="px-4 py-3">
                                 {booking.homestay_name || "—"}
-                                <p className="flex items-center gap-1.5 text-xs text-earth-500">
+                                <p className="flex items-center gap-1.5 text-xs text-earth-600">
                                   {booking.room_name || "—"}
                                   {booking.group_id && (
-                                    <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700">Group</span>
+                                    <StatusBadge status="group" tone="earth" label="Group" />
                                   )}
                                 </p>
                               </td>
@@ -298,10 +302,10 @@ export default function AdminBookingsPage() {
                               <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">
                                 <span className="font-semibold text-earth-900">{fmtTHB(booking.total_price)}</span>
                                 {booking.payment_type === "deposit" && (
-                                  <p className="text-xs text-earth-500">Paid: {fmtTHB(booking.amount_paid)}</p>
+                                  <p className="text-xs text-earth-600">Paid: {fmtTHB(booking.amount_paid)}</p>
                                 )}
                               </td>
-                              <td className="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-earth-500">
+                              <td className="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-earth-600">
                                 {fmtDate(new Date(booking.created_at), "MMM d, yyyy · HH:mm", "en")}
                               </td>
                             </tr>
@@ -355,7 +359,7 @@ export default function AdminBookingsPage() {
                             <StatusBadge status={expired ? "expired" : "active"} />
                           </div>
                           {hold.room_name && (
-                            <p className="mt-0.5 text-xs text-earth-500 flex items-center gap-1.5">
+                            <p className="mt-0.5 text-xs text-earth-600 flex items-center gap-1.5">
                               <BedDouble className="h-3 w-3 shrink-0" />
                               <span className="truncate">{hold.room_name}</span>
                             </p>
@@ -394,7 +398,7 @@ export default function AdminBookingsPage() {
                         </div>
                       </div>
 
-                      <div className="pt-2 border-t border-earth-100/70 text-xs text-earth-500 flex items-center gap-1.5">
+                      <div className="pt-2 border-t border-earth-100/70 text-xs text-earth-600 flex items-center gap-1.5">
                         <Clock className="h-3 w-3" />
                         <span className="tabular-nums">Created {fmtDate(new Date(hold.created_at), "MMM d, yyyy · HH:mm", "en")}</span>
                       </div>
@@ -413,7 +417,7 @@ export default function AdminBookingsPage() {
           <DialogHeader>
             <DialogTitle className="font-serif">Delete Booking Hold</DialogTitle>
             <DialogDescription>
-              Delete the hold on <strong>{confirmDeleteHold?.room_name || "this room"}</strong> ({confirmDeleteHold ? `${fmtDateStr(confirmDeleteHold.check_in, "MMM d", "en")} → ${fmtDateStr(confirmDeleteHold.check_out, "MMM d, yyyy", "en")}` : ""})? This will release the dates immediately.
+              Delete the hold on <strong>{confirmDeleteHold?.room_name || "this house"}</strong> ({confirmDeleteHold ? `${fmtDateStr(confirmDeleteHold.check_in, "MMM d", "en")} → ${fmtDateStr(confirmDeleteHold.check_out, "MMM d, yyyy", "en")}` : ""})? This will release the dates immediately.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

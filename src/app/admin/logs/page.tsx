@@ -142,13 +142,13 @@ export default function AdminLogsPage() {
     return (
       <div className="mt-1.5 flex flex-wrap gap-1">
         {shown.map(([k, v]) => (
-          <span key={k} className="inline-flex items-center rounded bg-earth-50 px-1.5 py-0.5 text-[11px] text-earth-600">
+          <span key={k} className="inline-flex items-center rounded bg-earth-50 px-1.5 py-0.5 text-xs text-earth-600">
             <span className="font-medium text-earth-700 mr-0.5">{k}:</span>
             {typeof v === "object" ? JSON.stringify(v).slice(0, 40) : String(v).slice(0, 40)}
           </span>
         ))}
         {entries.length > 4 && (
-          <span className="text-[11px] text-earth-400">+{entries.length - 4} more</span>
+          <span className="text-xs text-earth-600">+{entries.length - 4} more</span>
         )}
       </div>
     );
@@ -156,12 +156,12 @@ export default function AdminLogsPage() {
 
   const renderDataDetail = (data: Record<string, unknown>) => {
     const entries = Object.entries(data).filter(([, v]) => v !== null && v !== undefined && v !== "");
-    if (entries.length === 0) return <p className="text-sm text-earth-400">No metadata.</p>;
+    if (entries.length === 0) return <p className="text-sm text-earth-600">No metadata.</p>;
     return (
       <dl className="grid grid-cols-[minmax(7rem,auto)_1fr] gap-x-3 gap-y-1.5 text-sm">
         {entries.map(([k, v]) => (
           <Fragment key={k}>
-            <dt className="font-mono text-xs text-earth-500 pt-0.5 break-words">{k}</dt>
+            <dt className="font-mono text-xs text-earth-600 pt-0.5 break-words">{k}</dt>
             <dd className="text-earth-800 break-words whitespace-pre-wrap">
               {typeof v === "object" ? JSON.stringify(v, null, 2) : String(v)}
             </dd>
@@ -174,7 +174,7 @@ export default function AdminLogsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow="Activity audit trail"
+        subtitle="Activity audit trail"
         title="History Logs"
         icon={ScrollText}
         actions={
@@ -191,7 +191,7 @@ export default function AdminLogsPage() {
             <Filter className="h-4 w-4 mr-1.5" />
             Filters
             {hasActiveFilters && (
-              <span className="ml-1 flex h-4 w-4 items-center justify-center rounded-full bg-white text-[10px] text-brand font-bold">
+              <span className="ml-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-xs text-brand font-bold">
                 {[eventType, entityType, actorType].filter(Boolean).length}
               </span>
             )}
@@ -208,7 +208,7 @@ export default function AdminLogsPage() {
                 <select
                   value={eventType}
                   onChange={(e) => setEventType(e.target.value)}
-                  className="w-full cursor-pointer rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-900 focus:outline-none focus:ring-2 focus:ring-brand/40"
+                  className="w-full cursor-pointer rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-900 focus:outline-none focus:ring-2 focus:ring-brand"
                 >
                   <option value="">All events</option>
                   {EVENT_TYPE_OPTIONS.map((e) => (
@@ -221,7 +221,7 @@ export default function AdminLogsPage() {
                 <select
                   value={entityType}
                   onChange={(e) => setEntityType(e.target.value)}
-                  className="w-full cursor-pointer rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-900 focus:outline-none focus:ring-2 focus:ring-brand/40"
+                  className="w-full cursor-pointer rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-900 focus:outline-none focus:ring-2 focus:ring-brand"
                 >
                   <option value="">All entities</option>
                   {ENTITY_TYPE_OPTIONS.map((e) => (
@@ -234,7 +234,7 @@ export default function AdminLogsPage() {
                 <select
                   value={actorType}
                   onChange={(e) => setActorType(e.target.value)}
-                  className="w-full cursor-pointer rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-900 focus:outline-none focus:ring-2 focus:ring-brand/40"
+                  className="w-full cursor-pointer rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-900 focus:outline-none focus:ring-2 focus:ring-brand"
                 >
                   <option value="">All actors</option>
                   {ACTOR_TYPE_OPTIONS.map((a) => (
@@ -245,7 +245,7 @@ export default function AdminLogsPage() {
             </div>
             {hasActiveFilters && (
               <div className="mt-3 flex justify-end">
-                <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-xs cursor-pointer text-earth-500 hover:text-brand">
+                <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-xs cursor-pointer text-earth-600 hover:text-brand">
                   Clear all filters
                 </Button>
               </div>
@@ -268,13 +268,13 @@ export default function AdminLogsPage() {
                 key={f.name}
                 className="inline-flex items-center gap-1 rounded-full border border-earth-200 bg-white py-1 pl-3 pr-1 text-xs text-earth-800"
               >
-                <span className="text-earth-500">{f.name}:</span>
+                <span className="text-earth-600">{f.name}:</span>
                 <span className="font-mono">{f.value}</span>
                 <button
                   type="button"
                   onClick={f.clear}
                   aria-label={`Remove ${f.name.toLowerCase()} filter`}
-                  className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-earth-500 hover:bg-earth-50 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                  className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-earth-600 hover:bg-earth-50 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -310,7 +310,7 @@ export default function AdminLogsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[900px] text-sm">
                   <thead>
-                    <tr className="border-b border-earth-100 text-left text-xs text-earth-500">
+                    <tr className="border-b border-earth-100 text-left text-xs text-earth-600">
                       <th scope="col" className="px-4 py-2.5 font-medium">Time</th>
                       <th scope="col" className="px-4 py-2.5 font-medium">Event</th>
                       <th scope="col" className="px-4 py-2.5 font-medium">Subject</th>
@@ -337,7 +337,7 @@ export default function AdminLogsPage() {
                               setSelectedLog(log);
                             }}
                             aria-label={`Details for ${log.event_type}`}
-                            className="flex cursor-pointer flex-wrap items-center gap-1.5 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                            className="flex cursor-pointer flex-wrap items-center gap-1.5 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                           >
                             <StatusBadge
                               status={log.event_type}
@@ -355,12 +355,12 @@ export default function AdminLogsPage() {
                         <td className="px-4 py-3 font-medium">
                           {log.entity_label}
                           {log.entity_context && (
-                            <span className="block text-xs font-normal text-earth-500">{log.entity_context}</span>
+                            <span className="block text-xs font-normal text-earth-600">{log.entity_context}</span>
                           )}
                         </td>
                         <td className="px-4 py-3 text-xs text-earth-600">
                           {log.actor_label}
-                          {log.ip_address && <span className="block text-earth-400">{log.ip_address}</span>}
+                          {log.ip_address && <span className="block text-earth-600">{log.ip_address}</span>}
                         </td>
                         <td className="max-w-md px-4 py-3">{renderDataSummary(log.data)}</td>
                       </tr>
@@ -402,29 +402,29 @@ export default function AdminLogsPage() {
                 </div>
                 <DialogTitle className="text-base text-earth-900">{selectedLog.entity_label}</DialogTitle>
                 {selectedLog.entity_context && (
-                  <DialogDescription className="text-earth-500">{selectedLog.entity_context}</DialogDescription>
+                  <DialogDescription className="text-earth-600">{selectedLog.entity_context}</DialogDescription>
                 )}
               </DialogHeader>
 
               <div className="space-y-1.5 text-sm border-y border-earth-100 py-3">
                 <div className="flex gap-2">
-                  <span className="w-16 shrink-0 text-earth-500">Actor</span>
+                  <span className="w-16 shrink-0 text-earth-600">Actor</span>
                   <span className="text-earth-800">by {selectedLog.actor_label}</span>
                 </div>
                 {selectedLog.ip_address && (
                   <div className="flex gap-2">
-                    <span className="w-16 shrink-0 text-earth-500">IP</span>
+                    <span className="w-16 shrink-0 text-earth-600">IP</span>
                     <span className="text-earth-800 tabular-nums">{selectedLog.ip_address}</span>
                   </div>
                 )}
                 <div className="flex gap-2">
-                  <span className="w-16 shrink-0 text-earth-500">Time</span>
+                  <span className="w-16 shrink-0 text-earth-600">Time</span>
                   <span className="text-earth-800 tabular-nums">{formatDate(selectedLog.created_at)}</span>
                 </div>
               </div>
 
               <div>
-                <h3 className="text-xs font-medium uppercase tracking-wide text-earth-400 mb-2">Metadata</h3>
+                <h3 className="text-xs font-medium uppercase tracking-wide text-earth-600 mb-2">Metadata</h3>
                 <div className="max-h-[50vh] overflow-y-auto pr-1">
                   {renderDataDetail(selectedLog.data)}
                 </div>

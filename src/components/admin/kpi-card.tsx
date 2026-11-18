@@ -35,7 +35,7 @@ export function KpiCard({ label, value, icon: Icon, tone = "neutral", href }: Kp
           <Icon className={cn("h-5 w-5", styles.icon)} />
         </div>
         <div className="min-w-0">
-          <p className="text-xs sm:text-sm text-earth-500 line-clamp-2">{label}</p>
+          <p className="text-xs sm:text-sm text-earth-600 line-clamp-2">{label}</p>
           <p className="text-xl sm:text-2xl font-bold text-earth-900 truncate tabular-nums">{value}</p>
         </div>
       </CardContent>

@@ -30,13 +30,13 @@ export default async function PendingDateChangesPage() {
     <div>
       <Link
         href="/admin/bookings"
-        className="mb-3 inline-flex items-center gap-1.5 rounded text-sm text-earth-600 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+        className="mb-3 inline-flex items-center gap-1.5 rounded text-sm text-earth-600 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
       >
         <ArrowLeft className="h-4 w-4" />
         Bookings
       </Link>
       <PageHeader
-        eyebrow={stale > 0 ? `${stale} waiting over ${STALE_DATE_CHANGE_DAYS} days` : "Waiting on hosts"}
+        subtitle={stale > 0 ? `${stale} waiting over ${STALE_DATE_CHANGE_DAYS} days` : "Waiting on hosts"}
         title="Date change requests"
       />
       <p className="-mt-3 mb-5 max-w-2xl text-sm text-earth-600">
@@ -52,7 +52,7 @@ export default async function PendingDateChangesPage() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[720px] text-sm">
                 <thead>
-                  <tr className="border-b border-earth-100 text-left text-xs text-earth-500">
+                  <tr className="border-b border-earth-100 text-left text-xs text-earth-600">
                     <th scope="col" className={th}>Requested</th>
                     <th scope="col" className={th}>Guest</th>
                     <th scope="col" className={th}>Homestay</th>
@@ -72,7 +72,7 @@ export default async function PendingDateChangesPage() {
                         {r.host_id ? (
                           <Link
                             href={`/admin/hosts/${r.host_id}`}
-                            className="rounded underline-offset-4 hover:text-brand hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                            className="rounded underline-offset-4 hover:text-brand hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                           >
                             {r.homestay_name ?? "Unknown homestay"}
                           </Link>
@@ -81,7 +81,7 @@ export default async function PendingDateChangesPage() {
                         )}
                       </td>
                       <td className={`${td} whitespace-nowrap`}>
-                        <span className="text-earth-500">
+                        <span className="text-earth-600">
                           {day(r.old_check_in)}–{day(r.old_check_out)}
                         </span>{" "}
                         → {day(r.new_check_in)}–{day(r.new_check_out)}
@@ -99,7 +99,7 @@ export default async function PendingDateChangesPage() {
           </CardContent>
         </Card>
       )}
-      <p className="mt-3 text-xs text-earth-500">Oldest first, up to {DATE_CHANGE_LIMIT}.</p>
+      <p className="mt-3 text-xs text-earth-600">Oldest first, up to {DATE_CHANGE_LIMIT}.</p>
     </div>
   );
 }

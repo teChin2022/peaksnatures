@@ -29,6 +29,7 @@ import { fmtTHB } from "@/lib/format-currency";
 import { billingToday, billingTodayStr } from "@/lib/billing-dates";
 import { computeImmediateFixedRateInvoice, fixedRateStartDate } from "@/lib/billing-calc";
 import type { PlatformBillingConfig } from "@/types/database";
+import { walletAdjustment, type WalletDirection } from "./wallet-adjust";
 
 interface HostRow {
   id: string;
@@ -82,6 +83,14 @@ const PLAN_TONES: Record<string, string> = {
   fixed_rate: "bg-earth-100/60 text-earth-700 border-earth-200",
 };
 
+/**
+ * The Actions column stays on screen while the table scrolls sideways on phones and
+ * tablets; the inset shadow is its left edge (a border would not move with a sticky cell).
+ */
+const STICKY_ACTIONS = "sticky right-0 bg-white shadow-[inset_1px_0_0_var(--color-earth-100)]";
+/** One even stack at every width, so the pinned column stays one button wide. */
+const ACTIONS_LAYOUT = "grid gap-1.5";
+
 interface PaginatedResponse {
   data: HostRow[];
   total: number;
@@ -95,7 +104,8 @@ type StatusFilter = "all" | "pending" | "approved";
 type DialogState =
   | { type: "plan"; host: HostRow }
   | { type: "rate"; host: HostRow }
-  | { type: "wallet"; hostId: string; hostName: string }
+  | { type: "wallet"; hostId: string; hostName: string; balance: number }
+  | { type: "unverify"; hostId: string; hostName: string }
   | { type: "approve"; hostId: string; hostName: string }
   | { type: "reject"; hostId: string; hostName: string }
   | null;
@@ -125,6 +135,7 @@ export default function AdminHostsPage() {
   const [rateFixed, setRateFixed] = useState("");
 
   const [walletAmount, setWalletAmount] = useState("");
+  const [walletDirection, setWalletDirection] = useState<WalletDirection>("add");
   const [walletReason, setWalletReason] = useState("");
 
   const fetchHosts = useCallback(async (p: number, status: StatusFilter) => {
@@ -222,6 +233,7 @@ export default function AdminHostsPage() {
       toast.error("Failed to update verification");
     } finally {
       setActionLoading(null);
+      setDialog(null);
     }
   };
 
@@ -272,8 +284,9 @@ export default function AdminHostsPage() {
 
   const handleWalletAdjust = async () => {
     if (!dialog || dialog.type !== "wallet") return;
-    const amount = parseInt(walletAmount);
-    if (isNaN(amount) || amount === 0) { toast.error("Invalid amount"); return; }
+    const adj = walletAdjustment(dialog.balance, walletAmount, walletDirection);
+    if (!adj) { toast.error("Enter a whole baht amount above zero"); return; }
+    const { amount } = adj;
     if (!walletReason.trim()) { toast.error("Please enter a reason"); return; }
 
     setActionLoading(dialog.hostId);
@@ -360,7 +373,8 @@ export default function AdminHostsPage() {
   const openWalletDialog = (host: HostRow) => {
     setWalletAmount("");
     setWalletReason("");
-    setDialog({ type: "wallet", hostId: host.id, hostName: host.name });
+    setWalletDirection("add");
+    setDialog({ type: "wallet", hostId: host.id, hostName: host.name, balance: host.wallet_balance });
   };
 
   // Fixed Rate without a term would fall through to the route's 1-month
@@ -376,7 +390,7 @@ export default function AdminHostsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow={res ? `${res.total} total` : "Loading…"}
+        subtitle={res ? `${res.total} total` : "Loading…"}
         title="Hosts"
         icon={Users}
       />
@@ -385,14 +399,15 @@ export default function AdminHostsPage() {
         {(["all", "pending", "approved"] as StatusFilter[]).map((f) => (
           <Button
             key={f}
-            variant={statusFilter === f ? "default" : "outline"}
+            variant="outline"
             size="sm"
+            aria-pressed={statusFilter === f}
             onClick={() => handleFilterChange(f)}
             className={cn(
-              "cursor-pointer",
+              "cursor-pointer rounded-full",
               statusFilter === f
-                ? "bg-brand hover:bg-brand-hover text-white"
-                : "border-earth-200 text-earth-700 hover:bg-earth-50 hover:text-brand"
+                ? "border-brand bg-brand-50 text-brand hover:bg-brand-50"
+                : "border-earth-200 bg-white text-earth-700 hover:bg-earth-50 hover:text-brand"
             )}
           >
             {f === "all" ? "All" : f === "pending" ? "Pending" : "Approved"}
@@ -420,12 +435,12 @@ export default function AdminHostsPage() {
               <div className="overflow-x-auto">
                 <table className="w-full min-w-[960px] text-sm">
                   <thead>
-                    <tr className="border-b border-earth-100 text-left text-xs text-earth-500">
-                      <th scope="col" className="min-w-64 px-4 py-2.5 font-medium">Host</th>
+                    <tr className="border-b border-earth-100 text-left text-xs text-earth-600">
+                      <th scope="col" className="min-w-52 px-4 py-2.5 font-medium sm:min-w-64">Host</th>
                       <th scope="col" className="px-4 py-2.5 font-medium">Homestay</th>
                       <th scope="col" className="px-4 py-2.5 font-medium">Plan</th>
                       <th scope="col" className="px-4 py-2.5 font-medium">Joined</th>
-                      <th scope="col" className="px-4 py-2.5 text-right font-medium">Actions</th>
+                      <th scope="col" className={cn("w-px px-4 py-2.5 text-right font-medium", STICKY_ACTIONS)}>Actions</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-earth-100 text-earth-800">
@@ -434,7 +449,7 @@ export default function AdminHostsPage() {
                         <td className="px-4 py-3">
                           <Link
                             href={`/admin/hosts/${host.id}`}
-                            className="rounded font-semibold text-earth-900 underline-offset-4 hover:text-brand hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                            className="rounded font-semibold text-earth-900 underline-offset-4 hover:text-brand hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                           >
                             {host.name}
                           </Link>
@@ -471,14 +486,14 @@ export default function AdminHostsPage() {
                             />
                           </span>
                         ) : (
-                          <span className="text-earth-400">No homestay</span>
+                          <span className="text-earth-600">No homestay</span>
                         )}
                         </td>
                         <td className="px-4 py-3">
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span
                             className={cn(
-                              "inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+                              "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
                               PLAN_TONES[host.plan_type] || PLAN_TONES.free
                             )}
                           >
@@ -487,35 +502,35 @@ export default function AdminHostsPage() {
                           {host.plan_type === "free" && host.plan_free_expires_at && (
                             <span
                               className={cn(
-                                "text-[10px]",
+                                "text-xs",
                                 getPlanExpiryInfo(host.plan_type, host.plan_free_expires_at)
                                   .phase !== "active"
                                   ? "text-destructive font-medium"
-                                  : "text-earth-500"
+                                  : "text-earth-600"
                               )}
                             >
                               exp {fmtDateStr(host.plan_free_expires_at, "MMM d, yyyy", "en")}
                             </span>
                           )}
                           {host.commission_pct_override != null && (
-                            <span className="rounded px-1.5 py-0.5 text-[10px] text-brand bg-brand-50">
+                            <span className="rounded-full px-2 py-0.5 text-xs text-brand bg-brand-50">
                               {host.commission_pct_override}% guest override
                             </span>
                           )}
                           {host.quick_commission_pct_override != null && (
-                            <span className="rounded px-1.5 py-0.5 text-[10px] text-brand bg-brand-50">
+                            <span className="rounded-full px-2 py-0.5 text-xs text-brand bg-brand-50">
                               {host.quick_commission_pct_override}% quick override
                             </span>
                           )}
                           {host.fixed_rate_override != null && (
-                            <span className="rounded px-1.5 py-0.5 text-[10px] text-earth-700 bg-earth-50 tabular-nums">
+                            <span className="rounded-full px-2 py-0.5 text-xs text-earth-700 bg-earth-50 tabular-nums">
                               {fmtTHB(host.fixed_rate_override)}/mo override
                             </span>
                           )}
                           {host.plan_type === "fixed_rate" && host.fixed_rate_term_ends_at && (
                             <span
                               className={cn(
-                                "rounded px-1.5 py-0.5 text-[10px]",
+                                "rounded-full px-2 py-0.5 text-xs",
                                 hasActiveTerm(host)
                                   ? "text-earth-700 bg-earth-50"
                                   : "text-destructive font-medium"
@@ -529,7 +544,7 @@ export default function AdminHostsPage() {
                           {host.plan_type === "commission" && (
                             <span
                               className={cn(
-                                "inline-flex items-center gap-1 text-[10px] font-medium tabular-nums",
+                                "inline-flex items-center gap-1 text-xs font-medium tabular-nums",
                                 host.wallet_balance < 0 ? "text-destructive" : "text-earth-600"
                               )}
                             >
@@ -539,22 +554,27 @@ export default function AdminHostsPage() {
                           )}
                         </div>
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-earth-500">
+                        <td className="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-earth-600">
                           {fmtDate(new Date(host.created_at), "MMM d, yyyy · HH:mm", "en")}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className={cn("px-4 py-3", STICKY_ACTIONS)}>
                           {host.status === "approved" && (
-                            <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            <div className={ACTIONS_LAYOUT}>
                               <Button
                                 size="sm"
                                 variant="outline"
                                 className={cn(
                                   "h-9 px-3 text-xs cursor-pointer",
                                   host.is_verified
-                                    ? "text-brand border-brand/30 hover:bg-brand-50"
-                                    : "text-earth-700 border-earth-200 hover:bg-earth-50"
+                                    ? "text-earth-700 border-earth-200 hover:bg-earth-50 hover:text-brand"
+                                    : "text-brand border-brand/30 hover:bg-brand-50"
                                 )}
-                                onClick={() => handleVerify(host.id)}
+                                // Removing the badge guests see is confirmed first; granting it is one click.
+                                onClick={() =>
+                                  host.is_verified
+                                    ? setDialog({ type: "unverify", hostId: host.id, hostName: host.name })
+                                    : handleVerify(host.id)
+                                }
                                 disabled={actionLoading === host.id}
                               >
                                 {actionLoading === host.id ? (
@@ -599,7 +619,7 @@ export default function AdminHostsPage() {
                             </div>
                           )}
                           {host.status === "pending" && (
-                            <div className="flex flex-wrap items-center justify-end gap-1.5">
+                            <div className={ACTIONS_LAYOUT}>
                               <Button
                                 size="sm"
                                 className="h-9 px-3 text-xs cursor-pointer bg-brand hover:bg-brand-hover text-white"
@@ -636,7 +656,7 @@ export default function AdminHostsPage() {
 
           {res.totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between pt-2">
-              <p className="text-sm text-earth-500">
+              <p className="text-sm text-earth-600">
                 Page {res.page} of {res.totalPages}
               </p>
               <div className="flex items-center gap-2">
@@ -651,6 +671,30 @@ export default function AdminHostsPage() {
           )}
         </>
       )}
+
+      {/* ── Unverify Confirmation ── */}
+      <Dialog open={dialog?.type === "unverify"} onOpenChange={(open) => { if (!open) setDialog(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-serif">Remove verification</DialogTitle>
+            <DialogDescription>
+              Remove the verified badge from <strong>{dialog?.type === "unverify" ? dialog.hostName : ""}</strong>? Guests stop seeing it on their booking page. You can verify them again later.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" className="cursor-pointer border-earth-200" onClick={() => setDialog(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              className="cursor-pointer"
+              onClick={() => dialog?.type === "unverify" && handleVerify(dialog.hostId)}
+              disabled={actionLoading !== null}
+            >
+              {actionLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Remove verification
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Approve Confirmation ── */}
       <Dialog open={dialog?.type === "approve"} onOpenChange={(open) => { if (!open) setDialog(null); }}>
@@ -761,13 +805,13 @@ export default function AdminHostsPage() {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="text-xs text-earth-500 px-0 h-auto cursor-pointer hover:text-brand"
+                    className="text-xs text-earth-600 px-0 h-auto cursor-pointer hover:text-brand"
                     onClick={() => setPlanExpiry("")}
                   >
                     Clear date
                   </Button>
                 )}
-                <p className="text-[11px] text-earth-400">Leave empty for no expiry</p>
+                <p className="text-xs text-earth-600">Leave empty for no expiry</p>
               </div>
             )}
             {planType === "fixed_rate" && dialog?.type === "plan" && (
@@ -862,14 +906,43 @@ export default function AdminHostsPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="wallet-amount">Amount</Label>
+              <Label id="wallet-direction-label">Direction</Label>
+              <div role="radiogroup" aria-labelledby="wallet-direction-label" className="grid grid-cols-2 gap-2">
+                {(["add", "deduct"] as const).map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    role="radio"
+                    aria-checked={walletDirection === d}
+                    onClick={() => setWalletDirection(d)}
+                    className={cn(
+                      "h-10 rounded-full border text-sm font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
+                      walletDirection === d
+                        ? "border-brand bg-brand-50 text-brand"
+                        : "border-earth-200 bg-white text-earth-700 hover:bg-earth-50",
+                    )}
+                  >
+                    {d === "add" ? "Add credit" : "Deduct"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wallet-amount">Amount (THB)</Label>
               <Input
                 id="wallet-amount"
                 type="number"
+                inputMode="numeric"
+                min="1"
+                step="1"
                 value={walletAmount}
                 onChange={(e) => setWalletAmount(e.target.value)}
-                placeholder="Positive to add, negative to deduct"
+                placeholder="e.g. 500"
+                aria-describedby="wallet-preview"
               />
+              {dialog?.type === "wallet" && (
+                <WalletPreview balance={dialog.balance} adj={walletAdjustment(dialog.balance, walletAmount, walletDirection)} />
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="wallet-reason">Reason</Label>
@@ -885,11 +958,16 @@ export default function AdminHostsPage() {
             <Button variant="outline" className="cursor-pointer border-earth-200" onClick={() => setDialog(null)}>Cancel</Button>
             <Button
               onClick={handleWalletAdjust}
-              disabled={actionLoading !== null || !walletAmount || !walletReason.trim()}
+              disabled={
+                actionLoading !== null ||
+                dialog?.type !== "wallet" ||
+                !walletAdjustment(dialog.balance, walletAmount, walletDirection) ||
+                !walletReason.trim()
+              }
               className="cursor-pointer bg-brand hover:bg-brand-hover text-white"
             >
               {actionLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Adjust Wallet
+              {walletDirection === "deduct" ? "Deduct from wallet" : "Add to wallet"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -930,7 +1008,7 @@ function FixedRateTermField({
             {host.fixed_rate_term_months ? `: ${host.fixed_rate_term_months} months` : ""}, ends{" "}
             {fmtDateStr(host.fixed_rate_term_ends_at!, "d MMM yyyy", "en")}
           </p>
-          <p className="text-[11px] text-earth-500">
+          <p className="text-xs text-earth-600">
             Saving keeps this term — nothing is billed and no invoice is created.
           </p>
         </div>
@@ -939,7 +1017,7 @@ function FixedRateTermField({
   }
 
   if (!config) {
-    return <p className="text-xs text-earth-400">Loading terms…</p>;
+    return <p className="text-xs text-earth-600">Loading terms…</p>;
   }
 
   const tiers = config.fixed_rate_term_tiers || [];
@@ -999,7 +1077,7 @@ function FixedRateTermField({
               )}
             >
               {tier.discount_pct > 0 && (
-                <span className="absolute top-1.5 right-1.5 bg-amber-100 text-amber-700 text-[9px] font-bold uppercase tracking-wider py-0.5 px-1.5 rounded-full">
+                <span className="absolute top-1.5 right-1.5 bg-amber-50 text-amber-700 text-xs font-medium py-0.5 px-2 rounded-full">
                   Save {tier.discount_pct}%
                 </span>
               )}
@@ -1050,17 +1128,31 @@ function FixedRateTermField({
             <span className="font-semibold tabular-nums text-earth-900">{fmtTHB(selected.amount)}</span>
           </div>
           {monthly > 0 && (
-            <p className="text-[11px] text-earth-500">
+            <p className="text-xs text-earth-600">
               From {fmt(dayAfter(selected.period_end))} the host is invoiced {fmtTHB(monthly)} on the 1st
               of each month.
             </p>
           )}
-          <p className="text-[11px] text-earth-400">
+          <p className="text-xs text-earth-600">
             Saved as a paid invoice — the host is not billed for this and is never blocked over it.
             Any unrelated unpaid invoice they have stays open.
           </p>
         </div>
       )}
     </div>
+  );
+}
+
+function WalletPreview({ balance, adj }: { balance: number; adj: { after: number } | null }) {
+  const money = (n: number) => `${n < 0 ? "-" : ""}${fmtTHB(Math.abs(n))}`;
+  return (
+    <p id="wallet-preview" className="text-xs text-earth-600 tabular-nums" aria-live="polite">
+      Balance {money(balance)}
+      {adj && (
+        <>
+          {" "}→ <span className={cn("font-semibold", adj.after < 0 ? "text-destructive" : "text-earth-900")}>{money(adj.after)}</span>
+        </>
+      )}
+    </p>
   );
 }

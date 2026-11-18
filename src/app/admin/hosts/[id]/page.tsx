@@ -20,7 +20,7 @@ function Section({ title, note, children }: { title: string; note?: string; chil
     <section className="mt-6">
       <div className="mb-2 flex items-baseline justify-between gap-3">
         <h2 className="text-sm font-semibold text-earth-900">{title}</h2>
-        {note && <p className="text-xs text-earth-500">{note}</p>}
+        {note && <p className="text-xs text-earth-600">{note}</p>}
       </div>
       <Card className="border-earth-100 bg-white">
         <CardContent className="p-0">{children}</CardContent>
@@ -30,7 +30,7 @@ function Section({ title, note, children }: { title: string; note?: string; chil
 }
 
 function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="px-4 py-6 text-sm text-earth-500">{children}</p>;
+  return <p className="px-4 py-6 text-sm text-earth-600">{children}</p>;
 }
 
 /** A dense table that scrolls sideways inside its card on a phone, never the page. */
@@ -39,7 +39,7 @@ function Table({ head, numeric, children }: { head: string[]; numeric: string[];
     <div className="overflow-x-auto">
       <table className="w-full min-w-[560px] text-sm">
         <thead>
-          <tr className="border-b border-earth-100 text-left text-xs text-earth-500">
+          <tr className="border-b border-earth-100 text-left text-xs text-earth-600">
             {head.map((h) => (
               <th key={h} scope="col" className={`px-4 py-2.5 font-medium ${numeric.includes(h) ? "text-right" : ""}`}>
                 {h}
@@ -84,17 +84,17 @@ export default async function AdminHostDetailPage({ params }: { params: Promise<
     <div>
       <Link
         href="/admin/hosts"
-        className="mb-3 inline-flex items-center gap-1.5 rounded text-sm text-earth-600 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+        className="mb-3 inline-flex items-center gap-1.5 rounded text-sm text-earth-600 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
       >
         <ArrowLeft className="h-4 w-4" />
         Hosts
       </Link>
-      <PageHeader eyebrow="Host" title={host.name} />
+      <PageHeader subtitle="Host" title={host.name} />
 
       <Card className="border-earth-100 bg-white">
         <CardContent className="grid gap-5 p-5 sm:grid-cols-2 lg:grid-cols-4">
           <div className="min-w-0">
-            <p className="mb-1.5 text-xs text-earth-500">Status</p>
+            <p className="mb-1.5 text-xs text-earth-600">Status</p>
             <div className="flex flex-wrap gap-1.5">
               <StatusBadge status={host.status} />
               {host.is_verified && <StatusBadge status="verified" tone="brand" label="Verified" />}
@@ -102,13 +102,13 @@ export default async function AdminHostDetailPage({ params }: { params: Promise<
             </div>
           </div>
           <div className="min-w-0">
-            <p className="mb-1.5 text-xs text-earth-500">Plan</p>
+            <p className="mb-1.5 text-xs text-earth-600">Plan</p>
             <p className="font-medium text-earth-900">{PLAN_LABELS[host.plan_type] ?? host.plan_type}</p>
             {planNote && <p className="text-xs text-earth-600">{planNote}</p>}
             {overrides.length > 0 && <p className="text-xs text-earth-600">Overrides: {overrides.join(", ")}</p>}
           </div>
           <div className="min-w-0">
-            <p className="mb-1.5 text-xs text-earth-500">Wallet</p>
+            <p className="mb-1.5 text-xs text-earth-600">Wallet</p>
             <p className={`font-medium tabular-nums ${(host.wallet_balance ?? 0) < 0 ? "text-red-700" : "text-earth-900"}`}>
               {(host.wallet_balance ?? 0) < 0 ? "−" : ""}
               {fmtTHB(Math.abs(host.wallet_balance ?? 0))}
@@ -118,7 +118,7 @@ export default async function AdminHostDetailPage({ params }: { params: Promise<
             )}
           </div>
           <div className="min-w-0 space-y-1 text-sm text-earth-800">
-            <p className="mb-1.5 text-xs text-earth-500">Contact</p>
+            <p className="mb-1.5 text-xs text-earth-600">Contact</p>
             <p className="flex items-center gap-1.5 break-all">
               <Mail className="h-3.5 w-3.5 shrink-0 text-earth-400" />
               {host.email}
@@ -129,7 +129,7 @@ export default async function AdminHostDetailPage({ params }: { params: Promise<
                 {host.phone}
               </p>
             )}
-            <p className="text-xs text-earth-500">Joined {fmtBangkokTime(host.created_at)}</p>
+            <p className="text-xs text-earth-600">Joined {fmtBangkokTime(host.created_at)}</p>
           </div>
         </CardContent>
       </Card>
@@ -149,7 +149,7 @@ export default async function AdminHostDetailPage({ params }: { params: Promise<
                   href={`/${h.slug}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex shrink-0 items-center gap-1 rounded text-earth-600 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                  className="inline-flex shrink-0 items-center gap-1 rounded text-earth-600 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                 >
                   /{h.slug}
                   <ExternalLink className="h-3.5 w-3.5" aria-hidden />
@@ -198,7 +198,7 @@ export default async function AdminHostDetailPage({ params }: { params: Promise<
                 <td className={`${td} whitespace-nowrap`}>{day(inv.due_date)}</td>
                 <td className={td}>
                   <StatusBadge status={inv.status} />
-                  {inv.paid_at && <span className="ml-1.5 text-xs text-earth-500">{fmtBangkokTime(inv.paid_at)}</span>}
+                  {inv.paid_at && <span className="ml-1.5 text-xs text-earth-600">{fmtBangkokTime(inv.paid_at)}</span>}
                 </td>
                 <td className={tdNum}>{fmtTHB(inv.amount)}</td>
               </tr>
@@ -238,7 +238,7 @@ export default async function AdminHostDetailPage({ params }: { params: Promise<
               <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
                 <span className="font-medium text-earth-900">{s.name}</span>
                 <span className="break-all text-earth-600">{s.email}</span>
-                <span className="text-xs text-earth-500">Added {fmtBangkokTime(s.created_at)}</span>
+                <span className="text-xs text-earth-600">Added {fmtBangkokTime(s.created_at)}</span>
               </li>
             ))}
           </ul>
@@ -256,7 +256,7 @@ export default async function AdminHostDetailPage({ params }: { params: Promise<
                   <span className="font-mono text-xs text-earth-800">{l.event_type}</span>
                   <StatusBadge status={l.actor_type} />
                 </span>
-                <span className="text-xs tabular-nums text-earth-500">{fmtBangkokTime(l.created_at)}</span>
+                <span className="text-xs tabular-nums text-earth-600">{fmtBangkokTime(l.created_at)}</span>
               </li>
             ))}
           </ul>

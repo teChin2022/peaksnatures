@@ -1,9 +1,10 @@
-import { Users, Home, CalendarDays, DollarSign, AlertTriangle, CheckCircle2, UserCheck, Receipt, Banknote, RotateCcw, Clock, Ban, CalendarClock } from "lucide-react";
+import Link from "next/link";
+import { Receipt, Banknote, RotateCcw, Clock, Ban, CalendarClock, ChevronRight } from "lucide-react";
+import { Card } from "@/components/ui/card";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { redirect } from "next/navigation";
 import { PageHeader } from "@/components/admin/page-header";
-import { KpiCard } from "@/components/admin/kpi-card";
 import { AdminDemandSection } from "@/components/admin/admin-demand-section";
 import { blockingInvoiceFilter } from "@/lib/billing-dates";
 import { EventType } from "@/lib/history-log";
@@ -21,6 +22,16 @@ const ATTENTION_ICONS: Record<AttentionItem["key"], typeof Clock> = {
   blocked: Ban,
   dateChanges: CalendarClock,
   cron: Clock,
+};
+
+/** The verb on each queue row: what the admin goes there to do. */
+const ATTENTION_ACTIONS: Record<AttentionItem["key"], string> = {
+  payments: "Settle",
+  invoices: "Review invoices",
+  retries: "See failures",
+  blocked: "See hosts",
+  dateChanges: "Review",
+  cron: "Check logs",
 };
 
 async function getAdminStats() {
@@ -79,22 +90,23 @@ async function getAdminStats() {
 export default async function AdminDashboardPage() {
   const stats = await getAdminStats();
 
-  const cards = [
+  // Totals are context, not work: one quiet strip under the queue.
+  const totals: { label: string; value: string | number; href?: string }[] = [
     // Guests' confirmed booking value before promo discounts (get_admin_revenue_total), not platform income.
-    { label: "Gross booking value", value: `฿${stats.bookingValue.toLocaleString()}`, icon: DollarSign, tone: "brand" as const },
-    { label: "Confirmed Bookings", value: stats.confirmedBookings, icon: CheckCircle2, tone: "brand" as const },
-    { label: "Pending Bookings", value: stats.pendingBookings, icon: AlertTriangle, tone: "amber" as const, href: "/admin/bookings" },
-    { label: "Pending Hosts", value: stats.pendingHosts, icon: UserCheck, tone: "amber" as const, href: "/admin/hosts?status=pending" },
-    { label: "Total Hosts", value: stats.totalHosts, icon: Users, tone: "earth" as const, href: "/admin/hosts" },
-    { label: "Total Homestays", value: stats.totalHomestays, icon: Home, tone: "earth" as const, href: "/admin/homestays" },
-    { label: "Total Bookings", value: stats.totalBookings, icon: CalendarDays, tone: "neutral" as const, href: "/admin/bookings" },
+    { label: "Gross booking value", value: `฿${stats.bookingValue.toLocaleString()}` },
+    { label: "Confirmed bookings", value: stats.confirmedBookings },
+    { label: "Pending bookings", value: stats.pendingBookings, href: "/admin/bookings" },
+    { label: "Pending hosts", value: stats.pendingHosts, href: "/admin/hosts?status=pending" },
+    { label: "Hosts", value: stats.totalHosts, href: "/admin/hosts" },
+    { label: "Homestays", value: stats.totalHomestays, href: "/admin/homestays" },
+    { label: "Bookings", value: stats.totalBookings, href: "/admin/bookings" },
   ];
 
   const attention = attentionItems(stats);
 
   return (
     <div>
-      <PageHeader eyebrow="Dashboard" title="Platform Overview" />
+      <PageHeader title="Platform Overview" />
       <section aria-labelledby="attention-heading" className="mb-6">
         <h2 id="attention-heading" className="mb-3 text-sm font-semibold text-earth-900">
           Needs attention
@@ -104,25 +116,63 @@ export default async function AdminDashboardPage() {
             All clear: the billing cron ran on time, and there are no overdue invoices or rejected payments.
           </p>
         ) : (
-          <div className="grid grid-cols-1 gap-3 sm:grid-cols-2 sm:gap-4 lg:grid-cols-3">
-            {attention.map((item) => (
-              <KpiCard key={item.key} label={item.label} value={item.value} icon={ATTENTION_ICONS[item.key]} tone="amber" href={item.href} />
-            ))}
-          </div>
+          <Card className="gap-0 overflow-hidden border-earth-100 bg-white py-0">
+            <ul className="divide-y divide-earth-100">
+              {attention.map((item) => {
+                const Icon = ATTENTION_ICONS[item.key];
+                return (
+                  <li key={item.key}>
+                    <Link
+                      href={item.href}
+                      className="flex items-center gap-3 px-4 py-3 transition-colors hover:bg-earth-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
+                    >
+                      <Icon className="h-4.5 w-4.5 shrink-0 text-amber-700" aria-hidden />
+                      <span className="min-w-0 flex-1 text-sm text-earth-800">{item.label}</span>
+                      <span className="text-base font-semibold tabular-nums text-earth-900">{item.value}</span>
+                      <span className="hidden items-center gap-0.5 text-sm font-medium text-brand sm:inline-flex">
+                        {ATTENTION_ACTIONS[item.key]}
+                        <ChevronRight className="h-4 w-4" aria-hidden />
+                      </span>
+                      <ChevronRight className="h-4 w-4 shrink-0 text-earth-600 sm:hidden" aria-hidden />
+                    </Link>
+                  </li>
+                );
+              })}
+            </ul>
+          </Card>
         )}
       </section>
-      <div className="grid grid-cols-2 gap-3 sm:gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map((card) => (
-          <KpiCard
-            key={card.label}
-            label={card.label}
-            value={card.value}
-            icon={card.icon}
-            tone={card.tone}
-            href={card.href}
-          />
-        ))}
-      </div>
+
+      <section aria-labelledby="totals-heading">
+        <h2 id="totals-heading" className="mb-3 text-sm font-semibold text-earth-900">
+          Totals
+        </h2>
+        <Card className="border-earth-100 bg-white py-0">
+          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7">
+            {totals.map((t) => {
+              const body = (
+                <>
+                  <p className="text-xs text-earth-600">{t.label}</p>
+                  <p className="mt-0.5 text-lg font-semibold tabular-nums text-earth-900">{t.value}</p>
+                </>
+              );
+              return t.href ? (
+                <Link
+                  key={t.label}
+                  href={t.href}
+                  className="block px-4 py-3 transition-colors hover:bg-earth-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
+                >
+                  {body}
+                </Link>
+              ) : (
+                <div key={t.label} className="px-4 py-3">
+                  {body}
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+      </section>
 
       {/* Guest demand, platform-wide. Same panel the hosts see on their own
           dashboard, just unscoped and filterable. */}

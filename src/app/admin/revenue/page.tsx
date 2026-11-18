@@ -28,7 +28,7 @@ export default async function AdminRevenuePage() {
 
   return (
     <div>
-      <PageHeader eyebrow="Platform income" title="Revenue" />
+      <PageHeader subtitle="Platform income" title="Revenue" />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
         <KpiCard label={`Income, ${monthLabel(current.month)}`} value={money(current.income)} icon={Banknote} tone="brand" />
@@ -40,7 +40,7 @@ export default async function AdminRevenuePage() {
 
       <section className="mt-6">
         <h2 className="mb-1 text-sm font-semibold text-earth-900">By month</h2>
-        <p className="mb-3 max-w-2xl text-xs text-earth-600">
+        <p className="mb-3 max-w-prose text-xs text-earth-600">
           Income is commission charged minus commission refunded, plus Fixed Rate invoices paid, by Bangkok calendar
           month. Wallet top-ups are hosts&apos; prepaid money, not income. Admin wallet adjustments are shown but not counted.
         </p>
@@ -49,8 +49,8 @@ export default async function AdminRevenuePage() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[560px] text-sm">
                 <thead>
-                  <tr className="border-b border-earth-100 text-left text-xs text-earth-500">
-                    <th scope="col" className={th}>Month</th>
+                  <tr className="border-b border-earth-100 text-left text-xs text-earth-600">
+                    <th scope="col" className={`${th} sticky left-0 z-10 bg-white`}>Month</th>
                     <th scope="col" className={`${th} text-right`}>Income</th>
                     <th scope="col" className={`${th} text-right`}>Commission</th>
                     <th scope="col" className={`${th} text-right`}>Refunds</th>
@@ -61,12 +61,12 @@ export default async function AdminRevenuePage() {
                 <tbody className="divide-y divide-earth-100 text-earth-800">
                   {newestFirst.map((m) => (
                     <tr key={m.month}>
-                      <th scope="row" className="px-4 py-2.5 text-left font-normal whitespace-nowrap">{monthLabel(m.month)}</th>
+                      <th scope="row" className="sticky left-0 z-10 bg-white px-4 py-2.5 text-left font-normal whitespace-nowrap shadow-[inset_-1px_0_0_var(--color-earth-100)]">{monthLabel(m.month)}</th>
                       <td className={`${num} font-semibold ${m.income < 0 ? "text-red-700" : "text-earth-900"}`}>{money(m.income)}</td>
                       <td className={num}>{fmtTHB(m.commission)}</td>
                       <td className={`${num} ${m.refunds > 0 ? "text-red-700" : ""}`}>{m.refunds > 0 ? `−${fmtTHB(m.refunds)}` : fmtTHB(0)}</td>
                       <td className={num}>{fmtTHB(m.fixedRate)}</td>
-                      <td className={`${num} text-earth-500`}>{signed(m.adjustments)}</td>
+                      <td className={`${num} text-earth-600`}>{signed(m.adjustments)}</td>
                     </tr>
                   ))}
                 </tbody>

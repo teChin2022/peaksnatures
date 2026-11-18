@@ -102,30 +102,32 @@ export default function AdminBillingPage() {
   return (
     <div>
       <PageHeader
-        eyebrow={total > 0 ? `${total} invoices` : "Invoice management"}
+        subtitle={total > 0 ? `${total} invoices` : "Invoice management"}
         title="Billing"
         icon={CreditCard}
         actions={
           <Link
             href="/admin/billing/rejected"
-            className="rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-700 hover:border-brand/40 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            className="rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-700 hover:border-brand/40 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
           >
             Rejected payments
           </Link>
         }
       />
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         {["all", "pending", "paid", "overdue"].map((f) => (
           <Button
             key={f}
             size="sm"
+            variant="outline"
+            aria-pressed={statusFilter === f}
             onClick={() => { setStatusFilter(f); setPage(1); }}
             className={cn(
-              "cursor-pointer",
+              "cursor-pointer rounded-full",
               statusFilter === f
-                ? "bg-brand hover:bg-brand-hover text-white"
-                : "bg-white border border-earth-200 text-earth-700 hover:bg-earth-50 hover:text-brand"
+                ? "border-brand bg-brand-50 text-brand hover:bg-brand-50"
+                : "border-earth-200 bg-white text-earth-700 hover:bg-earth-50 hover:text-brand"
             )}
           >
             {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
@@ -163,9 +165,9 @@ export default function AdminBillingPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="font-semibold text-earth-900 truncate">
+                            <h2 className="font-semibold text-earth-900 truncate">
                               {inv.host?.name || "Unknown Host"}
-                            </h3>
+                            </h2>
                             <StatusBadge
                               status={inv.status}
                               label={label}
@@ -173,7 +175,7 @@ export default function AdminBillingPage() {
                             />
                           </div>
                           {inv.host?.email && (
-                            <p className="mt-0.5 text-xs text-earth-500 flex items-center gap-1.5 truncate">
+                            <p className="mt-0.5 text-xs text-earth-600 flex items-center gap-1.5 truncate">
                               <Mail className="h-3 w-3 shrink-0" />
                               <span className="truncate">{inv.host.email}</span>
                             </p>
@@ -207,7 +209,7 @@ export default function AdminBillingPage() {
                       </div>
 
                       <div className="pt-2 border-t border-earth-100/70 flex items-center justify-between gap-2">
-                        <span className="text-xs text-earth-500 flex items-center gap-1.5">
+                        <span className="text-xs text-earth-600 flex items-center gap-1.5">
                           <Clock className="h-3 w-3" />
                           <span className="tabular-nums">Created {fmtDate(new Date(inv.created_at), "MMM d, yyyy · HH:mm", "en")}</span>
                         </span>
@@ -254,7 +256,7 @@ export default function AdminBillingPage() {
 
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between pt-2">
-              <p className="text-sm text-earth-500">Page {page} of {totalPages}</p>
+              <p className="text-sm text-earth-600">Page {page} of {totalPages}</p>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" className="cursor-pointer border-earth-200" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
                   Previous

@@ -61,11 +61,11 @@ export function SettleControl({ logId, hostName, settlement }: Props) {
           <p className="whitespace-nowrap">
             {fmtDate(new Date(settlement.settled_at), "MMM d, HH:mm", "en")} by {settlement.settled_by_name}
           </p>
-          {settlement.note && <p className="mt-0.5 max-w-56 break-words text-earth-500">{settlement.note}</p>}
+          {settlement.note && <p className="mt-0.5 max-w-56 break-words text-earth-600">{settlement.note}</p>}
           <button
             type="button"
             onClick={() => setOpen("undo")}
-            className="mt-1 cursor-pointer rounded text-earth-500 underline underline-offset-2 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+            className="mt-1 cursor-pointer rounded text-earth-600 underline underline-offset-2 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
           >
             Undo
           </button>

@@ -29,7 +29,7 @@ export function AdminListCard() {
           <ShieldCheck className="h-4 w-4 text-brand" />
           Platform admins
         </CardTitle>
-        <CardDescription className="text-earth-500">
+        <CardDescription className="text-earth-600">
           Everyone who can open this admin area. Admins are added or removed in the Supabase SQL editor.
         </CardDescription>
       </CardHeader>
@@ -46,7 +46,7 @@ export function AdminListCard() {
                   <p className="font-medium text-earth-900">{a.name}</p>
                   <p className="break-all text-earth-600">{a.email}</p>
                 </div>
-                <div className="text-right text-xs text-earth-500">
+                <div className="text-right text-xs text-earth-600">
                   <StatusBadge
                     status={a.line_alerts ? "active" : "inactive"}
                     label={a.line_alerts ? "LINE alerts on" : "No LINE alerts"}

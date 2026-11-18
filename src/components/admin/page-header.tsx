@@ -2,22 +2,17 @@ import type { LucideIcon } from "lucide-react";
 import { cn } from "@/lib/utils";
 
 interface PageHeaderProps {
-  eyebrow?: string;
+  subtitle?: string;
   title: string;
   icon?: LucideIcon;
   actions?: React.ReactNode;
   className?: string;
 }
 
-export function PageHeader({ eyebrow, title, icon: Icon, actions, className }: PageHeaderProps) {
+export function PageHeader({ subtitle, title, icon: Icon, actions, className }: PageHeaderProps) {
   return (
-    <div className={cn("mb-6 flex items-end justify-between gap-4", className)}>
+    <div className={cn("mb-6 flex flex-wrap items-end justify-between gap-4", className)}>
       <div className="min-w-0">
-        {eyebrow && (
-          <p className="text-[11px] font-medium uppercase tracking-[0.18em] text-earth-500 mb-1.5">
-            {eyebrow}
-          </p>
-        )}
         <div className="flex items-center gap-3">
           {Icon && (
             <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-brand-50 ring-1 ring-inset ring-brand/10">
@@ -26,6 +21,8 @@ export function PageHeader({ eyebrow, title, icon: Icon, actions, className }: P
           )}
           <h1 className="text-2xl font-serif text-earth-900 leading-tight truncate">{title}</h1>
         </div>
+        {/* A count or status line under the title (it used to be a tracked kicker above it). */}
+        {subtitle && <p className="mt-1 text-xs text-earth-600 tabular-nums">{subtitle}</p>}
       </div>
       {actions && <div className="flex shrink-0 items-center gap-2">{actions}</div>}
     </div>

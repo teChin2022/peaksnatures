@@ -21,6 +21,9 @@ const td = "px-4 py-2.5 align-top";
 const num = `${td} text-right tabular-nums whitespace-nowrap`;
 const baht = (n: number | null) => (n == null ? "—" : fmtTHB(n));
 
+/** Settle stays on screen while the table scrolls sideways on phones and tablets. */
+const stickyEnd = "sticky right-0 bg-white shadow-[inset_1px_0_0_var(--color-earth-100)]";
+
 export default async function RejectedPaymentsPage() {
   const supabase = await createServerSupabaseClient();
   const {
@@ -35,13 +38,13 @@ export default async function RejectedPaymentsPage() {
     <div>
       <Link
         href="/admin/billing"
-        className="mb-3 inline-flex items-center gap-1.5 rounded text-sm text-earth-600 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+        className="mb-3 inline-flex items-center gap-1.5 rounded text-sm text-earth-600 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
       >
         <ArrowLeft className="h-4 w-4" />
         Billing
       </Link>
-      <PageHeader eyebrow={waiting > 0 ? `${waiting} to settle by hand` : "Settle by hand"} title="Rejected payments" />
-      <p className="-mt-3 mb-5 max-w-2xl text-sm text-earth-600">
+      <PageHeader subtitle={waiting > 0 ? `${waiting} to settle by hand` : "Settle by hand"} title="Rejected payments" />
+      <p className="-mt-3 mb-5 max-w-prose text-sm text-earth-600">
         Real transfers that EasySlip verified and the platform then refused. EasySlip now marks each slip as a
         duplicate, so the host cannot submit it again: settle each one by hand (top up the wallet, mark the invoice
         paid, set the plan, or refund), using the bank reference to find the transfer, then mark it settled.
@@ -55,7 +58,7 @@ export default async function RejectedPaymentsPage() {
             <div className="overflow-x-auto">
               <table className="w-full min-w-[860px] text-sm">
                 <thead>
-                  <tr className="border-b border-earth-100 text-left text-xs text-earth-500">
+                  <tr className="border-b border-earth-100 text-left text-xs text-earth-600">
                     <th scope="col" className={th}>Date</th>
                     <th scope="col" className={th}>Host</th>
                     <th scope="col" className={th}>Payment</th>
@@ -63,18 +66,18 @@ export default async function RejectedPaymentsPage() {
                     <th scope="col" className={`${th} text-right`}>Expected</th>
                     <th scope="col" className={th}>Bank ref</th>
                     <th scope="col" className={th}>Reason</th>
-                    <th scope="col" className={th}>Status</th>
+                    <th scope="col" className={`${th} ${stickyEnd}`}>Status</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-earth-100 text-earth-800">
                   {payments.map((p) => (
-                    <tr key={p.id} className={p.settlement ? "text-earth-500" : undefined}>
+                    <tr key={p.id} className={p.settlement ? "text-earth-600" : undefined}>
                       <td className={`${td} whitespace-nowrap tabular-nums`}>{fmtBangkokTime(p.created_at)}</td>
                       <td className={td}>
                         {p.host_id ? (
                           <Link
                             href={`/admin/hosts/${p.host_id}`}
-                            className="rounded underline-offset-4 hover:text-brand hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                            className="rounded underline-offset-4 hover:text-brand hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                           >
                             {p.host_name ?? "Unknown host"}
                           </Link>
@@ -92,7 +95,7 @@ export default async function RejectedPaymentsPage() {
                             href={p.slip_url}
                             target="_blank"
                             rel="noopener noreferrer"
-                            className="mt-1 flex items-center gap-1 rounded font-sans text-earth-600 underline underline-offset-2 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                            className="mt-1 flex items-center gap-1 rounded font-sans text-earth-600 underline underline-offset-2 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
                           >
                             View slip
                             <ExternalLink className="h-3 w-3" aria-hidden />
@@ -101,7 +104,7 @@ export default async function RejectedPaymentsPage() {
                         )}
                       </td>
                       <td className={`${td} font-mono text-xs text-earth-600`}>{p.reason ?? "—"}</td>
-                      <td className={td}>
+                      <td className={`${td} ${stickyEnd}`}>
                         <SettleControl logId={p.id} hostName={p.host_name} settlement={p.settlement} />
                       </td>
                     </tr>
@@ -112,7 +115,7 @@ export default async function RejectedPaymentsPage() {
           </CardContent>
         </Card>
       )}
-      <p className="mt-3 text-xs text-earth-500">Latest {REJECTED_LIMIT}.</p>
+      <p className="mt-3 text-xs text-earth-600">Latest {REJECTED_LIMIT}.</p>
     </div>
   );
 }
