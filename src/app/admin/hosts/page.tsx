@@ -23,6 +23,7 @@ import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
 import { STICKY_END } from "@/components/admin/table-classes";
+import { SearchBox } from "@/components/admin/search-box";
 import { LoadError, NETWORK_ERROR, actionFailed } from "@/components/admin/load-error";
 import { cn } from "@/lib/utils";
 import { fmtDate, fmtDateStr } from "@/lib/format-date";
@@ -117,6 +118,7 @@ export default function AdminHostsPage() {
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
     (searchParams.get("status") as StatusFilter) || "all"
   );
+  const [query, setQuery] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
 
@@ -136,11 +138,12 @@ export default function AdminHostsPage() {
   const [walletDirection, setWalletDirection] = useState<WalletDirection>("add");
   const [walletReason, setWalletReason] = useState("");
 
-  const fetchHosts = useCallback(async (p: number, status: StatusFilter) => {
+  const fetchHosts = useCallback(async (p: number, status: StatusFilter, q: string) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(p), limit: "20" });
       if (status !== "all") params.set("status", status);
+      if (q) params.set("q", q);
       const r = await fetch(`/api/admin/hosts?${params}`);
       if (r.ok) setRes(await r.json());
       setLoadFailed(!r.ok);
@@ -152,8 +155,8 @@ export default function AdminHostsPage() {
   }, []);
 
   useEffect(() => {
-    fetchHosts(page, statusFilter);
-  }, [page, statusFilter, fetchHosts]);
+    fetchHosts(page, statusFilter, query);
+  }, [page, statusFilter, query, fetchHosts]);
 
   useEffect(() => {
     (async () => {
@@ -180,7 +183,7 @@ export default function AdminHostsPage() {
       const r = await fetch(`/api/admin/hosts/${hostId}/approve`, { method: "PATCH" });
       if (r.ok) {
         toast.success("Host approved");
-        fetchHosts(page, statusFilter);
+        fetchHosts(page, statusFilter, query);
       } else {
         const data = await r.json();
         toast.error(data.error || actionFailed("approve this host"));
@@ -199,7 +202,7 @@ export default function AdminHostsPage() {
       const r = await fetch(`/api/admin/hosts/${hostId}/reject`, { method: "DELETE" });
       if (r.ok) {
         toast.success("Host rejected");
-        fetchHosts(page, statusFilter);
+        fetchHosts(page, statusFilter, query);
       } else {
         const data = await r.json();
         toast.error(data.error || actionFailed("reject this host"));
@@ -268,7 +271,7 @@ export default function AdminHostsPage() {
         } else {
           toast.success(`Plan updated — ${fmtTHB(d.amount ?? 0)} recorded as paid`);
         }
-        fetchHosts(page, statusFilter);
+        fetchHosts(page, statusFilter, query);
       } else {
         const data = await r.json();
         toast.error(data.error || actionFailed("save the plan"));
@@ -297,7 +300,7 @@ export default function AdminHostsPage() {
       });
       if (r.ok) {
         toast.success("Wallet adjusted");
-        fetchHosts(page, statusFilter);
+        fetchHosts(page, statusFilter, query);
       } else {
         const data = await r.json();
         toast.error(data.error || actionFailed("adjust the wallet"));
@@ -336,7 +339,7 @@ export default function AdminHostsPage() {
       });
       if (r.ok) {
         toast.success("Rate override saved");
-        fetchHosts(page, statusFilter);
+        fetchHosts(page, statusFilter, query);
       } else {
         const data = await r.json();
         toast.error(data.error || actionFailed("save the rate override"));
@@ -394,7 +397,14 @@ export default function AdminHostsPage() {
         icon={Users}
       />
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <SearchBox
+        value={query}
+        onSearch={(q) => { setQuery(q); setPage(1); }}
+        label="Search hosts by name, phone or email"
+        placeholder="Host name, phone or email"
+      />
+      <div className="flex flex-wrap gap-2 sm:order-first">
         {(["all", "pending", "approved"] as StatusFilter[]).map((f) => (
           <Button
             key={f}
@@ -413,6 +423,7 @@ export default function AdminHostsPage() {
           </Button>
         ))}
       </div>
+      </div>
 
       {loading ? (
         <div className="space-y-2">
@@ -421,12 +432,12 @@ export default function AdminHostsPage() {
           ))}
         </div>
       ) : loadFailed ? (
-        <LoadError what="hosts" onRetry={() => fetchHosts(page, statusFilter)} />
+        <LoadError what="hosts" onRetry={() => fetchHosts(page, statusFilter, query)} />
       ) : !res || res.data.length === 0 ? (
         <EmptyState
           icon={Users}
           title="No hosts found"
-          description={statusFilter !== "all" ? "Try a different filter to see more hosts." : "New host signups will appear here."}
+          description={query || statusFilter !== "all" ? "Nothing matches this search and filter." : "New host signups will appear here."}
         />
       ) : (
         <>

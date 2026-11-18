@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/card";
 import OtpModal from "@/components/otp-modal";
 import { createClient } from "@/lib/supabase/client";
+import { adminNextPath } from "@/lib/next-path";
 import { isValidEmail } from "@/lib/utils";
 
 /** English text for the codes /api/auth/send-otp and /verify-otp answer with. */
@@ -153,7 +154,8 @@ export default function AdminLoginPage() {
           return;
         }
 
-        router.push("/admin");
+        // The page they opened before login, if the middleware recorded one (internal /admin only).
+        router.push(adminNextPath(new URLSearchParams(window.location.search).get("next")));
         router.refresh();
       } catch {
         setOtpError("Something went wrong");

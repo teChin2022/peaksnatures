@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import {
@@ -29,25 +29,33 @@ import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/
 import { cn } from "@/lib/utils";
 import { createClient } from "@/lib/supabase/client";
 
-type NavItem = { key: string; href: string; icon: LucideIcon };
+/** What /api/admin/nav-counts returns: work waiting behind a nav item. */
+export type NavCounts = {
+  pendingHosts: number;
+  overdueInvoices: number;
+  unsettledPayments: number;
+  staleDateChanges: number;
+};
+
+type NavItem = { key: string; href: string; icon: LucideIcon; count?: keyof NavCounts; countLabel?: string };
 
 const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
   {
     label: "Operations",
     items: [
       { key: "Overview", href: "/admin", icon: LayoutDashboard },
-      { key: "Hosts", href: "/admin/hosts", icon: Users },
+      { key: "Hosts", href: "/admin/hosts", icon: Users, count: "pendingHosts", countLabel: "waiting for approval" },
       { key: "Homestays", href: "/admin/homestays", icon: Home },
       { key: "Bookings", href: "/admin/bookings", icon: CalendarDays },
-      { key: "Date changes", href: "/admin/bookings/date-changes", icon: CalendarClock },
+      { key: "Date changes", href: "/admin/bookings/date-changes", icon: CalendarClock, count: "staleDateChanges", countLabel: "waiting on hosts" },
       { key: "Reviews", href: "/admin/reviews", icon: Star },
     ],
   },
   {
     label: "Money",
     items: [
-      { key: "Billing", href: "/admin/billing", icon: CreditCard },
-      { key: "Rejected payments", href: "/admin/billing/rejected", icon: Banknote },
+      { key: "Billing", href: "/admin/billing", icon: CreditCard, count: "overdueInvoices", countLabel: "overdue" },
+      { key: "Rejected payments", href: "/admin/billing/rejected", icon: Banknote, count: "unsettledPayments", countLabel: "to settle" },
       { key: "Revenue", href: "/admin/revenue", icon: TrendingUp },
       { key: "Promo Codes", href: "/admin/promo-codes", icon: Tag },
     ],
@@ -82,7 +90,15 @@ async function signOut(router: ReturnType<typeof useRouter>) {
   router.refresh();
 }
 
-function AdminNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNavigate?: () => void }) {
+function AdminNav({
+  collapsed = false,
+  onNavigate,
+  counts,
+}: {
+  collapsed?: boolean;
+  onNavigate?: () => void;
+  counts: NavCounts | null;
+}) {
   const active = activeNavHref(usePathname());
   return (
     <nav aria-label="Admin" className="flex-1 overflow-y-auto p-2">
@@ -97,18 +113,28 @@ function AdminNav({ collapsed = false, onNavigate }: { collapsed?: boolean; onNa
             {group.items.map((item) => {
               const Icon = item.icon;
               const isActive = item.href === active;
+              const n = item.count && counts ? counts[item.count] : 0;
+              const name = n > 0 ? `${item.key}, ${n} ${item.countLabel}` : item.key;
               return (
                 <Link
                   key={item.key}
                   href={item.href}
                   onClick={onNavigate}
                   aria-current={isActive ? "page" : undefined}
-                  aria-label={collapsed ? item.key : undefined}
-                  title={collapsed ? item.key : undefined}
-                  className={cn(NAV_LINK_BASE, isActive ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE)}
+                  aria-label={collapsed || n > 0 ? name : undefined}
+                  title={collapsed ? name : undefined}
+                  className={cn(NAV_LINK_BASE, "relative", isActive ? NAV_LINK_ACTIVE : NAV_LINK_INACTIVE)}
                 >
                   <Icon className="h-4.5 w-4.5 shrink-0" />
-                  {!collapsed && <span className="truncate">{item.key}</span>}
+                  {!collapsed && <span className="flex-1 truncate">{item.key}</span>}
+                  {n > 0 &&
+                    (collapsed ? (
+                      <span className="absolute right-2 top-2 h-2 w-2 rounded-full bg-amber-600" aria-hidden />
+                    ) : (
+                      <span className="rounded-full bg-amber-50 px-2 py-0.5 text-xs font-semibold tabular-nums text-amber-800" aria-hidden>
+                        {n}
+                      </span>
+                    ))}
                 </Link>
               );
             })}
@@ -144,7 +170,7 @@ function BrandMark() {
   );
 }
 
-function AdminSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: () => void }) {
+function AdminSidebar({ collapsed, onToggle, counts }: { collapsed: boolean; onToggle: () => void; counts: NavCounts | null }) {
   return (
     <aside
       className={cn(
@@ -167,13 +193,13 @@ function AdminSidebar({ collapsed, onToggle }: { collapsed: boolean; onToggle: (
           {collapsed ? <ChevronRight className="h-4 w-4" /> : <ChevronLeft className="h-4 w-4" />}
         </Button>
       </div>
-      <AdminNav collapsed={collapsed} />
+      <AdminNav collapsed={collapsed} counts={counts} />
       <SignOutButton collapsed={collapsed} />
     </aside>
   );
 }
 
-function AdminMobileSidebar({ open, onClose }: { open: boolean; onClose: () => void }) {
+function AdminMobileSidebar({ open, onClose, counts }: { open: boolean; onClose: () => void; counts: NavCounts | null }) {
   return (
     // A real dialog (same as the host drawer): focus is trapped, Esc and the backdrop close it,
     // focus returns to the menu button. Plain dim overlay, no blur (DESIGN.md).
@@ -200,7 +226,7 @@ function AdminMobileSidebar({ open, onClose }: { open: boolean; onClose: () => v
             <X className="h-4 w-4" />
           </Button>
         </div>
-        <AdminNav onNavigate={onClose} />
+        <AdminNav onNavigate={onClose} counts={counts} />
         <SignOutButton />
       </SheetContent>
     </Sheet>
@@ -210,16 +236,33 @@ function AdminMobileSidebar({ open, onClose }: { open: boolean; onClose: () => v
 export function AdminShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
-  const active = activeNavHref(usePathname());
+  const pathname = usePathname();
+  const active = activeNavHref(pathname);
+  const [counts, setCounts] = useState<NavCounts | null>(null);
+
+  // Refetched on every page change, so a badge clears once its work is done.
+  // A failed fetch keeps the last counts: badges are a hint, the pages are the truth.
+  useEffect(() => {
+    let cancelled = false;
+    fetch("/api/admin/nav-counts")
+      .then((r) => (r.ok ? r.json() : null))
+      .then((c: NavCounts | null) => {
+        if (!cancelled && c) setCounts(c);
+      })
+      .catch(() => {});
+    return () => {
+      cancelled = true;
+    };
+  }, [pathname]);
   const currentTitle = NAV_ITEMS.find((item) => item.href === active)?.key ?? "Platform Admin";
 
   return (
     <div className="admin-surface min-h-screen">
       <div className="hidden lg:block">
-        <AdminSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} />
+        <AdminSidebar collapsed={collapsed} onToggle={() => setCollapsed(!collapsed)} counts={counts} />
       </div>
 
-      <AdminMobileSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} />
+      <AdminMobileSidebar open={mobileOpen} onClose={() => setMobileOpen(false)} counts={counts} />
 
       <div className={cn("transition-[margin] duration-200", collapsed ? "lg:ml-16" : "lg:ml-60")}>
         {/* Solid white, no glass (DESIGN.md: no backdrop-blur on bars). */}

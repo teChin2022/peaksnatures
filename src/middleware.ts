@@ -1,6 +1,7 @@
 import { createServerClient } from "@supabase/ssr";
 import { createClient } from "@supabase/supabase-js";
 import { NextResponse, type NextRequest } from "next/server";
+import { adminNextPath } from "@/lib/next-path";
 
 export async function middleware(request: NextRequest) {
   const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL;
@@ -60,13 +61,16 @@ export async function middleware(request: NextRequest) {
   if (isAdminRoute && !isAdminLogin && !user) {
     const url = request.nextUrl.clone();
     url.pathname = "/admin/login";
+    url.search = "";
+    // Back to the page they opened (an Overview link, a Logs filter) after login.
+    const next = adminNextPath(request.nextUrl.pathname + request.nextUrl.search);
+    if (next !== "/admin") url.searchParams.set("next", next);
     return NextResponse.redirect(url);
   }
 
   // Redirect authenticated users away from /admin/login
   if (isAdminLogin && user) {
-    const url = request.nextUrl.clone();
-    url.pathname = "/admin";
+    const url = new URL(adminNextPath(request.nextUrl.searchParams.get("next")), request.url);
     return NextResponse.redirect(url);
   }
 

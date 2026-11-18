@@ -5,6 +5,9 @@ import {
 } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { blockedHostIds } from "@/lib/host-blocked";
+import { adminSearchTerm, ilikeAny } from "../search-term";
+
+const HOST_COLUMNS = ["name", "email", "phone"];
 
 export async function GET(req: NextRequest) {
   try {
@@ -25,10 +28,12 @@ export async function GET(req: NextRequest) {
 
     const sc = createServiceRoleClient();
     const statusFilter = url.searchParams.get("status"); // 'pending', 'approved', or null (all)
+    const q = adminSearchTerm(url.searchParams.get("q"));
 
     // Get total count
     let countQuery = sc.from("hosts").select("id", { count: "exact", head: true });
     if (statusFilter) countQuery = countQuery.eq("status", statusFilter);
+    if (q) countQuery = countQuery.or(ilikeAny(HOST_COLUMNS, q));
     const { count: total } = await countQuery;
 
     // Get paginated hosts
@@ -38,6 +43,7 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
     if (statusFilter) hostsQuery = hostsQuery.eq("status", statusFilter);
+    if (q) hostsQuery = hostsQuery.or(ilikeAny(HOST_COLUMNS, q));
     const { data: hosts, error } = await hostsQuery;
 
     if (error) {

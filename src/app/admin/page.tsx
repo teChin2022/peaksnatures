@@ -95,7 +95,7 @@ export default async function AdminDashboardPage() {
     // Guests' confirmed booking value before promo discounts (get_admin_revenue_total), not platform income.
     { label: "Gross booking value", value: `฿${stats.bookingValue.toLocaleString()}` },
     { label: "Confirmed bookings", value: stats.confirmedBookings },
-    { label: "Pending bookings", value: stats.pendingBookings, href: "/admin/bookings" },
+    { label: "Pending bookings", value: stats.pendingBookings, href: "/admin/bookings?status=pending" },
     { label: "Pending hosts", value: stats.pendingHosts, href: "/admin/hosts?status=pending" },
     { label: "Hosts", value: stats.totalHosts, href: "/admin/hosts" },
     { label: "Homestays", value: stats.totalHomestays, href: "/admin/homestays" },

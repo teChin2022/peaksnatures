@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
+import { useSearchParams } from "next/navigation";
 import { CalendarDays, BedDouble, Loader2, Trash2, Timer, Mail, Phone, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
@@ -22,6 +23,7 @@ import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
 import { STICKY_START } from "@/components/admin/table-classes";
+import { SearchBox } from "@/components/admin/search-box";
 import { LoadError, NETWORK_ERROR, actionFailed } from "@/components/admin/load-error";
 import { fmtDateStr, fmtDate } from "@/lib/format-date";
 import { fmtTHB } from "@/lib/format-currency";
@@ -79,6 +81,22 @@ interface HostOption {
   name: string;
 }
 
+interface BookingFilters {
+  hostId: string;
+  status: string;
+  q: string;
+}
+
+const STATUS_OPTIONS = [
+  { value: "all", label: "All statuses" },
+  { value: "pending", label: "Pending" },
+  { value: "verified", label: "Verified" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "completed", label: "Completed" },
+  { value: "cancelled", label: "Cancelled" },
+  { value: "rejected", label: "Rejected" },
+];
+
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -87,7 +105,14 @@ export default function AdminBookingsPage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [hosts, setHosts] = useState<HostOption[]>([]);
+  const searchParams = useSearchParams();
   const [selectedHostId, setSelectedHostId] = useState<string>("all");
+  // Overview's "Pending bookings" links here with ?status=pending.
+  const [statusFilter, setStatusFilter] = useState<string>(() => {
+    const s = searchParams.get("status");
+    return s && STATUS_OPTIONS.some((o) => o.value === s) ? s : "all";
+  });
+  const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<string>("bookings");
   const [holds, setHolds] = useState<HoldRow[]>([]);
   const [holdsLoading, setHoldsLoading] = useState(true);
@@ -154,11 +179,13 @@ export default function AdminBookingsPage() {
     }
   };
 
-  const fetchBookings = useCallback(async (p: number, append = false, hostId?: string) => {
+  const fetchBookings = useCallback(async (p: number, append: boolean, f: BookingFilters) => {
     if (append) setLoadingMore(true); else setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(p), limit: "20" });
-      if (hostId && hostId !== "all") params.set("host_id", hostId);
+      if (f.hostId !== "all") params.set("host_id", f.hostId);
+      if (f.status !== "all") params.set("status", f.status);
+      if (f.q) params.set("q", f.q);
       const r = await fetch(`/api/admin/bookings?${params}`);
       if (r.ok) {
         const res: PaginatedResponse = await r.json();
@@ -178,13 +205,13 @@ export default function AdminBookingsPage() {
 
   useEffect(() => {
     setPage(1);
-    fetchBookings(1, false, selectedHostId);
-  }, [fetchBookings, selectedHostId]);
+    fetchBookings(1, false, { hostId: selectedHostId, status: statusFilter, q: query });
+  }, [fetchBookings, selectedHostId, statusFilter, query]);
 
   const handleLoadMore = () => {
     const next = page + 1;
     setPage(next);
-    fetchBookings(next, true, selectedHostId);
+    fetchBookings(next, true, { hostId: selectedHostId, status: statusFilter, q: query });
   };
 
   return (
@@ -219,21 +246,45 @@ export default function AdminBookingsPage() {
             </TabsTrigger>
           </TabsList>
           {activeTab === "bookings" && (
-            <Select value={selectedHostId} onValueChange={setSelectedHostId}>
-              <SelectTrigger className="w-[180px] cursor-pointer">
-                <SelectValue placeholder="All Hosts" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Hosts</SelectItem>
-                {hosts.map((host) => (
-                  <SelectItem key={host.id} value={host.id}>
-                    {host.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[150px] cursor-pointer" aria-label="Filter by status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={selectedHostId} onValueChange={setSelectedHostId}>
+                <SelectTrigger className="w-[180px] cursor-pointer" aria-label="Filter by host">
+                  <SelectValue placeholder="All Hosts" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Hosts</SelectItem>
+                  {hosts.map((host) => (
+                    <SelectItem key={host.id} value={host.id}>
+                      {host.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
         </div>
+        {activeTab === "bookings" && (
+          <div className="mb-4">
+            <SearchBox
+              value={query}
+              onSearch={setQuery}
+              label="Search bookings by guest name, phone or email"
+              placeholder="Guest name, phone or email"
+            />
+          </div>
+        )}
 
         {/* ── Bookings Tab ── */}
         <TabsContent value="bookings">
@@ -244,12 +295,16 @@ export default function AdminBookingsPage() {
               ))}
             </div>
           ) : loadFailed ? (
-            <LoadError what="bookings" onRetry={() => fetchBookings(1, false, selectedHostId)} />
+            <LoadError what="bookings" onRetry={() => fetchBookings(1, false, { hostId: selectedHostId, status: statusFilter, q: query })} />
           ) : bookings.length === 0 ? (
             <EmptyState
               icon={CalendarDays}
-              title="No bookings yet"
-              description={selectedHostId !== "all" ? "This host has no bookings in the selected scope." : "New reservations will appear here."}
+              title={query || statusFilter !== "all" || selectedHostId !== "all" ? "No matching bookings" : "No bookings yet"}
+              description={
+                query || statusFilter !== "all" || selectedHostId !== "all"
+                  ? "Nothing matches this search and these filters."
+                  : "New reservations will appear here."
+              }
             />
           ) : (
             <>

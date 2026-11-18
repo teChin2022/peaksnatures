@@ -39,7 +39,7 @@ export default async function PendingDateChangesPage() {
         subtitle={stale > 0 ? `${stale} waiting over ${STALE_DATE_CHANGE_DAYS} days` : "Waiting on hosts"}
         title="Date change requests"
       />
-      <p className="-mt-3 mb-5 max-w-2xl text-sm text-earth-600">
+      <p className="-mt-3 mb-5 max-w-prose text-sm text-earth-600">
         Guests asked to move these stays and the host has not answered. Only the host can approve or reject one; a
         nudge to the host is the admin&apos;s part.
       </p>

@@ -168,3 +168,19 @@ describe("GET /api/admin/hosts", () => {
     });
   });
 });
+
+describe("GET /api/admin/hosts: search", () => {
+  it("searches name, email and phone on both the count and the page", async () => {
+    const sc = withHosts();
+    await get({ q: "Somchai" });
+    const expected = 'name.ilike."%Somchai%",email.ilike."%Somchai%",phone.ilike."%Somchai%"';
+    expect(sc.builderFor("hosts", 0).or).toHaveBeenCalledWith(expected);
+    expect(sc.builderFor("hosts", 1).or).toHaveBeenCalledWith(expected);
+  });
+
+  it("does not filter on an empty search", async () => {
+    const sc = withHosts();
+    await get({ q: "  " });
+    expect(sc.builderFor("hosts", 1).or).not.toHaveBeenCalled();
+  });
+});

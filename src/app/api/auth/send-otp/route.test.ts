@@ -147,4 +147,17 @@ describe("POST /api/auth/send-otp: the code email's language", () => {
     expect(sent().subject).toBe("Your Peaksnature Login Code");
     expect(sent().html).toContain("5 minutes");
   });
+
+  // /admin is English-only; its login sent a Thai code email to an English page.
+  it("is in English for an admin login, whatever the locale cookie says", async () => {
+    await POST(
+      makeRequest("/api/auth/send-otp", {
+        body: { email: "admin@example.com", password: "pw", turnstileToken: "t", source: "admin" },
+        headers: { cookie: "locale=th" },
+        ip: uniqueIp(),
+      }),
+    );
+    expect(sent().subject).toBe("Your Peaksnature Login Code");
+    expect(sent().html).not.toContain("นาที");
+  });
 });
