@@ -99,7 +99,8 @@ export function Sidebar({ collapsed, onToggle, brandName = "Peaksnature", brandL
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     await logClientEvent({ entity_type: "host", entity_id: user?.id || "unknown", event_type: "HOST_LOGOUT", data: { email: user?.email } });
-    await supabase.auth.signOut();
+    // This browser only: the global default would also end the login on every other device.
+    await supabase.auth.signOut({ scope: "local" });
     router.push("/login");
     router.refresh();
   };
@@ -205,7 +206,8 @@ export function MobileSidebar({
     const supabase = createClient();
     const { data: { user } } = await supabase.auth.getUser();
     await logClientEvent({ entity_type: "host", entity_id: user?.id || "unknown", event_type: "HOST_LOGOUT", data: { email: user?.email } });
-    await supabase.auth.signOut();
+    // This browser only: the global default would also end the login on every other device.
+    await supabase.auth.signOut({ scope: "local" });
     router.push("/login");
     router.refresh();
   };

@@ -5,6 +5,8 @@ import {
 } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
 import { createRateLimiter } from "@/lib/rate-limit";
+import { isAdmin } from "@/lib/admin";
+import { getHostAccess } from "@/lib/host-access";
 
 // Audit F-11: the 6-digit code had no limit on guesses. A code lives 5
 // minutes, so 5 tries per email per 5 minutes is 5 guesses per code at most;
@@ -83,7 +85,7 @@ export async function POST(req: NextRequest) {
 
     // OTP is valid — complete the actual login with cookie-persisted client
     const supabase = await createServerSupabaseClient();
-    const { error: signInError } = await supabase.auth.signInWithPassword({
+    const { data: signInData, error: signInError } = await supabase.auth.signInWithPassword({
       email,
       password,
     });
@@ -97,7 +99,10 @@ export async function POST(req: NextRequest) {
     await serviceClient.from("login_otps").delete().eq("email", email);
 
     // Log host login in background
+    const userId = signInData?.user?.id;
     after(async () => {
+      // A platform admin with no host gets ADMIN_LOGIN from /api/admin/auth/verify instead.
+      if (userId && !(await getHostAccess(serviceClient, userId)) && (await isAdmin(userId))) return;
       await logEvent({
         entityType: "host",
         entityId: email,

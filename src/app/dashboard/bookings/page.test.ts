@@ -1,5 +1,5 @@
 // @vitest-environment happy-dom
-import { act, createElement } from "react";
+import { StrictMode, act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -62,6 +62,14 @@ function answerBookings(calls: Call[]): Result {
   if (statusIn) rows = rows.filter((b) => statusIn.includes(b.status));
   if (statusEq) rows = rows.filter((b) => b.status === statusEq);
   if (ids) rows = rows.filter((b) => ids.includes(b.id) || ids.includes(String(b.group_id)));
+  // The two or=(…) shapes the page sends: a name search, and the Pending tab's statuses + date-change ids.
+  for (const [m, a] of calls) {
+    if (m !== "or") continue;
+    const name = /guest_name\.ilike\.%([^%]*)%/.exec(String(a[0]))?.[1];
+    if (name) rows = rows.filter((b) => b.guest_name.toLowerCase().includes(name.toLowerCase()));
+    const pending = /status\.in\.\(([^)]*)\),id\.in\.\(([^)]*)\)/.exec(String(a[0]));
+    if (pending) rows = rows.filter((b) => pending[1].split(",").includes(b.status) || pending[2].split(",").includes(b.id));
+  }
   if (head) return { count: rows.length };
   if (range) rows = rows.slice(range[0], range[1] + 1);
   return { data: rows, count: rows.length };
@@ -98,12 +106,22 @@ const TABLES: Record<string, (calls: Call[]) => Result> = {
 let container: HTMLDivElement;
 let root: Root;
 
-async function render() {
+async function render(strict = false) {
+  let hostReads = 0;
   h.createClient.mockReturnValue({
     auth: { getUser: () => Promise.resolve({ data: { user: { id: "owner-1" } }, error: null }) },
-    from: (table: string) => builder(TABLES[table] ?? (() => ({ data: [] }))),
+    from: (table: string) => {
+      const b = builder(TABLES[table] ?? (() => ({ data: [] })));
+      // StrictMode's second run answers later than the first, as it does over a real network.
+      if (strict && table === "hosts" && ++hostReads === 2) {
+        const single = b.single as () => Promise<unknown>;
+        b.single = () => new Promise((r) => setTimeout(r, 30)).then(single);
+      }
+      return b;
+    },
   });
-  await act(async () => root.render(createElement(BookingsPage)));
+  // StrictMode runs the mount effect twice in dev, as `next dev` does.
+  await act(async () => root.render(strict ? createElement(StrictMode, null, createElement(BookingsPage)) : createElement(BookingsPage)));
   await act(async () => {});
 }
 
@@ -179,5 +197,48 @@ describe("BookingsPage ?tab=", () => {
     const selected = container.querySelector("[role=tab][aria-selected=true]");
     expect(selected?.textContent).toMatch(/^pending/);
     expect(panelText()).toContain("Old Pending Guest");
+  });
+
+  it("loads the pending tab when StrictMode runs the first fetch twice", async () => {
+    window.history.replaceState(null, "", "/dashboard/bookings?tab=pending");
+    await render(true);
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 80)); // both runs done
+    });
+    expect(container.querySelector("[role=tab][aria-selected=true]")?.textContent).toMatch(/^pending/);
+    expect(panelText()).toContain("Old Pending Guest");
+  });
+});
+
+const tabText = (name: string) =>
+  [...container.querySelectorAll("[role=tab]")].find((el) => el.textContent?.startsWith(name))?.textContent ?? "";
+
+async function search(text: string) {
+  const input = container.querySelector<HTMLInputElement>("#booking-search");
+  if (!input) throw new Error("no search box");
+  await act(async () => {
+    Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, "value")?.set?.call(input, text);
+    input.dispatchEvent(new Event("input", { bubbles: true }));
+  });
+  await act(async () => {
+    await new Promise((r) => setTimeout(r, 350)); // the 300ms debounce
+  });
+  await act(async () => {});
+}
+
+describe("BookingsPage search", () => {
+  it("searches inside the open tab, keeping date-change bookings in Pending", async () => {
+    await render(); // opens on Pending
+    await search("Date Change");
+    expect(panelText()).toContain("Date Change Guest");
+    expect(panelText()).not.toContain("Old Pending Guest");
+  });
+
+  it("counts every tab under the search", async () => {
+    await render();
+    await search("Old Pending");
+    expect(tabText("allBookings")).toContain("(1)");
+    expect(tabText("pending")).toContain("(1)");
+    expect(tabText("confirmedTab")).toContain("(0)");
   });
 });

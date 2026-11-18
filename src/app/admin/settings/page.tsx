@@ -12,8 +12,17 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/admin/page-header";
+import { LoadError, NETWORK_ERROR, actionFailed } from "@/components/admin/load-error";
+import { AdminListCard } from "@/components/admin/admin-list-card";
 import { cn } from "@/lib/utils";
 import type { FixedRateTermTier } from "@/types/database";
+
+const PAYOUT_FIELDS = [
+  ["promptpay_id", "PromptPay ID"],
+  ["bank_name", "Bank"],
+  ["bank_account_number", "Account number"],
+  ["bank_account_name", "Account name"],
+] as const;
 
 interface BillingConfig {
   id: string;
@@ -104,9 +113,13 @@ export default function AdminSettingsPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const [, setBillingConfig] = useState<BillingConfig | null>(null);
+  const [billingConfig, setBillingConfig] = useState<BillingConfig | null>(null);
+  // Tiers waiting on the payout-account confirmation; null when no dialog is open.
+  const [payoutConfirm, setPayoutConfirm] = useState<FixedRateTermTier[] | null>(null);
   const [billingLoading, setBillingLoading] = useState(true);
   const [billingSaving, setBillingSaving] = useState(false);
+  // Never show the form over blank defaults: saving it would overwrite the real config.
+  const [billingLoadFailed, setBillingLoadFailed] = useState(false);
   const [billingForm, setBillingForm] = useState({
     commission_pct: "",
     quick_commission_pct: "",
@@ -122,6 +135,7 @@ export default function AdminSettingsPage() {
   const [confirmRemoveTier, setConfirmRemoveTier] = useState<number | null>(null);
 
   const fetchBillingConfig = useCallback(async () => {
+    setBillingLoading(true);
     try {
       const res = await fetch("/api/admin/billing-config");
       if (res.ok) {
@@ -144,8 +158,9 @@ export default function AdminSettingsPage() {
           })),
         );
       }
+      setBillingLoadFailed(!res.ok);
     } catch {
-      console.error("Failed to fetch billing config");
+      setBillingLoadFailed(true);
     } finally {
       setBillingLoading(false);
     }
@@ -181,6 +196,15 @@ export default function AdminSettingsPage() {
     }
     tiers.sort((a, b) => a.months - b.months);
 
+    // Hosts pay into these: a typo sends real money to the wrong place, so confirm first.
+    if (payoutChanges.length > 0) {
+      setPayoutConfirm(tiers);
+      return;
+    }
+    await saveBilling(tiers);
+  };
+
+  const saveBilling = async (tiers: FixedRateTermTier[]) => {
     setBillingSaving(true);
     try {
       const res = await fetch("/api/admin/billing-config", {
@@ -210,14 +234,18 @@ export default function AdminSettingsPage() {
         );
       } else {
         const data = await res.json();
-        toast.error(data.error || "Failed to save");
+        toast.error(data.error || actionFailed("save the billing configuration"));
       }
     } catch {
-      toast.error("Something went wrong");
+      toast.error(NETWORK_ERROR);
     } finally {
       setBillingSaving(false);
     }
   };
+
+  const payoutChanges = PAYOUT_FIELDS.filter(
+    ([key]) => billingConfig !== null && (billingConfig[key] || "") !== (billingForm[key] || ""),
+  ).map(([key, label]) => ({ label, from: billingConfig?.[key] || "(empty)", to: billingForm[key] || "(empty)" }));
 
   const addTier = () => {
     setTierError(null);
@@ -261,7 +289,7 @@ export default function AdminSettingsPage() {
       const data = await res.json();
 
       if (!res.ok) {
-        toast.error(data.error || "Failed to change password");
+        toast.error(data.error || actionFailed("change the password"));
         return;
       }
 
@@ -270,16 +298,16 @@ export default function AdminSettingsPage() {
       setNewPassword("");
       setConfirmPassword("");
     } catch {
-      toast.error("Something went wrong");
+      toast.error(NETWORK_ERROR);
     } finally {
       setLoading(false);
     }
   };
 
   return (
-    <div className="mx-auto max-w-2xl">
+    <div className="max-w-3xl">
       <PageHeader
-        eyebrow="Manage your admin account"
+        subtitle="Platform billing and your admin account"
         title="Settings"
         icon={Settings}
       />
@@ -290,13 +318,15 @@ export default function AdminSettingsPage() {
             <CreditCard className="h-4 w-4 text-brand" />
             Billing Configuration
           </CardTitle>
-          <CardDescription className="text-earth-500">
+          <CardDescription className="text-earth-600">
             Platform commission, fixed rate, and payment details for hosts
           </CardDescription>
         </CardHeader>
         <CardContent>
           {billingLoading ? (
             <BillingFormSkeleton />
+          ) : billingLoadFailed ? (
+            <LoadError what="the billing configuration" onRetry={fetchBillingConfig} />
           ) : (
             <form onSubmit={handleBillingSave} className="space-y-4">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -338,12 +368,12 @@ export default function AdminSettingsPage() {
 
               <div className="border-t border-earth-100 pt-4">
                 <p className="text-sm font-medium text-earth-900 mb-1">Fixed Rate Subscription Terms</p>
-                <p className="text-xs text-earth-500 mb-3">
+                <p className="text-xs text-earth-600 mb-3">
                   Durations (in months) that hosts can choose. Hosts pay upfront for the whole term; the discount % reduces the total.
                 </p>
                 <div className="space-y-2">
                   {tierDrafts.length === 0 && (
-                    <p className="text-xs text-earth-400 italic">No terms configured. Hosts will only see the default 1-month option after their term expires.</p>
+                    <p className="text-xs text-earth-600 italic">No terms configured. Hosts will only see the default 1-month option after their term expires.</p>
                   )}
                   {tierDrafts.map((tier, i) => (
                     <div key={i} className="flex items-end gap-2">
@@ -401,7 +431,7 @@ export default function AdminSettingsPage() {
 
               <div className="border-t border-earth-100 pt-4">
                 <p className="text-sm font-medium text-earth-900 mb-1">Platform Payment Details</p>
-                <p className="text-xs text-earth-500 mb-3">
+                <p className="text-xs text-earth-600 mb-3">
                   Shown to hosts when they need to pay (wallet top-up or monthly invoice).
                 </p>
                 <div className="space-y-3">
@@ -478,13 +508,15 @@ export default function AdminSettingsPage() {
         </CardContent>
       </Card>
 
+      <AdminListCard />
+
       <Card className="mt-6 border-earth-100">
         <CardHeader>
           <CardTitle className="flex items-center gap-2 text-base font-serif text-earth-900">
             <Lock className="h-4 w-4 text-brand" />
             Change Password
           </CardTitle>
-          <CardDescription className="text-earth-500">Update your admin login password</CardDescription>
+          <CardDescription className="text-earth-600">Update your admin login password</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-4">
@@ -503,7 +535,7 @@ export default function AdminSettingsPage() {
                 <button
                   type="button"
                   aria-label={showCurrent ? "Hide password" : "Show password"} onClick={() => setShowCurrent(!showCurrent)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-400 hover:text-brand"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-600 hover:text-brand"
                   tabIndex={-1}
                 >
                   {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -527,13 +559,13 @@ export default function AdminSettingsPage() {
                 <button
                   type="button"
                   aria-label={showNew ? "Hide password" : "Show password"} onClick={() => setShowNew(!showNew)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-400 hover:text-brand"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-600 hover:text-brand"
                   tabIndex={-1}
                 >
                   {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
               </div>
-              <p className="text-xs text-earth-500">Minimum 8 characters</p>
+              <p className="text-xs text-earth-600">Minimum 8 characters</p>
             </div>
 
             <div className="space-y-2">
@@ -552,7 +584,7 @@ export default function AdminSettingsPage() {
                 <button
                   type="button"
                   aria-label={showConfirm ? "Hide password" : "Show password"} onClick={() => setShowConfirm(!showConfirm)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-400 hover:text-brand"
+                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-600 hover:text-brand"
                   tabIndex={-1}
                 >
                   {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
@@ -597,6 +629,42 @@ export default function AdminSettingsPage() {
               }}
             >
               Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={payoutConfirm !== null} onOpenChange={(o) => !o && setPayoutConfirm(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change where hosts pay?</DialogTitle>
+            <DialogDescription>
+              Hosts see these details for wallet top-ups and invoices. Check them against the bank before saving.
+            </DialogDescription>
+          </DialogHeader>
+          <dl className="space-y-2 text-sm">
+            {payoutChanges.map((c) => (
+              <div key={c.label}>
+                <dt className="text-xs text-earth-600">{c.label}</dt>
+                <dd className="break-all text-earth-800">
+                  <span className="text-earth-600 line-through">{c.from}</span> → <span className="font-medium">{c.to}</span>
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <DialogFooter>
+            <Button variant="outline" className="cursor-pointer" onClick={() => setPayoutConfirm(null)}>
+              Cancel
+            </Button>
+            <Button
+              className="cursor-pointer"
+              onClick={() => {
+                const tiers = payoutConfirm;
+                setPayoutConfirm(null);
+                if (tiers) saveBilling(tiers);
+              }}
+            >
+              Save new details
             </Button>
           </DialogFooter>
         </DialogContent>

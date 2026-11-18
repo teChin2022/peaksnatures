@@ -13,6 +13,7 @@ import { Label } from "@/components/ui/label";
 import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle } from "@/components/ui/card";
 import OtpModal from "@/components/otp-modal";
 import { isValidEmail } from "@/lib/utils";
+import { hostNextPath } from "@/lib/next-path";
 
 /**
  * Copy for the codes /api/auth/send-otp and /verify-otp answer with. They no
@@ -83,8 +84,7 @@ export default function LoginPage() {
       }
 
       if (data.otpRequired === false) {
-        const nextUrl = searchParams.get("next") || "/dashboard";
-        router.push(nextUrl);
+        router.push(hostNextPath(searchParams.get("next")));
         router.refresh();
       } else {
         setShowOtpModal(true);
@@ -122,8 +122,7 @@ export default function LoginPage() {
         return;
       }
 
-      const nextUrl = searchParams.get("next") || "/dashboard";
-      router.push(nextUrl);
+      router.push(hostNextPath(searchParams.get("next")));
       router.refresh();
     } catch {
       setOtpError(t("errorGeneric"));

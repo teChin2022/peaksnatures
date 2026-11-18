@@ -1,7 +1,9 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
-import { CalendarDays, Home, BedDouble, Loader2, Trash2, Timer, Mail, Phone, Users, Clock } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { CalendarDays, BedDouble, Loader2, Trash2, Timer, Mail, Phone, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -20,8 +22,12 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
+import { STICKY_START } from "@/components/admin/table-classes";
+import { SearchBox } from "@/components/admin/search-box";
+import { LoadError, NETWORK_ERROR, actionFailed } from "@/components/admin/load-error";
 import { fmtDateStr, fmtDate } from "@/lib/format-date";
 import { fmtTHB } from "@/lib/format-currency";
+import { cn } from "@/lib/utils";
 
 function nightsBetween(checkIn: string, checkOut: string): number {
   const ms = new Date(checkOut).getTime() - new Date(checkIn).getTime();
@@ -75,6 +81,22 @@ interface HostOption {
   name: string;
 }
 
+interface BookingFilters {
+  hostId: string;
+  status: string;
+  q: string;
+}
+
+const STATUS_OPTIONS = [
+  { value: "all", label: "All statuses" },
+  { value: "pending", label: "Pending" },
+  { value: "verified", label: "Verified" },
+  { value: "confirmed", label: "Confirmed" },
+  { value: "completed", label: "Completed" },
+  { value: "cancelled", label: "Cancelled" },
+  { value: "rejected", label: "Rejected" },
+];
+
 export default function AdminBookingsPage() {
   const [bookings, setBookings] = useState<BookingRow[]>([]);
   const [total, setTotal] = useState(0);
@@ -83,11 +105,20 @@ export default function AdminBookingsPage() {
   const [page, setPage] = useState(1);
   const [hasMore, setHasMore] = useState(false);
   const [hosts, setHosts] = useState<HostOption[]>([]);
+  const searchParams = useSearchParams();
   const [selectedHostId, setSelectedHostId] = useState<string>("all");
+  // Overview's "Pending bookings" links here with ?status=pending.
+  const [statusFilter, setStatusFilter] = useState<string>(() => {
+    const s = searchParams.get("status");
+    return s && STATUS_OPTIONS.some((o) => o.value === s) ? s : "all";
+  });
+  const [query, setQuery] = useState("");
   const [activeTab, setActiveTab] = useState<string>("bookings");
   const [holds, setHolds] = useState<HoldRow[]>([]);
   const [holdsLoading, setHoldsLoading] = useState(true);
   const [deletingHoldId, setDeletingHoldId] = useState<string | null>(null);
+  const [loadFailed, setLoadFailed] = useState(false);
+  const [holdsFailed, setHoldsFailed] = useState(false);
   const [confirmDeleteHold, setConfirmDeleteHold] = useState<HoldRow | null>(null);
 
   useEffect(() => {
@@ -113,8 +144,9 @@ export default function AdminBookingsPage() {
         const res = await r.json();
         setHolds(res.data);
       }
-    } catch (err) {
-      console.error("Failed to fetch holds:", err);
+      setHoldsFailed(!r.ok);
+    } catch {
+      setHoldsFailed(true);
     } finally {
       setHoldsLoading(false);
     }
@@ -137,21 +169,23 @@ export default function AdminBookingsPage() {
         setHolds((prev) => prev.filter((h) => h.id !== holdId));
       } else {
         const data = await r.json();
-        toast.error(data.error || "Failed to delete");
+        toast.error(data.error || actionFailed("delete the hold"));
       }
     } catch {
-      toast.error("Failed to delete hold");
+      toast.error(NETWORK_ERROR);
     } finally {
       setDeletingHoldId(null);
       setConfirmDeleteHold(null);
     }
   };
 
-  const fetchBookings = useCallback(async (p: number, append = false, hostId?: string) => {
+  const fetchBookings = useCallback(async (p: number, append: boolean, f: BookingFilters) => {
     if (append) setLoadingMore(true); else setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(p), limit: "20" });
-      if (hostId && hostId !== "all") params.set("host_id", hostId);
+      if (f.hostId !== "all") params.set("host_id", f.hostId);
+      if (f.status !== "all") params.set("status", f.status);
+      if (f.q) params.set("q", f.q);
       const r = await fetch(`/api/admin/bookings?${params}`);
       if (r.ok) {
         const res: PaginatedResponse = await r.json();
@@ -159,8 +193,10 @@ export default function AdminBookingsPage() {
         if (res.total != null) setTotal(res.total);
         setHasMore(res.hasMore ?? (p < res.totalPages));
       }
-    } catch (err) {
-      console.error("Failed to fetch bookings:", err);
+      // A failed "Load More" keeps the rows already shown; only a first load swaps in the error.
+      if (append) { if (!r.ok) toast.error(actionFailed("load more bookings")); } else setLoadFailed(!r.ok);
+    } catch {
+      if (append) toast.error(NETWORK_ERROR); else setLoadFailed(true);
     } finally {
       setLoading(false);
       setLoadingMore(false);
@@ -169,21 +205,29 @@ export default function AdminBookingsPage() {
 
   useEffect(() => {
     setPage(1);
-    fetchBookings(1, false, selectedHostId);
-  }, [fetchBookings, selectedHostId]);
+    fetchBookings(1, false, { hostId: selectedHostId, status: statusFilter, q: query });
+  }, [fetchBookings, selectedHostId, statusFilter, query]);
 
   const handleLoadMore = () => {
     const next = page + 1;
     setPage(next);
-    fetchBookings(next, true, selectedHostId);
+    fetchBookings(next, true, { hostId: selectedHostId, status: statusFilter, q: query });
   };
 
   return (
     <div>
       <PageHeader
-        eyebrow={loading ? "Loading…" : `${total} total`}
+        subtitle={loading ? "Loading…" : `${total} total`}
         title="Bookings"
         icon={CalendarDays}
+        actions={
+          <Link
+            href="/admin/bookings/date-changes"
+            className="rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-700 hover:border-brand/40 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          >
+            Date changes
+          </Link>
+        }
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -195,28 +239,52 @@ export default function AdminBookingsPage() {
             <TabsTrigger value="holds" className="cursor-pointer data-[state=active]:bg-white data-[state=active]:text-brand data-[state=active]:shadow-sm">
               Holds
               {holds.length > 0 && (
-                <Badge className="ml-1.5 bg-amber-50 text-amber-700 border border-amber-200/70 text-[10px] px-1.5">
+                <Badge className="ml-1.5 bg-amber-50 text-amber-700 border border-amber-200/70 text-xs px-1.5">
                   {holds.length}
                 </Badge>
               )}
             </TabsTrigger>
           </TabsList>
           {activeTab === "bookings" && (
-            <Select value={selectedHostId} onValueChange={setSelectedHostId}>
-              <SelectTrigger className="w-[180px] cursor-pointer">
-                <SelectValue placeholder="All Hosts" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Hosts</SelectItem>
-                {hosts.map((host) => (
-                  <SelectItem key={host.id} value={host.id}>
-                    {host.name}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={statusFilter} onValueChange={setStatusFilter}>
+                <SelectTrigger className="w-[150px] cursor-pointer" aria-label="Filter by status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  {STATUS_OPTIONS.map((o) => (
+                    <SelectItem key={o.value} value={o.value}>
+                      {o.label}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+              <Select value={selectedHostId} onValueChange={setSelectedHostId}>
+                <SelectTrigger className="w-[180px] cursor-pointer" aria-label="Filter by host">
+                  <SelectValue placeholder="All Hosts" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Hosts</SelectItem>
+                  {hosts.map((host) => (
+                    <SelectItem key={host.id} value={host.id}>
+                      {host.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
           )}
         </div>
+        {activeTab === "bookings" && (
+          <div className="mb-4">
+            <SearchBox
+              value={query}
+              onSearch={setQuery}
+              label="Search bookings by guest name, phone or email"
+              placeholder="Guest name, phone or email"
+            />
+          </div>
+        )}
 
         {/* ── Bookings Tab ── */}
         <TabsContent value="bookings">
@@ -226,79 +294,89 @@ export default function AdminBookingsPage() {
                 <div key={i} className="skeleton-warm h-40 w-full rounded-xl" />
               ))}
             </div>
+          ) : loadFailed ? (
+            <LoadError what="bookings" onRetry={() => fetchBookings(1, false, { hostId: selectedHostId, status: statusFilter, q: query })} />
           ) : bookings.length === 0 ? (
             <EmptyState
               icon={CalendarDays}
-              title="No bookings yet"
-              description={selectedHostId !== "all" ? "This host has no bookings in the selected scope." : "New reservations will appear here."}
+              title={query || statusFilter !== "all" || selectedHostId !== "all" ? "No matching bookings" : "No bookings yet"}
+              description={
+                query || statusFilter !== "all" || selectedHostId !== "all"
+                  ? "Nothing matches this search and these filters."
+                  : "New reservations will appear here."
+              }
             />
           ) : (
             <>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {bookings.map((booking) => {
-                  const nights = nightsBetween(booking.check_in, booking.check_out);
-                  return (
-                    <Card key={booking.id} className="dashboard-card border-earth-100">
-                      <CardContent className="p-5 space-y-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="font-semibold text-earth-900 truncate">{booking.guest_name}</h3>
-                              <StatusBadge status={booking.status} />
-                            </div>
-                            <p className="mt-0.5 text-xs text-earth-500 flex items-center gap-1.5 truncate">
-                              <Mail className="h-3 w-3 shrink-0" />
-                              <span className="truncate">{booking.guest_email}</span>
-                            </p>
-                            {booking.guest_phone && (
-                              <p className="mt-0.5 text-xs text-earth-500 flex items-center gap-1.5">
-                                <Phone className="h-3 w-3 shrink-0" />
-                                {booking.guest_phone}
-                              </p>
-                            )}
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="font-semibold text-earth-900 tabular-nums">{fmtTHB(booking.total_price)}</p>
-                            {booking.payment_type === "deposit" && (
-                              <p className="text-xs text-earth-500 tabular-nums">Paid: {fmtTHB(booking.amount_paid)}</p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-earth-700">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <Home className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                            <span className="truncate">{booking.homestay_name || "—"}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <BedDouble className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                            <span className="truncate">{booking.room_name || "—"}</span>
-                            {booking.group_id && (
-                              <span className="shrink-0 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700">Group</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <CalendarDays className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                            <span className="tabular-nums">
-                              {fmtDateStr(booking.check_in, "MMM d", "en")} → {fmtDateStr(booking.check_out, "MMM d, yyyy", "en")}
-                              <span className="text-earth-400"> · {nights} night{nights === 1 ? "" : "s"}</span>
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Users className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                            <span>{booking.num_guests} guest{booking.num_guests === 1 ? "" : "s"}</span>
-                          </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-earth-100/70 text-xs text-earth-500 flex items-center gap-1.5">
-                          <Clock className="h-3 w-3" />
-                          <span className="tabular-nums">Created {fmtDate(new Date(booking.created_at), "MMM d, yyyy · HH:mm", "en")}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+              {/* A table scans faster than cards for staff working a list (audit X3). */}
+              <Card className="overflow-hidden border-earth-100 bg-white">
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[900px] text-sm">
+                      <thead>
+                        <tr className="border-b border-earth-100 text-left text-xs text-earth-600">
+                          <th scope="col" className={cn("px-4 py-2.5 font-medium", STICKY_START)}>Guest</th>
+                          <th scope="col" className="px-4 py-2.5 font-medium">Stay</th>
+                          <th scope="col" className="px-4 py-2.5 font-medium">Homestay · house</th>
+                          <th scope="col" className="px-4 py-2.5 font-medium">Guests</th>
+                          <th scope="col" className="px-4 py-2.5 text-right font-medium">Total</th>
+                          <th scope="col" className="px-4 py-2.5 font-medium">Booked</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-earth-100 text-earth-800">
+                        {bookings.map((booking) => {
+                          const nights = nightsBetween(booking.check_in, booking.check_out);
+                          return (
+                            <tr key={booking.id} className="align-top">
+                              <td className={cn("max-w-56 px-4 py-3 sm:max-w-none", STICKY_START)}>
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="font-semibold text-earth-900">{booking.guest_name}</span>
+                                  <StatusBadge status={booking.status} />
+                                </div>
+                                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-earth-600">
+                                  <Mail className="h-3 w-3 shrink-0" />
+                                  <span className="break-all">{booking.guest_email}</span>
+                                </p>
+                                {booking.guest_phone && (
+                                  <p className="mt-0.5 flex items-center gap-1.5 text-xs text-earth-600">
+                                    <Phone className="h-3 w-3 shrink-0" />
+                                    {booking.guest_phone}
+                                  </p>
+                                )}
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-3 tabular-nums">
+                                {fmtDateStr(booking.check_in, "MMM d", "en")} → {fmtDateStr(booking.check_out, "MMM d, yyyy", "en")}
+                                <p className="text-xs text-earth-600">
+                                  {nights} night{nights === 1 ? "" : "s"}
+                                </p>
+                              </td>
+                              <td className="px-4 py-3">
+                                {booking.homestay_name || "—"}
+                                <p className="flex items-center gap-1.5 text-xs text-earth-600">
+                                  {booking.room_name || "—"}
+                                  {booking.group_id && (
+                                    <StatusBadge status="group" tone="earth" label="Group" />
+                                  )}
+                                </p>
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-3">{booking.num_guests}</td>
+                              <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">
+                                <span className="font-semibold text-earth-900">{fmtTHB(booking.total_price)}</span>
+                                {booking.payment_type === "deposit" && (
+                                  <p className="text-xs text-earth-600">Paid: {fmtTHB(booking.amount_paid)}</p>
+                                )}
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-earth-600">
+                                {fmtDate(new Date(booking.created_at), "MMM d, yyyy · HH:mm", "en")}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
 
               {hasMore && (
                 <div className="mt-4 flex justify-center">
@@ -320,6 +398,8 @@ export default function AdminBookingsPage() {
                 <div key={i} className="skeleton-warm h-32 w-full rounded-xl" />
               ))}
             </div>
+          ) : holdsFailed ? (
+            <LoadError what="booking holds" onRetry={fetchHolds} />
           ) : holds.length === 0 ? (
             <EmptyState
               icon={Timer}
@@ -342,7 +422,7 @@ export default function AdminBookingsPage() {
                             <StatusBadge status={expired ? "expired" : "active"} />
                           </div>
                           {hold.room_name && (
-                            <p className="mt-0.5 text-xs text-earth-500 flex items-center gap-1.5">
+                            <p className="mt-0.5 text-xs text-earth-600 flex items-center gap-1.5">
                               <BedDouble className="h-3 w-3 shrink-0" />
                               <span className="truncate">{hold.room_name}</span>
                             </p>
@@ -381,7 +461,7 @@ export default function AdminBookingsPage() {
                         </div>
                       </div>
 
-                      <div className="pt-2 border-t border-earth-100/70 text-xs text-earth-500 flex items-center gap-1.5">
+                      <div className="pt-2 border-t border-earth-100/70 text-xs text-earth-600 flex items-center gap-1.5">
                         <Clock className="h-3 w-3" />
                         <span className="tabular-nums">Created {fmtDate(new Date(hold.created_at), "MMM d, yyyy · HH:mm", "en")}</span>
                       </div>
@@ -400,7 +480,7 @@ export default function AdminBookingsPage() {
           <DialogHeader>
             <DialogTitle className="font-serif">Delete Booking Hold</DialogTitle>
             <DialogDescription>
-              Delete the hold on <strong>{confirmDeleteHold?.room_name || "this room"}</strong> ({confirmDeleteHold ? `${fmtDateStr(confirmDeleteHold.check_in, "MMM d", "en")} → ${fmtDateStr(confirmDeleteHold.check_out, "MMM d, yyyy", "en")}` : ""})? This will release the dates immediately.
+              Delete the hold on <strong>{confirmDeleteHold?.room_name || "this house"}</strong> ({confirmDeleteHold ? `${fmtDateStr(confirmDeleteHold.check_in, "MMM d", "en")} → ${fmtDateStr(confirmDeleteHold.check_out, "MMM d, yyyy", "en")}` : ""})? This will release the dates immediately.
             </DialogDescription>
           </DialogHeader>
           <DialogFooter>

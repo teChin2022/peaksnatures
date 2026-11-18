@@ -52,7 +52,7 @@ export function AdminDemandSection({
         <select
           value={homestayId}
           onChange={(e) => setHomestayId(e.target.value)}
-          className="rounded-full border border-gray-200 bg-white px-3 py-1 text-xs text-gray-700 focus:outline-none focus:ring-1 focus:ring-gray-300"
+          className="h-8 rounded-full border border-earth-500 bg-white px-3 text-xs text-earth-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
           aria-label="Filter by homestay"
         >
           <option value="">All homestays</option>

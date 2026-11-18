@@ -50,7 +50,7 @@ export function StatusBadge({ status, tone, label, icon, className }: StatusBadg
   return (
     <Badge
       className={cn(
-        "border text-[10px] font-medium px-1.5 py-0.5 capitalize",
+        "border text-xs font-medium px-2 py-0.5 capitalize",
         TONE_CLASSES[resolved],
         className
       )}

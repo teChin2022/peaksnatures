@@ -17,7 +17,6 @@ import { useRouter } from "next/navigation";
 import { logClientEvent } from "@/lib/history-log-client";
 
 import { SecurityPinDialog } from "@/components/security-pin-dialog";
-import Link from "next/link";
 
 interface HostData {
   id: string;
@@ -933,17 +932,6 @@ export default function ProfilePage() {
         onVerified={handlePinVerified}
         onChanged={() => toast.success(t("pinChanged"))}
       />
-
-      {/* Staff logins lived here until they got their own menu. */}
-      <p className="mt-6 text-sm text-earth-700">
-        {t.rich("teamMoved", {
-          link: (chunks) => (
-            <Link href="/dashboard/team" className="font-medium text-brand underline-offset-4 hover:underline">
-              {chunks}
-            </Link>
-          ),
-        })}
-      </p>
 
       <Card className="mt-6 border-red-200">
         <CardHeader>

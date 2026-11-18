@@ -109,3 +109,50 @@ test("houses: a season typed but not added stops Save and says so", async ({ pag
   await expect(page.getByRole("alert").filter({ hasText: T.dashboardRooms.seasonalPricing })).toBeVisible();
   await expect(page.getByRole("dialog", { name: T.dashboardRooms.addRoom })).toBeVisible(); // not closed, nothing written
 });
+
+test("bookings: search finds a booking by its code, and filters run on the server", async ({ page }) => {
+  // A filter PostgREST cannot parse comes back 400 and shows as "no results": catch it here.
+  const failed: string[] = [];
+  page.on("response", (r) => {
+    if (/\/rest\/v1\/bookings/.test(r.url()) && r.status() >= 400) failed.push(`${r.status()} ${decodeURIComponent(r.url())}`);
+  });
+  await openDashboard(page, "/dashboard/bookings?tab=all");
+  const panel = page.locator("[role=tabpanel][data-state=active]");
+  await expect(panel.locator(".animate-pulse")).toHaveCount(0);
+
+  const idLine = (await panel.getByText(/ID: [0-9a-f]{8}…/).first().textContent().catch(() => null)) ?? "";
+  const code = /ID: ([0-9a-f]{8})…/.exec(idLine)?.[1];
+  test.skip(!code, "The test host has no booking to search for.");
+
+  const D = T.dashboard;
+  const resultLine = page.getByText(new RegExp(D.filterResultCount.replace("{count}", "(\\d+)")));
+  await page.getByRole("searchbox", { name: D.searchLabel }).fill(code!);
+  await expect(resultLine).toBeVisible();
+  expect(Number(/\d+/.exec((await resultLine.textContent()) ?? "")?.[0])).toBeGreaterThanOrEqual(1);
+  await expect(panel.getByText(`ID: ${code}…`).first()).toBeVisible();
+
+  // Pending searches its statuses and its date-change bookings in one request.
+  await page.getByRole("tab", { name: new RegExp(`^${D.pending}`) }).click();
+  await expect(resultLine).toBeVisible();
+
+  await page.getByRole("tab", { name: new RegExp(`^${D.allBookings}`) }).click();
+  await page.getByRole("button", { name: D.clearFilters }).first().click();
+  const sheetButton = page.getByRole("button", { name: new RegExp(`^${D.filtersButton}`) });
+  const inSheet = await sheetButton.isVisible(); // phones: the fields sit in a bottom sheet
+  if (inSheet) await sheetButton.click();
+  await page.getByRole("combobox", { name: D.filterSourceLabel }).click();
+  await page.getByRole("option", { name: D.filterSourceQuick }).click();
+  await page.getByRole("combobox", { name: D.filterStatus }).click();
+  await page.getByRole("option", { name: D.pending, exact: true }).click();
+  await page.screenshot({ path: test.info().outputPath("filters-open.png") });
+  if (inSheet) {
+    await page.getByRole("button", { name: new RegExp(D.filtersShowResults.replace("{count}", "\\d+")) }).click();
+    await expect(page.getByRole("dialog")).toBeHidden();
+  }
+
+  await expect(page.getByRole("button", { name: D.removeFilter.replace("{name}", D.filterSourceQuick) })).toBeVisible();
+  await expect(page.getByRole("button", { name: D.removeFilter.replace("{name}", D.pending) })).toBeVisible();
+  await expect(resultLine).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath("filters-applied.png"), fullPage: true });
+  expect(failed).toEqual([]);
+});

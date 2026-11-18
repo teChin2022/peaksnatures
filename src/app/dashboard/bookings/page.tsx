@@ -25,6 +25,8 @@ import {
   Zap,
   Paperclip,
   MessageCircle,
+  SlidersHorizontal,
+  X,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent } from "@/components/ui/card";
@@ -37,6 +39,7 @@ import {
   Select,
   SelectContent,
   SelectItem,
+  SelectSeparator,
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
@@ -50,6 +53,7 @@ import {
   DialogFooter,
 } from "@/components/ui/dialog";
 import { Skeleton } from "@/components/ui/skeleton";
+import { Sheet, SheetContent, SheetFooter, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import type { BookingStatus } from "@/types/database";
 import { toast } from "sonner";
 import { fmtDateStr } from "@/lib/format-date";
@@ -61,6 +65,19 @@ import { countAttachmentsByBooking } from "@/lib/booking-attachments";
 import { isQuickPending } from "@/lib/quick-booking";
 import { cartActionTargets, cartMoney, groupIntoCarts, housesDiffer, mergeById } from "@/lib/booking-carts";
 import { slipStoragePath } from "@/lib/slip-path";
+import { billingTodayStr } from "@/lib/billing-dates";
+import {
+  DEFAULT_FILTERS,
+  PENDING_STATUSES,
+  SEARCH_MIN_CHARS,
+  activeFilterCount,
+  applyBookingFilters,
+  type BookingFilters,
+  type BookingTab,
+  type SourceFilter,
+  type StatusFilter,
+  type StayFilter,
+} from "@/lib/booking-filters";
 
 interface BookingRow {
   id: string;
@@ -118,10 +135,8 @@ interface DisplayBooking extends BookingRow {
 }
 
 const PAGE_SIZE = 20;
-const SEARCH_MIN_CHARS = 3;
 
 const DCR_COLUMNS = "id, booking_id, old_check_in, old_check_out, new_check_in, new_check_out, old_total_price, new_total_price, price_difference, status, requested_by, easyslip_verified, payment_slip_url, old_room_id, new_room_id";
-const PENDING_STATUSES: BookingStatus[] = ["pending", "verified"];
 
 type TabKey = "pending" | "confirmed";
 /** A Pending/Confirmed tab's own server-paged list. */
@@ -254,6 +269,10 @@ export default function BookingsPage() {
   // still in the URL then — without this the detail dialog would pop open on
   // top of the booking the host just made.
   const deepLinkHandledRef = useRef(false);
+  // Only the newest fetchBookings writes the lists. In dev StrictMode runs the
+  // mount effect twice; the slower run used to reset the tab the first one had
+  // just opened from ?tab=, leaving its skeleton up for good.
+  const fetchRunRef = useRef(0);
 
   const toDisplay = useCallback(
     (rows: BookingRow[]): DisplayBooking[] =>
@@ -272,21 +291,6 @@ export default function BookingsPage() {
   const [quickBookingRooms, setQuickBookingRooms] = useState<{ id: string; name: string; price_per_night: number; max_guests: number }[]>([]);
   const [firstHomestayId, setFirstHomestayId] = useState<string | null>(null);
 
-  // Filters (All tab only) — Pending/Confirmed tabs always read from `bookings`
-  const [searchInput, setSearchInput] = useState("");
-  const [searchQuery, setSearchQuery] = useState("");
-  const [statusFilter, setStatusFilter] = useState<BookingStatus | "all">("all");
-  const searchActive = searchQuery.trim().length >= SEARCH_MIN_CHARS;
-  const filtersActive = searchActive || statusFilter !== "all";
-  const filtersDirty = searchInput.trim().length > 0 || statusFilter !== "all";
-  const showSearchHint =
-    searchInput.trim().length > 0 && searchInput.trim().length < SEARCH_MIN_CHARS;
-
-  // Separate bookings list for the All tab when filters are active
-  const [filteredBookings, setFilteredBookings] = useState<DisplayBooking[]>([]);
-  const [filteredCount, setFilteredCount] = useState(0);
-  const [hasMoreFiltered, setHasMoreFiltered] = useState(false);
-
   // Pending and Confirmed page their own status from the server. Filtering the All
   // tab's newest 20 hid older bookings that still needed the host.
   const [activeTab, setActiveTab] = useState<"all" | TabKey>("all");
@@ -294,9 +298,29 @@ export default function BookingsPage() {
   // Booking status behind every pending date-change request of this host, loaded or not.
   const [dcrBookingStatus, setDcrBookingStatus] = useState<Record<string, BookingStatus>>({});
 
-  // Debounce searchInput → searchQuery
+  // Search and filters run on the server, within the open tab (src/lib/booking-filters.ts).
+  // `filters.search` is the debounced copy of `searchInput`.
+  const [searchInput, setSearchInput] = useState("");
+  const [filters, setFilters] = useState<BookingFilters>(DEFAULT_FILTERS);
+  const [filterSheetOpen, setFilterSheetOpen] = useState(false);
+  const filterCount = activeFilterCount(filters, activeTab);
+  // Sorting by check-in also needs the server list: the unfiltered ones are newest first.
+  const filtersActive = filterCount > 0 || filters.sort !== "created";
+  const filtersDirty = searchInput.trim().length > 0 || filterCount > 0 || filters.sort !== "created";
+  const showSearchHint =
+    searchInput.trim().length > 0 && searchInput.trim().length < SEARCH_MIN_CHARS;
+  const setFilter = <K extends keyof BookingFilters>(key: K, value: BookingFilters[K]) =>
+    setFilters((prev) => ({ ...prev, [key]: value }));
+
+  // The open tab's filtered list, and every tab's filtered total.
+  const [filteredBookings, setFilteredBookings] = useState<DisplayBooking[]>([]);
+  const [filteredCounts, setFilteredCounts] = useState<Record<BookingTab, number>>({ all: 0, pending: 0, confirmed: 0 });
+  const [hasMoreFiltered, setHasMoreFiltered] = useState(false);
+  // Drops a response that a newer filter change has overtaken.
+  const filterRequestRef = useRef(0);
+
   useEffect(() => {
-    const timer = setTimeout(() => setSearchQuery(searchInput), 300);
+    const timer = setTimeout(() => setFilters((prev) => (prev.search === searchInput ? prev : { ...prev, search: searchInput })), 300);
     return () => clearTimeout(timer);
   }, [searchInput]);
 
@@ -338,6 +362,7 @@ export default function BookingsPage() {
   };
 
   const fetchBookings = async () => {
+    const run = ++fetchRunRef.current;
     const supabase = createClient();
     const {
       data: { user },
@@ -411,6 +436,7 @@ export default function BookingsPage() {
       resolveSlipUrls(rawRows),
       fetchAttachmentCounts(bookingIds, supabase),
     ]);
+    if (run !== fetchRunRef.current) return;
 
     const displayed = toDisplay(rows);
     setBookings(displayed);
@@ -487,55 +513,58 @@ export default function BookingsPage() {
   }, []);
 
 
-  // Refetch the All-tab list when filters change (skips first run before bootstrap)
+  // Refetch the filtered list when the filters or the tab change (skips the run before bootstrap)
   const bootstrappedRef = useRef(false);
   useEffect(() => {
     if (loading) return;
     if (!bootstrappedRef.current) {
       bootstrappedRef.current = true;
       // If user already changed filters before bootstrap finished, apply now.
-      if (searchQuery.trim().length >= SEARCH_MIN_CHARS || statusFilter !== "all") {
-        fetchAllTabBookings(searchQuery, statusFilter);
-      }
+      if (filtersActive) fetchFilteredBookings(filters, activeTab);
       return;
     }
-    fetchAllTabBookings(searchQuery, statusFilter);
+    fetchFilteredBookings(filters, activeTab);
     // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [searchQuery, statusFilter, loading]);
+  }, [filters, activeTab, loading]);
 
-  const fetchAllTabBookings = async (
-    search: string,
-    status: BookingStatus | "all"
-  ) => {
+  /** The open tab's bookings under the filters, in the chosen order. */
+  const filteredQuery = (supabase: ReturnType<typeof createClient>, f: BookingFilters, tab: BookingTab) => {
+    let query = applyBookingFilters(
+      supabase.from("bookings").select("*").in("homestay_id", homestayIdsRef.current),
+      f, tab, billingTodayStr(), Object.keys(dcrBookingStatus),
+    );
+    if (f.sort === "check_in") query = query.order("check_in", { ascending: true });
+    return query.order("created_at", { ascending: false });
+  };
+
+  const fetchFilteredBookings = async (f: BookingFilters, tab: BookingTab) => {
     if (homestayIdsRef.current.length === 0) return;
-    const trimmed = search.trim();
-    const useSearch = trimmed.length >= SEARCH_MIN_CHARS;
-    const isFiltered = useSearch || status !== "all";
-    if (!isFiltered) {
+    const request = ++filterRequestRef.current;
+    if (activeFilterCount(f, tab) === 0 && f.sort === "created") {
       setFilteredBookings([]);
-      setFilteredCount(0);
+      setFilteredCounts({ all: 0, pending: 0, confirmed: 0 });
       setPagedFilteredCount(0);
       setHasMoreFiltered(false);
+      setLoadingMore(false);
       return;
     }
     setLoadingMore(true);
     const supabase = createClient();
-    const sanitized = trimmed.replace(/[%,]/g, "");
-
-    let query = supabase
-      .from("bookings")
-      .select("*", { count: "exact" })
-      .in("homestay_id", homestayIdsRef.current);
-    if (status !== "all") query = query.eq("status", status);
-    if (useSearch && sanitized) {
-      query = query.or(
-        `guest_name.ilike.%${sanitized}%,guest_email.ilike.%${sanitized}%,guest_phone.ilike.%${sanitized}%`
+    const countFor = (t: BookingTab) =>
+      applyBookingFilters(
+        supabase.from("bookings").select("id", { count: "exact", head: true }).in("homestay_id", homestayIdsRef.current),
+        f, t, billingTodayStr(), Object.keys(dcrBookingStatus),
       );
-    }
 
-    const { data, count } = await query
-      .order("created_at", { ascending: false })
-      .range(0, PAGE_SIZE - 1);
+    const [{ data }, allCount, pendingCount, confirmedCount] = await Promise.all([
+      filteredQuery(supabase, f, tab).range(0, PAGE_SIZE - 1),
+      countFor("all"),
+      countFor("pending"),
+      countFor("confirmed"),
+    ]);
+    if (request !== filterRequestRef.current) return;
+    const counts = { all: allCount.count || 0, pending: pendingCount.count || 0, confirmed: confirmedCount.count || 0 };
+    const count = counts[tab];
 
     const pageRows = (data as unknown as BookingRow[]) || [];
     const rows = await resolveSlipUrls(await withCartSiblings(pageRows, supabase));
@@ -547,13 +576,14 @@ export default function BookingsPage() {
 
     // Merge, not replace: the unfiltered list stays mounted behind the filter,
     // and its badges are read from this same map.
-    const counts = await fetchAttachmentCounts(bookingIds, supabase);
-    setAttachmentCounts((prev) => ({ ...prev, ...counts }));
+    const attachments = await fetchAttachmentCounts(bookingIds, supabase);
+    if (request !== filterRequestRef.current) return;
+    setAttachmentCounts((prev) => ({ ...prev, ...attachments }));
 
     setFilteredBookings(toDisplay(rows));
-    setFilteredCount(count || 0);
+    setFilteredCounts(counts);
     setPagedFilteredCount(pageRows.length);
-    setHasMoreFiltered(pageRows.length === PAGE_SIZE && pageRows.length < (count || 0));
+    setHasMoreFiltered(pageRows.length === PAGE_SIZE && pageRows.length < count);
 
     if (dcrResult.data) {
       setDateChangeRequests((prev) => {
@@ -579,30 +609,20 @@ export default function BookingsPage() {
     const supabase = createClient();
     const from = filtersActive ? pagedFilteredCount : pagedCount;
     const to = from + PAGE_SIZE - 1;
-    const sanitized = searchQuery.trim().replace(/[%,]/g, "");
+    const request = filterRequestRef.current;
 
-    let query = supabase
-      .from("bookings")
-      .select("*")
-      .in("homestay_id", homestayIdsRef.current);
-    if (filtersActive) {
-      if (statusFilter !== "all") query = query.eq("status", statusFilter);
-      if (searchActive && sanitized) {
-        query = query.or(
-          `guest_name.ilike.%${sanitized}%,guest_email.ilike.%${sanitized}%,guest_phone.ilike.%${sanitized}%`
-        );
-      }
-    }
-
-    const { data: bookingRows } = await query
-      .order("created_at", { ascending: false })
-      .range(from, to);
+    const { data: bookingRows } = await (filtersActive
+      ? filteredQuery(supabase, filters, activeTab)
+      : supabase.from("bookings").select("*").in("homestay_id", homestayIdsRef.current).order("created_at", { ascending: false })
+    ).range(from, to);
 
     const pageRows = (bookingRows as unknown as BookingRow[]) || [];
     const rawRows = await withCartSiblings(pageRows, supabase);
     const counts = await fetchAttachmentCounts(rawRows.map((b) => b.id), supabase);
 
     const rows = await resolveSlipUrls(rawRows);
+    // The filters changed while this page loaded: its rows belong to the old list.
+    if (filtersActive && request !== filterRequestRef.current) return;
     // Merge: the earlier pages are still on screen and still need their badges.
     setAttachmentCounts((prev) => ({
       ...prev,
@@ -614,7 +634,7 @@ export default function BookingsPage() {
     if (filtersActive) {
       setFilteredBookings((prev) => mergeById(prev, newBookings));
       setPagedFilteredCount(end);
-      setHasMoreFiltered(pageRows.length === PAGE_SIZE && end < filteredCount);
+      setHasMoreFiltered(pageRows.length === PAGE_SIZE && end < filteredCounts[activeTab]);
     } else {
       setBookings((prev) => mergeById(prev, newBookings));
       setPagedCount(end);
@@ -931,6 +951,176 @@ export default function BookingsPage() {
   const detailMoney = cartMoney(detailTarget ?? []);
   const { pending: detailPending, completable: detailCompletable } = cartActionTargets(detailTarget ?? [], new Date());
 
+  // Filter choices. Host-entered sources are the quick booking dialog's platforms.
+  const sourceOptions: [SourceFilter, string][] = [
+    ["all", t("filterAllSources")],
+    ["web", t("sourceWeb")],
+    ["quick", t("filterSourceQuick")],
+    ["walk_in", t("sourceWalkIn")],
+    ["booking_com", t("sourceBookingCom")],
+    ["agoda", t("sourceAgoda")],
+    ["airbnb", t("sourceAirbnb")],
+    ["trip_com", t("sourceTripCom")],
+    ["phone", t("sourcePhone")],
+    ["other", t("sourceOther")],
+  ];
+  const statusOptions: [StatusFilter, string][] = [
+    ["all", t("filterAllStatuses")],
+    ["needs_action", t("pending")],
+    ["quick_pending", t("quickPendingBadge")],
+    ["pending", t("statusPending")],
+    ["verified", t("statusVerified")],
+    ["confirmed", t("statusConfirmed")],
+    ["completed", t("statusCompleted")],
+    ["cancelled", t("statusCancelled")],
+    ["rejected", t("statusRejected")],
+  ];
+  const stayOptions: [StayFilter, string][] = [
+    ["all", t("filterStayAll")],
+    ["today", t("filterStayToday")],
+    ["next7", t("filterStayNext7")],
+    ["this_month", t("filterStayThisMonth")],
+    ["custom", t("filterStayCustom")],
+  ];
+  const optionLabel = <V extends string>(options: [V, string][], value: V) => options.find(([v]) => v === value)?.[1] ?? value;
+  const showHouseFilter = quickBookingRooms.length > 1;
+  // Pending also holds the date-change requests on bookings of other statuses.
+  const pendingTabTotal =
+    totalPendingCount + Object.keys(dateChangeRequests).filter((id) => dcrBookingStatus[id] && !PENDING_STATUSES.includes(dcrBookingStatus[id])).length;
+  const tabTotal = (tab: BookingTab) => (filtersActive ? filteredCounts[tab] : tab === "pending" ? pendingTabTotal : getTabTotal(tab));
+  const resultCount = tabTotal(activeTab);
+
+  const filterChips: { key: string; label: string; clear: () => void }[] = [];
+  if (filters.source !== "all")
+    filterChips.push({ key: "source", label: optionLabel(sourceOptions, filters.source), clear: () => setFilter("source", "all") });
+  if (activeTab === "all" && filters.status !== "all")
+    filterChips.push({ key: "status", label: optionLabel(statusOptions, filters.status), clear: () => setFilter("status", "all") });
+  if (filters.stay !== "all" && (filters.stay !== "custom" || filters.stayFrom || filters.stayTo))
+    filterChips.push({
+      key: "stay",
+      label: `${t("filterStayLabel")}: ${
+        filters.stay === "custom"
+          ? `${filters.stayFrom ? fmtDateStr(filters.stayFrom, "d MMM", locale) : "…"} – ${filters.stayTo ? fmtDateStr(filters.stayTo, "d MMM", locale) : "…"}`
+          : optionLabel(stayOptions, filters.stay)
+      }`,
+      clear: () => setFilters((prev) => ({ ...prev, stay: "all", stayFrom: "", stayTo: "" })),
+    });
+  if (filters.roomId !== "all")
+    filterChips.push({
+      key: "room",
+      label: quickBookingRooms.find((r) => r.id === filters.roomId)?.name ?? "—",
+      clear: () => setFilter("roomId", "all"),
+    });
+
+  const clearAllFilters = () => {
+    setSearchInput("");
+    setFilters(DEFAULT_FILTERS);
+  };
+
+  /** The filter fields, inline from sm up and in the bottom sheet on phones. `id` keeps the two copies' labels apart. */
+  const renderFilterFields = (id: string) => (
+    <>
+      <div className="space-y-1.5">
+        <Label htmlFor={`${id}-source`}>{t("filterSourceLabel")}</Label>
+        <Select value={filters.source} onValueChange={(v) => setFilter("source", v as SourceFilter)}>
+          <SelectTrigger id={`${id}-source`} className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {sourceOptions.map(([value, label]) => (
+              <React.Fragment key={value}>
+                {/* A line between "every quick booking" and the single platforms. */}
+                {value === "walk_in" && <SelectSeparator />}
+                <SelectItem value={value}>{label}</SelectItem>
+              </React.Fragment>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      {/* Pending and Confirmed already are a status. */}
+      {activeTab === "all" && (
+        <div className="space-y-1.5">
+          <Label htmlFor={`${id}-status`}>{t("filterStatus")}</Label>
+          <Select value={filters.status} onValueChange={(v) => setFilter("status", v as StatusFilter)}>
+            <SelectTrigger id={`${id}-status`} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              {statusOptions.map(([value, label]) => (
+                <SelectItem key={value} value={value}>{label}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      <div className="space-y-1.5">
+        <Label htmlFor={`${id}-stay`}>{t("filterStayLabel")}</Label>
+        <Select value={filters.stay} onValueChange={(v) => setFilter("stay", v as StayFilter)}>
+          <SelectTrigger id={`${id}-stay`} className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            {stayOptions.map(([value, label]) => (
+              <SelectItem key={value} value={value}>{label}</SelectItem>
+            ))}
+          </SelectContent>
+        </Select>
+      </div>
+      {showHouseFilter && (
+        <div className="space-y-1.5">
+          <Label htmlFor={`${id}-room`}>{t("filterHouseLabel")}</Label>
+          <Select value={filters.roomId} onValueChange={(v) => setFilter("roomId", v)}>
+            <SelectTrigger id={`${id}-room`} className="w-full">
+              <SelectValue />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="all">{t("filterAllHouses")}</SelectItem>
+              {quickBookingRooms.map((room) => (
+                <SelectItem key={room.id} value={room.id}>{room.name}</SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+      )}
+      <div className="space-y-1.5">
+        <Label htmlFor={`${id}-sort`}>{t("sortLabel")}</Label>
+        <Select value={filters.sort} onValueChange={(v) => setFilter("sort", v as BookingFilters["sort"])}>
+          <SelectTrigger id={`${id}-sort`} className="w-full">
+            <SelectValue />
+          </SelectTrigger>
+          <SelectContent>
+            <SelectItem value="created">{t("sortCreated")}</SelectItem>
+            <SelectItem value="check_in">{t("sortCheckIn")}</SelectItem>
+          </SelectContent>
+        </Select>
+      </div>
+      {filters.stay === "custom" && (
+        <div className="grid grid-cols-2 gap-3 sm:col-span-full sm:max-w-md">
+          <div className="space-y-1.5">
+            <Label htmlFor={`${id}-from`}>{t("filterStayFrom")}</Label>
+            <Input
+              id={`${id}-from`}
+              type="date"
+              value={filters.stayFrom}
+              max={filters.stayTo || undefined}
+              onChange={(e) => setFilter("stayFrom", e.target.value)}
+            />
+          </div>
+          <div className="space-y-1.5">
+            <Label htmlFor={`${id}-to`}>{t("filterStayTo")}</Label>
+            <Input
+              id={`${id}-to`}
+              type="date"
+              value={filters.stayTo}
+              min={filters.stayFrom || undefined}
+              onChange={(e) => setFilter("stayTo", e.target.value)}
+            />
+          </div>
+        </div>
+      )}
+    </>
+  );
+
   if (loading) {
     return (
       <div>
@@ -997,63 +1187,86 @@ export default function BookingsPage() {
           if (tab !== "all") void loadTab(tab); // fresh each visit: slips arrive while the page is open
         }}
       >
-        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          {/* Scrolls inside its own row on phones instead of widening the page. */}
-          <TabsList className="max-w-full justify-start overflow-x-auto">
-            <TabsTrigger value="all">
-              {t("allBookings")} ({filtersActive ? filteredCount : totalCount})
-            </TabsTrigger>
-            <TabsTrigger value="pending">
-              {t("pending")} ({totalPendingCount + Object.keys(dateChangeRequests).filter((id) => dcrBookingStatus[id] && !PENDING_STATUSES.includes(dcrBookingStatus[id])).length})
-            </TabsTrigger>
-            <TabsTrigger value="confirmed">
-              {t("confirmedTab")} ({totalConfirmedCount})
-            </TabsTrigger>
-          </TabsList>
-          <div className="flex flex-col gap-2 sm:flex-row sm:items-start">
-            <div className="flex flex-col gap-1 sm:max-w-xs sm:flex-1">
+        {/* Scrolls inside its own row on phones instead of widening the page. */}
+        <TabsList className="max-w-full justify-start overflow-x-auto">
+          <TabsTrigger value="all">
+            {t("allBookings")} ({tabTotal("all")})
+          </TabsTrigger>
+          <TabsTrigger value="pending">
+            {t("pending")} ({tabTotal("pending")})
+          </TabsTrigger>
+          <TabsTrigger value="confirmed">
+            {t("confirmedTab")} ({tabTotal("confirmed")})
+          </TabsTrigger>
+        </TabsList>
+
+        <div className="mt-4 space-y-3">
+          <div className="flex gap-2">
+            <div className="min-w-0 flex-1 space-y-1 sm:max-w-md">
+              <Label htmlFor="booking-search" className="sr-only">{t("searchLabel")}</Label>
               <Input
+                id="booking-search"
                 type="search"
                 placeholder={t("searchGuestPlaceholder")}
                 value={searchInput}
                 onChange={(e) => setSearchInput(e.target.value)}
+                aria-describedby={showSearchHint ? "booking-search-hint" : undefined}
               />
               {showSearchHint && (
-                <p className="text-xs text-earth-600">{t("searchMinCharsHint")}</p>
+                <p id="booking-search-hint" className="text-xs text-earth-600">{t("searchMinCharsHint")}</p>
               )}
             </div>
-            <Select
-              value={statusFilter}
-              onValueChange={(v) => setStatusFilter(v as BookingStatus | "all")}
-            >
-              <SelectTrigger className="sm:w-48">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">{t("filterAllStatuses")}</SelectItem>
-                <SelectItem value="pending">{t("statusPending")}</SelectItem>
-                <SelectItem value="verified">{t("statusVerified")}</SelectItem>
-                <SelectItem value="confirmed">{t("statusConfirmed")}</SelectItem>
-                <SelectItem value="rejected">{t("statusRejected")}</SelectItem>
-                <SelectItem value="cancelled">{t("statusCancelled")}</SelectItem>
-                <SelectItem value="completed">{t("statusCompleted")}</SelectItem>
-              </SelectContent>
-            </Select>
-            {filtersDirty && (
-              <Button
-                variant="ghost"
-                size="sm"
-                onClick={() => {
-                  setSearchInput("");
-                  setSearchQuery("");
-                  setStatusFilter("all");
-                }}
-              >
+            <Button variant="outline" className="shrink-0 sm:hidden" onClick={() => setFilterSheetOpen(true)}>
+              <SlidersHorizontal />
+              {t("filtersButton")}
+              {filterCount > 0 && ` (${filterCount})`}
+            </Button>
+          </div>
+
+          <div className="hidden gap-3 sm:grid sm:grid-cols-3 lg:grid-cols-5">{renderFilterFields("bf")}</div>
+
+          {filtersActive && (
+            <div className="flex flex-wrap items-center gap-2 text-sm">
+              <p className="font-medium text-earth-800" aria-live="polite">
+                {loadingMore ? t("loadingMore") : t("filterResultCount", { count: resultCount })}
+              </p>
+              {filterChips.map((chip) => (
+                <button
+                  key={chip.key}
+                  type="button"
+                  onClick={chip.clear}
+                  aria-label={t("removeFilter", { name: chip.label })}
+                  className="inline-flex min-h-8 items-center gap-1 rounded-full border border-earth-200 bg-earth-50 px-3 text-earth-800 hover:bg-earth-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring"
+                >
+                  {chip.label}
+                  <X className="size-3.5" aria-hidden />
+                </button>
+              ))}
+              {filtersDirty && (
+                <Button variant="ghost" size="sm" onClick={clearAllFilters}>
+                  {t("clearFilters")}
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
+
+        <Sheet open={filterSheetOpen} onOpenChange={setFilterSheetOpen}>
+          <SheetContent side="bottom" className="max-h-[85svh] overflow-y-auto rounded-t-xl">
+            <SheetHeader>
+              <SheetTitle>{t("filtersButton")}</SheetTitle>
+            </SheetHeader>
+            <div className="grid gap-4 px-4">{renderFilterFields("bfs")}</div>
+            <SheetFooter className="flex-row gap-2">
+              <Button variant="outline" className="flex-1" onClick={clearAllFilters} disabled={!filtersDirty}>
                 {t("clearFilters")}
               </Button>
-            )}
-          </div>
-        </div>
+              <Button className="flex-1" onClick={() => setFilterSheetOpen(false)}>
+                {t("filtersShowResults", { count: resultCount })}
+              </Button>
+            </SheetFooter>
+          </SheetContent>
+        </Sheet>
 
         {(["all", "pending", "confirmed"] as const).map((tab) => {
           const sourceList = filtersActive ? filteredBookings : tab === "all" ? bookings : tabLists[tab].rows;
@@ -1322,7 +1535,7 @@ export default function BookingsPage() {
                     <p className="text-xs text-earth-600">
                       {t("showingCount", {
                         count: filtersActive ? pagedFilteredCount : tab === "all" ? pagedCount : tabLists[tab].paged,
-                        total: filtersActive ? filteredCount : getTabTotal(tab),
+                        total: filtersActive ? filteredCounts[tab] : getTabTotal(tab),
                       })}
                     </p>
                     <Button

@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { fmtDate, fmtDateStr } from "@/lib/format-date";
+import { fmtBangkokTime, fmtDate, fmtDateStr } from "@/lib/format-date";
 
 const FEB_15 = new Date(2026, 1, 15); // a Sunday
 
@@ -47,5 +47,16 @@ describe("fmtDateStr", () => {
   it("reads the date in local time, not UTC, so the day never slips", () => {
     expect(fmtDateStr("2026-01-01", "yyyy-MM-dd", "en")).toBe("2026-01-01");
     expect(fmtDateStr("2026-12-31", "yyyy-MM-dd", "en")).toBe("2026-12-31");
+  });
+});
+
+describe("fmtBangkokTime", () => {
+  // The server runs in UTC: 02:40 UTC must read as 09:40 in Bangkok.
+  it("shows Bangkok wall time whatever the process time zone", () => {
+    expect(fmtBangkokTime("2026-11-18T02:40:00Z")).toBe("Nov 18, 2026, 09:40");
+  });
+
+  it("rolls the date over at Bangkok midnight", () => {
+    expect(fmtBangkokTime("2026-11-18T17:30:00Z")).toBe("Nov 19, 2026, 00:30");
   });
 });

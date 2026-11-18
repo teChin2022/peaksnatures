@@ -4,6 +4,10 @@ import {
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
+import { blockedHostIds } from "@/lib/host-blocked";
+import { adminSearchTerm, ilikeAny } from "../search-term";
+
+const HOST_COLUMNS = ["name", "email", "phone"];
 
 export async function GET(req: NextRequest) {
   try {
@@ -24,19 +28,22 @@ export async function GET(req: NextRequest) {
 
     const sc = createServiceRoleClient();
     const statusFilter = url.searchParams.get("status"); // 'pending', 'approved', or null (all)
+    const q = adminSearchTerm(url.searchParams.get("q"));
 
     // Get total count
     let countQuery = sc.from("hosts").select("id", { count: "exact", head: true });
     if (statusFilter) countQuery = countQuery.eq("status", statusFilter);
+    if (q) countQuery = countQuery.or(ilikeAny(HOST_COLUMNS, q));
     const { count: total } = await countQuery;
 
     // Get paginated hosts
     let hostsQuery = sc
       .from("hosts")
-      .select("id, user_id, name, email, phone, status, is_verified, created_at, plan_type, wallet_balance, plan_free_expires_at, commission_pct_override, quick_commission_pct_override, fixed_rate_override, fixed_rate_term_months, fixed_rate_term_ends_at")
+      .select("id, user_id, name, email, phone, status, is_verified, created_at, plan_type, wallet_balance, wallet_credit_limit, wallet_negative_since, plan_free_expires_at, commission_pct_override, quick_commission_pct_override, fixed_rate_override, fixed_rate_term_months, fixed_rate_term_ends_at")
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
     if (statusFilter) hostsQuery = hostsQuery.eq("status", statusFilter);
+    if (q) hostsQuery = hostsQuery.or(ilikeAny(HOST_COLUMNS, q));
     const { data: hosts, error } = await hostsQuery;
 
     if (error) {
@@ -58,9 +65,14 @@ export async function GET(req: NextRequest) {
       homestayMap.set(h.host_id, { name: h.name, slug: h.slug, is_active: h.is_active });
     }
 
-    const data = (hosts as { id: string; user_id: string; name: string; email: string; phone: string | null; status: string; is_verified: boolean; created_at: string; plan_type: string; wallet_balance: number; plan_free_expires_at: string | null; commission_pct_override: number | null; quick_commission_pct_override: number | null; fixed_rate_override: number | null; fixed_rate_term_months: number | null; fixed_rate_term_ends_at: string | null }[]).map((h) => ({
+    type Row = { id: string; user_id: string; name: string; email: string; phone: string | null; status: string; is_verified: boolean; created_at: string; plan_type: string; wallet_balance: number; wallet_credit_limit: number | null; wallet_negative_since: string | null; plan_free_expires_at: string | null; commission_pct_override: number | null; quick_commission_pct_override: number | null; fixed_rate_override: number | null; fixed_rate_term_months: number | null; fixed_rate_term_ends_at: string | null };
+    const rows = hosts as Row[];
+    // Same gate as the booking routes, so the badge means bookings really are refused.
+    const blocked = await blockedHostIds(rows, sc);
+    const data = rows.map((h) => ({
       ...h,
       homestay: homestayMap.get(h.id) || null,
+      blocked: blocked.has(h.id),
     }));
 
     const totalCount = total || 0;

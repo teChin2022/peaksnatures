@@ -17,6 +17,7 @@ import {
 } from "@/components/ui/card";
 import OtpModal from "@/components/otp-modal";
 import { createClient } from "@/lib/supabase/client";
+import { adminNextPath } from "@/lib/next-path";
 import { isValidEmail } from "@/lib/utils";
 
 /** English text for the codes /api/auth/send-otp and /verify-otp answer with. */
@@ -144,7 +145,8 @@ export default function AdminLoginPage() {
         const verifyRes = await fetch("/api/admin/auth/verify", { method: "POST" });
         if (verifyRes.status === 403) {
           // verify-otp already signed this account in; leaving it signed in bounces /admin/login to / on reload.
-          await createClient().auth.signOut();
+          // Local scope: a host trying this page must not lose their dashboard sessions on other devices.
+          await createClient().auth.signOut({ scope: "local" });
           setOtpError("This account isn't a platform admin. You've been signed out.");
           return;
         }
@@ -153,7 +155,8 @@ export default function AdminLoginPage() {
           return;
         }
 
-        router.push("/admin");
+        // The page they opened before login, if the middleware recorded one (internal /admin only).
+        router.push(adminNextPath(new URLSearchParams(window.location.search).get("next")));
         router.refresh();
       } catch {
         setOtpError("Something went wrong");

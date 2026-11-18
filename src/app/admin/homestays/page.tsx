@@ -1,13 +1,21 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { Home, MapPin, User, Mail, Clock } from "lucide-react";
+import Link from "next/link";
+import { Home, Loader2 } from "lucide-react";
+import { toast } from "sonner";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Switch } from "@/components/ui/switch";
+import {
+  Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
+} from "@/components/ui/dialog";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
+import { STICKY_END, TD, TH, TH_ROW } from "@/components/admin/table-classes";
+import { cn } from "@/lib/utils";
+import { LoadError, NETWORK_ERROR, actionFailed } from "@/components/admin/load-error";
 import { fmtDate } from "@/lib/format-date";
 
 interface HomestayRow {
@@ -32,16 +40,19 @@ interface PaginatedResponse {
 export default function AdminHomestaysPage() {
   const [res, setRes] = useState<PaginatedResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [page, setPage] = useState(1);
   const [toggling, setToggling] = useState<string | null>(null);
+  const [confirmOff, setConfirmOff] = useState<HomestayRow | null>(null);
 
   const fetchHomestays = useCallback(async (p: number) => {
     setLoading(true);
     try {
       const r = await fetch(`/api/admin/homestays?page=${p}&limit=20`);
       if (r.ok) setRes(await r.json());
-    } catch (err) {
-      console.error("Failed to fetch homestays:", err);
+      setLoadFailed(!r.ok);
+    } catch {
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -66,28 +77,34 @@ export default function AdminHomestaysPage() {
             ),
           };
         });
+        toast.success(updated.is_active ? "Homestay is online" : "Homestay is offline");
+      } else {
+        toast.error(actionFailed("change the homestay"));
       }
-    } catch (err) {
-      console.error("Failed to toggle homestay:", err);
+    } catch {
+      toast.error(NETWORK_ERROR);
     } finally {
       setToggling(null);
+      setConfirmOff(null);
     }
   };
 
   return (
     <div>
       <PageHeader
-        eyebrow={res ? `${res.total} total` : "Loading…"}
+        subtitle={res ? `${res.total} total` : "Loading…"}
         title="Homestays"
         icon={Home}
       />
 
       {loading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="space-y-2">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="skeleton-warm h-36 w-full rounded-xl" />
+            <div key={i} className="skeleton-warm h-14 w-full rounded-xl" />
           ))}
         </div>
+      ) : loadFailed ? (
+        <LoadError what="homestays" onRetry={() => fetchHomestays(page)} />
       ) : !res || res.data.length === 0 ? (
         <EmptyState
           icon={Home}
@@ -96,58 +113,71 @@ export default function AdminHomestaysPage() {
         />
       ) : (
         <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {res.data.map((homestay) => (
-              <Card key={homestay.id} className="dashboard-card border-earth-100 h-full">
-                <CardContent className="p-5 space-y-3">
-                  <div className="flex items-start justify-between gap-3">
-                    <div className="min-w-0 flex-1">
-                      <div className="flex flex-wrap items-center gap-2">
-                        <h3 className="font-semibold text-earth-900 truncate">{homestay.name}</h3>
-                        <StatusBadge status={homestay.is_active ? "active" : "inactive"} />
-                      </div>
-                      <p className="mt-0.5 text-xs text-earth-400 font-mono">/{homestay.slug}</p>
-                    </div>
-                    <div className="shrink-0 flex items-center gap-2">
-                      <span className="text-xs text-earth-500">{homestay.is_active ? "On" : "Off"}</span>
-                      <Switch
-                        checked={homestay.is_active}
-                        onCheckedChange={() => handleToggle(homestay.id)}
-                        disabled={toggling === homestay.id}
-                        className="cursor-pointer data-[state=checked]:bg-brand"
-                      />
-                    </div>
-                  </div>
-
-                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-earth-700">
-                    <div className="flex items-center gap-1.5 min-w-0">
-                      <User className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                      <span className="truncate">{homestay.host?.name || "—"}</span>
-                    </div>
-                    {homestay.host?.email && (
-                      <div className="flex items-center gap-1.5 min-w-0">
-                        <Mail className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                        <span className="truncate text-earth-500">{homestay.host.email}</span>
-                      </div>
-                    )}
-                    <div className="flex items-center gap-1.5 min-w-0 sm:col-span-2">
-                      <MapPin className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                      <span className="truncate">{homestay.location}</span>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 border-t border-earth-100/70 text-xs text-earth-500 flex items-center gap-1.5">
-                    <Clock className="h-3 w-3" />
-                    <span className="tabular-nums">Created {fmtDate(new Date(homestay.created_at), "MMM d, yyyy · HH:mm", "en")}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {/* A table scans faster than cards for staff working a list (audit X3). */}
+          <Card className="overflow-hidden border-earth-100 bg-white py-0">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[760px] text-sm">
+                  <thead>
+                    <tr className={TH_ROW}>
+                      <th scope="col" className={cn(TH, "min-w-44")}>Homestay</th>
+                      <th scope="col" className={TH}>Host</th>
+                      <th scope="col" className={TH}>Location</th>
+                      <th scope="col" className={TH}>Created</th>
+                      <th scope="col" className={cn(TH, "w-px text-right", STICKY_END)}>Online</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-earth-100 text-earth-800">
+                    {res.data.map((homestay) => (
+                      <tr key={homestay.id} className="align-top">
+                        <td className={TD}>
+                          <div className="flex flex-wrap items-center gap-1.5">
+                            <span className="font-semibold text-earth-900">{homestay.name}</span>
+                            <StatusBadge status={homestay.is_active ? "active" : "inactive"} />
+                          </div>
+                          <p className="mt-0.5 font-mono text-xs text-earth-600">/{homestay.slug}</p>
+                        </td>
+                        <td className={TD}>
+                          {homestay.host ? (
+                            <Link
+                              href={`/admin/hosts/${homestay.host_id}`}
+                              className="rounded underline-offset-4 hover:text-brand hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                            >
+                              {homestay.host.name}
+                            </Link>
+                          ) : (
+                            "—"
+                          )}
+                          {homestay.host?.email && <p className="mt-0.5 break-all text-xs text-earth-600">{homestay.host.email}</p>}
+                        </td>
+                        <td className={cn(TD, "max-w-64")}>{homestay.location}</td>
+                        <td className={cn(TD, "whitespace-nowrap text-xs tabular-nums text-earth-600")}>
+                          {fmtDate(new Date(homestay.created_at), "MMM d, yyyy · HH:mm", "en")}
+                        </td>
+                        <td className={cn(TD, STICKY_END)}>
+                          <div className="flex items-center justify-end gap-2">
+                            <span className="text-xs text-earth-600" aria-hidden>{homestay.is_active ? "On" : "Off"}</span>
+                            <Switch
+                              checked={homestay.is_active}
+                              aria-label={`${homestay.name} booking site online`}
+                              // Taking a guest-facing site offline is confirmed; putting it back is one click.
+                              onCheckedChange={() => (homestay.is_active ? setConfirmOff(homestay) : handleToggle(homestay.id))}
+                              disabled={toggling === homestay.id}
+                              className="cursor-pointer data-[state=checked]:bg-brand"
+                            />
+                          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
 
           {res.totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between pt-2">
-              <p className="text-sm text-earth-500">
+              <p className="text-sm text-earth-600">
                 Page {res.page} of {res.totalPages}
               </p>
               <div className="flex items-center gap-2">
@@ -162,6 +192,30 @@ export default function AdminHomestaysPage() {
           )}
         </>
       )}
+
+      <Dialog open={!!confirmOff} onOpenChange={(open) => { if (!open) setConfirmOff(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-serif">Take homestay offline</DialogTitle>
+            <DialogDescription>
+              Take <strong>{confirmOff?.name}</strong> offline? Guests can no longer open or book{" "}
+              <span className="font-mono">/{confirmOff?.slug}</span> until you turn it back on. Existing bookings are kept.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" className="cursor-pointer border-earth-200" onClick={() => setConfirmOff(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              className="cursor-pointer"
+              onClick={() => confirmOff && handleToggle(confirmOff.id)}
+              disabled={toggling !== null}
+            >
+              {toggling && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Take offline
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

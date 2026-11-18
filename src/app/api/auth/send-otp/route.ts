@@ -135,6 +135,9 @@ export async function POST(req: NextRequest) {
           : DEFAULT_FROM;
 
         // Same rule as the magic link: Thai unless the visitor chose English.
+        // The admin area is English-only, so its code email is too. (`source`
+        // comes from the client; here it only picks the language.)
+        const lang = source === "admin" || req.cookies.get("locale")?.value === "en" ? "en" : "th";
         const emailT = {
           en: {
             subject: "Your Peaksnature Login Code",
@@ -152,7 +155,7 @@ export async function POST(req: NextRequest) {
             ignore: "หากคุณไม่ได้ขอรหัสนี้ สามารถเพิกเฉยอีเมลนี้ได้",
             footer: "Peaksnature — โฮมสเตย์ธรรมชาติในประเทศไทย",
           },
-        }[req.cookies.get("locale")?.value === "en" ? "en" : "th"];
+        }[lang];
 
         const { data, error: sendError } = await resend.emails.send({
           from: fromEmail,

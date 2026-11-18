@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import {
   createServerSupabaseClient,
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
+import { logEvent, EventType } from "@/lib/history-log";
 import type { FixedRateTermTier, PlatformBillingConfig } from "@/types/database";
 
 function validateTermTiers(
@@ -100,10 +101,12 @@ export async function PUT(req: NextRequest) {
 
     const sc = createServiceRoleClient();
 
-    // Get existing config id
+    // Get existing config id, plus the old values for the audit log
     const { data: existing } = await sc
       .from("platform_billing_config")
-      .select("id")
+      .select(
+        "id, commission_pct, quick_commission_pct, fixed_rate_amount, fixed_rate_term_tiers, promptpay_id, bank_name, bank_account_number, bank_account_name, payment_display",
+      )
       .limit(1)
       .single();
 
@@ -133,6 +136,21 @@ export async function PUT(req: NextRequest) {
       console.error("[Admin BillingConfig] update error:", error);
       return NextResponse.json({ error: "Failed to update billing config" }, { status: 500 });
     }
+
+    // Rates and the account hosts pay into: who changed them must be on record.
+    const old = existing as Record<string, unknown>;
+    const before = Object.fromEntries(Object.keys(updateData).map((k) => [k, old[k] ?? null]));
+    after(() =>
+      logEvent({
+        entityType: "billing",
+        entityId: (existing as { id: string }).id,
+        eventType: EventType.BILLING_CONFIG_UPDATED,
+        actorType: "admin",
+        actorId: user.id,
+        data: { before, after: updateData },
+        req,
+      }),
+    );
 
     return NextResponse.json(data as unknown as PlatformBillingConfig);
   } catch {

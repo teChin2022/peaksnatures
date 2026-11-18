@@ -45,6 +45,20 @@ describe("GET /api/admin/hosts", () => {
     });
   });
 
+  // Same gate as the booking routes: a Fixed Rate host with a blocking invoice.
+  it("flags hosts whose bookings are blocked", async () => {
+    signIn(mocks, {
+      tables: {
+        hosts: [{ count: 2 }, { data: [{ ...hostRow, id: "owing", plan_type: "fixed_rate" }, hostRow] }],
+        homestays: { data: [] },
+        invoices: { data: [{ host_id: "owing" }] },
+      },
+    });
+    const { body } = await readJson(await get());
+    const flags = (body as { data: { id: string; blocked: boolean }[] }).data.map((h) => [h.id, h.blocked]);
+    expect(flags).toEqual([["owing", true], ["host-1", false]]);
+  });
+
   it("reports a null homestay for a host who has not created one", async () => {
     withHosts([hostRow], []);
     const { body } = await readJson(await get());
@@ -152,5 +166,21 @@ describe("GET /api/admin/hosts", () => {
         body: { error: "Something went wrong" },
       });
     });
+  });
+});
+
+describe("GET /api/admin/hosts: search", () => {
+  it("searches name, email and phone on both the count and the page", async () => {
+    const sc = withHosts();
+    await get({ q: "Somchai" });
+    const expected = 'name.ilike."%Somchai%",email.ilike."%Somchai%",phone.ilike."%Somchai%"';
+    expect(sc.builderFor("hosts", 0).or).toHaveBeenCalledWith(expected);
+    expect(sc.builderFor("hosts", 1).or).toHaveBeenCalledWith(expected);
+  });
+
+  it("does not filter on an empty search", async () => {
+    const sc = withHosts();
+    await get({ q: "  " });
+    expect(sc.builderFor("hosts", 1).or).not.toHaveBeenCalled();
   });
 });

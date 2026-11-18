@@ -1,9 +1,9 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
-import { motion } from "motion/react";
+import Link from "next/link";
 import { toast } from "sonner";
-import { CreditCard, Loader2, CheckCircle, AlertCircle, Clock, CalendarRange, CalendarClock, Wallet, Mail } from "lucide-react";
+import { CreditCard, Loader2, CheckCircle, AlertCircle, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import {
@@ -12,6 +12,8 @@ import {
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
+import { STICKY_END, TD, TH, TH_ROW } from "@/components/admin/table-classes";
+import { LoadError, NETWORK_ERROR, actionFailed } from "@/components/admin/load-error";
 import { cn } from "@/lib/utils";
 import { fmtDate, fmtDateStr } from "@/lib/format-date";
 import { fmtTHB } from "@/lib/format-currency";
@@ -46,6 +48,7 @@ export default function AdminBillingPage() {
   const [total, setTotal] = useState(0);
   const [page, setPage] = useState(1);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [confirmAction, setConfirmAction] = useState<{ invoiceId: string; status: string; hostName: string } | null>(null);
@@ -64,8 +67,9 @@ export default function AdminBillingPage() {
         setInvoices(data.invoices);
         setTotal(data.total);
       }
+      setLoadFailed(!r.ok);
     } catch {
-      console.error("Failed to fetch invoices");
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
@@ -88,10 +92,10 @@ export default function AdminBillingPage() {
         fetchInvoices();
       } else {
         const data = await r.json();
-        toast.error(data.error || "Failed to update");
+        toast.error(data.error || actionFailed("update the invoice"));
       }
     } catch {
-      toast.error("Failed to update invoice");
+      toast.error(NETWORK_ERROR);
     } finally {
       setActionLoading(null);
       setConfirmAction(null);
@@ -101,22 +105,32 @@ export default function AdminBillingPage() {
   return (
     <div>
       <PageHeader
-        eyebrow={total > 0 ? `${total} invoices` : "Invoice management"}
+        subtitle={total > 0 ? `${total} invoices` : "Invoice management"}
         title="Billing"
         icon={CreditCard}
+        actions={
+          <Link
+            href="/admin/billing/rejected"
+            className="rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-700 hover:border-brand/40 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+          >
+            Rejected payments
+          </Link>
+        }
       />
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-wrap gap-2">
         {["all", "pending", "paid", "overdue"].map((f) => (
           <Button
             key={f}
             size="sm"
+            variant="outline"
+            aria-pressed={statusFilter === f}
             onClick={() => { setStatusFilter(f); setPage(1); }}
             className={cn(
-              "cursor-pointer",
+              "cursor-pointer rounded-full",
               statusFilter === f
-                ? "bg-brand hover:bg-brand-hover text-white"
-                : "bg-white border border-earth-200 text-earth-700 hover:bg-earth-50 hover:text-brand"
+                ? "border-brand bg-brand-50 text-brand hover:bg-brand-50"
+                : "border-earth-200 bg-white text-earth-700 hover:bg-earth-50 hover:text-brand"
             )}
           >
             {f === "all" ? "All" : f.charAt(0).toUpperCase() + f.slice(1)}
@@ -125,11 +139,13 @@ export default function AdminBillingPage() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-          {[1, 2, 3, 4].map((i) => (
-            <div key={i} className="skeleton-warm h-40 w-full rounded-xl" />
+        <div className="space-y-2">
+          {[1, 2, 3, 4, 5, 6].map((i) => (
+            <div key={i} className="skeleton-warm h-14 w-full rounded-xl" />
           ))}
         </div>
+      ) : loadFailed ? (
+        <LoadError what="invoices" onRetry={fetchInvoices} />
       ) : invoices.length === 0 ? (
         <EmptyState
           icon={CreditCard}
@@ -138,114 +154,95 @@ export default function AdminBillingPage() {
         />
       ) : (
         <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {invoices.map((inv, i) => {
-              const Icon = STATUS_ICONS[inv.status] || Clock;
-              const label = STATUS_LABELS[inv.status] || inv.status;
-              return (
-                <motion.div
-                  key={inv.id}
-                  initial={{ opacity: 0, y: 8 }}
-                  animate={{ opacity: 1, y: 0 }}
-                  transition={{ delay: i * 0.03, duration: 0.25 }}
-                >
-                  <Card className="dashboard-card border-earth-100 h-full">
-                    <CardContent className="p-5 space-y-3">
-                      <div className="flex items-start justify-between gap-3">
-                        <div className="min-w-0 flex-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="font-semibold text-earth-900 truncate">
-                              {inv.host?.name || "Unknown Host"}
-                            </h3>
-                            <StatusBadge
-                              status={inv.status}
-                              label={label}
-                              icon={<Icon className="h-3 w-3" />}
-                            />
-                          </div>
-                          {inv.host?.email && (
-                            <p className="mt-0.5 text-xs text-earth-500 flex items-center gap-1.5 truncate">
-                              <Mail className="h-3 w-3 shrink-0" />
-                              <span className="truncate">{inv.host.email}</span>
+          {/* A table scans faster than cards for staff working a list (audit X3). */}
+          <Card className="overflow-hidden border-earth-100 bg-white py-0">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[820px] text-sm">
+                  <thead>
+                    <tr className={TH_ROW}>
+                      <th scope="col" className={cn(TH, "min-w-48")}>Host</th>
+                      <th scope="col" className={TH}>Period</th>
+                      <th scope="col" className={TH}>Due</th>
+                      <th scope="col" className={cn(TH, "text-right")}>Amount</th>
+                      <th scope="col" className={TH}>Status</th>
+                      <th scope="col" className={cn(TH, "w-px text-right", STICKY_END)}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-earth-100 text-earth-800">
+                    {invoices.map((inv) => {
+                      const Icon = STATUS_ICONS[inv.status] || Clock;
+                      const label = STATUS_LABELS[inv.status] || inv.status;
+                      const hostName = inv.host?.name || "Unknown host";
+                      return (
+                        <tr key={inv.id} className="align-top">
+                          <td className={TD}>
+                            {inv.host ? (
+                              <Link
+                                href={`/admin/hosts/${inv.host.id}`}
+                                className="rounded font-semibold text-earth-900 underline-offset-4 hover:text-brand hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                              >
+                                {hostName}
+                              </Link>
+                            ) : (
+                              <span className="font-semibold text-earth-900">{hostName}</span>
+                            )}
+                            {inv.host?.email && <p className="mt-0.5 break-all text-xs text-earth-600">{inv.host.email}</p>}
+                            <p className="mt-0.5 text-xs tabular-nums text-earth-600">
+                              Created {fmtDate(new Date(inv.created_at), "MMM d, yyyy", "en")}
                             </p>
-                          )}
-                        </div>
-                        <div className="text-right shrink-0">
-                          <p className="font-semibold text-earth-900 tabular-nums flex items-center gap-1.5 justify-end">
-                            <Wallet className="h-3.5 w-3.5 text-earth-400" />
-                            {fmtTHB(inv.amount)}
-                          </p>
-                        </div>
-                      </div>
-
-                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-earth-700">
-                        <div className="flex items-center gap-1.5">
-                          <CalendarRange className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                          <span className="tabular-nums">
+                          </td>
+                          <td className={cn(TD, "whitespace-nowrap tabular-nums")}>
                             {fmtDateStr(inv.period_start, "MMM d", "en")} → {fmtDateStr(inv.period_end, "MMM d, yyyy", "en")}
-                          </span>
-                        </div>
-                        <div className="flex items-center gap-1.5">
-                          <CalendarClock className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                          <span className="tabular-nums">Due {fmtDateStr(inv.due_date, "MMM d, yyyy", "en")}</span>
-                        </div>
-                        {inv.paid_at && (
-                          <div className="flex items-center gap-1.5 sm:col-span-2">
-                            <CheckCircle className="h-3.5 w-3.5 shrink-0 text-brand" />
-                            <span className="tabular-nums text-earth-600">Paid {fmtDate(new Date(inv.paid_at), "MMM d, yyyy · HH:mm", "en")}</span>
-                          </div>
-                        )}
-                      </div>
-
-                      <div className="pt-2 border-t border-earth-100/70 flex items-center justify-between gap-2">
-                        <span className="text-xs text-earth-500 flex items-center gap-1.5">
-                          <Clock className="h-3 w-3" />
-                          <span className="tabular-nums">Created {fmtDate(new Date(inv.created_at), "MMM d, yyyy · HH:mm", "en")}</span>
-                        </span>
-                        <div className="flex flex-wrap items-center gap-1.5 justify-end">
-                          {inv.status === "pending" && (
-                            <>
-                              <Button
-                                size="sm"
-                                className="h-9 px-3 text-xs cursor-pointer bg-brand hover:bg-brand-hover text-white"
-                                onClick={() => setConfirmAction({ invoiceId: inv.id, status: "paid", hostName: inv.host?.name || "Unknown" })}
-                                disabled={actionLoading === inv.id}
-                              >
-                                {actionLoading === inv.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Mark Paid"}
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-9 px-3 text-xs cursor-pointer text-destructive border-destructive/30 hover:bg-destructive/5"
-                                onClick={() => setConfirmAction({ invoiceId: inv.id, status: "overdue", hostName: inv.host?.name || "Unknown" })}
-                                disabled={actionLoading === inv.id}
-                              >
-                                Overdue
-                              </Button>
-                            </>
-                          )}
-                          {inv.status === "overdue" && (
-                            <Button
-                              size="sm"
-                              className="h-9 px-3 text-xs cursor-pointer bg-brand hover:bg-brand-hover text-white"
-                              onClick={() => setConfirmAction({ invoiceId: inv.id, status: "paid", hostName: inv.host?.name || "Unknown" })}
-                              disabled={actionLoading === inv.id}
-                            >
-                              {actionLoading === inv.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Mark Paid"}
-                            </Button>
-                          )}
-                        </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                </motion.div>
-              );
-            })}
-          </div>
+                          </td>
+                          <td className={cn(TD, "whitespace-nowrap tabular-nums")}>{fmtDateStr(inv.due_date, "MMM d, yyyy", "en")}</td>
+                          <td className={cn(TD, "whitespace-nowrap text-right font-semibold tabular-nums text-earth-900")}>{fmtTHB(inv.amount)}</td>
+                          <td className={TD}>
+                            <StatusBadge status={inv.status} label={label} icon={<Icon className="h-3 w-3" />} />
+                            {inv.paid_at && (
+                              <p className="mt-1 whitespace-nowrap text-xs tabular-nums text-earth-600">
+                                {fmtDate(new Date(inv.paid_at), "MMM d, yyyy · HH:mm", "en")}
+                              </p>
+                            )}
+                          </td>
+                          <td className={cn(TD, STICKY_END)}>
+                            <div className="grid gap-1.5">
+                              {(inv.status === "pending" || inv.status === "overdue") && (
+                                <Button
+                                  size="sm"
+                                  className="h-9 px-3 text-xs cursor-pointer bg-brand hover:bg-brand-hover text-white"
+                                  onClick={() => setConfirmAction({ invoiceId: inv.id, status: "paid", hostName })}
+                                  disabled={actionLoading === inv.id}
+                                >
+                                  {actionLoading === inv.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : "Mark Paid"}
+                                </Button>
+                              )}
+                              {inv.status === "paid" && <span className="text-center text-earth-600"><span aria-hidden>—</span><span className="sr-only">No action</span></span>}
+                              {inv.status === "pending" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-9 px-3 text-xs cursor-pointer text-destructive border-destructive/30 hover:bg-destructive/5"
+                                  onClick={() => setConfirmAction({ invoiceId: inv.id, status: "overdue", hostName })}
+                                  disabled={actionLoading === inv.id}
+                                >
+                                  Overdue
+                                </Button>
+                              )}
+                            </div>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
 
           {totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between pt-2">
-              <p className="text-sm text-earth-500">Page {page} of {totalPages}</p>
+              <p className="text-sm text-earth-600">Page {page} of {totalPages}</p>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="sm" className="cursor-pointer border-earth-200" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
                   Previous

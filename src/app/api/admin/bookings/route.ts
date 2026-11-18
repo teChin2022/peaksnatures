@@ -4,6 +4,11 @@ import {
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
+import type { BookingStatus } from "@/types/database";
+import { adminSearchTerm, ilikeAny } from "../search-term";
+
+const GUEST_COLUMNS = ["guest_name", "guest_email", "guest_phone"];
+const BOOKING_STATUSES: readonly BookingStatus[] = ["pending", "verified", "confirmed", "rejected", "cancelled", "completed"];
 
 export async function GET(req: NextRequest) {
   try {
@@ -22,6 +27,13 @@ export async function GET(req: NextRequest) {
     const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "20")));
     const offset = (page - 1) * limit;
     const hostId = url.searchParams.get("host_id");
+    const rawStatus = url.searchParams.get("status");
+    if (rawStatus && !BOOKING_STATUSES.includes(rawStatus as BookingStatus)) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
+    const status = rawStatus as BookingStatus | null;
+    // A guest calling about "my booking" gives a name, phone or email.
+    const q = adminSearchTerm(url.searchParams.get("q"));
 
     const sc = createServiceRoleClient();
 
@@ -52,6 +64,8 @@ export async function GET(req: NextRequest) {
         .from("bookings")
         .select("id", { count: "exact", head: true });
       if (homestayIdsForHost) countQuery = countQuery.in("homestay_id", homestayIdsForHost);
+      if (status) countQuery = countQuery.eq("status", status);
+      if (q) countQuery = countQuery.or(ilikeAny(GUEST_COLUMNS, q));
       const { count } = await countQuery;
       total = count;
     }
@@ -63,6 +77,8 @@ export async function GET(req: NextRequest) {
       .order("created_at", { ascending: false })
       .range(offset, offset + limit);
     if (homestayIdsForHost) bookingsQuery = bookingsQuery.in("homestay_id", homestayIdsForHost);
+    if (status) bookingsQuery = bookingsQuery.eq("status", status);
+    if (q) bookingsQuery = bookingsQuery.or(ilikeAny(GUEST_COLUMNS, q));
     const { data: bookings, error } = await bookingsQuery;
 
     if (error) {

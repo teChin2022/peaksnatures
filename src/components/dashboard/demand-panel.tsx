@@ -4,7 +4,6 @@ import * as React from "react";
 import { useEffect, useState } from "react";
 import { Eye, Percent, CalendarX } from "lucide-react";
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { StatCard } from "@/components/dashboard/stat-card";
 import type { DemandStage } from "@/lib/demand-events";
 import type { DemandStats } from "@/lib/demand-stats";
 import { fmtDateStr } from "@/lib/format-date";
@@ -50,9 +49,11 @@ function BarRow({
   children: React.ReactNode;
 }) {
   return (
-    <div className="flex items-center gap-3">
-      <span className="w-28 shrink-0 truncate text-xs text-earth-600 sm:w-36">{label}</span>
-      <div className="h-5 flex-1 overflow-hidden rounded bg-earth-50">{children}</div>
+    // Phones: label, value and trailing on one line, the bar full width under them
+    // (beside a 112px label the bar was ~40px and unreadable). From sm: one row.
+    <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 gap-y-1 sm:flex sm:gap-3">
+      <span className="truncate text-xs text-earth-600 sm:w-36 sm:shrink-0">{label}</span>
+      <div className="col-span-3 row-start-2 h-4 overflow-hidden rounded bg-earth-50 sm:h-5 sm:flex-1">{children}</div>
       <span className="w-12 shrink-0 text-right text-xs font-medium tabular-nums text-earth-900">
         {value}
       </span>
@@ -163,22 +164,22 @@ export function DemandPanel({
           <p className="py-10 text-center text-sm text-earth-600">{labels.empty}</p>
         ) : (
           <div className="space-y-6">
-            <div className="grid grid-cols-1 gap-3 sm:grid-cols-3">
-              <StatCard
-                title={labels.sessions}
-                value={stats.totals.sessions.toLocaleString()}
-                icon={<Eye className="h-4 w-4 text-earth-600" />}
-              />
-              <StatCard
-                title={labels.conversion}
-                value={`${stats.totals.conversionPct}%`}
-                icon={<Percent className="h-4 w-4 text-earth-600" />}
-              />
-              <StatCard
-                title={labels.lostDemand}
-                value={stats.totals.lostDemand.toLocaleString()}
-                icon={<CalendarX className="h-4 w-4 text-earth-600" />}
-              />
+            {/* One inset strip, not three cards inside the card (DESIGN.md: one surface deep). */}
+            <div className="grid grid-cols-3 divide-x divide-earth-200 rounded-xl bg-earth-50">
+              {[
+                { title: labels.sessions, value: stats.totals.sessions.toLocaleString(), Icon: Eye },
+                { title: labels.conversion, value: `${stats.totals.conversionPct}%`, Icon: Percent },
+                { title: labels.lostDemand, value: stats.totals.lostDemand.toLocaleString(), Icon: CalendarX },
+              ].map(({ title, value, Icon }) => (
+                <div key={title} className="min-w-0 px-3 py-3 sm:px-4">
+                  <p className="flex items-center gap-1.5 text-xs text-earth-600">
+                    {/* No icon on phones: a third of 343px holds the word, not the word and an icon. */}
+                    <Icon className="hidden h-3.5 w-3.5 shrink-0 sm:block" aria-hidden />
+                    <span className="break-words">{title}</span>
+                  </p>
+                  <p className="mt-1 text-xl font-semibold tabular-nums text-earth-900 sm:text-2xl">{value}</p>
+                </div>
+              ))}
             </div>
 
             <div>

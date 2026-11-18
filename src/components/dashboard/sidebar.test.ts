@@ -8,7 +8,12 @@ vi.mock("next/navigation", () => ({ usePathname: () => "/dashboard", useRouter: 
 vi.mock("next/link", () => ({
   default: ({ children, href, ...rest }: { children: unknown; href: string }) => createElement("a", { href, ...rest }, children as never),
 }));
-vi.mock("@/lib/supabase/client", () => ({ createClient: vi.fn() }));
+const h = vi.hoisted(() => ({ signOut: vi.fn() }));
+vi.mock("@/lib/supabase/client", () => ({
+  createClient: () => ({
+    auth: { getUser: () => Promise.resolve({ data: { user: { id: "owner-1", email: "owner@example.com" } } }), signOut: h.signOut },
+  }),
+}));
 vi.mock("@/lib/history-log-client", () => ({ logClientEvent: vi.fn() }));
 
 import { MobileSidebar, Sidebar, navKeyFor } from "./sidebar";
@@ -128,5 +133,29 @@ describe("MobileSidebar: focus outline scope", () => {
   it("carries the dashboard surface marker, since it renders outside the shell", async () => {
     await act(async () => root.render(createElement(MobileSidebar, { open: true, onClose: vi.fn(), role: "owner" })));
     expect(document.querySelector("[role=dialog]")?.getAttribute("data-surface")).toBe("dashboard");
+  });
+});
+
+// signOut() defaults to the global scope: one tap would end the login on every
+// device, the front-desk computer and a saved E2E session included.
+describe("Sign out", () => {
+  const clickSignOut = async () => {
+    const button = [...document.querySelectorAll("button")].find((b) => b.textContent?.includes("signOut"));
+    if (!button) throw new Error("no sign-out button");
+    await act(async () => button.click());
+  };
+
+  beforeEach(() => h.signOut.mockReset().mockResolvedValue({ error: null }));
+
+  it("ends only this browser's session from the sidebar", async () => {
+    await act(async () => root.render(createElement(Sidebar, { collapsed: false, onToggle: () => {}, role: "owner" })));
+    await clickSignOut();
+    expect(h.signOut).toHaveBeenCalledWith({ scope: "local" });
+  });
+
+  it("ends only this browser's session from the phone drawer", async () => {
+    await act(async () => root.render(createElement(MobileSidebar, { open: true, onClose: vi.fn(), role: "owner" })));
+    await clickSignOut();
+    expect(h.signOut).toHaveBeenCalledWith({ scope: "local" });
   });
 });

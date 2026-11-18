@@ -191,6 +191,8 @@ describe("admin login errors", () => {
     await signIn();
     await click("verify");
     expect(h.signOut).toHaveBeenCalledTimes(1);
+    // Only this browser: a host who tried the admin login keeps their dashboard sessions elsewhere.
+    expect(h.signOut).toHaveBeenCalledWith({ scope: "local" });
     expect(otpError()).toBe("This account isn't a platform admin. You've been signed out.");
     expect(h.push).not.toHaveBeenCalled();
   });
@@ -214,5 +216,27 @@ describe("admin login errors", () => {
     await click("verify");
     expect(h.push).toHaveBeenCalledWith("/admin");
     expect(h.signOut).not.toHaveBeenCalled();
+  });
+
+  it("returns to the admin page they opened, from ?next=", async () => {
+    window.history.replaceState(null, "", "/admin/login?next=%2Fadmin%2Fbilling%2Frejected");
+    reply("/api/auth/send-otp", { status: 200, body: { success: true } });
+    reply("/api/auth/verify-otp", { status: 200, body: { success: true } });
+    reply("/api/admin/auth/verify", { status: 200, body: { admin: { id: "a" } } });
+    await signIn();
+    await click("verify");
+    expect(h.push).toHaveBeenCalledWith("/admin/billing/rejected");
+    window.history.replaceState(null, "", "/");
+  });
+
+  it("ignores a next that leaves the admin area", async () => {
+    window.history.replaceState(null, "", "/admin/login?next=%2F%2Fevil.example%2Fadmin");
+    reply("/api/auth/send-otp", { status: 200, body: { success: true } });
+    reply("/api/auth/verify-otp", { status: 200, body: { success: true } });
+    reply("/api/admin/auth/verify", { status: 200, body: { admin: { id: "a" } } });
+    await signIn();
+    await click("verify");
+    expect(h.push).toHaveBeenCalledWith("/admin");
+    window.history.replaceState(null, "", "/");
   });
 });

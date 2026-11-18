@@ -1,11 +1,11 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { motion } from "motion/react";
 import { toast } from "sonner";
 import {
-  Users, CheckCircle, XCircle, Loader2, Mail, Phone, Home, Calendar as CalendarIcon,
+  Users, CheckCircle, XCircle, Loader2, Mail, Phone, Calendar as CalendarIcon,
   ShieldCheck, Wallet, CreditCard, Percent,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
@@ -22,6 +22,9 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
+import { STICKY_END } from "@/components/admin/table-classes";
+import { SearchBox } from "@/components/admin/search-box";
+import { LoadError, NETWORK_ERROR, actionFailed } from "@/components/admin/load-error";
 import { cn } from "@/lib/utils";
 import { fmtDate, fmtDateStr } from "@/lib/format-date";
 import { getPlanExpiryInfo } from "@/lib/plan-expiry";
@@ -29,6 +32,7 @@ import { fmtTHB } from "@/lib/format-currency";
 import { billingToday, billingTodayStr } from "@/lib/billing-dates";
 import { computeImmediateFixedRateInvoice, fixedRateStartDate } from "@/lib/billing-calc";
 import type { PlatformBillingConfig } from "@/types/database";
+import { walletAdjustment, type WalletDirection } from "./wallet-adjust";
 
 interface HostRow {
   id: string;
@@ -48,6 +52,8 @@ interface HostRow {
   fixed_rate_term_months: number | null;
   fixed_rate_term_ends_at: string | null;
   homestay: { name: string; slug: string; is_active: boolean } | null;
+  /** Booking routes would refuse this host right now (same gate). */
+  blocked: boolean;
 }
 
 const PLAN_LABELS: Record<string, string> = {
@@ -80,6 +86,9 @@ const PLAN_TONES: Record<string, string> = {
   fixed_rate: "bg-earth-100/60 text-earth-700 border-earth-200",
 };
 
+/** One even stack at every width, so the pinned column stays one button wide. */
+const ACTIONS_LAYOUT = "grid gap-1.5";
+
 interface PaginatedResponse {
   data: HostRow[];
   total: number;
@@ -93,7 +102,8 @@ type StatusFilter = "all" | "pending" | "approved";
 type DialogState =
   | { type: "plan"; host: HostRow }
   | { type: "rate"; host: HostRow }
-  | { type: "wallet"; hostId: string; hostName: string }
+  | { type: "wallet"; hostId: string; hostName: string; balance: number }
+  | { type: "unverify"; hostId: string; hostName: string }
   | { type: "approve"; hostId: string; hostName: string }
   | { type: "reject"; hostId: string; hostName: string }
   | null;
@@ -103,10 +113,12 @@ export default function AdminHostsPage() {
   const router = useRouter();
   const [res, setRes] = useState<PaginatedResponse | null>(null);
   const [loading, setLoading] = useState(true);
+  const [loadFailed, setLoadFailed] = useState(false);
   const [page, setPage] = useState(1);
   const [statusFilter, setStatusFilter] = useState<StatusFilter>(
     (searchParams.get("status") as StatusFilter) || "all"
   );
+  const [query, setQuery] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
 
@@ -123,25 +135,28 @@ export default function AdminHostsPage() {
   const [rateFixed, setRateFixed] = useState("");
 
   const [walletAmount, setWalletAmount] = useState("");
+  const [walletDirection, setWalletDirection] = useState<WalletDirection>("add");
   const [walletReason, setWalletReason] = useState("");
 
-  const fetchHosts = useCallback(async (p: number, status: StatusFilter) => {
+  const fetchHosts = useCallback(async (p: number, status: StatusFilter, q: string) => {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(p), limit: "20" });
       if (status !== "all") params.set("status", status);
+      if (q) params.set("q", q);
       const r = await fetch(`/api/admin/hosts?${params}`);
       if (r.ok) setRes(await r.json());
-    } catch (err) {
-      console.error("Failed to fetch hosts:", err);
+      setLoadFailed(!r.ok);
+    } catch {
+      setLoadFailed(true);
     } finally {
       setLoading(false);
     }
   }, []);
 
   useEffect(() => {
-    fetchHosts(page, statusFilter);
-  }, [page, statusFilter, fetchHosts]);
+    fetchHosts(page, statusFilter, query);
+  }, [page, statusFilter, query, fetchHosts]);
 
   useEffect(() => {
     (async () => {
@@ -168,13 +183,13 @@ export default function AdminHostsPage() {
       const r = await fetch(`/api/admin/hosts/${hostId}/approve`, { method: "PATCH" });
       if (r.ok) {
         toast.success("Host approved");
-        fetchHosts(page, statusFilter);
+        fetchHosts(page, statusFilter, query);
       } else {
         const data = await r.json();
-        toast.error(data.error || "Failed to approve");
+        toast.error(data.error || actionFailed("approve this host"));
       }
     } catch {
-      toast.error("Failed to approve");
+      toast.error(NETWORK_ERROR);
     } finally {
       setActionLoading(null);
       setDialog(null);
@@ -187,13 +202,13 @@ export default function AdminHostsPage() {
       const r = await fetch(`/api/admin/hosts/${hostId}/reject`, { method: "DELETE" });
       if (r.ok) {
         toast.success("Host rejected");
-        fetchHosts(page, statusFilter);
+        fetchHosts(page, statusFilter, query);
       } else {
         const data = await r.json();
-        toast.error(data.error || "Failed to reject");
+        toast.error(data.error || actionFailed("reject this host"));
       }
     } catch {
-      toast.error("Failed to reject");
+      toast.error(NETWORK_ERROR);
     } finally {
       setActionLoading(null);
       setDialog(null);
@@ -214,12 +229,13 @@ export default function AdminHostsPage() {
         toast.success(is_verified ? "Host verified" : "Verification removed");
       } else {
         const data = await r.json();
-        toast.error(data.error || "Failed to update");
+        toast.error(data.error || actionFailed("change verification"));
       }
     } catch {
-      toast.error("Failed to update verification");
+      toast.error(NETWORK_ERROR);
     } finally {
       setActionLoading(null);
+      setDialog(null);
     }
   };
 
@@ -255,13 +271,13 @@ export default function AdminHostsPage() {
         } else {
           toast.success(`Plan updated — ${fmtTHB(d.amount ?? 0)} recorded as paid`);
         }
-        fetchHosts(page, statusFilter);
+        fetchHosts(page, statusFilter, query);
       } else {
         const data = await r.json();
-        toast.error(data.error || "Failed to set plan");
+        toast.error(data.error || actionFailed("save the plan"));
       }
     } catch {
-      toast.error("Failed to set plan");
+      toast.error(NETWORK_ERROR);
     } finally {
       setActionLoading(null);
       setDialog(null);
@@ -270,8 +286,9 @@ export default function AdminHostsPage() {
 
   const handleWalletAdjust = async () => {
     if (!dialog || dialog.type !== "wallet") return;
-    const amount = parseInt(walletAmount);
-    if (isNaN(amount) || amount === 0) { toast.error("Invalid amount"); return; }
+    const adj = walletAdjustment(dialog.balance, walletAmount, walletDirection);
+    if (!adj) { toast.error("Enter a whole baht amount above zero"); return; }
+    const { amount } = adj;
     if (!walletReason.trim()) { toast.error("Please enter a reason"); return; }
 
     setActionLoading(dialog.hostId);
@@ -283,13 +300,13 @@ export default function AdminHostsPage() {
       });
       if (r.ok) {
         toast.success("Wallet adjusted");
-        fetchHosts(page, statusFilter);
+        fetchHosts(page, statusFilter, query);
       } else {
         const data = await r.json();
-        toast.error(data.error || "Failed to adjust wallet");
+        toast.error(data.error || actionFailed("adjust the wallet"));
       }
     } catch {
-      toast.error("Failed to adjust wallet");
+      toast.error(NETWORK_ERROR);
     } finally {
       setActionLoading(null);
       setDialog(null);
@@ -304,13 +321,13 @@ export default function AdminHostsPage() {
     const fixed_rate_override = rateFixed === "" ? null : parseInt(rateFixed);
 
     if (commission_pct_override !== null && isNaN(commission_pct_override)) {
-      toast.error("Invalid commission percentage"); return;
+      toast.error("Guest booking commission must be a number from 0 to 100."); return;
     }
     if (quick_commission_pct_override !== null && isNaN(quick_commission_pct_override)) {
-      toast.error("Invalid quick booking commission percentage"); return;
+      toast.error("Quick booking commission must be a number from 0 to 100."); return;
     }
     if (fixed_rate_override !== null && isNaN(fixed_rate_override)) {
-      toast.error("Invalid fixed rate"); return;
+      toast.error("Fixed rate must be a whole number of baht."); return;
     }
 
     setActionLoading(dialog.host.id);
@@ -322,13 +339,13 @@ export default function AdminHostsPage() {
       });
       if (r.ok) {
         toast.success("Rate override saved");
-        fetchHosts(page, statusFilter);
+        fetchHosts(page, statusFilter, query);
       } else {
         const data = await r.json();
-        toast.error(data.error || "Failed to set rate override");
+        toast.error(data.error || actionFailed("save the rate override"));
       }
     } catch {
-      toast.error("Failed to set rate override");
+      toast.error(NETWORK_ERROR);
     } finally {
       setActionLoading(null);
       setDialog(null);
@@ -358,7 +375,8 @@ export default function AdminHostsPage() {
   const openWalletDialog = (host: HostRow) => {
     setWalletAmount("");
     setWalletReason("");
-    setDialog({ type: "wallet", hostId: host.id, hostName: host.name });
+    setWalletDirection("add");
+    setDialog({ type: "wallet", hostId: host.id, hostName: host.name, balance: host.wallet_balance });
   };
 
   // Fixed Rate without a term would fall through to the route's 1-month
@@ -374,73 +392,120 @@ export default function AdminHostsPage() {
   return (
     <div>
       <PageHeader
-        eyebrow={res ? `${res.total} total` : "Loading…"}
+        subtitle={res ? `${res.total} total` : "Loading…"}
         title="Hosts"
         icon={Users}
       />
 
-      <div className="mb-4 flex gap-2">
+      <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+      <SearchBox
+        value={query}
+        onSearch={(q) => { setQuery(q); setPage(1); }}
+        label="Search hosts by name, phone or email"
+        placeholder="Host name, phone or email"
+      />
+      <div className="flex flex-wrap gap-2 sm:order-first">
         {(["all", "pending", "approved"] as StatusFilter[]).map((f) => (
           <Button
             key={f}
-            variant={statusFilter === f ? "default" : "outline"}
+            variant="outline"
             size="sm"
+            aria-pressed={statusFilter === f}
             onClick={() => handleFilterChange(f)}
             className={cn(
-              "cursor-pointer",
+              "cursor-pointer rounded-full",
               statusFilter === f
-                ? "bg-brand hover:bg-brand-hover text-white"
-                : "border-earth-200 text-earth-700 hover:bg-earth-50 hover:text-brand"
+                ? "border-brand bg-brand-50 text-brand hover:bg-brand-50"
+                : "border-earth-200 bg-white text-earth-700 hover:bg-earth-50 hover:text-brand"
             )}
           >
             {f === "all" ? "All" : f === "pending" ? "Pending" : "Approved"}
           </Button>
         ))}
       </div>
+      </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="space-y-2">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="skeleton-warm h-44 w-full rounded-xl" />
+            <div key={i} className="skeleton-warm h-16 w-full rounded-xl" />
           ))}
         </div>
+      ) : loadFailed ? (
+        <LoadError what="hosts" onRetry={() => fetchHosts(page, statusFilter, query)} />
       ) : !res || res.data.length === 0 ? (
         <EmptyState
           icon={Users}
           title="No hosts found"
-          description={statusFilter !== "all" ? "Try a different filter to see more hosts." : "New host signups will appear here."}
+          description={query || statusFilter !== "all" ? "Nothing matches this search and filter." : "New host signups will appear here."}
         />
       ) : (
         <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {res.data.map((host, i) => (
-              <motion.div
-                key={host.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.03, duration: 0.25 }}
-              >
-                <Card className="dashboard-card border-earth-100 h-full">
-                  <CardContent className="p-5">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0 flex-1">
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <h3 className="font-semibold text-earth-900 truncate">{host.name}</h3>
-                          <StatusBadge status={host.status} />
-                          {host.is_verified && (
-                            <StatusBadge
-                              status="verified"
-                              tone="brand"
-                              label="Verified"
-                              icon={<ShieldCheck className="h-3 w-3" />}
-                            />
+          {/* A table scans faster than cards for staff working a list (audit X3). */}
+          <Card className="overflow-hidden border-earth-100 bg-white">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[960px] text-sm">
+                  <thead>
+                    <tr className="border-b border-earth-100 text-left text-xs text-earth-600">
+                      <th scope="col" className="min-w-52 px-4 py-2.5 font-medium sm:min-w-64">Host</th>
+                      <th scope="col" className="px-4 py-2.5 font-medium">Homestay</th>
+                      <th scope="col" className="px-4 py-2.5 font-medium">Plan</th>
+                      <th scope="col" className="px-4 py-2.5 font-medium">Joined</th>
+                      <th scope="col" className={cn("w-px px-4 py-2.5 text-right font-medium", STICKY_END)}>Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-earth-100 text-earth-800">
+                    {res.data.map((host) => (
+                      <tr key={host.id} className="align-top">
+                        <td className="px-4 py-3">
+                          <Link
+                            href={`/admin/hosts/${host.id}`}
+                            className="rounded font-semibold text-earth-900 underline-offset-4 hover:text-brand hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                          >
+                            {host.name}
+                          </Link>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              <StatusBadge status={host.status} />
+                              {host.is_verified && (
+                                <StatusBadge
+                                  status="verified"
+                                  tone="brand"
+                                  label="Verified"
+                                  icon={<ShieldCheck className="h-3 w-3" />}
+                                />
+                              )}
+                            {host.blocked && <StatusBadge status="blocked" tone="destructive" label="Bookings blocked" />}
+                          </div>
+                          <p className="mt-1 flex items-center gap-1.5 text-earth-600">
+                            <Mail className="h-3.5 w-3.5 shrink-0 text-earth-400" />
+                            <span className="break-all">{host.email}</span>
+                          </p>
+                          {host.phone && (
+                            <p className="flex items-center gap-1.5 text-earth-600">
+                              <Phone className="h-3.5 w-3.5 shrink-0 text-earth-400" />
+                              {host.phone}
+                            </p>
                           )}
-                        </div>
-
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        </td>
+                        <td className="px-4 py-3">
+                        {host.homestay ? (
+                          <span className="flex items-center gap-1.5">
+                            {host.homestay.name}
+                            <StatusBadge
+                              status={host.homestay.is_active ? "active" : "inactive"}
+                              className="px-1.5 py-0"
+                            />
+                          </span>
+                        ) : (
+                          <span className="text-earth-600">No homestay</span>
+                        )}
+                        </td>
+                        <td className="px-4 py-3">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <span
                             className={cn(
-                              "inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
+                              "inline-flex items-center rounded-full border px-2 py-0.5 text-xs font-medium",
                               PLAN_TONES[host.plan_type] || PLAN_TONES.free
                             )}
                           >
@@ -449,35 +514,35 @@ export default function AdminHostsPage() {
                           {host.plan_type === "free" && host.plan_free_expires_at && (
                             <span
                               className={cn(
-                                "text-[10px]",
+                                "text-xs",
                                 getPlanExpiryInfo(host.plan_type, host.plan_free_expires_at)
                                   .phase !== "active"
                                   ? "text-destructive font-medium"
-                                  : "text-earth-500"
+                                  : "text-earth-600"
                               )}
                             >
                               exp {fmtDateStr(host.plan_free_expires_at, "MMM d, yyyy", "en")}
                             </span>
                           )}
                           {host.commission_pct_override != null && (
-                            <span className="rounded px-1.5 py-0.5 text-[10px] text-brand bg-brand-50">
+                            <span className="rounded-full px-2 py-0.5 text-xs text-brand bg-brand-50">
                               {host.commission_pct_override}% guest override
                             </span>
                           )}
                           {host.quick_commission_pct_override != null && (
-                            <span className="rounded px-1.5 py-0.5 text-[10px] text-brand bg-brand-50">
+                            <span className="rounded-full px-2 py-0.5 text-xs text-brand bg-brand-50">
                               {host.quick_commission_pct_override}% quick override
                             </span>
                           )}
                           {host.fixed_rate_override != null && (
-                            <span className="rounded px-1.5 py-0.5 text-[10px] text-earth-700 bg-earth-50 tabular-nums">
+                            <span className="rounded-full px-2 py-0.5 text-xs text-earth-700 bg-earth-50 tabular-nums">
                               {fmtTHB(host.fixed_rate_override)}/mo override
                             </span>
                           )}
                           {host.plan_type === "fixed_rate" && host.fixed_rate_term_ends_at && (
                             <span
                               className={cn(
-                                "rounded px-1.5 py-0.5 text-[10px]",
+                                "rounded-full px-2 py-0.5 text-xs",
                                 hasActiveTerm(host)
                                   ? "text-earth-700 bg-earth-50"
                                   : "text-destructive font-medium"
@@ -491,7 +556,7 @@ export default function AdminHostsPage() {
                           {host.plan_type === "commission" && (
                             <span
                               className={cn(
-                                "inline-flex items-center gap-1 text-[10px] font-medium tabular-nums",
+                                "inline-flex items-center gap-1 text-xs font-medium tabular-nums",
                                 host.wallet_balance < 0 ? "text-destructive" : "text-earth-600"
                               )}
                             >
@@ -500,131 +565,110 @@ export default function AdminHostsPage() {
                             </span>
                           )}
                         </div>
-
-                        <div className="space-y-1 text-sm text-earth-600">
-                          <div className="flex items-center gap-1.5">
-                            <Mail className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                            <span className="truncate">{host.email}</span>
-                          </div>
-                          {host.phone && (
-                            <div className="flex items-center gap-1.5">
-                              <Phone className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                              <span>{host.phone}</span>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-earth-600">
+                          {fmtDate(new Date(host.created_at), "MMM d, yyyy · HH:mm", "en")}
+                        </td>
+                        <td className={cn("px-4 py-3", STICKY_END)}>
+                          {host.status === "approved" && (
+                            <div className={ACTIONS_LAYOUT}>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className={cn(
+                                  "h-9 px-3 text-xs cursor-pointer",
+                                  host.is_verified
+                                    ? "text-earth-700 border-earth-200 hover:bg-earth-50 hover:text-brand"
+                                    : "text-brand border-brand/30 hover:bg-brand-50"
+                                )}
+                                // Removing the badge guests see is confirmed first; granting it is one click.
+                                onClick={() =>
+                                  host.is_verified
+                                    ? setDialog({ type: "unverify", hostId: host.id, hostName: host.name })
+                                    : handleVerify(host.id)
+                                }
+                                disabled={actionLoading === host.id}
+                              >
+                                {actionLoading === host.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <ShieldCheck className="h-3.5 w-3.5 mr-1" />
+                                )}
+                                {host.is_verified ? "Unverify" : "Verify"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-9 px-3 text-xs cursor-pointer text-earth-700 border-earth-200 hover:bg-earth-50 hover:text-brand"
+                                onClick={() => openPlanDialog(host)}
+                                disabled={actionLoading === host.id}
+                              >
+                                <CreditCard className="h-3.5 w-3.5 mr-1" />
+                                Plan
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-9 px-3 text-xs cursor-pointer text-earth-700 border-earth-200 hover:bg-earth-50 hover:text-brand"
+                                onClick={() => openRateDialog(host)}
+                                disabled={actionLoading === host.id}
+                              >
+                                <Percent className="h-3.5 w-3.5 mr-1" />
+                                Rate
+                              </Button>
+                              {host.plan_type === "commission" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-9 px-3 text-xs cursor-pointer text-amber-700 border-amber-200 hover:bg-amber-50"
+                                  onClick={() => openWalletDialog(host)}
+                                  disabled={actionLoading === host.id}
+                                >
+                                  <Wallet className="h-3.5 w-3.5 mr-1" />
+                                  Adjust
+                                </Button>
+                              )}
                             </div>
                           )}
-                          <div className="flex items-center gap-1.5">
-                            <Home className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                            {host.homestay ? (
-                              <span className="flex items-center gap-1.5">
-                                {host.homestay.name}
-                                <StatusBadge
-                                  status={host.homestay.is_active ? "active" : "inactive"}
-                                  className="px-1.5 py-0"
-                                />
-                              </span>
-                            ) : (
-                              <span className="text-earth-400">No homestay</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5 text-xs text-earth-500 pt-1">
-                            <CalendarIcon className="h-3 w-3 shrink-0 text-earth-400" />
-                            <span className="tabular-nums">Created {fmtDate(new Date(host.created_at), "MMM d, yyyy · HH:mm", "en")}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {host.status === "approved" && (
-                        <div className="flex shrink-0 flex-wrap items-center gap-1.5 justify-start sm:justify-end">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className={cn(
-                              "h-9 px-3 text-xs cursor-pointer",
-                              host.is_verified
-                                ? "text-brand border-brand/30 hover:bg-brand-50"
-                                : "text-earth-700 border-earth-200 hover:bg-earth-50"
-                            )}
-                            onClick={() => handleVerify(host.id)}
-                            disabled={actionLoading === host.id}
-                          >
-                            {actionLoading === host.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <ShieldCheck className="h-3.5 w-3.5 mr-1" />
-                            )}
-                            {host.is_verified ? "Unverify" : "Verify"}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-9 px-3 text-xs cursor-pointer text-earth-700 border-earth-200 hover:bg-earth-50 hover:text-brand"
-                            onClick={() => openPlanDialog(host)}
-                            disabled={actionLoading === host.id}
-                          >
-                            <CreditCard className="h-3.5 w-3.5 mr-1" />
-                            Plan
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-9 px-3 text-xs cursor-pointer text-earth-700 border-earth-200 hover:bg-earth-50 hover:text-brand"
-                            onClick={() => openRateDialog(host)}
-                            disabled={actionLoading === host.id}
-                          >
-                            <Percent className="h-3.5 w-3.5 mr-1" />
-                            Rate
-                          </Button>
-                          {host.plan_type === "commission" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-9 px-3 text-xs cursor-pointer text-amber-700 border-amber-200 hover:bg-amber-50"
-                              onClick={() => openWalletDialog(host)}
-                              disabled={actionLoading === host.id}
-                            >
-                              <Wallet className="h-3.5 w-3.5 mr-1" />
-                              Adjust
-                            </Button>
+                          {host.status === "pending" && (
+                            <div className={ACTIONS_LAYOUT}>
+                              <Button
+                                size="sm"
+                                className="h-9 px-3 text-xs cursor-pointer bg-brand hover:bg-brand-hover text-white"
+                                onClick={() => setDialog({ type: "approve", hostId: host.id, hostName: host.name })}
+                                disabled={actionLoading === host.id}
+                              >
+                                {actionLoading === host.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                                )}
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-9 px-3 text-xs cursor-pointer text-destructive border-destructive/30 hover:bg-destructive/5"
+                                onClick={() => setDialog({ type: "reject", hostId: host.id, hostName: host.name })}
+                                disabled={actionLoading === host.id}
+                              >
+                                <XCircle className="h-3.5 w-3.5 mr-1" />
+                                Reject
+                              </Button>
+                            </div>
                           )}
-                        </div>
-                      )}
-                      {host.status === "pending" && (
-                        <div className="flex shrink-0 flex-wrap items-center gap-1.5 justify-start sm:justify-end">
-                          <Button
-                            size="sm"
-                            className="h-9 px-3 text-xs cursor-pointer bg-brand hover:bg-brand-hover text-white"
-                            onClick={() => setDialog({ type: "approve", hostId: host.id, hostName: host.name })}
-                            disabled={actionLoading === host.id}
-                          >
-                            {actionLoading === host.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                            )}
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-9 px-3 text-xs cursor-pointer text-destructive border-destructive/30 hover:bg-destructive/5"
-                            onClick={() => setDialog({ type: "reject", hostId: host.id, hostName: host.name })}
-                            disabled={actionLoading === host.id}
-                          >
-                            <XCircle className="h-3.5 w-3.5 mr-1" />
-                            Reject
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
 
           {res.totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between pt-2">
-              <p className="text-sm text-earth-500">
+              <p className="text-sm text-earth-600">
                 Page {res.page} of {res.totalPages}
               </p>
               <div className="flex items-center gap-2">
@@ -639,6 +683,30 @@ export default function AdminHostsPage() {
           )}
         </>
       )}
+
+      {/* ── Unverify Confirmation ── */}
+      <Dialog open={dialog?.type === "unverify"} onOpenChange={(open) => { if (!open) setDialog(null); }}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle className="font-serif">Remove verification</DialogTitle>
+            <DialogDescription>
+              Remove the verified badge from <strong>{dialog?.type === "unverify" ? dialog.hostName : ""}</strong>? Guests stop seeing it on their booking page. You can verify them again later.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" className="cursor-pointer border-earth-200" onClick={() => setDialog(null)}>Cancel</Button>
+            <Button
+              variant="destructive"
+              className="cursor-pointer"
+              onClick={() => dialog?.type === "unverify" && handleVerify(dialog.hostId)}
+              disabled={actionLoading !== null}
+            >
+              {actionLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
+              Remove verification
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
 
       {/* ── Approve Confirmation ── */}
       <Dialog open={dialog?.type === "approve"} onOpenChange={(open) => { if (!open) setDialog(null); }}>
@@ -749,13 +817,13 @@ export default function AdminHostsPage() {
                     type="button"
                     variant="ghost"
                     size="sm"
-                    className="text-xs text-earth-500 px-0 h-auto cursor-pointer hover:text-brand"
+                    className="text-xs text-earth-600 px-0 h-auto cursor-pointer hover:text-brand"
                     onClick={() => setPlanExpiry("")}
                   >
                     Clear date
                   </Button>
                 )}
-                <p className="text-[11px] text-earth-400">Leave empty for no expiry</p>
+                <p className="text-xs text-earth-600">Leave empty for no expiry</p>
               </div>
             )}
             {planType === "fixed_rate" && dialog?.type === "plan" && (
@@ -850,14 +918,43 @@ export default function AdminHostsPage() {
           </DialogHeader>
           <div className="space-y-4 py-2">
             <div className="space-y-2">
-              <Label htmlFor="wallet-amount">Amount</Label>
+              <Label id="wallet-direction-label">Direction</Label>
+              <div role="radiogroup" aria-labelledby="wallet-direction-label" className="grid grid-cols-2 gap-2">
+                {(["add", "deduct"] as const).map((d) => (
+                  <button
+                    key={d}
+                    type="button"
+                    role="radio"
+                    aria-checked={walletDirection === d}
+                    onClick={() => setWalletDirection(d)}
+                    className={cn(
+                      "h-10 rounded-full border text-sm font-medium transition-colors cursor-pointer focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2",
+                      walletDirection === d
+                        ? "border-brand bg-brand-50 text-brand"
+                        : "border-earth-200 bg-white text-earth-700 hover:bg-earth-50",
+                    )}
+                  >
+                    {d === "add" ? "Add credit" : "Deduct"}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="wallet-amount">Amount (THB)</Label>
               <Input
                 id="wallet-amount"
                 type="number"
+                inputMode="numeric"
+                min="1"
+                step="1"
                 value={walletAmount}
                 onChange={(e) => setWalletAmount(e.target.value)}
-                placeholder="Positive to add, negative to deduct"
+                placeholder="e.g. 500"
+                aria-describedby="wallet-preview"
               />
+              {dialog?.type === "wallet" && (
+                <WalletPreview balance={dialog.balance} adj={walletAdjustment(dialog.balance, walletAmount, walletDirection)} />
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="wallet-reason">Reason</Label>
@@ -873,11 +970,16 @@ export default function AdminHostsPage() {
             <Button variant="outline" className="cursor-pointer border-earth-200" onClick={() => setDialog(null)}>Cancel</Button>
             <Button
               onClick={handleWalletAdjust}
-              disabled={actionLoading !== null || !walletAmount || !walletReason.trim()}
+              disabled={
+                actionLoading !== null ||
+                dialog?.type !== "wallet" ||
+                !walletAdjustment(dialog.balance, walletAmount, walletDirection) ||
+                !walletReason.trim()
+              }
               className="cursor-pointer bg-brand hover:bg-brand-hover text-white"
             >
               {actionLoading && <Loader2 className="h-4 w-4 animate-spin mr-2" />}
-              Adjust Wallet
+              {walletDirection === "deduct" ? "Deduct from wallet" : "Add to wallet"}
             </Button>
           </DialogFooter>
         </DialogContent>
@@ -918,7 +1020,7 @@ function FixedRateTermField({
             {host.fixed_rate_term_months ? `: ${host.fixed_rate_term_months} months` : ""}, ends{" "}
             {fmtDateStr(host.fixed_rate_term_ends_at!, "d MMM yyyy", "en")}
           </p>
-          <p className="text-[11px] text-earth-500">
+          <p className="text-xs text-earth-600">
             Saving keeps this term — nothing is billed and no invoice is created.
           </p>
         </div>
@@ -927,7 +1029,7 @@ function FixedRateTermField({
   }
 
   if (!config) {
-    return <p className="text-xs text-earth-400">Loading terms…</p>;
+    return <p className="text-xs text-earth-600">Loading terms…</p>;
   }
 
   const tiers = config.fixed_rate_term_tiers || [];
@@ -987,7 +1089,7 @@ function FixedRateTermField({
               )}
             >
               {tier.discount_pct > 0 && (
-                <span className="absolute top-1.5 right-1.5 bg-amber-100 text-amber-700 text-[9px] font-bold uppercase tracking-wider py-0.5 px-1.5 rounded-full">
+                <span className="absolute top-1.5 right-1.5 bg-amber-50 text-amber-700 text-xs font-medium py-0.5 px-2 rounded-full">
                   Save {tier.discount_pct}%
                 </span>
               )}
@@ -1038,17 +1140,31 @@ function FixedRateTermField({
             <span className="font-semibold tabular-nums text-earth-900">{fmtTHB(selected.amount)}</span>
           </div>
           {monthly > 0 && (
-            <p className="text-[11px] text-earth-500">
+            <p className="text-xs text-earth-600">
               From {fmt(dayAfter(selected.period_end))} the host is invoiced {fmtTHB(monthly)} on the 1st
               of each month.
             </p>
           )}
-          <p className="text-[11px] text-earth-400">
+          <p className="text-xs text-earth-600">
             Saved as a paid invoice — the host is not billed for this and is never blocked over it.
             Any unrelated unpaid invoice they have stays open.
           </p>
         </div>
       )}
     </div>
+  );
+}
+
+function WalletPreview({ balance, adj }: { balance: number; adj: { after: number } | null }) {
+  const money = (n: number) => `${n < 0 ? "-" : ""}${fmtTHB(Math.abs(n))}`;
+  return (
+    <p id="wallet-preview" className="text-xs text-earth-600 tabular-nums" aria-live="polite">
+      Balance {money(balance)}
+      {adj && (
+        <>
+          {" "}→ <span className={cn("font-semibold", adj.after < 0 ? "text-destructive" : "text-earth-900")}>{money(adj.after)}</span>
+        </>
+      )}
+    </p>
   );
 }

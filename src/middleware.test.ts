@@ -85,3 +85,36 @@ describe("middleware: the cached host status", () => {
     expect(res.cookies.get("x-host-status")?.value).toBe("owner-1:pending");
   });
 });
+
+// Deep link: an admin who opens /admin/... signed out comes back to that page after login.
+describe("middleware: admin login return path", () => {
+  const signedOut = () => h.getUser.mockResolvedValue({ data: { user: null }, error: null });
+
+  it("records the page and its query as next", async () => {
+    signedOut();
+    const res = await visit("/admin/logs?event_type=PLATFORM_PAYMENT_REJECTED");
+    const location = new URL(res.headers.get("location")!);
+    expect(location.pathname).toBe("/admin/login");
+    expect(location.searchParams.get("next")).toBe("/admin/logs?event_type=PLATFORM_PAYMENT_REJECTED");
+  });
+
+  it("adds no next for the admin home", async () => {
+    signedOut();
+    const res = await visit("/admin");
+    expect(new URL(res.headers.get("location")!).search).toBe("");
+  });
+
+  it("sends a signed-in visitor of the login page to next, if it is an admin page", async () => {
+    signedIn("admin-1");
+    const res = await visit("/admin/login?next=%2Fadmin%2Fbilling%2Frejected");
+    expect(new URL(res.headers.get("location")!).pathname).toBe("/admin/billing/rejected");
+  });
+
+  it("never sends a signed-in visitor off-site through next", async () => {
+    signedIn("admin-1");
+    const res = await visit("/admin/login?next=https%3A%2F%2Fevil.example%2Fadmin");
+    const location = new URL(res.headers.get("location")!);
+    expect(location.host).toBe("localhost:3000");
+    expect(location.pathname).toBe("/admin");
+  });
+});

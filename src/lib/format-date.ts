@@ -23,3 +23,21 @@ export function fmtDate(d: Date, pattern: string, locale: string): string {
 export function fmtDateStr(dateStr: string, pattern: string, locale: string): string {
   return fmtDate(parseISO(dateStr), pattern, locale);
 }
+
+const BANGKOK_TIME = new Intl.DateTimeFormat("en-US", {
+  timeZone: "Asia/Bangkok",
+  month: "short",
+  day: "numeric",
+  year: "numeric",
+  hour: "2-digit",
+  minute: "2-digit",
+  hourCycle: "h23",
+});
+
+/**
+ * A timestamp as Bangkok wall time, for server-rendered pages: the server runs
+ * in UTC on Vercel, so fmtDate (process time zone) would be 7 hours early.
+ */
+export function fmtBangkokTime(iso: string): string {
+  return BANGKOK_TIME.format(new Date(iso));
+}
