@@ -2,6 +2,9 @@ import { createServiceRoleClient } from "@/lib/supabase/server";
 import { EventType } from "@/lib/history-log";
 
 export const REJECTED_LIMIT = 100;
+const SLIP_URL_SECONDS = 600;
+// The three refusing routes upload here; never sign a path outside them.
+const SLIP_PREFIXES = ["wallet/", "plan-activation/", "invoices/"];
 
 export type RejectedKind = "invoice" | "plan_activation" | "wallet_topup";
 
@@ -15,6 +18,10 @@ export interface RejectedPayment {
   slip_amount: number | null;
   trans_ref: string | null;
   reason: string | null;
+  /** Short-lived link to the transfer slip in the private payment-slips bucket. */
+  slip_url: string | null;
+  /** Set once an admin marked it settled (082). */
+  settlement: { settled_at: string; settled_by_name: string; note: string | null } | null;
 }
 
 interface LogData {
@@ -24,6 +31,7 @@ interface LogData {
   slip_amount?: number;
   term_months?: number;
   trans_ref?: string | null;
+  slip_path?: string;
 }
 
 /**
@@ -52,6 +60,19 @@ export async function getRejectedPayments(): Promise<RejectedPayment[]> {
     ? await sc.from("hosts").select("id, name").in("id", hostIds)
     : { data: [] };
   const names = new Map(((hosts ?? []) as { id: string; name: string }[]).map((h) => [h.id, h.name]));
+  const settled = await settlementsFor(rows.map((r) => r.id));
+
+  const slipPaths = rows
+    .map((r) => r.data?.slip_path)
+    .filter((p): p is string => !!p && SLIP_PREFIXES.some((prefix) => p.startsWith(prefix)) && !p.includes(".."));
+  const slipUrls = new Map<string, string>();
+  if (slipPaths.length > 0) {
+    const { data: signed } = await sc.storage.from("payment-slips").createSignedUrls(slipPaths, SLIP_URL_SECONDS);
+    slipPaths.forEach((path, i) => {
+      const url = signed?.[i]?.signedUrl;
+      if (url) slipUrls.set(path, url);
+    });
+  }
 
   return rows.map((r) => {
     const d = r.data ?? {};
@@ -65,6 +86,35 @@ export async function getRejectedPayments(): Promise<RejectedPayment[]> {
       slip_amount: d.slip_amount ?? null,
       trans_ref: d.trans_ref ?? null,
       reason: d.reason ?? null,
+      slip_url: d.slip_path ? (slipUrls.get(d.slip_path) ?? null) : null,
+      settlement: settled.get(r.id) ?? null,
     };
   });
+}
+
+type Settlement = NonNullable<RejectedPayment["settlement"]>;
+
+async function settlementsFor(logIds: string[]): Promise<Map<string, Settlement>> {
+  if (logIds.length === 0) return new Map();
+  const { data } = await createServiceRoleClient()
+    .from("platform_payment_settlements")
+    .select("history_log_id, settled_by_name, note, created_at")
+    .in("history_log_id", logIds);
+  const rows = (data ?? []) as { history_log_id: string; settled_by_name: string; note: string | null; created_at: string }[];
+  return new Map(
+    rows.map((s) => [s.history_log_id, { settled_at: s.created_at, settled_by_name: s.settled_by_name, note: s.note }]),
+  );
+}
+
+/** Rejected payments since `sinceIso` that no admin has marked settled yet, for the overview. */
+export async function countUnsettledRejected(sinceIso: string): Promise<number> {
+  const { data } = await createServiceRoleClient()
+    .from("history_logs")
+    .select("id")
+    .eq("event_type", EventType.PLATFORM_PAYMENT_REJECTED)
+    .gte("created_at", sinceIso)
+    .limit(REJECTED_LIMIT);
+  const ids = ((data ?? []) as { id: string }[]).map((r) => r.id);
+  const settled = await settlementsFor(ids);
+  return ids.filter((id) => !settled.has(id)).length;
 }

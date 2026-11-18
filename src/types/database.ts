@@ -1523,6 +1523,32 @@ export interface Database {
           created_at?: string;
         };
       };
+      platform_payment_settlements: {
+        Row: {
+          id: string;
+          history_log_id: string;
+          settled_by: string | null;
+          settled_by_name: string;
+          note: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          history_log_id: string;
+          settled_by?: string | null;
+          settled_by_name: string;
+          note?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          history_log_id?: string;
+          settled_by?: string | null;
+          settled_by_name?: string;
+          note?: string | null;
+          created_at?: string;
+        };
+      };
     };
   };
 }

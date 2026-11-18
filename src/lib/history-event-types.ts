@@ -77,6 +77,9 @@ export const EventType = {
   BILLING_RETRY_EXHAUSTED: "BILLING_RETRY_EXHAUSTED",
   // A slip EasySlip verified that we then refused — real money with no row.
   PLATFORM_PAYMENT_REJECTED: "PLATFORM_PAYMENT_REJECTED",
+  // An admin marked a rejected payment settled by hand (082), or undid that.
+  PLATFORM_PAYMENT_SETTLED: "PLATFORM_PAYMENT_SETTLED",
+  PLATFORM_PAYMENT_UNSETTLED: "PLATFORM_PAYMENT_UNSETTLED",
 } as const;
 
 export type EventTypeValue = (typeof EventType)[keyof typeof EventType];
