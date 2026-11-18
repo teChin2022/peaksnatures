@@ -25,7 +25,7 @@ let root: Root;
 
 // document, not container: the phone drawer is a Sheet and renders in a portal.
 const links = () => [...document.querySelectorAll("a")].map((a) => a.getAttribute("href"));
-const OWNER_ONLY = ["/dashboard/team", "/dashboard/billing", "/dashboard/wallet", "/dashboard/profile"];
+const OWNER_ONLY = ["/dashboard/team", "/dashboard/billing", "/dashboard/wallet", "/dashboard/expenses", "/dashboard/profile"];
 
 beforeEach(() => {
   container = document.createElement("div");

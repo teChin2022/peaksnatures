@@ -1549,6 +1549,35 @@ export interface Database {
           created_at?: string;
         };
       };
+      host_expenses: {
+        Row: {
+          id: string;
+          host_id: string;
+          spent_on: string;
+          category: string;
+          amount: number;
+          note: string | null;
+          created_at: string;
+        };
+        Insert: {
+          id?: string;
+          host_id: string;
+          spent_on: string;
+          category: string;
+          amount: number;
+          note?: string | null;
+          created_at?: string;
+        };
+        Update: {
+          id?: string;
+          host_id?: string;
+          spent_on?: string;
+          category?: string;
+          amount?: number;
+          note?: string | null;
+          created_at?: string;
+        };
+      };
     };
   };
 }
@@ -1577,6 +1606,7 @@ export type Invoice = Database["public"]["Tables"]["invoices"]["Row"];
 export type PromoCode = Database["public"]["Tables"]["promo_codes"]["Row"];
 export type PromoRedemption = Database["public"]["Tables"]["promo_redemptions"]["Row"];
 export type HostStaff = Database["public"]["Tables"]["host_staff"]["Row"];
+export type HostExpense = Database["public"]["Tables"]["host_expenses"]["Row"];
 
 export type PlanType = "free" | "commission" | "fixed_rate";
 export type PromoDiscountType = "percentage" | "fixed";

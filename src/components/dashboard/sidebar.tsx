@@ -18,6 +18,7 @@ import {
   BookOpen,
   ClipboardCheck,
   Wallet,
+  Calculator,
   Receipt,
   Tag,
   Users,
@@ -39,6 +40,7 @@ const NAV_ITEMS = [
   { key: "promoCodes", href: "/dashboard/promo-codes", icon: Tag },
   { key: "billing", href: "/dashboard/billing", icon: Wallet },
   { key: "wallet", href: "/dashboard/wallet", icon: Receipt },
+  { key: "expenses", href: "/dashboard/expenses", icon: Calculator },
   // { key: "guide", href: "/dashboard/guide", icon: BookOpen },
   { key: "team", href: "/dashboard/team", icon: Users },
   { key: "profile", href: "/dashboard/profile", icon: User }
@@ -52,7 +54,7 @@ export type DashboardRole = "owner" | "staff" | null;
  * away from them too. Hidden until the role is known, so a staff login never
  * sees them flash in.
  */
-const OWNER_ONLY_NAV = new Set<string>(["team", "billing", "wallet", "profile"]);
+const OWNER_ONLY_NAV = new Set<string>(["team", "billing", "wallet", "expenses", "profile"]);
 const navItemsFor = (role: DashboardRole) =>
   role === "owner" ? NAV_ITEMS : NAV_ITEMS.filter((item) => !OWNER_ONLY_NAV.has(item.key));
 
