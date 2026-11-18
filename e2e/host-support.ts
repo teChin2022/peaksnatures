@@ -7,11 +7,13 @@ import th from "../messages/th.json";
  * Signing in: the specs reuse a saved Playwright storage state for a dedicated
  * test host, never a password in env (owners may have OTP on). Save one with
  *
- *   npx playwright open --channel=chrome --save-storage=e2e/.auth/host.json http://localhost:3000/login
+ *   npm run e2e:host-login   (e2e/save-host-login.mjs; the app must be running)
  *
- * log in, close the window, then run with E2E_HOST_STATE=e2e/.auth/host.json.
- * The file holds that login's session cookies: it is gitignored, and expires
- * like any session (save it again when the specs land on /login).
+ * log in in the window it opens; it saves and checks the session by itself.
+ * Then run with E2E_HOST_STATE=e2e/.auth/host.json and --workers=1: the phone
+ * and desktop runs share one session. The file holds that login's session
+ * cookies: it is gitignored, and expires like any session (save it again when
+ * the specs land on /login).
  *
  * Like startSession (support.ts), nothing is written: reads pass, every write a
  * test has not stubbed is aborted and reported, and the test then fails.
