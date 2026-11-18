@@ -85,7 +85,8 @@ const NAV_LINK_INACTIVE = "text-earth-700 hover:bg-earth-50 hover:text-brand";
 
 async function signOut(router: ReturnType<typeof useRouter>) {
   const supabase = createClient();
-  await supabase.auth.signOut();
+  // This browser only: the global default would also end the admin's other devices.
+  await supabase.auth.signOut({ scope: "local" });
   router.push("/admin/login");
   router.refresh();
 }

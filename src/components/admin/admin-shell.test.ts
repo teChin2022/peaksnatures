@@ -8,7 +8,8 @@ vi.mock("next/navigation", () => ({
   usePathname: () => nav.pathname,
   useRouter: () => ({ push: vi.fn(), refresh: vi.fn() }),
 }));
-vi.mock("@/lib/supabase/client", () => ({ createClient: () => ({ auth: { signOut: vi.fn() } }) }));
+const auth = vi.hoisted(() => ({ signOut: vi.fn() }));
+vi.mock("@/lib/supabase/client", () => ({ createClient: () => ({ auth: { signOut: auth.signOut } }) }));
 
 import { AdminShell, activeNavHref } from "./admin-shell";
 
@@ -75,5 +76,16 @@ describe("AdminShell: work badges", () => {
     await render();
     expect(link("/admin/hosts").getAttribute("aria-label")).toBeNull();
     expect(link("/admin/hosts").textContent).toBe("Hosts");
+  });
+});
+
+describe("AdminShell: sign out", () => {
+  it("ends only this browser's session, not the admin's other devices", async () => {
+    auth.signOut.mockReset().mockResolvedValue({ error: null });
+    await render();
+    const button = [...container.querySelectorAll("button")].find((b) => b.textContent?.includes("Sign Out"));
+    if (!button) throw new Error("no Sign Out button");
+    await act(async () => button.click());
+    expect(auth.signOut).toHaveBeenCalledWith({ scope: "local" });
   });
 });

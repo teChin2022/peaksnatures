@@ -191,6 +191,8 @@ describe("admin login errors", () => {
     await signIn();
     await click("verify");
     expect(h.signOut).toHaveBeenCalledTimes(1);
+    // Only this browser: a host who tried the admin login keeps their dashboard sessions elsewhere.
+    expect(h.signOut).toHaveBeenCalledWith({ scope: "local" });
     expect(otpError()).toBe("This account isn't a platform admin. You've been signed out.");
     expect(h.push).not.toHaveBeenCalled();
   });

@@ -145,7 +145,8 @@ export default function AdminLoginPage() {
         const verifyRes = await fetch("/api/admin/auth/verify", { method: "POST" });
         if (verifyRes.status === 403) {
           // verify-otp already signed this account in; leaving it signed in bounces /admin/login to / on reload.
-          await createClient().auth.signOut();
+          // Local scope: a host trying this page must not lose their dashboard sessions on other devices.
+          await createClient().auth.signOut({ scope: "local" });
           setOtpError("This account isn't a platform admin. You've been signed out.");
           return;
         }
