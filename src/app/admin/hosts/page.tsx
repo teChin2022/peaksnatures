@@ -1,6 +1,7 @@
 "use client";
 
 import { useState, useEffect, useCallback } from "react";
+import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
 import { motion } from "motion/react";
 import { toast } from "sonner";
@@ -422,10 +423,17 @@ export default function AdminHostsPage() {
               >
                 <Card className="dashboard-card border-earth-100 h-full">
                   <CardContent className="p-5">
-                    <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
-                      <div className="min-w-0 flex-1">
+                    <div className="flex flex-col gap-3">
+                      <div className="min-w-0">
                         <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <h3 className="font-semibold text-earth-900 truncate">{host.name}</h3>
+                          <h3 className="font-semibold text-earth-900 truncate">
+                            <Link
+                              href={`/admin/hosts/${host.id}`}
+                              className="rounded underline-offset-4 hover:text-brand hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                            >
+                              {host.name}
+                            </Link>
+                          </h3>
                           <StatusBadge status={host.status} />
                           {host.is_verified && (
                             <StatusBadge
@@ -534,7 +542,7 @@ export default function AdminHostsPage() {
                       </div>
 
                       {host.status === "approved" && (
-                        <div className="flex shrink-0 flex-wrap items-center gap-1.5 justify-start sm:justify-end">
+                        <div className="flex flex-wrap items-center gap-1.5 border-t border-earth-100 pt-3">
                           <Button
                             size="sm"
                             variant="outline"
@@ -589,7 +597,7 @@ export default function AdminHostsPage() {
                         </div>
                       )}
                       {host.status === "pending" && (
-                        <div className="flex shrink-0 flex-wrap items-center gap-1.5 justify-start sm:justify-end">
+                        <div className="flex flex-wrap items-center gap-1.5 border-t border-earth-100 pt-3">
                           <Button
                             size="sm"
                             className="h-9 px-3 text-xs cursor-pointer bg-brand hover:bg-brand-hover text-white"
