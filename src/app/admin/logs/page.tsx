@@ -1,7 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, Fragment } from "react";
-import { ScrollText, Loader2, Filter, Clock, User as UserIcon } from "lucide-react";
+import { useSearchParams } from "next/navigation";
+import { ScrollText, Loader2, Filter, Clock, User as UserIcon, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -10,6 +11,7 @@ import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
 import { cn } from "@/lib/utils";
 import { fmtDate } from "@/lib/format-date";
+import { EventType } from "@/lib/history-event-types";
 
 interface LogRow {
   id: string;
@@ -30,38 +32,10 @@ interface LogsResponse {
   nextCursor: string | null;
 }
 
-const EVENT_TYPE_OPTIONS = [
-  "BOOKING_CREATED",
-  "BOOKING_CONFIRMED",
-  "BOOKING_CANCELLED",
-  "BOOKING_REJECTED",
-  "BALANCE_PAID",
-  "CHECKIN",
-  "CHECKOUT",
-  "PROPERTY_CREATED",
-  "PROPERTY_UPDATED",
-  "PROPERTY_TOGGLED",
-  "ROOM_CREATED",
-  "ROOM_UPDATED",
-  "ROOM_DELETED",
-  "PRICE_UPDATED",
-  "HOST_REGISTERED",
-  "HOST_APPROVED",
-  "HOST_REJECTED",
-  "HOST_LOGIN",
-  "HOST_LOGOUT",
-  "FAILED_LOGIN",
-  "PROFILE_UPDATED",
-  "BLOCKED_DATE_ADDED",
-  "BLOCKED_DATE_REMOVED",
-  "REVIEW_SUBMITTED",
-  "BOOKING_DATE_CHANGE_REQUESTED",
-  "BOOKING_DATE_CHANGE_APPROVED",
-  "BOOKING_DATE_CHANGE_REJECTED",
-  "PASSWORD_CHANGED",
-];
+// Every event the server can write, so billing, staff and payment events are filterable too.
+const EVENT_TYPE_OPTIONS = Object.values(EventType);
 
-const ENTITY_TYPE_OPTIONS = ["booking", "homestay", "room", "host", "review", "blocked_date", "seasonal_price"];
+const ENTITY_TYPE_OPTIONS = ["booking", "booking_hold", "homestay", "room", "host", "review", "blocked_date", "seasonal_price", "billing", "admin", "system"];
 
 const ACTOR_TYPE_OPTIONS = ["guest", "host", "admin", "system"];
 
@@ -74,10 +48,12 @@ const POSITIVE_EVENTS = new Set([
 const NEGATIVE_EVENTS = new Set([
   "BOOKING_CANCELLED", "BOOKING_REJECTED", "HOST_REJECTED",
   "FAILED_LOGIN", "ROOM_DELETED", "BOOKING_DATE_CHANGE_REJECTED",
+  "PLATFORM_PAYMENT_REJECTED", "BILLING_RETRY_EXHAUSTED", "ADMIN_ACCESS_DENIED",
 ]);
 const WARNING_EVENTS = new Set([
   "PROPERTY_TOGGLED", "BLOCKED_DATE_ADDED", "BLOCKED_DATE_REMOVED",
   "BOOKING_DATE_CHANGE_REQUESTED", "PASSWORD_CHANGED", "HOST_REGISTERED",
+  "INVOICE_OVERDUE", "WALLET_LOW_BALANCE", "BILLING_CONFIG_UPDATED",
 ]);
 const MUTED_EVENTS = new Set(["HOST_LOGOUT"]);
 
@@ -105,9 +81,11 @@ export default function AdminLogsPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [selectedLog, setSelectedLog] = useState<LogRow | null>(null);
 
-  const [eventType, setEventType] = useState("");
-  const [entityType, setEntityType] = useState("");
-  const [actorType, setActorType] = useState("");
+  // Overview's "Needs attention" links here with ?event_type=…
+  const searchParams = useSearchParams();
+  const [eventType, setEventType] = useState(searchParams.get("event_type") ?? "");
+  const [entityType, setEntityType] = useState(searchParams.get("entity_type") ?? "");
+  const [actorType, setActorType] = useState(searchParams.get("actor_type") ?? "");
 
   const fetchLogs = useCallback(async (cursor: string | null, append: boolean, filters: { eventType: string; entityType: string; actorType: string }) => {
     if (append) setLoadingMore(true); else setLoading(true);
@@ -270,6 +248,35 @@ export default function AdminLogsPage() {
         </Card>
       )}
 
+      {/* With the panel closed (e.g. arriving from an Overview link), still say what is filtered. */}
+      {!showFilters && hasActiveFilters && (
+        <div className="mb-4 flex flex-wrap items-center gap-2" aria-label="Active filters">
+          {[
+            { name: "Event", value: eventType, clear: () => setEventType("") },
+            { name: "Entity", value: entityType, clear: () => setEntityType("") },
+            { name: "Actor", value: actorType, clear: () => setActorType("") },
+          ]
+            .filter((f) => f.value)
+            .map((f) => (
+              <span
+                key={f.name}
+                className="inline-flex items-center gap-1 rounded-full border border-earth-200 bg-white py-1 pl-3 pr-1 text-xs text-earth-800"
+              >
+                <span className="text-earth-500">{f.name}:</span>
+                <span className="font-mono">{f.value}</span>
+                <button
+                  type="button"
+                  onClick={f.clear}
+                  aria-label={`Remove ${f.name.toLowerCase()} filter`}
+                  className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-earth-500 hover:bg-earth-50 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              </span>
+            ))}
+        </div>
+      )}
+
       {loading ? (
         <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
           {[1, 2, 3, 4, 5, 6].map((i) => (
@@ -280,7 +287,14 @@ export default function AdminLogsPage() {
         <EmptyState
           icon={ScrollText}
           title="No logs found"
-          description={hasActiveFilters ? "Try clearing filters to see more activity." : "Platform activity will be recorded here as it happens."}
+          description={hasActiveFilters ? "Nothing matches these filters." : "Platform activity will be recorded here as it happens."}
+          action={
+            hasActiveFilters ? (
+              <Button variant="outline" size="sm" onClick={handleClearFilters} className="cursor-pointer">
+                Clear filters
+              </Button>
+            ) : undefined
+          }
         />
       ) : (
         <>
