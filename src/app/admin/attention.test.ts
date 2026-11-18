@@ -16,7 +16,7 @@ describe("attentionItems", () => {
   it("lists each problem with its count and where to settle it", () => {
     const items = attentionItems({ ...healthy, rejectedPayments: 2, blockingInvoices: 3, retriesExhausted: 1 });
     expect(items).toEqual([
-      { key: "payments", label: "Rejected payments, 30d", value: 2, href: "/admin/logs?event_type=PLATFORM_PAYMENT_REJECTED" },
+      { key: "payments", label: "Rejected payments, 30d", value: 2, href: "/admin/billing/rejected" },
       { key: "invoices", label: "Overdue invoices", value: 3, href: "/admin/billing" },
       { key: "retries", label: "Billing retries failed, 30d", value: 1, href: "/admin/logs?event_type=BILLING_RETRY_EXHAUSTED" },
     ]);

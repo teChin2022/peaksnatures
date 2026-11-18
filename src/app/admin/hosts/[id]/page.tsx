@@ -4,12 +4,12 @@ import { ArrowLeft, ExternalLink, Mail, Phone } from "lucide-react";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { fmtTHB } from "@/lib/format-currency";
-import { fmtDateStr } from "@/lib/format-date";
+import { fmtBangkokTime, fmtDateStr } from "@/lib/format-date";
 import { getPlanExpiryInfo } from "@/lib/plan-expiry";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
-import { DETAIL_LIMITS, fmtBangkokTime, getAdminHostDetail } from "./data";
+import { DETAIL_LIMITS, getAdminHostDetail } from "./data";
 
 const PLAN_LABELS: Record<string, string> = { free: "Free", commission: "Commission", fixed_rate: "Fixed Rate" };
 const day = (d: string) => fmtDateStr(d, "MMM d, yyyy", "en");

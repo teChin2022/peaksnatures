@@ -25,7 +25,7 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
       key: "payments",
       label: `Rejected payments, ${ATTENTION_WINDOW_DAYS}d`,
       value: c.rejectedPayments,
-      href: `/admin/logs?event_type=${EventType.PLATFORM_PAYMENT_REJECTED}`,
+      href: "/admin/billing/rejected",
     });
   }
   if (c.blockingInvoices > 0) {

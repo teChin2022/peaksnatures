@@ -7,7 +7,7 @@ vi.mock("@/lib/supabase/server", () => ({
   createServiceRoleClient: h.createServiceRoleClient,
 }));
 
-import { fmtBangkokTime, getAdminHostDetail } from "./data";
+import { getAdminHostDetail } from "./data";
 
 const HOST_ID = "11111111-1111-4111-8111-111111111111";
 const host = {
@@ -118,13 +118,3 @@ describe("getAdminHostDetail", () => {
   });
 });
 
-describe("fmtBangkokTime", () => {
-  // The server runs in UTC: 02:40 UTC must read as 09:40 in Bangkok.
-  it("shows Bangkok wall time whatever the process time zone", () => {
-    expect(fmtBangkokTime("2026-11-18T02:40:00Z")).toBe("Nov 18, 2026, 09:40");
-  });
-
-  it("rolls the date over at Bangkok midnight", () => {
-    expect(fmtBangkokTime("2026-11-18T17:30:00Z")).toBe("Nov 19, 2026, 00:30");
-  });
-});
