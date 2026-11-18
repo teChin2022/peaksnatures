@@ -16,6 +16,13 @@ import { AdminListCard } from "@/components/admin/admin-list-card";
 import { cn } from "@/lib/utils";
 import type { FixedRateTermTier } from "@/types/database";
 
+const PAYOUT_FIELDS = [
+  ["promptpay_id", "PromptPay ID"],
+  ["bank_name", "Bank"],
+  ["bank_account_number", "Account number"],
+  ["bank_account_name", "Account name"],
+] as const;
+
 interface BillingConfig {
   id: string;
   commission_pct: number;
@@ -105,7 +112,9 @@ export default function AdminSettingsPage() {
   const [showConfirm, setShowConfirm] = useState(false);
   const [loading, setLoading] = useState(false);
 
-  const [, setBillingConfig] = useState<BillingConfig | null>(null);
+  const [billingConfig, setBillingConfig] = useState<BillingConfig | null>(null);
+  // Tiers waiting on the payout-account confirmation; null when no dialog is open.
+  const [payoutConfirm, setPayoutConfirm] = useState<FixedRateTermTier[] | null>(null);
   const [billingLoading, setBillingLoading] = useState(true);
   const [billingSaving, setBillingSaving] = useState(false);
   const [billingForm, setBillingForm] = useState({
@@ -182,6 +191,15 @@ export default function AdminSettingsPage() {
     }
     tiers.sort((a, b) => a.months - b.months);
 
+    // Hosts pay into these: a typo sends real money to the wrong place, so confirm first.
+    if (payoutChanges.length > 0) {
+      setPayoutConfirm(tiers);
+      return;
+    }
+    await saveBilling(tiers);
+  };
+
+  const saveBilling = async (tiers: FixedRateTermTier[]) => {
     setBillingSaving(true);
     try {
       const res = await fetch("/api/admin/billing-config", {
@@ -219,6 +237,10 @@ export default function AdminSettingsPage() {
       setBillingSaving(false);
     }
   };
+
+  const payoutChanges = PAYOUT_FIELDS.filter(
+    ([key]) => billingConfig !== null && (billingConfig[key] || "") !== (billingForm[key] || ""),
+  ).map(([key, label]) => ({ label, from: billingConfig?.[key] || "(empty)", to: billingForm[key] || "(empty)" }));
 
   const addTier = () => {
     setTierError(null);
@@ -280,7 +302,7 @@ export default function AdminSettingsPage() {
   return (
     <div className="mx-auto max-w-2xl">
       <PageHeader
-        eyebrow="Manage your admin account"
+        eyebrow="Platform billing and your admin account"
         title="Settings"
         icon={Settings}
       />
@@ -600,6 +622,42 @@ export default function AdminSettingsPage() {
               }}
             >
               Remove
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={payoutConfirm !== null} onOpenChange={(o) => !o && setPayoutConfirm(null)}>
+        <DialogContent className="sm:max-w-md">
+          <DialogHeader>
+            <DialogTitle>Change where hosts pay?</DialogTitle>
+            <DialogDescription>
+              Hosts see these details for wallet top-ups and invoices. Check them against the bank before saving.
+            </DialogDescription>
+          </DialogHeader>
+          <dl className="space-y-2 text-sm">
+            {payoutChanges.map((c) => (
+              <div key={c.label}>
+                <dt className="text-xs text-earth-500">{c.label}</dt>
+                <dd className="break-all text-earth-800">
+                  <span className="text-earth-500 line-through">{c.from}</span> → <span className="font-medium">{c.to}</span>
+                </dd>
+              </div>
+            ))}
+          </dl>
+          <DialogFooter>
+            <Button variant="outline" className="cursor-pointer" onClick={() => setPayoutConfirm(null)}>
+              Cancel
+            </Button>
+            <Button
+              className="cursor-pointer"
+              onClick={() => {
+                const tiers = payoutConfirm;
+                setPayoutConfirm(null);
+                if (tiers) saveBilling(tiers);
+              }}
+            >
+              Save new details
             </Button>
           </DialogFooter>
         </DialogContent>

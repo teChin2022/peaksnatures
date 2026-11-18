@@ -2,16 +2,20 @@ import { EventType } from "@/lib/history-event-types";
 import type { CronHealth } from "@/lib/cron-health";
 
 export const ATTENTION_WINDOW_DAYS = 30;
+/** A guest's date-change request the host has left this long is worth a nudge. */
+export const STALE_DATE_CHANGE_DAYS = 2;
 
 export interface AttentionCounts {
   rejectedPayments: number;
   blockingInvoices: number;
   retriesExhausted: number;
+  blockedHosts: number;
+  staleDateChanges: number;
   cron: CronHealth;
 }
 
 export interface AttentionItem {
-  key: "payments" | "invoices" | "retries" | "cron";
+  key: "payments" | "invoices" | "retries" | "blocked" | "dateChanges" | "cron";
   label: string;
   value: string | number;
   href: string;
@@ -37,6 +41,17 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
       label: `Billing retries failed, ${ATTENTION_WINDOW_DAYS}d`,
       value: c.retriesExhausted,
       href: `/admin/logs?event_type=${EventType.BILLING_RETRY_EXHAUSTED}`,
+    });
+  }
+  if (c.blockedHosts > 0) {
+    items.push({ key: "blocked", label: "Hosts with bookings blocked", value: c.blockedHosts, href: "/admin/hosts" });
+  }
+  if (c.staleDateChanges > 0) {
+    items.push({
+      key: "dateChanges",
+      label: `Date changes waiting over ${STALE_DATE_CHANGE_DAYS} days`,
+      value: c.staleDateChanges,
+      href: "/admin/bookings/date-changes",
     });
   }
   if (!c.cron.ok) {

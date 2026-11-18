@@ -1,4 +1,4 @@
-import { Users, Home, CalendarDays, DollarSign, AlertTriangle, CheckCircle2, UserCheck, Receipt, Banknote, RotateCcw, Clock } from "lucide-react";
+import { Users, Home, CalendarDays, DollarSign, AlertTriangle, CheckCircle2, UserCheck, Receipt, Banknote, RotateCcw, Clock, Ban, CalendarClock } from "lucide-react";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { redirect } from "next/navigation";
@@ -8,12 +8,18 @@ import { AdminDemandSection } from "@/components/admin/admin-demand-section";
 import { blockingInvoiceFilter } from "@/lib/billing-dates";
 import { EventType } from "@/lib/history-log";
 import { getCronHealth } from "@/lib/cron-health";
+import { HOST_BLOCK_COLUMNS, type HostBlockRow } from "@/lib/billing";
+import { blockedHostIds } from "@/lib/host-blocked";
+import { countStaleDateChanges } from "./bookings/date-changes/data";
+import { countUnsettledRejected } from "./billing/rejected/data";
 import { ATTENTION_WINDOW_DAYS, attentionItems, type AttentionItem } from "./attention";
 
 const ATTENTION_ICONS: Record<AttentionItem["key"], typeof Clock> = {
   payments: Banknote,
   invoices: Receipt,
   retries: RotateCcw,
+  blocked: Ban,
+  dateChanges: CalendarClock,
   cron: Clock,
 };
 
@@ -26,7 +32,7 @@ async function getAdminStats() {
   const since = new Date(Date.now() - ATTENTION_WINDOW_DAYS * 86_400_000).toISOString();
   const recentEvents = (eventType: string) =>
     sc.from("history_logs").select("id", { count: "exact", head: true }).eq("event_type", eventType).gte("created_at", since);
-  const [hostsRes, pendingHostsRes, homestaysRes, totalBookingsRes, pendingBookingsRes, confirmedBookingsRes, revenueRes, homestayListRes, blockingInvoicesRes, rejectedPaymentsRes, retriesExhaustedRes, cron] = await Promise.all([
+  const [hostsRes, pendingHostsRes, homestaysRes, totalBookingsRes, pendingBookingsRes, confirmedBookingsRes, revenueRes, homestayListRes, blockingInvoicesRes, unsettledRejected, retriesExhaustedRes, cron, blockedHosts, staleDateChanges] = await Promise.all([
     sc.from("hosts").select("id", { count: "exact", head: true }),
     sc.from("hosts").select("id", { count: "exact", head: true }).eq("status", "pending"),
     sc.from("homestays").select("id", { count: "exact", head: true }),
@@ -39,9 +45,17 @@ async function getAdminStats() {
     sc.from("homestays").select("id, name").order("name"),
     // Needs attention
     sc.from("invoices").select("id", { count: "exact", head: true }).or(blockingInvoiceFilter()),
-    recentEvents(EventType.PLATFORM_PAYMENT_REJECTED),
+    // Settled ones (082) no longer need anyone.
+    countUnsettledRejected(since),
     recentEvents(EventType.BILLING_RETRY_EXHAUSTED),
     getCronHealth(),
+    // Approved hosts only: a pending host has nothing bookable to block.
+    sc
+      .from("hosts")
+      .select(`id, ${HOST_BLOCK_COLUMNS}`)
+      .eq("status", "approved")
+      .then(async ({ data }) => (await blockedHostIds((data ?? []) as (HostBlockRow & { id: string })[], sc)).size),
+    countStaleDateChanges(),
   ]);
 
   return {
@@ -54,9 +68,11 @@ async function getAdminStats() {
     bookingValue: Number(revenueRes.data ?? 0),
     homestayList: (homestayListRes.data as { id: string; name: string }[]) || [],
     blockingInvoices: blockingInvoicesRes.count || 0,
-    rejectedPayments: rejectedPaymentsRes.count || 0,
+    rejectedPayments: unsettledRejected,
     retriesExhausted: retriesExhaustedRes.count || 0,
     cron,
+    blockedHosts,
+    staleDateChanges,
   };
 }
 

@@ -1,8 +1,8 @@
 "use client";
 
 import { useState, useEffect, useCallback, Fragment } from "react";
-import { useSearchParams } from "next/navigation";
-import { ScrollText, Loader2, Filter, Clock, User as UserIcon, X } from "lucide-react";
+import { useRouter, useSearchParams } from "next/navigation";
+import { ScrollText, Loader2, Filter, X } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
@@ -83,6 +83,7 @@ export default function AdminLogsPage() {
 
   // Overview's "Needs attention" links here with ?event_type=…
   const searchParams = useSearchParams();
+  const router = useRouter();
   const [eventType, setEventType] = useState(searchParams.get("event_type") ?? "");
   const [entityType, setEntityType] = useState(searchParams.get("entity_type") ?? "");
   const [actorType, setActorType] = useState(searchParams.get("actor_type") ?? "");
@@ -113,7 +114,12 @@ export default function AdminLogsPage() {
 
   useEffect(() => {
     fetchLogs(null, false, { eventType, entityType, actorType });
-  }, [fetchLogs, eventType, entityType, actorType]);
+    // Keep the URL in step, so a reload after clearing does not bring a filter back.
+    const qs = new URLSearchParams(
+      Object.entries({ event_type: eventType, entity_type: entityType, actor_type: actorType }).filter(([, v]) => v),
+    ).toString();
+    router.replace(qs ? `/admin/logs?${qs}` : "/admin/logs", { scroll: false });
+  }, [fetchLogs, router, eventType, entityType, actorType]);
 
   const handleLoadMore = () => {
     fetchLogs(nextCursor, true, { eventType, entityType, actorType });
@@ -278,9 +284,9 @@ export default function AdminLogsPage() {
       )}
 
       {loading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
+        <div className="space-y-2">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="skeleton-warm h-36 w-full rounded-xl" />
+            <div key={i} className="skeleton-warm h-12 w-full rounded-xl" />
           ))}
         </div>
       ) : logs.length === 0 ? (
@@ -298,61 +304,72 @@ export default function AdminLogsPage() {
         />
       ) : (
         <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-3">
-            {logs.map((log) => (
-              <Card
-                key={log.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => setSelectedLog(log)}
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" || e.key === " ") {
-                    e.preventDefault();
-                    setSelectedLog(log);
-                  }
-                }}
-                className="dashboard-card border-earth-100 cursor-pointer transition hover:border-brand/40 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
-              >
-                <CardContent className="p-4 space-y-2">
-                  <div className="flex flex-wrap items-center gap-1.5">
-                    <StatusBadge
-                      status={log.event_type}
-                      tone={getEventTone(log.event_type)}
-                      label={log.event_type}
-                      className="font-mono normal-case"
-                    />
-                    <StatusBadge
-                      status={log.actor_type}
-                      tone={ACTOR_TONES[log.actor_type] ?? "muted"}
-                      label={log.actor_type}
-                    />
-                  </div>
-
-                  <div className="text-sm text-earth-800 font-medium">
-                    {log.entity_label}
-                    {log.entity_context && (
-                      <span className="ml-1.5 text-earth-500 font-normal">· {log.entity_context}</span>
-                    )}
-                  </div>
-
-                  <div className="text-xs text-earth-600 flex items-center gap-1.5">
-                    <UserIcon className="h-3 w-3 text-earth-400" />
-                    <span>by {log.actor_label}</span>
-                    {log.ip_address && (
-                      <span className="text-earth-400">· {log.ip_address}</span>
-                    )}
-                  </div>
-
-                  {renderDataSummary(log.data)}
-
-                  <div className="pt-2 border-t border-earth-100/70 text-xs text-earth-500 flex items-center gap-1.5">
-                    <Clock className="h-3 w-3" />
-                    <span className="tabular-nums">{formatDate(log.created_at)}</span>
-                  </div>
-                </CardContent>
-              </Card>
-            ))}
-          </div>
+          {/* A table scans faster than cards for staff working a list (audit X3). */}
+          <Card className="border-earth-100 bg-white">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[900px] text-sm">
+                  <thead>
+                    <tr className="border-b border-earth-100 text-left text-xs text-earth-500">
+                      <th scope="col" className="px-4 py-2.5 font-medium">Time</th>
+                      <th scope="col" className="px-4 py-2.5 font-medium">Event</th>
+                      <th scope="col" className="px-4 py-2.5 font-medium">Subject</th>
+                      <th scope="col" className="px-4 py-2.5 font-medium">By</th>
+                      <th scope="col" className="px-4 py-2.5 font-medium">Details</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-earth-100 text-earth-800">
+                    {logs.map((log) => (
+                      // Row click is a mouse shortcut; the Event button is the keyboard path.
+                      <tr
+                        key={log.id}
+                        onClick={() => setSelectedLog(log)}
+                        className="cursor-pointer align-top hover:bg-earth-50/60"
+                      >
+                        <td className="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-earth-600">
+                          {formatDate(log.created_at)}
+                        </td>
+                        <td className="px-4 py-3">
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              setSelectedLog(log);
+                            }}
+                            aria-label={`Details for ${log.event_type}`}
+                            className="flex cursor-pointer flex-wrap items-center gap-1.5 rounded text-left focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                          >
+                            <StatusBadge
+                              status={log.event_type}
+                              tone={getEventTone(log.event_type)}
+                              label={log.event_type}
+                              className="font-mono normal-case"
+                            />
+                            <StatusBadge
+                              status={log.actor_type}
+                              tone={ACTOR_TONES[log.actor_type] ?? "muted"}
+                              label={log.actor_type}
+                            />
+                          </button>
+                        </td>
+                        <td className="px-4 py-3 font-medium">
+                          {log.entity_label}
+                          {log.entity_context && (
+                            <span className="block text-xs font-normal text-earth-500">{log.entity_context}</span>
+                          )}
+                        </td>
+                        <td className="px-4 py-3 text-xs text-earth-600">
+                          {log.actor_label}
+                          {log.ip_address && <span className="block text-earth-400">{log.ip_address}</span>}
+                        </td>
+                        <td className="max-w-md px-4 py-3">{renderDataSummary(log.data)}</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
 
           {hasMore && (
             <div className="mt-4 flex justify-center">

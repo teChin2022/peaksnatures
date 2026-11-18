@@ -3,8 +3,12 @@ import { act, createElement } from "react";
 import { createRoot, type Root } from "react-dom/client";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const nav = vi.hoisted(() => ({ query: "" }));
-vi.mock("next/navigation", () => ({ useSearchParams: () => new URLSearchParams(nav.query) }));
+const nav = vi.hoisted(() => ({ query: "", replace: vi.fn() }));
+vi.mock("next/navigation", () => ({
+  useSearchParams: () => new URLSearchParams(nav.query),
+  // Stable like Next's router, so the fetch effect does not re-run on every render.
+  useRouter: () => nav,
+}));
 
 import AdminLogsPage from "./page";
 
@@ -25,6 +29,7 @@ const byText = (text: string) =>
 
 beforeEach(() => {
   nav.query = "";
+  nav.replace.mockReset();
   fetchMock.mockReset().mockResolvedValue({
     ok: true,
     json: async () => ({ data: [], hasMore: false, nextCursor: null }),
@@ -64,6 +69,7 @@ describe("Admin logs: filters from the URL", () => {
     expect(container.querySelector('[aria-label="Active filters"]')?.textContent).not.toContain("Event:");
     expect(fetchedUrls().at(-1)).not.toContain("event_type");
     expect(fetchedUrls().at(-1)).toContain("actor_type=admin");
+    expect(nav.replace).toHaveBeenLastCalledWith("/admin/logs?actor_type=admin", { scroll: false });
   });
 
   it("offers to clear the filters when nothing matches", async () => {
@@ -76,6 +82,8 @@ describe("Admin logs: filters from the URL", () => {
 
     expect(container.querySelector('[aria-label="Active filters"]')).toBeNull();
     expect(fetchedUrls().at(-1)).not.toContain("event_type");
+    // A reload must not bring the filter back.
+    expect(nav.replace).toHaveBeenLastCalledWith("/admin/logs", { scroll: false });
   });
 
   it("shows no chips without filters", async () => {

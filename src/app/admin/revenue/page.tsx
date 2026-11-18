@@ -9,6 +9,8 @@ import { KpiCard } from "@/components/admin/kpi-card";
 import { REVENUE_MONTHS, getPlatformRevenue, monthLabel } from "./data";
 
 const signed = (n: number) => (n === 0 ? fmtTHB(0) : `${n < 0 ? "−" : "+"}${fmtTHB(Math.abs(n))}`);
+// A month can net negative when refunds outrun commission; fmtTHB alone would print "฿-5".
+const money = (n: number) => (n < 0 ? `−${fmtTHB(-n)}` : fmtTHB(n));
 const th = "px-4 py-2.5 font-medium";
 const num = "px-4 py-2.5 text-right tabular-nums whitespace-nowrap";
 
@@ -29,8 +31,8 @@ export default async function AdminRevenuePage() {
       <PageHeader eyebrow="Platform income" title="Revenue" />
 
       <div className="grid grid-cols-2 gap-3 sm:gap-4 lg:grid-cols-3">
-        <KpiCard label={`Income, ${monthLabel(current.month)}`} value={fmtTHB(current.income)} icon={Banknote} tone="brand" />
-        <KpiCard label={`Income, last ${REVENUE_MONTHS} months`} value={fmtTHB(yearIncome)} icon={CalendarRange} tone="brand" />
+        <KpiCard label={`Income, ${monthLabel(current.month)}`} value={money(current.income)} icon={Banknote} tone="brand" />
+        <KpiCard label={`Income, last ${REVENUE_MONTHS} months`} value={money(yearIncome)} icon={CalendarRange} tone="brand" />
         <KpiCard label="Unpaid invoices" value={fmtTHB(unpaidInvoices)} icon={Receipt} tone={unpaidInvoices > 0 ? "amber" : "neutral"} href="/admin/billing" />
         <KpiCard label="Wallet money held" value={fmtTHB(walletHeld)} icon={Wallet} tone="earth" />
         <KpiCard label="Owed by hosts (wallets)" value={fmtTHB(walletOwed)} icon={AlertTriangle} tone={walletOwed > 0 ? "amber" : "neutral"} href="/admin/hosts" />
@@ -60,7 +62,7 @@ export default async function AdminRevenuePage() {
                   {newestFirst.map((m) => (
                     <tr key={m.month}>
                       <th scope="row" className="px-4 py-2.5 text-left font-normal whitespace-nowrap">{monthLabel(m.month)}</th>
-                      <td className={`${num} font-semibold text-earth-900`}>{fmtTHB(m.income)}</td>
+                      <td className={`${num} font-semibold ${m.income < 0 ? "text-red-700" : "text-earth-900"}`}>{money(m.income)}</td>
                       <td className={num}>{fmtTHB(m.commission)}</td>
                       <td className={`${num} ${m.refunds > 0 ? "text-red-700" : ""}`}>{m.refunds > 0 ? `−${fmtTHB(m.refunds)}` : fmtTHB(0)}</td>
                       <td className={num}>{fmtTHB(m.fixedRate)}</td>

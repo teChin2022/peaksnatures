@@ -45,6 +45,20 @@ describe("GET /api/admin/hosts", () => {
     });
   });
 
+  // Same gate as the booking routes: a Fixed Rate host with a blocking invoice.
+  it("flags hosts whose bookings are blocked", async () => {
+    signIn(mocks, {
+      tables: {
+        hosts: [{ count: 2 }, { data: [{ ...hostRow, id: "owing", plan_type: "fixed_rate" }, hostRow] }],
+        homestays: { data: [] },
+        invoices: { data: [{ host_id: "owing" }] },
+      },
+    });
+    const { body } = await readJson(await get());
+    const flags = (body as { data: { id: string; blocked: boolean }[] }).data.map((h) => [h.id, h.blocked]);
+    expect(flags).toEqual([["owing", true], ["host-1", false]]);
+  });
+
   it("reports a null homestay for a host who has not created one", async () => {
     withHosts([hostRow], []);
     const { body } = await readJson(await get());

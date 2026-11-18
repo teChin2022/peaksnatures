@@ -3,10 +3,9 @@
 import { useState, useEffect, useCallback } from "react";
 import Link from "next/link";
 import { useSearchParams, useRouter } from "next/navigation";
-import { motion } from "motion/react";
 import { toast } from "sonner";
 import {
-  Users, CheckCircle, XCircle, Loader2, Mail, Phone, Home, Calendar as CalendarIcon,
+  Users, CheckCircle, XCircle, Loader2, Mail, Phone, Calendar as CalendarIcon,
   ShieldCheck, Wallet, CreditCard, Percent,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
@@ -49,6 +48,8 @@ interface HostRow {
   fixed_rate_term_months: number | null;
   fixed_rate_term_ends_at: string | null;
   homestay: { name: string; slug: string; is_active: boolean } | null;
+  /** Booking routes would refuse this host right now (same gate). */
+  blocked: boolean;
 }
 
 const PLAN_LABELS: Record<string, string> = {
@@ -400,9 +401,9 @@ export default function AdminHostsPage() {
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+        <div className="space-y-2">
           {[1, 2, 3, 4, 5, 6].map((i) => (
-            <div key={i} className="skeleton-warm h-44 w-full rounded-xl" />
+            <div key={i} className="skeleton-warm h-16 w-full rounded-xl" />
           ))}
         </div>
       ) : !res || res.data.length === 0 ? (
@@ -413,39 +414,68 @@ export default function AdminHostsPage() {
         />
       ) : (
         <>
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-            {res.data.map((host, i) => (
-              <motion.div
-                key={host.id}
-                initial={{ opacity: 0, y: 8 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: i * 0.03, duration: 0.25 }}
-              >
-                <Card className="dashboard-card border-earth-100 h-full">
-                  <CardContent className="p-5">
-                    <div className="flex flex-col gap-3">
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
-                          <h3 className="font-semibold text-earth-900 truncate">
-                            <Link
-                              href={`/admin/hosts/${host.id}`}
-                              className="rounded underline-offset-4 hover:text-brand hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
-                            >
-                              {host.name}
-                            </Link>
-                          </h3>
-                          <StatusBadge status={host.status} />
-                          {host.is_verified && (
-                            <StatusBadge
-                              status="verified"
-                              tone="brand"
-                              label="Verified"
-                              icon={<ShieldCheck className="h-3 w-3" />}
-                            />
+          {/* A table scans faster than cards for staff working a list (audit X3). */}
+          <Card className="border-earth-100 bg-white">
+            <CardContent className="p-0">
+              <div className="overflow-x-auto">
+                <table className="w-full min-w-[960px] text-sm">
+                  <thead>
+                    <tr className="border-b border-earth-100 text-left text-xs text-earth-500">
+                      <th scope="col" className="min-w-64 px-4 py-2.5 font-medium">Host</th>
+                      <th scope="col" className="px-4 py-2.5 font-medium">Homestay</th>
+                      <th scope="col" className="px-4 py-2.5 font-medium">Plan</th>
+                      <th scope="col" className="px-4 py-2.5 font-medium">Joined</th>
+                      <th scope="col" className="px-4 py-2.5 text-right font-medium">Actions</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-earth-100 text-earth-800">
+                    {res.data.map((host) => (
+                      <tr key={host.id} className="align-top">
+                        <td className="px-4 py-3">
+                          <Link
+                            href={`/admin/hosts/${host.id}`}
+                            className="rounded font-semibold text-earth-900 underline-offset-4 hover:text-brand hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+                          >
+                            {host.name}
+                          </Link>
+                          <div className="mt-1 flex flex-wrap items-center gap-1.5">
+                              <StatusBadge status={host.status} />
+                              {host.is_verified && (
+                                <StatusBadge
+                                  status="verified"
+                                  tone="brand"
+                                  label="Verified"
+                                  icon={<ShieldCheck className="h-3 w-3" />}
+                                />
+                              )}
+                            {host.blocked && <StatusBadge status="blocked" tone="destructive" label="Bookings blocked" />}
+                          </div>
+                          <p className="mt-1 flex items-center gap-1.5 text-earth-600">
+                            <Mail className="h-3.5 w-3.5 shrink-0 text-earth-400" />
+                            <span className="break-all">{host.email}</span>
+                          </p>
+                          {host.phone && (
+                            <p className="flex items-center gap-1.5 text-earth-600">
+                              <Phone className="h-3.5 w-3.5 shrink-0 text-earth-400" />
+                              {host.phone}
+                            </p>
                           )}
-                        </div>
-
-                        <div className="flex items-center gap-2 mb-2 flex-wrap">
+                        </td>
+                        <td className="px-4 py-3">
+                        {host.homestay ? (
+                          <span className="flex items-center gap-1.5">
+                            {host.homestay.name}
+                            <StatusBadge
+                              status={host.homestay.is_active ? "active" : "inactive"}
+                              className="px-1.5 py-0"
+                            />
+                          </span>
+                        ) : (
+                          <span className="text-earth-400">No homestay</span>
+                        )}
+                        </td>
+                        <td className="px-4 py-3">
+                        <div className="flex flex-wrap items-center gap-1.5">
                           <span
                             className={cn(
                               "inline-flex items-center rounded-full border px-1.5 py-0.5 text-[10px] font-medium",
@@ -508,127 +538,101 @@ export default function AdminHostsPage() {
                             </span>
                           )}
                         </div>
-
-                        <div className="space-y-1 text-sm text-earth-600">
-                          <div className="flex items-center gap-1.5">
-                            <Mail className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                            <span className="truncate">{host.email}</span>
-                          </div>
-                          {host.phone && (
-                            <div className="flex items-center gap-1.5">
-                              <Phone className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                              <span>{host.phone}</span>
+                        </td>
+                        <td className="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-earth-500">
+                          {fmtDate(new Date(host.created_at), "MMM d, yyyy · HH:mm", "en")}
+                        </td>
+                        <td className="px-4 py-3">
+                          {host.status === "approved" && (
+                            <div className="flex flex-wrap items-center justify-end gap-1.5">
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className={cn(
+                                  "h-9 px-3 text-xs cursor-pointer",
+                                  host.is_verified
+                                    ? "text-brand border-brand/30 hover:bg-brand-50"
+                                    : "text-earth-700 border-earth-200 hover:bg-earth-50"
+                                )}
+                                onClick={() => handleVerify(host.id)}
+                                disabled={actionLoading === host.id}
+                              >
+                                {actionLoading === host.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <ShieldCheck className="h-3.5 w-3.5 mr-1" />
+                                )}
+                                {host.is_verified ? "Unverify" : "Verify"}
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-9 px-3 text-xs cursor-pointer text-earth-700 border-earth-200 hover:bg-earth-50 hover:text-brand"
+                                onClick={() => openPlanDialog(host)}
+                                disabled={actionLoading === host.id}
+                              >
+                                <CreditCard className="h-3.5 w-3.5 mr-1" />
+                                Plan
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-9 px-3 text-xs cursor-pointer text-earth-700 border-earth-200 hover:bg-earth-50 hover:text-brand"
+                                onClick={() => openRateDialog(host)}
+                                disabled={actionLoading === host.id}
+                              >
+                                <Percent className="h-3.5 w-3.5 mr-1" />
+                                Rate
+                              </Button>
+                              {host.plan_type === "commission" && (
+                                <Button
+                                  size="sm"
+                                  variant="outline"
+                                  className="h-9 px-3 text-xs cursor-pointer text-amber-700 border-amber-200 hover:bg-amber-50"
+                                  onClick={() => openWalletDialog(host)}
+                                  disabled={actionLoading === host.id}
+                                >
+                                  <Wallet className="h-3.5 w-3.5 mr-1" />
+                                  Adjust
+                                </Button>
+                              )}
                             </div>
                           )}
-                          <div className="flex items-center gap-1.5">
-                            <Home className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                            {host.homestay ? (
-                              <span className="flex items-center gap-1.5">
-                                {host.homestay.name}
-                                <StatusBadge
-                                  status={host.homestay.is_active ? "active" : "inactive"}
-                                  className="px-1.5 py-0"
-                                />
-                              </span>
-                            ) : (
-                              <span className="text-earth-400">No homestay</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5 text-xs text-earth-500 pt-1">
-                            <CalendarIcon className="h-3 w-3 shrink-0 text-earth-400" />
-                            <span className="tabular-nums">Created {fmtDate(new Date(host.created_at), "MMM d, yyyy · HH:mm", "en")}</span>
-                          </div>
-                        </div>
-                      </div>
-
-                      {host.status === "approved" && (
-                        <div className="flex flex-wrap items-center gap-1.5 border-t border-earth-100 pt-3">
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className={cn(
-                              "h-9 px-3 text-xs cursor-pointer",
-                              host.is_verified
-                                ? "text-brand border-brand/30 hover:bg-brand-50"
-                                : "text-earth-700 border-earth-200 hover:bg-earth-50"
-                            )}
-                            onClick={() => handleVerify(host.id)}
-                            disabled={actionLoading === host.id}
-                          >
-                            {actionLoading === host.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <ShieldCheck className="h-3.5 w-3.5 mr-1" />
-                            )}
-                            {host.is_verified ? "Unverify" : "Verify"}
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-9 px-3 text-xs cursor-pointer text-earth-700 border-earth-200 hover:bg-earth-50 hover:text-brand"
-                            onClick={() => openPlanDialog(host)}
-                            disabled={actionLoading === host.id}
-                          >
-                            <CreditCard className="h-3.5 w-3.5 mr-1" />
-                            Plan
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-9 px-3 text-xs cursor-pointer text-earth-700 border-earth-200 hover:bg-earth-50 hover:text-brand"
-                            onClick={() => openRateDialog(host)}
-                            disabled={actionLoading === host.id}
-                          >
-                            <Percent className="h-3.5 w-3.5 mr-1" />
-                            Rate
-                          </Button>
-                          {host.plan_type === "commission" && (
-                            <Button
-                              size="sm"
-                              variant="outline"
-                              className="h-9 px-3 text-xs cursor-pointer text-amber-700 border-amber-200 hover:bg-amber-50"
-                              onClick={() => openWalletDialog(host)}
-                              disabled={actionLoading === host.id}
-                            >
-                              <Wallet className="h-3.5 w-3.5 mr-1" />
-                              Adjust
-                            </Button>
+                          {host.status === "pending" && (
+                            <div className="flex flex-wrap items-center justify-end gap-1.5">
+                              <Button
+                                size="sm"
+                                className="h-9 px-3 text-xs cursor-pointer bg-brand hover:bg-brand-hover text-white"
+                                onClick={() => setDialog({ type: "approve", hostId: host.id, hostName: host.name })}
+                                disabled={actionLoading === host.id}
+                              >
+                                {actionLoading === host.id ? (
+                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
+                                ) : (
+                                  <CheckCircle className="h-3.5 w-3.5 mr-1" />
+                                )}
+                                Approve
+                              </Button>
+                              <Button
+                                size="sm"
+                                variant="outline"
+                                className="h-9 px-3 text-xs cursor-pointer text-destructive border-destructive/30 hover:bg-destructive/5"
+                                onClick={() => setDialog({ type: "reject", hostId: host.id, hostName: host.name })}
+                                disabled={actionLoading === host.id}
+                              >
+                                <XCircle className="h-3.5 w-3.5 mr-1" />
+                                Reject
+                              </Button>
+                            </div>
                           )}
-                        </div>
-                      )}
-                      {host.status === "pending" && (
-                        <div className="flex flex-wrap items-center gap-1.5 border-t border-earth-100 pt-3">
-                          <Button
-                            size="sm"
-                            className="h-9 px-3 text-xs cursor-pointer bg-brand hover:bg-brand-hover text-white"
-                            onClick={() => setDialog({ type: "approve", hostId: host.id, hostName: host.name })}
-                            disabled={actionLoading === host.id}
-                          >
-                            {actionLoading === host.id ? (
-                              <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                            ) : (
-                              <CheckCircle className="h-3.5 w-3.5 mr-1" />
-                            )}
-                            Approve
-                          </Button>
-                          <Button
-                            size="sm"
-                            variant="outline"
-                            className="h-9 px-3 text-xs cursor-pointer text-destructive border-destructive/30 hover:bg-destructive/5"
-                            onClick={() => setDialog({ type: "reject", hostId: host.id, hostName: host.name })}
-                            disabled={actionLoading === host.id}
-                          >
-                            <XCircle className="h-3.5 w-3.5 mr-1" />
-                            Reject
-                          </Button>
-                        </div>
-                      )}
-                    </div>
-                  </CardContent>
-                </Card>
-              </motion.div>
-            ))}
-          </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </CardContent>
+          </Card>
 
           {res.totalPages > 1 && (
             <div className="mt-4 flex items-center justify-between pt-2">

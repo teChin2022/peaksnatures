@@ -25,7 +25,8 @@ export function KpiCard({ label, value, icon: Icon, tone = "neutral", href }: Kp
   const card = (
     <Card
       className={cn(
-        "dashboard-card border-earth-100 bg-white",
+        // h-full: cards in a row match when a label wraps to two lines.
+        "dashboard-card h-full border-earth-100 bg-white",
         href && "cursor-pointer"
       )}
     >
@@ -41,5 +42,11 @@ export function KpiCard({ label, value, icon: Icon, tone = "neutral", href }: Kp
     </Card>
   );
 
-  return href ? <Link href={href}>{card}</Link> : card;
+  return href ? (
+    <Link href={href} className="block h-full">
+      {card}
+    </Link>
+  ) : (
+    card
+  );
 }

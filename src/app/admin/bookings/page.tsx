@@ -1,7 +1,8 @@
 "use client";
 
+import Link from "next/link";
 import { useState, useEffect, useCallback } from "react";
-import { CalendarDays, Home, BedDouble, Loader2, Trash2, Timer, Mail, Phone, Users, Clock } from "lucide-react";
+import { CalendarDays, BedDouble, Loader2, Trash2, Timer, Mail, Phone, Clock } from "lucide-react";
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Badge } from "@/components/ui/badge";
@@ -184,6 +185,14 @@ export default function AdminBookingsPage() {
         eyebrow={loading ? "Loading…" : `${total} total`}
         title="Bookings"
         icon={CalendarDays}
+        actions={
+          <Link
+            href="/admin/bookings/date-changes"
+            className="rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-700 hover:border-brand/40 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand/40"
+          >
+            Date changes
+          </Link>
+        }
       />
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
@@ -234,71 +243,75 @@ export default function AdminBookingsPage() {
             />
           ) : (
             <>
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {bookings.map((booking) => {
-                  const nights = nightsBetween(booking.check_in, booking.check_out);
-                  return (
-                    <Card key={booking.id} className="dashboard-card border-earth-100">
-                      <CardContent className="p-5 space-y-3">
-                        <div className="flex items-start justify-between gap-3">
-                          <div className="min-w-0 flex-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="font-semibold text-earth-900 truncate">{booking.guest_name}</h3>
-                              <StatusBadge status={booking.status} />
-                            </div>
-                            <p className="mt-0.5 text-xs text-earth-500 flex items-center gap-1.5 truncate">
-                              <Mail className="h-3 w-3 shrink-0" />
-                              <span className="truncate">{booking.guest_email}</span>
-                            </p>
-                            {booking.guest_phone && (
-                              <p className="mt-0.5 text-xs text-earth-500 flex items-center gap-1.5">
-                                <Phone className="h-3 w-3 shrink-0" />
-                                {booking.guest_phone}
-                              </p>
-                            )}
-                          </div>
-                          <div className="text-right shrink-0">
-                            <p className="font-semibold text-earth-900 tabular-nums">{fmtTHB(booking.total_price)}</p>
-                            {booking.payment_type === "deposit" && (
-                              <p className="text-xs text-earth-500 tabular-nums">Paid: {fmtTHB(booking.amount_paid)}</p>
-                            )}
-                          </div>
-                        </div>
-
-                        <div className="grid grid-cols-1 sm:grid-cols-2 gap-x-4 gap-y-1.5 text-sm text-earth-700">
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <Home className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                            <span className="truncate">{booking.homestay_name || "—"}</span>
-                          </div>
-                          <div className="flex items-center gap-1.5 min-w-0">
-                            <BedDouble className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                            <span className="truncate">{booking.room_name || "—"}</span>
-                            {booking.group_id && (
-                              <span className="shrink-0 rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700">Group</span>
-                            )}
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <CalendarDays className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                            <span className="tabular-nums">
-                              {fmtDateStr(booking.check_in, "MMM d", "en")} → {fmtDateStr(booking.check_out, "MMM d, yyyy", "en")}
-                              <span className="text-earth-400"> · {nights} night{nights === 1 ? "" : "s"}</span>
-                            </span>
-                          </div>
-                          <div className="flex items-center gap-1.5">
-                            <Users className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                            <span>{booking.num_guests} guest{booking.num_guests === 1 ? "" : "s"}</span>
-                          </div>
-                        </div>
-
-                        <div className="pt-2 border-t border-earth-100/70 text-xs text-earth-500 flex items-center gap-1.5">
-                          <Clock className="h-3 w-3" />
-                          <span className="tabular-nums">Created {fmtDate(new Date(booking.created_at), "MMM d, yyyy · HH:mm", "en")}</span>
-                        </div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
+              {/* A table scans faster than cards for staff working a list (audit X3). */}
+              <Card className="border-earth-100 bg-white">
+                <CardContent className="p-0">
+                  <div className="overflow-x-auto">
+                    <table className="w-full min-w-[900px] text-sm">
+                      <thead>
+                        <tr className="border-b border-earth-100 text-left text-xs text-earth-500">
+                          <th scope="col" className="px-4 py-2.5 font-medium">Guest</th>
+                          <th scope="col" className="px-4 py-2.5 font-medium">Stay</th>
+                          <th scope="col" className="px-4 py-2.5 font-medium">Homestay · house</th>
+                          <th scope="col" className="px-4 py-2.5 font-medium">Guests</th>
+                          <th scope="col" className="px-4 py-2.5 text-right font-medium">Total</th>
+                          <th scope="col" className="px-4 py-2.5 font-medium">Booked</th>
+                        </tr>
+                      </thead>
+                      <tbody className="divide-y divide-earth-100 text-earth-800">
+                        {bookings.map((booking) => {
+                          const nights = nightsBetween(booking.check_in, booking.check_out);
+                          return (
+                            <tr key={booking.id} className="align-top">
+                              <td className="px-4 py-3">
+                                <div className="flex flex-wrap items-center gap-1.5">
+                                  <span className="font-semibold text-earth-900">{booking.guest_name}</span>
+                                  <StatusBadge status={booking.status} />
+                                </div>
+                                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-earth-500">
+                                  <Mail className="h-3 w-3 shrink-0" />
+                                  <span className="break-all">{booking.guest_email}</span>
+                                </p>
+                                {booking.guest_phone && (
+                                  <p className="mt-0.5 flex items-center gap-1.5 text-xs text-earth-500">
+                                    <Phone className="h-3 w-3 shrink-0" />
+                                    {booking.guest_phone}
+                                  </p>
+                                )}
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-3 tabular-nums">
+                                {fmtDateStr(booking.check_in, "MMM d", "en")} → {fmtDateStr(booking.check_out, "MMM d, yyyy", "en")}
+                                <p className="text-xs text-earth-500">
+                                  {nights} night{nights === 1 ? "" : "s"}
+                                </p>
+                              </td>
+                              <td className="px-4 py-3">
+                                {booking.homestay_name || "—"}
+                                <p className="flex items-center gap-1.5 text-xs text-earth-500">
+                                  {booking.room_name || "—"}
+                                  {booking.group_id && (
+                                    <span className="rounded-full bg-indigo-50 px-1.5 py-0.5 text-[10px] font-medium text-indigo-700">Group</span>
+                                  )}
+                                </p>
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-3">{booking.num_guests}</td>
+                              <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">
+                                <span className="font-semibold text-earth-900">{fmtTHB(booking.total_price)}</span>
+                                {booking.payment_type === "deposit" && (
+                                  <p className="text-xs text-earth-500">Paid: {fmtTHB(booking.amount_paid)}</p>
+                                )}
+                              </td>
+                              <td className="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-earth-500">
+                                {fmtDate(new Date(booking.created_at), "MMM d, yyyy · HH:mm", "en")}
+                              </td>
+                            </tr>
+                          );
+                        })}
+                      </tbody>
+                    </table>
+                  </div>
+                </CardContent>
+              </Card>
 
               {hasMore && (
                 <div className="mt-4 flex justify-center">
