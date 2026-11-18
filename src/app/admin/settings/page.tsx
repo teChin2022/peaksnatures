@@ -12,6 +12,7 @@ import {
   Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogFooter,
 } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/admin/page-header";
+import { AdminListCard } from "@/components/admin/admin-list-card";
 import { cn } from "@/lib/utils";
 import type { FixedRateTermTier } from "@/types/database";
 
@@ -477,6 +478,8 @@ export default function AdminSettingsPage() {
           )}
         </CardContent>
       </Card>
+
+      <AdminListCard />
 
       <Card className="mt-6 border-earth-100">
         <CardHeader>
