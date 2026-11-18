@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import {
   createServerSupabaseClient,
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
+import { logEvent, EventType } from "@/lib/history-log";
 
 export async function GET(req: NextRequest) {
   try {
@@ -82,11 +83,31 @@ export async function DELETE(req: NextRequest) {
     }
 
     const sc = createServiceRoleClient();
-    const { error } = await sc.from("booking_holds").delete().eq("id", id);
+    const { data: deleted, error } = await sc
+      .from("booking_holds")
+      .delete()
+      .eq("id", id)
+      .select("room_id, check_in, check_out")
+      .maybeSingle();
 
     if (error) {
       console.error("[Admin BookingHolds] delete error:", error);
       return NextResponse.json({ error: "Failed to delete hold" }, { status: 500 });
+    }
+
+    const hold = deleted as { room_id: string; check_in: string; check_out: string } | null;
+    if (hold) {
+      after(() =>
+        logEvent({
+          entityType: "booking_hold",
+          entityId: id,
+          eventType: EventType.BOOKING_HOLD_RELEASED,
+          actorType: "admin",
+          actorId: user.id,
+          data: { room_id: hold.room_id, check_in: hold.check_in, check_out: hold.check_out },
+          req,
+        }),
+      );
     }
 
     return NextResponse.json({ success: true });

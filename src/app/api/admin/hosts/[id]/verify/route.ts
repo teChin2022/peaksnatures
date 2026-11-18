@@ -1,9 +1,10 @@
-import { NextRequest, NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import {
   createServerSupabaseClient,
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
+import { logEvent, EventType } from "@/lib/history-log";
 
 export async function PATCH(
   req: NextRequest,
@@ -55,6 +56,18 @@ export async function PATCH(
       console.error("[Admin Verify] update error:", updateError);
       return NextResponse.json({ error: "Failed to update verification" }, { status: 500 });
     }
+
+    after(() =>
+      logEvent({
+        entityType: "host",
+        entityId: id,
+        eventType: EventType.HOST_VERIFIED,
+        actorType: "admin",
+        actorId: user.id,
+        data: { host_name: hostRow.name, is_verified: newValue, admin_name: adminName },
+        req,
+      }),
+    );
 
     return NextResponse.json({ id, is_verified: newValue });
   } catch (error) {

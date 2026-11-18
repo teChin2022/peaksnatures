@@ -8,12 +8,28 @@ const mocks = vi.hoisted(() => ({
   createServerSupabaseClient: vi.fn(),
   createServiceRoleClient: vi.fn(),
   isAdmin: vi.fn(),
+  afterCallbacks: [] as Array<() => unknown>,
+  logEvent: vi.fn(),
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: mocks.createServerSupabaseClient,
   createServiceRoleClient: mocks.createServiceRoleClient,
 }));
 vi.mock("@/lib/admin", () => ({ isAdmin: mocks.isAdmin }));
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: (cb: () => unknown) => {
+    mocks.afterCallbacks.push(cb);
+  },
+}));
+vi.mock("@/lib/history-log", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/history-log")>()),
+  logEvent: mocks.logEvent,
+}));
+
+const runAfter = async () => {
+  for (const cb of mocks.afterCallbacks.splice(0)) await cb();
+};
 
 const HOST_ID = "host-1";
 const params = Promise.resolve({ id: HOST_ID });
@@ -29,6 +45,8 @@ const withHost = (host: unknown, hosts?: QueryResponse[]) =>
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
+  mocks.afterCallbacks.length = 0;
+  mocks.logEvent.mockReset().mockResolvedValue(undefined);
   withHost({ id: HOST_ID, name: "Somchai", is_verified: false });
 });
 
@@ -51,6 +69,32 @@ describe("PATCH /api/admin/hosts/[id]/verify", () => {
       body: { id: HOST_ID, is_verified: false },
     });
     expect(sc.builderFor("hosts", 1).update).toHaveBeenCalledWith({ is_verified: false, updated_by: "Root" });
+  });
+
+  it("records who verified the host in the audit log", async () => {
+    withHost({ id: HOST_ID, name: "Somchai", is_verified: false });
+    await patch();
+    await runAfter();
+    expect(mocks.logEvent).toHaveBeenCalledWith(
+      expect.objectContaining({
+        entityType: "host",
+        entityId: HOST_ID,
+        eventType: "HOST_VERIFIED",
+        actorType: "admin",
+        actorId: "user-1",
+        data: { host_name: "Somchai", is_verified: true, admin_name: "Root" },
+      }),
+    );
+  });
+
+  it("logs nothing when the update fails", async () => {
+    withHost(null, [
+      { data: { id: HOST_ID, name: "Somchai", is_verified: false } },
+      { error: { message: "constraint" } },
+    ]);
+    await patch();
+    await runAfter();
+    expect(mocks.logEvent).not.toHaveBeenCalled();
   });
 
   it("falls back to the auth id when the admin has no name on file", async () => {

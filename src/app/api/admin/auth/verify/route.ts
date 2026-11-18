@@ -1,10 +1,12 @@
-import { NextResponse } from "next/server";
+import { NextRequest, NextResponse, after } from "next/server";
 import {
   createServerSupabaseClient,
   createServiceRoleClient,
 } from "@/lib/supabase/server";
+import { logEvent, EventType } from "@/lib/history-log";
 
-export async function POST() {
+// Called once per admin sign-in, right after the OTP, so each 200 is a login.
+export async function POST(req: NextRequest) {
   try {
     const supabase = await createServerSupabaseClient();
     const {
@@ -27,11 +29,34 @@ export async function POST() {
       .single();
 
     if (!admin) {
+      // actor "system": the caller is not an admin, and history_logs only allows guest/host/admin/system.
+      after(() =>
+        logEvent({
+          entityType: "admin",
+          entityId: user.id,
+          eventType: EventType.ADMIN_ACCESS_DENIED,
+          actorType: "system",
+          data: { user_id: user.id },
+          req,
+        }),
+      );
       return NextResponse.json(
         { error: "Not a platform admin" },
         { status: 403 }
       );
     }
+
+    after(() =>
+      logEvent({
+        entityType: "admin",
+        entityId: user.id,
+        eventType: EventType.ADMIN_LOGIN,
+        actorType: "admin",
+        actorId: user.id,
+        data: { email: (admin as { email: string }).email },
+        req,
+      }),
+    );
 
     return NextResponse.json({ admin });
   } catch (error) {
