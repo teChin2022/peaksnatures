@@ -18,6 +18,7 @@ import {
   Settings,
   CreditCard,
   Tag,
+  TrendingUp,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -30,6 +31,7 @@ const NAV_ITEMS = [
   { key: "Bookings", href: "/admin/bookings", icon: CalendarDays },
   { key: "Promo Codes", href: "/admin/promo-codes", icon: Tag },
   { key: "Billing", href: "/admin/billing", icon: CreditCard },
+  { key: "Revenue", href: "/admin/revenue", icon: TrendingUp },
   { key: "Logs", href: "/admin/logs", icon: ScrollText },
   { key: "Settings", href: "/admin/settings", icon: Settings },
 ] as const;
