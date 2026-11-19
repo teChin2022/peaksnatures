@@ -1634,6 +1634,8 @@ export interface Database {
           enabled: boolean;
           daily_cap: number;
           price_per_reply: number;
+          cost_in_per_mtok: number;
+          cost_out_per_mtok: number;
           updated_at: string;
           updated_by: string | null;
         };
@@ -1642,6 +1644,8 @@ export interface Database {
           enabled?: boolean;
           daily_cap?: number;
           price_per_reply?: number;
+          cost_in_per_mtok?: number;
+          cost_out_per_mtok?: number;
           updated_at?: string;
           updated_by?: string | null;
         };
@@ -1650,6 +1654,8 @@ export interface Database {
           enabled?: boolean;
           daily_cap?: number;
           price_per_reply?: number;
+          cost_in_per_mtok?: number;
+          cost_out_per_mtok?: number;
           updated_at?: string;
           updated_by?: string | null;
         };
@@ -1692,6 +1698,8 @@ export interface Database {
           charged_amount: number | null;
           charged_at: string | null;
           transaction_id: string | null;
+          input_tokens: number;
+          output_tokens: number;
         };
         Insert: {
           host_id: string;
@@ -1701,6 +1709,8 @@ export interface Database {
           charged_amount?: number | null;
           charged_at?: string | null;
           transaction_id?: string | null;
+          input_tokens?: number;
+          output_tokens?: number;
         };
         Update: {
           host_id?: string;
@@ -1710,6 +1720,8 @@ export interface Database {
           charged_amount?: number | null;
           charged_at?: string | null;
           transaction_id?: string | null;
+          input_tokens?: number;
+          output_tokens?: number;
         };
       };
     };

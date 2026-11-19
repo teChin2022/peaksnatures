@@ -2385,9 +2385,10 @@
     "someFree": "{free} of {total} houses are free then.",
     "noneFree": "Every house is booked then. Try other dates.",
     "fitAll": "Every house sleeps {guests}.",
-    "fitSome": "Houses for {guests} in one: {names}",
-    "fitNone": "No single house sleeps {guests}; you can book several in one booking.",
+    "fitSome": "Free and sleeps {guests} in one house: {names}",
+    "fitNone": "No free house sleeps {guests} on its own; you can book several in one booking.",
     "source": "Availability from this homestay's calendar · prices on the house cards",
+    "sourceDates": "Availability from this homestay's calendar",
     "seeHouses": "See free houses",
     "changeDates": "Change dates",
     "goChangeBooking": "Change an existing booking",
@@ -2404,8 +2405,10 @@
     "useTheseDates": "Use these dates",
     "suggestTitle": "Suggested houses",
     "suggestMeta": "Sleeps {guests} · ฿{total} for {nights, plural, one {# night} other {# nights}}",
+    "suggestBusy": "{names}: not free for these dates",
     "chooseHouse": "Choose this house",
-    "chooseHouseAria": "Choose {name}"
+    "chooseHouseAria": "Choose this house: {name}",
+    "intro": "Picks dates on the calendar, suggests houses and answers questions about the homestay. It doesn't book for you."
   },
   "checkInOutPage": {
     "title": "Check In or Out",

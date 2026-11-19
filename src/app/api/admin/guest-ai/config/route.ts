@@ -4,20 +4,25 @@ import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supab
 import { isAdmin } from "@/lib/admin";
 import { logEvent, EventType } from "@/lib/history-log";
 
+const satang = (max: number) =>
+  z
+    .number()
+    .min(0)
+    .max(max)
+    .refine((n) => Math.abs(n * 100 - Math.round(n * 100)) < 1e-6);
+
 const configSchema = z
   .object({
     enabled: z.boolean().optional(),
     daily_cap: z.number().int().min(0).max(100_000).optional(),
     // Baht per reply, to the satang (D7: 0 until an admin sets it).
-    price_per_reply: z
-      .number()
-      .min(0)
-      .max(100)
-      .refine((n) => Math.abs(n * 100 - Math.round(n * 100)) < 1e-6)
-      .optional(),
+    price_per_reply: satang(100).optional(),
+    // The admin's estimate of Gemini's price, baht per 1M tokens (087), for the cost report.
+    cost_in_per_mtok: satang(100_000).optional(),
+    cost_out_per_mtok: satang(100_000).optional(),
   })
   .strict()
-  .refine((v) => v.enabled !== undefined || v.daily_cap !== undefined || v.price_per_reply !== undefined);
+  .refine((v) => Object.keys(v).length > 0);
 
 /**
  * PATCH /api/admin/guest-ai/config — the platform's guest AI kill switch, its
@@ -49,7 +54,7 @@ export async function PATCH(req: NextRequest) {
       .from("platform_guest_ai_config")
       .update({ ...parsed.data, updated_at: new Date().toISOString(), updated_by: adminName } as never)
       .eq("id", true)
-      .select("enabled, daily_cap, price_per_reply")
+      .select("enabled, daily_cap, price_per_reply, cost_in_per_mtok, cost_out_per_mtok")
       .maybeSingle();
     if (error || !data) {
       console.error("[Admin Guest AI config] update error:", error);

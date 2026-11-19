@@ -89,4 +89,17 @@ describe("DesktopDateSearch date panel", () => {
     render(false);
     expect(container.innerHTML).toBe("");
   });
+
+  it("rings the panel once when the guest AI assistant sets the dates", () => {
+    vi.useFakeTimers();
+    withCart(undefined);
+    render();
+    const panel = () => container.querySelector("#date-panel .grid") as HTMLElement;
+    expect(panel().getAttribute("data-flash")).toBeNull();
+    act(() => void document.dispatchEvent(new Event("dates-applied")));
+    expect(panel().getAttribute("data-flash")).toBe("on");
+    act(() => vi.advanceTimersByTime(1200));
+    expect(panel().getAttribute("data-flash")).toBeNull();
+    vi.useRealTimers();
+  });
 });

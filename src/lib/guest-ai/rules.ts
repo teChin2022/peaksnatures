@@ -83,12 +83,14 @@ const dayDiff = (a: string, b: string) => Math.round((Date.parse(`${b}T00:00:00Z
 /**
  * Keeps only what the model may decide (security review F-08): a real stay
  * from today on, at most MAX_NIGHTS and a year ahead; a sane guest count;
- * houses of this homestay only; and only what the host allows.
+ * houses of this homestay only (and, for a group, only houses that hold it whole when any house
+ * of the homestay does: the model's own pick if it fits, else every house that fits);
+ * and only what the host allows.
  * `today` is billingTodayStr(). Returns null when nothing usable is left.
  */
 export function cleanIntent(
   raw: ModelReply["intent"],
-  ctx: { today: string; roomIds: string[]; permissions: GuestAiPermissions },
+  ctx: { today: string; roomIds: string[]; permissions: GuestAiPermissions; maxGuests?: Record<string, number> },
 ): GuestAiIntent | null {
   if (!raw) return null;
   const { today, roomIds, permissions } = ctx;
@@ -107,7 +109,14 @@ export function cleanIntent(
       ? raw.guests
       : null;
   const allowed = new Set(roomIds);
-  const room_ids = permissions.can_suggest_houses ? [...new Set(raw.room_ids)].filter((id) => allowed.has(id)) : [];
+  let room_ids = permissions.can_suggest_houses ? [...new Set(raw.room_ids)].filter((id) => allowed.has(id)) : [];
+  if (permissions.can_suggest_houses && guests !== null && ctx.maxGuests) {
+    const holds = (id: string) => (ctx.maxGuests?.[id] ?? 0) >= guests;
+    const picked = room_ids.filter(holds);
+    const anyFits = roomIds.filter(holds);
+    if (picked.length > 0) room_ids = picked;
+    else if (anyFits.length > 0) room_ids = anyFits;
+  }
 
   if (!check_in && guests === null && room_ids.length === 0) return null;
   return { check_in, check_out, guests, room_ids };
@@ -142,7 +151,14 @@ export const FALLBACK_REPLY = {
  */
 export function finalizeReply(
   raw: ModelReply,
-  ctx: { today: string; roomIds: string[]; permissions: GuestAiPermissions; allowedNumbers: string[]; locale: "th" | "en" },
+  ctx: {
+    today: string;
+    roomIds: string[];
+    maxGuests?: Record<string, number>;
+    permissions: GuestAiPermissions;
+    allowedNumbers: string[];
+    locale: "th" | "en";
+  },
 ): { response: GuestAiResponse; filtered: boolean } {
   const action = ctx.permissions.can_navigate ? raw.action : null;
   if (replyIsUnsafe(raw.reply, ctx.allowedNumbers)) {
@@ -151,8 +167,28 @@ export function finalizeReply(
       filtered: true,
     };
   }
+  const reply = ctx.locale === "th" ? femaleVoice(raw.reply.trim()) : raw.reply.trim();
   return {
-    response: { reply: raw.reply.trim(), answered: raw.answered, intent: cleanIntent(raw.intent, ctx), action },
+    response: { reply, answered: raw.answered, intent: cleanIntent(raw.intent, ctx), action },
     filtered: false,
   };
+}
+
+/**
+ * The language to answer in: the guest's own, read from the question (Thai script → Thai, Latin
+ * letters only → English), else the page's. The model did not follow "reply in the guest's language"
+ * reliably on a Thai page (live run 2026-11-19), so the server decides.
+ */
+export function replyLanguage(question: string, pageLocale: "th" | "en"): "th" | "en" {
+  if (/[\u0E00-\u0E7F]/.test(question)) return "th";
+  if (/[a-z]/i.test(question)) return "en";
+  return pageLocale;
+}
+
+/** One voice in Thai (owner, 2026-11-19): ค่ะ, คะ on a question, นะคะ. The prompt asks; this makes sure. */
+function femaleVoice(reply: string): string {
+  return reply
+    .replace(/นะครับ/g, "นะคะ")
+    .replace(/ครับ(?=\s*\?)/g, "คะ")
+    .replace(/ครับ/g, "ค่ะ");
 }

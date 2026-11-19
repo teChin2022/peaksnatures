@@ -242,9 +242,11 @@ From earlier sessions with the owner:
   assistant is approved and on. Phones: an outline "ถาม" button left of the
   bar's CTA (icon only, 52px, beside the chosen-house summary) and a Pine
   underlined "ถามผู้ช่วยของที่พัก" link under the date panel, both opening a
-  bottom sheet. From 768px: a Pine button in the bottom-right corner (above
-  the desktop dock while it shows) opening a non-modal 380px panel on the
-  right, no scrim; it pushes the page from 1024px. Replies are plain text;
+  bottom sheet. From 768px: an outline button (white, Line Strong border,
+  Pine icon; owner 2026-11-19, so Pine stays the booking CTA's alone) in the
+  bottom-right corner, above the desktop dock while it shows, opening a
+  non-modal 380px panel on the right, no scrim; it pushes the page from
+  1024px. Applied dates ring the date panel once. Replies are plain text;
   dates go through the cart and `dates-picked`, like the picker's Done.
 - **One house first (2026-11-15):** after a date picker's Done the house
   list shows one house (the one picked on the availability calendar, else

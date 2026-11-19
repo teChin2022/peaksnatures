@@ -6,6 +6,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const h = vi.hoisted(() => ({
   isMobile: false,
   cart: null as unknown,
+  /** Turnstile widgets rendered so far, with what they were given. */
+  widgets: [] as { onSuccess: (token: string) => void; options?: Record<string, unknown> }[],
 }));
 
 // Keys and their values stand in for the copy: this tests what is shown, not its wording.
@@ -17,7 +19,12 @@ vi.mock("next-intl", () => ({
 vi.mock("@/lib/use-is-mobile", () => ({ useIsMobile: () => h.isMobile }));
 vi.mock("./use-booking-bar-visible", () => ({ useBookingBarVisible: () => false }));
 vi.mock("./booking-cart-context", () => ({ useBookingCartOptional: () => h.cart }));
-vi.mock("@marsidev/react-turnstile", () => ({ Turnstile: () => null }));
+vi.mock("@marsidev/react-turnstile", () => ({
+  Turnstile: (props: { onSuccess: (token: string) => void; options?: Record<string, unknown> }) => {
+    h.widgets.push(props);
+    return null;
+  },
+}));
 
 import { GuestAiAssistant, GuestAiEntryLink, openGuestAi } from "./guest-ai-assistant";
 
@@ -48,6 +55,8 @@ let root: Root;
 let fetchMock: ReturnType<typeof vi.fn>;
 let picked: unknown[];
 const onPicked = (e: Event) => picked.push((e as CustomEvent).detail);
+let applied = 0;
+const onApplied = () => (applied += 1);
 
 const ok = (body: unknown) => ({ ok: true, status: 200, json: async () => body });
 const refused = (status: number, code: string) => ({ ok: false, status, json: async () => ({ code }) });
@@ -78,6 +87,7 @@ const bodyOf = (i: number) => JSON.parse((fetchMock.mock.calls[i][1] as RequestI
 beforeEach(() => {
   contact = { lineId: "monngo", phone: "099-000-1234" };
   h.isMobile = false;
+  h.widgets = [];
   h.cart = makeCart();
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -85,7 +95,9 @@ beforeEach(() => {
   fetchMock = vi.fn();
   vi.stubGlobal("fetch", fetchMock);
   picked = [];
+  applied = 0;
   document.addEventListener("dates-picked", onPicked);
+  document.addEventListener("dates-applied", onApplied);
 });
 
 afterEach(() => {
@@ -95,6 +107,7 @@ afterEach(() => {
   document.body.style.paddingRight = "";
   vi.unstubAllGlobals();
   document.removeEventListener("dates-picked", onPicked);
+  document.removeEventListener("dates-applied", onApplied);
 });
 
 describe("GuestAiAssistant", () => {
@@ -120,6 +133,8 @@ describe("GuestAiAssistant", () => {
     expect(bodyOf(0)).toEqual({ slug: "ing", question: "เสาร์อาทิตย์หน้า 4 คน", locale: "th", history: [], turnstileToken: "no-site-key" });
     const cart = h.cart as ReturnType<typeof makeCart>;
     expect(cart.dateRange).toEqual({ from: new Date(2026, 10, 28), to: new Date(2026, 10, 29) });
+    // The date panel rings once (DesktopDateSearch listens).
+    expect(applied).toBe(1);
 
     await rerender();
     // r1 was asked for but is booked; r2 is free and sleeps 4.
@@ -141,6 +156,35 @@ describe("GuestAiAssistant", () => {
     await rerender();
     expect(text()).not.toContain("allFree");
     expect(text()).toContain("ตอบแล้วค่ะ");
+  });
+
+  // Live Gemini run 2026-11-19: the first answer took 5–6 s, Turnstile starting only after Send.
+  it("runs Turnstile as the panel opens, so the first question goes out at once with the token", async () => {
+    vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "site-key");
+    try {
+      await render();
+      await act(async () => byText("title")!.click());
+      expect(h.widgets.length).toBeGreaterThan(0);
+      // Invisible unless Cloudflare needs the guest to click.
+      expect(h.widgets.at(-1)!.options).toMatchObject({ appearance: "interaction-only" });
+      await act(async () => h.widgets.at(-1)!.onSuccess("tok-early"));
+
+      fetchMock.mockResolvedValueOnce(ok(reply()));
+      await ask("มีที่จอดรถไหม");
+      expect(bodyOf(0).turnstileToken).toBe("tok-early");
+      expect(text()).not.toContain("verifying");
+
+      // A session that ran out needs a fresh token from a new widget: the used one is never sent twice.
+      fetchMock.mockResolvedValueOnce(refused(401, "verify")).mockResolvedValueOnce(ok(reply({ reply: "ตอบรอบสอง" })));
+      await ask("เช็คอินกี่โมง");
+      expect(fetchMock).toHaveBeenCalledTimes(2);
+      expect(text()).toContain("verifying");
+      await act(async () => h.widgets.at(-1)!.onSuccess("tok-fresh"));
+      expect(bodyOf(2).turnstileToken).toBe("tok-fresh");
+      expect(text()).toContain("ตอบรอบสอง");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 
   it("goes through Turnstile again when the session ran out, then asks once more", async () => {
@@ -271,5 +315,77 @@ describe("GuestAiAssistant", () => {
     expect(document.querySelector('[role="dialog"]')).toBeNull();
     await act(async () => openGuestAi());
     expect(document.querySelector('[role="dialog"]')?.textContent).toContain("title");
+    // Says what it cannot do, and leaves the keyboard down until the guest taps the field.
+    expect(text()).toContain("intro");
+    await act(async () => new Promise((r) => setTimeout(r, 60)));
+    expect(document.activeElement?.tagName).not.toBe("INPUT");
+  });
+
+  // Critique 2026-11-19 (second pass), P1: "เสาร์นี้ 3 คน" named C and D, which were taken; no card, no word why.
+  it("names only free houses that hold the group, says which suggested house is taken, and offers a free one", async () => {
+    h.cart = makeCart(undefined, ["r2"]);
+    await render();
+    await act(async () => byText("title")!.click());
+    fetchMock.mockResolvedValueOnce(ok(reply({ intent: { check_in: "2026-11-28", check_out: "2026-11-29", guests: 2, room_ids: ["r2"] } })));
+    await ask("เสาร์หน้า 2 คน");
+    await rerender();
+
+    // r2 sleeps 5 but is taken: the capacity line lists the free house only.
+    expect(text()).toContain("fitSome:2,บ้าน A");
+    expect(text()).toContain("suggestBusy:บ้าน B");
+    const list = document.querySelector('ul[aria-label="suggestTitle"]')!;
+    expect(list.textContent).toContain("บ้าน A");
+    expect(list.textContent).not.toContain("บ้าน B");
+    // With a priced card on show, the source line drops "prices on the cards".
+    expect(text()).toContain("sourceDates");
+  });
+
+  // Critique 2026-11-19 (second pass), P1: comparing two weekends lost the first one.
+  it("keeps an earlier stay one tap away after the guest moved to other dates", async () => {
+    await render();
+    await act(async () => byText("title")!.click());
+    fetchMock.mockResolvedValueOnce(ok(reply({ intent: { check_in: "2026-12-31", check_out: "2027-01-02", guests: 6, room_ids: [] } })));
+    await ask("ปีใหม่ 6 คน");
+    await rerender();
+    expect(text()).toContain("datesSet");
+
+    h.cart = makeCart({ from: new Date(2026, 10, 21), to: new Date(2026, 10, 22) });
+    await rerender();
+    expect(text()).toContain("proposeDates");
+    // No houses are chosen, so nothing would be removed: no warning.
+    expect(text()).not.toContain("proposeNote");
+    const cart = h.cart as ReturnType<typeof makeCart>;
+    await act(async () => byText("useTheseDates")!.click());
+    expect(cart.setDates).toHaveBeenCalledWith({ from: new Date(2026, 11, 31), to: new Date(2027, 0, 2) });
+  });
+
+  // Critique 2026-11-19 (second pass), P2: the newest answer landed out of view under the keyboard.
+  it("brings the newest answer into view, and on a phone puts the keyboard away after sending", async () => {
+    const scrolled: unknown[] = [];
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = function (this: Element, arg?: boolean | ScrollIntoViewOptions) {
+      scrolled.push(arg);
+    };
+    try {
+      h.isMobile = true;
+      await render();
+      await act(async () => openGuestAi());
+      const input = document.querySelector("input[type=text]") as HTMLInputElement;
+      input.focus();
+      fetchMock.mockResolvedValueOnce(ok(reply()));
+      await ask("มีที่จอดรถไหม");
+      expect(document.activeElement).not.toBe(input);
+      expect(scrolled.at(-1)).toMatchObject({ block: "nearest" });
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
+  });
+
+  // Critique 2026-11-19 (second pass), P2: WCAG 2.5.3 Label in Name on "เลือกบ้านพักนี้".
+  it("keeps the visible words at the start of the choose-house button's name, in both languages", async () => {
+    const th = (await import("../../../messages/th.json")).default.guestAiAsk;
+    const en = (await import("../../../messages/en.json")).default.guestAiAsk;
+    expect(th.chooseHouseAria.startsWith(th.chooseHouse)).toBe(true);
+    expect(en.chooseHouseAria.startsWith(en.chooseHouse)).toBe(true);
   });
 });

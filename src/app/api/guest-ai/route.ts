@@ -13,10 +13,12 @@ import {
   finalizeReply,
   guestAiRequestSchema,
   guestAiWalletFloor,
+  replyLanguage,
 } from "@/lib/guest-ai/rules";
-import { buildSystemPrompt, buildUserPrompt, type GuestAiFacts } from "@/lib/guest-ai/prompt";
+import { buildSystemPrompt, buildUserPrompt, housePriceFacts, type GuestAiFacts, type PricedRoomRow } from "@/lib/guest-ai/prompt";
 import { askGuestAi } from "@/lib/guest-ai/model";
 import { notifyHostAlert } from "@/lib/notifications";
+import { alertAdmins } from "@/lib/admin-alert";
 
 export const maxDuration = 30;
 
@@ -71,6 +73,8 @@ interface HomestayRow {
 }
 
 export async function POST(req: NextRequest) {
+  const started = performance.now();
+  const ms = () => Math.round(performance.now() - started);
   try {
     const limited = await rateLimit.check(req);
     if (limited) return limited;
@@ -92,11 +96,22 @@ export async function POST(req: NextRequest) {
     const host = homestay?.host ?? null;
     if (!homestay || !host || !isHostApproved(host)) return fail("unavailable", 404);
 
-    const { data: settingsData } = await sc
-      .from("host_ai_settings")
-      .select("status, enabled, can_answer, can_set_dates, can_suggest_houses, can_navigate, instructions, wallet_low_notified_at")
-      .eq("host_id", host.id)
-      .maybeSingle();
+    // The rest of what the reply needs, read together (each read used to wait for the one before).
+    const [{ data: settingsData }, blockState, { data: roomRows }] = await Promise.all([
+      sc
+        .from("host_ai_settings")
+        .select("status, enabled, can_answer, can_set_dates, can_suggest_houses, can_navigate, instructions, wallet_low_notified_at")
+        .eq("host_id", host.id)
+        .maybeSingle(),
+      hostBlockStateFrom(host.id, host, sc),
+      sc
+        .from("rooms")
+        .select(
+          "id, name, description, max_guests, quantity, price_per_night, room_seasonal_prices(name, start_date, end_date, price_per_night), room_special_prices(name, rule_type, weekdays, dates, start_date, end_date, surcharge, is_active)",
+        )
+        .eq("homestay_id", homestay.id)
+        .eq("is_active", true),
+    ]);
     const settings = settingsData as {
       status: string;
       enabled: boolean;
@@ -108,7 +123,8 @@ export async function POST(req: NextRequest) {
       wallet_low_notified_at: string | null;
     } | null;
     if (!settings || settings.status !== "approved" || !settings.enabled) return fail("unavailable", 404);
-    if (isHostBlocked(await hostBlockStateFrom(host.id, host, sc))) return fail("unavailable", 404);
+    if (isHostBlocked(blockState)) return fail("unavailable", 404);
+    const tLoaded = ms();
 
     // The guest's session: its random id is the cookie. A new one needs Turnstile.
     let sessionId = req.cookies.get(COOKIE)?.value ?? null;
@@ -149,6 +165,10 @@ export async function POST(req: NextRequest) {
       const last = settings.wallet_low_notified_at ? Date.parse(settings.wallet_low_notified_at) : 0;
       if (Date.now() - last > WALLET_NOTICE_MS) after(() => notifyWalletLow(sc, host.id));
     }
+    // Security review F-11: the platform cap is the money brake; admins hear when it bites (30-min throttle).
+    if (reserved === "platform_cap") {
+      after(() => alertAdmins("Guest AI: ครบเพดานคำตอบรวมของแพลตฟอร์มวันนี้แล้ว ผู้ช่วยหยุดตอบทุกที่พัก (/admin/guest-ai)", "guest-ai-platform-cap"));
+    }
     if (reserved !== "ok") {
       const [code, status] = RESERVE_REFUSAL[reserved as string] ?? (["failed", 500] as [Code, number]);
       const res = fail(code, status);
@@ -157,12 +177,14 @@ export async function POST(req: NextRequest) {
       return res;
     }
 
-    const { data: roomRows } = await sc
-      .from("rooms")
-      .select("id, name, description, max_guests, quantity")
-      .eq("homestay_id", homestay.id)
-      .eq("is_active", true);
-    const rooms = (roomRows ?? []) as { id: string; name: string; description: string | null; max_guests: number; quantity: number | null }[];
+    const tReserved = ms();
+    const rooms = (roomRows ?? []) as (PricedRoomRow & {
+      id: string;
+      name: string;
+      description: string | null;
+      max_guests: number;
+      quantity: number | null;
+    })[];
 
     const facts: GuestAiFacts = {
       name: homestay.name,
@@ -181,8 +203,11 @@ export async function POST(req: NextRequest) {
         description: richTextToPlainText(r.description),
         max_guests: r.max_guests,
         units: r.quantity ?? 1,
+        price: housePriceFacts(r, today),
       })),
     };
+    // The guest's language, not the page's: an English question on the Thai page gets English.
+    const language = replyLanguage(question, locale);
     const permissions = {
       can_answer: settings.can_answer,
       can_set_dates: settings.can_set_dates,
@@ -190,30 +215,53 @@ export async function POST(req: NextRequest) {
       can_navigate: settings.can_navigate,
     };
 
-    let raw;
+    let answer;
     try {
-      raw = await askGuestAi(
-        buildSystemPrompt({ today, locale, permissions }),
+      answer = await askGuestAi(
+        buildSystemPrompt({ today, locale: language, permissions }),
         buildUserPrompt({ facts, hostNotes: settings.instructions, question, history }),
       );
     } catch (err) {
-      console.error("[guest-ai] model call failed:", (err as Error).message);
+      console.error("[guest-ai] model call failed after", ms() - tReserved, "ms:", (err as Error).message);
       // Not the guest's fault: give the reply back to the caps.
       const { error } = await sc.rpc("release_guest_ai_reply" as never, reserveArgs as never);
       if (error) console.error("[guest-ai] release failed:", error.message);
       return fail("failed", 502);
     }
 
-    const { response, filtered } = finalizeReply(raw, {
+    const tModel = ms();
+    const { inputTokens, outputTokens } = answer;
+    // 087: real token counts per host and day, for the admin cost report. Not on the guest's clock.
+    after(async () => {
+      const { error } = await sc.rpc(
+        "record_guest_ai_tokens" as never,
+        { p_host: host.id, p_day: today, p_input: inputTokens, p_output: outputTokens } as never,
+      );
+      if (error) console.error("[guest-ai] token count failed:", error.message);
+    });
+
+    const { response, filtered } = finalizeReply(answer.reply, {
       today,
       roomIds: rooms.map((r) => r.id),
+      maxGuests: Object.fromEntries(rooms.map((r) => [r.id, r.max_guests])),
       permissions,
       allowedNumbers: host.phone ? [host.phone] : [],
-      locale,
+      locale: language,
     });
     // Which homestay only: the guest's words and the model's reply stay out of the logs.
-    if (filtered) console.warn("[guest-ai] reply withheld (link or number) for homestay", homestay.id);
+    if (filtered) {
+      console.warn("[guest-ai] reply withheld (link or number) for homestay", homestay.id);
+      // F-11: repeated withheld replies on one page can mean someone is probing it (or bad host notes).
+      after(() =>
+        alertAdmins(`Guest AI: ตัดคำตอบที่มีลิงก์หรือเลขบัญชีทิ้ง ที่พัก ${homestay.name} (${slug})`, `guest-ai-filtered:${homestay.id}`),
+      );
+    }
 
+    // Where a reply's time goes (no guest text): data, session + reserve, Gemini, total.
+    console.info(
+      `[guest-ai] timing load=${tLoaded}ms reserve=${tReserved - tLoaded}ms model=${tModel - tReserved}ms total=${ms()}ms` +
+        ` tokens=${inputTokens}/${outputTokens} answered=${response.answered} action=${response.action ?? "-"} filtered=${filtered}`,
+    );
     const res = NextResponse.json(response, { headers: NO_STORE });
     if (newSession) {
       res.cookies.set({

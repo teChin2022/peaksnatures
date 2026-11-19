@@ -840,7 +840,9 @@ test.describe("the guest AI assistant", () => {
     await expect(entry).toBeVisible({ timeout: 20_000 });
     await entry.click();
     const ask = page.getByLabel(G.inputLabel);
-    await expect(ask).toBeFocused();
+    // Focused on desktop; on phones the keyboard waits for a tap (critique 2026-11-19).
+    if (testInfo.project.name === "desktop") await expect(ask).toBeFocused();
+    else await expect(ask).not.toBeFocused();
     await ask.fill("เสาร์อาทิตย์หน้า 2 คน");
     await ask.press("Enter");
 
@@ -884,7 +886,8 @@ test.describe("the guest AI assistant", () => {
       await entry.click();
       await page.getByLabel(G.inputLabel).fill("อยากพักหลังที่เหมาะกับ 2 คน");
       await page.getByLabel(G.inputLabel).press("Enter");
-      await expect(page.getByText(G.source)).toBeVisible();
+      // With a priced card the source line drops "prices on the cards": its first part is in both.
+      await expect(page.getByText(G.sourceDates)).toBeVisible();
 
       const suggestions = page.getByRole("list", { name: G.suggestTitle });
       test.skip((await suggestions.count()) === 0, "needs a house free 75 days ahead");

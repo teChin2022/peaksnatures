@@ -9,6 +9,7 @@ const h = vi.hoisted(() => ({
   askGuestAi: vi.fn(),
   hostBlockStateFrom: vi.fn(),
   notifyHostAlert: vi.fn(),
+  alertAdmins: vi.fn(),
   afterCallbacks: [] as Array<() => unknown>,
 }));
 vi.mock("next/server", async (importOriginal) => ({
@@ -18,6 +19,7 @@ vi.mock("next/server", async (importOriginal) => ({
   },
 }));
 vi.mock("@/lib/notifications", () => ({ notifyHostAlert: h.notifyHostAlert }));
+vi.mock("@/lib/admin-alert", () => ({ alertAdmins: h.alertAdmins }));
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: vi.fn(),
   createServiceRoleClient: h.createServiceRoleClient,
@@ -66,13 +68,28 @@ const SETTINGS = {
   can_navigate: true,
   instructions: "จอดรถ 3 คัน",
 };
-const ROOMS = [{ id: "r1", name: "บ้าน A", description: null, max_guests: 5, quantity: 1 }];
+const ROOMS = [
+  {
+    id: "r1",
+    name: "บ้าน A",
+    description: null,
+    max_guests: 5,
+    quantity: 1,
+    price_per_night: 1500,
+    room_seasonal_prices: [{ name: "ปีใหม่", start_date: "2026-12-28", end_date: "2027-01-03", price_per_night: 2500 }],
+    room_special_prices: [],
+  },
+  { id: "r2", name: "บ้าน B", description: null, max_guests: 3, quantity: 1, price_per_night: 900 },
+];
 const MODEL: ModelReply = {
   reply: "เลือกวันให้แล้วค่ะ",
   answered: true,
   intent: { check_in: "2026-11-28", check_out: "2026-11-29", guests: 4, room_ids: ["r1", "not-ours"] },
   action: null,
 };
+
+/** What askGuestAi resolves to: the reply and its token counts (087). */
+const answer = (reply: ModelReply = MODEL) => ({ reply, inputTokens: 900, outputTokens: 80 });
 
 function wire(
   over: { homestay?: unknown; settings?: unknown; reserve?: QueryResponse; session?: QueryResponse; claim?: QueryResponse } = {},
@@ -104,7 +121,8 @@ beforeEach(() => {
   h.verifyTurnstileToken.mockReset().mockResolvedValue("pass");
   h.notifyHostAlert.mockReset().mockResolvedValue({ success: true, channel: "line" });
   h.afterCallbacks.length = 0;
-  h.askGuestAi.mockReset().mockResolvedValue(MODEL);
+  h.alertAdmins.mockReset().mockResolvedValue(undefined);
+  h.askGuestAi.mockReset().mockResolvedValue(answer());
   h.hostBlockStateFrom.mockReset().mockResolvedValue({
     plan_type: "commission",
     plan_free_expires_at: null,
@@ -222,16 +240,27 @@ describe("POST /api/guest-ai", () => {
     expect(sc.rpc).toHaveBeenCalledWith("release_guest_ai_reply", { p_session: SESSION, p_host: "host-1", p_day: "2026-11-19" });
   });
 
-  it("withholds a reply with an account number (F-03)", async () => {
+  it("withholds a reply with an account number (F-03) and tells the admins, throttled per homestay (F-11)", async () => {
     wire();
-    h.askGuestAi.mockResolvedValue({ ...MODEL, reply: "โอนมัดจำเข้า 123-4-56789-0 นะคะ" });
+    h.askGuestAi.mockResolvedValue(answer({ ...MODEL, reply: "โอนมัดจำเข้า 123-4-56789-0 นะคะ" }));
     const { body: got } = await readJson(await post(body(), `pn_guest_ai=${SESSION}`));
     expect(got).toEqual({ reply: FALLBACK_REPLY.th, answered: false, intent: null, action: "contact" });
+    for (const cb of h.afterCallbacks.splice(0)) await cb();
+    expect(h.alertAdmins).toHaveBeenCalledWith(expect.stringContaining("ม่อนเงาะ"), "guest-ai-filtered:hs-1");
+    // The admins hear the homestay, never the guest's words or the withheld reply.
+    expect(h.alertAdmins.mock.calls[0][0]).not.toContain("123-4-56789-0");
+  });
+
+  it("tells the admins when the platform cap stops every page (F-11)", async () => {
+    wire({ reserve: { data: "platform_cap" } });
+    expect((await post(body(), `pn_guest_ai=${SESSION}`)).status).toBe(429);
+    for (const cb of h.afterCallbacks.splice(0)) await cb();
+    expect(h.alertAdmins).toHaveBeenCalledWith(expect.any(String), "guest-ai-platform-cap");
   });
 
   it("keeps what the host turned off out of the answer", async () => {
     wire({ settings: { ...SETTINGS, can_suggest_houses: false, can_navigate: false } });
-    h.askGuestAi.mockResolvedValue({ ...MODEL, action: "contact" });
+    h.askGuestAi.mockResolvedValue(answer({ ...MODEL, action: "contact" }));
     const { body: got } = await readJson(await post(body(), `pn_guest_ai=${SESSION}`));
     expect(got).toMatchObject({ intent: { room_ids: [] }, action: null });
     expect(h.askGuestAi.mock.calls[0][0]).not.toContain("intent.room_ids");
@@ -304,5 +333,49 @@ describe("POST /api/guest-ai", () => {
     await post(body(), `pn_guest_ai=${SESSION}`);
     for (const cb of h.afterCallbacks.splice(0)) await cb();
     expect(h.notifyHostAlert).not.toHaveBeenCalled();
+  });
+
+  it("records the reply's real token counts for the cost report, after answering (087)", async () => {
+    const sc = wire();
+    expect((await post(body(), `pn_guest_ai=${SESSION}`)).status).toBe(200);
+    expect(sc.rpc).not.toHaveBeenCalledWith("record_guest_ai_tokens", expect.anything());
+    for (const cb of h.afterCallbacks.splice(0)) await cb();
+    expect(sc.rpc).toHaveBeenCalledWith("record_guest_ai_tokens", {
+      p_host: "host-1",
+      p_day: "2026-11-19",
+      p_input: 900,
+      p_output: 80,
+    });
+  });
+
+  it("logs where the time went, without the guest's words or the reply", async () => {
+    wire();
+    const info = vi.spyOn(console, "info").mockImplementation(() => {});
+    expect((await post(body(), `pn_guest_ai=${SESSION}`)).status).toBe(200);
+    const line = info.mock.calls.map((c) => String(c[0])).find((l) => l.startsWith("[guest-ai] timing"));
+    expect(line).toMatch(/load=\d+ms reserve=\d+ms model=\d+ms total=\d+ms tokens=900\/80 answered=true/);
+    expect(line).not.toContain(body().question);
+    expect(line).not.toContain(MODEL.reply);
+    info.mockRestore();
+  });
+
+  it("gives the model each house's per-night prices and drops suggestions too small for the group", async () => {
+    wire();
+    h.askGuestAi.mockResolvedValue(answer({ ...MODEL, intent: { check_in: null, check_out: null, guests: 4, room_ids: ["r2", "r1"] } }));
+    const { body: got } = await readJson(await post(body(), `pn_guest_ai=${SESSION}`));
+    expect((got as { intent: { room_ids: string[] } }).intent.room_ids).toEqual(["r1"]);
+    const prompt = h.askGuestAi.mock.calls[0][1] as string;
+    expect(prompt).toContain('"price":{"base_per_night":1500,"seasons":[{"name":"ปีใหม่","from":"2026-12-28","to":"2027-01-03","per_night":2500}],"surcharges":[]}');
+  });
+
+  it("answers an English question in English on the Thai page, fallback included", async () => {
+    wire();
+    await post(body({ question: "is there hot water?" }), `pn_guest_ai=${SESSION}`);
+    expect(h.askGuestAi.mock.calls[0][0]).toContain("Reply in English");
+
+    wire(); // the stub scripts one request's reads
+    h.askGuestAi.mockResolvedValue(answer({ ...MODEL, reply: "transfer to 123-4-56789-0" }));
+    const { body: got } = await readJson(await post(body({ question: "which account?" }), `pn_guest_ai=${SESSION}`));
+    expect((got as { reply: string }).reply).toBe(FALLBACK_REPLY.en);
   });
 });

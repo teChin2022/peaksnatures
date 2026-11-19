@@ -69,7 +69,19 @@ describe("PATCH /api/admin/guest-ai/config", () => {
     expect(sc.builderFor("platform_guest_ai_config").update).toHaveBeenCalledWith(expect.objectContaining({ price_per_reply: 0.25 }));
   });
 
+  it("sets the Gemini cost estimate per million tokens (087)", async () => {
+    const sc = signIn(mocks, {
+      tables: { platform_admins: { data: { name: "Root" } }, platform_guest_ai_config: { data: { enabled: true } } },
+    });
+    expect((await patch({ cost_in_per_mtok: 3.5, cost_out_per_mtok: 14 })).status).toBe(200);
+    expect(sc.builderFor("platform_guest_ai_config").update).toHaveBeenCalledWith(
+      expect.objectContaining({ cost_in_per_mtok: 3.5, cost_out_per_mtok: 14 }),
+    );
+  });
+
   it.each([
+    [{ cost_in_per_mtok: -1 }],
+    [{ cost_out_per_mtok: 100_001 }],
     [{}],
     [{ enabled: "no" }],
     [{ daily_cap: -1 }],

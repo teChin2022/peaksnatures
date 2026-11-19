@@ -188,15 +188,16 @@ export async function startSession(
       }
       if (guestAi) {
         // Shown for this page only, without an approved host row (migrations 084 / 085): in the
-        // payload, and in the HTML for the link under the dates, so hydration matches.
+        // payload, and in the HTML for the link under the dates, so hydration matches. A host whose
+        // assistant is really on already says true and on; both forms count as found.
         let replaced = 0;
-        html = html.replace(/(guestAiEnabled\\*"\s*:\s*)false/g, (_m, a: string) => {
+        html = html.replace(/(guestAiEnabled\\*"\s*:\s*)(?:false|true)/g, (_m, a: string) => {
           replaced += 1;
           return `${a}true`;
         });
         expect(replaced, "guestAiEnabled was not found in the page payload; has the Next.js payload format changed?").toBeGreaterThan(0);
         // The link under the dates is in the server HTML too, hidden by this attribute.
-        const links = html.split('data-guest-ai="off"').length - 1;
+        const links = html.split(/data-guest-ai="(?:off|on)"/).length - 1;
         html = html.replaceAll('data-guest-ai="off"', 'data-guest-ai="on"');
         expect(links, "the guest AI link was not found in the page HTML").toBeGreaterThan(0);
       }

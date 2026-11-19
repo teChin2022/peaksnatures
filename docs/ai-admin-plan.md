@@ -322,6 +322,15 @@ SQL ตรวจ RPC: anon / authenticated เรียกไม่ได้, �
 - รายงาน admin (`/peaksnature-ui` B → C → A, dense, English): จำนวนคำตอบ, token จริง,
   ค่า Gemini เทียบรายรับต่อ host
 
+**สถานะ (2026-11-19, ยังไม่ commit):**
+- ทำแล้ว: migration 087 (`input_tokens` / `output_tokens` ใน `ai_usage_daily`, `cost_in_per_mtok` /
+  `cost_out_per_mtok` ใน `platform_guest_ai_config`, RPC `record_guest_ai_tokens` service-role only)
+  route บันทึก token จริงจาก Gemini หลังตอบ (`after()`) หน้า `/admin/guest-ai` มีตาราง "Cost, last 30 days"
+  ต่อ host + รวม และช่องกรอกราคา ฿ ต่อ 1M token (เริ่มที่ 0 = ยังไม่คิด ไม่เดาราคาให้)
+- ต้องรัน 087 ก่อน deploy โค้ดชุดนี้ (route จะ log error ทุกคำตอบถ้ายังไม่มี RPC แต่แขกยังได้คำตอบ)
+  แล้วรัน `supabase/tests/087_guest_ai_tokens.sql`
+- ไม่ทำ: cron ลบ `ai_messages` เพราะไม่ได้เก็บข้อความแขก (ตัดสินแล้ว) ไม่มีอะไรให้ลบ
+
 ## ไม่อยู่ในแผนนี้
 
 - ปุ่มไมค์ / พูดแทนพิมพ์ (เจ้าของสั่งพักไว้ 2026-11-19)

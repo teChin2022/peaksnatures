@@ -77,19 +77,19 @@ cron ─▶ charge_ai_usage RPC ─▶ hosts.wallet_balance + wallet_transaction
 
 | ID | เรื่อง | ระดับ | CVSS | ความมั่นใจ | สถานะ |
 |---|---|---|---|---|---|
-| F-01 | Turnstile ปล่อยผ่านเมื่อไม่มี token → ยิงให้ host เสียเงินได้ไม่จำกัด | High | 8.2 | Confirmed (พฤติกรรมโค้ด) | Fixed in code (085, ยังไม่ commit) |
-| F-02 | หักเงินแบบเช็กก่อนหักทีหลัง → ยอดติดลบ → host ถูกบล็อก | Medium (ทำก่อน) | 6.5 | Likely | Fixed in code (086, ยังไม่ commit) |
-| F-03 | Prompt injection พา AI บอกเรื่องโอนเงิน / ลิงก์ปลอม | Medium (ทำก่อน) | 5.8 | Likely | Fixed in code (guest-ai route, ยังไม่ commit) |
-| F-04 | Mass assignment ใน route ตั้งค่า → host อนุมัติตัวเอง | Medium | 6.5 | Needs-verification | Fixed in code (084, ยังไม่ commit) |
-| F-05 | Rate limiter แยกตาม instance และอิง `x-forwarded-for` | Medium | 5.3 | Confirmed (โค้ด) / Needs-verification (XFF บน Vercel) | Open |
-| F-06 | ข้อมูลส่วนบุคคลในคำถาม → Gemini / log / ประวัติที่ host อ่าน | Medium | n/a (PDPA) | Likely | Open |
-| F-07 | ไม่มีเพดาน token / timeout ของ Gemini | Medium | 5.3 | Likely | Open |
-| F-08 | เชื่อ output ของ model เป็น URL / วันที่ / room id | Low | 3.1 | Likely | Open |
-| F-09 | คีย์ Gemini หลุดเข้า client bundle ได้ถ้า import ผิด | Low | n/a | Needs-verification | Open |
-| F-10 | context ของ AI สร้างจาก row `hosts` เต็มแถว | Low | n/a | Likely | Open |
-| F-11 | การแจ้งเตือนเมื่อใช้งานผิดปกติยังไม่มีในแผน | Low | n/a | Likely | Open |
-| F-12 | RLS / grant ของตารางใหม่ (checklist) | Info | n/a | – | Open |
-| P-01 | (ของเดิม) รีวิวแขกอยู่ใน prompt เดียวกับ `host.bank_name` ของระบบแปล | Low | 3.0 | Needs-verification | Open, นอกงานนี้ |
+| F-01 | Turnstile ปล่อยผ่านเมื่อไม่มี token → ยิงให้ host เสียเงินได้ไม่จำกัด | High | 8.2 | Confirmed (พฤติกรรมโค้ด) | Fixed (085, 50ad3d5) |
+| F-02 | หักเงินแบบเช็กก่อนหักทีหลัง → ยอดติดลบ → host ถูกบล็อก | Medium (ทำก่อน) | 6.5 | Likely | Fixed (086, 50ad3d5) |
+| F-03 | Prompt injection พา AI บอกเรื่องโอนเงิน / ลิงก์ปลอม | Medium (ทำก่อน) | 5.8 | Likely | Fixed (guest-ai route, 50ad3d5) |
+| F-04 | Mass assignment ใน route ตั้งค่า → host อนุมัติตัวเอง | Medium | 6.5 | Needs-verification | Fixed (084, 50ad3d5) |
+| F-05 | Rate limiter แยกตาม instance และอิง `x-forwarded-for` | Medium | 5.3 | Confirmed (โค้ด) / Needs-verification (XFF บน Vercel) | ตรวจแล้ว: Vercel เขียนทับ XFF เมื่อ Vercel เป็นด่านแรก ไม่ต้องแก้โค้ด (ดูรายละเอียด) |
+| F-06 | ข้อมูลส่วนบุคคลในคำถาม → Gemini / log / ประวัติที่ host อ่าน | Medium | n/a (PDPA) | Likely | Fixed in code: นโยบายฯ ข้อ 1.8 (ยังไม่ commit) |
+| F-07 | ไม่มีเพดาน token / timeout ของ Gemini | Medium | 5.3 | Likely | Fixed (model.ts, 50ad3d5) |
+| F-08 | เชื่อ output ของ model เป็น URL / วันที่ / room id | Low | 3.1 | Likely | Fixed (cleanIntent, 50ad3d5) |
+| F-09 | คีย์ Gemini หลุดเข้า client bundle ได้ถ้า import ผิด | Low | n/a | Needs-verification | Fixed in code: test สแกนไฟล์ "use client" (ยังไม่ commit) |
+| F-10 | context ของ AI สร้างจาก row `hosts` เต็มแถว | Low | n/a | Likely | Fixed (เลือก column เอง, 50ad3d5) |
+| F-11 | การแจ้งเตือนเมื่อใช้งานผิดปกติยังไม่มีในแผน | Low | n/a | Likely | Fixed in code: แจ้ง admin เมื่อชนเพดานแพลตฟอร์ม / ตัดคำตอบ (ยังไม่ commit) |
+| F-12 | RLS / grant ของตารางใหม่ (checklist) | Info | n/a | – | ตรวจแล้ว (supabase/tests/084–087) |
+| P-01 | (ของเดิม) รีวิวแขกอยู่ใน prompt เดียวกับ `host.bank_name` ของระบบแปล | Low | 3.0 | Needs-verification | Fixed in code: แปลรีวิวแยกคำขอ (ยังไม่ commit) |
 | P-02 | (ของเดิม) Turnstile fail-open ทั้งระบบ | Info | n/a | Confirmed | ยอมรับแล้ว |
 
 ## 5. รายละเอียด
@@ -186,6 +186,13 @@ cron ─▶ charge_ai_usage RPC ─▶ hosts.wallet_balance + wallet_transaction
 - **วิธีแก้:** สำหรับ route นี้ limiter เป็นแค่ชั้นแรก เพดานจริงคือ F-01 ข้อ 3 ใช้ key จาก
   `x-vercel-forwarded-for` / `x-real-ip` (ต้องตรวจกับเอกสาร Vercel ก่อน) และนับต่อ session token
   ด้วย ยืนยันว่า production ตั้ง `REDIS_URL` แล้ว
+- **ผลตรวจ (2026-11-19):** เอกสาร Vercel ระบุว่า Vercel เขียนทับ `X-Forwarded-For` จาก TCP connection
+  เองและทิ้งค่าที่ client ส่งมา เพื่อกันการปลอม IP ([Request headers](https://vercel.com/docs/headers/request-headers),
+  [honeypot guide](https://vercel.com/kb/guide/how-to-build-a-honeypot-with-vercel-web-application-firewall))
+  ดังนั้นค่าแรกของ XFF เชื่อได้ **ตราบใดที่ Vercel เป็นด่านแรก** ถ้าวาง Cloudflare หรือ CDN อื่นไว้หน้า Vercel
+  ค่านี้จะกลายเป็น IP ของ proxy ([Reverse proxy](https://vercel.com/docs/security/reverse-proxy)) ทุกคนจะใช้เพดานเดียวกัน
+  ไม่ได้แก้โค้ด เพราะเพดานเงินจริงอยู่ที่ session (F-01) และเพดานต่อวันใน DB ยังไม่ได้ตรวจว่า production ตั้ง `REDIS_URL`
+  และไม่มี proxy อยู่หน้า Vercel เจ้าของต้องยืนยันเอง
 
 ### F-06 — ข้อมูลส่วนบุคคลในคำถาม → Gemini / log / ประวัติที่ host อ่าน
 - **ระดับ:** Medium (PDPA, CVSS ไม่เหมาะกับเรื่องนี้)

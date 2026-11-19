@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { FALLBACK_REPLY, cleanIntent, finalizeReply, guestAiRequestSchema, replyIsUnsafe, type ModelReply } from "./rules";
+import { FALLBACK_REPLY, cleanIntent, finalizeReply, guestAiRequestSchema, replyLanguage, replyIsUnsafe, type ModelReply } from "./rules";
 
 const ALL = { can_answer: true, can_set_dates: true, can_suggest_houses: true, can_navigate: true };
 const ctx = { today: "2026-11-19", roomIds: ["r1", "r2"], permissions: ALL };
@@ -12,6 +12,19 @@ const intent = (over: Partial<NonNullable<ModelReply["intent"]>> = {}) => ({
 });
 
 describe("cleanIntent (F-08)", () => {
+  // Live Gemini run 2026-11-19: "เสาร์อาทิตย์หน้า 4 คน" got D and C (3 guests each) as cards ahead
+  // of the family house (5), the only one that holds the group.
+  it("suggests only houses that hold the whole group when any does", () => {
+    const rooms = { roomIds: ["d", "c", "family"], maxGuests: { d: 3, c: 3, family: 5 } };
+    expect(cleanIntent(intent({ guests: 4, room_ids: ["d", "c", "family"] }), { ...ctx, ...rooms })?.room_ids).toEqual(["family"]);
+    // Live run 2026-11-19: A + B (2 each) picked for 4 while the family house holds them all.
+    expect(cleanIntent(intent({ guests: 4, room_ids: ["d", "c"] }), { ...ctx, ...rooms })?.room_ids).toEqual(["family"]);
+    // No single house fits: several houses in one booking are fine, so the model's pick stays.
+    expect(cleanIntent(intent({ guests: 8, room_ids: ["d", "c"] }), { ...ctx, ...rooms })?.room_ids).toEqual(["d", "c"]);
+    // No group size: nothing to filter by.
+    expect(cleanIntent(intent({ guests: null, room_ids: ["d", "family"] }), { ...ctx, ...rooms })?.room_ids).toEqual(["d", "family"]);
+  });
+
   it("keeps a real stay, the guests and this homestay's houses", () => {
     expect(cleanIntent(intent(), ctx)).toEqual({ check_in: "2026-11-28", check_out: "2026-11-29", guests: 4, room_ids: ["r2"] });
   });
@@ -109,5 +122,34 @@ describe("guestAiRequestSchema", () => {
     [{ ...ok, host_id: "someone" }],
   ])("refuses %j", (body) => {
     expect(guestAiRequestSchema.safeParse(body).success).toBe(false);
+  });
+});
+
+// Live run 2026-11-19: "is there hot water and how much per night?" was answered in Thai on the Thai page.
+describe("replyLanguage", () => {
+  it("answers in English when the guest wrote English, whatever the page", () => {
+    expect(replyLanguage("is there hot water and how much per night?", "th")).toBe("en");
+  });
+  it("answers in Thai when the question has any Thai", () => {
+    expect(replyLanguage("มี wifi ไหม", "en")).toBe("th");
+  });
+  it("follows the page when the question has no letters", () => {
+    expect(replyLanguage("28/11 - 29/11 4", "th")).toBe("th");
+    expect(replyLanguage("28/11 - 29/11 4", "en")).toBe("en");
+  });
+});
+
+// Owner 2026-11-19: one voice, ค่ะ. Live runs mixed ค่ะ and ครับ even with the prompt rule.
+describe("finalizeReply's Thai voice", () => {
+  const raw = (reply: string): ModelReply => ({ reply, answered: true, intent: null, action: null });
+  const th = { today: "2026-11-19", roomIds: [], permissions: ALL, allowedNumbers: [], locale: "th" as const };
+
+  it("turns ครับ into ค่ะ, and into คะ on a question", () => {
+    expect(finalizeReply(raw("มีที่จอดรถครับ เข้าพักได้ 14:00 น.ครับ"), th).response.reply).toBe("มีที่จอดรถค่ะ เข้าพักได้ 14:00 น.ค่ะ");
+    expect(finalizeReply(raw("มากี่ท่านครับ? แจ้งได้เลยนะครับ"), th).response.reply).toBe("มากี่ท่านคะ? แจ้งได้เลยนะคะ");
+  });
+
+  it("leaves English replies alone", () => {
+    expect(finalizeReply(raw("Yes, there is parking."), { ...th, locale: "en" }).response.reply).toBe("Yes, there is parking.");
   });
 });

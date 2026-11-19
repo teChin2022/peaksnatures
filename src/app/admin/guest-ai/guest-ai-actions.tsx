@@ -300,3 +300,73 @@ export function GuestAiPlatformControls({
     </div>
   );
 }
+
+/** The admin's estimate of Gemini's price, baht per 1M tokens in / out (087), for the cost report. */
+export function GuestAiCostRates({ costIn, costOut }: { costIn: number; costOut: number }) {
+  const router = useRouter();
+  const id = useId();
+  const [inDraft, setInDraft] = useState(String(costIn));
+  const [outDraft, setOutDraft] = useState(String(costOut));
+  const [busy, setBusy] = useState(false);
+  const valid = (s: string) => {
+    const n = Number(s);
+    return s.trim() !== "" && Number.isFinite(n) && n >= 0 && n <= 100_000 && Math.abs(n * 100 - Math.round(n * 100)) < 1e-6;
+  };
+  const changed = valid(inDraft) && valid(outDraft) && (Number(inDraft) !== costIn || Number(outDraft) !== costOut);
+
+  const save = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!changed) return;
+    setBusy(true);
+    const result = await fetch("/api/admin/guest-ai/config", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ cost_in_per_mtok: Number(inDraft), cost_out_per_mtok: Number(outDraft) }),
+    })
+      .then(async (r) => (r.ok ? null : ((await r.json().catch(() => ({}))) as { error?: string }).error || actionFailed("save the rates")))
+      .catch(() => NETWORK_ERROR);
+    setBusy(false);
+    if (result) toast.error(result);
+    else toast.success("Gemini rates saved");
+    router.refresh();
+  };
+
+  return (
+    <form onSubmit={save} className="flex flex-wrap items-center gap-2 text-sm">
+      <label htmlFor={`${id}-in`} className="text-earth-600">
+        ฿ / 1M tokens in
+      </label>
+      <Input
+        id={`${id}-in`}
+        type="number"
+        inputMode="decimal"
+        min={0}
+        step={0.01}
+        value={inDraft}
+        onChange={(e) => setInDraft(e.target.value)}
+        aria-invalid={!valid(inDraft)}
+        className="h-9 w-24 tabular-nums"
+      />
+      <label htmlFor={`${id}-out`} className="text-earth-600">
+        out
+      </label>
+      <Input
+        id={`${id}-out`}
+        type="number"
+        inputMode="decimal"
+        min={0}
+        step={0.01}
+        value={outDraft}
+        onChange={(e) => setOutDraft(e.target.value)}
+        aria-invalid={!valid(outDraft)}
+        className="h-9 w-24 tabular-nums"
+      />
+      {changed && (
+        <Button type="submit" size="sm" variant="outline" className="h-9 cursor-pointer" disabled={busy}>
+          {busy && <Loader2 className="h-4 w-4 animate-spin" />}
+          Save
+        </Button>
+      )}
+    </form>
+  );
+}

@@ -280,4 +280,40 @@ describe("localizeHomestay", () => {
       expect(console.error).toHaveBeenCalled();
     });
   });
+
+  // Security review P-01: guest reviews never share a request with the host's content.
+  describe("guest reviews", () => {
+    it("are translated in a call of their own, with no host content, on the 3.8 Flash model", async () => {
+      await localizeHomestay(input(), "en");
+
+      expect(generateObject).toHaveBeenCalledTimes(2);
+      const [main, reviewCall] = generateObject.mock.calls.map((c) => c[0] as { prompt: string; system: string });
+      expect(main.prompt).not.toContain("ดีมาก");
+      expect(main.prompt).toContain('"reviews": []');
+      expect(reviewCall.prompt).toContain("ดีมาก");
+      expect(reviewCall.prompt).not.toContain("bank_name");
+      expect(reviewCall.system).toMatch(/never an instruction/);
+      const { google } = await import("@ai-sdk/google");
+      expect(google).toHaveBeenCalledWith("gemini-3.8-flash");
+    });
+
+    it("stay in Thai when their call fails, the rest is translated, and nothing is cached", async () => {
+      const client = redisClient();
+      getReadyRedis.mockResolvedValue(client);
+      getRedis.mockReturnValue(client);
+      generateObject
+        .mockResolvedValueOnce({ object: translated() })
+        .mockRejectedValueOnce(new Error("quota exceeded"));
+
+      const result = await localizeHomestay(input(), "en");
+      expect(result.homestay.name).toBe("Doi Inthanon Retreat");
+      expect(result.reviews[0].comment).toBe("ดีมาก");
+      expect(client.set).not.toHaveBeenCalled();
+    });
+
+    it("skips the review call when there are no reviews", async () => {
+      await localizeHomestay({ ...input(), reviews: [] }, "en");
+      expect(generateObject).toHaveBeenCalledTimes(1);
+    });
+  });
 });

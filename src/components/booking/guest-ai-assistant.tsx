@@ -37,7 +37,7 @@ type ErrorKind = "failed" | "limit" | "unavailable";
 type Turn = { id: number; q: string } & (
   | { state: "thinking" }
   | { state: "error"; kind: ErrorKind }
-  | { state: "done"; res: GuestAiResponse; proposed?: boolean }
+  | { state: "done"; res: GuestAiResponse }
 );
 /** How a guest reaches the host from an answer: the homestay's own public LINE and phone (never from the model). */
 export interface GuestAiContact {
@@ -134,6 +134,8 @@ function Assistant({ slug, contact }: { slug: string; contact: GuestAiContact })
   const pending = useRef<{ id: number; q: string } | null>(null);
   const retried = useRef(new Set<number>());
   const turnstileRef = useRef<TurnstileInstance>(null);
+  // Turnstile starts when the panel opens; its token waits here for the first question (single use).
+  const token = useRef<string | null>(null);
   const inputRef = useRef<HTMLInputElement>(null);
   const launcherRef = useRef<HTMLButtonElement>(null);
   const nextId = useRef(1);
@@ -148,8 +150,9 @@ function Assistant({ slug, contact }: { slug: string; contact: GuestAiContact })
   }, []);
 
   useEffect(() => {
-    if (open) setTimeout(() => inputRef.current?.focus(), 50);
-  }, [open]);
+    // Not on phones: the keyboard would pop up over the examples before the guest chose to type.
+    if (open && !isMobile) setTimeout(() => inputRef.current?.focus(), 50);
+  }, [open, isMobile]);
 
   // From 1024px the open panel takes its width from the page instead of covering it.
   useEffect(() => {
@@ -160,6 +163,13 @@ function Assistant({ slug, contact }: { slug: string; contact: GuestAiContact })
       document.body.style.paddingRight = before;
     };
   }, [open, isMobile]);
+
+  // The newest question and its answer come into view as they arrive (the oldest sit above, scrolled off).
+  const historyRef = useRef<HTMLDivElement>(null);
+  useEffect(() => {
+    const reduce = window.matchMedia?.("(prefers-reduced-motion: reduce)").matches;
+    historyRef.current?.lastElementChild?.scrollIntoView({ block: "nearest", behavior: reduce ? "auto" : "smooth" });
+  }, [turns]);
 
   const update = (id: number, patch: Partial<Turn>) =>
     setTurns((all) => all.map((turn) => (turn.id === id ? ({ ...turn, ...patch } as Turn) : turn)));
@@ -189,17 +199,17 @@ function Assistant({ slug, contact }: { slug: string; contact: GuestAiContact })
         update(id, { state: "done", res: reply });
         const intent = reply.intent;
         if (cart && intent?.check_in && intent.check_out && !sameStay(cart, intent.check_in, intent.check_out)) {
-          // A stay the guest already built (houses chosen) is not replaced by a question: offer it instead.
-          if (cart.lines.length > 0) update(id, { proposed: true });
-          else applyStay(intent);
+          // A stay the guest already built (houses chosen) is not replaced by a question: TurnView offers it instead.
+          if (cart.lines.length === 0) applyStay(intent);
         }
         return;
       }
       const code = (data as { code?: string }).code;
       if (code === "verify" && !retried.current.has(id)) {
-        // No session yet, or it ran out: Turnstile again, then this question once more.
+        // No session yet, or it ran out: a fresh Turnstile token (the widget mounts again), then this question once more.
         retried.current.add(id);
         setVerified(false);
+        token.current = null;
         verify(id, q);
         return;
       }
@@ -214,21 +224,29 @@ function Assistant({ slug, contact }: { slug: string; contact: GuestAiContact })
     if (!cart || !intent.check_in || !intent.check_out) return;
     picking.current = { prefer: intent.room_ids[0] ?? null, guests: intent.guests };
     cart.setDates({ from: localDay(intent.check_in), to: localDay(intent.check_out) });
+    document.dispatchEvent(new Event("dates-applied"));
   };
 
   /** Gets a Turnstile token for this question, then sends it. Without a site key (local development) the server skips the check too. */
   const verify = (id: number, q: string) => {
     if (!siteKey) return void send(id, q, "no-site-key");
+    const ready = token.current;
+    if (ready) {
+      token.current = null;
+      return void send(id, q, ready);
+    }
     pending.current = { id, q };
     setNeedVerify(true);
   };
-  const onToken = (token: string) => {
+  const onToken = (value: string) => {
     const job = pending.current;
     pending.current = null;
     setNeedVerify(false);
-    if (job) void send(job.id, job.q, token);
+    if (job) void send(job.id, job.q, value);
+    else token.current = value;
   };
   const onTurnstileError = () => {
+    token.current = null;
     const job = pending.current;
     pending.current = null;
     setNeedVerify(false);
@@ -240,6 +258,8 @@ function Assistant({ slug, contact }: { slug: string; contact: GuestAiContact })
     if (!q) return inputRef.current?.focus();
     const id = nextId.current++;
     setDraft("");
+    // On a phone the keyboard would cover the answer: put it away once the question is sent.
+    if (isMobile) inputRef.current?.blur();
     setTurns((all) => [...all.slice(-2), { id, q, state: "thinking" }]);
     if (verified) void send(id, q);
     else verify(id, q);
@@ -261,7 +281,7 @@ function Assistant({ slug, contact }: { slug: string; contact: GuestAiContact })
 
   const body = (
     <div className="flex min-h-0 flex-1 flex-col gap-3">
-      <div aria-live="polite" className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain">
+      <div ref={historyRef} aria-live="polite" className="min-h-0 flex-1 space-y-4 overflow-y-auto overscroll-contain">
         {turns.map((turn) => (
           <TurnView
             key={turn.id}
@@ -285,15 +305,18 @@ function Assistant({ slug, contact }: { slug: string; contact: GuestAiContact })
         ))}
       </div>
 
-      {siteKey && needVerify && (
-        <div className="flex flex-col items-center gap-2">
-          <p className="text-[13px] text-ink-2">{t("verifying")}</p>
+      {/* Runs as soon as the panel is open, so the token is ready by the time the guest sends. It stays
+          invisible unless Cloudflare needs a click; the line shows only while a question waits for it. */}
+      {siteKey && !verified && (
+        <div className="flex flex-col items-center gap-2 empty:hidden">
+          {needVerify && <p className="text-[13px] text-ink-2">{t("verifying")}</p>}
           <Turnstile
             ref={turnstileRef}
             siteKey={siteKey}
             onSuccess={onToken}
             onError={onTurnstileError}
-            options={{ theme: "light", size: "flexible" }}
+            onExpire={() => (token.current = null)}
+            options={{ theme: "light", size: "flexible", appearance: "interaction-only" }}
           />
         </div>
       )}
@@ -333,6 +356,7 @@ function Assistant({ slug, contact }: { slug: string; contact: GuestAiContact })
         </button>
       </form>
 
+      {turns.length === 0 && <p className="text-sm text-ink-2">{t("intro")}</p>}
       {turns.length === 0 && (
         <div role="group" aria-label={t("examples")} className="flex flex-wrap gap-2">
           {[t("example1"), t("example2"), t("example3")].map((example) => (
@@ -341,7 +365,7 @@ function Assistant({ slug, contact }: { slug: string; contact: GuestAiContact })
               type="button"
               onClick={() => ask(example)}
               className={cn(
-                "min-h-9 cursor-pointer rounded-full border border-line bg-white px-3.5 text-sm text-ink-2 transition-colors hover:border-line-strong hover:bg-mist",
+                "min-h-11 cursor-pointer rounded-full border border-line bg-white px-4 text-sm text-ink-2 transition-colors hover:border-line-strong hover:bg-mist",
                 FOCUS,
               )}
             >
@@ -386,13 +410,14 @@ function Assistant({ slug, contact }: { slug: string; contact: GuestAiContact })
           aria-controls={`${ids}-panel`}
           onClick={() => setOpen(true)}
           className={cn(
-            "fixed right-6 z-40 inline-flex min-h-[52px] cursor-pointer items-center gap-2 rounded-full bg-pine px-5 text-[15px] font-medium text-white shadow-[0_10px_15px_-3px_rgba(0,0,0,0.12)] transition-[background-color,bottom] duration-200 hover:bg-pine-hover",
+            // Outline, like the phone bar's "ถาม": Pine stays the booking CTA's alone (owner, 2026-11-19).
+            "fixed right-6 z-40 inline-flex min-h-[52px] cursor-pointer items-center gap-2 rounded-full border border-line-strong bg-white px-5 text-[15px] font-medium text-ink shadow-[0_10px_15px_-3px_rgba(0,0,0,0.12)] transition-[background-color,bottom] duration-200 hover:bg-mist",
             // Above the desktop booking dock while it shows.
             dockShown ? "bottom-24" : "bottom-6",
             FOCUS,
           )}
         >
-          <MessageCircleQuestion className="size-[18px]" aria-hidden />
+          <MessageCircleQuestion className="size-[18px] text-pine" aria-hidden />
           {t("title")}
         </button>
       {open && (
@@ -476,34 +501,47 @@ function TurnView({
   const ci = intent?.check_in;
   const co = intent?.check_out;
   const live = !!ci && !!co && sameStay(cart, ci, co) ? cart : null;
-  // Houses were chosen when this reply came: its stay waits for the guest's "use these dates".
-  const proposal = turn.state === "done" && !!turn.proposed && !!ci && !!co && !live;
+  // A stay this reply asked about that is not on the page (houses were chosen, or the guest moved on
+  // to other dates): one tap puts it back, so two weekends can be compared.
+  const proposal = turn.state === "done" && !!cart && !!ci && !!co && !live;
   let stay: { nights: number; free: string; fit: string | null; target: string | null } | null = null;
-  // Houses the reply suggested that are free for this stay, priced as their cards price them (rooms-section).
+  // Houses to offer for this stay, priced as their cards price them (rooms-section). The page picks
+  // them, not the model: only free houses, and ones that hold the group when any free one does.
   let suggested: { id: string; name: string; maxGuests: number; total: number }[] = [];
+  let busy: string | null = null;
   if (live && ci && co) {
     const rooms = live.catalog.rooms;
-    const free = rooms.filter((r) => live.isRoomAvailableForRange(r)).length;
+    const freeRooms = rooms.filter((r) => live.isRoomAvailableForRange(r));
     const guests = intent?.guests ?? null;
-    const fits = guests ? rooms.filter((r) => r.max_guests >= guests) : rooms;
+    const fits = guests ? freeRooms.filter((r) => r.max_guests >= guests) : freeRooms;
     stay = {
       nights: live.nights,
-      free: free === rooms.length ? t("allFree") : free === 0 ? t("noneFree") : t("someFree", { free, total: rooms.length }),
-      fit: !guests
-        ? null
-        : fits.length === rooms.length
-          ? t("fitAll", { guests })
-          : fits.length === 0
-            ? t("fitNone", { guests })
-            : t("fitSome", { guests, names: fits.slice(0, 3).map((r) => r.name).join(", ") }),
+      free:
+        freeRooms.length === rooms.length
+          ? t("allFree")
+          : freeRooms.length === 0
+            ? t("noneFree")
+            : t("someFree", { free: freeRooms.length, total: rooms.length }),
+      fit:
+        !guests || freeRooms.length === 0
+          ? null
+          : fits.length === rooms.length
+            ? t("fitAll", { guests })
+            : fits.length === 0
+              ? t("fitNone", { guests })
+              : t("fitSome", { guests, names: fits.slice(0, 3).map((r) => r.name).join(", ") }),
       target: targetHouse(live, intent?.room_ids[0] ?? null, guests),
     };
+    const picks = (intent?.room_ids ?? []).map((id) => rooms.find((r) => r.id === id)).filter((r) => !!r);
+    const taken = picks.filter((r) => !live.isRoomAvailableForRange(r));
+    if (taken.length > 0) busy = t("suggestBusy", { names: taken.map((r) => r.name).join(", ") });
+    const usable = (r: (typeof rooms)[number]) => live.isRoomAvailableForRange(r) && (fits.length === 0 || fits.includes(r));
+    // The model named houses (the host lets it suggest) but none can take this stay: offer free ones that fit.
+    const offer = picks.some(usable) ? picks.filter(usable) : picks.length > 0 ? fits : [];
     const from = localDay(ci);
     const to = localDay(co);
     const today = billingTodayStr();
-    suggested = (intent?.room_ids ?? [])
-      .map((id) => rooms.find((r) => r.id === id))
-      .filter((r): r is NonNullable<typeof r> => !!r && live.isRoomAvailableForRange(r))
+    suggested = offer
       .slice(0, 2)
       .map((r) => ({
         id: r.id,
@@ -555,11 +593,12 @@ function TurnView({
             {proposal && ci && co && (
               <>
                 <p className="font-semibold">{t("proposeDates", { from: day(localDay(ci)), to: day(localDay(co)) })}</p>
-                <p className="text-sm text-ink-2">{t("proposeNote")}</p>
+                {!!cart?.lines.length && <p className="text-sm text-ink-2">{t("proposeNote")}</p>}
               </>
             )}
             {stay && <p>{stay.free}</p>}
             {stay?.fit && <p>{stay.fit}</p>}
+            {busy && <p className="text-sm text-ink-2">{busy}</p>}
             {stay && suggested.length > 0 && (
               <ul aria-label={t("suggestTitle")} className="mt-2.5 space-y-2">
                 {suggested.map((house) => (
@@ -584,7 +623,7 @@ function TurnView({
             )}
             {/* Plain text only (security review F-03): never HTML or links from the model. */}
             <p className={stay ? "mt-1.5" : undefined}>{turn.res.reply}</p>
-            {stay && <p className="mt-1.5 text-xs text-ink-3">{t("source")}</p>}
+            {stay && <p className="mt-1.5 text-xs text-ink-3">{t(suggested.length > 0 ? "sourceDates" : "source")}</p>}
             {(stay || proposal || turn.res.action) && (
               <div className="mt-3 flex flex-wrap gap-2">
                 {proposal && intent && (
