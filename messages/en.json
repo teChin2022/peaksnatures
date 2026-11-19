@@ -2376,7 +2376,7 @@
     "example1": "Next weekend, 2 people",
     "example2": "What time is check-in?",
     "example3": "Is there parking?",
-    "note": "The AI assistant (Google Gemini) answers from this homestay's details and can make mistakes. Prices and availability are always on this page. We don't keep your questions.",
+    "note": "The AI assistant answers from this homestay's details and can make mistakes. Prices and availability are always on this page. We don't keep your questions.",
     "you": "You asked:",
     "thinking": "Finding an answer",
     "verifying": "Checking before sending your question",
