@@ -23,6 +23,7 @@ import {
   TrendingUp,
   Star,
   type LucideIcon,
+  MessageCircleQuestion,
 } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Sheet, SheetContent, SheetDescription, SheetTitle } from "@/components/ui/sheet";
@@ -35,6 +36,7 @@ export type NavCounts = {
   overdueInvoices: number;
   unsettledPayments: number;
   staleDateChanges: number;
+  guestAiRequests: number;
 };
 
 type NavItem = { key: string; href: string; icon: LucideIcon; count?: keyof NavCounts; countLabel?: string };
@@ -45,6 +47,7 @@ const NAV_GROUPS: { label: string; items: NavItem[] }[] = [
     items: [
       { key: "Overview", href: "/admin", icon: LayoutDashboard },
       { key: "Hosts", href: "/admin/hosts", icon: Users, count: "pendingHosts", countLabel: "waiting for approval" },
+      { key: "Guest AI", href: "/admin/guest-ai", icon: MessageCircleQuestion, count: "guestAiRequests", countLabel: "waiting for approval" },
       { key: "Homestays", href: "/admin/homestays", icon: Home },
       { key: "Bookings", href: "/admin/bookings", icon: CalendarDays },
       { key: "Date changes", href: "/admin/bookings/date-changes", icon: CalendarClock, count: "staleDateChanges", countLabel: "waiting on hosts" },

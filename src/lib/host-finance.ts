@@ -13,8 +13,11 @@ export type ExpenseCategory = (typeof EXPENSE_CATEGORIES)[number];
 /** Same income rule as the dashboard overview (src/app/dashboard/page.tsx): change both together. */
 export const REVENUE_STATUSES = ["confirmed", "completed"] as const;
 
-/** Wallet rows that are platform charges: commissions (negative) and their refunds (positive). */
-export const PLATFORM_FEE_TX_TYPES = ["commission", "refund"] as const;
+/**
+ * Wallet rows that are platform charges: commissions (negative), their refunds (positive), and
+ * guest AI replies charged per day (086, negative).
+ */
+export const PLATFORM_FEE_TX_TYPES = ["commission", "refund", "ai_usage"] as const;
 
 /** YYYY-MM, months 01–12. */
 export const MONTH_RE = /^\d{4}-(0[1-9]|1[0-2])$/;
@@ -39,7 +42,7 @@ export function monthBounds(month: string) {
 
 export interface MonthSummaryInput {
   bookings: { total_price: number }[];
-  walletRows: { amount: number }[];
+  walletRows: { amount: number; type: string }[];
   invoices: { amount: number }[];
   expenses: { category: string; amount: number }[];
 }
@@ -50,6 +53,8 @@ export interface MonthSummary {
   commission: number;
   /** Fixed Rate invoices paid this month. */
   planFees: number;
+  /** Guest AI assistant charges (086). */
+  aiFees: number;
   totalExpenses: number;
   net: number;
 }
@@ -61,14 +66,16 @@ const sum = (rows: { amount: number }[]) => rows.reduce((s, r) => s + Number(r.a
 /** Sums rows the route has already narrowed to the month. */
 export function summarizeMonth({ bookings, walletRows, invoices, expenses }: MonthSummaryInput): MonthSummary {
   const revenue = round2(bookings.reduce((s, b) => s + Number(b.total_price), 0));
-  const commission = round2(-sum(walletRows));
+  const commission = round2(-sum(walletRows.filter((r) => r.type !== "ai_usage")));
+  const aiFees = round2(-sum(walletRows.filter((r) => r.type === "ai_usage")));
   const planFees = round2(sum(invoices));
   const totalExpenses = round2(sum(expenses));
   return {
     revenue,
     commission,
     planFees,
+    aiFees,
     totalExpenses,
-    net: round2(revenue - commission - planFees - totalExpenses),
+    net: round2(revenue - commission - planFees - aiFees - totalExpenses),
   };
 }

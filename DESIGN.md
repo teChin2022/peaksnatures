@@ -448,6 +448,10 @@ not bubbly.
   dates on a second line and always reopens the date picker. A house chosen
   for a full stay: the houses, total and dates on the left, Forest "จองเลย"
   on the right, straight to the guest details.
+  With the guest AI assistant on (2026-11-19), an outline "ถาม" pill sits at
+  the left of both states (icon only, 52px, beside the summary) and opens the
+  assistant's bottom sheet; from 768px the assistant opens from a Pine
+  corner button into a non-modal right panel (380px, no scrim).
 - **Host dashboard:** collapsible sidebar from `lg`; below it a 56px top bar
   with a menu button (44px target) and a drawer. Active item: Forest icon and
   text.

@@ -41,5 +41,5 @@ export async function ownerHost() {
   if (!host) {
     return NextResponse.json({ error: "Host not found" }, { status: 404 });
   }
-  return { sc, hostId: (host as { id: string }).id };
+  return { sc, hostId: (host as { id: string }).id, userId: user.id };
 }

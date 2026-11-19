@@ -37,7 +37,7 @@ export async function GET(req: NextRequest) {
             .lt("check_in", to),
       sc
         .from("wallet_transactions")
-        .select("amount")
+        .select("amount, type")
         .eq("host_id", hostId)
         .in("type", [...PLATFORM_FEE_TX_TYPES])
         .gte("created_at", fromTs)
@@ -68,7 +68,7 @@ export async function GET(req: NextRequest) {
     const rows = (expenses.data as { id: string; spent_on: string; category: string; amount: number; note: string | null }[] | null) ?? [];
     const summary = summarizeMonth({
       bookings: (bookings.data as { total_price: number }[] | null) ?? [],
-      walletRows: (wallet.data as { amount: number }[] | null) ?? [],
+      walletRows: (wallet.data as { amount: number; type: string }[] | null) ?? [],
       invoices: (invoices.data as { amount: number }[] | null) ?? [],
       expenses: rows,
     });

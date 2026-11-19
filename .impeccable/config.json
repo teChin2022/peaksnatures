@@ -21,6 +21,15 @@
         ],
         "createdAt": "2026-11-16T04:27:50.751Z",
         "reason": "Claude, 2026-11-16: transactional email HTML (pre-existing line from ceabee7); email clients need a web-safe inline font stack"
+      },
+      {
+        "rule": "flat-type-hierarchy",
+        "value": "*",
+        "files": [
+          ".impeccable/mocks/proto/ai-assist/index.html"
+        ],
+        "createdAt": "2026-11-19T03:17:46.009Z",
+        "reason": "Claude: index.html is the prototype's comparison toolbar (variant/width/state switcher), not product UI; the product page under review is page.html"
       }
     ]
   }

@@ -41,7 +41,10 @@ describe("summarizeMonth", () => {
   it("subtracts platform charges and expenses from income", () => {
     const s = summarizeMonth({
       bookings: [{ total_price: 30000 }, { total_price: 18500 }],
-      walletRows: [{ amount: -1800 }, { amount: -1110 }],
+      walletRows: [
+        { amount: -1800, type: "commission" },
+        { amount: -1110, type: "commission" },
+      ],
       invoices: [],
       expenses: [
         { category: "utilities", amount: 3200 },
@@ -53,15 +56,35 @@ describe("summarizeMonth", () => {
       revenue: 48500,
       commission: 2910,
       planFees: 0,
+      aiFees: 0,
       totalExpenses: 9200,
       net: 36390,
     });
   });
 
+  it("counts guest AI charges as a platform fee of their own, not as commission (086)", () => {
+    const s = summarizeMonth({
+      bookings: [{ total_price: 10000 }],
+      walletRows: [
+        { amount: -600, type: "commission" },
+        { amount: -3, type: "ai_usage" },
+        { amount: -2, type: "ai_usage" },
+      ],
+      invoices: [],
+      expenses: [],
+    });
+    expect(s.commission).toBe(600);
+    expect(s.aiFees).toBe(5);
+    expect(s.net).toBe(9395);
+  });
+
   it("lets a refund lower the commission", () => {
     const s = summarizeMonth({
       bookings: [],
-      walletRows: [{ amount: -600 }, { amount: 200 }],
+      walletRows: [
+        { amount: -600, type: "commission" },
+        { amount: 200, type: "refund" },
+      ],
       invoices: [],
       expenses: [],
     });

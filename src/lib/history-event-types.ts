@@ -80,6 +80,17 @@ export const EventType = {
   // An admin marked a rejected payment settled by hand (082), or undid that.
   PLATFORM_PAYMENT_SETTLED: "PLATFORM_PAYMENT_SETTLED",
   PLATFORM_PAYMENT_UNSETTLED: "PLATFORM_PAYMENT_UNSETTLED",
+
+  // Guest AI assistant (migration 084)
+  GUEST_AI_REQUESTED: "GUEST_AI_REQUESTED",
+  GUEST_AI_APPROVED: "GUEST_AI_APPROVED",
+  GUEST_AI_REJECTED: "GUEST_AI_REJECTED",
+  GUEST_AI_SUSPENDED: "GUEST_AI_SUSPENDED",
+  GUEST_AI_RESUMED: "GUEST_AI_RESUMED",
+  GUEST_AI_CAP_CHANGED: "GUEST_AI_CAP_CHANGED",
+  GUEST_AI_SETTINGS_CHANGED: "GUEST_AI_SETTINGS_CHANGED",
+  // The platform kill switch or daily cap (migration 085).
+  GUEST_AI_PLATFORM_CHANGED: "GUEST_AI_PLATFORM_CHANGED",
 } as const;
 
 export type EventTypeValue = (typeof EventType)[keyof typeof EventType];
@@ -99,6 +110,7 @@ const WORD_LABELS: Record<string, string> = {
   id: "ID",
   ip: "IP",
   otp: "OTP",
+  ai: "AI",
   url: "URL",
   pct: "%",
 };

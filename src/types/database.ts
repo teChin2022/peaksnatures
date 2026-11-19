@@ -1578,6 +1578,140 @@ export interface Database {
           created_at?: string;
         };
       };
+      host_ai_settings: {
+        Row: {
+          host_id: string;
+          status: HostAiStatus;
+          requested_at: string;
+          decided_at: string | null;
+          decided_by: string | null;
+          enabled: boolean;
+          can_answer: boolean;
+          can_set_dates: boolean;
+          can_suggest_houses: boolean;
+          can_navigate: boolean;
+          instructions: string | null;
+          daily_reply_cap: number;
+          updated_at: string;
+          wallet_low_notified_at: string | null;
+        };
+        Insert: {
+          host_id: string;
+          status?: HostAiStatus;
+          requested_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          enabled?: boolean;
+          can_answer?: boolean;
+          can_set_dates?: boolean;
+          can_suggest_houses?: boolean;
+          can_navigate?: boolean;
+          instructions?: string | null;
+          daily_reply_cap?: number;
+          updated_at?: string;
+          wallet_low_notified_at?: string | null;
+        };
+        Update: {
+          host_id?: string;
+          status?: HostAiStatus;
+          requested_at?: string;
+          decided_at?: string | null;
+          decided_by?: string | null;
+          enabled?: boolean;
+          can_answer?: boolean;
+          can_set_dates?: boolean;
+          can_suggest_houses?: boolean;
+          can_navigate?: boolean;
+          instructions?: string | null;
+          daily_reply_cap?: number;
+          updated_at?: string;
+          wallet_low_notified_at?: string | null;
+        };
+      };
+      platform_guest_ai_config: {
+        Row: {
+          id: boolean;
+          enabled: boolean;
+          daily_cap: number;
+          price_per_reply: number;
+          updated_at: string;
+          updated_by: string | null;
+        };
+        Insert: {
+          id?: boolean;
+          enabled?: boolean;
+          daily_cap?: number;
+          price_per_reply?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+        Update: {
+          id?: boolean;
+          enabled?: boolean;
+          daily_cap?: number;
+          price_per_reply?: number;
+          updated_at?: string;
+          updated_by?: string | null;
+        };
+      };
+      guest_ai_sessions: {
+        Row: {
+          id: string;
+          host_id: string;
+          homestay_id: string;
+          replies: number;
+          reply_cap: number;
+          created_at: string;
+          expires_at: string;
+        };
+        Insert: {
+          id?: string;
+          host_id: string;
+          homestay_id: string;
+          replies?: number;
+          reply_cap?: number;
+          created_at?: string;
+          expires_at?: string;
+        };
+        Update: {
+          id?: string;
+          host_id?: string;
+          homestay_id?: string;
+          replies?: number;
+          reply_cap?: number;
+          created_at?: string;
+          expires_at?: string;
+        };
+      };
+      ai_usage_daily: {
+        Row: {
+          host_id: string;
+          day: string;
+          replies: number;
+          amount: number;
+          charged_amount: number | null;
+          charged_at: string | null;
+          transaction_id: string | null;
+        };
+        Insert: {
+          host_id: string;
+          day: string;
+          replies?: number;
+          amount?: number;
+          charged_amount?: number | null;
+          charged_at?: string | null;
+          transaction_id?: string | null;
+        };
+        Update: {
+          host_id?: string;
+          day?: string;
+          replies?: number;
+          amount?: number;
+          charged_amount?: number | null;
+          charged_at?: string | null;
+          transaction_id?: string | null;
+        };
+      };
     };
   };
 }
@@ -1607,6 +1741,9 @@ export type PromoCode = Database["public"]["Tables"]["promo_codes"]["Row"];
 export type PromoRedemption = Database["public"]["Tables"]["promo_redemptions"]["Row"];
 export type HostStaff = Database["public"]["Tables"]["host_staff"]["Row"];
 export type HostExpense = Database["public"]["Tables"]["host_expenses"]["Row"];
+/** Migration 084: the guest AI assistant's request status. */
+export type HostAiStatus = "requested" | "approved" | "rejected" | "suspended";
+export type HostAiSettings = Database["public"]["Tables"]["host_ai_settings"]["Row"];
 
 export type PlanType = "free" | "commission" | "fixed_rate";
 export type PromoDiscountType = "percentage" | "fixed";

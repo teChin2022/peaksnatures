@@ -81,14 +81,15 @@ const bodyOf = (request: Request): Record<string, unknown> | null => {
  * the page should behave as: it is written into the page's own payload, so the
  * database is not touched and the host does not have to be set up. `holdMs` is
  * how long the stubbed room hold lasts. `cancellationDays` replaces the host's
- * cancellation_days in the same payload.
+ * cancellation_days in the same payload. `guestAi` shows the guest AI assistant
+ * the same way; its answers come from the "POST /api/guest-ai" stub.
  */
 export async function startSession(
   page: Page,
   context: BrowserContext,
-  options: { mode?: HostMode; holdMs?: number; turnstile?: TurnstileBehaviour; cancellationDays?: number } = {},
+  options: { mode?: HostMode; holdMs?: number; turnstile?: TurnstileBehaviour; cancellationDays?: number; guestAi?: boolean } = {},
 ): Promise<Session> {
-  const { mode, holdMs = 10 * 60_000, turnstile = "pass", cancellationDays } = options;
+  const { mode, holdMs = 10 * 60_000, turnstile = "pass", cancellationDays, guestAi } = options;
   const origin = new URL(page.context().browser() ? (process.env.E2E_BASE_URL ?? "http://localhost:3000") : "http://localhost:3000").origin;
 
   await context.addCookies([
@@ -165,7 +166,12 @@ export async function startSession(
     stub(route, () => ({ status: 201, body: { group: { id: CREATED_ID }, bookings: [{ id: "member-e2e" }] } })),
   );
 
-  if (mode || cancellationDays !== undefined) {
+  // The guest AI assistant answers from a stub (override "POST /api/guest-ai"); it never reaches Gemini.
+  await page.route("**/api/guest-ai", (route) =>
+    stub(route, () => ({ body: { reply: "e2e reply", answered: true, intent: null, action: null } })),
+  );
+
+  if (mode || cancellationDays !== undefined || guestAi) {
     // The booking page is server-rendered; its client props travel in the HTML
     // as escaped JSON. Only the document is rewritten.
     await page.route(/\/book(\?.*)?$/, async (route) => {
@@ -179,6 +185,20 @@ export async function startSession(
           return `${a}${mode}${b}`;
         });
         expect(replaced, "the host mode was not found in the page payload; has the Next.js payload format changed?").toBeGreaterThan(0);
+      }
+      if (guestAi) {
+        // Shown for this page only, without an approved host row (migrations 084 / 085): in the
+        // payload, and in the HTML for the link under the dates, so hydration matches.
+        let replaced = 0;
+        html = html.replace(/(guestAiEnabled\\*"\s*:\s*)false/g, (_m, a: string) => {
+          replaced += 1;
+          return `${a}true`;
+        });
+        expect(replaced, "guestAiEnabled was not found in the page payload; has the Next.js payload format changed?").toBeGreaterThan(0);
+        // The link under the dates is in the server HTML too, hidden by this attribute.
+        const links = html.split('data-guest-ai="off"').length - 1;
+        html = html.replaceAll('data-guest-ai="off"', 'data-guest-ai="on"');
+        expect(links, "the guest AI link was not found in the page HTML").toBeGreaterThan(0);
       }
       if (cancellationDays !== undefined) {
         let replaced = 0;

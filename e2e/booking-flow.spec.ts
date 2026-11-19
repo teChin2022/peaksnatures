@@ -812,3 +812,92 @@ test.describe("the checkout overlay", () => {
     await expect(page.getByRole("button", { name: T.booking.submitBooking })).toBeVisible();
   });
 });
+
+test.describe("the guest AI assistant", () => {
+  // A Bangkok day `days` ahead, as the route would send it.
+  const dayAhead = (days: number) => new Date(Date.now() + 7 * 3_600_000 + days * 86_400_000).toISOString().slice(0, 10);
+
+  test("asking sets the stay on the page, says what is free, and leads to the houses", async ({ page, context }, testInfo) => {
+    const slug = requireSlug();
+    const checkIn = dayAhead(60);
+    const checkOut = dayAhead(61);
+    // guestAi: the page shows the assistant without a host row (rewritten in its payload).
+    session = await startSession(page, context, { mode: "normal", guestAi: true });
+    session.respond("POST /api/guest-ai", {
+      body: {
+        reply: "ได้เลยค่ะ",
+        answered: true,
+        intent: { check_in: checkIn, check_out: checkOut, guests: 2, room_ids: [] },
+        action: null,
+      },
+    });
+    const G = T.guestAiAsk;
+    await page.goto(`/${slug}/book`);
+
+    // Phones: the link under the date panel. Desktop: the button in the corner. Same name.
+    // Waited for: the corner button renders after hydration.
+    const entry = page.getByRole("button", { name: G.title }).filter({ visible: true }).first();
+    await expect(entry).toBeVisible({ timeout: 20_000 });
+    await entry.click();
+    const ask = page.getByLabel(G.inputLabel);
+    await expect(ask).toBeFocused();
+    await ask.fill("เสาร์อาทิตย์หน้า 2 คน");
+    await ask.press("Enter");
+
+    // "เลือกวันให้แล้ว: {from} – {to} · {nights} คืน", worked out by the page from its own cart.
+    const datesLine = page.getByText(G.datesSet.split("{")[0]);
+    await expect(datesLine).toBeVisible();
+    await expect(page.getByText(G.source)).toBeVisible();
+    const call = session.calls.find((c) => c.path === "/api/guest-ai");
+    expect(call?.body).toMatchObject({ slug, question: "เสาร์อาทิตย์หน้า 2 คน", locale: "th", history: [] });
+    // The first question carries Turnstile's token: no session yet.
+    expect((call?.body as { turnstileToken?: string }).turnstileToken).toBeTruthy();
+    await page.screenshot({ path: testInfo.outputPath("guest-ai-answer.png") });
+
+    // The page's own date panel now holds the stay (as text: on phones the sheet hides the page from the a11y tree).
+    await expect(page.locator("#date-panel")).toContainText(String(Number(checkIn.slice(8))));
+
+    // The assistant's own button, not the date panel's one of the same name.
+    await page.locator('aside, [role="dialog"]').getByRole("button", { name: G.seeHouses }).click();
+    await expect(page.locator("#rooms-section [data-room-id]").first()).toBeInViewport();
+  });
+
+  for (const mode of ["normal", "quick"] as const) {
+    test(`a suggested house goes through the page's own house dialog to the guest details (${mode} host)`, async ({ page, context }, testInfo) => {
+      const slug = requireSlug();
+      session = await startSession(page, context, { mode, guestAi: true });
+      const G = T.guestAiAsk;
+      await page.goto(`/${slug}/book`);
+      // Suggest every house: the assistant lists the ones free for the stay (at most two).
+      const roomIds = await page.locator("#rooms-section [data-room-id]").evaluateAll((els) => els.map((el) => el.getAttribute("data-room-id")));
+      session.respond("POST /api/guest-ai", {
+        body: {
+          reply: "แนะนำบ้านพักที่ว่างให้แล้วค่ะ",
+          answered: true,
+          intent: { check_in: dayAhead(75), check_out: dayAhead(76), guests: 2, room_ids: roomIds },
+          action: null,
+        },
+      });
+
+      const entry = page.getByRole("button", { name: G.title }).filter({ visible: true }).first();
+      await expect(entry).toBeVisible({ timeout: 20_000 });
+      await entry.click();
+      await page.getByLabel(G.inputLabel).fill("อยากพักหลังที่เหมาะกับ 2 คน");
+      await page.getByLabel(G.inputLabel).press("Enter");
+      await expect(page.getByText(G.source)).toBeVisible();
+
+      const suggestions = page.getByRole("list", { name: G.suggestTitle });
+      test.skip((await suggestions.count()) === 0, "needs a house free 75 days ahead");
+      await page.screenshot({ path: testInfo.outputPath(`suggested-${mode}.png`) });
+      await suggestions.getByRole("button", { name: new RegExp(`^${G.chooseHouseAria.split("{")[0]}`) }).first().click();
+
+      // The page's own config dialog, then its "Book now", as from a house card.
+      const dialog = page.getByRole("dialog");
+      await expect(dialog).toBeVisible();
+      await dialog.getByRole("button", { name: new RegExp(`^${T.common.bookNow}`) }).click();
+      await expect(page.locator('[data-checkout="open"]')).toBeVisible();
+      // Nothing was booked or held: the guest is at the details step.
+      expect(session.calls.filter((c) => c.method === "POST" && c.path !== "/api/guest-ai")).toEqual([]);
+    });
+  }
+});

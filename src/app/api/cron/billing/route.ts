@@ -9,6 +9,7 @@ import {
   processBillingRetryQueue,
 } from "@/lib/billing";
 import { cronBillingDates } from "./dates";
+import { chargeGuestAiUsage } from "./guest-ai";
 import { lapsedTermInvoice } from "./lapsed";
 import { LOW_WALLET_THRESHOLD } from "@/lib/wallet-thresholds";
 import { GRACE_PERIOD_DAYS } from "@/lib/plan-expiry";
@@ -64,7 +65,8 @@ async function runWithConcurrency<T>(
  *   alert those hosts that bookings have stopped, warn commission hosts whose
  *   wallet dipped below LOW_WALLET_THRESHOLD, apply pending plan switches
  *   whose effective date has arrived, and bill fixed-rate hosts whose term has
- *   run out (see ./lapsed — this used to happen on the 1st only).
+ *   run out (see ./lapsed — this used to happen on the 1st only), and charge
+ *   finished days of guest AI replies to host wallets (see ./guest-ai).
  * Secured with CRON_SECRET header.
  * Generate the secret: `openssl rand -base64 32`
  * Set CRON_SECRET in Vercel Environment Variables (both Production & Preview).
@@ -695,6 +697,16 @@ export async function GET(req: NextRequest) {
     );
     results.invoices_created = invoiceCount;
     results.invoice_notifications = invoiceNotifications;
+
+    // ============================================================
+    // DAILY: Charge finished days of guest AI replies to host wallets (086, D8)
+    // ============================================================
+    try {
+      results.guest_ai = await chargeGuestAiUsage(supabase, today);
+    } catch (err) {
+      console.error("[Cron] Guest AI charge error:", err);
+      results.guest_ai = { error: err instanceof Error ? err.message : String(err) };
+    }
 
     // Demand-event retention. Rides this cron rather than adding a second
     // vercel.json entry. The RPC caps its own delete, so a shortened retention

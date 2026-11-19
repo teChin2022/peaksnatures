@@ -15,6 +15,7 @@ import {
   ArrowDownCircle,
   RotateCcw,
   SlidersHorizontal,
+  MessageCircleQuestion,
   AlertTriangle,
   Loader2,
   Upload,
@@ -74,7 +75,7 @@ interface Transaction {
 
 /* ─── Constants ─── */
 
-const TXN_TYPE_FILTERS = ["all", "topup", "commission", "refund", "adjustment"] as const;
+const TXN_TYPE_FILTERS = ["all", "topup", "commission", "refund", "adjustment", "ai_usage"] as const;
 const INVOICE_STATUS_FILTERS = ["all", "pending", "paid", "overdue"] as const;
 
 const TXN_TYPE_CONFIG: Record<string, { icon: typeof ArrowUpCircle; color: string; bg: string }> = {
@@ -82,6 +83,7 @@ const TXN_TYPE_CONFIG: Record<string, { icon: typeof ArrowUpCircle; color: strin
   commission: { icon: ArrowDownCircle,   color: "text-amber-800",   bg: "bg-amber-50 border-amber-200" },
   refund:     { icon: RotateCcw,         color: "text-earth-700",    bg: "bg-earth-50 border-earth-200" },
   adjustment: { icon: SlidersHorizontal, color: "text-earth-700",    bg: "bg-earth-50 border-earth-200" },
+  ai_usage:   { icon: MessageCircleQuestion, color: "text-amber-800", bg: "bg-amber-50 border-amber-200" },
 };
 
 /* ─── Page ─── */
@@ -110,6 +112,8 @@ export default function WalletPage() {
     }
     if (tx.type === "topup") return t("txTopup");
     if (tx.type === "adjustment") return desc || t("txAdjustment");
+    // 086: one row per Bangkok day of guest AI replies (its date shows on the row).
+    if (tx.type === "ai_usage") return t("txGuestAi");
     return desc || tx.type;
   };
 
@@ -669,12 +673,14 @@ export default function WalletPage() {
         >
           {/* Filter chips */}
           <div className="flex flex-wrap gap-2">
-            {TXN_TYPE_FILTERS.map((f) => {
+            {/* The guest AI chip only for hosts it has charged (086). */}
+            {TXN_TYPE_FILTERS.filter((f) => f !== "ai_usage" || transactions.some((tx) => tx.type === "ai_usage")).map((f) => {
               const isActive = txnFilter === f;
               const labelKey = f === "all" ? "all"
                 : f === "topup" ? "topups"
                 : f === "commission" ? "commissions"
                 : f === "refund" ? "refunds"
+                : f === "ai_usage" ? "txGuestAi"
                 : "adjustments";
               return (
                 <button

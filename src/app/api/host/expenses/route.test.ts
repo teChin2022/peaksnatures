@@ -30,7 +30,7 @@ const withMonth = () =>
       hosts: HOST,
       homestays: { data: [{ id: "hs-1" }] },
       bookings: { data: [{ total_price: 30000 }, { total_price: 18500 }] },
-      wallet_transactions: { data: [{ amount: -3000 }, { amount: 90 }] },
+      wallet_transactions: { data: [{ amount: -3000, type: "commission" }, { amount: 90, type: "refund" }] },
       invoices: { data: [] },
       host_expenses: {
         data: [
@@ -59,6 +59,7 @@ describe("GET /api/host/expenses", () => {
       revenue: 48500,
       commission: 2910,
       planFees: 0,
+      aiFees: 0,
       totalExpenses: 9200,
       net: 36390,
       expenses: [
@@ -83,7 +84,7 @@ describe("GET /api/host/expenses", () => {
 
     const wallet = sc.builderFor("wallet_transactions");
     expect(wallet.eq).toHaveBeenCalledWith("host_id", "host-1");
-    expect(wallet.in).toHaveBeenCalledWith("type", ["commission", "refund"]);
+    expect(wallet.in).toHaveBeenCalledWith("type", ["commission", "refund", "ai_usage"]);
     expect(wallet.gte).toHaveBeenCalledWith("created_at", "2026-12-01T00:00:00+07:00");
     expect(wallet.lt).toHaveBeenCalledWith("created_at", "2027-01-01T00:00:00+07:00");
 

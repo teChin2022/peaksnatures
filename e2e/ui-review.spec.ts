@@ -28,7 +28,8 @@ const OUT = join(".impeccable", "review", `ui-review-${process.env.UI_REVIEW_STA
 test.use({
   launchOptions: [
     async ({}, use, workerInfo) => {
-      await use({ args: [`--remote-debugging-port=${PORTS[workerInfo.project.name] ?? 9335}`] });
+      // Keeps the config's flag: without it a page startSession rewrites never hydrates under `next dev`.
+      await use({ args: ["--disable-features=LocalNetworkAccessChecks", `--remote-debugging-port=${PORTS[workerInfo.project.name] ?? 9335}`] });
     },
     { scope: "worker" },
   ],
@@ -142,6 +143,41 @@ test("booking page, a house chosen", async ({ page, context }, testInfo) => {
     await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
     await page.screenshot({ path: join(OUT, `book-chosen-view-${page.viewportSize()?.width}.png`) });
     await capture(page, testInfo, "book-chosen", slug);
+  }
+});
+
+test("booking page, guest AI assistant", async ({ page, context }, testInfo) => {
+  const slug = requireSlug();
+  // Shown without a host row (startSession rewrites guestAiEnabled); the answer is a stub.
+  session = await startSession(page, context, { guestAi: true });
+  const day = (n: number) => new Date(Date.now() + 7 * 3_600_000 + n * 86_400_000).toISOString().slice(0, 10);
+  session.respond("POST /api/guest-ai", {
+    body: {
+      reply: "เลือกวันให้ตามที่ถามแล้วค่ะ ราคาดูบนการ์ดบ้านพักได้เลย",
+      answered: true,
+      intent: { check_in: day(60), check_out: day(62), guests: 4, room_ids: [] },
+      action: null,
+    },
+  });
+  for (const width of widthsFor(testInfo)) {
+    if (width) await page.setViewportSize({ width, height: 800 });
+    await page.goto(`/${slug}/book`);
+    // The corner button renders after hydration: wait for it.
+    const entry = page.getByRole("button", { name: T.guestAiAsk.title }).filter({ visible: true }).first();
+    await expect(entry).toBeVisible({ timeout: 20_000 });
+    // The way in before anything is asked: the link under the dates (phones) or the corner button.
+    await page.addStyleTag({ content: "nextjs-portal{display:none!important}" });
+    await page.screenshot({ path: join(OUT, `ai-assist-entry-${page.viewportSize()?.width}.png`) });
+    await entry.click();
+    await page.waitForTimeout(400); // sheet / panel entrance
+    await page.screenshot({ path: join(OUT, `ai-assist-empty-${page.viewportSize()?.width}.png`) });
+    const ask = page.getByLabel(T.guestAiAsk.inputLabel);
+    await ask.fill("เสาร์อาทิตย์หน้า 4 คน");
+    await ask.press("Enter");
+    await expect(page.getByText(T.guestAiAsk.source)).toBeVisible();
+    await page.waitForTimeout(300);
+    await page.screenshot({ path: join(OUT, `ai-assist-answer-${page.viewportSize()?.width}.png`) });
+    await capture(page, testInfo, "ai-assist", slug);
   }
 });
 

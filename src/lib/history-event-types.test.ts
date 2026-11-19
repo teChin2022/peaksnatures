@@ -14,6 +14,11 @@ describe("eventLabel", () => {
     expect(eventLabel(EventType.WALLET_TOPUP)).toBe("Wallet top-up");
   });
 
+  it("spells AI in the guest assistant events", () => {
+    expect(eventLabel(EventType.GUEST_AI_APPROVED)).toBe("Guest AI approved");
+    expect(eventLabel(EventType.GUEST_AI_CAP_CHANGED)).toBe("Guest AI cap changed");
+  });
+
   it("names the events whose code would mislead", () => {
     // HOST_VERIFIED is written for unverify too.
     expect(eventLabel(EventType.HOST_VERIFIED)).toBe("Host verification changed");

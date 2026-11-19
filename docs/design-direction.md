@@ -238,6 +238,14 @@ From earlier sessions with the owner:
   the dates on a second line (no separate date field); a house chosen for a
   full stay, a summary and "จองเลย" at the same height. Dates then change
   from the date panel or the houses heading's "เปลี่ยนวัน".
+- **Guest AI assistant on `/book` (owner, 2026-11-19):** only when the host's
+  assistant is approved and on. Phones: an outline "ถาม" button left of the
+  bar's CTA (icon only, 52px, beside the chosen-house summary) and a Pine
+  underlined "ถามผู้ช่วยของที่พัก" link under the date panel, both opening a
+  bottom sheet. From 768px: a Pine button in the bottom-right corner (above
+  the desktop dock while it shows) opening a non-modal 380px panel on the
+  right, no scrim; it pushes the page from 1024px. Replies are plain text;
+  dates go through the cart and `dates-picked`, like the picker's Done.
 - **One house first (2026-11-15):** after a date picker's Done the house
   list shows one house (the one picked on the availability calendar, else
   the chosen ones, else the first free), with "ดูบ้านพักหลังอื่น" /

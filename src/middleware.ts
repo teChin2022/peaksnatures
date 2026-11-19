@@ -140,7 +140,7 @@ export async function middleware(request: NextRequest) {
     // Team, billing, wallet, expenses and the owner's profile are the owner's. Their routes
     // and RLS refuse staff anyway; this just keeps staff off pages that cannot load.
     const path = request.nextUrl.pathname;
-    const ownerOnly = ["/dashboard/team", "/dashboard/billing", "/dashboard/wallet", "/dashboard/expenses", "/dashboard/profile"].some(
+    const ownerOnly = ["/dashboard/team", "/dashboard/billing", "/dashboard/wallet", "/dashboard/expenses", "/dashboard/ai-admin", "/dashboard/profile"].some(
       (p) => path === p || path.startsWith(`${p}/`),
     );
     if (status === "staff" && ownerOnly) {

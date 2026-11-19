@@ -114,7 +114,7 @@ export default function ExpensesPage() {
 
   const thisMonth = billingTodayStr().slice(0, 7);
   const monthLabel = (m: string) => fmtDate(new Date(Number(m.slice(0, 4)), Number(m.slice(5, 7)) - 1, 1), "MMMM yyyy", locale);
-  const platform = data ? Math.round((data.commission + data.planFees) * 100) / 100 : 0;
+  const platform = data ? Math.round((data.commission + data.planFees + data.aiFees) * 100) / 100 : 0;
 
   return (
     <div className="mx-auto max-w-2xl">
@@ -194,7 +194,7 @@ export default function ExpensesPage() {
             {/* The intro's formula, line for line: income − platform charges − recorded expenses = net. */}
             <dl className="space-y-2.5 text-sm">
               <SummaryRow label={t("income")} value={baht(data.revenue)} />
-              {(data.commission !== 0 || data.planFees !== 0) && (
+              {(data.commission !== 0 || data.planFees !== 0 || data.aiFees !== 0) && (
                 <>
                   <SummaryRow label={t("platformFees")} value={charge(platform)} />
                   {data.commission !== 0 && (
@@ -205,6 +205,7 @@ export default function ExpensesPage() {
                     />
                   )}
                   {data.planFees !== 0 && <SummaryRow sub label={t("planFees")} value={charge(data.planFees)} />}
+                  {data.aiFees !== 0 && <SummaryRow sub label={t("aiFees")} value={charge(data.aiFees)} />}
                 </>
               )}
               <SummaryRow

@@ -20,6 +20,7 @@ const MONTH_DATA = {
   revenue: 48500,
   commission: 2910,
   planFees: 0,
+  aiFees: 0,
   totalExpenses: 9200,
   net: 36390,
   expenses: [

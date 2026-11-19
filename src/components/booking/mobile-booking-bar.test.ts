@@ -43,11 +43,31 @@ const withCart = (lines: number, dates = true) => {
     subtotal: 3600,
   };
 };
-const render = (bookingDisabled = false) =>
-  act(() => root.render(createElement(MobileBookingBar, { rooms: [{ id: "r1" } as Room], bookingDisabled })));
+const render = (bookingDisabled = false, guestAiEnabled = false) =>
+  act(() => root.render(createElement(MobileBookingBar, { rooms: [{ id: "r1" } as Room], bookingDisabled, guestAiEnabled })));
 const buttons = () => [...container.querySelectorAll("button")];
 
 describe("MobileBookingBar", () => {
+  // Guest AI (owner, 2026-11-19): "ถาม" beside the Book button; icon only beside the chosen-house summary.
+  it("with the guest AI on, adds an Ask button that opens the assistant, in both states", () => {
+    const opened = vi.fn();
+    document.addEventListener("open-guest-ai", opened);
+    withCart(0);
+    render(false, true);
+    expect(buttons()).toHaveLength(2);
+    expect(buttons()[0].textContent).toBe("barButton");
+    expect(buttons()[0].getAttribute("aria-label")).toBeNull();
+    act(() => buttons()[0].click());
+    expect(opened).toHaveBeenCalledTimes(1);
+
+    withCart(1);
+    render(false, true);
+    expect(buttons()[0].textContent).toBe("");
+    expect(buttons()[0].getAttribute("aria-label")).toBe("title");
+    expect(buttons()[1].textContent).toBe("bookNow");
+    document.removeEventListener("open-guest-ai", opened);
+  });
+
   it("with nothing chosen, is one Book button carrying the dates", () => {
     withCart(0);
     render();
