@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
   isAdmin: vi.fn(),
   countUnsettledRejected: vi.fn(),
   countStaleDateChanges: vi.fn(),
+  countGuestAiRequested: vi.fn(),
 }));
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: mocks.createServerSupabaseClient,
@@ -16,6 +17,7 @@ vi.mock("@/lib/supabase/server", () => ({
 vi.mock("@/lib/admin", () => ({ isAdmin: mocks.isAdmin }));
 vi.mock("@/app/admin/billing/rejected/data", () => ({ countUnsettledRejected: mocks.countUnsettledRejected }));
 vi.mock("@/app/admin/bookings/date-changes/data", () => ({ countStaleDateChanges: mocks.countStaleDateChanges }));
+vi.mock("@/app/admin/guest-ai/data", () => ({ countGuestAiRequested: mocks.countGuestAiRequested }));
 
 import { GET } from "./route";
 
@@ -23,6 +25,7 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   mocks.countUnsettledRejected.mockReset().mockResolvedValue(2);
   mocks.countStaleDateChanges.mockReset().mockResolvedValue(1);
+  mocks.countGuestAiRequested.mockReset().mockResolvedValue(5);
 });
 
 describe("GET /api/admin/nav-counts", () => {
@@ -30,7 +33,7 @@ describe("GET /api/admin/nav-counts", () => {
     const sc = signIn(mocks, { tables: { hosts: { count: 3 }, invoices: { count: 4 } } });
     const { status, body } = await readJson(await GET());
     expect(status).toBe(200);
-    expect(body).toEqual({ pendingHosts: 3, overdueInvoices: 4, unsettledPayments: 2, staleDateChanges: 1 });
+    expect(body).toEqual({ pendingHosts: 3, overdueInvoices: 4, unsettledPayments: 2, staleDateChanges: 1, guestAiRequests: 5 });
     expect(sc.builderFor("hosts").eq).toHaveBeenCalledWith("status", "pending");
   });
 

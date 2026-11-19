@@ -454,3 +454,34 @@ describe("the house card's availability calendar", () => {
     }
   });
 });
+
+describe("the guest AI assistant's 'choose this house'", () => {
+  const chooseHouse = (roomId: string) => act(() => void document.dispatchEvent(new CustomEvent("choose-house", { detail: { roomId } })));
+
+  it("opens the house's own config dialog, as its card's button does", () => {
+    renderList([house("a"), house("b")]);
+    act(() => cart.setDates(stay));
+    chooseHouse("b");
+    const dialog = document.body.querySelector('[role="dialog"]');
+    expect(dialog).not.toBeNull();
+    expect(dialog?.textContent).toContain("Baan b");
+    // Nothing is chosen until the guest confirms in the dialog.
+    expect(cart.lines).toHaveLength(0);
+  });
+
+  it("refuses a house that is not free, like the card", () => {
+    toast.error.mockClear();
+    renderList([house("a"), house("b")], [{ room_id: "b", check_in: "2026-12-20", check_out: "2026-12-22" }]);
+    act(() => cart.setDates(stay));
+    chooseHouse("b");
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+    expect(toast.error).toHaveBeenCalledWith("roomUnavailableToast");
+  });
+
+  it("does nothing for an unknown house or before dates are chosen", () => {
+    renderList([house("a")]);
+    chooseHouse("a");
+    chooseHouse("zzz");
+    expect(document.body.querySelector('[role="dialog"]')).toBeNull();
+  });
+});

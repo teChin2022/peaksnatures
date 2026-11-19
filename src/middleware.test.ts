@@ -27,7 +27,7 @@ beforeEach(() => {
 
 // Staff logins (migration 081): team, billing, wallet and the owner's profile are the owner's.
 describe("middleware: staff logins", () => {
-  it.each(["/dashboard/team", "/dashboard/billing", "/dashboard/wallet", "/dashboard/profile", "/dashboard/pending"])(
+  it.each(["/dashboard/team", "/dashboard/billing", "/dashboard/wallet", "/dashboard/expenses", "/dashboard/ai-admin", "/dashboard/profile", "/dashboard/pending"])(
     "sends staff from %s to the dashboard",
     async (path) => {
       signedIn("staff-1", STAFF);

@@ -30,7 +30,7 @@ beforeEach(() => {
   nav.pathname = "/admin";
   fetchMock.mockReset().mockResolvedValue({
     ok: true,
-    json: async () => ({ pendingHosts: 2, overdueInvoices: 0, unsettledPayments: 1, staleDateChanges: 0 }),
+    json: async () => ({ pendingHosts: 2, overdueInvoices: 0, unsettledPayments: 1, staleDateChanges: 0, guestAiRequests: 0 }),
   });
   vi.stubGlobal("fetch", fetchMock);
   container = document.createElement("div");

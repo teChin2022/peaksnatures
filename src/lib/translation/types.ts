@@ -23,6 +23,12 @@ export const translatedRoomOptionSchema = z.object({
   name: z.string(),
 });
 
+/**
+ * The model both translators use. gemini-2.5-flash is closed to new projects and
+ * reported to be rerouted from 2026-12-01; the owner picked 3.8 Flash (2026-11-19).
+ */
+export const TRANSLATION_MODEL = "gemini-3.8-flash";
+
 export const translatedReviewSchema = z.object({
   id: z.string(),
   comment: z.string().nullable(),

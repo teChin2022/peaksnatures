@@ -603,15 +603,19 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
   // Keyed to the stay it was made for, so other dates, or none, show every house again.
   const [focus, setFocus] = useState<{ stay: string; ids: string[] } | null>(null);
 
-  const handleAddToCart = (room: Room) => {
-    if (!cart) return;
-    if (!cart.dateRange?.from || !cart.dateRange?.to) return; // room button is disabled until dates are chosen
-    if (!cart.isRoomAvailableForRange(room) || cart.remainingForRoom(room) <= 0) {
-      toast.error(t("roomUnavailableToast"));
-      return;
-    }
-    setConfig({ room });
-  };
+  // A callback: the guest AI's `choose-house` listener below depends on it.
+  const handleAddToCart = useCallback(
+    (room: Room) => {
+      if (!cart) return;
+      if (!cart.dateRange?.from || !cart.dateRange?.to) return; // room button is disabled until dates are chosen
+      if (!cart.isRoomAvailableForRange(room) || cart.remainingForRoom(room) <= 0) {
+        toast.error(t("roomUnavailableToast"));
+        return;
+      }
+      setConfig({ room });
+    },
+    [cart, t],
+  );
 
   // Reopen the config dialog in edit mode when a cart line requests it
   // (CartLineList dispatches `edit-line` with the lineId). Only while still
@@ -629,6 +633,18 @@ function RoomCards({ rooms, seasonsByRoom, specialsByRoom, bookedRanges, blocked
     document.addEventListener("edit-line", handler);
     return () => document.removeEventListener("edit-line", handler);
   }, [cart, rooms, bookingStep]);
+
+  // The guest AI assistant's "choose this house" (docs/ai-admin-plan.md, phase 4) takes the card's own path:
+  // the same checks and the same config dialog, so guests, options and the booking mode stay the page's.
+  useEffect(() => {
+    const handler = (e: Event) => {
+      if (bookingStep !== "dates") return;
+      const room = rooms.find((r) => r.id === (e as CustomEvent<{ roomId?: string }>).detail?.roomId);
+      if (room) handleAddToCart(room);
+    };
+    document.addEventListener("choose-house", handler);
+    return () => document.removeEventListener("choose-house", handler);
+  }, [rooms, bookingStep, handleAddToCart]);
 
   useEffect(() => {
     const handler = (e: Event) => {

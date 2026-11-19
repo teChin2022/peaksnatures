@@ -5,10 +5,11 @@ import { blockingInvoiceFilter } from "@/lib/billing-dates";
 import { ATTENTION_WINDOW_DAYS } from "@/app/admin/attention";
 import { countUnsettledRejected } from "@/app/admin/billing/rejected/data";
 import { countStaleDateChanges } from "@/app/admin/bookings/date-changes/data";
+import { countGuestAiRequested } from "@/app/admin/guest-ai/data";
 
 /**
- * Counts for the admin sidebar: the work waiting behind Hosts, Billing,
- * Rejected payments and Date changes. Same predicates as the Overview's
+ * Counts for the admin sidebar: the work waiting behind Hosts, Guest AI,
+ * Billing, Rejected payments and Date changes. Same predicates as the Overview's
  * "Needs attention", so a badge and its row never disagree.
  */
 export async function GET() {
@@ -24,11 +25,12 @@ export async function GET() {
 
     const sc = createServiceRoleClient();
     const since = new Date(Date.now() - ATTENTION_WINDOW_DAYS * 86_400_000).toISOString();
-    const [pendingHosts, overdueInvoices, unsettledPayments, staleDateChanges] = await Promise.all([
+    const [pendingHosts, overdueInvoices, unsettledPayments, staleDateChanges, guestAiRequests] = await Promise.all([
       sc.from("hosts").select("id", { count: "exact", head: true }).eq("status", "pending"),
       sc.from("invoices").select("id", { count: "exact", head: true }).or(blockingInvoiceFilter()),
       countUnsettledRejected(since),
       countStaleDateChanges(),
+      countGuestAiRequested(),
     ]);
 
     return NextResponse.json(
@@ -37,6 +39,7 @@ export async function GET() {
         overdueInvoices: overdueInvoices.count ?? 0,
         unsettledPayments,
         staleDateChanges,
+        guestAiRequests,
       },
       { headers: { "Cache-Control": "private, no-store" } },
     );

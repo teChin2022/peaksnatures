@@ -17,6 +17,8 @@ import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { RespectReducedMotion } from "@/components/respect-reduced-motion";
 import { SITE_NAME, buildAlternates } from "@/lib/seo";
 import { toBookingHost } from "@/lib/public-host";
+import { isGuestAiAvailable } from "@/lib/guest-ai/availability";
+import { GuestAiAssistant, GuestAiEntryLink } from "@/components/booking/guest-ai-assistant";
 import { getHomestayData, getPromoLinkInfo, homestayMetadata, notFoundMetadata, readLocale } from "../data";
 
 const BookingSection = dynamic(() => import("@/components/booking/booking-section").then((m) => m.BookingSection));
@@ -110,6 +112,8 @@ export default async function HomestayBookingPage({ params, searchParams }: Page
   // so it gets the homestay without the host row, and only the host fields it reads.
   const { host, ...homestayForClient } = homestay;
   const bookingHost = toBookingHost(host);
+  // The guest AI assistant (migrations 084 / 085): off while bookings are blocked.
+  const guestAi = !bookingDisabled && (await isGuestAiAvailable(host.id));
 
   return (
     <div className="min-h-screen bg-mist">
@@ -131,6 +135,7 @@ export default async function HomestayBookingPage({ params, searchParams }: Page
         <HeroSection name={homestay.name} tagline={homestay.tagline} heroImageUrl={homestay.hero_image_url} />
 
         <DesktopDateSearch bookingDisabled={bookingDisabled} />
+        <GuestAiEntryLink guestAiEnabled={guestAi} />
 
         <AvailabilityCalendarSection homestayId={homestay.id} />
 
@@ -163,8 +168,11 @@ export default async function HomestayBookingPage({ params, searchParams }: Page
       <MobileBookingBar
         rooms={rooms}
         bookingDisabled={bookingDisabled}
+        guestAiEnabled={guestAi}
       />
       <DesktopBookingDock bookingDisabled={bookingDisabled} />
+      {/* After RoomsSection: its `dates-picked` listener has caught up with new dates by the time this one's effect fires. */}
+      <GuestAiAssistant slug={homestay.slug} guestAiEnabled={guestAi} contact={{ lineId: homestay.line_id, phone: homestay.host.phone }} />
       </BookingCartProvider>
 
       <BookingFooter

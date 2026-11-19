@@ -3,7 +3,7 @@ import { generateObject } from "ai";
 import { google } from "@ai-sdk/google";
 import { z } from "zod";
 import { getRedis, getReadyRedis, getCacheEnvPrefix } from "@/lib/redis";
-import type { SupportedLocale } from "./types";
+import { TRANSLATION_MODEL, type SupportedLocale } from "./types";
 
 const CACHE_TTL_SECONDS = 60 * 60 * 24 * 365;
 
@@ -79,7 +79,7 @@ async function translateStrings(strings: StringMap, locale: SupportedLocale): Pr
 
   try {
     const result = await generateObject({
-      model: google("gemini-2.5-flash"),
+      model: google(TRANSLATION_MODEL),
       system,
       prompt,
       schema,

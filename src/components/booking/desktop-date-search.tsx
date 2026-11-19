@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { motion } from "motion/react";
 import { useTranslations, useLocale } from "next-intl";
 import { fmtDate } from "@/lib/format-date";
@@ -21,6 +21,21 @@ export function DesktopDateSearch({ bookingDisabled = false }: { bookingDisabled
   const locale = useLocale();
   const cart = useBookingCartOptional();
   const [calendarOpen, setCalendarOpen] = useState(false);
+  // The guest AI assistant just set the dates (`dates-applied`): ring the panel once so the change is seen.
+  const [flash, setFlash] = useState(false);
+  useEffect(() => {
+    let timer: ReturnType<typeof setTimeout> | undefined;
+    const onApplied = () => {
+      setFlash(true);
+      clearTimeout(timer);
+      timer = setTimeout(() => setFlash(false), 1200);
+    };
+    document.addEventListener("dates-applied", onApplied);
+    return () => {
+      document.removeEventListener("dates-applied", onApplied);
+      clearTimeout(timer);
+    };
+  }, []);
 
   const dateRange = cart?.dateRange;
   const nights = cart?.nights ?? 0;
@@ -67,7 +82,10 @@ export function DesktopDateSearch({ bookingDisabled = false }: { bookingDisabled
       <motion.div
         className="mx-auto -mt-8 max-w-4xl px-4 sm:px-6 md:-mt-12"
       >
-        <div className="grid grid-cols-2 gap-1 rounded-[20px] bg-white p-2 shadow-[0_18px_40px_-18px_rgba(19,38,34,0.35)] md:grid-cols-[1fr_1fr_0.8fr_auto] md:items-center">
+        <div
+          data-flash={flash ? "on" : undefined}
+          className="grid grid-cols-2 gap-1 rounded-[20px] bg-white p-2 shadow-[0_18px_40px_-18px_rgba(19,38,34,0.35)] ring-pine ring-offset-2 ring-offset-mist transition-shadow duration-300 data-[flash=on]:ring-2 motion-reduce:transition-none md:grid-cols-[1fr_1fr_0.8fr_auto] md:items-center"
+        >
           {/* No aria-label: the name is the visible label and date, so a screen reader hears the chosen day (WCAG 2.5.3). */}
           <button type="button" onClick={() => setCalendarOpen(true)} className={field}>
             <span className="text-xs font-medium text-ink-2">{tb("checkInLabel")}</span>

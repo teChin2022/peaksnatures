@@ -8,11 +8,15 @@ import { fmtDate } from "@/lib/format-date";
 import { useBookingCartOptional } from "@/components/booking/booking-cart-context";
 import { BookingCalendarDialog } from "@/components/booking/booking-calendar-dialog";
 import { useBookingBarVisible } from "@/components/booking/use-booking-bar-visible";
+import { openGuestAi } from "@/components/booking/guest-ai-assistant";
+import { MessageCircleQuestion } from "lucide-react";
 import type { Room } from "@/types/database";
 
 interface MobileBookingBarProps {
   rooms: Room[];
   bookingDisabled?: boolean;
+  /** Shows the guest AI assistant's "ถาม" button on the left (owner, 2026-11-19). */
+  guestAiEnabled?: boolean;
 }
 
 const FOCUS_RING = "focus:outline-none focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2";
@@ -25,9 +29,10 @@ const FOCUS_RING = "focus:outline-none focus-visible:ring-2 focus-visible:ring-p
  * cart, so this is the way on to checkout; dates change from the date panel or
  * the houses heading's "change dates".
  */
-export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBookingBarProps) {
+export function MobileBookingBar({ rooms, bookingDisabled = false, guestAiEnabled = false }: MobileBookingBarProps) {
   const t = useTranslations("common");
   const tb = useTranslations("booking");
+  const ta = useTranslations("guestAiAsk");
   const locale = useLocale();
   const isMobile = useIsMobile();
   const reduceMotion = useReducedMotion();
@@ -71,6 +76,19 @@ export function MobileBookingBar({ rooms, bookingDisabled = false }: MobileBooki
           >
             {/* Hidden while the date panel, the booking card or the footer is on screen (useBookingBarVisible). */}
             <div className={`flex items-center gap-3 px-3 py-2.5 ${bookingDisabled ? "opacity-40" : ""}`}>
+              {guestAiEnabled && (
+                // Icon only beside the chosen-house summary, where the row is full (owner, 2026-11-19).
+                <button
+                  type="button"
+                  aria-haspopup="dialog"
+                  aria-label={picked ? ta("title") : undefined}
+                  onClick={openGuestAi}
+                  className={`flex min-h-[52px] shrink-0 cursor-pointer touch-manipulation items-center justify-center gap-1.5 rounded-full border border-line-strong bg-white text-[15px] font-medium text-ink transition-colors hover:bg-mist ${picked ? "w-[52px]" : "px-4"} ${FOCUS_RING}`}
+                >
+                  <MessageCircleQuestion className="size-[18px] text-pine" aria-hidden />
+                  {!picked && ta("barButton")}
+                </button>
+              )}
               {picked ? (
                 <>
                   <div className="min-w-0 flex-1 pl-1" aria-live="polite">
