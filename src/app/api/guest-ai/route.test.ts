@@ -39,6 +39,9 @@ const HOST = {
   id: "host-1",
   status: "approved",
   phone: "099-000-1234",
+  deposit_amount: 500,
+  deposit_by_month: null,
+  cancellation_days: 7,
   plan_type: "commission",
   plan_free_expires_at: null,
   wallet_balance: 500,
@@ -92,7 +95,14 @@ const MODEL: ModelReply = {
 const answer = (reply: ModelReply = MODEL) => ({ reply, inputTokens: 900, outputTokens: 80 });
 
 function wire(
-  over: { homestay?: unknown; settings?: unknown; reserve?: QueryResponse; session?: QueryResponse; claim?: QueryResponse } = {},
+  over: {
+    homestay?: unknown;
+    settings?: unknown;
+    reserve?: QueryResponse;
+    session?: QueryResponse;
+    claim?: QueryResponse;
+    page?: { bookings?: QueryResponse; blocked_dates?: QueryResponse; reviews?: QueryResponse };
+  } = {},
 ) {
   const sc = createSupabaseMock({
     tables: {
@@ -102,6 +112,9 @@ function wire(
       hosts: { data: { phone: "0800000000", email: "h@example.test", notification_preference: "line", line_channel_access_token: "t", line_user_id: "U" } },
       guest_ai_sessions: over.session ?? { data: { id: SESSION } },
       rooms: { data: ROOMS },
+      bookings: over.page?.bookings ?? { data: [] },
+      blocked_dates: over.page?.blocked_dates ?? { data: [] },
+      reviews: over.page?.reviews ?? { data: [] },
     },
     rpc: { reserve_guest_ai_reply: over.reserve ?? { data: "ok" }, release_guest_ai_reply: { data: null } },
   });
@@ -169,14 +182,19 @@ describe("POST /api/guest-ai", () => {
     expect(prompt).not.toContain("<p>");
   });
 
-  it("never sends payment details or reviews to the model (F-03 / F-10)", async () => {
+  // Owner 2026-11-19: everything public on the page, nothing secret. The deposit and the rating are
+  // public; bank and PromptPay numbers (F-03), review text (P-01) and host secrets never reach the model.
+  it("never sends payment numbers, review text or host secrets to the model (F-03 / F-10)", async () => {
     const sc = wire();
     await post(body({ turnstileToken: "tok" }));
-    const select = sc.builderFor("homestays").select as ReturnType<typeof vi.fn>;
-    const columns = select.mock.calls[0][0] as string;
-    expect(columns).not.toMatch(/promptpay|bank_|deposit|review|line_channel|pin/);
-    expect(columns).not.toContain("*");
-    expect(sc.calls.map((c) => c.table)).not.toContain("reviews");
+    const columnsOf = (table: string) => (sc.builderFor(table).select as ReturnType<typeof vi.fn>).mock.calls[0][0] as string;
+    // (Wallet and plan columns are read for the block check, never put in FACTS.)
+    expect(columnsOf("homestays")).not.toMatch(/promptpay|bank_|line_channel|line_user|pin|email/);
+    expect(h.askGuestAi.mock.calls[0][1]).not.toMatch(/wallet|plan_type|0800000000/);
+    expect(columnsOf("homestays")).not.toContain("*");
+    expect(columnsOf("reviews")).toBe("rating");
+    // Bookings give dates and houses only: no guest names, phones or emails.
+    expect(columnsOf("bookings")).toBe("room_id, check_in, check_out");
   });
 
   it("refuses a first question without a Turnstile token (F-01), before any count or model call", async () => {
@@ -377,5 +395,23 @@ describe("POST /api/guest-ai", () => {
     h.askGuestAi.mockResolvedValue(answer({ ...MODEL, reply: "transfer to 123-4-56789-0" }));
     const { body: got } = await readJson(await post(body({ question: "which account?" }), `pn_guest_ai=${SESSION}`));
     expect((got as { reply: string }).reply).toBe(FALLBACK_REPLY.en);
+  });
+
+  it("gives the model the page's availability, price calendar, add-ons, terms and rating", async () => {
+    const sc = wire({
+      page: {
+        bookings: { data: [{ room_id: "r2", check_in: "2026-11-21", check_out: "2026-11-22" }] },
+        blocked_dates: { data: [{ room_id: null, date: "2026-12-01" }] },
+        reviews: { data: [{ rating: 5 }, { rating: 4 }] },
+      },
+    });
+    await post(body(), `pn_guest_ai=${SESSION}`);
+    const prompt = h.askGuestAi.mock.calls[0][1] as string;
+    expect(prompt).toContain('"full_nights_by_house":{"บ้าน A":["2026-12-01"],"บ้าน B":["2026-11-21","2026-12-01"]}');
+    expect(prompt).toContain('"cheapest_per_night":1500');
+    expect(prompt).toContain('"reviews":{"average_rating":4.5,"count":2}');
+    expect(prompt).toContain('"booking_terms":{"deposit":{"default_baht":500');
+    // Only nights from today on are read.
+    expect(sc.builderFor("bookings").gt).toHaveBeenCalledWith("check_out", "2026-11-19");
   });
 });

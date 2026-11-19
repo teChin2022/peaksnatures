@@ -16,6 +16,15 @@ import {
   replyLanguage,
 } from "@/lib/guest-ai/rules";
 import { buildSystemPrompt, buildUserPrompt, housePriceFacts, type GuestAiFacts, type PricedRoomRow } from "@/lib/guest-ai/prompt";
+import {
+  FACT_WINDOW_DAYS,
+  availabilityFacts,
+  bookingTermsFacts,
+  extrasFacts,
+  priceCalendarFacts,
+  reviewFacts,
+  shareExtras,
+} from "@/lib/guest-ai/page-facts";
 import { askGuestAi } from "@/lib/guest-ai/model";
 import { notifyHostAlert } from "@/lib/notifications";
 import { alertAdmins } from "@/lib/admin-alert";
@@ -54,12 +63,16 @@ const RESERVE_REFUSAL: Record<string, [Code, number]> = {
   wallet_low: ["unavailable", 503],
 };
 
+/** A Bangkok YYYY-MM-DD plus n days (UTC arithmetic on the date, so no time zone can shift it). */
+const addDaysKey = (key: string, n: number) => new Date(Date.parse(`${key}T00:00:00Z`) + n * 86_400_000).toISOString().slice(0, 10);
+
 /** One "the assistant stopped: top up" notice a day at most. */
 const WALLET_NOTICE_MS = 24 * 60 * 60 * 1000;
 
 interface HomestayRow {
   id: string;
   name: string;
+  tagline: string | null;
   location: string | null;
   description: string | null;
   amenities: string[] | null;
@@ -69,7 +82,16 @@ interface HomestayRow {
   check_in_info: string | null;
   policies: string | null;
   faq: { question: string; answer: string }[] | null;
-  host: (HostBlockRow & { id: string; status: string | null; phone: string | null }) | null;
+  host:
+    | (HostBlockRow & {
+        id: string;
+        status: string | null;
+        phone: string | null;
+        deposit_amount: number | null;
+        deposit_by_month: Record<string, number> | null;
+        cancellation_days: number | null;
+      })
+    | null;
 }
 
 export async function POST(req: NextRequest) {
@@ -87,7 +109,7 @@ export async function POST(req: NextRequest) {
     const { data: homestayData } = await sc
       .from("homestays")
       .select(
-        `id, name, location, description, amenities, prohibitions, check_in_time, check_out_time, check_in_info, policies, faq, host:hosts(id, status, phone, ${HOST_BLOCK_COLUMNS})`,
+        `id, name, tagline, location, description, amenities, prohibitions, check_in_time, check_out_time, check_in_info, policies, faq, host:hosts(id, status, phone, deposit_amount, deposit_by_month, cancellation_days, ${HOST_BLOCK_COLUMNS})`,
       )
       .eq("slug", slug)
       .eq("is_active", true)
@@ -97,7 +119,11 @@ export async function POST(req: NextRequest) {
     if (!homestay || !host || !isHostApproved(host)) return fail("unavailable", 404);
 
     // The rest of what the reply needs, read together (each read used to wait for the one before).
-    const [{ data: settingsData }, blockState, { data: roomRows }] = await Promise.all([
+    // Bookings and closed days give the page's availability calendar: dates and houses only, no guest data.
+    const today = billingTodayStr();
+    const windowEnd = addDaysKey(today, FACT_WINDOW_DAYS);
+    const [{ data: settingsData }, blockState, { data: roomRows }, { data: bookedRows }, { data: blockedRows }, { data: ratingRows }] =
+      await Promise.all([
       sc
         .from("host_ai_settings")
         .select("status, enabled, can_answer, can_set_dates, can_suggest_houses, can_navigate, instructions, wallet_low_notified_at")
@@ -107,10 +133,20 @@ export async function POST(req: NextRequest) {
       sc
         .from("rooms")
         .select(
-          "id, name, description, max_guests, quantity, price_per_night, room_seasonal_prices(name, start_date, end_date, price_per_night), room_special_prices(name, rule_type, weekdays, dates, start_date, end_date, surcharge, is_active)",
+          "id, name, description, max_guests, quantity, price_per_night, room_seasonal_prices(name, start_date, end_date, price_per_night), room_special_prices(name, rule_type, weekdays, dates, start_date, end_date, surcharge, is_active), room_options(name, price, pricing_type, is_active), room_guest_pricing(adults, children, detail, surcharge, is_active)",
         )
         .eq("homestay_id", homestay.id)
         .eq("is_active", true),
+      // The statuses /api/bookings/availability counts.
+      sc
+        .from("bookings")
+        .select("room_id, check_in, check_out")
+        .eq("homestay_id", homestay.id)
+        .in("status", ["pending", "confirmed", "verified"])
+        .gt("check_out", today)
+        .lt("check_in", windowEnd),
+      sc.from("blocked_dates").select("room_id, date").eq("homestay_id", homestay.id).gte("date", today).lt("date", windowEnd),
+      sc.from("reviews").select("rating").eq("homestay_id", homestay.id),
     ]);
     const settings = settingsData as {
       status: string;
@@ -151,7 +187,6 @@ export async function POST(req: NextRequest) {
       newSession = true;
     }
 
-    const today = billingTodayStr();
     const reserveArgs = { p_session: sessionId, p_host: host.id, p_day: today };
     const { data: reserved, error: reserveError } = await sc.rpc(
       "reserve_guest_ai_reply" as never,
@@ -178,16 +213,30 @@ export async function POST(req: NextRequest) {
     }
 
     const tReserved = ms();
-    const rooms = (roomRows ?? []) as (PricedRoomRow & {
-      id: string;
-      name: string;
-      description: string | null;
-      max_guests: number;
-      quantity: number | null;
-    })[];
+    const rooms = (roomRows ?? []) as (PricedRoomRow &
+      Parameters<typeof extrasFacts>[0] & {
+        id: string;
+        name: string;
+        description: string | null;
+        max_guests: number;
+        quantity: number | null;
+      })[];
 
+    const extras = shareExtras(
+      rooms.map((r) => ({
+        id: r.id,
+        name: r.name,
+        description: richTextToPlainText(r.description),
+        max_guests: r.max_guests,
+        units: r.quantity ?? 1,
+        price: housePriceFacts(r, today),
+        price_calendar: priceCalendarFacts(r, today),
+        ...extrasFacts(r),
+      })),
+    );
     const facts: GuestAiFacts = {
       name: homestay.name,
+      tagline: homestay.tagline,
       location: homestay.location,
       description: richTextToPlainText(homestay.description),
       amenities: homestay.amenities ?? [],
@@ -197,14 +246,16 @@ export async function POST(req: NextRequest) {
       check_in_info: richTextToPlainText(homestay.check_in_info),
       policies: richTextToPlainText(homestay.policies),
       faq: homestay.faq ?? [],
-      houses: rooms.map((r) => ({
-        id: r.id,
-        name: r.name,
-        description: richTextToPlainText(r.description),
-        max_guests: r.max_guests,
-        units: r.quantity ?? 1,
-        price: housePriceFacts(r, today),
-      })),
+      houses: extras.houses,
+      ...(extras.shared && { every_house: extras.shared }),
+      availability: availabilityFacts(
+        rooms,
+        (bookedRows ?? []) as { room_id: string | null; check_in: string; check_out: string }[],
+        (blockedRows ?? []) as { room_id: string | null; date: string }[],
+        today,
+      ),
+      booking_terms: bookingTermsFacts(host),
+      reviews: reviewFacts((ratingRows ?? []) as { rating: number }[]),
     };
     // The guest's language, not the page's: an English question on the Thai page gets English.
     const language = replyLanguage(question, locale);
@@ -219,7 +270,7 @@ export async function POST(req: NextRequest) {
     try {
       answer = await askGuestAi(
         buildSystemPrompt({ today, locale: language, permissions }),
-        buildUserPrompt({ facts, hostNotes: settings.instructions, question, history }),
+        buildUserPrompt({ facts, hostNotes: settings.instructions, question, history, language }),
       );
     } catch (err) {
       console.error("[guest-ai] model call failed after", ms() - tReserved, "ms:", (err as Error).message);

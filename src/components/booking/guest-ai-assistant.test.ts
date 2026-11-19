@@ -8,6 +8,7 @@ const h = vi.hoisted(() => ({
   cart: null as unknown,
   /** Turnstile widgets rendered so far, with what they were given. */
   widgets: [] as { onSuccess: (token: string) => void; options?: Record<string, unknown> }[],
+  resets: 0,
 }));
 
 // Keys and their values stand in for the copy: this tests what is shown, not its wording.
@@ -19,12 +20,16 @@ vi.mock("next-intl", () => ({
 vi.mock("@/lib/use-is-mobile", () => ({ useIsMobile: () => h.isMobile }));
 vi.mock("./use-booking-bar-visible", () => ({ useBookingBarVisible: () => false }));
 vi.mock("./booking-cart-context", () => ({ useBookingCartOptional: () => h.cart }));
-vi.mock("@marsidev/react-turnstile", () => ({
-  Turnstile: (props: { onSuccess: (token: string) => void; options?: Record<string, unknown> }) => {
-    h.widgets.push(props);
-    return null;
-  },
-}));
+vi.mock("@marsidev/react-turnstile", async () => {
+  const { useImperativeHandle } = await import("react");
+  return {
+    Turnstile: (props: { onSuccess: (token: string) => void; options?: Record<string, unknown>; ref?: unknown }) => {
+      useImperativeHandle(props.ref as never, () => ({ reset: () => (h.resets += 1) }));
+      h.widgets.push(props);
+      return null;
+    },
+  };
+});
 
 import { GuestAiAssistant, GuestAiEntryLink, openGuestAi } from "./guest-ai-assistant";
 
@@ -88,6 +93,7 @@ beforeEach(() => {
   contact = { lineId: "monngo", phone: "099-000-1234" };
   h.isMobile = false;
   h.widgets = [];
+  h.resets = 0;
   h.cart = makeCart();
   container = document.createElement("div");
   document.body.appendChild(container);
@@ -387,5 +393,28 @@ describe("GuestAiAssistant", () => {
     const en = (await import("../../../messages/en.json")).default.guestAiAsk;
     expect(th.chooseHouseAria.startsWith(th.chooseHouse)).toBe(true);
     expect(en.chooseHouseAria.startsWith(en.chooseHouse)).toBe(true);
+  });
+
+  // Live run 2026-11-19: a refused first question (daily limit) spent the only token, and the next
+  // question waited on "verifying" for ever.
+  it("asks Turnstile for a fresh token once one is spent, so a refused first question does not lock the box", async () => {
+    vi.stubEnv("NEXT_PUBLIC_TURNSTILE_SITE_KEY", "site-key");
+    try {
+      await render();
+      await act(async () => byText("title")!.click());
+      await act(async () => h.widgets.at(-1)!.onSuccess("tok-1"));
+      fetchMock.mockResolvedValueOnce(refused(429, "limit"));
+      await ask("ช่วงไหนราคาต่ำที่สุด");
+      expect(bodyOf(0).turnstileToken).toBe("tok-1");
+      expect(h.resets).toBeGreaterThan(0);
+
+      await act(async () => h.widgets.at(-1)!.onSuccess("tok-2"));
+      fetchMock.mockResolvedValueOnce(ok(reply({ reply: "ตอบได้แล้วค่ะ" })));
+      await ask("มีที่จอดรถไหม");
+      expect(bodyOf(1).turnstileToken).toBe("tok-2");
+      expect(text()).toContain("ตอบได้แล้วค่ะ");
+    } finally {
+      vi.unstubAllEnvs();
+    }
   });
 });

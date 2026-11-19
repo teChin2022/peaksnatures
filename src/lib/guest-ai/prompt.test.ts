@@ -42,7 +42,7 @@ describe("buildSystemPrompt", () => {
 
   it("always carries the payment and link rules (F-03)", () => {
     const p = buildSystemPrompt({ today: "2026-11-19", locale: "th", permissions: ALL });
-    expect(p).toMatch(/Never talk about payment/);
+    expect(p).toMatch(/Never talk about bank accounts, PromptPay or how to transfer/);
     expect(p).toMatch(/never write links/);
     // Owner 2026-11-19: per-night prices and the written cancellation policy may be quoted; totals,
     // discounts and refund promises never.
@@ -55,9 +55,12 @@ describe("buildSystemPrompt", () => {
 
   it("tells the model what the page shows under its reply, and the house vocabulary", () => {
     const p = buildSystemPrompt({ today: "2026-11-19", locale: "th", permissions: ALL });
-    expect(p).toMatch(/never say you cannot check/);
+    // Owner 2026-11-19: availability is public on the page, so the model answers from it.
+    expect(p).toMatch(/Answer "which dates are free" and "is this house free" from it \(a month inside the window is always answerable\)/);
+    // Live run: "ยกเลิกฟรีได้ไหม" got "no policy" although the policies spell out refunds.
+    expect(p).toMatch(/never say there is no policy/);
+    expect(p).toMatch(/never invent what guests said/);
     // Critique 2026-11-19 (second pass): replies said "ด้านล่างนี้" and named booked houses.
-    expect(p).toMatch(/never name or recommend a particular house in that reply/);
     expect(p).toMatch(/Never point to a place on the page/);
     // Live run: "เสาร์นี้ 3 คน" set the dates and still asked "ขอทราบวันที่เช็กอินและเช็กเอาต์ค่ะ".
     expect(p).toMatch(/reply "เลือกวันให้แล้วค่ะ"/);
@@ -115,6 +118,13 @@ describe("buildUserPrompt", () => {
     expect(p).toContain('"""\nจอดรถ 3 คัน\n"""');
     expect(p).toContain('GUEST:\n"""\nมีที่จอดไหม\n"""');
     expect(p).not.toContain("EARLIER");
+    expect(p).not.toContain("Reply in");
+  });
+
+  // Live run: an English question after Thai turns was answered in Thai.
+  it("restates the reply language last when it is given", () => {
+    const p = buildUserPrompt({ facts: FACTS, hostNotes: null, question: "is it free?", history: [{ q: "เสาร์นี้", a: "ว่างค่ะ" }], language: "en" });
+    expect(p.endsWith('"""\nReply in English.')).toBe(true);
   });
 
   it("includes the last turns and says when there are no notes", () => {

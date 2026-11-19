@@ -228,13 +228,16 @@ function Assistant({ slug, contact }: { slug: string; contact: GuestAiContact })
   };
 
   /** Gets a Turnstile token for this question, then sends it. Without a site key (local development) the server skips the check too. */
+  /** A token is single use: once one is sent, the widget starts on the next (a refused question needs it). */
+  const spend = (value: string) => {
+    token.current = null;
+    turnstileRef.current?.reset();
+    return value;
+  };
   const verify = (id: number, q: string) => {
     if (!siteKey) return void send(id, q, "no-site-key");
     const ready = token.current;
-    if (ready) {
-      token.current = null;
-      return void send(id, q, ready);
-    }
+    if (ready) return void send(id, q, spend(ready));
     pending.current = { id, q };
     setNeedVerify(true);
   };
@@ -242,7 +245,7 @@ function Assistant({ slug, contact }: { slug: string; contact: GuestAiContact })
     const job = pending.current;
     pending.current = null;
     setNeedVerify(false);
-    if (job) void send(job.id, job.q, value);
+    if (job) void send(job.id, job.q, spend(value));
     else token.current = value;
   };
   const onTurnstileError = () => {
