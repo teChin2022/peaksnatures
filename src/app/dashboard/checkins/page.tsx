@@ -29,6 +29,8 @@ import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
 import { toast } from "sonner";
 import { countAttachmentsByBooking } from "@/lib/booking-attachments";
+import { hostErrorKey } from "@/lib/host-error";
+import { ErrorView } from "@/components/error-view";
 
 interface SelectedOption {
   id: string;
@@ -59,8 +61,19 @@ interface CheckinBooking {
 
 export default function CheckinsPage() {
   const t = useTranslations("checkins");
+  const th = useTranslations("hostErrors");
+  const te = useTranslations("errorPage");
   const locale = useLocale();
+  // The page works on this device's date (the queries below); say which day it is.
+  const now = new Date();
+  const todayLabel = fmtDateStr(
+    `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`,
+    "EEEE d MMMM yyyy",
+    locale,
+  );
   const [bookings, setBookings] = useState<CheckinBooking[]>([]);
+  // A failed read must not read as "nobody arrives today".
+  const [loadError, setLoadError] = useState(false);
   // Today's departures: the home page's "check-outs today" tile lands on #checkouts.
   const [departures, setDepartures] = useState<{ id: string; guest_name: string; guest_phone: string; room_name: string }[]>([]);
   const [loading, setLoading] = useState(true);
@@ -80,7 +93,8 @@ export default function CheckinsPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(t("recordCashError"));
+        const key = hostErrorKey(data);
+        toast.error(key ? th(key) : t("recordCashError"));
         return;
       }
       setBookings((prev) =>
@@ -105,7 +119,8 @@ export default function CheckinsPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data?.message || t("checkInError"));
+        const key = hostErrorKey(data);
+        toast.error(key ? th(key) : t("checkInError"));
         return;
       }
       setBookings((prev) =>
@@ -124,17 +139,22 @@ export default function CheckinsPage() {
       const supabase = createClient();
       // No user_id filter: RLS shows a login only its own host, or the one it is staff of (081),
       // so the host read need not wait for getUser().
-      const [{ data: { user } }, { data: hostRow }] = await Promise.all([
+      // PGRST116 is "no row": a new account, not a failed read.
+      const failed = (e: { code?: string } | null) => !!e && e.code !== "PGRST116";
+      const giveUp = () => { setLoadError(true); setLoading(false); };
+      const [{ data: { user } }, { data: hostRow, error: hostError }] = await Promise.all([
         supabase.auth.getUser(),
         supabase.from("hosts").select("id").single(),
       ]);
       if (!user) { setLoading(false); return; }
+      if (failed(hostError)) return giveUp();
       if (!hostRow) { setLoading(false); return; }
 
-      const { data: homestayRows } = await supabase
+      const { data: homestayRows, error: homestayError } = await supabase
         .from("homestays")
         .select("id")
         .eq("host_id", (hostRow as { id: string }).id);
+      if (failed(homestayError)) return giveUp();
       const homestayIds = ((homestayRows as { id: string }[]) || []).map((h) => h.id);
       if (homestayIds.length === 0) { setLoading(false); return; }
 
@@ -142,7 +162,7 @@ export default function CheckinsPage() {
       const today = new Date();
       const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, "0")}-${String(today.getDate()).padStart(2, "0")}`;
 
-      const [{ data: bookingRows }, { data: departureRows }, { data: roomRows }] = await Promise.all([
+      const [{ data: bookingRows, error: bookingError }, { data: departureRows, error: departureError }, { data: roomRows }] = await Promise.all([
         supabase
           .from("bookings")
           .select("id, guest_name, guest_email, guest_phone, guest_province, check_in, check_out, num_guests, total_price, amount_paid, payment_type, status, checked_in_at, selected_options, notes, room_id")
@@ -163,6 +183,8 @@ export default function CheckinsPage() {
           .select("id, name")
           .in("homestay_id", homestayIds),
       ]);
+
+      if (bookingError || departureError) return giveUp();
 
       const roomMap = Object.fromEntries(
         ((roomRows as { id: string; name: string }[]) || []).map((r) => [r.id, r.name])
@@ -203,6 +225,19 @@ export default function CheckinsPage() {
     }
   }, [loading]);
 
+  if (loadError) {
+    return (
+      <ErrorView
+        title={te("title")}
+        description={te("description")}
+        retryLabel={te("retry")}
+        onRetry={() => window.location.reload()}
+        backHref="/dashboard"
+        backLabel={te("dashboard")}
+      />
+    );
+  }
+
   return (
     <div>
       <div className="mb-6">
@@ -210,7 +245,8 @@ export default function CheckinsPage() {
           <ClipboardCheck className="h-5 w-5 text-brand" />
           {t("title")}
         </h1>
-        <p className="text-sm text-earth-600 mt-1">{t("subtitle")}</p>
+        {/* After loading only: the server renders in UTC, this device may already be on tomorrow. */}
+        <p className="text-sm text-earth-600 mt-1">{t("subtitle")}{!loading && ` · ${todayLabel}`}</p>
       </div>
 
       {loading ? (
@@ -246,7 +282,7 @@ export default function CheckinsPage() {
             const options = Array.isArray(booking.selected_options) ? booking.selected_options : [];
 
             return (
-              <Card key={booking.id} className="overflow-hidden">
+              <Card key={booking.id} className="overflow-hidden py-0 gap-0">
                 <CardContent className="p-0">
                   {/* Status bar */}
                   <div className={`h-1 ${isCheckedIn ? "bg-brand" : "bg-amber-400"}`} />
@@ -255,9 +291,9 @@ export default function CheckinsPage() {
                     {/* Header: name + status */}
                     <div className="flex items-start justify-between gap-3">
                       <div className="min-w-0">
-                        <h3 className="font-semibold text-earth-900 text-base truncate">
+                        <h2 className="font-semibold text-earth-900 text-base truncate">
                           {booking.guest_name}
-                        </h3>
+                        </h2>
                         <p className="text-xs text-earth-600 mt-0.5">
                           ID: {booking.id.slice(0, 8)}
                         </p>

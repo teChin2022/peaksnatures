@@ -34,6 +34,7 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { InvoicePayDialog } from "@/components/dashboard/invoice-pay-dialog";
 import { InvoiceSummary, invoiceStatus, type InvoiceRow } from "@/components/dashboard/invoice-summary";
 import { PromptPayQr } from "@/components/dashboard/promptpay-qr";
+import { ErrorView } from "@/components/error-view";
 import { TOPUP_AMOUNTS } from "@/lib/topup-amounts";
 
 /* ─── Types ─── */
@@ -90,6 +91,7 @@ const TXN_TYPE_CONFIG: Record<string, { icon: typeof ArrowUpCircle; color: strin
 
 export default function WalletPage() {
   const t = useTranslations("walletPage");
+  const te = useTranslations("errorPage");
   const td = useTranslations("dashboard");
   const ts = useTranslations("slipErrors");
   const locale = useLocale();
@@ -347,7 +349,17 @@ export default function WalletPage() {
   }
 
   if (!billing) {
-    return <p className="text-sm text-earth-600 py-12 text-center">Failed to load wallet information.</p>;
+    // A failed read, in the dashboard's error view (was an English line with no retry).
+    return (
+      <ErrorView
+        title={te("title")}
+        description={te("description")}
+        retryLabel={te("retry")}
+        onRetry={() => window.location.reload()}
+        backHref="/dashboard"
+        backLabel={te("dashboard")}
+      />
+    );
   }
 
   const isNegative = billing.wallet_balance < 0;
@@ -406,7 +418,7 @@ export default function WalletPage() {
                     animate={{ opacity: 1, scale: 1 }}
                     transition={{ duration: 0.4, type: "spring" }}
                   >
-                    <span className={`text-5xl sm:text-6xl font-serif tracking-tight leading-none ${
+                    <span className={`text-5xl sm:text-6xl font-serif lining-nums tabular-nums tracking-tight leading-none ${
                       isNegative ? "text-red-600" : "text-earth-900"
                     }`}>
                       {isNegative ? "-" : ""}฿{Math.abs(billing.wallet_balance).toLocaleString()}
@@ -425,11 +437,17 @@ export default function WalletPage() {
                           <> {t("threshold_multiple", { max: TOPUP_AMOUNTS[TOPUP_AMOUNTS.length - 1].toLocaleString() })}</>
                         )}
                         {/* "Too long" used to have no date: the same moment isHostBlocked uses. */}
-                        {st.kind === "negative" && billing.wallet_negative_since && (
-                          <span className="mt-1 block text-red-700">
-                            {t("blockFrom", { date: fmtDate(walletBlockFrom(billing.wallet_negative_since), "d MMM yyyy HH:mm", locale) })}
-                          </span>
-                        )}
+                        {st.kind === "negative" && billing.wallet_negative_since && (() => {
+                          const blockAt = walletBlockFrom(billing.wallet_negative_since);
+                          const date = fmtDate(blockAt, "d MMM yyyy HH:mm", locale);
+                          // Once the date has passed, "may close from" read as still to come.
+                          const passed = blockAt.getTime() <= new Date().getTime();
+                          return (
+                            <span className="mt-1 block text-red-700">
+                              {passed ? t("blockedSince", { date }) : t("blockFrom", { date })}
+                            </span>
+                          );
+                        })()}
                       </p>
                     );
                   })()}
@@ -447,7 +465,7 @@ export default function WalletPage() {
                       </div>
                       <div>
                         <p className="text-xs font-semibold text-earth-600">{t("income")}</p>
-                        <p className="text-lg font-serif text-earth-900 leading-tight">
+                        <p className="text-lg font-serif lining-nums tabular-nums text-earth-900 leading-tight">
                           ฿{monthlyIncome.toLocaleString()}
                         </p>
                         <p className="text-xs text-earth-600">{t("thisMonth")}</p>
@@ -459,7 +477,7 @@ export default function WalletPage() {
                       </div>
                       <div>
                         <p className="text-xs font-semibold text-earth-600">{t("deductions")}</p>
-                        <p className="text-lg font-serif text-earth-900 leading-tight">
+                        <p className="text-lg font-serif lining-nums tabular-nums text-earth-900 leading-tight">
                           ฿{monthlyDeductions.toLocaleString()}
                         </p>
                         <p className="text-xs text-earth-600">{t("thisMonth")}</p>
@@ -520,6 +538,10 @@ export default function WalletPage() {
                         <p className="text-lg font-mono font-bold text-earth-900 mt-2">
                           ฿{Number(topupAmount).toLocaleString()}
                         </p>
+                      )}
+                      {/* The top-up route refuses a slip older than an hour; say so before the transfer. */}
+                      {topupAmount && Number(topupAmount) > 0 && (
+                        <p className="mt-1 text-center text-xs text-earth-600">{t("slipWithinHour")}</p>
                       )}
                       {billing.platform_payment.bank_account_name && (
                         <p className="text-sm font-medium text-earth-700 mt-2">{billing.platform_payment.bank_account_name}</p>

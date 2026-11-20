@@ -146,6 +146,8 @@ export function SlipPaymentFields({
       {/* Upload slip */}
       <div className="space-y-2">
         <Label className="text-sm text-earth-800">{t("paymentSlip")}</Label>
+        {/* The routes refuse a slip older than an hour (easyslip.ts MAX_SLIP_AGE_MS); say so before the upload. */}
+        <p className="text-xs text-earth-600">{t("slipWithinHour")}</p>
 
         {file ? (
           <div className="rounded-2xl border bg-earth-50 p-3">

@@ -76,15 +76,32 @@ describe("WalletPage: top-up", () => {
 });
 
 describe("WalletPage: a negative balance", () => {
-  it("names the moment bookings may close", async () => {
+  const negativeSince = () =>
     vi.stubGlobal("fetch", vi.fn(async (url: string) => ({
       ok: true,
       json: async () => url.startsWith("/api/host/billing")
         ? { plan_type: "commission", wallet_balance: -400, wallet_negative_since: "2026-11-10T03:00:00Z", effective_commission_pct: 3, effective_quick_commission_pct: 1, platform_payment: null, invoices: [] }
         : url.startsWith("/api/host/wallet/transactions") ? { transactions: [], total: 0 } : { invoices: [] },
     })));
+  afterEach(() => vi.useRealTimers());
+
+  it("names the moment bookings may close", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-15T05:00:00Z")); // before the block date
+    negativeSince();
     await act(async () => root.render(createElement(WalletPage)));
     await act(async () => {});
     expect(container.textContent).toMatch(/blockFrom:18 พ\.ย\. 2569/);
+  });
+
+  // 2026-11-20: after the date the line still said "may close from", as if still to come.
+  it("says so in the past once that moment has gone", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-20T05:00:00Z"));
+    negativeSince();
+    await act(async () => root.render(createElement(WalletPage)));
+    await act(async () => {});
+    expect(container.textContent).toMatch(/blockedSince:18 พ\.ย\. 2569/);
+    expect(container.textContent).not.toContain("blockFrom:");
   });
 });

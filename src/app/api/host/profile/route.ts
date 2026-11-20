@@ -18,6 +18,16 @@ function maskPromptpay(id: string): string {
   return "x-xxxx-xx" + id.slice(-3);
 }
 
+/** Whether guests are refused right now: the booking routes' own rule (isHostBlocked). */
+async function guestsBlocked(hostId: string): Promise<boolean> {
+  const [{ getHostBlockState }, { isHostBlocked }] = await Promise.all([
+    import("@/lib/billing"),
+    import("@/lib/plan-expiry"),
+  ]);
+  const blockState = await getHostBlockState(hostId);
+  return !!blockState && isHostBlocked(blockState);
+}
+
 export async function GET() {
   try {
     const supabase = await createServerSupabaseClient();
@@ -39,15 +49,10 @@ export async function GET() {
       // cannot, but cannot read the billing state behind it.
       const access = await getHostAccess(serviceClient, user.id);
       if (access?.role === "staff") {
-        const [{ getHostBlockState }, { isHostBlocked }] = await Promise.all([
-          import("@/lib/billing"),
-          import("@/lib/plan-expiry"),
-        ]);
-        const blockState = await getHostBlockState(access.hostId);
         return NextResponse.json({
           id: access.hostId,
           role: "staff",
-          bookingBlocked: !!blockState && isHostBlocked(blockState),
+          bookingBlocked: await guestsBlocked(access.hostId),
         });
       }
       return NextResponse.json({ error: "Host not found" }, { status: 404 });
@@ -71,9 +76,16 @@ export async function GET() {
       require_otp: boolean | null;
     };
 
+    // The owner too (2026-11-20): the shell's wallet banner. Never fails the profile.
+    const bookingBlocked = await guestsBlocked(h.id).catch((err) => {
+      console.error("Host block state error:", err);
+      return null;
+    });
+
     return NextResponse.json({
       id: h.id,
       role: "owner",
+      bookingBlocked,
       name: h.name,
       line_user_id: h.line_user_id,
       line_token_tail: h.line_channel_access_token ? h.line_channel_access_token.slice(-4) : null,

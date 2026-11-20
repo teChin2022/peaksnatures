@@ -46,6 +46,8 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { toast } from "sonner";
 import { logClientEvent } from "@/lib/history-log-client";
 import { composeTierLabel } from "@/lib/guest-pricing";
+import { billingTodayStr } from "@/lib/billing-dates";
+import { isLinkedRowError, roomDeleteVerdict } from "@/lib/room-delete";
 import { getPriceRange } from "@/lib/calculate-price";
 import { formatSpecialPriceRule } from "@/lib/special-price-label";
 import { parseRoomPrice, unaddedSections, type RoomSubForm } from "@/lib/room-form";
@@ -247,8 +249,11 @@ export default function RoomsPage() {
   const [confirmOpen, setConfirmOpen] = useState(false);
   const [confirmMessage, setConfirmMessage] = useState("");
   const confirmCallbackRef = useRef<(() => void) | null>(null);
+  // Set when the house still has bookings to honour: the dialog explains instead of deleting.
+  const [deleteBlocked, setDeleteBlocked] = useState(false);
 
   const showConfirm = (message: string, onConfirm: () => void) => {
+    setDeleteBlocked(false);
     setConfirmMessage(message);
     confirmCallbackRef.current = onConfirm;
     setConfirmOpen(true);
@@ -638,13 +643,32 @@ export default function RoomsPage() {
     }
   };
 
-  const handleDeleteRoom = (roomId: string) => {
-    showConfirm(t("confirmDelete"), async () => {
+  const handleDeleteRoom = async (roomId: string) => {
+    // Bookings keep their row but lose the house (ON DELETE SET NULL), so count them first.
+    const supabase = createClient();
+    const [unfinished, all] = await Promise.all([
+      supabase.from("bookings").select("id", { count: "exact", head: true }).eq("room_id", roomId)
+        .in("status", ["pending", "verified", "confirmed"]).gte("check_out", billingTodayStr()),
+      supabase.from("bookings").select("id", { count: "exact", head: true }).eq("room_id", roomId),
+    ]);
+    if (unfinished.error || all.error) {
+      toast.error(t("errorDelete"));
+      return;
+    }
+    const verdict = roomDeleteVerdict({ unfinished: unfinished.count ?? 0, total: all.count ?? 0 });
+    if (!verdict.allowed) {
+      setDeleteBlocked(true);
+      setConfirmMessage(t("deleteBlockedDesc", { count: verdict.unfinished }));
+      confirmCallbackRef.current = null;
+      setConfirmOpen(true);
+      return;
+    }
+    const pastNote = verdict.past > 0 ? ` ${t("deletePastBookings", { count: verdict.past })}` : "";
+    showConfirm(t("confirmDelete") + pastNote, async () => {
       try {
-        const supabase = createClient();
         const { error } = await supabase.from("rooms").delete().eq("id", roomId);
         if (error) {
-          toast.error(t("errorDelete"));
+          toast.error(isLinkedRowError(error) ? t("errorDeleteLinked") : t("errorDelete"));
           console.error("Delete room error:", error);
           return;
         }
@@ -1324,9 +1348,10 @@ export default function RoomsPage() {
       ) : (
         <div className="space-y-4">
           {rooms.map((room) => (
-            <Card key={room.id} className={`overflow-hidden py-0 gap-0 ${room.is_active ? "" : "opacity-50"}`}>
+            <Card key={room.id} className="overflow-hidden py-0 gap-0">
               <div className="flex">
-                <div className="relative w-36 shrink-0 sm:w-40">
+                {/* A switched-off house dims its photo only: dimmed text failed contrast. */}
+                <div className={`relative w-24 shrink-0 sm:w-40 ${room.is_active ? "" : "opacity-60"}`}>
                   {room.images[0] ? (
                     <Image
                       src={room.images[0]}
@@ -1342,62 +1367,71 @@ export default function RoomsPage() {
                   )}
                 </div>
                 <div className="flex-1 min-w-0 p-4">
-                  <div className="flex items-start justify-between">
-                    <div>
-                      <div className="flex items-center gap-2">
-                        <h2 className="font-semibold text-earth-900">{room.name}</h2>
-                        {!room.is_active && (
-                          <span className="inline-flex items-center rounded-full bg-earth-100 px-2 py-0.5 text-xs font-medium text-earth-600">
-                            {t("inactive")}
-                          </span>
-                        )}
-                      </div>
-                      {room.description && (
-                        <p className="mt-0.5 text-sm text-earth-600 line-clamp-1">
-                          {room.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}
-                        </p>
-                      )}
-                    </div>
-                    <div className="flex items-center gap-1">
-                      <Switch
-                        checked={room.is_active}
-                        onCheckedChange={(checked) => handleToggleActive(room.id, checked)}
-                        aria-label={`${t("active")}: ${room.name}`}
-                      />
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8"
-                        aria-label={`${tc("edit")} ${room.name}`} onClick={() => openEditDialog(room)}
-                      >
-                        <Pencil className="h-3.5 w-3.5" />
-                      </Button>
-                      <Button
-                        variant="ghost"
-                        size="icon"
-                        className="h-8 w-8 text-red-500 hover:text-red-700"
-                        aria-label={`${tc("delete")} ${room.name}`} onClick={() => handleDeleteRoom(room.id)}
-                      >
-                        <Trash2 className="h-3.5 w-3.5" />
-                      </Button>
-                    </div>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <h2 className="font-semibold text-earth-900">{room.name}</h2>
+                    {!room.is_active && (
+                      <span className="inline-flex items-center rounded-full bg-earth-100 px-2 py-0.5 text-xs font-medium text-earth-700">
+                        {t("inactive")}
+                      </span>
+                    )}
                   </div>
-                  <div className="mt-2 flex items-center gap-4 text-sm text-earth-600">
-                    <span className="font-medium text-brand">
+                  {room.description && (
+                    <p className="mt-0.5 text-sm text-earth-600 line-clamp-1">
+                      {room.description.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim()}
+                    </p>
+                  )}
+                  <div className="mt-2 flex flex-wrap items-center gap-x-4 gap-y-1 text-sm text-earth-600">
+                    <span className="whitespace-nowrap font-medium text-brand">
                       ฿{room.price_per_night.toLocaleString()}{tc("perNight")}
                     </span>
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 whitespace-nowrap">
                       <Users className="h-3.5 w-3.5" />
                       {room.max_guests}
                     </span>
-                    <span>
+                    <span className="whitespace-nowrap">
                       {t("unitCount", { count: room.quantity })}
                     </span>
-                    <span className="flex items-center gap-1">
+                    <span className="flex items-center gap-1 whitespace-nowrap">
                       <ImageIcon className="h-3.5 w-3.5" />
                       {room.images.length}
                     </span>
                   </div>
+                </div>
+              </div>
+              {/* Full card width: beside the photo the label wrapped onto three lines at 375px. */}
+              <div className="flex items-center justify-between gap-3 border-t border-earth-100 px-4 py-2">
+                <div className="flex items-center gap-2">
+                  <Switch
+                    id={`room-active-${room.id}`}
+                    checked={room.is_active}
+                    onCheckedChange={(checked) => handleToggleActive(room.id, checked)}
+                    aria-label={`${t("openForBooking")}: ${room.name}`}
+                  />
+                  <Label htmlFor={`room-active-${room.id}`} className="whitespace-nowrap text-sm font-normal text-earth-800">
+                    {t("openForBooking")}
+                  </Label>
+                </div>
+                {/* 44px on phones; delete kept apart from edit. */}
+                <div className="flex items-center gap-3">
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    className="h-11 sm:h-9"
+                    aria-label={`${tc("edit")} ${room.name}`}
+                    onClick={() => openEditDialog(room)}
+                  >
+                    <Pencil className="mr-1 h-3.5 w-3.5" />
+                    {tc("edit")}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-11 w-11 text-red-600 hover:text-red-700 sm:h-9 sm:w-9"
+                    aria-label={`${tc("delete")} ${room.name}`}
+                    onClick={() => handleDeleteRoom(room.id)}
+                  >
+                    <Trash2 className="h-4 w-4" />
+                  </Button>
                 </div>
               </div>
             </Card>
@@ -2467,30 +2501,38 @@ export default function RoomsPage() {
         <DialogContent className="sm:max-w-sm">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <Trash2 className="h-4 w-4 text-red-500" />
-              {t("confirmDeleteTitle")}
+              {!deleteBlocked && <Trash2 className="h-4 w-4 text-red-500" />}
+              {deleteBlocked ? t("deleteBlockedTitle") : t("confirmDeleteTitle")}
             </DialogTitle>
             <DialogDescription className="text-sm text-earth-700">
               {confirmMessage}
             </DialogDescription>
           </DialogHeader>
           <DialogFooter className="flex gap-2 sm:justify-end">
-            <Button
-              variant="outline"
-              onClick={() => setConfirmOpen(false)}
-            >
-              {tc("cancel")}
-            </Button>
-            <Button
-              variant="destructive"
-              onClick={() => {
-                setConfirmOpen(false);
-                confirmCallbackRef.current?.();
-              }}
-            >
-              <Trash2 className="mr-2 h-4 w-4" />
-              {tc("delete")}
-            </Button>
+            {deleteBlocked ? (
+              <Button variant="outline" onClick={() => setConfirmOpen(false)}>
+                {tc("close")}
+              </Button>
+            ) : (
+              <>
+                <Button
+                  variant="outline"
+                  onClick={() => setConfirmOpen(false)}
+                >
+                  {tc("cancel")}
+                </Button>
+                <Button
+                  variant="destructive"
+                  onClick={() => {
+                    setConfirmOpen(false);
+                    confirmCallbackRef.current?.();
+                  }}
+                >
+                  <Trash2 className="mr-2 h-4 w-4" />
+                  {tc("delete")}
+                </Button>
+              </>
+            )}
           </DialogFooter>
         </DialogContent>
       </Dialog>

@@ -34,17 +34,24 @@ export function getEffectiveCommissionPct(
 }
 
 /**
+ * The two config fields the Fixed Rate math reads. A page that already has the
+ * effective rate and the tiers (the host billing page) can quote with them,
+ * exactly as the routes do with the full config.
+ */
+export type FixedRateConfig = Pick<PlatformBillingConfig, "fixed_rate_amount" | "fixed_rate_term_tiers">;
+
+/**
  * Get the effective fixed rate for a host.
  * Uses per-host override if set, otherwise falls back to global config.
  */
 export function getEffectiveFixedRate(
   host: Pick<Host, "fixed_rate_override">,
-  config: PlatformBillingConfig,
+  config: FixedRateConfig,
 ): number {
   return host.fixed_rate_override || config.fixed_rate_amount;
 }
 
-function getTermTiers(config: PlatformBillingConfig): FixedRateTermTier[] {
+function getTermTiers(config: FixedRateConfig): FixedRateTermTier[] {
   return Array.isArray(config.fixed_rate_term_tiers)
     ? (config.fixed_rate_term_tiers as FixedRateTermTier[])
     : [];
@@ -52,7 +59,7 @@ function getTermTiers(config: PlatformBillingConfig): FixedRateTermTier[] {
 
 export function getFixedRateDiscount(
   months: number,
-  config: PlatformBillingConfig,
+  config: FixedRateConfig,
 ): number {
   const tier = getTermTiers(config).find((t) => Number(t.months) === months);
   return tier ? Number(tier.discount_pct) : 0;
@@ -60,7 +67,7 @@ export function getFixedRateDiscount(
 
 export function isValidTermMonths(
   months: number,
-  config: PlatformBillingConfig,
+  config: FixedRateConfig,
 ): boolean {
   return getTermTiers(config).some((t) => Number(t.months) === months);
 }
@@ -72,7 +79,7 @@ export function isValidTermMonths(
  */
 export function computeFixedRateInvoice(
   host: Pick<Host, "fixed_rate_override">,
-  config: PlatformBillingConfig,
+  config: FixedRateConfig,
   months: number,
   startDate: Date,
 ): {
@@ -144,7 +151,7 @@ export function fixedRateStartDate(
  */
 export function computeImmediateFixedRateInvoice(
   host: Pick<Host, "fixed_rate_override">,
-  config: PlatformBillingConfig,
+  config: FixedRateConfig,
   months: number,
   startDate: Date,
 ): {

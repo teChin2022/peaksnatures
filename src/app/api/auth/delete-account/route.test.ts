@@ -67,6 +67,49 @@ describe("DELETE /api/auth/delete-account", () => {
     expect(sc.auth.admin.deleteUser).not.toHaveBeenCalled();
   });
 
+  // 2026-11-20 (owner's rule): deleting used to wipe future bookings and tell no guest.
+  // The host cancels them first (each guest is emailed), then deletes.
+  it("refuses while the homestay has bookings still to come, and deletes nothing", async () => {
+    const sc = mockClients({
+      hosts: { data: { id: "host-1", security_pin_hash: null } },
+      homestays: { data: { id: "hs-1" } },
+      bookings: { count: 2 },
+    });
+
+    const { status, body } = await del();
+    expect(status).toBe(409);
+    expect(body).toEqual({ error: "UPCOMING_BOOKINGS", count: 2 });
+    expect(sc.builderFor("bookings").in).toHaveBeenCalledWith("status", ["pending", "verified", "confirmed"]);
+    expect(sc.builderFor("bookings").delete).not.toHaveBeenCalled();
+    expect(sc.calls.some((c) => c.table === "rooms")).toBe(false);
+    expect(sc.auth.admin.deleteUser).not.toHaveBeenCalled();
+  });
+
+  it("deletes once every booking has ended or been cancelled", async () => {
+    const sc = mockClients({
+      hosts: [{ data: { id: "host-1", security_pin_hash: null } }, {}],
+      homestays: [{ data: { id: "hs-1" } }, {}],
+      bookings: [{ count: 0 }, {}],
+      rooms: { data: [] },
+      blocked_dates: {},
+      host_staff: { data: [] },
+    });
+
+    expect((await del()).status).toBe(200);
+    expect(sc.auth.admin.deleteUser).toHaveBeenCalledWith("owner-1");
+  });
+
+  it("deletes nothing when the bookings cannot be counted", async () => {
+    const sc = mockClients({
+      hosts: { data: { id: "host-1", security_pin_hash: null } },
+      homestays: { data: { id: "hs-1" } },
+      bookings: { error: { message: "db down" } },
+    });
+
+    expect((await del()).status).toBe(500);
+    expect(sc.auth.admin.deleteUser).not.toHaveBeenCalled();
+  });
+
   it("turns away a signed-out caller", async () => {
     h.createServerSupabaseClient.mockResolvedValue(createSupabaseMock({ user: null }));
     expect((await del()).status).toBe(401);

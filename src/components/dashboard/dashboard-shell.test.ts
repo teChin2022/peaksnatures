@@ -23,13 +23,13 @@ let container: HTMLDivElement;
 let root: Root;
 let fetchMock: ReturnType<typeof vi.fn>;
 
-async function render(signedInAs: string) {
+async function render(signedInAs: string, host: Record<string, unknown> = {}) {
   h.createClient.mockReturnValue(
     createSupabaseMock({
       user: { id: signedInAs, email: `${signedInAs}@example.com` } as { id: string },
       tables: {
         // An expired free plan: the owner's blocked banner would show.
-        hosts: { data: { id: "host-1", user_id: "owner-1", plan_type: "free", plan_free_expires_at: "2020-01-01", plan_pending_type: null } },
+        hosts: { data: { id: "host-1", user_id: "owner-1", plan_type: "free", plan_free_expires_at: "2020-01-01", plan_pending_type: null, ...host } },
         homestays: { data: { name: "Doi Homestay", logo_url: null } },
       },
     }),
@@ -84,6 +84,26 @@ describe("DashboardShell: who is signed in", () => {
     await render("staff-1");
 
     expect(container.textContent).not.toContain("staffBlockedTitle");
+  });
+});
+
+// 2026-11-20: a Commission owner's bookings closed on a negative wallet with nothing
+// dashboard-wide saying so, while their staff were told.
+describe("DashboardShell: a Commission owner's wallet", () => {
+  it("says bookings are closed, with a link to top up", async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: "host-1", role: "owner", bookingBlocked: true }) });
+    await render("owner-1", { plan_type: "commission", plan_free_expires_at: null });
+
+    expect(fetchMock).toHaveBeenCalledWith("/api/host/profile");
+    expect(container.textContent).toContain("walletBlockedDesc");
+    expect(links()).toContain("/dashboard/wallet");
+  });
+
+  it("says nothing when guests can book", async () => {
+    fetchMock.mockResolvedValue({ ok: true, json: async () => ({ id: "host-1", role: "owner", bookingBlocked: false }) });
+    await render("owner-1", { plan_type: "commission", plan_free_expires_at: null });
+
+    expect(container.textContent).not.toContain("walletBlockedDesc");
   });
 });
 

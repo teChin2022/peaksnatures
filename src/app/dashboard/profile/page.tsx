@@ -325,7 +325,14 @@ export default function ProfilePage() {
 
       if (!res.ok) {
         const data = await res.json();
-        toast.error(data.error || t("deleteError"));
+        // Raw route text was English ("Incorrect PIN"); the refusals a host can act on, in Thai.
+        toast.error(
+          data.error === "UPCOMING_BOOKINGS"
+            ? t("deleteUpcomingBookings", { count: data.count ?? 0 })
+            : data.error === "Incorrect PIN" || data.error === "PIN is required to delete your account"
+              ? t("deleteWrongPin")
+              : t("deleteError"),
+        );
         return;
       }
 
