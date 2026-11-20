@@ -340,6 +340,7 @@
     "checkInLabel": "Check-in",
     "checkOutLabel": "Check-out",
     "addDate": "Add date",
+    "clearDates": "Clear dates",
     "viewRooms": "View houses",
     "noRoomSelected": "No houses selected yet",
     "noHousesTitle": "No houses open for booking yet",

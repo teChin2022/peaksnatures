@@ -340,6 +340,7 @@
     "checkInLabel": "เช็คอิน",
     "checkOutLabel": "เช็คเอาท์",
     "addDate": "เลือกวันที่",
+    "clearDates": "ล้างวันที่",
     "viewRooms": "ดูบ้านพัก",
     "noRoomSelected": "ยังไม่ได้เลือกบ้านพัก",
     "noHousesTitle": "ยังไม่มีบ้านพักเปิดรับจอง",
