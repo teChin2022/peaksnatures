@@ -19,14 +19,14 @@ describe("attentionItems", () => {
     const items = attentionItems({ ...healthy, rejectedPayments: 2, blockingInvoices: 3, retriesExhausted: 1 });
     expect(items).toEqual([
       { key: "payments", label: "Rejected payments, 30d", value: 2, href: "/admin/billing/rejected" },
-      { key: "invoices", label: "Overdue invoices", value: 3, href: "/admin/billing" },
+      { key: "invoices", label: "Overdue invoices", value: 3, href: "/admin/billing?status=overdue" },
       { key: "retries", label: "Billing retries failed, 30d", value: 1, href: "/admin/logs?event_type=BILLING_RETRY_EXHAUSTED" },
     ]);
   });
 
   it("flags blocked hosts and date changes left waiting", () => {
     expect(attentionItems({ ...healthy, blockedHosts: 2, staleDateChanges: 3 })).toEqual([
-      { key: "blocked", label: "Hosts with bookings blocked", value: 2, href: "/admin/hosts" },
+      { key: "blocked", label: "Hosts with bookings blocked", value: 2, href: "/admin/hosts?status=blocked" },
       { key: "dateChanges", label: "Date changes waiting over 2 days", value: 3, href: "/admin/bookings/date-changes" },
     ]);
   });

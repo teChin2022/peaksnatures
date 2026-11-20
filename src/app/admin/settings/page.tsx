@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
-import { Settings, Eye, EyeOff, Loader2, CreditCard, Plus, Trash2, Lock } from "lucide-react";
+import { Eye, EyeOff, Loader2, CreditCard, Plus, Trash2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -314,7 +314,6 @@ export default function AdminSettingsPage() {
       <PageHeader
         subtitle="Platform billing and your admin account"
         title="Settings"
-        icon={Settings}
       />
 
       <Card className="border-earth-100">

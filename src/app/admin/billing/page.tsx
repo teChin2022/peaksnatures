@@ -18,6 +18,7 @@ import { LoadError, NETWORK_ERROR, actionFailed } from "@/components/admin/load-
 import { cn } from "@/lib/utils";
 import { fmtDate, fmtDateStr } from "@/lib/format-date";
 import { fmtTHB } from "@/lib/format-currency";
+import { isInvoiceBlocking } from "@/lib/billing-dates";
 
 interface InvoiceRow {
   id: string;
@@ -67,7 +68,9 @@ export default function AdminBillingPage() {
     setLoading(true);
     try {
       const params = new URLSearchParams({ page: String(page), limit: String(limit) });
-      if (statusFilter !== "all") params.set("status", statusFilter);
+      // Overdue means "blocks bookings today" (overdue, or pending past due), the set the
+      // Overview counts; the other chips are stored statuses.
+      if (statusFilter !== "all") params.set("status", statusFilter === "overdue" ? "blocking" : statusFilter);
       const r = await fetch(`/api/admin/invoices?${params}`);
       if (r.ok) {
         const data = await r.json();
@@ -114,7 +117,6 @@ export default function AdminBillingPage() {
       <PageHeader
         subtitle={total > 0 ? `${total} invoices` : "Invoice management"}
         title="Billing"
-        icon={CreditCard}
         actions={
           <Link
             href="/admin/billing/rejected"
@@ -182,8 +184,10 @@ export default function AdminBillingPage() {
                   </thead>
                   <tbody className={TBODY}>
                     {invoices.map((inv) => {
-                      const Icon = STATUS_ICONS[inv.status] || Clock;
-                      const label = STATUS_LABELS[inv.status] || inv.status;
+                      // Shown as overdue from the day it blocks, as on the host's own billing page; actions follow the stored status.
+                      const shown = isInvoiceBlocking(inv) ? "overdue" : inv.status;
+                      const Icon = STATUS_ICONS[shown] || Clock;
+                      const label = STATUS_LABELS[shown] || shown;
                       const hostName = inv.host?.name || "Unknown host";
                       return (
                         <tr key={inv.id} className={TR}>
@@ -211,7 +215,7 @@ export default function AdminBillingPage() {
                           </td>
                           <td className={cn(TD_TRAIL, "whitespace-nowrap text-right font-semibold tabular-nums text-earth-900")}>{fmtTHB(inv.amount)}</td>
                           <td className={cn(TD, "max-md:mt-1")}>
-                            <StatusBadge status={inv.status} label={label} icon={<Icon className="h-3 w-3" />} />
+                            <StatusBadge status={shown} label={label} icon={<Icon className="h-3 w-3" />} />
                             {inv.paid_at && (
                               <p className="mt-1 whitespace-nowrap text-xs tabular-nums text-earth-600">
                                 {fmtDate(new Date(inv.paid_at), "MMM d, yyyy · HH:mm", "en")}

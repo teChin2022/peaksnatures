@@ -7,14 +7,14 @@ import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog";
 import { PageHeader } from "@/components/admin/page-header";
-import { StatusBadge } from "@/components/admin/status-badge";
+import { StatusBadge, statusLabel } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
 import { LoadError, NETWORK_ERROR, actionFailed } from "@/components/admin/load-error";
 import { PHONE_TAP, TABLE, TABLE_CARD, TABLE_WRAP, TBODY, TD, TD_LEAD, TD_TRAIL, TH, TH_ROW, TR } from "@/components/admin/table-classes";
 import { cn } from "@/lib/utils";
 import { fmtDate } from "@/lib/format-date";
 import { toast } from "sonner";
-import { EventType, eventLabel, fieldLabel } from "@/lib/history-event-types";
+import { EventType, eventLabel, logFields } from "@/lib/history-event-types";
 
 interface LogRow {
   id: string;
@@ -33,7 +33,12 @@ interface LogsResponse {
   data: LogRow[];
   hasMore: boolean;
   nextCursor: string | null;
+  /** Present when filtered by host_id; null for a host that no longer exists. */
+  host?: { id: string; name: string } | null;
 }
+
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+type LogFilters = { eventType: string; entityType: string; actorType: string; hostId: string };
 
 // Every event the server can write, so billing, staff and payment events are filterable too.
 const EVENT_TYPE_OPTIONS = Object.values(EventType);
@@ -95,8 +100,14 @@ export default function AdminLogsPage() {
   const [eventType, setEventType] = useState(searchParams.get("event_type") ?? "");
   const [entityType, setEntityType] = useState(searchParams.get("entity_type") ?? "");
   const [actorType, setActorType] = useState(searchParams.get("actor_type") ?? "");
+  // A host page's "All activity" links here with ?host_id=… (a malformed id is ignored, the route would 400).
+  const [hostId, setHostId] = useState(() => {
+    const id = searchParams.get("host_id") ?? "";
+    return UUID.test(id) ? id : "";
+  });
+  const [hostName, setHostName] = useState<string | null>(null);
 
-  const fetchLogs = useCallback(async (cursor: string | null, append: boolean, filters: { eventType: string; entityType: string; actorType: string }) => {
+  const fetchLogs = useCallback(async (cursor: string | null, append: boolean, filters: LogFilters) => {
     if (append) setLoadingMore(true); else setLoading(true);
     try {
       const params = new URLSearchParams({ limit: "20" });
@@ -104,10 +115,12 @@ export default function AdminLogsPage() {
       if (filters.eventType) params.set("event_type", filters.eventType);
       if (filters.entityType) params.set("entity_type", filters.entityType);
       if (filters.actorType) params.set("actor_type", filters.actorType);
+      if (filters.hostId) params.set("host_id", filters.hostId);
 
       const r = await fetch(`/api/admin/logs?${params}`);
       if (r.ok) {
         const res: LogsResponse = await r.json();
+        if (res.host !== undefined) setHostName(res.host?.name ?? "Unknown host");
         setLogs((prev) => append ? [...prev, ...res.data] : res.data);
         setHasMore(res.hasMore);
         setNextCursor(res.nextCursor);
@@ -123,58 +136,56 @@ export default function AdminLogsPage() {
   }, []);
 
   useEffect(() => {
-    fetchLogs(null, false, { eventType, entityType, actorType });
+    fetchLogs(null, false, { eventType, entityType, actorType, hostId });
     // Keep the URL in step, so a reload after clearing does not bring a filter back.
     const qs = new URLSearchParams(
-      Object.entries({ event_type: eventType, entity_type: entityType, actor_type: actorType }).filter(([, v]) => v),
+      Object.entries({ event_type: eventType, entity_type: entityType, actor_type: actorType, host_id: hostId }).filter(([, v]) => v),
     ).toString();
     router.replace(qs ? `/admin/logs?${qs}` : "/admin/logs", { scroll: false });
-  }, [fetchLogs, router, eventType, entityType, actorType]);
+  }, [fetchLogs, router, eventType, entityType, actorType, hostId]);
 
   const handleLoadMore = () => {
-    fetchLogs(nextCursor, true, { eventType, entityType, actorType });
+    fetchLogs(nextCursor, true, { eventType, entityType, actorType, hostId });
   };
 
   const handleClearFilters = () => {
     setEventType("");
     setEntityType("");
     setActorType("");
+    setHostId("");
   };
 
-  const hasActiveFilters = eventType || entityType || actorType;
+  const hasActiveFilters = eventType || entityType || actorType || hostId;
 
   const formatDate = (iso: string) => fmtDate(new Date(iso), "MMM d, yyyy · HH:mm", "en");
 
   const renderDataSummary = (data: Record<string, unknown>) => {
-    const entries = Object.entries(data).filter(([, v]) => v !== null && v !== undefined && v !== "");
-    if (entries.length === 0) return null;
-    const shown = entries.slice(0, 4);
+    const fields = logFields(data);
+    if (fields.length === 0) return null;
     return (
       <div className="mt-1.5 flex flex-wrap gap-1">
-        {shown.map(([k, v]) => (
-          <span key={k} className="inline-flex items-center rounded bg-earth-50 px-1.5 py-0.5 text-xs text-earth-600">
-            <span className="font-medium text-earth-700 mr-0.5" title={k}>{fieldLabel(k)}:</span>
-            {typeof v === "object" ? JSON.stringify(v).slice(0, 40) : String(v).slice(0, 40)}
+        {fields.slice(0, 4).map((f) => (
+          <span key={f.key} className="inline-flex items-center rounded bg-earth-50 px-1.5 py-0.5 text-xs text-earth-600">
+            <span className="font-medium text-earth-700 mr-0.5" title={f.key}>{f.label}:</span>
+            {f.value.slice(0, 40)}
           </span>
         ))}
-        {entries.length > 4 && (
-          <span className="text-xs text-earth-600">+{entries.length - 4} more</span>
+        {fields.length > 4 && (
+          <span className="text-xs text-earth-600">+{fields.length - 4} more</span>
         )}
       </div>
     );
   };
 
   const renderDataDetail = (data: Record<string, unknown>) => {
-    const entries = Object.entries(data).filter(([, v]) => v !== null && v !== undefined && v !== "");
-    if (entries.length === 0) return <p className="text-sm text-earth-600">No metadata.</p>;
+    const fields = logFields(data, true);
+    if (fields.length === 0) return <p className="text-sm text-earth-600">No metadata.</p>;
     return (
       <dl className="grid grid-cols-[minmax(7rem,auto)_1fr] gap-x-3 gap-y-1.5 text-sm">
-        {entries.map(([k, v]) => (
-          <Fragment key={k}>
-            <dt className="text-xs text-earth-600 pt-0.5 break-words" title={k}>{fieldLabel(k)}</dt>
-            <dd className="text-earth-800 break-words whitespace-pre-wrap">
-              {typeof v === "object" ? JSON.stringify(v, null, 2) : String(v)}
-            </dd>
+        {fields.map((f) => (
+          <Fragment key={f.key}>
+            <dt className="text-xs text-earth-600 pt-0.5 break-words" title={f.key}>{f.label}</dt>
+            <dd className="text-earth-800 break-words whitespace-pre-wrap">{f.value}</dd>
           </Fragment>
         ))}
       </dl>
@@ -186,7 +197,6 @@ export default function AdminLogsPage() {
       <PageHeader
         subtitle="Activity audit trail"
         title="History Logs"
-        icon={ScrollText}
         actions={
           <Button
             size="sm"
@@ -204,7 +214,7 @@ export default function AdminLogsPage() {
             Filters
             {hasActiveFilters && (
               <span className="ml-1 flex h-5 min-w-5 items-center justify-center rounded-full bg-white px-1 text-xs text-brand font-bold">
-                {[eventType, entityType, actorType].filter(Boolean).length}
+                {[eventType, entityType, actorType, hostId].filter(Boolean).length}
               </span>
             )}
           </Button>
@@ -239,7 +249,7 @@ export default function AdminLogsPage() {
                 >
                   <option value="">All entities</option>
                   {ENTITY_TYPE_OPTIONS.map((e) => (
-                    <option key={e} value={e}>{e}</option>
+                    <option key={e} value={e}>{statusLabel(e)}</option>
                   ))}
                 </select>
               </div>
@@ -253,7 +263,7 @@ export default function AdminLogsPage() {
                 >
                   <option value="">All actors</option>
                   {ACTOR_TYPE_OPTIONS.map((a) => (
-                    <option key={a} value={a}>{a}</option>
+                    <option key={a} value={a}>{statusLabel(a)}</option>
                   ))}
                 </select>
               </div>
@@ -269,15 +279,17 @@ export default function AdminLogsPage() {
         </Card>
       )}
 
-      {/* With the panel closed (e.g. arriving from an Overview link), still say what is filtered. */}
-      {!showFilters && hasActiveFilters && (
+      {/* With the panel closed (e.g. arriving from an Overview link), still say what is filtered.
+          The host filter has no field in the panel, so its chip shows either way. */}
+      {((!showFilters && hasActiveFilters) || hostId) && (
         <div className="mb-4 flex flex-wrap items-center gap-2" aria-label="Active filters">
           {[
+            { name: "Host", value: hostId, shown: hostName ?? "…", clear: () => setHostId("") },
             { name: "Event", value: eventType, shown: eventLabel(eventType), clear: () => setEventType("") },
-            { name: "Entity", value: entityType, shown: entityType, clear: () => setEntityType("") },
-            { name: "Actor", value: actorType, shown: actorType, clear: () => setActorType("") },
+            { name: "Entity", value: entityType, shown: statusLabel(entityType), clear: () => setEntityType("") },
+            { name: "Actor", value: actorType, shown: statusLabel(actorType), clear: () => setActorType("") },
           ]
-            .filter((f) => f.value)
+            .filter((f) => f.value && (!showFilters || f.name === "Host"))
             .map((f) => (
               <span
                 key={f.name}
@@ -305,7 +317,7 @@ export default function AdminLogsPage() {
           ))}
         </div>
       ) : loadFailed ? (
-        <LoadError what="logs" onRetry={() => fetchLogs(null, false, { eventType, entityType, actorType })} />
+        <LoadError what="logs" onRetry={() => fetchLogs(null, false, { eventType, entityType, actorType, hostId })} />
       ) : logs.length === 0 ? (
         <EmptyState
           icon={ScrollText}
@@ -360,12 +372,10 @@ export default function AdminLogsPage() {
                               status={log.event_type}
                               tone={getEventTone(log.event_type)}
                               label={eventLabel(log.event_type)}
-                              className="normal-case"
                             />
                             <StatusBadge
                               status={log.actor_type}
                               tone={ACTOR_TONES[log.actor_type] ?? "muted"}
-                              label={log.actor_type}
                             />
                           </button>
                         </td>
@@ -411,12 +421,10 @@ export default function AdminLogsPage() {
                     status={selectedLog.event_type}
                     tone={getEventTone(selectedLog.event_type)}
                     label={eventLabel(selectedLog.event_type)}
-                    className="normal-case"
                   />
                   <StatusBadge
                     status={selectedLog.actor_type}
                     tone={ACTOR_TONES[selectedLog.actor_type] ?? "muted"}
-                    label={selectedLog.actor_type}
                   />
                 </div>
                 <DialogTitle className="text-base text-earth-900">{selectedLog.entity_label}</DialogTitle>

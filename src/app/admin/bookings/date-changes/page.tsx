@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Phone } from "lucide-react";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { fmtTHB } from "@/lib/format-currency";
@@ -80,6 +80,21 @@ export default async function PendingDateChangesPage() {
                           </Link>
                         ) : (
                           "—"
+                        )}
+                        {/* Only the host can answer: who to nudge, one tap to call. */}
+                        {r.host_name && (
+                          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-earth-600">
+                            <span>Host {r.host_name}</span>
+                            {r.host_phone && (
+                              <a
+                                href={`tel:${r.host_phone}`}
+                                className="inline-flex items-center gap-1 rounded tabular-nums text-brand underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand max-md:min-h-11"
+                              >
+                                <Phone className="h-3 w-3" aria-hidden />
+                                {r.host_phone}
+                              </a>
+                            )}
+                          </p>
                         )}
                       </td>
                       <td className={cn(TD, "whitespace-nowrap")}>

@@ -133,6 +133,52 @@ describe("GET /api/admin/hosts", () => {
       await get();
       expect(sc.builderFor("hosts", 1).eq).not.toHaveBeenCalled();
     });
+
+    // "blocked" is isHostBlocked over approved hosts (Overview's count), not a column.
+    describe("status=blocked", () => {
+      const expiredFree = { ...hostRow, id: "expired", plan_type: "free", plan_free_expires_at: "2020-01-01" };
+      const owing = { ...hostRow, id: "owing", plan_type: "fixed_rate" };
+      const withApproved = () =>
+        signIn(mocks, {
+          tables: {
+            hosts: { data: [expiredFree, hostRow, owing] },
+            homestays: { data: [] },
+            invoices: { data: [{ host_id: "owing" }] },
+          },
+        });
+      const ids = (body: unknown) => (body as { data: { id: string; blocked: boolean }[] }).data.map((h) => [h.id, h.blocked]);
+
+      it("lists only the approved hosts the booking routes would refuse, and counts them", async () => {
+        const sc = withApproved();
+        const { status, body } = await readJson(await get({ status: "blocked" }));
+
+        expect(status).toBe(200);
+        expect(ids(body)).toEqual([["expired", true], ["owing", true]]);
+        expect(body).toMatchObject({ total: 2, totalPages: 1 });
+        expect(sc.builderFor("hosts", 0).eq).toHaveBeenCalledWith("status", "approved");
+      });
+
+      it("pages the blocked list itself", async () => {
+        withApproved();
+        const { body } = await readJson(await get({ status: "blocked", page: "2", limit: "1" }));
+        expect(ids(body)).toEqual([["owing", true]]);
+        expect(body).toMatchObject({ total: 2, page: 2, totalPages: 2 });
+      });
+
+      it("keeps the search term", async () => {
+        const sc = withApproved();
+        await get({ status: "blocked", q: "somchai" });
+        expect(sc.builderFor("hosts", 0).or).toHaveBeenCalled();
+      });
+    });
+
+    it("refuses a status it does not know, before reading anything", async () => {
+      const sc = withHosts();
+      const { status, body } = await readJson(await get({ status: "deleted" }));
+      expect(status).toBe(400);
+      expect(body).toEqual({ error: "Invalid status" });
+      expect(sc.calls.map((c) => c.table)).not.toContain("hosts");
+    });
   });
 
   describe("failures", () => {

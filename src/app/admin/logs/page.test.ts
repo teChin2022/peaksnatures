@@ -92,3 +92,38 @@ describe("Admin logs: filters from the URL", () => {
     expect(byText("Clear filters")).toBeUndefined();
   });
 });
+
+describe("Admin logs: one host's activity", () => {
+  const HOST_ID = "6f1c2a7e-3b4d-4e5f-8a9b-0c1d2e3f4a5b";
+  const chips = () => container.querySelector('[aria-label="Active filters"]')?.textContent ?? "";
+
+  // The host page's "All activity in Logs" links here.
+  it("queries by the host it arrived with and names the host on the chip", async () => {
+    nav.query = `host_id=${HOST_ID}`;
+    fetchMock.mockResolvedValue({
+      ok: true,
+      json: async () => ({ data: [], hasMore: false, nextCursor: null, host: { id: HOST_ID, name: "Wang" } }),
+    });
+    await render();
+
+    expect(fetchedUrls().at(-1)).toContain(`host_id=${HOST_ID}`);
+    expect(chips()).toContain("Host:Wang");
+    expect(nav.replace).toHaveBeenLastCalledWith(`/admin/logs?host_id=${HOST_ID}`, { scroll: false });
+  });
+
+  it("drops the host when its chip is removed", async () => {
+    nav.query = `host_id=${HOST_ID}`;
+    await render();
+    const remove = container.querySelector<HTMLButtonElement>('button[aria-label="Remove host filter"]')!;
+    await act(async () => remove.click());
+
+    expect(fetchedUrls().at(-1)).not.toContain("host_id");
+    expect(nav.replace).toHaveBeenLastCalledWith("/admin/logs", { scroll: false });
+  });
+
+  it("ignores a host id that is not a UUID (the route would refuse it)", async () => {
+    nav.query = "host_id=wang";
+    await render();
+    expect(fetchedUrls().at(-1)).not.toContain("host_id");
+  });
+});

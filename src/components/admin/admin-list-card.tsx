@@ -50,7 +50,6 @@ export function AdminListCard() {
                   <StatusBadge
                     status={a.line_alerts ? "active" : "inactive"}
                     label={a.line_alerts ? "LINE alerts on" : "No LINE alerts"}
-                    className="normal-case"
                   />
                   <p className="mt-1">Last login {a.last_login_at ? when(a.last_login_at) : "not recorded"}</p>
                   <p>Added {when(a.created_at)}</p>

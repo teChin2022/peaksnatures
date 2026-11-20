@@ -106,7 +106,6 @@ export default async function GuestAiPage() {
                         <StatusBadge
                           status={r.status}
                           tone={r.status === "suspended" ? TONE.suspended : undefined}
-                          label={r.status.charAt(0).toUpperCase() + r.status.slice(1)}
                         />
                       </td>
                       <td className={cn(TD, "text-earth-600 max-md:col-span-1 max-md:mt-1 max-md:before:content-['Host_switch_']")}>

@@ -219,7 +219,6 @@ export default function AdminBookingsPage() {
       <PageHeader
         subtitle={loading ? "Loading…" : `${total} total`}
         title="Bookings"
-        icon={CalendarDays}
         actions={
           <Link
             href="/admin/bookings/date-changes"

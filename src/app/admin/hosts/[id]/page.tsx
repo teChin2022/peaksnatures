@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { notFound, redirect } from "next/navigation";
-import { ArrowLeft, ExternalLink, Mail, Phone } from "lucide-react";
+import { ArrowLeft, ChevronRight, ExternalLink, Mail, Phone } from "lucide-react";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { fmtTHB } from "@/lib/format-currency";
@@ -273,6 +273,14 @@ export default async function AdminHostDetailPage({ params }: { params: Promise<
                 <ul className="divide-y divide-earth-100">{logs.slice(ACTIVITY_SHOWN).map(activityRow)}</ul>
               </details>
             )}
+            {/* Older than the latest 30, filtered to this host (same scope as this list). */}
+            <Link
+              href={`/admin/logs?host_id=${host.id}`}
+              className="flex min-h-11 items-center gap-1 border-t border-earth-100 px-4 text-sm font-medium text-brand hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
+            >
+              All activity in Logs
+              <ChevronRight className="h-4 w-4" aria-hidden />
+            </Link>
           </>
         )}
       </Section>

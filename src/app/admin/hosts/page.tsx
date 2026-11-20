@@ -100,7 +100,9 @@ interface PaginatedResponse {
   totalPages: number;
 }
 
-type StatusFilter = "all" | "pending" | "approved";
+type StatusFilter = "all" | "pending" | "approved" | "blocked";
+const STATUS_FILTERS: StatusFilter[] = ["all", "pending", "approved", "blocked"];
+const FILTER_LABELS: Record<StatusFilter, string> = { all: "All", pending: "Pending", approved: "Approved", blocked: "Blocked" };
 
 type DialogState =
   | { type: "plan"; host: HostRow }
@@ -118,9 +120,11 @@ export default function AdminHostsPage() {
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
-    (searchParams.get("status") as StatusFilter) || "all"
-  );
+  // An unknown ?status falls back to All (the route answers 400 to it).
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
+    const s = searchParams.get("status") as StatusFilter | null;
+    return s && STATUS_FILTERS.includes(s) ? s : "all";
+  });
   const [query, setQuery] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
@@ -464,7 +468,6 @@ export default function AdminHostsPage() {
       <PageHeader
         subtitle={res ? `${res.total} total` : "Loading…"}
         title="Hosts"
-        icon={Users}
       />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -475,7 +478,7 @@ export default function AdminHostsPage() {
         placeholder="Name, phone or email"
       />
       <div className="flex flex-wrap gap-2 sm:order-first">
-        {(["all", "pending", "approved"] as StatusFilter[]).map((f) => (
+        {STATUS_FILTERS.map((f) => (
           <Button
             key={f}
             variant="outline"
@@ -490,7 +493,7 @@ export default function AdminHostsPage() {
                 : "border-earth-200 bg-white text-earth-700 hover:bg-earth-50 hover:text-brand"
             )}
           >
-            {f === "all" ? "All" : f === "pending" ? "Pending" : "Approved"}
+            {FILTER_LABELS[f]}
           </Button>
         ))}
       </div>
@@ -508,7 +511,13 @@ export default function AdminHostsPage() {
         <EmptyState
           icon={Users}
           title="No hosts found"
-          description={query || statusFilter !== "all" ? "Nothing matches this search and filter." : "New host signups will appear here."}
+          description={
+            statusFilter === "blocked" && !query
+              ? "Every approved host can take bookings."
+              : query || statusFilter !== "all"
+                ? "Nothing matches this search and filter."
+                : "New host signups will appear here."
+          }
         />
       ) : (
         <>
@@ -808,7 +817,8 @@ export default function AdminHostsPage() {
 
       {/* ── Set Plan Dialog ── */}
       <Dialog open={dialog?.type === "plan"} onOpenChange={(open) => { if (!open) setDialog(null); }}>
-        <DialogContent className="sm:max-w-md">
+        {/* Fixed Rate adds the term grid and breakdown: on a short phone the dialog scrolls inside the screen. */}
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-serif">Set Plan</DialogTitle>
             <DialogDescription>
@@ -825,6 +835,7 @@ export default function AdminHostsPage() {
                     type="button"
                     size="sm"
                     onClick={() => setPlanType(pt)}
+                    aria-pressed={planType === pt}
                     className={cn(
                       "cursor-pointer",
                       planType === pt

@@ -95,6 +95,24 @@ describe("Admin hosts: removing verification", () => {
   });
 });
 
+describe("Admin hosts: the Blocked filter", () => {
+  const listUrls = () => fetchMock.mock.calls.map(([u]) => String(u)).filter((u) => u.startsWith("/api/admin/hosts?"));
+
+  it("opens on blocked hosts from the Overview's link", async () => {
+    nav.query = "status=blocked";
+    await render();
+    expect(listUrls()[0]).toContain("status=blocked");
+    expect(button("Blocked", container)!.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  it("falls back to every host for a status it does not know", async () => {
+    nav.query = "status=deleted";
+    await render();
+    expect(listUrls()[0]).not.toContain("status=");
+    expect(button("All", container)!.getAttribute("aria-pressed")).toBe("true");
+  });
+});
+
 describe("Admin hosts: the phone Manage sheet", () => {
   it("holds the row's actions, and a tap closes it and opens that action's dialog", async () => {
     await render();

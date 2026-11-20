@@ -95,7 +95,6 @@ export default function AdminPromoCodesPage() {
       <PageHeader
         subtitle="Read-only audit"
         title="Promo Codes"
-        icon={Tag}
         actions={
           <Button
             variant="outline"

@@ -94,7 +94,6 @@ export default function AdminHomestaysPage() {
       <PageHeader
         subtitle={res ? `${res.total} total` : "Loading…"}
         title="Homestays"
-        icon={Home}
       />
 
       {loading ? (

@@ -32,7 +32,8 @@ const invoice = {
 };
 
 const listUrls = () => fetchMock.mock.calls.map(([u]) => String(u)).filter((u) => u.startsWith("/api/admin/invoices?"));
-const button = (text: string) => [...document.body.querySelectorAll("button")].find((b) => b.textContent?.trim() === text);
+const button = (text: string, scope: ParentNode = document.body) =>
+  [...scope.querySelectorAll("button")].find((b) => b.textContent?.trim() === text);
 
 const render = async () => {
   await act(async () => {
@@ -58,9 +59,17 @@ afterEach(() => {
 
 describe("Admin billing: the status filter lives in the URL", () => {
   it("opens filtered when the link carries ?status", async () => {
+    nav.search = "status=paid";
+    await render();
+    expect(listUrls()[0]).toContain("status=paid");
+    expect(button("Paid")!.getAttribute("aria-pressed")).toBe("true");
+  });
+
+  // The Overview's "Overdue invoices" links here: same set (overdue, or pending past due).
+  it("asks for every invoice that blocks bookings when Overdue is chosen", async () => {
     nav.search = "status=overdue";
     await render();
-    expect(listUrls()[0]).toContain("status=overdue");
+    expect(listUrls()[0]).toContain("status=blocking");
     expect(button("Overdue")!.getAttribute("aria-pressed")).toBe("true");
   });
 
@@ -78,6 +87,28 @@ describe("Admin billing: the status filter lives in the URL", () => {
 
     await act(async () => button("All")!.click());
     expect(nav.replace).toHaveBeenLastCalledWith("/admin/billing", { scroll: false });
+  });
+});
+
+describe("Admin billing: status shown", () => {
+  afterEach(() => vi.useRealTimers());
+
+  it("shows a pending invoice past its due date as overdue, and still offers both actions", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-06T03:00:00Z")); // Sep 6 in Bangkok, the day after it was due
+    await render();
+    const row = container.querySelector("tbody tr")!;
+    expect(row.textContent).toContain("Overdue");
+    expect(row.textContent).not.toContain("Pending");
+    expect(button("Mark Paid")).toBeTruthy();
+    expect(button("Overdue", row)).toBeTruthy();
+  });
+
+  it("keeps it pending on its due date", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-09-05T03:00:00Z"));
+    await render();
+    expect(container.querySelector("tbody tr")!.textContent).toContain("Pending");
   });
 });
 
