@@ -81,7 +81,7 @@ export function InvoiceSummary({ invoice: inv, planType, onPay }: InvoiceSummary
             {t("invoiceTitle")}
             {inv.term_months > 1 && ` · ${t("invoiceTerm", { months: inv.term_months })}`}
           </p>
-          <p className="text-2xl font-serif text-earth-900 leading-tight mt-1">
+          <p className="text-2xl font-serif lining-nums tabular-nums text-earth-900 leading-tight mt-1">
             ฿{inv.amount.toLocaleString()}
           </p>
           <p className="text-xs text-earth-600 mt-1">

@@ -30,6 +30,15 @@
         ],
         "createdAt": "2026-11-19T03:17:46.009Z",
         "reason": "Claude: index.html is the prototype's comparison toolbar (variant/width/state switcher), not product UI; the product page under review is page.html"
+      },
+      {
+        "rule": "oversized-h1",
+        "value": "*",
+        "files": [
+          "docs/host-manual/manual.html"
+        ],
+        "createdAt": "2026-11-20T14:16:16.799Z",
+        "reason": "Claude's judgement: the h1 is the A4 cover of a printed PDF manual, the cover's only content, not a web viewport hero"
       }
     ]
   }

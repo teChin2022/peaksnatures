@@ -1,4 +1,4 @@
-import { expect, test } from "@playwright/test";
+import { expect, test, type Page } from "@playwright/test";
 import { HOST_STATE, T, clickNav, openDashboard, requireHost, startHostSession, type HostSession } from "./host-support";
 
 /**
@@ -79,24 +79,77 @@ test("houses: a blank price is refused in place, with nothing written", async ({
   await expect(page.getByRole("dialog", { name: T.dashboardRooms.discardTitle })).toBeVisible();
 });
 
-test("bookings: a pending booking is confirmed from the Pending tab", async ({ page }) => {
+/**
+ * The test host rarely has a pending booking, so the bookings read is rewritten
+ * in the browser to show its rows as pending with an unverified slip. Nothing is
+ * written: the confirm call is stubbed by the session.
+ */
+async function showRowsAsPending(page: Page) {
+  await page.route(/\/rest\/v1\/bookings\?/, async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    const response = await route.fetch();
+    const body = await response.json().catch(() => null);
+    if (!Array.isArray(body)) return route.fulfill({ response });
+    return route.fulfill({ response, json: body.map((row) => ({ ...row, status: "pending", easyslip_verified: false })) });
+  });
+}
+
+test("bookings: confirming shows the amount to check first, then confirms", async ({ page }) => {
   await session!.stubWrite("POST", /\/api\/bookings\/update-status$/, (request) => ({
     body: { member_ids: [(request.postDataJSON() as { booking_id: string }).booking_id] },
   }));
-  await openDashboard(page, "/dashboard/bookings?tab=pending");
+  await showRowsAsPending(page);
+  await openDashboard(page, "/dashboard/bookings?tab=all");
 
-  const tab = page.getByRole("tab", { name: new RegExp(`^${T.dashboard.pending}`) });
-  await expect(tab).toHaveAttribute("aria-selected", "true");
   const panel = page.locator("[role=tabpanel][data-state=active]");
+  // The tab panel only exists once loaded: wait for a card, not for the skeleton to go.
+  await panel.getByRole("button", { name: T.dashboard.viewDetails }).first().waitFor({ timeout: 20_000 }).catch(() => {});
   const confirm = panel.getByRole("button", { name: T.dashboard.confirm, exact: true });
-  await expect(panel.locator(".animate-pulse")).toHaveCount(0); // first page loaded
-  test.skip((await confirm.count()) === 0, "The test host has no pending booking to confirm.");
-
-  const before = await confirm.count();
+  test.skip((await confirm.count()) === 0, "The test host has no booking at all.");
   await confirm.first().click();
-  await expect(confirm).toHaveCount(before - 1);
-  expect(session!.writes.map((w) => w.key)).toContain("POST /api/bookings/update-status");
+
+  // Confirming is irreversible, so it first shows the amount to check against the bank.
+  const D = T.dashboard;
+  const check = page.getByRole("dialog").filter({ hasText: D.confirmBookingAmount });
+  await expect(check).toBeVisible();
+  await expect(check.getByText(D.confirmBookingEffects)).toBeVisible();
+  await expect(check.getByText(/^฿[\d,]+$/)).toBeVisible();
+  expect(session!.writes, "nothing is written before the host confirms the check").toEqual([]);
+
+  await check.getByRole("button", { name: D.confirmBookingButton }).click();
+  await expect(check).toBeHidden();
+  expect(session!.writes.map((w) => w.key)).toEqual(["POST /api/bookings/update-status"]);
+  expect(session!.writes[0].body).toMatchObject({ status: "confirmed" });
 });
+
+test("bookings: closing the confirm check writes nothing", async ({ page }) => {
+  await showRowsAsPending(page);
+  await openDashboard(page, "/dashboard/bookings?tab=all");
+  const panel = page.locator("[role=tabpanel][data-state=active]");
+  await panel.getByRole("button", { name: T.dashboard.viewDetails }).first().waitFor({ timeout: 20_000 }).catch(() => {});
+  const confirm = panel.getByRole("button", { name: T.dashboard.confirm, exact: true });
+  test.skip((await confirm.count()) === 0, "The test host has no booking at all.");
+
+  await confirm.first().click();
+  await page.getByRole("button", { name: T.dashboard.confirmBookingKeep }).click();
+  await expect(page.getByRole("dialog")).toBeHidden();
+  expect(session!.writes).toEqual([]);
+});
+
+// A failed read used to look like an empty day or an all-free month.
+for (const [name, path] of [
+  ["check-ins", "/dashboard/checkins"],
+  ["calendar", "/dashboard/calendar"],
+  ["bookings", "/dashboard/bookings"],
+] as const) {
+  test(`${name}: a failed bookings read shows the error page, not an empty list`, async ({ page }) => {
+    await page.route(/\/rest\/v1\/bookings\b/, (route) =>
+      route.request().method() === "GET" ? route.fulfill({ status: 500, contentType: "application/json", body: '{"message":"e2e"}' }) : route.fallback(),
+    );
+    await openDashboard(page, path);
+    await expect(page.getByRole("alert").filter({ hasText: T.errorPage.title })).toBeVisible();
+  });
+}
 
 test("houses: a season typed but not added stops Save and says so", async ({ page }) => {
   await openDashboard(page, "/dashboard/rooms");
@@ -155,4 +208,34 @@ test("bookings: search finds a booking by its code, and filters run on the serve
   await expect(resultLine).toBeVisible();
   await page.screenshot({ path: test.info().outputPath("filters-applied.png"), fullPage: true });
   expect(failed).toEqual([]);
+});
+
+test("promo codes: a failed read shows the error page, not 'no codes yet'", async ({ page }) => {
+  await page.route(/\/rest\/v1\/promo_codes\b/, (route) =>
+    route.request().method() === "GET" ? route.fulfill({ status: 500, contentType: "application/json", body: '{"message":"e2e"}' }) : route.fallback(),
+  );
+  await openDashboard(page, "/dashboard/promo-codes");
+  await expect(page.getByRole("alert").filter({ hasText: T.errorPage.title })).toBeVisible();
+});
+
+test("houses: a house with bookings still to come cannot be deleted, and nothing is written", async ({ page }) => {
+  const R = T.dashboardRooms;
+  // The count of the house's unfinished bookings answers 2 (in the browser only).
+  await page.route(/\/rest\/v1\/bookings\?.*room_id=eq\..*status=in\./, (route) =>
+    route.request().method() === "HEAD"
+      ? route.fulfill({ status: 200, headers: { "content-range": "*/2", "access-control-expose-headers": "content-range" } })
+      : route.fallback(),
+  );
+  await openDashboard(page, "/dashboard/rooms");
+  const deletes = page.getByRole("button", { name: new RegExp(`^${T.common.delete} `) });
+  await deletes.first().waitFor({ timeout: 20_000 }).catch(() => {});
+  test.skip((await deletes.count()) === 0, "The test host has no house.");
+
+  await deletes.first().click();
+  const blocked = page.getByRole("dialog", { name: R.deleteBlockedTitle });
+  await expect(blocked).toBeVisible();
+  await expect(blocked).toContainText(R.deleteBlockedDesc.replace("{count}", "2").slice(0, 30));
+  await expect(blocked.getByRole("button", { name: T.common.delete })).toHaveCount(0);
+  await blocked.getByRole("button", { name: T.common.close }).click();
+  expect(session!.blockedWrites).toEqual([]);
 });

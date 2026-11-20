@@ -5,15 +5,19 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { fmtDate } from "@/lib/format-date";
 
 const intl = vi.hoisted(() => ({ locale: "th" }));
-const cart = vi.hoisted(() => ({ blockedDates: [] as { room_id: string | null; date: string }[] }));
+const cart = vi.hoisted(() => ({
+  blockedDates: [] as { room_id: string | null; date: string }[],
+  empty: false,
+  setDates: vi.fn(),
+}));
 vi.mock("next-intl", () => ({ useTranslations: () => (key: string) => key, useLocale: () => intl.locale }));
 const from = new Date(2026, 11, 24);
 const to = new Date(2026, 11, 26);
 vi.mock("@/components/booking/booking-cart-context", () => ({
   useBookingCart: () => ({
-    dateRange: { from, to },
-    setDates: () => {},
-    nights: 2,
+    dateRange: cart.empty ? undefined : { from, to },
+    setDates: cart.setDates,
+    nights: cart.empty ? 0 : 2,
     catalog: { rooms: [{ id: "r1", quantity: 1 }], blockedDates: cart.blockedDates },
     liveBookedRanges: [],
   }),
@@ -38,6 +42,8 @@ afterEach(() => {
   document.body.innerHTML = "";
   intl.locale = "th";
   cart.blockedDates = [];
+  cart.empty = false;
+  cart.setDates.mockClear();
   vi.useRealTimers();
 });
 
@@ -117,5 +123,22 @@ describe("BookingCalendarDialog Done", () => {
     document.removeEventListener("dates-picked", listen);
     expect(picked).toHaveBeenCalledTimes(1);
     expect(picked).toHaveBeenCalledWith({ roomId });
+  });
+});
+
+describe("BookingCalendarDialog clear dates", () => {
+  const clearButton = () => [...document.body.querySelectorAll("button")].find((b) => b.textContent === "clearDates");
+
+  it("drops the picked stay, so the guest can start over", () => {
+    render();
+    act(() => clearButton()!.click());
+    expect(cart.setDates).toHaveBeenCalledTimes(1);
+    expect(cart.setDates).toHaveBeenCalledWith(undefined);
+  });
+
+  it("is not offered before a date is picked", () => {
+    cart.empty = true;
+    render();
+    expect(clearButton()).toBeUndefined();
   });
 });

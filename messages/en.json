@@ -340,6 +340,7 @@
     "checkInLabel": "Check-in",
     "checkOutLabel": "Check-out",
     "addDate": "Add date",
+    "clearDates": "Clear dates",
     "viewRooms": "View houses",
     "noRoomSelected": "No houses selected yet",
     "noHousesTitle": "No houses open for booking yet",
@@ -894,7 +895,19 @@
     "demandError": "Couldn't load demand data. Refresh to try again.",
     "demandRange7": "7d",
     "demandRange30": "30d",
-    "demandRange90": "90d"
+    "demandRange90": "90d",
+    "confirmBookingTitle": "Confirm {guest}’s booking?",
+    "confirmBookingAmount": "Amount you should have received",
+    "confirmBookingCheck": "Open your banking app and check the money has arrived and matches this amount.",
+    "confirmBookingEffects": "The guest is emailed straight away, and the booking can’t go back to pending.",
+    "confirmBookingCommission": "Commission is taken from your wallet and is not refunded if you cancel later.",
+    "confirmBookingKeep": "Not yet",
+    "confirmBookingButton": "Payment received, confirm",
+    "confirmBookingDone": "Booking confirmed. The guest has been emailed.",
+    "cancelBookingDone": "Booking cancelled.",
+    "dateChangeApproveTitle": "Approve the date change?",
+    "dateChangeApproveDesc": "The booking moves to the new dates straight away, the guest is emailed, and it can’t be undone.",
+    "dateChangeApproveKeep": "Not yet"
   },
   "setupProfile": {
     "title": "Complete Your Profile",
@@ -1077,7 +1090,7 @@
     "smsSettingsHint": "SMS notifications will be sent to your registered phone number",
     "lineSettingsHint": "Configure LINE credentials below to receive notifications via LINE",
     "deleteAccount": "Delete Account",
-    "deleteWarning": "This can't be undone. Your homestay, houses, all bookings (including stays that haven't happened yet), your wallet balance and your account will be deleted permanently.",
+    "deleteWarning": "This can’t be undone. Your homestay, houses, booking history, wallet balance and account are deleted for good. Bookings guests haven’t stayed yet must be cancelled on the Bookings page first.",
     "deleteConfirmInstructions": "Type DELETE to confirm.",
     "deleteConfirmMismatch": "Type DELETE to confirm.",
     "deleteConfirmWord": "DELETE",
@@ -1108,7 +1121,9 @@
     "requireOtpHint": "When enabled, a 6-digit verification code will be sent to your email each time you log in. Disabling this means only your password is needed.",
     "otpLockedHint": "Unlock the fields above with your PIN to change this setting.",
     "otpEnabled": "Enabled",
-    "otpDisabled": "Disabled"
+    "otpDisabled": "Disabled",
+    "deleteUpcomingBookings": "Your account can’t be deleted yet: {count} bookings haven’t ended. Cancel them on the Bookings page first (each guest is emailed), then try again.",
+    "deleteWrongPin": "Incorrect PIN"
   },
   "hostStaff": {
     "intro": "Staff sign in to the dashboard with their own email and password, not yours.",
@@ -1509,7 +1524,12 @@
     "copyPartial": "Copied, but some old entries could not be removed",
     "specialSurcharge": "Extra per night",
     "specialSurchargeHint": "Added on top of the seasonal price, or the base price when no season applies.",
-    "specialSurchargePreview": "Base ฿{base} + ฿{add} = ฿{total} per night. Inside a season it is added to that season's price instead."
+    "specialSurchargePreview": "Base ฿{base} + ฿{add} = ฿{total} per night. Inside a season it is added to that season's price instead.",
+    "openForBooking": "Open for booking",
+    "deleteBlockedTitle": "This house can’t be deleted",
+    "deleteBlockedDesc": "This house has {count} bookings that haven’t ended. Switch off “Open for booking” to stop new bookings instead; existing bookings stay as they are.",
+    "deletePastBookings": "{count} past bookings of this house will no longer show its name.",
+    "errorDeleteLinked": "Can’t delete: this house has had a date-change request. Switch off “Open for booking” instead."
   },
   "dashboardCalendar": {
     "title": "Availability Calendar",
@@ -2225,7 +2245,12 @@
     "switchFromActiveTermWarning": "You have {days} days left on your prepaid term. Switching now forfeits them — no refund is issued.",
     "pendingRenewal": "Renewal scheduled — next {months}-month term starts on {date}",
     "renewConfirmTitle": "Renew Fixed Rate plan?",
-    "renewConfirmDesc": "Your next {months}-month term starts on {date}, the day after your current term ends. You'll pay for it on the next screen, and it's confirmed as soon as your payment is verified."
+    "renewConfirmDesc": "Your next {months}-month term starts on {date}, the day after your current term ends. You'll pay for it on the next screen, and it's confirmed as soon as your payment is verified.",
+    "walletBlockedDesc": "Your wallet has stayed negative too long. Guests can’t make new bookings until you top it up above zero.",
+    "topUpNow": "Top up",
+    "payToday": "Pay today",
+    "includesStub": "Includes the rest of this month ({days} days), ฿{amount}",
+    "monthlyAfter": "Then ฿{rate}/month, invoiced on the 1st"
   },
   "walletPage": {
     "title": "Wallet",
@@ -2307,13 +2332,15 @@
     "confirmedByAdmin": "Confirmed by admin",
     "txTopup": "Wallet top-up",
     "txAdjustment": "Manual adjustment",
-    "txGuestAi": "AI assistant"
+    "txGuestAi": "AI assistant",
+    "blockedSince": "Since {date}, while the balance is below your credit limit, guests can’t make new bookings. Top up to reopen them.",
+    "slipWithinHour": "Upload the slip within 1 hour of the transfer"
   },
   "slipErrors": {
     "duplicate": "This slip has already been used. If you did make the transfer, contact the Peaksnature team with this slip.",
-    "tooOld": "This slip is too old. Use the slip from your latest transfer.",
-    "receiver": "The receiving account on this slip isn't Peaksnature's. Check where you transferred and try again.",
-    "amount": "The amount on the slip doesn't match the amount due. Check it and try again.",
+    "tooOld": "This slip is more than an hour old, so it can’t be accepted. If you did transfer, don’t transfer again: contact the Peaksnature team with this slip so they can check it and credit the amount.",
+    "receiver": "The receiving account on this slip isn’t Peaksnature’s. If you did transfer, don’t transfer again or resend this slip: contact the Peaksnature team with it.",
+    "amount": "The amount on the slip doesn’t match the amount due. If you did transfer, don’t transfer again or resend this slip: contact the Peaksnature team with it so they can check it and credit the amount.",
     "failed": "The slip couldn't be verified. Try again, or use another slip.",
     "network": "Couldn't connect. Your slip is still here: press again."
   },
@@ -2338,7 +2365,8 @@
     "verifyAndPay": "Verify & Pay",
     "verifiedToast": "Payment verified! Invoice marked as paid.",
     "verifyFailed": "Verification failed",
-    "somethingWrong": "Something went wrong"
+    "somethingWrong": "Something went wrong",
+    "slipWithinHour": "Upload the slip within 1 hour of the transfer"
   },
   "planActivation": {
     "title": "Activate Fixed Rate",
@@ -2505,5 +2533,12 @@
     "editAria": "Edit {category} {date} {amount}",
     "updated": "Changes saved",
     "backToThisMonth": "Back to this month"
+  },
+  "hostErrors": {
+    "blocked": "Bookings are paused because of an unpaid Peaksnature balance. The owner can pay on the Billing or Wallet page.",
+    "invalidStatus": "This booking has changed status. Refresh the page and try again.",
+    "alreadyCheckedIn": "This guest has already checked in.",
+    "forbidden": "This account can’t do that.",
+    "stale": "This item is gone; someone may have handled it already. Refresh the page and try again."
   }
 }

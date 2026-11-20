@@ -11,7 +11,9 @@ import { InvoicePayDialog } from "@/components/dashboard/invoice-pay-dialog";
 import { InvoiceStatusBadge, InvoiceSummary, invoiceStatus, type InvoiceRow } from "@/components/dashboard/invoice-summary";
 import { PlanActivationDialog, type PlanQuote } from "@/components/dashboard/plan-activation-dialog";
 import { LOW_WALLET_THRESHOLD } from "@/lib/wallet-thresholds";
-import { billingTodayStr } from "@/lib/billing-dates";
+import { billingToday, billingTodayStr } from "@/lib/billing-dates";
+import { computeImmediateFixedRateInvoice, fixedRateStartDate } from "@/lib/billing-calc";
+import type { Host } from "@/types/database";
 import { getPlanExpiryInfo } from "@/lib/plan-expiry";
 import {
   Wallet,
@@ -30,6 +32,7 @@ import {
 import { Card, CardContent } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Skeleton } from "@/components/ui/skeleton";
+import { ErrorView } from "@/components/error-view";
 import {
   Dialog,
   DialogContent,
@@ -45,7 +48,7 @@ interface TermTier {
 }
 
 interface BillingData {
-  plan_type: string;
+  plan_type: Host["plan_type"];
   plan_free_expires_at: string | null;
   plan_pending_type: string | null;
   plan_pending_effective_at: string | null;
@@ -165,6 +168,7 @@ function getPlanPrice(key: string, data: BillingData): { price: string; period: 
 
 export default function DashboardBillingPage() {
   const t = useTranslations("billing");
+  const te = useTranslations("errorPage");
   const locale = useLocale();
   const planLabel = (key: string) => t(PLAN_LABEL_KEYS[key] || "freePlan");
   const [data, setData] = useState<BillingData | null>(null);
@@ -319,7 +323,17 @@ export default function DashboardBillingPage() {
   }
 
   if (!data) {
-    return <p className="text-sm text-earth-600 py-12 text-center">Failed to load billing information.</p>;
+    // A failed read, in the dashboard's error view (was an English line with no retry).
+    return (
+      <ErrorView
+        title={te("title")}
+        description={te("description")}
+        retryLabel={te("retry")}
+        onRetry={() => window.location.reload()}
+        backHref="/dashboard"
+        backLabel={te("dashboard")}
+      />
+    );
   }
 
   // Bangkok, not the browser's clock and not UTC: every figure derived from
@@ -362,8 +376,16 @@ export default function DashboardBillingPage() {
   const lang = locale === "th" ? "th" : "en";
 
   const monthlyRate = data.effective_fixed_rate ?? 0;
-  const computeTermTotal = (months: number, discountPct: number) =>
-    Math.round(monthlyRate * months * (1 - discountPct / 100));
+  // What a term costs today, as the switch and activate routes charge it: the rest
+  // of this month at the day rate plus the discounted whole months. Rate × months
+  // alone left out the partial month, so the price changed at payment.
+  const termQuote = (months: number) =>
+    computeImmediateFixedRateInvoice(
+      { fixed_rate_override: null }, // effective_fixed_rate already carries the host's override
+      { fixed_rate_amount: monthlyRate, fixed_rate_term_tiers: data.fixed_rate_term_tiers || [] },
+      months,
+      fixedRateStartDate({ plan_type: data.plan_type, fixed_rate_term_ends_at: data.fixed_rate_term_ends_at }, billingToday()),
+    );
 
   const daysUntilTermEnd = data.fixed_rate_term_ends_at
     ? Math.ceil(
@@ -495,7 +517,7 @@ export default function DashboardBillingPage() {
                 <span className="text-sm font-medium text-earth-700">{t("freePlan")}</span>
               </div>
               <div className="text-center">
-                <p className="text-4xl sm:text-5xl font-serif tracking-tight text-earth-900">฿0</p>
+                <p className="text-4xl sm:text-5xl font-serif lining-nums tabular-nums tracking-tight text-earth-900">฿0</p>
                 <p className="text-sm text-earth-600 mt-1">/{locale === "th" ? "เดือน" : "month"}</p>
                 {data.plan_free_expires_at && (
                   <p className="text-sm text-earth-600 mt-3">
@@ -527,7 +549,7 @@ export default function DashboardBillingPage() {
                     { pct: data.effective_quick_commission_pct, label: QUICK_BOOKING[lang] },
                   ].map(({ pct, label }) => (
                     <div key={label}>
-                      <p className="text-4xl sm:text-5xl font-serif tracking-tight text-earth-900">{pct ?? 0}%</p>
+                      <p className="text-4xl sm:text-5xl font-serif lining-nums tabular-nums tracking-tight text-earth-900">{pct ?? 0}%</p>
                       <p className="text-sm text-earth-600 mt-1">/{label}</p>
                     </div>
                   ))}
@@ -672,7 +694,7 @@ export default function DashboardBillingPage() {
                     </div>
                   ) : (
                     <div className="text-center">
-                      <p className="text-4xl sm:text-5xl font-serif tracking-tight text-earth-900">
+                      <p className="text-4xl sm:text-5xl font-serif lining-nums tabular-nums tracking-tight text-earth-900">
                         ฿{(data.effective_fixed_rate ?? 0).toLocaleString()}
                       </p>
                       <p className="text-sm text-earth-600 mt-1">/{locale === "th" ? "เดือน" : "month"}</p>
@@ -919,11 +941,7 @@ export default function DashboardBillingPage() {
                   <div className="rounded-xl border border-earth-200 bg-earth-50 px-4 py-3 text-sm text-earth-700">
                     {t("termSummaryLine", {
                       months: confirmDialog.termMonths,
-                      total: computeTermTotal(
-                        confirmDialog.termMonths,
-                        (data.fixed_rate_term_tiers.find((t) => t.months === confirmDialog.termMonths)
-                          ?.discount_pct) || 0,
-                      ).toLocaleString(),
+                      total: termQuote(confirmDialog.termMonths).amount.toLocaleString(),
                     })}
                   </div>
                 )}
@@ -988,8 +1006,9 @@ export default function DashboardBillingPage() {
 
           <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 py-2">
             {(data.fixed_rate_term_tiers || []).map((tier) => {
-              const total = computeTermTotal(tier.months, tier.discount_pct);
-              const perMonth = tier.months > 0 ? Math.round(total / tier.months) : 0;
+              const quote = termQuote(tier.months);
+              // "1 month" buys only the rest of this month; monthly invoices follow.
+              const perMonth = tier.months > 1 ? Math.round(quote.term_amount / tier.months) : 0;
               const isSelected = selectedTermMonths === tier.months;
               return (
                 <button
@@ -1007,14 +1026,22 @@ export default function DashboardBillingPage() {
                       {t("saveX", { pct: tier.discount_pct })}
                     </span>
                   )}
-                  <p className="font-serif text-lg text-earth-900">
+                  <p className="font-serif lining-nums text-lg text-earth-900">
                     {t("nMonths", { n: tier.months })}
                   </p>
-                  <p className="text-2xl font-bold tracking-tight text-earth-900 mt-1">
-                    ฿{total.toLocaleString()}
+                  <p className="text-xs text-earth-600 mt-1">{t("payToday")}</p>
+                  <p className="text-2xl font-bold tabular-nums text-earth-900">
+                    ฿{quote.amount.toLocaleString()}
                   </p>
+                  {quote.stub_amount > 0 && (
+                    <p className="text-xs text-earth-600 mt-0.5">
+                      {t("includesStub", { days: quote.prorated_days, amount: quote.stub_amount.toLocaleString() })}
+                    </p>
+                  )}
                   <p className="text-xs text-earth-600 mt-0.5">
-                    ≈ ฿{perMonth.toLocaleString()} {t("perMonth")}
+                    {perMonth > 0
+                      ? `≈ ฿${perMonth.toLocaleString()} ${t("perMonth")}`
+                      : t("monthlyAfter", { rate: monthlyRate.toLocaleString() })}
                   </p>
                 </button>
               );
@@ -1058,7 +1085,7 @@ export default function DashboardBillingPage() {
 
           <div className="rounded-xl border border-earth-100 bg-earth-50/60 px-4 py-3 flex items-center justify-between">
             <span className="text-sm text-earth-600">{t("walletBalance")}</span>
-            <span className="text-lg font-serif text-earth-900">
+            <span className="text-lg font-serif lining-nums tabular-nums text-earth-900">
               ฿{data.wallet_balance.toLocaleString()}
             </span>
           </div>

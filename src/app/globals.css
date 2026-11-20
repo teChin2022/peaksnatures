@@ -216,10 +216,11 @@
   font-style: italic;
 }
 
+/* earth-600: the lightest text that passes AA (#9ca3af was 2.5:1 and off-palette). */
 .ProseMirror p.is-editor-empty:first-child::before {
   content: attr(data-placeholder);
   float: left;
-  color: #9ca3af;
+  color: var(--color-earth-600);
   pointer-events: none;
   height: 0;
 }

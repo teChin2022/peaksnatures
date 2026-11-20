@@ -66,6 +66,8 @@ import { isQuickPending } from "@/lib/quick-booking";
 import { cartActionTargets, cartMoney, groupIntoCarts, housesDiffer, mergeById } from "@/lib/booking-carts";
 import { slipStoragePath } from "@/lib/slip-path";
 import { billingTodayStr } from "@/lib/billing-dates";
+import { hostErrorKey } from "@/lib/host-error";
+import { ErrorView } from "@/components/error-view";
 import {
   DEFAULT_FILTERS,
   PENDING_STATUSES,
@@ -232,9 +234,21 @@ const statusConfig: Record<
 
 export default function BookingsPage() {
   const t = useTranslations("dashboard");
+  const th = useTranslations("hostErrors");
+  const te = useTranslations("errorPage");
+  const tc = useTranslations("common");
   const locale = useLocale();
+  // A route's refusal in Thai when it is one we know; otherwise the caller's message.
+  const refusal = (data: { error?: unknown; message?: unknown } | null, fallback: string) => {
+    const key = hostErrorKey(data);
+    return key ? th(key) : fallback;
+  };
   const [bookings, setBookings] = useState<DisplayBooking[]>([]);
   const [loading, setLoading] = useState(true);
+  // A failed first read must not look like "no bookings".
+  const [loadError, setLoadError] = useState(false);
+  // Every card named the homestay; only worth it when the host has more than one.
+  const [multiHomestay, setMultiHomestay] = useState(false);
   const [loadingMore, setLoadingMore] = useState(false);
   const [hasMore, setHasMore] = useState(false);
   const [totalCount, setTotalCount] = useState(0);
@@ -370,13 +384,20 @@ export default function BookingsPage() {
       {
         data: { user },
       },
-      { data: hostRow },
+      { data: hostRow, error: hostError },
     ] = await Promise.all([
       supabase.auth.getUser(),
       supabase.from("hosts").select("id, name, plan_type").single(),
     ]);
     if (!user) return;
     setUserId(user.id);
+    // PGRST116 is "no row": a new account, not a failed read.
+    const readFailed = (e: { code?: string } | null) => !!e && e.code !== "PGRST116";
+    if (readFailed(hostError)) {
+      setLoadError(true);
+      setLoading(false);
+      return;
+    }
 
     const host = hostRow as { id: string; name: string; plan_type: string } | null;
     if (!host) {
@@ -387,11 +408,17 @@ export default function BookingsPage() {
     setHostPlanType(host.plan_type);
 
     // Get homestays for this host
-    const { data: homestayRows } = await supabase
+    const { data: homestayRows, error: homestayError } = await supabase
       .from("homestays")
       .select("id, name")
       .eq("host_id", host.id);
+    if (readFailed(homestayError)) {
+      setLoadError(true);
+      setLoading(false);
+      return;
+    }
     const homestays = (homestayRows as { id: string; name: string }[]) || [];
+    setMultiHomestay(homestays.length > 1);
     if (homestays.length === 0) {
       setLoading(false);
       return;
@@ -408,7 +435,7 @@ export default function BookingsPage() {
       { count: total },
       { count: pendingCnt },
       { count: confirmedCnt },
-      { data: bookingRows },
+      { data: bookingRows, error: bookingsError },
       dcrResult,
     ] = await Promise.all([
       supabase.from("rooms").select("id, name, price_per_night, max_guests").in("homestay_id", homestayIds),
@@ -425,6 +452,11 @@ export default function BookingsPage() {
     roomMapRef.current = roomMap;
     setQuickBookingRooms(typedRooms);
     if (homestayIds.length > 0) setFirstHomestayId(homestayIds[0]);
+    if (bookingsError) {
+      setLoadError(true);
+      setLoading(false);
+      return;
+    }
 
     setTotalCount(total || 0);
     setTotalPendingCount(pendingCnt || 0);
@@ -700,6 +732,10 @@ export default function BookingsPage() {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false);
   const [rejectTarget, setRejectTarget] = useState<DateChangeRequestRow | null>(null);
   const [rejectReason, setRejectReason] = useState("");
+  // Confirming is irreversible (guest emailed, commission taken), so it opens a
+  // check of the slip against the amount first. The whole cart is confirmed.
+  const [confirmTarget, setConfirmTarget] = useState<DisplayBooking[] | null>(null);
+  const [approveTarget, setApproveTarget] = useState<DateChangeRequestRow | null>(null);
 
   // A cart is confirmed or cancelled as one (the API cascades to every room and
   // returns their ids), so apply the result to each of them — in the tab list
@@ -752,12 +788,12 @@ export default function BookingsPage() {
       });
       const data = await res.json();
       if (!res.ok) {
-        toast.error(data.error || t("errorUpdate"));
+        toast.error(refusal(data, t("errorUpdate")));
         return;
       }
       const ids: string[] = data.member_ids ?? [cancelTarget.id];
       applyStatus(ids, { status: "cancelled" as BookingStatus, cancelled_by: hostName || "host" });
-      toast.success(ids.length > 1 ? t("groupCancelled", { count: ids.length }) : t("cancel") + "!");
+      toast.success(ids.length > 1 ? t("groupCancelled", { count: ids.length }) : t("cancelBookingDone"));
     } catch {
       toast.error(t("errorUpdate"));
     } finally {
@@ -766,6 +802,33 @@ export default function BookingsPage() {
     setCancelDialogOpen(false);
     setCancelTarget(null);
     setCancelReason("");
+  };
+
+  const handleConfirmBooking = async () => {
+    const pendingHouse = confirmTarget ? cartActionTargets(confirmTarget, new Date()).pending : null;
+    if (!pendingHouse) return;
+    setUpdatingStatus(true);
+    try {
+      const res = await fetch("/api/bookings/update-status", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ booking_id: pendingHouse.id, status: "confirmed", locale }),
+      });
+      const data = await res.json();
+      if (!res.ok) {
+        toast.error(refusal(data, t("errorUpdate")));
+        return;
+      }
+      const ids: string[] = data.member_ids ?? [pendingHouse.id];
+      applyStatus(ids, { status: "confirmed" as BookingStatus });
+      setDetailTarget((prev) => prev && prev.map((b) => (ids.includes(b.id) ? { ...b, status: "confirmed" as BookingStatus } : b)));
+      toast.success(ids.length > 1 ? t("groupConfirmed", { count: ids.length }) : t("confirmBookingDone"));
+      setConfirmTarget(null);
+    } catch {
+      toast.error(t("errorUpdate"));
+    } finally {
+      setUpdatingStatus(false);
+    }
   };
 
   const handleApproveDateChange = async (dcr: DateChangeRequestRow) => {
@@ -783,10 +846,11 @@ export default function BookingsPage() {
         } else if (data.error === "DATES_BLOCKED") {
           toast.error(t("dateChangeDatesBlocked"));
         } else {
-          toast.error(data.error || t("dateChangeApproveFailed"));
+          toast.error(refusal(data, t("dateChangeApproveFailed")));
         }
         return;
       }
+      setApproveTarget(null);
       toast.success(t("dateChangeApproved"));
       // Update local state
       applyStatus([dcr.booking_id], { check_in: dcr.new_check_in, check_out: dcr.new_check_out, total_price: dcr.new_total_price });
@@ -921,7 +985,7 @@ export default function BookingsPage() {
           <Button
             size="sm"
             className="flex-1 hover:brightness-90 text-white bg-brand"
-            onClick={() => handleApproveDateChange(dateChangeRequests[booking.id])}
+            onClick={() => setApproveTarget(dateChangeRequests[booking.id])}
             disabled={submittingDateChange}
           >
             {submittingDateChange ? <Loader2 className="mr-1 h-3 w-3 animate-spin" /> : <CheckCircle2 className="mr-1 h-3 w-3" />}
@@ -1123,6 +1187,19 @@ export default function BookingsPage() {
     </>
   );
 
+  if (loadError) {
+    return (
+      <ErrorView
+        title={te("title")}
+        description={te("description")}
+        retryLabel={te("retry")}
+        onRetry={() => window.location.reload()}
+        backHref="/dashboard"
+        backLabel={te("dashboard")}
+      />
+    );
+  }
+
   if (loading) {
     return (
       <div>
@@ -1310,7 +1387,9 @@ export default function BookingsPage() {
                   return (
                     <Card key={booking.group_id ?? booking.id} className="overflow-hidden py-0 gap-0">
                       <div className="flex">
-                        {/* Slip image — full left side */}
+                        {/* The slip is only worth the width while it is still to be checked;
+                            once decided it stays one tap away in the details. */}
+                        {pending && (
                         <div className="relative w-28 shrink-0 sm:w-36">
                           {booking.payment_slip_url ? (
                             <button
@@ -1335,6 +1414,7 @@ export default function BookingsPage() {
                             </div>
                           )}
                         </div>
+                        )}
 
                         <div className="flex flex-1 min-w-0 flex-col gap-4 p-4 sm:flex-row sm:items-start">
                           <div className="flex-1 min-w-0 space-y-1">
@@ -1348,21 +1428,15 @@ export default function BookingsPage() {
                                   {t("groupBadge")}
                                 </Badge>
                               )}
-                              {booking.booking_source && booking.booking_source !== "guest" ? (
+                              {booking.booking_source && booking.booking_source !== "guest" && (
                                 <Badge
                                   variant="secondary"
                                   className="bg-earth-50 text-earth-700"
                                 >
-                                  ⚡ {t(`source${booking.booking_source.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join("")}` as Parameters<typeof t>[0])}
+                                  <Zap className="mr-1 h-3 w-3" />
+                                  {t(`source${booking.booking_source.split("_").map(w => w.charAt(0).toUpperCase() + w.slice(1)).join("")}` as Parameters<typeof t>[0])}
                                 </Badge>
-                              ) : booking.easyslip_verified ? (
-                                <Badge
-                                  variant="secondary"
-                                  className="bg-brand/5 text-brand"
-                                >
-                                  ✓ {t("paymentVerified")}
-                                </Badge>
-                              ) : null}
+                              )}
                               {isQuickPending(booking) && (
                                 <Badge variant="secondary" className="bg-amber-50 text-amber-700">
                                   <MessageCircle className="mr-1 h-3 w-3" />
@@ -1376,7 +1450,7 @@ export default function BookingsPage() {
                                 <Badge variant="secondary" className="bg-amber-100 text-amber-700">
                                   {t("paymentDeposit")}
                                 </Badge>
-                              ) : money.paid >= money.total ? (
+                              ) : money.paid >= money.total && booking.status !== "cancelled" && booking.status !== "rejected" ? (
                                 <Badge variant="secondary" className="bg-brand-50 text-brand">
                                   {t("paymentFull")}
                                 </Badge>
@@ -1396,10 +1470,12 @@ export default function BookingsPage() {
                               )}
                             </div>
                             <div className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-earth-600">
-                              <span className="flex items-center gap-1">
-                                <Home className="h-3.5 w-3.5" />
-                                {booking.homestay_name}
-                              </span>
+                              {multiHomestay && (
+                                <span className="flex items-center gap-1">
+                                  <Home className="h-3.5 w-3.5" />
+                                  {booking.homestay_name}
+                                </span>
+                              )}
                               {!isGroup && <span>{booking.room_name}</span>}
                               {!perHouse && renderDates(booking)}
                               <span className="font-medium text-brand">
@@ -1463,32 +1539,7 @@ export default function BookingsPage() {
                                 <Button
                                   size="sm"
                                   className="hover:brightness-90 bg-brand"
-                                  onClick={async () => {
-                                    setUpdatingStatus(true);
-                                    try {
-                                      const res = await fetch("/api/bookings/update-status", {
-                                        method: "POST",
-                                        headers: { "Content-Type": "application/json" },
-                                        body: JSON.stringify({
-                                          booking_id: pending.id,
-                                          status: "confirmed",
-                                          locale,
-                                        }),
-                                      });
-                                      const data = await res.json();
-                                      if (!res.ok) {
-                                        toast.error(data.error || t("errorUpdate"));
-                                        return;
-                                      }
-                                      const ids: string[] = data.member_ids ?? [pending.id];
-                                      applyStatus(ids, { status: "confirmed" as BookingStatus });
-                                      toast.success(ids.length > 1 ? t("groupConfirmed", { count: ids.length }) : t("confirm") + "!");
-                                    } catch {
-                                      toast.error(t("errorUpdate"));
-                                    } finally {
-                                      setUpdatingStatus(false);
-                                    }
-                                  }}
+                                  onClick={() => setConfirmTarget(cart)}
                                   disabled={updatingStatus}
                                 >
                                   {t("confirm")}
@@ -1752,7 +1803,7 @@ export default function BookingsPage() {
               {detailPending && (
                 <DialogFooter className="gap-2">
                   <Button
-                    variant="destructive"
+                    variant="outline"
                     onClick={() => {
                       setDetailDialogOpen(false);
                       handleCancelClick(detailPending);
@@ -1763,38 +1814,9 @@ export default function BookingsPage() {
                   <Button
                     className="hover:brightness-90 bg-brand"
                     disabled={updatingStatus}
-                    onClick={async () => {
-                      if (detailPending.status === "pending" || detailPending.status === "verified") {
-                        setUpdatingStatus(true);
-                        try {
-                          const res = await fetch("/api/bookings/update-status", {
-                            method: "POST",
-                            headers: { "Content-Type": "application/json" },
-                            body: JSON.stringify({
-                              booking_id: detailPending.id,
-                              status: "confirmed",
-                              locale,
-                            }),
-                          });
-                          const data = await res.json();
-                          if (!res.ok) {
-                            toast.error(data.error || t("errorUpdate"));
-                            return;
-                          }
-                          const ids: string[] = data.member_ids ?? [detailPending.id];
-                          applyStatus(ids, { status: "confirmed" as BookingStatus });
-                          setDetailTarget((prev) => prev && prev.map((b) => (ids.includes(b.id) ? { ...b, status: "confirmed" as BookingStatus } : b)));
-                          toast.success(ids.length > 1 ? t("groupConfirmed", { count: ids.length }) : t("confirm") + "!");
-                        } catch {
-                          toast.error(t("errorUpdate"));
-                        } finally {
-                          setUpdatingStatus(false);
-                        }
-                      } else {
-                        await updateStatus([detailPending.id], "confirmed");
-                        setDetailTarget((prev) => prev && prev.map((b) => (b.id === detailPending.id ? { ...b, status: "confirmed" as BookingStatus } : b)));
-                      }
+                    onClick={() => {
                       setDetailDialogOpen(false);
+                      setConfirmTarget(detailTarget);
                     }}
                   >
                     {t("confirm")}
@@ -1817,6 +1839,93 @@ export default function BookingsPage() {
               )}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Confirm check: the slip beside the amount the guest owed, and what confirming does. */}
+      <Dialog open={!!confirmTarget} onOpenChange={(open) => { if (!open && !updatingStatus) setConfirmTarget(null); }}>
+        <DialogContent className="max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>{t("confirmBookingTitle", { guest: confirmTarget?.[0]?.guest_name ?? "" })}</DialogTitle>
+            <DialogDescription>{t("confirmBookingCheck")}</DialogDescription>
+          </DialogHeader>
+          {confirmTarget?.[0] && (
+            <div className="space-y-3">
+              {confirmTarget[0].payment_slip_url ? (
+                <div className="rounded-xl border border-earth-200 bg-earth-50 p-2">
+                  <Image
+                    src={confirmTarget[0].payment_slip_url}
+                    alt={t("paymentSlip")}
+                    width={400}
+                    height={320}
+                    className="mx-auto max-h-64 w-auto rounded-lg object-contain"
+                  />
+                </div>
+              ) : isQuickPending(confirmTarget[0]) ? (
+                <div role="note" className="flex items-start gap-2 rounded-xl bg-amber-50 p-3 text-sm text-amber-800">
+                  <MessageCircle className="mt-0.5 h-4 w-4 shrink-0" />
+                  {t("quickPendingHint")}
+                </div>
+              ) : null}
+              <div className="flex items-baseline justify-between gap-3 rounded-xl border border-earth-200 px-4 py-3">
+                <span className="text-sm text-earth-700">{t("confirmBookingAmount")}</span>
+                <span className="text-xl font-semibold tabular-nums text-earth-900">
+                  ฿{cartMoney(confirmTarget).paid.toLocaleString()}
+                </span>
+              </div>
+              <p className="text-sm text-earth-700">{t("confirmBookingEffects")}</p>
+              {hostPlanType === "commission" && (
+                <p className="text-sm text-amber-800">{t("confirmBookingCommission")}</p>
+              )}
+            </div>
+          )}
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => setConfirmTarget(null)} disabled={updatingStatus}>
+              {t("confirmBookingKeep")}
+            </Button>
+            <Button className="hover:brightness-90 bg-brand" onClick={handleConfirmBooking} disabled={updatingStatus}>
+              {updatingStatus && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+              {t("confirmBookingButton")}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Approving a date change moves the booking at once and emails the guest. */}
+      <Dialog open={!!approveTarget} onOpenChange={(open) => { if (!open && !submittingDateChange) setApproveTarget(null); }}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>{t("dateChangeApproveTitle")}</DialogTitle>
+            <DialogDescription>{t("dateChangeApproveDesc")}</DialogDescription>
+          </DialogHeader>
+          {approveTarget && (
+            <div className="space-y-1 rounded-xl border border-earth-200 bg-earth-50 p-3 text-sm text-earth-800">
+              <p>
+                {t("dateChangeFrom")}: {fmtDateStr(approveTarget.old_check_in, "d MMM yyyy", locale)} → {fmtDateStr(approveTarget.old_check_out, "d MMM yyyy", locale)}
+              </p>
+              <p className="font-medium text-earth-900">
+                {t("dateChangeTo")}: {fmtDateStr(approveTarget.new_check_in, "d MMM yyyy", locale)} → {fmtDateStr(approveTarget.new_check_out, "d MMM yyyy", locale)}
+              </p>
+              {approveTarget.price_difference !== 0 && (
+                <p>
+                  {t("dateChangePriceDiff")}: {approveTarget.price_difference > 0 ? "+" : "−"}฿{Math.abs(approveTarget.price_difference).toLocaleString()}
+                </p>
+              )}
+            </div>
+          )}
+          <DialogFooter className="flex gap-2 sm:justify-end">
+            <Button variant="outline" onClick={() => setApproveTarget(null)} disabled={submittingDateChange}>
+              {t("dateChangeApproveKeep")}
+            </Button>
+            <Button
+              className="hover:brightness-90 bg-brand text-white"
+              onClick={() => approveTarget && handleApproveDateChange(approveTarget)}
+              disabled={submittingDateChange}
+            >
+              {submittingDateChange && <Loader2 className="mr-1.5 h-3.5 w-3.5 animate-spin" />}
+              {t("dateChangeApprove")}
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 
@@ -1884,8 +1993,9 @@ export default function BookingsPage() {
             </DialogTitle>
           </DialogHeader>
           <div>
-            <Label>{t("dateChangeRejectReason")}</Label>
+            <Label htmlFor="reject-reason">{t("dateChangeRejectReason")}</Label>
             <Textarea
+              id="reject-reason"
               value={rejectReason}
               onChange={(e) => setRejectReason(e.target.value)}
               placeholder={t("dateChangeRejectReasonPlaceholder")}
@@ -1899,7 +2009,7 @@ export default function BookingsPage() {
               onClick={() => { setRejectDialogOpen(false); setRejectTarget(null); }}
               disabled={submittingDateChange}
             >
-              {t("cancel")}
+              {tc("close")}
             </Button>
             <Button
               variant="destructive"
@@ -1930,7 +2040,7 @@ export default function BookingsPage() {
               variant="outline"
               onClick={() => setCompleteDialogOpen(false)}
             >
-              {t("cancel")}
+              {tc("close")}
             </Button>
             <Button
               className="hover:brightness-90 text-white bg-brand"

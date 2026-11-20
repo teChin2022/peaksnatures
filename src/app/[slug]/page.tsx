@@ -27,6 +27,7 @@ import { LandingRooms, type LandingRoom } from "@/components/booking/landing-roo
 import { JsonLd } from "@/components/seo/json-ld";
 import { Breadcrumbs } from "@/components/seo/breadcrumbs";
 import { SITE_NAME, SITE_URL } from "@/lib/seo";
+import { homestayCapacity } from "@/lib/homestay-capacity";
 import { getHomestayData, homestayMetadata, notFoundMetadata, readLocale } from "./data";
 
 export const revalidate = 30;
@@ -216,7 +217,7 @@ export default async function HomestayLandingPage({ params, searchParams }: Page
         <AboutSection
           description={homestay.description}
           amenities={homestay.amenities}
-          maxGuests={homestay.max_guests}
+          maxGuests={homestayCapacity(activeRooms)}
           prohibitions={homestay.prohibitions}
           amenityIcons={amenityIcons}
           prohibitionIcons={prohibitionIcons}

@@ -26,7 +26,7 @@ export async function loadLandingRows() {
     ? await Promise.all([
         supabase
           .from("rooms")
-          .select("id, homestay_id, price_per_night, room_seasonal_prices(room_id, start_date, end_date, price_per_night)")
+          .select("id, homestay_id, price_per_night, max_guests, quantity, room_seasonal_prices(room_id, start_date, end_date, price_per_night)")
           .in("homestay_id", homestayIds)
           .eq("is_active", true),
         supabase

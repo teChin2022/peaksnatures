@@ -33,6 +33,8 @@ export function DashboardShell({ children }: DashboardShellProps) {
   const [accountEmail, setAccountEmail] = useState<string | null>(null);
   // Staff cannot open billing, so they get a plain notice when guests cannot book.
   const [staffBlocked, setStaffBlocked] = useState(false);
+  // Commission owner: guests refused because the wallet stayed negative (isHostBlocked).
+  const [walletBlocked, setWalletBlocked] = useState(false);
 
   useEffect(() => {
     const fetchBrand = async () => {
@@ -64,6 +66,14 @@ export function DashboardShell({ children }: DashboardShellProps) {
         const res = await fetch("/api/host/profile").catch(() => null);
         const profile = res?.ok ? ((await res.json()) as { bookingBlocked?: boolean }) : null;
         setStaffBlocked(profile?.bookingBlocked === true);
+      }
+      // Free and Fixed Rate blocks have their own banners below; the wallet one had none.
+      if (!staff && hostRow.plan_type === "commission") {
+        const res = await fetch("/api/host/profile").catch(() => null);
+        const profile = res?.ok ? ((await res.json()) as { bookingBlocked?: boolean | null }) : null;
+        setWalletBlocked(profile?.bookingBlocked === true);
+      } else {
+        setWalletBlocked(false);
       }
 
       // Compute plan expiry phase — suppress banner if a switch is pending,
@@ -179,6 +189,25 @@ export function DashboardShell({ children }: DashboardShellProps) {
               {/* Button asChild: one control, not a button inside a link (two tab stops). */}
               <Button asChild size="sm" className="bg-red-600 hover:bg-red-700 text-white text-sm shrink-0 max-sm:h-10">
                 <Link href="/dashboard/billing">{t("payNow")}</Link>
+              </Button>
+            </div>
+          </div>
+        )}
+
+        {/* Commission owner: the wallet stayed negative past the grace days. */}
+        {role === "owner" && walletBlocked && (
+          <div className="mx-4 sm:mx-6 lg:mx-8 mt-4">
+            <div role="status" className="rounded-xl border border-red-200 bg-red-50 px-4 py-3 flex items-center gap-3">
+              <div className="rounded-lg bg-red-100 p-2 shrink-0">
+                <ShieldAlert className="h-4 w-4 text-red-600" />
+              </div>
+              <div className="flex-1 min-w-0">
+                <p className="text-sm font-medium text-red-800">{t("blockedTitle")}</p>
+                <p className="text-sm text-red-700 mt-0.5">{t("walletBlockedDesc")}</p>
+              </div>
+              {/* Button asChild: one control, not a button inside a link (two tab stops). */}
+              <Button asChild size="sm" className="bg-red-600 hover:bg-red-700 text-white text-sm shrink-0 max-sm:h-10">
+                <Link href="/dashboard/wallet">{t("topUpNow")}</Link>
               </Button>
             </div>
           </div>

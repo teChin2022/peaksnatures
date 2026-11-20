@@ -67,6 +67,8 @@ import { QuickBookingDialog } from "@/components/dashboard/quick-booking-dialog"
 import { BookingAttachments } from "@/components/dashboard/booking-attachments";
 import { statusToneClass } from "@/components/admin/status-badge";
 import { slipStoragePath } from "@/lib/slip-path";
+import { ErrorView } from "@/components/error-view";
+import { calendarGridRange, dayOrder } from "./range";
 
 interface BookingRow {
   id: string;
@@ -170,8 +172,13 @@ const WEEKDAYS_TH = ["อา.", "จ.", "อ.", "พ.", "พฤ.", "ศ.", "ส.
 export default function CalendarPage() {
   const t = useTranslations("dashboardCalendar");
   const tDash = useTranslations("dashboard");
+  const te = useTranslations("errorPage");
 
   const [loading, setLoading] = useState(true);
+  // A failed read must not draw a calendar where every day looks free.
+  const [loadError, setLoadError] = useState(false);
+  // Every pending booking, any month (its own count: the bookings read is per month).
+  const [pendingTotal, setPendingTotal] = useState(0);
   const [currentMonth, setCurrentMonth] = useState(startOfMonth(new Date()));
   const [homestayId, setHomestayId] = useState<string | null>(null);
   const [bookings, setBookings] = useState<BookingRow[]>([]);
@@ -226,60 +233,103 @@ export default function CalendarPage() {
     if (html === "th") setLocale("th");
   }, []);
 
-  // Fetch data
-  const fetchData = useCallback(async () => {
-    const supabase = createClient();
-    // No user_id filter: RLS shows a login only its own host, or the one it is staff of (081),
-    // so the host read need not wait for getUser().
-    const [
-      {
-        data: { user },
-      },
-      { data: hostRow },
-    ] = await Promise.all([supabase.auth.getUser(), supabase.from("hosts").select("id").single()]);
-    if (!user) return;
-
-    const host = hostRow as { id: string } | null;
-    if (!host) {
+  // The month on screen, for loaders that outlive a render (fetchData runs once).
+  const monthRef = useRef(currentMonth);
+  // Only the bookings that overlap the weeks on screen, not every booking ever:
+  // a growing history used to push this month's bookings past the row cap.
+  const monthRun = useRef(0);
+  const fetchMonthBookings = useCallback(async (hsId: string, month: Date) => {
+    const run = ++monthRun.current;
+    const { from, to } = calendarGridRange(month);
+    try {
+      const { data, error } = await createClient()
+        .from("bookings")
+        .select("id, homestay_id, room_id, guest_name, check_in, check_out, num_guests, total_price, amount_paid, payment_type, status")
+        .eq("homestay_id", hsId)
+        .not("status", "in", '("cancelled","rejected")')
+        .lte("check_in", to)
+        .gte("check_out", from)
+        .order("check_in", { ascending: true });
+      if (run !== monthRun.current) return; // a later month replaced this read
+      if (error) throw error;
+      setBookings((data as unknown as BookingRow[]) || []);
       setLoading(false);
-      return;
-    }
-
-    const { data: homestayRow } = await supabase
-      .from("homestays")
-      .select("id")
-      .eq("host_id", host.id)
-      .limit(1)
-      .single();
-    const homestay = homestayRow as { id: string } | null;
-    if (!homestay) {
+    } catch (error) {
+      if (run !== monthRun.current) return;
+      console.error("Calendar bookings load error:", error);
+      setLoadError(true);
       setLoading(false);
-      return;
     }
-
-    setHomestayId(homestay.id);
-
-    // Parallel: rooms + bookings + blocked dates (all depend only on homestay.id)
-    const [{ data: roomRows }, { data: bookingRows }, { data: blockedRows }] = await Promise.all([
-      supabase.from("rooms").select("id, name, price_per_night, max_guests").eq("homestay_id", homestay.id).order("created_at", { ascending: true }),
-      supabase.from("bookings").select("id, homestay_id, room_id, guest_name, check_in, check_out, num_guests, total_price, amount_paid, payment_type, status").eq("homestay_id", homestay.id).not("status", "in", '("cancelled","rejected")').order("check_in", { ascending: true }),
-      supabase.from("blocked_dates").select("*").eq("homestay_id", homestay.id),
-    ]);
-
-    const roomList = (roomRows as { id: string; name: string; price_per_night: number; max_guests: number }[]) || [];
-    const rMap = Object.fromEntries(roomList.map((r) => [r.id, r.name]));
-    setRoomMap(rMap);
-    setRooms(roomList);
-    setRoomsFull(roomList);
-    setBookings((bookingRows as unknown as BookingRow[]) || []);
-    setBlockedDates((blockedRows as unknown as BlockedDateRow[]) || []);
-
-    setLoading(false);
   }, []);
+
+  // Fetch what does not depend on the month shown: rooms, blocks, the pending count.
+  // Blocks stay whole: a selection can span months and unblocking reads them.
+  const fetchData = useCallback(async () => {
+    try {
+      const supabase = createClient();
+      // No user_id filter: RLS shows a login only its own host, or the one it is staff of (081),
+      // so the host read need not wait for getUser().
+      const [
+        {
+          data: { user },
+        },
+        { data: hostRow, error: hostError },
+      ] = await Promise.all([supabase.auth.getUser(), supabase.from("hosts").select("id").single()]);
+      if (!user) return;
+      // PGRST116 is "no row": a new account, not a failed read.
+      if (hostError && hostError.code !== "PGRST116") throw hostError;
+
+      const host = hostRow as { id: string } | null;
+      if (!host) {
+        setLoading(false);
+        return;
+      }
+
+      const { data: homestayRow, error: homestayError } = await supabase
+        .from("homestays")
+        .select("id")
+        .eq("host_id", host.id)
+        .limit(1)
+        .single();
+      if (homestayError && homestayError.code !== "PGRST116") throw homestayError;
+      const homestay = homestayRow as { id: string } | null;
+      if (!homestay) {
+        setLoading(false);
+        return;
+      }
+
+      const [{ data: roomRows, error: roomError }, { data: blockedRows, error: blockedError }, { count: pendingCnt, error: pendingError }] = await Promise.all([
+        supabase.from("rooms").select("id, name, price_per_night, max_guests").eq("homestay_id", homestay.id).order("created_at", { ascending: true }),
+        supabase.from("blocked_dates").select("*").eq("homestay_id", homestay.id),
+        supabase.from("bookings").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id).eq("status", "pending"),
+      ]);
+      if (roomError || blockedError || pendingError) throw roomError ?? blockedError ?? pendingError;
+
+      const roomList = (roomRows as { id: string; name: string; price_per_night: number; max_guests: number }[]) || [];
+      const rMap = Object.fromEntries(roomList.map((r) => [r.id, r.name]));
+      setRoomMap(rMap);
+      setRooms(roomList);
+      setRoomsFull(roomList);
+      setBlockedDates((blockedRows as unknown as BlockedDateRow[]) || []);
+      setPendingTotal(pendingCnt ?? 0);
+      setHomestayId(homestay.id);
+      // Loading ends when the shown month's bookings arrive.
+      await fetchMonthBookings(homestay.id, monthRef.current);
+    } catch (error) {
+      console.error("Calendar load error:", error);
+      setLoadError(true);
+      setLoading(false);
+    }
+  }, [fetchMonthBookings]);
 
   useEffect(() => {
     fetchData();
   }, [fetchData]);
+
+  // After a quick booking: the month's bars and the pending count both change.
+  const refreshAfterBooking = () => {
+    fetchData();
+  };
 
   // Build blocked date set (filtered by selected room)
   const blockedDateMap = useMemo(() => {
@@ -330,6 +380,8 @@ export default function CalendarPage() {
         // Skip malformed dates
       }
     });
+    // Arrivals first: a cell shows two bars, and today's departures used to hide them.
+    for (const list of map.values()) list.sort((a, b) => dayOrder(a.position) - dayOrder(b.position));
     return map;
   }, [bookings]);
 
@@ -598,12 +650,31 @@ export default function CalendarPage() {
   };
 
   // Navigation
-  const goToPrevMonth = () => setCurrentMonth((m) => subMonths(m, 1));
-  const goToNextMonth = () => setCurrentMonth((m) => addMonths(m, 1));
-  const goToToday = () => setCurrentMonth(startOfMonth(new Date()));
+  // Changing month reads that month's bookings (the grid's weeks only).
+  const showMonth = (month: Date) => {
+    monthRef.current = month;
+    setCurrentMonth(month);
+    if (homestayId) fetchMonthBookings(homestayId, month);
+  };
+  const goToPrevMonth = () => showMonth(subMonths(currentMonth, 1));
+  const goToNextMonth = () => showMonth(addMonths(currentMonth, 1));
+  const goToToday = () => showMonth(startOfMonth(new Date()));
 
   const weekdayLabels = locale === "th" ? WEEKDAYS_TH : WEEKDAYS;
-  const pendingCount = bookings.filter((b) => b.status === "pending").length;
+  const pendingCount = pendingTotal;
+
+  if (loadError) {
+    return (
+      <ErrorView
+        title={te("title")}
+        description={te("description")}
+        retryLabel={te("retry")}
+        onRetry={() => window.location.reload()}
+        backHref="/dashboard"
+        backLabel={te("dashboard")}
+      />
+    );
+  }
 
   if (loading) {
     return (
@@ -664,7 +735,7 @@ export default function CalendarPage() {
           onOpenChange={setQuickBookingOpen}
           homestayId={homestayId}
           rooms={roomsFull}
-          onSuccess={() => fetchData()}
+          onSuccess={refreshAfterBooking}
         />
       )}
 
@@ -815,6 +886,9 @@ export default function CalendarPage() {
               if (!dayInfo.isCurrentMonth) {
                 bgClass = "bg-earth-50/50";
                 textClass = "text-earth-600";
+              } else if (dayInfo.isPast && !dayInfo.isBlocked) {
+                bgClass = "bg-earth-50";
+                textClass = "text-earth-600";
               } else if (dayInfo.isBlocked) {
                 bgClass = "bg-red-50 hover:bg-red-100";
                 textClass = "text-red-700";
@@ -858,7 +932,6 @@ export default function CalendarPage() {
                     relative flex h-14 sm:h-24 w-full flex-col items-start rounded-lg border p-1 sm:p-1.5 text-left transition-all overflow-hidden
                     ${bgClass} ${textClass}
                     ${dayInfo.isCurrentMonth ? "cursor-pointer" : "cursor-default opacity-40"}
-                    ${dayInfo.isPast && !dayInfo.isBlocked ? "opacity-60" : ""}
                     ${dayInfo.isBlocked && dayInfo.isCurrentMonth ? "border-red-200" : ""}
                     ${hasConfirmed && dayInfo.isCurrentMonth && !dayInfo.isBlocked ? "border-2 border-brand" : ""}
                     ${hasPending && !hasConfirmed && dayInfo.isCurrentMonth && !dayInfo.isBlocked ? "border-amber-300 border-2" : ""}

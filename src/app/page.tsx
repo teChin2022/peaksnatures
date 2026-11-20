@@ -6,6 +6,7 @@ import { landingStats } from "@/lib/landing-stats";
 import { compareHomestays } from "@/lib/homestay-order";
 import { billingTodayStr } from "@/lib/billing-dates";
 import { homestayPrice } from "@/lib/room-rates";
+import { homestayCapacity } from "@/lib/homestay-capacity";
 import type { Room, RoomSeasonalPrice } from "@/types/database";
 import { getLandingRows } from "./landing-data";
 import { LandingNavbar } from "@/components/landing/navbar";
@@ -49,7 +50,7 @@ export default async function Home() {
   const { homestays, roomRows, hostRows, reviewRows, confirmedBookings, ...cached } = await getLandingRows();
   const pastDueHostIds = new Set(cached.pastDueHostIds);
 
-  const rooms = (roomRows as unknown as (Pick<Room, "id" | "homestay_id" | "price_per_night"> & {
+  const rooms = (roomRows as unknown as (Pick<Room, "id" | "homestay_id" | "price_per_night" | "max_guests" | "quantity"> & {
     room_seasonal_prices: Pick<RoomSeasonalPrice, "room_id" | "start_date" | "end_date" | "price_per_night">[] | null;
   })[]) || [];
   // Tonight's price per homestay, as its /[slug] Book bar shows it: the cheapest house, "from" when they differ.
@@ -119,7 +120,8 @@ export default async function Home() {
       gallery: h.gallery || [],
       min_price: priceMap.get(h.id)?.price ?? null,
       price_from: priceMap.get(h.id)?.from ?? false,
-      max_guests: h.max_guests,
+      // The active houses' guests times how many of each (the rooms read is active houses only).
+      max_guests: homestayCapacity(rooms.filter((r) => r.homestay_id === h.id)),
       tagline: h.tagline,
       review_count: count,
       average_rating: count > 0 ? Math.round((sum / count) * 10) / 10 : 0,

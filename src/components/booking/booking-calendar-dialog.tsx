@@ -171,6 +171,13 @@ export function BookingCalendarPanel({
     onDone();
   };
 
+  // Back to the page's starting state: no dates, and no alert about the dates just dropped.
+  const handleClear = () => {
+    setCrossedNight(null);
+    setWarned(false);
+    setDates(undefined);
+  };
+
   // Thai puts the day before the month ("29 ก.ค."), English the other way round.
   const alertDatePattern = locale === "th" ? "d MMM" : "MMM d";
   const fieldDatePattern = locale === "th" ? "d MMM yyyy" : "MMM d, yyyy";
@@ -270,9 +277,19 @@ export function BookingCalendarPanel({
           </div>
         ) : null}
 
-        <Button className="w-full rounded-full bg-pine px-6 py-3.5 h-auto text-sm font-bold text-white hover:bg-pine-hover focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2" onClick={handleDone}>
-          {tc("done")}
-        </Button>
+        <div className="flex gap-2">
+          {dateRange?.from ? (
+            <Button
+              className="rounded-full border border-line-strong bg-white px-5 py-3.5 h-auto text-sm font-bold text-ink shadow-none hover:bg-mist focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2"
+              onClick={handleClear}
+            >
+              {t("clearDates")}
+            </Button>
+          ) : null}
+          <Button className="flex-1 rounded-full bg-pine px-6 py-3.5 h-auto text-sm font-bold text-white hover:bg-pine-hover focus-visible:ring-2 focus-visible:ring-pine focus-visible:ring-offset-2" onClick={handleDone}>
+            {tc("done")}
+          </Button>
+        </div>
     </>
   );
 }

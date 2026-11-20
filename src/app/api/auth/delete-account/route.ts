@@ -5,6 +5,7 @@ import {
 } from "@/lib/supabase/server";
 import bcrypt from "bcryptjs";
 import { deleteStaffLogins } from "@/lib/host-access";
+import { billingTodayStr } from "@/lib/billing-dates";
 
 export async function DELETE(req: Request) {
   try {
@@ -83,6 +84,22 @@ export async function DELETE(req: Request) {
 
       if (homestay) {
         const homestayRow = homestay as { id: string };
+
+        // Owner's rule (2026-11-20): never delete a booking a guest still holds;
+        // deleting told no one. The host cancels them first (each guest is emailed).
+        const { count: upcoming, error: upcomingError } = await serviceClient
+          .from("bookings")
+          .select("id", { count: "exact", head: true })
+          .eq("homestay_id", homestayRow.id)
+          .in("status", ["pending", "verified", "confirmed"])
+          .gte("check_out", billingTodayStr());
+        if (upcomingError) {
+          console.error("Delete account: counting upcoming bookings failed:", upcomingError);
+          return NextResponse.json({ error: "Failed to delete account" }, { status: 500 });
+        }
+        if ((upcoming ?? 0) > 0) {
+          return NextResponse.json({ error: "UPCOMING_BOOKINGS", count: upcoming }, { status: 409 });
+        }
 
         // Delete rooms and their pricing rules
         const { data: rooms } = await serviceClient

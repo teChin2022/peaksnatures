@@ -503,6 +503,42 @@ test.describe("booking from the availability calendar", () => {
   });
 });
 
+test.describe("the date picker's clear button", () => {
+  test("drops a picked stay so the guest can start over, and is gone once nothing is picked", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    await page.goto(`/${slug}/book`);
+    await page.locator("#date-panel").getByRole("button", { name: new RegExp(`^${T.booking.checkInLabel}`) }).click();
+
+    const dialog = page.getByRole("dialog");
+    const clear = dialog.getByRole("button", { name: T.booking.clearDates });
+    const days = dialog.locator("button[data-day]");
+    await expect(days.first()).toBeVisible();
+    await expect(clear).toHaveCount(0);
+
+    // Two enabled days in a row make a one-night stay.
+    const total = await days.count();
+    let pick = -1;
+    for (let i = 0; i < total - 1 && pick < 0; i += 1) {
+      if ((await days.nth(i).isEnabled()) && (await days.nth(i + 1).isEnabled())) pick = i;
+    }
+    test.skip(pick < 0, "no two free nights in a row this month");
+    await days.nth(pick).click();
+    await days.nth(pick + 1).click();
+    await expect(dialog.getByText(`1 ${T.common.night}`, { exact: true })).toBeVisible();
+
+    await clear.click();
+    await expect(clear).toHaveCount(0);
+    await expect(dialog.locator("div.rounded-xl", { hasText: T.booking.checkInLabel })).toContainText(T.booking.addDate);
+    await expect(dialog.locator("div.rounded-xl", { hasText: T.booking.checkOutLabel })).toContainText(T.booking.addDate);
+    await expect(dialog.locator('[aria-selected="true"]')).toHaveCount(0);
+
+    // The page behind it lost the stay too.
+    await page.keyboard.press("Escape");
+    await expect(page.locator("#date-panel").getByRole("button", { name: T.booking.chooseStayDates })).toBeVisible();
+  });
+});
+
 test.describe("a house card's photos", () => {
   test("are named in Thai, and their thumbnails are a 44px touch target", async ({ page, context }) => {
     const slug = requireSlug();

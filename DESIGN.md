@@ -532,6 +532,9 @@ mask padded so Thai marks are not clipped.
   keyframe a `prefers-reduced-motion` rule.
 - **Do** keep UI transitions under 300ms and animate only `transform` and
   `opacity`.
+- **Do** set serif amounts with `lining-nums tabular-nums`: Playfair's default
+  old-style figures made "฿0" read "฿o" on the dashboard's money pages
+  (2026-11-20).
 - **Do** show prices with `tabular-nums`, and "เริ่มต้น" (from) whenever the
   figure is a minimum.
 

@@ -203,6 +203,28 @@ describe("computeFixedRateInvoice", () => {
 });
 
 
+// The host billing page quotes each term from the effective rate and the tiers it
+// already has (2026-11-20); it must charge-match the routes, which pass the full config.
+describe("computeImmediateFixedRateInvoice from the two fields a page has", () => {
+  it("quotes exactly what the full config quotes, mid-month and on the 1st", () => {
+    const config = makeBillingConfig();
+    const fields = { fixed_rate_amount: config.fixed_rate_amount, fixed_rate_term_tiers: config.fixed_rate_term_tiers };
+    for (const months of [1, 6, 12]) {
+      for (const day of [new Date(Date.UTC(2026, 8, 20)), new Date(Date.UTC(2026, 8, 1))]) {
+        expect(computeImmediateFixedRateInvoice({ fixed_rate_override: null }, fields, months, day))
+          .toEqual(computeImmediateFixedRateInvoice({ fixed_rate_override: null }, config, months, day));
+      }
+    }
+  });
+
+  it("is more than rate × months × discount when the term starts mid-month (the old picker price)", () => {
+    const config = makeBillingConfig();
+    const quote = computeImmediateFixedRateInvoice({ fixed_rate_override: null }, config, 6, new Date(Date.UTC(2026, 8, 20)));
+    expect(quote.amount).toBeGreaterThan(Math.round(1000 * 6 * 0.9));
+    expect(quote.stub_amount).toBeGreaterThan(0);
+  });
+});
+
 describe("computeImmediateFixedRateInvoice", () => {
   const host = { fixed_rate_override: null };
   // ฿1,500/month with the fixture's 6-month (10%) and 12-month (20%) tiers.

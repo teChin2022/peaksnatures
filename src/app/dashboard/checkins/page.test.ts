@@ -138,7 +138,7 @@ describe("CheckinsPage: recording a cash balance", () => {
   });
 
   it("says so and keeps the balance when the server refuses", async () => {
-    fetchMock.mockResolvedValue({ ok: false, json: async () => ({ error: "Forbidden" }) });
+    fetchMock.mockResolvedValue({ ok: false, json: async () => ({ error: "Failed to record the payment" }) });
     await render();
 
     await click(button("recordCash"));
@@ -146,6 +146,17 @@ describe("CheckinsPage: recording a cash balance", () => {
 
     expect(h.toastError).toHaveBeenCalledWith("recordCashError");
     expect(container.textContent).toContain("balanceDue:2,000");
+  });
+
+  it("names a refusal it knows in Thai instead of the route's English", async () => {
+    fetchMock.mockResolvedValue({ ok: false, json: async () => ({ error: "Forbidden" }) });
+    await render();
+
+    await click(button("recordCash"));
+    await click(button("recordCashConfirm:2,000"));
+
+    // hostErrors.forbidden (the mock returns the key).
+    expect(h.toastError).toHaveBeenCalledWith("forbidden");
   });
 });
 

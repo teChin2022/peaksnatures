@@ -137,6 +137,32 @@ describe("GET /api/host/profile", () => {
     expect((await readJson(await GET())).body).toMatchObject({ role: "staff", bookingBlocked: true });
   });
 
+  // 2026-11-20: the owner, the one who can fix it, was the last to know (banner in the shell).
+  it("tells the owner when guests cannot book because the wallet stayed negative", async () => {
+    mocks.getHostBlockState.mockResolvedValue({
+      plan_type: "commission",
+      wallet_balance: -500,
+      wallet_credit_limit: 0,
+      wallet_negative_since: new Date(Date.now() - 10 * 86_400_000).toISOString(),
+    });
+    const { status, body } = await readJson(await GET());
+    expect(status).toBe(200);
+    expect(body).toMatchObject({ role: "owner", bookingBlocked: true });
+    expect(mocks.getHostBlockState).toHaveBeenCalledWith("host-1");
+  });
+
+  it("tells the owner guests can book when the wallet is fine", async () => {
+    mocks.getHostBlockState.mockResolvedValue({ plan_type: "commission", wallet_balance: 800, wallet_negative_since: null });
+    expect((await readJson(await GET())).body).toMatchObject({ role: "owner", bookingBlocked: false });
+  });
+
+  it("still returns the owner's profile when the block state cannot be read", async () => {
+    mocks.getHostBlockState.mockRejectedValue(new Error("db down"));
+    const { status, body } = await readJson(await GET());
+    expect(status).toBe(200);
+    expect(body).toMatchObject({ role: "owner", name: "Somchai", bookingBlocked: null });
+  });
+
   it("reports 500 when something unexpected throws", async () => {
     mocks.createServerSupabaseClient.mockRejectedValue(new Error("no database"));
     await expect(readJson(await GET())).resolves.toEqual({

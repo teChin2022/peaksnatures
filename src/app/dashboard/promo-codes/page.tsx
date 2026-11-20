@@ -94,6 +94,7 @@ import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover
 import { toast } from "sonner";
 import { getInitials, sanitizePhoneInput } from "@/lib/utils";
 import { statusToneClass } from "@/components/admin/status-badge";
+import { ErrorView } from "@/components/error-view";
 
 interface PromoFormState {
   code: string;
@@ -162,9 +163,12 @@ type RecommenderRow = {
 export default function PromoCodesPage() {
   const t = useTranslations("dashboardPromoCodes");
   const tc = useTranslations("common");
+  const te = useTranslations("errorPage");
   const locale = useLocale();
 
   const [loading, setLoading] = useState(true);
+  // A failed read must not look like "no codes yet" or "create a homestay first".
+  const [loadError, setLoadError] = useState(false);
   const [hostName, setHostName] = useState<string | null>(null);
   // Partner payouts are money: a staff login (migration 081) sees them but cannot mark them paid.
   const [isStaff, setIsStaff] = useState(false);
@@ -230,10 +234,12 @@ export default function PromoCodesPage() {
     const supabase = createClient();
     // No user_id filter: RLS shows a login only its own host, or the one it is staff of (081),
     // so the host read need not wait for getUser().
-    const [{ data: { user } }, { data: hostRow }] = await Promise.all([
+    const giveUp = () => { setLoadError(true); setLoading(false); };
+    const [{ data: { user } }, { data: hostRow, error: hostError }] = await Promise.all([
       supabase.auth.getUser(),
       supabase.from("hosts").select("id, user_id, name").maybeSingle(),
     ]);
+    if (hostError) return giveUp();
     if (!user) {
       setLoading(false);
       return;
@@ -247,12 +253,14 @@ export default function PromoCodesPage() {
     setHostName(host.name);
     setIsStaff(host.user_id !== user.id);
 
-    const { data: homestayRow } = await supabase
+    const { data: homestayRow, error: homestayError } = await supabase
       .from("homestays")
       .select("id, slug, promo_codes_enabled")
       .eq("host_id", host.id)
       .limit(1)
       .single();
+    // PGRST116 is "no row": no homestay yet, not a failed read.
+    if (homestayError && homestayError.code !== "PGRST116") return giveUp();
     const homestay = homestayRow as
       | { id: string; slug: string | null; promo_codes_enabled: boolean }
       | null;
@@ -264,7 +272,7 @@ export default function PromoCodesPage() {
     setHomestaySlug(homestay.slug);
     setEnabled(homestay.promo_codes_enabled);
 
-    const [{ data: codeRows }, { data: redemptionRows }] = await Promise.all([
+    const [{ data: codeRows, error: codesError }, { data: redemptionRows, error: redemptionsError }] = await Promise.all([
       supabase
         .from("promo_codes")
         .select("*")
@@ -277,6 +285,7 @@ export default function PromoCodesPage() {
         .limit(200),
     ]);
 
+    if (codesError || redemptionsError) return giveUp();
     setCodes((codeRows as unknown as PromoCode[]) || []);
     const allRedemptions = (redemptionRows as unknown as (RedemptionRow & { promo_code: { code: string; recommender_name: string | null; homestay_id: string } | null })[]) || [];
     // Filter to this homestay (RLS already restricts but the join may surface nulls)
@@ -824,6 +833,19 @@ export default function PromoCodesPage() {
       ? t("previewPercent", { value: v })
       : t("previewFixed", { value: v.toLocaleString() });
   }, [form.discount_type, form.discount_value, t]);
+
+  if (loadError) {
+    return (
+      <ErrorView
+        title={te("title")}
+        description={te("description")}
+        retryLabel={te("retry")}
+        onRetry={() => window.location.reload()}
+        backHref="/dashboard"
+        backLabel={te("dashboard")}
+      />
+    );
+  }
 
   if (loading) {
     return (

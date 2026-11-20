@@ -212,16 +212,24 @@ export default function DashboardPage() {
       const statsSince = format(startOfMonth(subMonths(new Date(), 11)), "yyyy-MM-dd");
 
       // Parallel fetch
-      const [{ count: roomCount }, { data: bookingRows, error: bookingsError }, { data: roomRows }, { data: recentRows }, { count: needsActionCount, error: needsActionError }] = await Promise.all([
+      const [{ count: roomCount }, { data: bookingRows, error: bookingsError }, { data: roomRows }, { data: recentRows }, { count: needsActionCount, error: needsActionError }, { count: dateChangeCount, error: dateChangeError }] = await Promise.all([
         supabase.from("rooms").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id),
         supabase.from("bookings").select("status, total_price, guest_province, check_in, check_out, room_id, booking_source").eq("homestay_id", homestay.id).gte("check_in", statsSince).order("check_in", { ascending: false }),
         supabase.from("rooms").select("id, name, quantity, price_per_night, max_guests").eq("homestay_id", homestay.id).eq("is_active", true),
         supabase.from("bookings").select("id, guest_name, guest_email, status, total_price").eq("homestay_id", homestay.id).order("created_at", { ascending: false }).limit(5),
         // Needs action matches the bookings page's Pending tab at any date, so it is counted, not windowed.
         supabase.from("bookings").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id).in("status", ["pending", "verified"]),
+        // Guests waiting on a date change, as the Pending tab counts them: requests on
+        // bookings that are not already counted above.
+        supabase
+          .from("date_change_requests")
+          .select("id, bookings!inner(homestay_id, status)", { count: "exact", head: true })
+          .eq("bookings.homestay_id", homestay.id)
+          .eq("status", "pending")
+          .not("bookings.status", "in", '("pending","verified")'),
       ]);
       if (signal.aborted) return;
-      if (bookingsError || needsActionError) { setLoadError(true); setLoading(false); return; }
+      if (bookingsError || needsActionError || dateChangeError) { setLoadError(true); setLoading(false); return; }
 
       const bookings = (bookingRows as { status: string; total_price: number; guest_province: string | null; check_in: string; check_out: string; room_id: string | null; booking_source: string }[]) || [];
       const rooms = (roomRows as { id: string; name: string; quantity: number; price_per_night: number; max_guests: number }[]) || [];
@@ -393,7 +401,7 @@ export default function DashboardPage() {
         bookingsBySource,
         provinceDistribution,
         roomCount: roomCount || 0,
-        confirmed, needsAction: needsActionCount ?? 0, todayCheckouts: today.checkouts,
+        confirmed, needsAction: (needsActionCount ?? 0) + (dateChangeCount ?? 0), todayCheckouts: today.checkouts,
       });
 
       setLoading(false);
