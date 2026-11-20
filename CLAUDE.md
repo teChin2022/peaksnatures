@@ -161,6 +161,13 @@ For large changes:
   `revalidateTag(tag, "max")`. `demand:<homestayId>` and `admin-demand` are
   never invalidated; their 60s TTL is the only freshness control. Nothing uses
   `revalidatePath`.
+- Every page renders per request: the root layout reads the `locale` cookie
+  (`src/i18n/request.ts`), so page `revalidate` exports never apply. The data
+  caches are what spare the DB: `landing-rows` (`/`, 60s) and `homestay-page`
+  (`/[slug]` and subpages, 30s, keyed by slug + locale), both TTL only, so a
+  host's edit shows within 30s. Their loaders throw on a failed read so an
+  error is never cached as "not found". `/api/bookings/availability` has no
+  CDN header on purpose: `revalidateTag` does not clear a CDN copy.
 - The cron's dates rely on `vercel.json` running it at `0 0 * * *`. If a change
   only holds under the current config, say so.
 
@@ -454,7 +461,7 @@ get my explicit approval first.
 
 ### Layout
 
-- Routes: `/` landing (60s ISR), `/[slug]` single-page booking, `/dashboard/*`
+- Routes: `/` landing (60s data cache), `/[slug]` single-page booking, `/dashboard/*`
   host dashboard, `/admin/*` admin, `/api/*` route handlers. There are no
   Server Actions; some dashboard pages also write to Supabase from the browser
   (see the `hosts` grant above).

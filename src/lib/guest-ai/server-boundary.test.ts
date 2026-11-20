@@ -40,6 +40,18 @@ describe("server-only AI code", () => {
     const shared = files.filter((f) => /src\/lib\/guest-ai\/rules\.ts$/.test(f.path));
     expect(shared).toHaveLength(1);
     const imports = [...shared[0].text.matchAll(/from ["']([^"']+)["']/g)].map((m) => m[1]);
-    expect(imports.every((i) => i === "zod" || i === "@/lib/wallet-thresholds")).toBe(true);
+    expect(imports.every((i) => i === "zod" || i === "@/lib/wallet-thresholds" || i === "@/lib/guest-ai/limits")).toBe(true);
+  });
+
+  it("keeps zod out of the browser: client files take only types from rules.ts", () => {
+    const offenders = files
+      .filter((f) => isClient(f.text) && /^import (?!type )[^;]*from ["'](zod|@\/lib\/guest-ai\/rules)["']/m.test(f.text))
+      .map((f) => f.path);
+    expect(offenders).toEqual([]);
+  });
+
+  it("keeps limits.ts import-free", () => {
+    const limits = files.find((f) => f.path.endsWith("src/lib/guest-ai/limits.ts"));
+    expect(limits?.text).not.toMatch(/^import /m);
   });
 });

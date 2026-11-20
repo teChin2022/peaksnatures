@@ -1,6 +1,8 @@
 import { cache } from "react";
 import type { Metadata } from "next";
 import { cookies } from "next/headers";
+import { unstable_cache } from "next/cache";
+import { billingTodayStr } from "@/lib/billing-dates";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { isHostBlocked } from "@/lib/plan-expiry";
 import { hasPastDueInvoice } from "@/lib/billing";
@@ -11,7 +13,7 @@ import type { SupportedLocale } from "@/lib/translation/types";
 import type { Homestay, Room, BlockedDate, Host, Review, RoomSeasonalPrice, RoomSpecialPrice, RoomOption, RoomGuestPricing, PromoCode } from "@/types/database";
 import { SITE_NAME, buildAlternates } from "@/lib/seo";
 import { resolveIconKeys } from "@/lib/list-icons";
-import { isHostApproved } from "@/lib/public-host";
+import { BOOKING_HOST_FIELDS, isHostApproved } from "@/lib/public-host";
 
 /*
  * Data for the public homestay pages: the landing (/[slug]) and the booking
@@ -64,19 +66,38 @@ export async function readLocale(): Promise<SupportedLocale> {
   return cookieStore.get("locale")?.value === "en" ? "en" : "th";
 }
 
-export const getHomestayData = cache(async function getHomestayData(
-  slug: string,
-  locale: SupportedLocale,
-) {
+/**
+ * The host fields these pages read. Never `*`: the row would put the LINE
+ * token, PIN hash and email into the data cache below.
+ */
+const PAGE_HOST_COLUMNS = [
+  ...BOOKING_HOST_FIELDS,
+  "id", "status", "is_verified", "avatar_url", "created_at",
+  "plan_type", "plan_free_expires_at", "wallet_balance", "wallet_credit_limit", "wallet_negative_since",
+].join(", ");
+
+/**
+ * The root layout reads the locale cookie, so these pages render on every
+ * request and their `revalidate` never applies. This 30s data cache is what
+ * keeps a visit off the database. The booking routes still check dates and
+ * blocks live, and the booking form refetches availability on mount.
+ */
+export const getHomestayData = cache((slug: string, locale: SupportedLocale) =>
+  unstable_cache(() => loadHomestayData(slug, locale), ["homestay-page", slug, locale], { revalidate: 30 })(),
+);
+
+async function loadHomestayData(slug: string, locale: SupportedLocale) {
   const supabase = createServiceRoleClient();
 
-  const { data: homestayRow } = await supabase
+  const { data: homestayRow, error: homestayError } = await supabase
     .from("homestays")
     .select("*")
     .eq("slug", slug)
     .eq("is_active", true)
-    .single();
+    .maybeSingle();
 
+  // Throw, never return null, on a failed read: a cached null 404s a live page.
+  if (homestayError) throw homestayError;
   if (!homestayRow) return null;
 
   const homestay = homestayRow as unknown as Homestay;
@@ -85,6 +106,23 @@ export const getHomestayData = cache(async function getHomestayData(
   // B4+B5: rooms joined with seasonal_prices (eliminates sequential fetch),
   // review count merged into ratings query (3 review queries → 2)
   const GRID_REVIEWS = 6;
+  const results = await Promise.all([
+    supabase.from("hosts").select(PAGE_HOST_COLUMNS).eq("id", homestay.host_id).maybeSingle(),
+    supabase.from("rooms").select("*, room_seasonal_prices(*), room_special_prices(*), room_options(*), room_guest_pricing(*)").eq("homestay_id", homestay.id).order("created_at", { ascending: true }),
+    supabase.from("blocked_dates").select("*").eq("homestay_id", homestay.id),
+    // Only stays not yet over: a booking stays `confirmed` unless the host checks it out,
+    // so without this the list (sent to the browser) grew with every past stay.
+    supabase.from("bookings").select("room_id, check_in, check_out").eq("homestay_id", homestay.id).in("status", ["pending", "confirmed", "verified"]).gte("check_out", billingTodayStr()),
+    supabase.from("reviews").select("rating, rating_environment, rating_cleanliness, rating_service, rating_value", { count: "exact" }).eq("homestay_id", homestay.id),
+    supabase.from("reviews").select("*, bookings(guest_province)").eq("homestay_id", homestay.id).order("created_at", { ascending: false }).range(0, GRID_REVIEWS - 1),
+    supabase.from("bookings").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]),
+    supabase.from("bookings").select("created_at").eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
+    // The most-booked house among the latest 500 stays. Unbounded, this read grew forever
+    // and Supabase cuts a read off at its row cap (1000 by default) anyway.
+    supabase.from("bookings").select("room_id").eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]).not("room_id", "is", null).order("created_at", { ascending: false }).limit(500),
+  ]);
+  const failed = results.find((r) => r.error);
+  if (failed) throw failed.error;
   const [
     { data: hostRow },
     { data: roomRows },
@@ -95,17 +133,7 @@ export const getHomestayData = cache(async function getHomestayData(
     { count: totalBookingsCount },
     { data: lastBookingRow },
     { data: confirmedBookingRows },
-  ] = await Promise.all([
-    supabase.from("hosts").select("*").eq("id", homestay.host_id).single(),
-    supabase.from("rooms").select("*, room_seasonal_prices(*), room_special_prices(*), room_options(*), room_guest_pricing(*)").eq("homestay_id", homestay.id).order("created_at", { ascending: true }),
-    supabase.from("blocked_dates").select("*").eq("homestay_id", homestay.id),
-    supabase.from("bookings").select("room_id, check_in, check_out").eq("homestay_id", homestay.id).in("status", ["pending", "confirmed", "verified"]),
-    supabase.from("reviews").select("rating, rating_environment, rating_cleanliness, rating_service, rating_value", { count: "exact" }).eq("homestay_id", homestay.id),
-    supabase.from("reviews").select("*, bookings(guest_province)").eq("homestay_id", homestay.id).order("created_at", { ascending: false }).range(0, GRID_REVIEWS - 1),
-    supabase.from("bookings").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]),
-    supabase.from("bookings").select("created_at").eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]).order("created_at", { ascending: false }).limit(1).maybeSingle(),
-    supabase.from("bookings").select("room_id").eq("homestay_id", homestay.id).in("status", ["confirmed", "completed"]).not("room_id", "is", null),
-  ]);
+  ] = results;
 
   const host = hostRow as unknown as Host | null;
   // An unapproved host has no public page (see isHostApproved).
@@ -206,7 +234,7 @@ export const getHomestayData = cache(async function getHomestayData(
     amenityIcons: resolveIconKeys(homestay.amenities ?? [], homestay.amenity_icons, "amenity"),
     prohibitionIcons: resolveIconKeys(homestay.prohibitions ?? [], homestay.prohibition_icons, "rule"),
   };
-});
+}
 
 export const notFoundMetadata: Metadata = {
   title: "Not Found",

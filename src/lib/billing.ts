@@ -1,3 +1,4 @@
+import { after } from "next/server";
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
 import { blockingInvoiceFilter } from "@/lib/billing-dates";
@@ -136,9 +137,9 @@ export async function hostBlockStateFrom(
 
 /**
  * Deduct commission from host wallet when a booking is confirmed.
- * Called in the after() callback when:
- * - Guest books with verified slip (auto-confirmed)
- * - Host manually approves a pending booking
+ * Awaited before the response when a guest's verified slip confirms a booking
+ * (it is financial, so never deferred), and inside after() when a host
+ * approves one. Its own log and low-balance alert run in after() either way.
  *
  * Idempotent: skips if commission already deducted (and not refunded).
  * Supports date-change cycles (deduct → refund → deduct).
@@ -156,12 +157,16 @@ export async function deductCommission(
   const supabase = createServiceRoleClient();
 
   try {
-    // Fetch booking with homestay and host info
-    const { data: bookingRow, error: bookingError } = await supabase
-      .from("bookings")
-      .select("id, total_price, discount_amount, commission_base, homestay_id, booking_source")
-      .eq("id", bookingId)
-      .single();
+    // A guest waits on this, so the booking, its homestay and host come in one
+    // read, alongside the config: they were four reads in a row.
+    const [{ data: bookingRow, error: bookingError }, config] = await Promise.all([
+      supabase
+        .from("bookings")
+        .select("id, total_price, discount_amount, commission_base, homestay_id, booking_source, homestay:homestays(host_id, host:hosts(id, plan_type, commission_pct_override, quick_commission_pct_override, wallet_balance, wallet_credit_limit, name, email, phone, notification_preference, line_channel_access_token, line_user_id))")
+        .eq("id", bookingId)
+        .single(),
+      getBillingConfig(),
+    ]);
 
     const booking = bookingRow as {
       id: string;
@@ -170,45 +175,37 @@ export async function deductCommission(
       commission_base: number | null;
       homestay_id: string;
       booking_source: string | null;
+      homestay: {
+        host_id: string;
+        host: {
+          id: string;
+          plan_type: string;
+          commission_pct_override: number | null;
+          quick_commission_pct_override: number | null;
+          wallet_balance: number;
+          wallet_credit_limit: number | null;
+          name: string;
+          email: string | null;
+          phone: string | null;
+          notification_preference: string | null;
+          line_channel_access_token: string | null;
+          line_user_id: string | null;
+        } | null;
+      } | null;
     } | null;
     if (bookingError || !booking) {
       console.error("[Billing] Booking not found for commission:", bookingId);
       return;
     }
 
-    const { data: homestayRow, error: homestayError } = await supabase
-      .from("homestays")
-      .select("host_id")
-      .eq("id", booking.homestay_id)
-      .single();
-
-    const homestay = homestayRow as { host_id: string } | null;
-    if (homestayError || !homestay) {
+    const homestay = booking.homestay;
+    if (!homestay) {
       console.error("[Billing] Homestay not found for booking:", bookingId);
       return;
     }
 
-    const { data: hostRow, error: hostError } = await supabase
-      .from("hosts")
-      .select("id, plan_type, commission_pct_override, quick_commission_pct_override, wallet_balance, wallet_credit_limit, name, email, phone, notification_preference, line_channel_access_token, line_user_id")
-      .eq("id", homestay.host_id)
-      .single();
-
-    const host = hostRow as {
-      id: string;
-      plan_type: string;
-      commission_pct_override: number | null;
-      quick_commission_pct_override: number | null;
-      wallet_balance: number;
-      wallet_credit_limit: number | null;
-      name: string;
-      email: string | null;
-      phone: string | null;
-      notification_preference: string | null;
-      line_channel_access_token: string | null;
-      line_user_id: string | null;
-    } | null;
-    if (hostError || !host) {
+    const host = homestay.host;
+    if (!host) {
       console.error("[Billing] Host not found for homestay:", homestay.host_id);
       return;
     }
@@ -218,8 +215,6 @@ export async function deductCommission(
       return;
     }
 
-    // Get global config for commission rate
-    const config = await getBillingConfig();
     if (!config) {
       console.error("[Billing] Cannot deduct commission: billing config not found");
       return;
@@ -293,33 +288,40 @@ export async function deductCommission(
     if (!row?.transaction_id) return;
     const newBalance = row.new_balance ?? 0;
 
-    // Log the event
-    await logEvent({
-      homestayId: booking.homestay_id,
-      entityType: "billing",
-      entityId: bookingId,
-      eventType: EventType.COMMISSION_DEDUCTED,
-      actorType: "system",
-      actorId: null,
-      data: {
-        host_id: host.id,
-        booking_id: bookingId,
-        total_price: booking.total_price,
-        discount_amount: booking.discount_amount || 0,
-        booking_source: booking.booking_source,
-        commission_base: commissionBase,
-        commission_pct: commissionPct,
-        commission_amount: commissionAmount,
-        new_balance: newBalance,
-      },
-    });
+    // The charge is done. The log and the alert (LINE/SMS with retries) need not
+    // hold up the guest's response; after() also nests in a caller's after().
+    after(async () => {
+      try {
+        await logEvent({
+          homestayId: booking.homestay_id,
+          entityType: "billing",
+          entityId: bookingId,
+          eventType: EventType.COMMISSION_DEDUCTED,
+          actorType: "system",
+          actorId: null,
+          data: {
+            host_id: host.id,
+            booking_id: bookingId,
+            total_price: booking.total_price,
+            discount_amount: booking.discount_amount || 0,
+            booking_source: booking.booking_source,
+            commission_base: commissionBase,
+            commission_pct: commissionPct,
+            commission_amount: commissionAmount,
+            new_balance: newBalance,
+          },
+        });
 
-    // Notify host if wallet balance went negative
-    if (newBalance < 0) {
-      const creditLimit = host.wallet_credit_limit ?? 0;
-      const overLimit = newBalance < -creditLimit;
-      await notifyNegativeBalance(host, newBalance, overLimit);
-    }
+        // Notify host if wallet balance went negative
+        if (newBalance < 0) {
+          const creditLimit = host.wallet_credit_limit ?? 0;
+          const overLimit = newBalance < -creditLimit;
+          await notifyNegativeBalance(host, newBalance, overLimit);
+        }
+      } catch (error) {
+        console.error("[Billing] Commission log or alert failed:", error);
+      }
+    });
   } catch (error) {
     console.error("[Billing] Unexpected error in deductCommission:", error);
   }

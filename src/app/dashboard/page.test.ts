@@ -74,3 +74,55 @@ describe("DashboardHome: when loading fails", () => {
     expect([...container.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toContain("/dashboard/homestay");
   });
 });
+
+// The profile route checks the session itself, so it does not wait for getUser().
+describe("DashboardHome: loading", () => {
+  it("asks for the profile without waiting for getUser()", async () => {
+    const fetchMock = vi.fn(() => new Promise(() => {}));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = createSupabaseMock({ user: { id: "owner-1" } });
+    client.auth.getUser.mockReturnValue(new Promise(() => {}));
+    h.createClient.mockReturnValue(client);
+    await act(async () => root.render(createElement(DashboardHome)));
+    expect(fetchMock).toHaveBeenCalledWith("/api/host/profile", expect.anything());
+  });
+});
+
+describe("DashboardHome: what the stats read", () => {
+  async function renderWith(bookings: { data?: unknown; count?: number }[]) {
+    vi.stubGlobal("fetch", vi.fn().mockResolvedValue({ ok: true, json: async () => PROFILE }));
+    const client = createSupabaseMock({
+      user: { id: "owner-1" },
+      tables: { homestays: { data: { id: "hs-1", name: "Doi", slug: "doi" } }, rooms: { data: [] }, bookings },
+    });
+    h.createClient.mockReturnValue(client);
+    await act(async () => root.render(createElement(DashboardHome)));
+    await act(async () => {});
+    await act(async () => {});
+    return client;
+  }
+
+  // Owner, 2026-11-20: the stats cover this month and the 11 before it (plus any ahead).
+  // 30 Nov 18:00 UTC is already 1 Dec in Bangkok, so the window starts 1 Jan 2026, not 1 Dec 2025.
+  it("reads only the last 12 months of check-ins, newest first", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-30T18:00:00Z"));
+    try {
+      const client = await renderWith([{ data: [] }, { data: [] }, { count: 0 }]);
+      const rows = client.builderFor("bookings", 0);
+      expect(rows.gte).toHaveBeenCalledWith("check_in", "2026-01-01");
+      expect(rows.order).toHaveBeenCalledWith("check_in", { ascending: false });
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  // It must match the bookings page's Pending tab, which has no date window.
+  it("counts every pending booking for Needs action, at any date", async () => {
+    const client = await renderWith([{ data: [] }, { data: [] }, { count: 4 }]);
+    const count = client.builderFor("bookings", 2);
+    expect(count.in).toHaveBeenCalledWith("status", ["pending", "verified"]);
+    expect(count.gte).not.toHaveBeenCalled();
+    expect(container.querySelector('a[href="/dashboard/bookings?tab=pending"]')?.textContent).toContain("4");
+  });
+});

@@ -90,3 +90,14 @@ describe("CalendarPage: nights, not the departure day", () => {
     expect(day("21")?.className).toContain("border-brand");
   });
 });
+
+// RLS filters the host by the session, so the host read does not wait for getUser().
+describe("CalendarPage: loading", () => {
+  it("asks for the host without waiting for getUser()", async () => {
+    const client = createSupabaseMock({ user: { id: "owner-1" } });
+    client.auth.getUser.mockReturnValue(new Promise(() => {}));
+    h.createClient.mockReturnValue(client);
+    await act(async () => root.render(createElement(CalendarPage)));
+    expect(client.from).toHaveBeenCalledWith("hosts");
+  });
+});

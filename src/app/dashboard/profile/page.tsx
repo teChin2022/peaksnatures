@@ -75,14 +75,15 @@ export default function ProfilePage() {
 
     const fetchHost = async () => {
       const supabase = createClient();
-      const {
-        data: { user },
-      } = await supabase.auth.getUser();
+      // The profile route checks the session itself, so it need not wait for getUser().
+      const [
+        {
+          data: { user },
+        },
+        res,
+      ] = await Promise.all([supabase.auth.getUser(), fetch("/api/host/profile", { signal })]);
       if (signal.aborted || !user) return;
       setUserId(user.id);
-
-      const res = await fetch("/api/host/profile", { signal });
-      if (signal.aborted) return;
       if (!res.ok) {
         setLoading(false);
         return;

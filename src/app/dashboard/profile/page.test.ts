@@ -66,3 +66,19 @@ describe("ProfilePage: deleting the account", () => {
     expect(confirm().disabled).toBe(false);
   });
 });
+
+// The profile route checks the session itself, so it does not wait for getUser().
+describe("ProfilePage: loading", () => {
+  it("asks for the profile without waiting for getUser()", async () => {
+    const fetchMock = vi.fn(() => new Promise(() => {}));
+    vi.stubGlobal("fetch", fetchMock);
+    const client = createSupabaseMock({ user: { id: "owner-1" } });
+    client.auth.getUser.mockReturnValue(new Promise(() => {}));
+    h.createClient.mockReturnValue(client);
+    // beforeEach already rendered the page with a signed-in user: start over.
+    act(() => root.unmount());
+    root = createRoot(container);
+    await act(async () => root.render(createElement(ProfilePage)));
+    expect(fetchMock).toHaveBeenCalledWith("/api/host/profile", expect.anything());
+  });
+});

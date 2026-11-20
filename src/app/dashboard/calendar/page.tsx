@@ -229,16 +229,16 @@ export default function CalendarPage() {
   // Fetch data
   const fetchData = useCallback(async () => {
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // No user_id filter: RLS shows a login only its own host, or the one it is staff of (081),
+    // so the host read need not wait for getUser().
+    const [
+      {
+        data: { user },
+      },
+      { data: hostRow },
+    ] = await Promise.all([supabase.auth.getUser(), supabase.from("hosts").select("id").single()]);
     if (!user) return;
 
-    // No user_id filter: RLS shows a login only its own host, or the one it is staff of (081).
-    const { data: hostRow } = await supabase
-      .from("hosts")
-      .select("id")
-      .single();
     const host = hostRow as { id: string } | null;
     if (!host) {
       setLoading(false);

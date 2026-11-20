@@ -14,6 +14,7 @@ vi.mock("next/image", () => ({ default: () => null }));
 vi.mock("@/lib/supabase/client", () => ({ createClient: h.createClient }));
 vi.mock("@/lib/history-log-client", () => ({ logClientEvent: vi.fn() }));
 
+import { createSupabaseMock } from "../../../../test/helpers/supabase";
 import BookingsPage from "./page";
 
 (globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true;
@@ -240,5 +241,16 @@ describe("BookingsPage search", () => {
     expect(tabText("allBookings")).toContain("(1)");
     expect(tabText("pending")).toContain("(1)");
     expect(tabText("confirmedTab")).toContain("(0)");
+  });
+});
+
+// RLS filters the host by the session, so the host read does not wait for getUser().
+describe("BookingsPage: loading", () => {
+  it("asks for the host without waiting for getUser()", async () => {
+    const client = createSupabaseMock({ user: { id: "owner-1" } });
+    client.auth.getUser.mockReturnValue(new Promise(() => {}));
+    h.createClient.mockReturnValue(client);
+    await act(async () => root.render(createElement(BookingsPage)));
+    expect(client.from).toHaveBeenCalledWith("hosts");
   });
 });

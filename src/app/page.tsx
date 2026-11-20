@@ -1,14 +1,13 @@
 import type { Metadata } from "next";
 import { getTranslations } from "next-intl/server";
-import { createServiceRoleClient } from "@/lib/supabase/server";
 import { isHostBlocked } from "@/lib/plan-expiry";
 import { isHostApproved } from "@/lib/public-host";
-import { fetchPastDueHostIds } from "@/lib/billing";
 import { landingStats } from "@/lib/landing-stats";
 import { compareHomestays } from "@/lib/homestay-order";
 import { billingTodayStr } from "@/lib/billing-dates";
 import { homestayPrice } from "@/lib/room-rates";
-import type { Homestay, Room, RoomSeasonalPrice } from "@/types/database";
+import type { Room, RoomSeasonalPrice } from "@/types/database";
+import { getLandingRows } from "./landing-data";
 import { LandingNavbar } from "@/components/landing/navbar";
 import { LandingContent } from "@/components/landing/landing-content";
 import { LandingFooter } from "@/components/landing/footer";
@@ -47,40 +46,8 @@ export const metadata: Metadata = {
 
 export default async function Home() {
   const tc = await getTranslations("common");
-  const supabase = createServiceRoleClient();
-  const { data: homestayRows } = await supabase
-    .from("homestays")
-    .select("*")
-    .eq("is_active", true)
-    .order("created_at", { ascending: false });
-  const homestays = (homestayRows as unknown as Homestay[]) || [];
-
-  // Fetch rooms, hosts, and reviews in parallel (all depend only on homestayIds/hostIds)
-  const homestayIds = homestays.map((h) => h.id);
-  const hostIds = [...new Set(homestays.map((h) => h.host_id))];
-
-  const [{ data: roomRows }, { data: hostRows }, { data: reviewRows }, pastDueHostIds, { count: confirmedBookings }] = homestayIds.length
-    ? await Promise.all([
-        supabase
-          .from("rooms")
-          .select("id, homestay_id, price_per_night, room_seasonal_prices(room_id, start_date, end_date, price_per_night)")
-          .in("homestay_id", homestayIds)
-          .eq("is_active", true),
-        supabase
-          .from("hosts")
-          .select("id, status, is_verified, plan_type, plan_free_expires_at, wallet_balance, wallet_credit_limit, wallet_negative_since")
-          .in("id", hostIds),
-        supabase
-          .from("reviews")
-          .select("homestay_id, rating, would_return")
-          .in("homestay_id", homestayIds),
-        fetchPastDueHostIds(hostIds, supabase),
-        supabase
-          .from("bookings")
-          .select("id", { count: "exact", head: true })
-          .in("status", ["confirmed", "completed"]),
-      ])
-    : [{ data: [] }, { data: [] }, { data: [] }, new Set<string>(), { count: 0 }];
+  const { homestays, roomRows, hostRows, reviewRows, confirmedBookings, ...cached } = await getLandingRows();
+  const pastDueHostIds = new Set(cached.pastDueHostIds);
 
   const rooms = (roomRows as unknown as (Pick<Room, "id" | "homestay_id" | "price_per_night"> & {
     room_seasonal_prices: Pick<RoomSeasonalPrice, "room_id" | "start_date" | "end_date" | "price_per_night">[] | null;
