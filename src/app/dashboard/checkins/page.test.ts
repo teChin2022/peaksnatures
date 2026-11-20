@@ -171,3 +171,14 @@ describe("CheckinsPage: today's departures", () => {
     expect([...container.querySelectorAll("a")].map((a) => a.getAttribute("href"))).toContain("tel:0898765432");
   });
 });
+
+// RLS filters the host by the session, so the host read does not wait for getUser().
+describe("CheckinsPage: loading", () => {
+  it("asks for the host without waiting for getUser()", async () => {
+    const client = createSupabaseMock({ user: { id: "owner-1" } });
+    client.auth.getUser.mockReturnValue(new Promise(() => {}));
+    h.createClient.mockReturnValue(client);
+    await act(async () => root.render(createElement(CheckinsPage)));
+    expect(client.from).toHaveBeenCalledWith("hosts");
+  });
+});

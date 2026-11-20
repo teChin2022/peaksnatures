@@ -49,3 +49,14 @@ describe("HomestayPage: when loading fails", () => {
     expect(container.textContent).toContain("createTitle");
   });
 });
+
+// RLS filters the host by the session, so the host read does not wait for getUser().
+describe("Page: loading", () => {
+  it("asks for the host without waiting for getUser()", async () => {
+    const client = createSupabaseMock({ user: { id: "owner-1" } });
+    client.auth.getUser.mockReturnValue(new Promise(() => {}));
+    h.createClient.mockReturnValue(client);
+    await act(async () => root.render(createElement(Page)));
+    expect(client.from).toHaveBeenCalledWith("hosts");
+  });
+});

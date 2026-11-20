@@ -6,7 +6,7 @@ import { useSearchParams, useRouter } from "next/navigation";
 import { toast } from "sonner";
 import {
   Users, CheckCircle, XCircle, Loader2, Mail, Phone, Calendar as CalendarIcon,
-  ShieldCheck, Wallet, CreditCard, Percent,
+  ShieldCheck, Wallet, CreditCard, Percent, Settings2,
 } from "lucide-react";
 import { format, parseISO } from "date-fns";
 import { enUS } from "date-fns/locale";
@@ -19,10 +19,11 @@ import {
 } from "@/components/ui/dialog";
 import { Calendar } from "@/components/ui/calendar";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
-import { STICKY_END } from "@/components/admin/table-classes";
+import { PHONE_ACTIONS, PHONE_TAP, STICKY_END, TABLE, TABLE_CARD, TABLE_WRAP, TBODY, TD, TD_LEAD, TD_TRAIL, TH, TH_ROW, TR } from "@/components/admin/table-classes";
 import { SearchBox } from "@/components/admin/search-box";
 import { LoadError, NETWORK_ERROR, actionFailed } from "@/components/admin/load-error";
 import { cn } from "@/lib/utils";
@@ -86,8 +87,10 @@ const PLAN_TONES: Record<string, string> = {
   fixed_rate: "bg-earth-100/60 text-earth-700 border-earth-200",
 };
 
-/** One even stack at every width, so the pinned column stays one button wide. */
+/** One even stack in the table, so the pinned column stays one button wide. */
 const ACTIONS_LAYOUT = "grid gap-1.5";
+/** In the phone Manage sheet: full-width 44px rows. */
+const SHEET_ACTION = "h-11 w-full justify-start px-4 text-sm";
 
 interface PaginatedResponse {
   data: HostRow[];
@@ -97,7 +100,9 @@ interface PaginatedResponse {
   totalPages: number;
 }
 
-type StatusFilter = "all" | "pending" | "approved";
+type StatusFilter = "all" | "pending" | "approved" | "blocked";
+const STATUS_FILTERS: StatusFilter[] = ["all", "pending", "approved", "blocked"];
+const FILTER_LABELS: Record<StatusFilter, string> = { all: "All", pending: "Pending", approved: "Approved", blocked: "Blocked" };
 
 type DialogState =
   | { type: "plan"; host: HostRow }
@@ -115,12 +120,18 @@ export default function AdminHostsPage() {
   const [loading, setLoading] = useState(true);
   const [loadFailed, setLoadFailed] = useState(false);
   const [page, setPage] = useState(1);
-  const [statusFilter, setStatusFilter] = useState<StatusFilter>(
-    (searchParams.get("status") as StatusFilter) || "all"
-  );
+  // An unknown ?status falls back to All (the route answers 400 to it).
+  const [statusFilter, setStatusFilter] = useState<StatusFilter>(() => {
+    const s = searchParams.get("status") as StatusFilter | null;
+    return s && STATUS_FILTERS.includes(s) ? s : "all";
+  });
   const [query, setQuery] = useState("");
   const [actionLoading, setActionLoading] = useState<string | null>(null);
   const [dialog, setDialog] = useState<DialogState>(null);
+  // Phones: an approved host's actions open from one Manage button (owner, 2026-11-20).
+  // The host stays set after closing, so the sheet keeps its content while it slides away.
+  const [manageHost, setManageHost] = useState<HostRow | null>(null);
+  const [manageOpen, setManageOpen] = useState(false);
 
   const [planType, setPlanType] = useState("free");
   const [planExpiry, setPlanExpiry] = useState("");
@@ -389,12 +400,74 @@ export default function AdminHostsPage() {
     !hasActiveTerm(dialog.host) &&
     !termMonths;
 
+  // The approved host's actions: stacked in the table, full width in the phone Manage sheet.
+  const approvedActions = (host: HostRow, size = "h-9 px-3 text-xs") => (
+    <>
+      <Button
+        size="sm"
+        variant="outline"
+        className={cn(
+          size,
+          "cursor-pointer",
+          host.is_verified
+            ? "text-earth-700 border-earth-200 hover:bg-earth-50 hover:text-brand"
+            : "text-brand border-brand/30 hover:bg-brand-50"
+        )}
+        // Removing the badge guests see is confirmed first; granting it is one click.
+        onClick={() =>
+          host.is_verified
+            ? setDialog({ type: "unverify", hostId: host.id, hostName: host.name })
+            : handleVerify(host.id)
+        }
+        disabled={actionLoading === host.id}
+      >
+        {actionLoading === host.id ? (
+          <Loader2 className="h-3.5 w-3.5 animate-spin" />
+        ) : (
+          <ShieldCheck className="h-3.5 w-3.5 mr-1" />
+        )}
+        {host.is_verified ? "Unverify" : "Verify"}
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        className={cn(size, "cursor-pointer text-earth-700 border-earth-200 hover:bg-earth-50 hover:text-brand")}
+        onClick={() => openPlanDialog(host)}
+        disabled={actionLoading === host.id}
+      >
+        <CreditCard className="h-3.5 w-3.5 mr-1" />
+        Plan
+      </Button>
+      <Button
+        size="sm"
+        variant="outline"
+        className={cn(size, "cursor-pointer text-earth-700 border-earth-200 hover:bg-earth-50 hover:text-brand")}
+        onClick={() => openRateDialog(host)}
+        disabled={actionLoading === host.id}
+      >
+        <Percent className="h-3.5 w-3.5 mr-1" />
+        Rate
+      </Button>
+      {host.plan_type === "commission" && (
+        <Button
+          size="sm"
+          variant="outline"
+          className={cn(size, "cursor-pointer text-amber-700 border-amber-200 hover:bg-amber-50")}
+          onClick={() => openWalletDialog(host)}
+          disabled={actionLoading === host.id}
+        >
+          <Wallet className="h-3.5 w-3.5 mr-1" />
+          Adjust
+        </Button>
+      )}
+    </>
+  );
+
   return (
     <div>
       <PageHeader
         subtitle={res ? `${res.total} total` : "Loading…"}
         title="Hosts"
-        icon={Users}
       />
 
       <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -402,10 +475,10 @@ export default function AdminHostsPage() {
         value={query}
         onSearch={(q) => { setQuery(q); setPage(1); }}
         label="Search hosts by name, phone or email"
-        placeholder="Host name, phone or email"
+        placeholder="Name, phone or email"
       />
       <div className="flex flex-wrap gap-2 sm:order-first">
-        {(["all", "pending", "approved"] as StatusFilter[]).map((f) => (
+        {STATUS_FILTERS.map((f) => (
           <Button
             key={f}
             variant="outline"
@@ -414,12 +487,13 @@ export default function AdminHostsPage() {
             onClick={() => handleFilterChange(f)}
             className={cn(
               "cursor-pointer rounded-full",
+              PHONE_TAP,
               statusFilter === f
                 ? "border-brand bg-brand-50 text-brand hover:bg-brand-50"
                 : "border-earth-200 bg-white text-earth-700 hover:bg-earth-50 hover:text-brand"
             )}
           >
-            {f === "all" ? "All" : f === "pending" ? "Pending" : "Approved"}
+            {FILTER_LABELS[f]}
           </Button>
         ))}
       </div>
@@ -437,28 +511,34 @@ export default function AdminHostsPage() {
         <EmptyState
           icon={Users}
           title="No hosts found"
-          description={query || statusFilter !== "all" ? "Nothing matches this search and filter." : "New host signups will appear here."}
+          description={
+            statusFilter === "blocked" && !query
+              ? "Every approved host can take bookings."
+              : query || statusFilter !== "all"
+                ? "Nothing matches this search and filter."
+                : "New host signups will appear here."
+          }
         />
       ) : (
         <>
-          {/* A table scans faster than cards for staff working a list (audit X3). */}
-          <Card className="overflow-hidden border-earth-100 bg-white">
+          {/* Rows on phones, a table from md (owner, 2026-11-20); one markup for both. */}
+          <Card className={TABLE_CARD}>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[960px] text-sm">
+              <div className={TABLE_WRAP}>
+                <table className={cn(TABLE, "md:min-w-[680px]")}>
                   <thead>
-                    <tr className="border-b border-earth-100 text-left text-xs text-earth-600">
-                      <th scope="col" className="min-w-52 px-4 py-2.5 font-medium sm:min-w-64">Host</th>
-                      <th scope="col" className="px-4 py-2.5 font-medium">Homestay</th>
-                      <th scope="col" className="px-4 py-2.5 font-medium">Plan</th>
-                      <th scope="col" className="px-4 py-2.5 font-medium">Joined</th>
-                      <th scope="col" className={cn("w-px px-4 py-2.5 text-right font-medium", STICKY_END)}>Actions</th>
+                    <tr className={TH_ROW}>
+                      <th scope="col" className={cn(TH, "min-w-52")}>Host</th>
+                      <th scope="col" className={TH}>Homestay</th>
+                      <th scope="col" className={TH}>Plan</th>
+                      <th scope="col" className={cn(TH, "hidden xl:table-cell")}>Joined</th>
+                      <th scope="col" className={cn(TH, "w-px text-right", STICKY_END)}>Actions</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-earth-100 text-earth-800">
+                  <tbody className={TBODY}>
                     {res.data.map((host) => (
-                      <tr key={host.id} className="align-top">
-                        <td className="px-4 py-3">
+                      <tr key={host.id} className={TR}>
+                        <td className={TD_LEAD}>
                           <Link
                             href={`/admin/hosts/${host.id}`}
                             className="rounded font-semibold text-earth-900 underline-offset-4 hover:text-brand hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
@@ -479,7 +559,8 @@ export default function AdminHostsPage() {
                           </div>
                           <p className="mt-1 flex items-center gap-1.5 text-earth-600">
                             <Mail className="h-3.5 w-3.5 shrink-0 text-earth-400" />
-                            <span className="break-all">{host.email}</span>
+                            {/* Phones: one line, not an address broken mid-word. */}
+                            <span className="min-w-0 truncate md:whitespace-normal md:break-all" title={host.email}>{host.email}</span>
                           </p>
                           {host.phone && (
                             <p className="flex items-center gap-1.5 text-earth-600">
@@ -488,9 +569,9 @@ export default function AdminHostsPage() {
                             </p>
                           )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className={cn(TD, "max-md:mt-1")}>
                         {host.homestay ? (
-                          <span className="flex items-center gap-1.5">
+                          <span className="flex flex-wrap items-center gap-1.5">
                             {host.homestay.name}
                             <StatusBadge
                               status={host.homestay.is_active ? "active" : "inactive"}
@@ -501,7 +582,7 @@ export default function AdminHostsPage() {
                           <span className="text-earth-600">No homestay</span>
                         )}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className={TD}>
                         <div className="flex flex-wrap items-center gap-1.5">
                           <span
                             className={cn(
@@ -566,75 +647,32 @@ export default function AdminHostsPage() {
                           )}
                         </div>
                         </td>
-                        <td className="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-earth-600">
+                        <td className="hidden whitespace-nowrap px-4 py-3 text-xs tabular-nums text-earth-600 xl:table-cell">
                           {fmtDate(new Date(host.created_at), "MMM d, yyyy · HH:mm", "en")}
                         </td>
-                        <td className={cn("px-4 py-3", STICKY_END)}>
+                        <td className={cn(host.status === "approved" ? TD_TRAIL : TD, STICKY_END)}>
                           {host.status === "approved" && (
-                            <div className={ACTIONS_LAYOUT}>
+                            <>
                               <Button
-                                size="sm"
                                 variant="outline"
-                                className={cn(
-                                  "h-9 px-3 text-xs cursor-pointer",
-                                  host.is_verified
-                                    ? "text-earth-700 border-earth-200 hover:bg-earth-50 hover:text-brand"
-                                    : "text-brand border-brand/30 hover:bg-brand-50"
-                                )}
-                                // Removing the badge guests see is confirmed first; granting it is one click.
-                                onClick={() =>
-                                  host.is_verified
-                                    ? setDialog({ type: "unverify", hostId: host.id, hostName: host.name })
-                                    : handleVerify(host.id)
-                                }
-                                disabled={actionLoading === host.id}
+                                className={cn("cursor-pointer border-earth-200 text-earth-800 hover:bg-earth-50 hover:text-brand md:hidden", PHONE_TAP)}
+                                onClick={() => {
+                                  setManageHost(host);
+                                  setManageOpen(true);
+                                }}
+                                aria-label={`Manage ${host.name}`}
                               >
-                                {actionLoading === host.id ? (
-                                  <Loader2 className="h-3.5 w-3.5 animate-spin" />
-                                ) : (
-                                  <ShieldCheck className="h-3.5 w-3.5 mr-1" />
-                                )}
-                                {host.is_verified ? "Unverify" : "Verify"}
+                                <Settings2 className="h-4 w-4" />
+                                Manage
                               </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-9 px-3 text-xs cursor-pointer text-earth-700 border-earth-200 hover:bg-earth-50 hover:text-brand"
-                                onClick={() => openPlanDialog(host)}
-                                disabled={actionLoading === host.id}
-                              >
-                                <CreditCard className="h-3.5 w-3.5 mr-1" />
-                                Plan
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                className="h-9 px-3 text-xs cursor-pointer text-earth-700 border-earth-200 hover:bg-earth-50 hover:text-brand"
-                                onClick={() => openRateDialog(host)}
-                                disabled={actionLoading === host.id}
-                              >
-                                <Percent className="h-3.5 w-3.5 mr-1" />
-                                Rate
-                              </Button>
-                              {host.plan_type === "commission" && (
-                                <Button
-                                  size="sm"
-                                  variant="outline"
-                                  className="h-9 px-3 text-xs cursor-pointer text-amber-700 border-amber-200 hover:bg-amber-50"
-                                  onClick={() => openWalletDialog(host)}
-                                  disabled={actionLoading === host.id}
-                                >
-                                  <Wallet className="h-3.5 w-3.5 mr-1" />
-                                  Adjust
-                                </Button>
-                              )}
-                            </div>
+                              <div className={cn(ACTIONS_LAYOUT, "max-md:hidden")}>{approvedActions(host)}</div>
+                            </>
                           )}
                           {host.status === "pending" && (
-                            <div className={ACTIONS_LAYOUT}>
+                            <div className={cn(PHONE_ACTIONS, "md:grid")}>
                               <Button
                                 size="sm"
-                                className="h-9 px-3 text-xs cursor-pointer bg-brand hover:bg-brand-hover text-white"
+                                className={cn("h-9 px-3 text-xs cursor-pointer bg-brand hover:bg-brand-hover text-white max-md:text-sm", PHONE_TAP)}
                                 onClick={() => setDialog({ type: "approve", hostId: host.id, hostName: host.name })}
                                 disabled={actionLoading === host.id}
                               >
@@ -648,7 +686,7 @@ export default function AdminHostsPage() {
                               <Button
                                 size="sm"
                                 variant="outline"
-                                className="h-9 px-3 text-xs cursor-pointer text-destructive border-destructive/30 hover:bg-destructive/5"
+                                className={cn("h-9 px-3 text-xs cursor-pointer text-destructive border-destructive/30 hover:bg-destructive/5 max-md:text-sm", PHONE_TAP)}
                                 onClick={() => setDialog({ type: "reject", hostId: host.id, hostName: host.name })}
                                 disabled={actionLoading === host.id}
                               >
@@ -672,10 +710,10 @@ export default function AdminHostsPage() {
                 Page {res.page} of {res.totalPages}
               </p>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="cursor-pointer border-earth-200" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
+                <Button variant="outline" size="sm" className={cn("cursor-pointer border-earth-200", PHONE_TAP)} onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
                   Previous
                 </Button>
-                <Button variant="outline" size="sm" className="cursor-pointer border-earth-200" onClick={() => setPage((p) => Math.min(res.totalPages, p + 1))} disabled={page >= res.totalPages}>
+                <Button variant="outline" size="sm" className={cn("cursor-pointer border-earth-200", PHONE_TAP)} onClick={() => setPage((p) => Math.min(res.totalPages, p + 1))} disabled={page >= res.totalPages}>
                   Next
                 </Button>
               </div>
@@ -683,6 +721,28 @@ export default function AdminHostsPage() {
           )}
         </>
       )}
+
+      {/* ── Phone Manage sheet: the table's buttons; a tap runs the action, then closes the sheet ── */}
+      <Sheet open={manageOpen} onOpenChange={setManageOpen}>
+        <SheetContent
+          side="bottom"
+          className="gap-0 rounded-t-2xl border-earth-100 bg-white pb-[max(1rem,env(safe-area-inset-bottom))] md:hidden"
+        >
+          <SheetHeader className="pb-2">
+            <SheetTitle className="font-serif text-earth-900">{manageHost?.name}</SheetTitle>
+            <SheetDescription className="text-earth-600">
+              {manageHost ? PLAN_LABELS[manageHost.plan_type] || "Free" : ""}
+              {manageHost?.plan_type === "commission" ? ` · wallet ${fmtTHB(manageHost.wallet_balance)}` : ""}
+            </SheetDescription>
+          </SheetHeader>
+          {manageHost && (
+            // Closed on bubble, after the tapped button's own handler has run.
+            <div className="grid gap-2 px-4" onClick={() => setManageOpen(false)}>
+              {approvedActions(manageHost, SHEET_ACTION)}
+            </div>
+          )}
+        </SheetContent>
+      </Sheet>
 
       {/* ── Unverify Confirmation ── */}
       <Dialog open={dialog?.type === "unverify"} onOpenChange={(open) => { if (!open) setDialog(null); }}>
@@ -757,7 +817,8 @@ export default function AdminHostsPage() {
 
       {/* ── Set Plan Dialog ── */}
       <Dialog open={dialog?.type === "plan"} onOpenChange={(open) => { if (!open) setDialog(null); }}>
-        <DialogContent className="sm:max-w-md">
+        {/* Fixed Rate adds the term grid and breakdown: on a short phone the dialog scrolls inside the screen. */}
+        <DialogContent className="max-h-[calc(100dvh-2rem)] overflow-y-auto sm:max-w-md">
           <DialogHeader>
             <DialogTitle className="font-serif">Set Plan</DialogTitle>
             <DialogDescription>
@@ -774,6 +835,7 @@ export default function AdminHostsPage() {
                     type="button"
                     size="sm"
                     onClick={() => setPlanType(pt)}
+                    aria-pressed={planType === pt}
                     className={cn(
                       "cursor-pointer",
                       planType === pt

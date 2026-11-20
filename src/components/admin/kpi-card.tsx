@@ -26,12 +26,13 @@ export function KpiCard({ label, value, icon: Icon, tone = "neutral", href }: Kp
     <Card
       className={cn(
         // h-full: cards in a row match when a label wraps to two lines.
-        "dashboard-card h-full border-earth-100 bg-white",
+        "dashboard-card h-full gap-0 border-earth-100 bg-white py-0",
         href && "cursor-pointer"
       )}
     >
       <CardContent className="flex items-center gap-3 p-3 sm:gap-4 sm:p-4">
-        <div className={cn("flex h-10 w-10 shrink-0 items-center justify-center rounded-lg", styles.chip)}>
+        {/* Phones: no chip, so three figures fit one row. */}
+        <div className={cn("hidden h-10 w-10 shrink-0 items-center justify-center rounded-lg sm:flex", styles.chip)}>
           <Icon className={cn("h-5 w-5", styles.icon)} />
         </div>
         <div className="min-w-0">

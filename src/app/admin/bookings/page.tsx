@@ -22,7 +22,7 @@ import { toast } from "sonner";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
-import { STICKY_START } from "@/components/admin/table-classes";
+import { PHONE_TAP, STICKY_START, TABLE, TABLE_CARD, TABLE_WRAP, TBODY, TD, TD_HIDE, TD_LEAD, TD_TRAIL, TH, TH_ROW, TR } from "@/components/admin/table-classes";
 import { SearchBox } from "@/components/admin/search-box";
 import { LoadError, NETWORK_ERROR, actionFailed } from "@/components/admin/load-error";
 import { fmtDateStr, fmtDate } from "@/lib/format-date";
@@ -219,11 +219,11 @@ export default function AdminBookingsPage() {
       <PageHeader
         subtitle={loading ? "Loading…" : `${total} total`}
         title="Bookings"
-        icon={CalendarDays}
         actions={
           <Link
             href="/admin/bookings/date-changes"
-            className="rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-700 hover:border-brand/40 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            // Phones reach it from the menu; the header keeps room for the title.
+            className="hidden h-10 items-center rounded-full border border-earth-200 bg-white px-4 text-sm font-medium text-earth-800 hover:border-brand/40 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand md:inline-flex"
           >
             Date changes
           </Link>
@@ -232,7 +232,7 @@ export default function AdminBookingsPage() {
 
       <Tabs value={activeTab} onValueChange={setActiveTab}>
         <div className="mb-4 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-          <TabsList className="bg-earth-50 border border-earth-100">
+          <TabsList className="border border-earth-100 bg-earth-50 max-md:h-11! max-md:w-full">
             <TabsTrigger value="bookings" className="cursor-pointer data-[state=active]:bg-white data-[state=active]:text-brand data-[state=active]:shadow-sm">
               Bookings
             </TabsTrigger>
@@ -246,9 +246,9 @@ export default function AdminBookingsPage() {
             </TabsTrigger>
           </TabsList>
           {activeTab === "bookings" && (
-            <div className="flex flex-wrap items-center gap-2">
+            <div className="grid grid-cols-2 gap-2 sm:flex sm:flex-wrap sm:items-center">
               <Select value={statusFilter} onValueChange={setStatusFilter}>
-                <SelectTrigger className="w-[150px] cursor-pointer" aria-label="Filter by status">
+                <SelectTrigger className="w-full cursor-pointer max-md:h-11! sm:w-[150px]" aria-label="Filter by status">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -260,7 +260,7 @@ export default function AdminBookingsPage() {
                 </SelectContent>
               </Select>
               <Select value={selectedHostId} onValueChange={setSelectedHostId}>
-                <SelectTrigger className="w-[180px] cursor-pointer" aria-label="Filter by host">
+                <SelectTrigger className="w-full cursor-pointer max-md:h-11! sm:w-[180px]" aria-label="Filter by host">
                   <SelectValue placeholder="All Hosts" />
                 </SelectTrigger>
                 <SelectContent>
@@ -281,7 +281,7 @@ export default function AdminBookingsPage() {
               value={query}
               onSearch={setQuery}
               label="Search bookings by guest name, phone or email"
-              placeholder="Guest name, phone or email"
+              placeholder="Name, phone or email"
             />
           </div>
         )}
@@ -308,49 +308,57 @@ export default function AdminBookingsPage() {
             />
           ) : (
             <>
-              {/* A table scans faster than cards for staff working a list (audit X3). */}
-              <Card className="overflow-hidden border-earth-100 bg-white">
+              {/* Rows on phones, a table from md (owner, 2026-11-20); one markup for both. */}
+              <Card className={TABLE_CARD}>
                 <CardContent className="p-0">
-                  <div className="overflow-x-auto">
-                    <table className="w-full min-w-[900px] text-sm">
+                  <div className={TABLE_WRAP}>
+                    <table className={cn(TABLE, "md:min-w-[640px]")}>
                       <thead>
-                        <tr className="border-b border-earth-100 text-left text-xs text-earth-600">
-                          <th scope="col" className={cn("px-4 py-2.5 font-medium", STICKY_START)}>Guest</th>
-                          <th scope="col" className="px-4 py-2.5 font-medium">Stay</th>
-                          <th scope="col" className="px-4 py-2.5 font-medium">Homestay · house</th>
-                          <th scope="col" className="px-4 py-2.5 font-medium">Guests</th>
-                          <th scope="col" className="px-4 py-2.5 text-right font-medium">Total</th>
-                          <th scope="col" className="px-4 py-2.5 font-medium">Booked</th>
+                        <tr className={TH_ROW}>
+                          <th scope="col" className={cn(TH, STICKY_START)}>Guest</th>
+                          <th scope="col" className={TH}>Stay</th>
+                          <th scope="col" className={TH}>Homestay · house</th>
+                          <th scope="col" className={cn(TH, "hidden xl:table-cell")}>Guests</th>
+                          <th scope="col" className={cn(TH, "text-right")}>Total</th>
+                          <th scope="col" className={cn(TH, "hidden xl:table-cell")}>Booked</th>
                         </tr>
                       </thead>
-                      <tbody className="divide-y divide-earth-100 text-earth-800">
+                      <tbody className={TBODY}>
                         {bookings.map((booking) => {
                           const nights = nightsBetween(booking.check_in, booking.check_out);
                           return (
-                            <tr key={booking.id} className="align-top">
-                              <td className={cn("max-w-56 px-4 py-3 sm:max-w-none", STICKY_START)}>
+                            <tr key={booking.id} className={TR}>
+                              <td className={cn(TD_LEAD, "md:max-w-64", STICKY_START)}>
                                 <div className="flex flex-wrap items-center gap-1.5">
                                   <span className="font-semibold text-earth-900">{booking.guest_name}</span>
                                   <StatusBadge status={booking.status} />
                                 </div>
-                                <p className="mt-0.5 flex items-center gap-1.5 text-xs text-earth-600">
+                                {/* Tap to write or call: the phone job is answering a guest. */}
+                                <a
+                                  href={`mailto:${booking.guest_email}`}
+                                  className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-earth-600 underline-offset-4 hover:text-brand hover:underline max-md:min-h-6"
+                                >
                                   <Mail className="h-3 w-3 shrink-0" />
-                                  <span className="break-all">{booking.guest_email}</span>
-                                </p>
+                                  <span className="min-w-0 truncate md:whitespace-normal md:break-all">{booking.guest_email}</span>
+                                </a>
                                 {booking.guest_phone && (
-                                  <p className="mt-0.5 flex items-center gap-1.5 text-xs text-earth-600">
+                                  <a
+                                    href={`tel:${booking.guest_phone}`}
+                                    className="mt-0.5 flex w-fit items-center gap-1.5 text-xs tabular-nums text-earth-600 underline-offset-4 hover:text-brand hover:underline max-md:min-h-6"
+                                  >
                                     <Phone className="h-3 w-3 shrink-0" />
                                     {booking.guest_phone}
-                                  </p>
+                                  </a>
                                 )}
                               </td>
-                              <td className="whitespace-nowrap px-4 py-3 tabular-nums">
+                              <td className={cn(TD, "tabular-nums max-md:mt-1 md:whitespace-nowrap")}>
                                 {fmtDateStr(booking.check_in, "MMM d", "en")} → {fmtDateStr(booking.check_out, "MMM d, yyyy", "en")}
-                                <p className="text-xs text-earth-600">
+                                <p className="text-xs text-earth-600 max-md:inline max-md:before:content-['_·_']">
                                   {nights} night{nights === 1 ? "" : "s"}
+                                  <span className="xl:hidden"> · {booking.num_guests} guest{booking.num_guests === 1 ? "" : "s"}</span>
                                 </p>
                               </td>
-                              <td className="px-4 py-3">
+                              <td className={TD}>
                                 {booking.homestay_name || "—"}
                                 <p className="flex items-center gap-1.5 text-xs text-earth-600">
                                   {booking.room_name || "—"}
@@ -359,14 +367,14 @@ export default function AdminBookingsPage() {
                                   )}
                                 </p>
                               </td>
-                              <td className="whitespace-nowrap px-4 py-3">{booking.num_guests}</td>
-                              <td className="whitespace-nowrap px-4 py-3 text-right tabular-nums">
+                              <td className={cn(TD_HIDE, "hidden whitespace-nowrap xl:table-cell")}>{booking.num_guests}</td>
+                              <td className={cn(TD_TRAIL, "whitespace-nowrap text-right tabular-nums")}>
                                 <span className="font-semibold text-earth-900">{fmtTHB(booking.total_price)}</span>
                                 {booking.payment_type === "deposit" && (
                                   <p className="text-xs text-earth-600">Paid: {fmtTHB(booking.amount_paid)}</p>
                                 )}
                               </td>
-                              <td className="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-earth-600">
+                              <td className={cn(TD_HIDE, "hidden whitespace-nowrap text-xs tabular-nums text-earth-600 xl:table-cell")}>
                                 {fmtDate(new Date(booking.created_at), "MMM d, yyyy · HH:mm", "en")}
                               </td>
                             </tr>
@@ -380,7 +388,7 @@ export default function AdminBookingsPage() {
 
               {hasMore && (
                 <div className="mt-4 flex justify-center">
-                  <Button variant="outline" size="sm" className="cursor-pointer border-earth-200" onClick={handleLoadMore} disabled={loadingMore}>
+                  <Button variant="outline" size="sm" className={cn("cursor-pointer border-earth-200", PHONE_TAP)} onClick={handleLoadMore} disabled={loadingMore}>
                     {loadingMore && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                     Load More
                   </Button>
@@ -416,9 +424,9 @@ export default function AdminBookingsPage() {
                       <div className="flex items-start justify-between gap-3">
                         <div className="min-w-0 flex-1">
                           <div className="flex flex-wrap items-center gap-2">
-                            <h3 className="font-semibold text-earth-900 truncate">
+                            <h2 className="font-semibold text-earth-900 truncate">
                               {hold.homestay_name || "—"}
-                            </h3>
+                            </h2>
                             <StatusBadge status={expired ? "expired" : "active"} />
                           </div>
                           {hold.room_name && (
@@ -431,7 +439,7 @@ export default function AdminBookingsPage() {
                         <Button
                           size="sm"
                           variant="outline"
-                          className="h-9 px-3 text-xs cursor-pointer text-destructive border-destructive/30 hover:bg-destructive/5 shrink-0"
+                          className={cn("h-9 px-3 text-xs cursor-pointer text-destructive border-destructive/30 hover:bg-destructive/5 shrink-0", PHONE_TAP)}
                           onClick={() => setConfirmDeleteHold(hold)}
                           disabled={deletingHoldId === hold.id}
                         >

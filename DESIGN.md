@@ -351,7 +351,8 @@ Tailwind v4 defaults; nothing in `globals.css` overrides them.
   (`pb-[env(safe-area-inset-bottom)]`). Horizontal swipe rows keep the page
   gutter on their first item (`scroll-padding` / `scroll-pl-4`).
 - **Density by surface:** guest pages are airy; the host dashboard is
-  compact cards in a single column on phones; admin is denser lists.
+  compact cards in a single column on phones; admin is denser lists:
+  rows on phones, tables from `md` (2026-11-20).
 - **Targets:** 44 × 44px on phones for anything tapped often; never under 24
   × 24px (WCAG 2.5.8).
 

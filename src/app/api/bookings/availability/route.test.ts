@@ -37,9 +37,25 @@ describe("GET /api/bookings/availability", () => {
     expect(builder.in).toHaveBeenCalledWith("status", ["pending", "confirmed", "verified"]);
   });
 
-  it("lets the CDN cache the answer for a minute", async () => {
+  // A new booking calls revalidateTag, which clears the data cache but not a CDN copy:
+  // with s-maxage a guest kept seeing a just-booked house as free.
+  it("keeps the answer out of the CDN, so a new booking shows at once", async () => {
     const response = await get({ homestay_id: "homestay-1" });
-    expect(response.headers.get("Cache-Control")).toBe("public, s-maxage=60, stale-while-revalidate=300");
+    expect(response.headers.get("Cache-Control") ?? "").not.toMatch(/s-maxage/);
+  });
+
+  // 19 Nov 18:00 UTC is already 20 Nov in Bangkok: the filter must use the Thai day.
+  it("sends only stays that end today (Bangkok) or later", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-19T18:00:00Z"));
+    try {
+      const supabase = createSupabaseMock({ tables: { bookings: { data: ranges } } });
+      createServiceRoleClient.mockReturnValue(supabase);
+      await get({ homestay_id: "homestay-1" });
+      expect(supabase.builderFor("bookings").gte).toHaveBeenCalledWith("check_out", "2026-11-20");
+    } finally {
+      vi.useRealTimers();
+    }
   });
 
   it("requires a homestay", async () => {

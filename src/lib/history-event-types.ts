@@ -137,3 +137,75 @@ export function eventLabel(eventType: string): string {
 export function fieldLabel(key: string): string {
   return humanize(key);
 }
+
+export interface LogField {
+  /** The stored key(s), for a tooltip. */
+  key: string;
+  label: string;
+  value: string;
+}
+
+/** Change pairs the audit log writes: { from, to } for a value, { previous, new } / { before, after } for a set of fields. */
+const CHANGE_PAIRS: [string, string][] = [
+  ["from", "to"],
+  ["previous", "new"],
+  ["before", "after"],
+];
+const ISO_TIME = /^\d{4}-\d{2}-\d{2}T\d{2}:\d{2}/;
+const ISO_DAY = /^\d{4}-\d{2}-\d{2}$/;
+const ENUM = /^[a-z]+(?:_[a-z]+)+$/;
+/** Keys whose values are codes ("fixed_rate"); a name such as set_by "super_admin" stays as written. */
+const ENUM_KEY = /(?:^|_)(?:type|status|source|kind|mode|method|action)$/;
+// Built-in Intl, so this file stays import-free for client pages. Times read in Bangkok, like every admin time.
+const timeFmt = new Intl.DateTimeFormat("en-US", { timeZone: "Asia/Bangkok", month: "short", day: "numeric", year: "numeric", hour: "2-digit", minute: "2-digit", hour12: false });
+const dayFmt = new Intl.DateTimeFormat("en-US", { timeZone: "UTC", month: "short", day: "numeric", year: "numeric" });
+const isRecord = (v: unknown): v is Record<string, unknown> => typeof v === "object" && v !== null && !Array.isArray(v);
+
+/** One value for people: Yes / No, dates as dates, enum codes as words, objects as "Key: value". */
+function fieldValue(v: unknown, pretty: boolean, key = ""): string {
+  if (v === null || v === undefined || v === "") return "—";
+  if (typeof v === "boolean") return v ? "Yes" : "No";
+  if (Array.isArray(v)) return v.map((x) => fieldValue(x, false, key)).join(", ");
+  if (isRecord(v)) {
+    return Object.entries(v)
+      .map(([k, x]) => `${fieldLabel(k)}: ${fieldValue(x, false, k)}`)
+      .join(pretty ? "\n" : ", ");
+  }
+  const text = String(v);
+  if (ISO_TIME.test(text) && !Number.isNaN(Date.parse(text))) return timeFmt.format(new Date(text));
+  if (ISO_DAY.test(text)) return dayFmt.format(new Date(`${text}T00:00:00Z`));
+  if (ENUM_KEY.test(key) && ENUM.test(text)) return fieldLabel(text);
+  return text;
+}
+
+/**
+ * A log's metadata for people. A change pair reads as one "Changed: 200 → 500" (stored
+ * to-first, it read backwards), or one line per field that changed when the pair holds
+ * objects. Empty values are left out.
+ */
+export function logFields(data: Record<string, unknown> | null | undefined, pretty = false): LogField[] {
+  const d = data ?? {};
+  const present = (k: string) => d[k] !== null && d[k] !== undefined && d[k] !== "";
+  const changes: LogField[] = [];
+  const used = new Set<string>();
+  for (const [a, b] of CHANGE_PAIRS) {
+    if (!(a in d) || !(b in d) || (!present(a) && !present(b))) continue;
+    used.add(a).add(b);
+    const was = d[a];
+    const now = d[b];
+    if (isRecord(was) || isRecord(now)) {
+      const w = isRecord(was) ? was : {};
+      const n = isRecord(now) ? now : {};
+      for (const k of new Set([...Object.keys(w), ...Object.keys(n)])) {
+        if (JSON.stringify(w[k] ?? null) === JSON.stringify(n[k] ?? null)) continue;
+        changes.push({ key: `${a}.${k}, ${b}.${k}`, label: fieldLabel(k), value: `${fieldValue(w[k], false, k)} → ${fieldValue(n[k], false, k)}` });
+      }
+    } else {
+      changes.push({ key: `${a}, ${b}`, label: "Changed", value: `${fieldValue(was, pretty)} → ${fieldValue(now, pretty)}` });
+    }
+  }
+  const rest = Object.entries(d)
+    .filter(([k, v]) => !used.has(k) && v !== null && v !== undefined && v !== "")
+    .map(([k, v]) => ({ key: k, label: fieldLabel(k), value: fieldValue(v, pretty, k) }));
+  return [...changes, ...rest];
+}

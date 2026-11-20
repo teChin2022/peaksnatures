@@ -1,6 +1,6 @@
 import Link from "next/link";
 import { redirect } from "next/navigation";
-import { ArrowLeft } from "lucide-react";
+import { ArrowLeft, Phone } from "lucide-react";
 import { createServerSupabaseClient } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
 import { fmtTHB } from "@/lib/format-currency";
@@ -9,12 +9,13 @@ import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/admin/page-header";
 import { EmptyState } from "@/components/admin/empty-state";
 import { StatusBadge } from "@/components/admin/status-badge";
+import { Explainer } from "@/components/admin/explainer";
+import { TABLE, TABLE_CARD, TABLE_WRAP, TBODY, TD, TD_LEAD, TD_TRAIL, TH, TH_ROW, TR } from "@/components/admin/table-classes";
+import { cn } from "@/lib/utils";
 import { STALE_DATE_CHANGE_DAYS } from "../../attention";
 import { DATE_CHANGE_LIMIT, getPendingDateChanges } from "./data";
 
 const day = (d: string) => fmtDateStr(d, "MMM d", "en");
-const th = "px-4 py-2.5 font-medium";
-const td = "px-4 py-2.5 align-top";
 
 export default async function PendingDateChangesPage() {
   const supabase = await createServerSupabaseClient();
@@ -30,7 +31,7 @@ export default async function PendingDateChangesPage() {
     <div>
       <Link
         href="/admin/bookings"
-        className="mb-3 inline-flex items-center gap-1.5 rounded text-sm text-earth-600 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        className="mb-3 inline-flex min-h-11 items-center gap-1.5 rounded text-sm text-earth-600 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand md:min-h-0"
       >
         <ArrowLeft className="h-4 w-4" />
         Bookings
@@ -39,36 +40,37 @@ export default async function PendingDateChangesPage() {
         subtitle={stale > 0 ? `${stale} waiting over ${STALE_DATE_CHANGE_DAYS} days` : "Waiting on hosts"}
         title="Date change requests"
       />
-      <p className="-mt-3 mb-5 max-w-prose text-sm text-earth-600">
+      <Explainer className="-mt-3">
         Guests asked to move these stays and the host has not answered. Only the host can approve or reject one; a
         nudge to the host is the admin&apos;s part.
-      </p>
+      </Explainer>
 
       {requests.length === 0 ? (
         <EmptyState title="No pending date changes" description="Every request has an answer." />
       ) : (
-        <Card className="overflow-hidden border-earth-100 bg-white">
+        // Rows on phones (guest and price change, homestay, dates, then when), a table from md.
+        <Card className={TABLE_CARD}>
           <CardContent className="p-0">
-            <div className="overflow-x-auto">
-              <table className="w-full min-w-[720px] text-sm">
+            <div className={TABLE_WRAP}>
+              <table className={cn(TABLE, "md:min-w-[680px]")}>
                 <thead>
-                  <tr className="border-b border-earth-100 text-left text-xs text-earth-600">
-                    <th scope="col" className={th}>Requested</th>
-                    <th scope="col" className={th}>Guest</th>
-                    <th scope="col" className={th}>Homestay</th>
-                    <th scope="col" className={th}>From → to</th>
-                    <th scope="col" className={`${th} text-right`}>Price change</th>
+                  <tr className={TH_ROW}>
+                    <th scope="col" className={TH}>Requested</th>
+                    <th scope="col" className={TH}>Guest</th>
+                    <th scope="col" className={TH}>Homestay</th>
+                    <th scope="col" className={TH}>From → to</th>
+                    <th scope="col" className={cn(TH, "text-right")}>Price change</th>
                   </tr>
                 </thead>
-                <tbody className="divide-y divide-earth-100 text-earth-800">
+                <tbody className={TBODY}>
                   {requests.map((r) => (
-                    <tr key={r.id}>
-                      <td className={`${td} whitespace-nowrap tabular-nums`}>
+                    <tr key={r.id} className={TR}>
+                      <td className={cn(TD, "whitespace-nowrap tabular-nums max-md:order-1 max-md:mt-1 max-md:text-xs max-md:text-earth-600")}>
                         {fmtBangkokTime(r.created_at)}
                         {r.stale && <StatusBadge status="stale" tone="amber" label="Waiting" className="ml-1.5" />}
                       </td>
-                      <td className={td}>{r.guest_name ?? "—"}</td>
-                      <td className={td}>
+                      <td className={cn(TD_LEAD, "max-md:font-semibold max-md:text-earth-900")}>{r.guest_name ?? "—"}</td>
+                      <td className={TD}>
                         {r.host_id ? (
                           <Link
                             href={`/admin/hosts/${r.host_id}`}
@@ -79,14 +81,29 @@ export default async function PendingDateChangesPage() {
                         ) : (
                           "—"
                         )}
+                        {/* Only the host can answer: who to nudge, one tap to call. */}
+                        {r.host_name && (
+                          <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 text-xs text-earth-600">
+                            <span>Host {r.host_name}</span>
+                            {r.host_phone && (
+                              <a
+                                href={`tel:${r.host_phone}`}
+                                className="inline-flex items-center gap-1 rounded tabular-nums text-brand underline-offset-4 hover:underline focus:outline-none focus-visible:ring-2 focus-visible:ring-brand max-md:min-h-11"
+                              >
+                                <Phone className="h-3 w-3" aria-hidden />
+                                {r.host_phone}
+                              </a>
+                            )}
+                          </p>
+                        )}
                       </td>
-                      <td className={`${td} whitespace-nowrap`}>
-                        <span className="text-earth-600">
+                      <td className={cn(TD, "whitespace-nowrap")}>
+                        <span className="text-earth-600 line-through decoration-earth-400 md:no-underline">
                           {day(r.old_check_in)}–{day(r.old_check_out)}
                         </span>{" "}
                         → {day(r.new_check_in)}–{day(r.new_check_out)}
                       </td>
-                      <td className={`${td} text-right tabular-nums whitespace-nowrap`}>
+                      <td className={cn(TD_TRAIL, "text-right tabular-nums whitespace-nowrap")}>
                         {r.price_difference === 0
                           ? fmtTHB(0)
                           : `${r.price_difference < 0 ? "−" : "+"}${fmtTHB(Math.abs(r.price_difference))}`}
@@ -99,7 +116,7 @@ export default async function PendingDateChangesPage() {
           </CardContent>
         </Card>
       )}
-      <p className="mt-3 text-xs text-earth-600">Oldest first, up to {DATE_CHANGE_LIMIT}.</p>
+      {requests.length > 0 && <p className="mt-3 text-xs text-earth-600">Oldest first, up to {DATE_CHANGE_LIMIT}.</p>}
     </div>
   );
 }

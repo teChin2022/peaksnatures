@@ -73,10 +73,13 @@ export default async function HomestayBookingPage({ params, searchParams }: Page
 
   const { homestay, rooms, blockedDates, bookedRanges, seasonalPrices, specialPrices, roomOptions, guestPricing, bookingDisabled, mostBookedRoomId, hasConfirmedBookings } = data;
 
-  const initialPromo =
+  const [initialPromo, guestAi] = await Promise.all([
     promoParam && homestay.promo_codes_enabled
-      ? await getPromoLinkInfo(homestay.id, promoParam)
-      : null;
+      ? getPromoLinkInfo(homestay.id, promoParam)
+      : null,
+    // The guest AI assistant (migrations 084 / 085): off while bookings are blocked.
+    !bookingDisabled && isGuestAiAvailable(homestay.host.id),
+  ]);
 
   const activeRooms = rooms.filter((r) => r.is_active);
   const inactiveRooms = rooms.filter((r) => !r.is_active);
@@ -112,8 +115,6 @@ export default async function HomestayBookingPage({ params, searchParams }: Page
   // so it gets the homestay without the host row, and only the host fields it reads.
   const { host, ...homestayForClient } = homestay;
   const bookingHost = toBookingHost(host);
-  // The guest AI assistant (migrations 084 / 085): off while bookings are blocked.
-  const guestAi = !bookingDisabled && (await isGuestAiAvailable(host.id));
 
   return (
     <div className="min-h-screen bg-mist">

@@ -1,16 +1,19 @@
 import { NextRequest, NextResponse } from "next/server";
 import { unstable_cache } from "next/cache";
 import { createServiceRoleClient } from "@/lib/supabase/server";
+import { billingTodayStr } from "@/lib/billing-dates";
 
 const getCachedAvailability = (homestayId: string) =>
   unstable_cache(
     async () => {
       const supabase = createServiceRoleClient();
+      // Only stays not yet over: a booking stays `confirmed` unless the host checks it out.
       const { data, error } = await supabase
         .from("bookings")
         .select("id, room_id, check_in, check_out")
         .eq("homestay_id", homestayId)
-        .in("status", ["pending", "confirmed", "verified"]);
+        .in("status", ["pending", "confirmed", "verified"])
+        .gte("check_out", billingTodayStr());
       if (error) throw error;
       return (data as { id: string; room_id: string | null; check_in: string; check_out: string }[]) || [];
     },
@@ -30,14 +33,8 @@ export async function GET(req: NextRequest) {
 
   try {
     const bookedRanges = await getCachedAvailability(homestayId);
-    return NextResponse.json(
-      { bookedRanges },
-      {
-        headers: {
-          "Cache-Control": "public, s-maxage=60, stale-while-revalidate=300",
-        },
-      },
-    );
+    // No CDN caching: a booking's revalidateTag clears the data cache above, not a CDN copy.
+    return NextResponse.json({ bookedRanges });
   } catch (error) {
     console.error("Availability fetch error:", error);
     return NextResponse.json(

@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import {
   createServerSupabaseClient,
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
+import { fetchHostLogs, hostLogScope } from "@/lib/host-logs";
+import { fieldLabel } from "@/lib/history-event-types";
+
+const LOG_COLUMNS = "id, homestay_id, entity_type, entity_id, event_type, actor_type, actor_id, data, ip_address, created_at";
+const hostIdSchema = z.string().uuid().nullable();
 
 type LogRow = {
   id: string;
@@ -36,28 +42,66 @@ export async function GET(req: NextRequest) {
     const eventType = url.searchParams.get("event_type");
     const entityType = url.searchParams.get("entity_type");
     const actorType = url.searchParams.get("actor_type");
+    const parsedHost = hostIdSchema.safeParse(url.searchParams.get("host_id"));
+    if (!parsedHost.success) {
+      return NextResponse.json({ error: "Invalid host_id" }, { status: 400 });
+    }
+    const hostId = parsedHost.data;
 
     const sc = createServiceRoleClient();
 
-    let query = sc
-      .from("history_logs")
-      .select("id, homestay_id, entity_type, entity_id, event_type, actor_type, actor_id, data, ip_address, created_at")
-      .order("created_at", { ascending: false })
-      .limit(limit + 1);
+    let typedLogs: LogRow[];
+    // Named back to the page so its filter chip can say whose logs these are.
+    let host: { id: string; name: string } | null = null;
+    if (hostId) {
+      // The same rows as the host page's Activity (hostLogScope), with every invoice, not the latest few.
+      const { data: hostRow } = await sc.from("hosts").select("id, user_id, email, name").eq("id", hostId).maybeSingle();
+      if (!hostRow) {
+        return NextResponse.json(
+          { data: [], hasMore: false, nextCursor: null, host: null },
+          { headers: { "Cache-Control": "private, no-store" } },
+        );
+      }
+      const h = hostRow as { id: string; user_id: string; email: string; name: string };
+      host = { id: h.id, name: h.name };
+      const [homestaysRes, invoicesRes] = await Promise.all([
+        sc.from("homestays").select("id").eq("host_id", h.id),
+        sc.from("invoices").select("id").eq("host_id", h.id),
+      ]);
+      const ids = (res: { data: unknown }) => ((res.data as { id: string }[] | null) ?? []).map((r) => r.id);
+      const { rows, error } = await fetchHostLogs<LogRow>(sc, hostLogScope(h, ids(invoicesRes), ids(homestaysRes)), LOG_COLUMNS, {
+        limit: limit + 1,
+        before,
+        eventType,
+        entityType,
+        actorType,
+      });
+      if (error) {
+        console.error("[Admin Logs] query error:", error);
+        return NextResponse.json({ error: "Failed to fetch logs" }, { status: 500 });
+      }
+      typedLogs = rows;
+    } else {
+      let query = sc
+        .from("history_logs")
+        .select(LOG_COLUMNS)
+        .order("created_at", { ascending: false })
+        .limit(limit + 1);
 
-    if (before) query = query.lt("created_at", before);
-    if (eventType) query = query.eq("event_type", eventType);
-    if (entityType) query = query.eq("entity_type", entityType);
-    if (actorType) query = query.eq("actor_type", actorType);
+      if (before) query = query.lt("created_at", before);
+      if (eventType) query = query.eq("event_type", eventType);
+      if (entityType) query = query.eq("entity_type", entityType);
+      if (actorType) query = query.eq("actor_type", actorType);
 
-    const { data: logs, error } = await query;
+      const { data: logs, error } = await query;
 
-    if (error) {
-      console.error("[Admin Logs] query error:", error);
-      return NextResponse.json({ error: "Failed to fetch logs" }, { status: 500 });
+      if (error) {
+        console.error("[Admin Logs] query error:", error);
+        return NextResponse.json({ error: "Failed to fetch logs" }, { status: 500 });
+      }
+      typedLogs = (logs || []) as unknown as LogRow[];
     }
 
-    const typedLogs = (logs || []) as LogRow[];
     const hasMore = typedLogs.length > limit;
     const items = hasMore ? typedLogs.slice(0, limit) : typedLogs;
 
@@ -179,7 +223,8 @@ export async function GET(req: NextRequest) {
           entity_context = l.homestay_id ? homestayNameMap.get(l.homestay_id) || null : null;
           break;
         default:
-          entity_label = l.entity_type;
+          // "platform", "admin", "billing": words, not the stored code.
+          entity_label = fieldLabel(l.entity_type);
       }
 
       // actor_label
@@ -224,6 +269,7 @@ export async function GET(req: NextRequest) {
       data,
       hasMore,
       nextCursor: hasMore ? data[data.length - 1].created_at : null,
+      ...(hostId ? { host } : {}),
     }, {
       headers: { "Cache-Control": "private, no-store" },
     });

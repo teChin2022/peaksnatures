@@ -10,6 +10,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { NETWORK_ERROR, actionFailed } from "@/components/admin/load-error";
+import { PHONE_TAP } from "@/components/admin/table-classes";
+import { cn } from "@/lib/utils";
 import { AI_REPLY_CAP_MAX, type AdminAiAction } from "@/lib/host-ai";
 import type { HostAiStatus } from "@/types/database";
 
@@ -73,13 +75,14 @@ export function GuestAiActions({ hostId, hostName, status }: { hostId: string; h
   const dialog = confirm ? CONFIRM[confirm]?.(host) : null;
 
   return (
-    <div className="flex gap-2">
+    // Phones: the row's actions share one full-width line.
+    <div className="grid auto-cols-fr grid-flow-col gap-2 md:flex">
       {actions.map((action, i) => (
         <Button
           key={action}
           size="sm"
           variant={i === 0 && (action === "approve" || action === "resume") ? "default" : "outline"}
-          className="h-9 cursor-pointer whitespace-nowrap"
+          className={cn("h-9 cursor-pointer whitespace-nowrap", PHONE_TAP)}
           disabled={busy !== null}
           onClick={() => (CONFIRM[action] ? setConfirm(action) : run(action))}
         >
@@ -111,6 +114,10 @@ export function GuestAiActions({ hostId, hostName, status }: { hostId: string; h
   );
 }
 
+/** Number fields: 44px and 16px text on phones (no iOS zoom), 36px in the desktop rows. */
+const FIELD = "h-9 w-24 tabular-nums max-md:h-11 max-md:text-base";
+const FIELD_SM = "h-9 w-20 tabular-nums max-md:h-11 max-md:w-24 max-md:text-base";
+
 /** The host's daily reply cap, edited in its row. */
 export function GuestAiCapField({ hostId, hostName, value }: { hostId: string; hostName: string | null; value: number }) {
   const router = useRouter();
@@ -134,8 +141,10 @@ export function GuestAiCapField({ hostId, hostName, value }: { hostId: string; h
 
   return (
     <form onSubmit={save} className="flex items-center gap-2">
-      <label htmlFor={id} className="sr-only">
-        Daily reply cap for {hostName ?? "this host"}
+      {/* Phones show the label (the row has no column header there); the table keeps it for screen readers. */}
+      <label htmlFor={id} className="text-earth-600 md:sr-only">
+        <span className="md:hidden" aria-hidden>Daily cap</span>
+        <span className="sr-only">Daily reply cap for {hostName ?? "this host"}</span>
       </label>
       <Input
         id={id}
@@ -147,10 +156,10 @@ export function GuestAiCapField({ hostId, hostName, value }: { hostId: string; h
         value={draft}
         onChange={(e) => setDraft(e.target.value)}
         aria-invalid={!valid}
-        className="h-9 w-20 tabular-nums"
+        className={FIELD_SM}
       />
       {changed && (
-        <Button type="submit" size="sm" variant="outline" className="h-9 cursor-pointer" disabled={busy}>
+        <Button type="submit" size="sm" variant="outline" className={cn("h-9 cursor-pointer", PHONE_TAP)} disabled={busy}>
           {busy && <Loader2 className="h-4 w-4 animate-spin" />}
           Save
         </Button>
@@ -204,10 +213,10 @@ export function GuestAiPlatformControls({
   };
 
   return (
-    <div className="mb-5 flex flex-wrap items-center gap-x-6 gap-y-3 rounded-xl border border-earth-100 bg-white px-4 py-3 text-sm">
+    <div className="mb-5 grid gap-3 rounded-xl border border-earth-100 bg-white px-4 py-3 text-sm md:flex md:flex-wrap md:items-center md:gap-x-6">
       <p className="text-earth-800">
         <span className="font-semibold">{enabled ? "On for every approved host" : "Off for every host"}</span>
-        <span className="ml-2 tabular-nums text-earth-600">
+        <span className="whitespace-nowrap tabular-nums text-earth-600 max-md:block md:ml-2">
           Today {repliesToday} / {dailyCap} replies
         </span>
       </p>
@@ -218,7 +227,7 @@ export function GuestAiPlatformControls({
           if (valid && n !== dailyCap) update({ daily_cap: n }, `Platform cap set to ${n}`);
         }}
       >
-        <label htmlFor={id} className="text-earth-600">
+        <label htmlFor={id} className="text-earth-600 max-md:flex-1">
           Daily cap, all hosts
         </label>
         <Input
@@ -230,10 +239,10 @@ export function GuestAiPlatformControls({
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           aria-invalid={!valid}
-          className="h-9 w-24 tabular-nums"
+          className={FIELD}
         />
         {valid && n !== dailyCap && (
-          <Button type="submit" size="sm" variant="outline" className="h-9 cursor-pointer" disabled={busy}>
+          <Button type="submit" size="sm" variant="outline" className={cn("h-9 cursor-pointer", PHONE_TAP)} disabled={busy}>
             Save
           </Button>
         )}
@@ -245,7 +254,7 @@ export function GuestAiPlatformControls({
           if (priceValid && price !== pricePerReply) update({ price_per_reply: price }, `Price set to ฿${price} a reply`);
         }}
       >
-        <label htmlFor={`${id}-price`} className="text-earth-600">
+        <label htmlFor={`${id}-price`} className="text-earth-600 max-md:flex-1">
           ฿ per reply (charged daily)
         </label>
         <Input
@@ -258,18 +267,23 @@ export function GuestAiPlatformControls({
           value={priceDraft}
           onChange={(e) => setPriceDraft(e.target.value)}
           aria-invalid={!priceValid}
-          className="h-9 w-24 tabular-nums"
+          className={FIELD}
         />
         {priceValid && price !== pricePerReply && (
-          <Button type="submit" size="sm" variant="outline" className="h-9 cursor-pointer" disabled={busy}>
+          <Button type="submit" size="sm" variant="outline" className={cn("h-9 cursor-pointer", PHONE_TAP)} disabled={busy}>
             Save
           </Button>
         )}
       </form>
+      {/* Outline, not a red fill: the page's loudest control should not be the kill switch. The confirm stays. */}
       <Button
         size="sm"
-        variant={enabled ? "destructive" : "default"}
-        className="ml-auto h-9 cursor-pointer"
+        variant={enabled ? "outline" : "default"}
+        className={cn(
+          "h-9 cursor-pointer md:ml-auto",
+          PHONE_TAP,
+          enabled && "border-destructive/40 text-destructive hover:bg-destructive/5 hover:text-destructive"
+        )}
         disabled={busy}
         onClick={() => (enabled ? setConfirmOff(true) : update({ enabled: true }, "Guest AI turned on"))}
       >
@@ -345,7 +359,7 @@ export function GuestAiCostRates({ costIn, costOut }: { costIn: number; costOut:
         value={inDraft}
         onChange={(e) => setInDraft(e.target.value)}
         aria-invalid={!valid(inDraft)}
-        className="h-9 w-24 tabular-nums"
+        className={FIELD}
       />
       <label htmlFor={`${id}-out`} className="text-earth-600">
         out
@@ -359,10 +373,10 @@ export function GuestAiCostRates({ costIn, costOut }: { costIn: number; costOut:
         value={outDraft}
         onChange={(e) => setOutDraft(e.target.value)}
         aria-invalid={!valid(outDraft)}
-        className="h-9 w-24 tabular-nums"
+        className={FIELD}
       />
       {changed && (
-        <Button type="submit" size="sm" variant="outline" className="h-9 cursor-pointer" disabled={busy}>
+        <Button type="submit" size="sm" variant="outline" className={cn("h-9 cursor-pointer", PHONE_TAP)} disabled={busy}>
           {busy && <Loader2 className="h-4 w-4 animate-spin" />}
           Save
         </Button>

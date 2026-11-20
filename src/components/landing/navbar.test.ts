@@ -5,7 +5,13 @@ import { renderToStaticMarkup } from "react-dom/server";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { LandingNavbar } from "@/components/landing/navbar";
 import { LandingFooter } from "@/components/landing/footer";
+import { MotionGlobalConfig } from "motion/react";
 import { withIntl } from "../../../test/helpers/intl";
+
+// happy-dom's Animation.cancel() rejects `finished`, which motion leaves unhandled when the
+// menu closes mid-animation (3 "AbortError: The animation was canceled" per run). These tests
+// check the menu, not its motion, so animations finish at once.
+MotionGlobalConfig.skipAnimations = true;
 
 // LanguageSwitcherIcon refreshes through the App Router, which a test renderer has no instance of.
 vi.mock("next/navigation", () => ({ useRouter: () => ({ refresh: vi.fn() }) }));

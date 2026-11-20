@@ -172,11 +172,12 @@ export default function DashboardPage() {
 
     const fetchData = async () => {
       const supabase = createClient();
-      const { data: { user } } = await supabase.auth.getUser();
+      // The profile route checks the session itself, so it need not wait for getUser().
+      const [{ data: { user } }, profileRes] = await Promise.all([
+        supabase.auth.getUser(),
+        fetch("/api/host/profile", { signal }),
+      ]);
       if (signal.aborted || !user) return;
-
-      const profileRes = await fetch("/api/host/profile", { signal });
-      if (signal.aborted) return;
       const profile = profileRes.ok ? await profileRes.json() : null;
       if (signal.aborted) return;
       if (!profile) { setLoadError(true); setLoading(false); return; }
@@ -205,15 +206,22 @@ export default function DashboardPage() {
       if (!homestay) { setNoHomestay(true); setLoading(false); return; }
       setHomestayId(homestay.id);
 
+      // Stats cover check-ins from this month and the 11 before it, plus any ahead (owner, 2026-11-20).
+      // Unbounded, the read grew with every booking and stopped at Supabase's 1000-row cap;
+      // newest first, so a cap still hit drops the oldest months, not this one.
+      const statsSince = format(startOfMonth(subMonths(new Date(), 11)), "yyyy-MM-dd");
+
       // Parallel fetch
-      const [{ count: roomCount }, { data: bookingRows, error: bookingsError }, { data: roomRows }, { data: recentRows }] = await Promise.all([
+      const [{ count: roomCount }, { data: bookingRows, error: bookingsError }, { data: roomRows }, { data: recentRows }, { count: needsActionCount, error: needsActionError }] = await Promise.all([
         supabase.from("rooms").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id),
-        supabase.from("bookings").select("status, total_price, guest_province, check_in, check_out, room_id, booking_source").eq("homestay_id", homestay.id),
+        supabase.from("bookings").select("status, total_price, guest_province, check_in, check_out, room_id, booking_source").eq("homestay_id", homestay.id).gte("check_in", statsSince).order("check_in", { ascending: false }),
         supabase.from("rooms").select("id, name, quantity, price_per_night, max_guests").eq("homestay_id", homestay.id).eq("is_active", true),
         supabase.from("bookings").select("id, guest_name, guest_email, status, total_price").eq("homestay_id", homestay.id).order("created_at", { ascending: false }).limit(5),
+        // Needs action matches the bookings page's Pending tab at any date, so it is counted, not windowed.
+        supabase.from("bookings").select("id", { count: "exact", head: true }).eq("homestay_id", homestay.id).in("status", ["pending", "verified"]),
       ]);
       if (signal.aborted) return;
-      if (bookingsError) { setLoadError(true); setLoading(false); return; }
+      if (bookingsError || needsActionError) { setLoadError(true); setLoading(false); return; }
 
       const bookings = (bookingRows as { status: string; total_price: number; guest_province: string | null; check_in: string; check_out: string; room_id: string | null; booking_source: string }[]) || [];
       const rooms = (roomRows as { id: string; name: string; quantity: number; price_per_night: number; max_guests: number }[]) || [];
@@ -385,7 +393,7 @@ export default function DashboardPage() {
         bookingsBySource,
         provinceDistribution,
         roomCount: roomCount || 0,
-        confirmed, needsAction: today.needsAction, todayCheckouts: today.checkouts,
+        confirmed, needsAction: needsActionCount ?? 0, todayCheckouts: today.checkouts,
       });
 
       setLoading(false);

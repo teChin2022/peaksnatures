@@ -260,15 +260,17 @@ export default function RoomsPage() {
 
   const fetchData = async () => {
     const supabase = createClient();
-    const {
-      data: { user },
-    } = await supabase.auth.getUser();
+    // No user_id filter: RLS shows a login only its own host, or the one it is staff of (081),
+    // so the host read need not wait for getUser().
+    const [
+      {
+        data: { user },
+      },
+      { data: hostRow, error: hostError },
+    ] = await Promise.all([supabase.auth.getUser(), supabase.from("hosts").select("id, name").maybeSingle()]);
     if (!user) return;
     setUserId(user.id);
 
-    // No user_id filter: RLS shows a login only its own host, or the one it is staff of (081).
-    const hostQuery = supabase.from("hosts").select("id, name");
-    const { data: hostRow, error: hostError } = await hostQuery.maybeSingle();
     if (hostError) { setLoadError(true); setLoading(false); return; }
 
     const host = hostRow as { id: string; name: string } | null;

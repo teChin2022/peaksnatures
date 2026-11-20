@@ -1,5 +1,6 @@
 import { Badge } from "@/components/ui/badge";
 import { cn } from "@/lib/utils";
+import { fieldLabel } from "@/lib/history-event-types";
 
 type Tone = "brand" | "earth" | "amber" | "destructive" | "muted";
 
@@ -37,6 +38,13 @@ export function statusToneClass(status: string, tone?: Tone): string {
   return TONE_CLASSES[tone ?? STATUS_TONES[status.toLowerCase()] ?? "muted"];
 }
 
+/**
+ * A status code as words ("pending_review" → "Pending review"), the same reading as log
+ * fields. Only a code is reworded: CSS `capitalize` also rewrote explicit labels
+ * ("No LINE alerts" → "No LINE Alerts").
+ */
+export const statusLabel = fieldLabel;
+
 interface StatusBadgeProps {
   status: string;
   tone?: Tone;
@@ -50,13 +58,13 @@ export function StatusBadge({ status, tone, label, icon, className }: StatusBadg
   return (
     <Badge
       className={cn(
-        "border text-xs font-medium px-2 py-0.5 capitalize",
+        "border text-xs font-medium px-2 py-0.5",
         TONE_CLASSES[resolved],
         className
       )}
     >
       {icon}
-      {label ?? status}
+      {label ?? statusLabel(status)}
     </Badge>
   );
 }

@@ -72,6 +72,32 @@ describe("GET /api/admin/invoices", () => {
     expect(sc.builderFor("invoices", 1).eq).toHaveBeenCalledWith("status", "overdue");
   });
 
+  // The Overview's "Overdue invoices" count: overdue, or pending past due (Bangkok day).
+  it("narrows to the invoices that block bookings today for status=blocking", async () => {
+    vi.useFakeTimers({ toFake: ["Date"] });
+    vi.setSystemTime(new Date("2026-11-20T03:00:00Z")); // Nov 20 in Bangkok, whatever the TZ
+    try {
+      const sc = withInvoices();
+      const { status } = await readJson(await get({ status: "blocking" }));
+      const filter = "status.eq.overdue,and(status.eq.pending,due_date.lt.2026-11-20)";
+
+      expect(status).toBe(200);
+      expect(sc.builderFor("invoices", 0).or).toHaveBeenCalledWith(filter);
+      expect(sc.builderFor("invoices", 1).or).toHaveBeenCalledWith(filter);
+      expect(sc.builderFor("invoices", 1).eq).not.toHaveBeenCalled();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
+  it("refuses a status it does not know, before reading anything", async () => {
+    const sc = withInvoices();
+    const { status, body } = await readJson(await get({ status: "refunded" }));
+    expect(status).toBe(400);
+    expect(body).toEqual({ error: "Invalid status" });
+    expect(sc.calls.map((c) => c.table)).not.toContain("invoices");
+  });
+
   it("pages and clamps the page size", async () => {
     const sc = withInvoices();
     await get({ page: "2", limit: "500" });

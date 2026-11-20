@@ -46,7 +46,7 @@ export function AdminListCard() {
                   <p className="font-medium text-earth-900">{a.name}</p>
                   <p className="break-all text-earth-600">{a.email}</p>
                 </div>
-                <div className="text-right text-xs text-earth-600">
+                <div className="text-xs text-earth-600 sm:text-right">
                   <StatusBadge
                     status={a.line_alerts ? "active" : "inactive"}
                     label={a.line_alerts ? "LINE alerts on" : "No LINE alerts"}

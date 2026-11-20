@@ -1,9 +1,17 @@
 import { NextRequest, NextResponse } from "next/server";
+import { z } from "zod";
 import {
   createServerSupabaseClient,
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import { isAdmin } from "@/lib/admin";
+import { blockingInvoiceFilter } from "@/lib/billing-dates";
+
+/**
+ * A stored status, or `blocking`: every invoice that blocks the host's bookings today
+ * (overdue, or pending past its due date), the set the Overview's "Overdue invoices" counts.
+ */
+const statusSchema = z.enum(["pending", "paid", "overdue", "blocking"]).nullable();
 
 export async function GET(req: NextRequest) {
   try {
@@ -21,13 +29,19 @@ export async function GET(req: NextRequest) {
     const page = Math.max(1, parseInt(url.searchParams.get("page") || "1"));
     const limit = Math.min(100, Math.max(1, parseInt(url.searchParams.get("limit") || "20")));
     const offset = (page - 1) * limit;
-    const statusFilter = url.searchParams.get("status");
+    const parsedStatus = statusSchema.safeParse(url.searchParams.get("status"));
+    if (!parsedStatus.success) {
+      return NextResponse.json({ error: "Invalid status" }, { status: 400 });
+    }
+    const statusFilter = parsedStatus.data;
+    const blocking = statusFilter === "blocking" ? blockingInvoiceFilter() : null;
 
     const sc = createServiceRoleClient();
 
     // Count
     let countQuery = sc.from("invoices").select("id", { count: "exact", head: true });
-    if (statusFilter) countQuery = countQuery.eq("status", statusFilter);
+    if (blocking) countQuery = countQuery.or(blocking);
+    else if (statusFilter) countQuery = countQuery.eq("status", statusFilter);
     const { count: total } = await countQuery;
 
     // Fetch invoices with host info
@@ -36,7 +50,8 @@ export async function GET(req: NextRequest) {
       .select("*")
       .order("created_at", { ascending: false })
       .range(offset, offset + limit - 1);
-    if (statusFilter) query = query.eq("status", statusFilter);
+    if (blocking) query = query.or(blocking);
+    else if (statusFilter) query = query.eq("status", statusFilter);
     const { data: invoices, error } = await query;
 
     if (error) {

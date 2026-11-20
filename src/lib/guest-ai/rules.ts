@@ -1,13 +1,15 @@
 import { z } from "zod";
 import { LOW_WALLET_THRESHOLD } from "@/lib/wallet-thresholds";
+import { QUESTION_MAX } from "@/lib/guest-ai/limits";
 
 /**
  * The guest AI assistant's rules that do not depend on the model: what a guest
  * may send, what the model must return, and what the server lets through.
- * Import-free apart from zod, so the client can share the limits and types.
+ * Import-free apart from zod. The client takes only types from here; values it
+ * needs live in limits.ts, so zod stays out of the browser bundle.
  */
 
-export const QUESTION_MAX = 300;
+export { QUESTION_MAX };
 /** Replies a guest session may get before it needs a new one (and a new Turnstile). */
 export const SESSION_REPLY_CAP = 20;
 /** Lower when Turnstile could not be checked (Cloudflare unreachable): fail open, but small. */

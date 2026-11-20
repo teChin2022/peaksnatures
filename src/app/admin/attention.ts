@@ -33,7 +33,7 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
     });
   }
   if (c.blockingInvoices > 0) {
-    items.push({ key: "invoices", label: "Overdue invoices", value: c.blockingInvoices, href: "/admin/billing" });
+    items.push({ key: "invoices", label: "Overdue invoices", value: c.blockingInvoices, href: "/admin/billing?status=overdue" });
   }
   if (c.retriesExhausted > 0) {
     items.push({
@@ -44,7 +44,7 @@ export function attentionItems(c: AttentionCounts): AttentionItem[] {
     });
   }
   if (c.blockedHosts > 0) {
-    items.push({ key: "blocked", label: "Hosts with bookings blocked", value: c.blockedHosts, href: "/admin/hosts" });
+    items.push({ key: "blocked", label: "Hosts with bookings blocked", value: c.blockedHosts, href: "/admin/hosts?status=blocked" });
   }
   if (c.staleDateChanges > 0) {
     items.push({

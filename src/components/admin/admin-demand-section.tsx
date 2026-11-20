@@ -1,7 +1,9 @@
 "use client";
 
 import { useState } from "react";
+import { ChevronDown } from "lucide-react";
 import { DemandPanel, type DemandPanelLabels } from "@/components/dashboard/demand-panel";
+import { cn } from "@/lib/utils";
 
 /**
  * Platform view of the guest demand funnel — the same three blocks the host
@@ -42,27 +44,43 @@ export function AdminDemandSection({
   homestays: { id: string; name: string }[];
 }) {
   const [homestayId, setHomestayId] = useState("");
+  // Phones: the panel is about 1,100px tall, so it waits behind one tap after the queue and totals.
+  const [shownOnPhone, setShownOnPhone] = useState(false);
 
   return (
-    <DemandPanel
-      endpoint={`/api/admin/demand${homestayId ? `?homestay_id=${homestayId}` : ""}`}
-      labels={LABELS}
-      locale="en"
-      filter={
-        <select
-          value={homestayId}
-          onChange={(e) => setHomestayId(e.target.value)}
-          className="h-8 rounded-full border border-earth-500 bg-white px-3 text-xs text-earth-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
-          aria-label="Filter by homestay"
-        >
-          <option value="">All homestays</option>
-          {homestays.map((h) => (
-            <option key={h.id} value={h.id}>
-              {h.name}
-            </option>
-          ))}
-        </select>
-      }
-    />
+    <>
+      <button
+        type="button"
+        onClick={() => setShownOnPhone((v) => !v)}
+        aria-expanded={shownOnPhone}
+        aria-controls="admin-demand"
+        className="mb-3 flex min-h-11 w-full cursor-pointer items-center justify-between rounded-xl border border-earth-100 bg-white px-4 text-sm font-semibold text-earth-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand md:hidden"
+      >
+        {shownOnPhone ? "Hide guest demand" : "Show guest demand"}
+        <ChevronDown className={cn("h-4 w-4 text-earth-600 transition-transform duration-200 motion-reduce:transition-none", shownOnPhone && "rotate-180")} aria-hidden />
+      </button>
+      <div id="admin-demand" className={cn(!shownOnPhone && "max-md:hidden")}>
+        <DemandPanel
+          endpoint={`/api/admin/demand${homestayId ? `?homestay_id=${homestayId}` : ""}`}
+          labels={LABELS}
+          locale="en"
+          filter={
+            <select
+              value={homestayId}
+              onChange={(e) => setHomestayId(e.target.value)}
+              className="h-11 rounded-full border border-earth-500 bg-white px-3 text-base text-earth-800 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 md:h-8 md:text-xs"
+              aria-label="Filter by homestay"
+            >
+              <option value="">All homestays</option>
+              {homestays.map((h) => (
+                <option key={h.id} value={h.id}>
+                  {h.name}
+                </option>
+              ))}
+            </select>
+          }
+        />
+      </div>
+    </>
   );
 }

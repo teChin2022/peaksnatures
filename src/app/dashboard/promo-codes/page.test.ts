@@ -68,3 +68,14 @@ describe("PromoCodesPage: the master switch", () => {
     expect((write.builder.update as ReturnType<typeof vi.fn>).mock.calls[0][0]).toMatchObject({ promo_codes_enabled: false });
   });
 });
+
+// RLS filters the host by the session, so the host read does not wait for getUser().
+describe("PromoCodesPage: loading", () => {
+  it("asks for the host without waiting for getUser()", async () => {
+    const client = createSupabaseMock({ user: { id: "owner-1" } });
+    client.auth.getUser.mockReturnValue(new Promise(() => {}));
+    h.createClient.mockReturnValue(client);
+    await act(async () => root.render(createElement(PromoCodesPage)));
+    expect(client.from).toHaveBeenCalledWith("hosts");
+  });
+});

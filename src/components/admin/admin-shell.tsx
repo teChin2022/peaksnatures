@@ -81,8 +81,9 @@ export function activeNavHref(pathname: string): string | undefined {
     .sort((a, b) => b.length - a.length)[0];
 }
 
+// 44px rows in the phone/tablet drawer, 40px in the desktop sidebar.
 const NAV_LINK_BASE =
-  "group flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand";
+  "group flex items-center gap-3 rounded-lg px-3 py-3 lg:py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand";
 const NAV_LINK_ACTIVE = "bg-brand-50 text-brand";
 const NAV_LINK_INACTIVE = "text-earth-700 hover:bg-earth-50 hover:text-brand";
 
@@ -241,7 +242,6 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
   const pathname = usePathname();
-  const active = activeNavHref(pathname);
   const [counts, setCounts] = useState<NavCounts | null>(null);
 
   // Refetched on every page change, so a badge clears once its work is done.
@@ -258,7 +258,8 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
       cancelled = true;
     };
   }, [pathname]);
-  const currentTitle = NAV_ITEMS.find((item) => item.href === active)?.key ?? "Platform Admin";
+  // Work waiting anywhere, so a closed drawer still says there is something to do.
+  const waiting = counts ? Object.values(counts).reduce((sum, n) => sum + n, 0) : 0;
 
   return (
     <div className="admin-surface min-h-screen">
@@ -277,18 +278,27 @@ export function AdminShell({ children }: { children: React.ReactNode }) {
           <Button
             variant="ghost"
             size="icon"
-            className="-ml-2 size-11 shrink-0 cursor-pointer text-earth-700 hover:bg-earth-50 hover:text-brand"
+            className="relative -ml-2 size-11 shrink-0 cursor-pointer text-earth-700 hover:bg-earth-50 hover:text-brand"
             onClick={() => setMobileOpen(true)}
-            aria-label="Open menu"
+            aria-label={waiting > 0 ? `Open menu, ${waiting} waiting` : "Open menu"}
           >
             <Menu className="h-5 w-5" />
+            {waiting > 0 && (
+              <span
+                className="absolute right-0.5 top-0.5 flex h-5 min-w-5 items-center justify-center rounded-full border border-white bg-amber-50 px-1 text-xs font-semibold tabular-nums text-amber-800"
+                aria-hidden
+              >
+                {waiting > 99 ? "99+" : waiting}
+              </span>
+            )}
           </Button>
-          <div className="flex min-w-0 items-center gap-2">
+          {/* The page's own H1 names the page; the bar only says where you are. */}
+          <Link href="/admin" className="flex min-w-0 items-center gap-2 rounded focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-brand">
             <div className="flex h-6 w-6 shrink-0 items-center justify-center rounded bg-brand">
               <Shield className="h-3.5 w-3.5 text-white" />
             </div>
-            <span className="truncate font-serif text-sm text-earth-900">{currentTitle}</span>
-          </div>
+            <span className="truncate text-sm font-semibold text-brand-700">Platform Admin</span>
+          </Link>
         </header>
 
         <main className="p-4 sm:p-6 lg:p-8">{children}</main>

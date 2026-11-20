@@ -12,13 +12,20 @@ import {
 import { createSupabaseMock, type SupabaseMockOptions } from "../../test/helpers/supabase";
 import { makeBillingConfig } from "../../test/fixtures/db";
 
-const { createServiceRoleClient, logEvent, sendSms, resendSend } = vi.hoisted(() => ({
+const { createServiceRoleClient, logEvent, sendSms, resendSend, afterCallbacks } = vi.hoisted(() => ({
+  afterCallbacks: [] as Array<() => unknown>,
   createServiceRoleClient: vi.fn(),
   logEvent: vi.fn(),
   sendSms: vi.fn(),
   resendSend: vi.fn(),
 }));
 
+vi.mock("next/server", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("next/server")>()),
+  after: (cb: () => unknown) => {
+    afterCallbacks.push(cb);
+  },
+}));
 vi.mock("@/lib/supabase/server", () => ({ createServiceRoleClient }));
 vi.mock("@/lib/history-log", async (importOriginal) => ({
   ...(await importOriginal<typeof import("@/lib/history-log")>()),
@@ -30,6 +37,11 @@ vi.mock("resend", () => ({
     emails = { send: resendSend };
   },
 }));
+
+/** Runs what the code deferred with after(), as Next does once the response is sent. */
+const runAfter = async () => {
+  for (const cb of afterCallbacks.splice(0)) await cb();
+};
 
 /** One client shared by every createServiceRoleClient() call, so table queues stay ordered. */
 function mockClient(tables: SupabaseMockOptions["tables"], rpc: SupabaseMockOptions["rpc"] = {}) {
@@ -57,12 +69,17 @@ const COMMISSION_HOST = {
 const deductTables = (over: {
   booking?: unknown;
   host?: unknown;
+  homestay?: unknown;
   counts?: [number, number];
   config?: unknown;
 } = {}) => ({
-  bookings: { data: over.booking ?? { id: "booking-1", total_price: 2000, discount_amount: 0, commission_base: null, homestay_id: "homestay-1" } },
-  homestays: { data: { host_id: "host-1" } },
-  hosts: { data: over.host ?? COMMISSION_HOST },
+  bookings: {
+    data: {
+      ...((over.booking as object | undefined) ?? { id: "booking-1", total_price: 2000, discount_amount: 0, commission_base: null, homestay_id: "homestay-1" }),
+      // The homestay and its host come embedded in the one booking read.
+      homestay: "homestay" in over ? over.homestay : { host_id: "host-1", host: "host" in over ? over.host : COMMISSION_HOST },
+    },
+  },
   platform_billing_config: { data: over.config ?? makeBillingConfig({ commission_pct: 10 }) },
   wallet_transactions: [{ count: over.counts?.[0] ?? 0 }, { count: over.counts?.[1] ?? 0 }],
   history_logs: {},
@@ -72,6 +89,7 @@ const deductTables = (over: {
 const deductOk = { data: [{ new_balance: 800, transaction_id: "txn-1" }], error: null };
 
 beforeEach(() => {
+  afterCallbacks.length = 0;
   vi.spyOn(console, "error").mockImplementation(() => {});
   vi.spyOn(console, "warn").mockImplementation(() => {});
   vi.stubEnv("RESEND_API_KEY", "resend-key");
@@ -209,10 +227,35 @@ describe("getHostBlockState", () => {
 });
 
 describe("deductCommission", () => {
+  // A guest waits on this before their booking response.
+  it("reads the booking, homestay and host in one query", async () => {
+    const supabase = mockClient(deductTables(), { deduct_wallet_commission: deductOk });
+    await deductCommission("booking-1");
+    expect(supabase.calls.map((c) => c.table).filter((t) => t === "homestays" || t === "hosts")).toEqual([]);
+    expect(supabase.builderFor("bookings").select).toHaveBeenCalledWith(expect.stringContaining("homestay:homestays(host_id, host:hosts("));
+  });
+
+  // The charge is financial and lands before the response; its log and alert need not.
+  it("charges at once and leaves the log and the low-balance alert to after()", async () => {
+    const supabase = mockClient(deductTables(), {
+      deduct_wallet_commission: { data: [{ new_balance: -500, transaction_id: "txn-1" }], error: null },
+    });
+    await deductCommission("booking-1");
+    expect(supabase.rpc).toHaveBeenCalledWith("deduct_wallet_commission", expect.anything());
+    expect(logEvent).not.toHaveBeenCalled();
+    expect(sendSms).not.toHaveBeenCalled();
+
+    await runAfter();
+    expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({ entityType: "billing", entityId: "booking-1" }));
+    expect(sendSms).toHaveBeenCalledWith("0812345678", expect.stringContaining("฿500"));
+  });
+
   it("charges the configured percentage and records the transaction", async () => {
     const supabase = mockClient(deductTables(), { deduct_wallet_commission: deductOk });
 
     await deductCommission("booking-1");
+
+    await runAfter();
 
     expect(supabase.rpc).toHaveBeenCalledWith("deduct_wallet_commission", {
       p_host_id: "host-1",
@@ -226,6 +269,8 @@ describe("deductCommission", () => {
     mockClient(deductTables(), { deduct_wallet_commission: deductOk });
 
     await deductCommission("booking-1");
+
+    await runAfter();
 
     expect(logEvent).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -253,6 +298,8 @@ describe("deductCommission", () => {
 
       await deductCommission("booking-1");
 
+      await runAfter();
+
       // 10% of (1800 + 200), not of 1800.
       expect(supabase.rpc).toHaveBeenCalledWith("deduct_wallet_commission", expect.objectContaining({ p_amount: 200 }));
     });
@@ -266,6 +313,8 @@ describe("deductCommission", () => {
       );
 
       await deductCommission("booking-1");
+
+      await runAfter();
       expect(supabase.rpc).toHaveBeenCalledWith("deduct_wallet_commission", expect.objectContaining({ p_amount: 500 }));
     });
 
@@ -278,6 +327,8 @@ describe("deductCommission", () => {
       );
 
       await deductCommission("booking-1", 8000);
+
+      await runAfter();
       expect(supabase.rpc).toHaveBeenCalledWith("deduct_wallet_commission", expect.objectContaining({ p_amount: 800 }));
     });
 
@@ -288,6 +339,8 @@ describe("deductCommission", () => {
       );
 
       await deductCommission("booking-1");
+
+      await runAfter();
       expect(supabase.rpc).toHaveBeenCalledWith("deduct_wallet_commission", expect.objectContaining({ p_amount: 100 }));
     });
   });
@@ -303,6 +356,8 @@ describe("deductCommission", () => {
       const supabase = mockClient(deductTables({ booking: booking("walk_in") }), { deduct_wallet_commission: deductOk });
 
       await deductCommission("booking-1");
+
+      await runAfter();
       expect(supabase.rpc).toHaveBeenCalledWith("deduct_wallet_commission", expect.objectContaining({
         p_amount: 80, // 4% of 2000
         p_description: expect.stringContaining("Commission 4%"),
@@ -313,6 +368,8 @@ describe("deductCommission", () => {
       const supabase = mockClient(deductTables({ booking: booking("guest") }), { deduct_wallet_commission: deductOk });
 
       await deductCommission("booking-1");
+
+      await runAfter();
       expect(supabase.rpc).toHaveBeenCalledWith("deduct_wallet_commission", expect.objectContaining({ p_amount: 200 }));
     });
 
@@ -326,6 +383,8 @@ describe("deductCommission", () => {
       );
 
       await deductCommission("booking-1");
+
+      await runAfter();
       expect(supabase.rpc).toHaveBeenCalledWith("deduct_wallet_commission", expect.objectContaining({ p_amount: 30 }));
     });
 
@@ -333,6 +392,8 @@ describe("deductCommission", () => {
       mockClient(deductTables({ booking: booking("walk_in") }), { deduct_wallet_commission: deductOk });
 
       await deductCommission("booking-1");
+
+      await runAfter();
       expect(logEvent).toHaveBeenCalledWith(expect.objectContaining({
         data: expect.objectContaining({ booking_source: "walk_in", commission_pct: 4 }),
       }));
@@ -349,6 +410,8 @@ describe("deductCommission", () => {
       );
 
       await deductCommission("booking-1"); // 123.4 -> 123
+
+      await runAfter();
       expect(supabase.rpc).toHaveBeenCalledWith("deduct_wallet_commission", expect.objectContaining({ p_amount: 123 }));
     });
 
@@ -361,6 +424,8 @@ describe("deductCommission", () => {
       );
 
       await deductCommission("booking-1"); // 0.5 -> 1
+
+      await runAfter();
       expect(supabase.rpc).toHaveBeenCalledWith("deduct_wallet_commission", expect.objectContaining({ p_amount: 1 }));
     });
 
@@ -373,6 +438,8 @@ describe("deductCommission", () => {
       );
 
       await deductCommission("booking-1");
+
+      await runAfter();
       expect(supabase.rpc).not.toHaveBeenCalled();
     });
   });
@@ -381,12 +448,14 @@ describe("deductCommission", () => {
     it("skips when a commission has already been charged and not refunded", async () => {
       const supabase = mockClient(deductTables({ counts: [1, 0] }), { deduct_wallet_commission: deductOk });
       await deductCommission("booking-1");
+      await runAfter();
       expect(supabase.rpc).not.toHaveBeenCalled();
     });
 
     it("charges again after a refund, supporting a date-change cycle", async () => {
       const supabase = mockClient(deductTables({ counts: [1, 1] }), { deduct_wallet_commission: deductOk });
       await deductCommission("booking-1");
+      await runAfter();
       expect(supabase.rpc).toHaveBeenCalled();
     });
 
@@ -398,6 +467,7 @@ describe("deductCommission", () => {
         deduct_wallet_commission: { data: [{ new_balance: -100, transaction_id: null }], error: null },
       });
       await deductCommission("booking-1");
+      await runAfter();
       expect(logEvent).not.toHaveBeenCalled();
       expect(sendSms).not.toHaveBeenCalled();
     });
@@ -407,12 +477,13 @@ describe("deductCommission", () => {
     it.each([
       ["the booking is missing", { bookings: { data: null } }],
       ["the booking lookup errors", { bookings: { data: null, error: { message: "boom" } } }],
-      ["the homestay is missing", { homestays: { data: null } }],
-      ["the host is missing", { hosts: { data: null } }],
+      ["the homestay is missing", deductTables({ homestay: null })],
+      ["the host is missing", deductTables({ host: null })],
       ["the billing config is missing", { platform_billing_config: { data: null, error: { message: "no config" } } }],
     ])("when %s", async (_label, override) => {
       const supabase = mockClient({ ...deductTables(), ...override }, { deduct_wallet_commission: deductOk });
       await deductCommission("booking-1");
+      await runAfter();
       expect(supabase.rpc).not.toHaveBeenCalled();
     });
 
@@ -422,6 +493,7 @@ describe("deductCommission", () => {
         { deduct_wallet_commission: deductOk },
       );
       await deductCommission("booking-1");
+      await runAfter();
       expect(supabase.rpc).not.toHaveBeenCalled();
     });
   });
@@ -432,6 +504,8 @@ describe("deductCommission", () => {
     });
 
     await deductCommission("booking-1");
+
+    await runAfter();
 
     expect(supabase.builderFor("billing_retry_queue").insert).toHaveBeenCalledWith({
       booking_id: "booking-1",
@@ -466,12 +540,14 @@ describe("deductCommission", () => {
     it("stays quiet while the balance is still positive", async () => {
       mockClient(deductTables(), { deduct_wallet_commission: deductOk });
       await deductCommission("booking-1");
+      await runAfter();
       expect(sendSms).not.toHaveBeenCalled();
     });
 
     it("texts the host when the wallet goes negative", async () => {
       mockClient(deductTables(), { deduct_wallet_commission: overdrawn });
       await deductCommission("booking-1");
+      await runAfter();
       expect(sendSms).toHaveBeenCalledWith("0812345678", expect.stringContaining("฿500"));
     });
 
@@ -481,6 +557,7 @@ describe("deductCommission", () => {
         { deduct_wallet_commission: overdrawn },
       );
       await deductCommission("booking-1");
+      await runAfter();
       expect(sendSms).toHaveBeenCalledWith("0812345678", expect.stringContaining("URGENT"));
     });
 
@@ -498,6 +575,8 @@ describe("deductCommission", () => {
       );
 
       await deductCommission("booking-1");
+
+      await runAfter();
       expect(fetch).toHaveBeenCalledWith("https://api.line.me/v2/bot/message/push", expect.any(Object));
       expect(sendSms).not.toHaveBeenCalled();
     });
@@ -517,6 +596,8 @@ describe("deductCommission", () => {
       );
 
       await deductCommission("booking-1");
+
+      await runAfter();
       expect(sendSms).toHaveBeenCalled();
     });
 
@@ -525,6 +606,8 @@ describe("deductCommission", () => {
       mockClient(deductTables(), { deduct_wallet_commission: overdrawn });
 
       await deductCommission("booking-1");
+
+      await runAfter();
       expect(resendSend).toHaveBeenCalledWith(
         expect.objectContaining({ to: ["host@peaksnature.com"], subject: expect.stringContaining("-฿500") }),
       );
@@ -536,6 +619,8 @@ describe("deductCommission", () => {
       mockClient(deductTables(), { deduct_wallet_commission: overdrawn });
 
       await deductCommission("booking-1");
+
+      await runAfter();
       expect(resendSend).toHaveBeenCalledWith(
         expect.objectContaining({ from: "Peaks Billing <billing@peaksnature.com>" }),
       );
@@ -548,6 +633,8 @@ describe("deductCommission", () => {
       );
 
       await deductCommission("booking-1");
+
+      await runAfter();
       expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("no channel available"));
     });
 
@@ -557,6 +644,8 @@ describe("deductCommission", () => {
       mockClient(deductTables(), { deduct_wallet_commission: overdrawn });
 
       await deductCommission("booking-1");
+
+      await runAfter();
       expect(resendSend).not.toHaveBeenCalled();
       expect(console.warn).toHaveBeenCalledWith(expect.stringContaining("RESEND_API_KEY not configured"));
     });

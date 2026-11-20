@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { HOST_BLOCK_COLUMNS, hostBlockStateFrom, type HostBlockRow } from "@/lib/billing";
 import { isHostBlocked } from "@/lib/plan-expiry";
+import { fetchHostLogs, hostLogScope } from "@/lib/host-logs";
 
 const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 
@@ -101,11 +102,9 @@ export async function getAdminHostDetail(hostId: string): Promise<AdminHostDetai
   const homestays = (homestaysRes.data as AdminHostDetail["homestays"]) || [];
   const invoices = (invoicesRes.data as AdminHostDetail["invoices"]) || [];
   const homestayIds = homestays.map((h) => h.id);
-  // Host events are keyed by host id, auth user id, login email or invoice id.
-  const entityIds = [host.id, host.user_id, host.email, ...invoices.map((i) => i.id)];
+  const logScope = hostLogScope(host, invoices.map((i) => i.id), homestayIds);
 
-  const logColumns = "id, event_type, actor_type, created_at";
-  const [bookingsRes, entityLogsRes, homestayLogsRes] = await Promise.all([
+  const [bookingsRes, logsRes] = await Promise.all([
     homestayIds.length
       ? sc
           .from("bookings")
@@ -114,30 +113,11 @@ export async function getAdminHostDetail(hostId: string): Promise<AdminHostDetai
           .order("created_at", { ascending: false })
           .limit(DETAIL_LIMITS.bookings)
       : Promise.resolve({ data: [] }),
-    sc
-      .from("history_logs")
-      .select(logColumns)
-      .in("entity_id", entityIds)
-      .order("created_at", { ascending: false })
-      .limit(DETAIL_LIMITS.logs),
-    homestayIds.length
-      ? sc
-          .from("history_logs")
-          .select(logColumns)
-          .in("homestay_id", homestayIds)
-          .order("created_at", { ascending: false })
-          .limit(DETAIL_LIMITS.logs)
-      : Promise.resolve({ data: [] }),
+    fetchHostLogs<AdminHostDetail["logs"][number]>(sc, logScope, "id, event_type, actor_type, created_at", {
+      limit: DETAIL_LIMITS.logs,
+    }),
   ]);
-
-  type Log = AdminHostDetail["logs"][number];
-  const byId = new Map<string, Log>();
-  for (const log of [...((entityLogsRes.data as Log[]) || []), ...((homestayLogsRes.data as Log[]) || [])]) {
-    byId.set(log.id, log);
-  }
-  const logs = [...byId.values()]
-    .sort((a, b) => b.created_at.localeCompare(a.created_at))
-    .slice(0, DETAIL_LIMITS.logs);
+  const logs = logsRes.rows;
 
   return {
     host,

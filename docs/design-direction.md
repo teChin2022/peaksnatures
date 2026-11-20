@@ -41,7 +41,8 @@ These are confirmed in `PRODUCT.md`:
   PromptPay and upload a slip.
 - **Hosts:** owner-operators running the dashboard mostly on their phones,
   between other work.
-- **Admins:** internal staff, desktop, English-only.
+- **Admins:** internal staff, English-only; mobile first since 2026-11-20
+  (owner): they approve, settle and answer guests from a phone too.
 - **Standard:** WCAG 2.2 AA everywhere.
 
 ## 3. Principles
@@ -202,7 +203,7 @@ Grounded in Emil Kowalski's rules (`emil-design-eng`, `improve-animations`).
 | Homestay `/[slug]` | Persuade | airy | photos, houses, reviews (settled order) |
 | Booking `/[slug]/book` | Operate inside Persuade | comfortable, 44px targets | dates, house, price, status, payment |
 | Host dashboard | Operate | compact, phone-first | today's work: check-ins, slips to verify, new bookings; analytics after |
-| Admin | Operate | dense, desktop-first | queues and exceptions; English-only |
+| Admin | Operate | dense, mobile first (rows below 768px, tables from md) | queues and exceptions; English-only |
 
 One design language across all of them: the same palette, type, radius,
 buttons, inputs, badges and empty states. Only spacing and information
@@ -265,6 +266,16 @@ From earlier sessions with the owner:
   compression at upload.
 - **Carts:** grouped into one card only on `/dashboard/bookings`.
 - **`/admin`:** stays English-only.
+- **`/admin` mobile first (owner, 2026-11-20; replaces the 2026-11-18
+  sticky-column pick for phones):** below 768px every list is rows built from
+  the same table markup (`src/components/admin/table-classes.ts`: the first
+  cell shares its line with an amount, status or switch on the right; the
+  rest take a line each); from md it is a table folded to fit without
+  sideways scrolling. Phone targets are 44px. The phone menu stays a drawer,
+  with the total waiting-work count on its button. An approved host's
+  actions sit behind one Manage button (bottom sheet) on phones; pending
+  hosts keep Approve / Reject full width. Long page help folds into "How this
+  works" on phones (`Explainer`).
 
 - **Guest pages palette (2026-11-13):** Mist Ridge (DESIGN.md "Mist Ridge"),
   guest pages only. `/[slug]` shipped first: hero name and tagline centred

@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react";
 import { toast } from "sonner";
-import { Settings, Eye, EyeOff, Loader2, CreditCard, Plus, Trash2, Lock } from "lucide-react";
+import { Eye, EyeOff, Loader2, CreditCard, Plus, Trash2, Lock } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card";
 import { Input } from "@/components/ui/input";
@@ -16,6 +16,7 @@ import { LoadError, NETWORK_ERROR, actionFailed } from "@/components/admin/load-
 import { AdminListCard } from "@/components/admin/admin-list-card";
 import { cn } from "@/lib/utils";
 import type { FixedRateTermTier } from "@/types/database";
+import { PHONE_TAP } from "@/components/admin/table-classes";
 
 const PAYOUT_FIELDS = [
   ["promptpay_id", "PromptPay ID"],
@@ -103,6 +104,10 @@ function BillingFormSkeleton() {
     </div>
   );
 }
+
+/** Show/hide password: reachable by keyboard, 36px (44px on phones) inside the field's right edge. */
+const EYE =
+  "absolute right-1 top-1/2 flex size-9 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-earth-600 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand max-md:size-11 max-md:right-0";
 
 export default function AdminSettingsPage() {
   const [currentPassword, setCurrentPassword] = useState("");
@@ -309,7 +314,6 @@ export default function AdminSettingsPage() {
       <PageHeader
         subtitle="Platform billing and your admin account"
         title="Settings"
-        icon={Settings}
       />
 
       <Card className="border-earth-100">
@@ -328,7 +332,8 @@ export default function AdminSettingsPage() {
           ) : billingLoadFailed ? (
             <LoadError what="the billing configuration" onRetry={fetchBillingConfig} />
           ) : (
-            <form onSubmit={handleBillingSave} className="space-y-4">
+            // Phones: 44px fields, and Save stays in reach at the bottom while the form is on screen.
+            <form onSubmit={handleBillingSave} className="space-y-4 max-md:[&_input]:h-11">
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 <div className="space-y-2">
                   <Label htmlFor="commission_pct">Guest booking commission (%)</Label>
@@ -378,7 +383,8 @@ export default function AdminSettingsPage() {
                   {tierDrafts.map((tier, i) => (
                     <div key={i} className="flex items-end gap-2">
                       <div className="flex-1 space-y-1">
-                        <Label htmlFor={`tier-months-${i}`} className="text-xs">Months</Label>
+                        {/* One visible header row; every field keeps its label for screen readers. */}
+                        <Label htmlFor={`tier-months-${i}`} className={cn("text-xs", i > 0 && "sr-only")}>Months</Label>
                         <Input
                           id={`tier-months-${i}`}
                           type="number"
@@ -390,7 +396,7 @@ export default function AdminSettingsPage() {
                         />
                       </div>
                       <div className="flex-1 space-y-1">
-                        <Label htmlFor={`tier-discount-${i}`} className="text-xs">Discount (%)</Label>
+                        <Label htmlFor={`tier-discount-${i}`} className={cn("text-xs", i > 0 && "sr-only")}>Discount (%)</Label>
                         <Input
                           id={`tier-discount-${i}`}
                           type="number"
@@ -405,7 +411,7 @@ export default function AdminSettingsPage() {
                         type="button"
                         variant="ghost"
                         size="icon"
-                        className="text-red-500 hover:text-red-600 hover:bg-red-50"
+                        className="text-red-500 hover:text-red-600 hover:bg-red-50 max-md:size-11"
                         onClick={() => setConfirmRemoveTier(i)}
                         aria-label="Remove term"
                       >
@@ -421,7 +427,7 @@ export default function AdminSettingsPage() {
                     variant="outline"
                     size="sm"
                     onClick={addTier}
-                    className="mt-2"
+                    className={cn("mt-2", PHONE_TAP)}
                   >
                     <Plus className="h-3.5 w-3.5 mr-1" />
                     Add Term
@@ -480,8 +486,10 @@ export default function AdminSettingsPage() {
                           type="button"
                           size="sm"
                           onClick={() => setBillingForm((f) => ({ ...f, payment_display: opt }))}
+                          aria-pressed={billingForm.payment_display === opt}
                           className={cn(
                             "cursor-pointer",
+                            PHONE_TAP,
                             billingForm.payment_display === opt
                               ? "bg-brand hover:bg-brand-hover text-white"
                               : "bg-white border border-earth-200 text-earth-700 hover:bg-earth-50 hover:text-brand"
@@ -495,14 +503,16 @@ export default function AdminSettingsPage() {
                 </div>
               </div>
 
-              <Button
-                type="submit"
-                className="w-full cursor-pointer bg-brand hover:bg-brand-hover text-white"
-                disabled={billingSaving}
-              >
-                {billingSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
-                Save Billing Configuration
-              </Button>
+              <div className="max-md:sticky max-md:bottom-0 max-md:z-10 max-md:-mx-6 max-md:border-t max-md:border-earth-100 max-md:bg-white max-md:px-6 max-md:pt-3 max-md:pb-[max(0.75rem,env(safe-area-inset-bottom))]">
+                <Button
+                  type="submit"
+                  className="w-full cursor-pointer bg-brand text-white hover:bg-brand-hover max-md:h-12"
+                  disabled={billingSaving}
+                >
+                  {billingSaving && <Loader2 className="mr-2 h-4 w-4 animate-spin" />}
+                  Save Billing Configuration
+                </Button>
+              </div>
             </form>
           )}
         </CardContent>
@@ -519,7 +529,7 @@ export default function AdminSettingsPage() {
           <CardDescription className="text-earth-600">Update your admin login password</CardDescription>
         </CardHeader>
         <CardContent>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleSubmit} className="space-y-4 max-md:[&_input]:h-11">
             <div className="space-y-2">
               <Label htmlFor="current">Current Password</Label>
               <div className="relative">
@@ -530,13 +540,12 @@ export default function AdminSettingsPage() {
                   onChange={(e) => setCurrentPassword(e.target.value)}
                   required
                   autoComplete="current-password"
-                  className="pr-10"
+                  className="pr-12"
                 />
                 <button
                   type="button"
                   aria-label={showCurrent ? "Hide password" : "Show password"} onClick={() => setShowCurrent(!showCurrent)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-600 hover:text-brand"
-                  tabIndex={-1}
+                  className={EYE}
                 >
                   {showCurrent ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -554,13 +563,12 @@ export default function AdminSettingsPage() {
                   required
                   minLength={8}
                   autoComplete="new-password"
-                  className="pr-10"
+                  className="pr-12"
                 />
                 <button
                   type="button"
                   aria-label={showNew ? "Hide password" : "Show password"} onClick={() => setShowNew(!showNew)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-600 hover:text-brand"
-                  tabIndex={-1}
+                  className={EYE}
                 >
                   {showNew ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
@@ -579,13 +587,12 @@ export default function AdminSettingsPage() {
                   required
                   minLength={8}
                   autoComplete="new-password"
-                  className="pr-10"
+                  className="pr-12"
                 />
                 <button
                   type="button"
                   aria-label={showConfirm ? "Hide password" : "Show password"} onClick={() => setShowConfirm(!showConfirm)}
-                  className="absolute right-3 top-1/2 -translate-y-1/2 cursor-pointer text-earth-600 hover:text-brand"
-                  tabIndex={-1}
+                  className={EYE}
                 >
                   {showConfirm ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                 </button>
