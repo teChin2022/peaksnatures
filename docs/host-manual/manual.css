@@ -1,0 +1,79 @@
+/* Host manual print styles: A4, Thai-first. Printed to PDF by Chrome (build.mjs). */
+@page {
+  size: A4; margin: 16mm 16mm 18mm;
+  @bottom-left { content: "Peaksnature · คู่มือเจ้าของที่พัก"; font: 8pt "Anuphan", sans-serif; color: #75604e; }
+  @bottom-right { content: counter(page) " / " counter(pages); font: 8pt "Anuphan", sans-serif; color: #75604e; }
+}
+@page :first { margin: 0; @bottom-left { content: none; } @bottom-right { content: none; } }
+
+:root {
+  --forest: #2f5d50; --forest-deep: #1e3d34; --forest-mist: #eef3f1; --forest-pale: #d4e0dc;
+  --ivory: #faf8f5; --linen: #f0ebe4; --sand: #e0d5c8; --bark: #75604e; --teak: #5f4d40; --charcoal: #3a2e27;
+  --amber-bg: #fffbeb; --amber-text: #92400e; --red-bg: #fef2f2; --red-text: #b91c1c;
+}
+* { box-sizing: border-box; }
+html { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+body { margin: 0; font-family: "Anuphan", "Sukhumvit Set", "Thonburi", sans-serif; font-size: 10.5pt; line-height: 1.7; color: var(--charcoal); }
+
+h1, h2, h3 { font-family: "Noto Serif Thai", "Playfair Display", serif; font-weight: 700; color: var(--charcoal); line-height: 1.35; }
+/* Taller lines: stacked Thai marks (ป๋, ใบแจ้งหนี้) painted above the line box onto the previous page. */
+h2 { font-size: 20pt; line-height: 1.7; margin: 0 0 4mm; padding-bottom: 2mm; border-bottom: 1.5px solid var(--forest); }
+h3 { font-size: 13pt; margin: 6mm 0 2mm; color: var(--forest-deep); break-after: avoid; }
+h4 { font-size: 11pt; margin: 4mm 0 1mm; break-after: avoid; }
+p { margin: 0 0 2.5mm; }
+ul, ol { margin: 0 0 3mm; padding-left: 6mm; }
+li { margin-bottom: 1mm; }
+strong { font-weight: 600; }
+.ui { font-weight: 600; color: var(--forest-deep); background: var(--forest-mist); padding: 0 1.5mm; border-radius: 2mm; white-space: nowrap; }
+.path { color: var(--bark); font-size: 9.5pt; }
+
+/* Cover */
+.cover { height: 297mm; padding: 34mm 24mm 22mm; background: var(--forest); color: #fff; display: flex; flex-direction: column; break-after: page; }
+.cover .brand { font-family: "Playfair Display", serif; font-size: 15pt; letter-spacing: .12em; text-transform: uppercase; opacity: .85; }
+.cover h1 { color: #fff; font-size: 34pt; margin: 30mm 0 6mm; }
+.cover .sub { font-size: 14pt; opacity: .92; max-width: 140mm; }
+.cover .meta { margin-top: auto; font-size: 10pt; opacity: .8; border-top: 1px solid rgba(255,255,255,.35); padding-top: 5mm; }
+
+/* Contents */
+.toc { break-after: page; }
+.toc ol { list-style: none; padding: 0; columns: 1; }
+.toc li { display: flex; gap: 3mm; padding: 1.6mm 0; border-bottom: 1px dotted var(--sand); }
+.toc .n { color: var(--forest); font-weight: 600; min-width: 9mm; }
+.toc .d { color: var(--bark); margin-left: auto; font-size: 9.5pt; }
+
+section.chapter { break-before: page; }
+
+/* Phone screenshot beside text */
+.row { display: grid; grid-template-columns: 1fr 58mm; gap: 7mm; align-items: start; margin-bottom: 4mm; }
+.row.wide { grid-template-columns: 1fr 74mm; }
+figure { margin: 0; break-inside: avoid; }
+figure img { display: block; width: 100%; border: 1px solid var(--sand); border-radius: 3mm; background: #fff; }
+figure.phone img { border-radius: 4mm; }
+figcaption { font-size: 8.5pt; color: var(--bark); margin-top: 1.5mm; line-height: 1.45; }
+figure.full { margin: 3mm 0 5mm; }
+.pair { display: grid; grid-template-columns: 1fr 1fr; gap: 6mm; margin: 3mm 0 5mm; }
+.trio { display: grid; grid-template-columns: 1fr 1fr 1fr; gap: 5mm; margin: 3mm 0 5mm; }
+
+/* Callouts */
+.note, .warn, .tip { border-radius: 3mm; padding: 3mm 4mm; margin: 3mm 0 4mm; break-inside: avoid; font-size: 10pt; }
+.note { background: var(--linen); }
+.tip { background: var(--forest-mist); }
+.warn { background: var(--amber-bg); color: var(--amber-text); }
+.note > :last-child, .warn > :last-child, .tip > :last-child { margin-bottom: 0; }
+.label { font-weight: 700; display: block; margin-bottom: .5mm; }
+
+/* Steps */
+ol.steps { counter-reset: s; list-style: none; padding: 0; }
+ol.steps > li { counter-increment: s; position: relative; padding-left: 9mm; margin-bottom: 2mm; }
+ol.steps > li::before { content: counter(s); position: absolute; left: 0; top: .4mm; width: 6mm; height: 6mm; border-radius: 50%; background: var(--forest); color: #fff; font-size: 8.5pt; font-weight: 600; display: flex; align-items: center; justify-content: center; }
+
+/* Tables */
+table { width: 100%; border-collapse: collapse; margin: 2mm 0 5mm; font-size: 9.5pt; break-inside: avoid; }
+th, td { text-align: left; vertical-align: top; padding: 2mm 2.5mm; border-bottom: 1px solid var(--sand); }
+th { background: var(--linen); font-weight: 600; }
+td:first-child { min-width: 27mm; }
+.badge { display: inline-block; font-size: 8.5pt; font-weight: 600; padding: 0 2mm; border-radius: 9mm; background: var(--forest-mist); color: var(--forest); }
+.badge.amber { background: var(--amber-bg); color: var(--amber-text); }
+.badge.red { background: var(--red-bg); color: var(--red-text); }
+.badge.grey { background: var(--linen); color: var(--teak); }
+.owner { font-size: 8.5pt; font-weight: 600; color: var(--bark); border: 1px solid var(--sand); border-radius: 9mm; padding: 0 2mm; margin-left: 2mm; vertical-align: middle; font-family: "Anuphan", sans-serif; }
