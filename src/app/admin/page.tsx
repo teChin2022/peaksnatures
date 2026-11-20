@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { cn } from "@/lib/utils";
 import { Receipt, Banknote, RotateCcw, Clock, Ban, CalendarClock, ChevronRight } from "lucide-react";
 import { Card } from "@/components/ui/card";
 import { createServerSupabaseClient, createServiceRoleClient } from "@/lib/supabase/server";
@@ -148,8 +149,10 @@ export default async function AdminDashboardPage() {
           Totals
         </h2>
         <Card className="border-earth-100 bg-white py-0">
-          <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-7">
-            {totals.map((t) => {
+          {/* Phones: the four that need a decision two by two, the three counts three across (no orphan cell). */}
+          <div className="grid grid-cols-6 sm:grid-cols-4 lg:grid-cols-7">
+            {totals.map((t, i) => {
+              const span = i < 4 ? "col-span-3 sm:col-span-1" : "col-span-2 sm:col-span-1";
               const body = (
                 <>
                   <p className="text-xs text-earth-600">{t.label}</p>
@@ -160,12 +163,12 @@ export default async function AdminDashboardPage() {
                 <Link
                   key={t.label}
                   href={t.href}
-                  className="block px-4 py-3 transition-colors hover:bg-earth-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand"
+                  className={cn(span, "block px-4 py-3 transition-colors hover:bg-earth-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand")}
                 >
                   {body}
                 </Link>
               ) : (
-                <div key={t.label} className="px-4 py-3">
+                <div key={t.label} className={cn(span, "px-4 py-3")}>
                   {body}
                 </div>
               );

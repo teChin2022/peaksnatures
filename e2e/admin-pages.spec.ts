@@ -100,3 +100,25 @@ test("bookings: the overview's pending total opens the filtered list, and search
   await page.getByRole("button", { name: "Search", exact: true }).click();
   await searched;
 });
+
+// Mobile first (2026-11-20): phones get rows, and an approved host's actions sit behind one Manage button.
+test("phones: a host's Manage sheet runs the action it was tapped for", async ({ page }, testInfo) => {
+  test.skip(testInfo.project.name !== "phone", "the Manage sheet is phone-only");
+  await openAdmin(page, "/admin/hosts?status=approved");
+  const manage = page.getByRole("button", { name: /^Manage / }).first();
+  test.skip((await manage.count()) === 0, "no approved host to try this on");
+
+  await manage.click();
+  // The sheet must not close before its button's own handler runs (it did once: the dialog never opened).
+  await page.getByRole("dialog").getByRole("button", { name: "Rate" }).click();
+  await expect(page.getByRole("dialog", { name: "Rate Override" })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
+test("billing keeps its status filter in the URL", async ({ page }) => {
+  await openAdmin(page, "/admin/billing?status=paid");
+  await expect(page.getByRole("button", { name: "Paid", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await page.getByRole("button", { name: "All", exact: true }).click();
+  await expect(page).toHaveURL(/\/admin\/billing$/);
+});

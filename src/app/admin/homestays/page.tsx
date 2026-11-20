@@ -13,7 +13,7 @@ import {
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
-import { STICKY_END, TD, TH, TH_ROW } from "@/components/admin/table-classes";
+import { PHONE_TAP, STICKY_END, TABLE, TABLE_CARD, TABLE_WRAP, TBODY, TD, TD_LEAD, TD_TRAIL, TH, TH_ROW, TR } from "@/components/admin/table-classes";
 import { cn } from "@/lib/utils";
 import { LoadError, NETWORK_ERROR, actionFailed } from "@/components/admin/load-error";
 import { fmtDate } from "@/lib/format-date";
@@ -113,31 +113,31 @@ export default function AdminHomestaysPage() {
         />
       ) : (
         <>
-          {/* A table scans faster than cards for staff working a list (audit X3). */}
-          <Card className="overflow-hidden border-earth-100 bg-white py-0">
+          {/* Rows on phones (homestay and its switch, host, place), a table from md. */}
+          <Card className={TABLE_CARD}>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[760px] text-sm">
+              <div className={TABLE_WRAP}>
+                <table className={cn(TABLE, "md:min-w-[680px]")}>
                   <thead>
                     <tr className={TH_ROW}>
                       <th scope="col" className={cn(TH, "min-w-44")}>Homestay</th>
                       <th scope="col" className={TH}>Host</th>
                       <th scope="col" className={TH}>Location</th>
-                      <th scope="col" className={TH}>Created</th>
+                      <th scope="col" className={cn(TH, "hidden xl:table-cell")}>Created</th>
                       <th scope="col" className={cn(TH, "w-px text-right", STICKY_END)}>Online</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-earth-100 text-earth-800">
+                  <tbody className={TBODY}>
                     {res.data.map((homestay) => (
-                      <tr key={homestay.id} className="align-top">
-                        <td className={TD}>
+                      <tr key={homestay.id} className={TR}>
+                        <td className={TD_LEAD}>
                           <div className="flex flex-wrap items-center gap-1.5">
                             <span className="font-semibold text-earth-900">{homestay.name}</span>
                             <StatusBadge status={homestay.is_active ? "active" : "inactive"} />
                           </div>
                           <p className="mt-0.5 font-mono text-xs text-earth-600">/{homestay.slug}</p>
                         </td>
-                        <td className={TD}>
+                        <td className={cn(TD, "max-md:mt-1")}>
                           {homestay.host ? (
                             <Link
                               href={`/admin/hosts/${homestay.host_id}`}
@@ -148,15 +148,16 @@ export default function AdminHomestaysPage() {
                           ) : (
                             "—"
                           )}
-                          {homestay.host?.email && <p className="mt-0.5 break-all text-xs text-earth-600">{homestay.host.email}</p>}
+                          {homestay.host?.email && <p className="mt-0.5 break-all text-xs text-earth-600 max-md:hidden">{homestay.host.email}</p>}
                         </td>
-                        <td className={cn(TD, "max-w-64")}>{homestay.location}</td>
-                        <td className={cn(TD, "whitespace-nowrap text-xs tabular-nums text-earth-600")}>
+                        <td className={cn(TD, "max-md:text-xs max-md:text-earth-600 md:max-w-64")}>{homestay.location}</td>
+                        <td className={cn(TD, "hidden whitespace-nowrap text-xs tabular-nums text-earth-600 xl:table-cell")}>
                           {fmtDate(new Date(homestay.created_at), "MMM d, yyyy · HH:mm", "en")}
                         </td>
-                        <td className={cn(TD, STICKY_END)}>
-                          <div className="flex items-center justify-end gap-2">
-                            <span className="text-xs text-earth-600" aria-hidden>{homestay.is_active ? "On" : "Off"}</span>
+                        <td className={cn(TD_TRAIL, STICKY_END)}>
+                          {/* A label around the switch makes the whole 44px corner tappable on phones. */}
+                          <label className="flex items-center justify-end gap-2 max-md:-mr-2 max-md:-mt-2.5 max-md:min-h-11 max-md:min-w-11 max-md:cursor-pointer max-md:justify-center">
+                            <span className="text-xs text-earth-600 max-md:hidden" aria-hidden>{homestay.is_active ? "On" : "Off"}</span>
                             <Switch
                               checked={homestay.is_active}
                               aria-label={`${homestay.name} booking site online`}
@@ -165,7 +166,7 @@ export default function AdminHomestaysPage() {
                               disabled={toggling === homestay.id}
                               className="cursor-pointer data-[state=checked]:bg-brand"
                             />
-                          </div>
+                          </label>
                         </td>
                       </tr>
                     ))}
@@ -181,10 +182,10 @@ export default function AdminHomestaysPage() {
                 Page {res.page} of {res.totalPages}
               </p>
               <div className="flex items-center gap-2">
-                <Button variant="outline" size="sm" className="cursor-pointer border-earth-200" onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
+                <Button variant="outline" size="sm" className={cn("cursor-pointer border-earth-200", PHONE_TAP)} onClick={() => setPage((p) => Math.max(1, p - 1))} disabled={page <= 1}>
                   Previous
                 </Button>
-                <Button variant="outline" size="sm" className="cursor-pointer border-earth-200" onClick={() => setPage((p) => Math.min(res.totalPages, p + 1))} disabled={page >= res.totalPages}>
+                <Button variant="outline" size="sm" className={cn("cursor-pointer border-earth-200", PHONE_TAP)} onClick={() => setPage((p) => Math.min(res.totalPages, p + 1))} disabled={page >= res.totalPages}>
                   Next
                 </Button>
               </div>

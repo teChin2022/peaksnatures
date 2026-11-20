@@ -95,6 +95,22 @@ describe("Admin hosts: removing verification", () => {
   });
 });
 
+describe("Admin hosts: the phone Manage sheet", () => {
+  it("holds the row's actions, and a tap closes it and opens that action's dialog", async () => {
+    await render();
+    await act(async () => container.querySelector<HTMLButtonElement>('button[aria-label="Manage Wang"]')!.click());
+
+    const sheet = document.body.querySelector('[data-slot="sheet-content"]')!;
+    expect(sheet.textContent).toContain("Commission · wallet ฿500");
+    expect(["Unverify", "Plan", "Rate", "Adjust"].map((t) => !!button(t, sheet))).toEqual([true, true, true, true]);
+
+    await act(async () => button("Adjust", sheet)!.click());
+    expect(document.body.querySelector('[data-slot="sheet-content"]')).toBeNull();
+    expect(document.body.textContent).toContain("Wallet Adjustment");
+    expect(writes()).toHaveLength(0);
+  });
+});
+
 describe("Admin hosts: wallet adjustment", () => {
   it("sends a deduction as a negative amount and previews the balance it leaves", async () => {
     await render();

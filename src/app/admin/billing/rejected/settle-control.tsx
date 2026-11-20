@@ -12,6 +12,8 @@ import {
   Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle,
 } from "@/components/ui/dialog";
 import { fmtDate } from "@/lib/format-date";
+import { PHONE_TAP } from "@/components/admin/table-classes";
+import { cn } from "@/lib/utils";
 
 interface Props {
   logId: string;
@@ -66,13 +68,13 @@ export function SettleControl({ logId, hostName, settlement }: Props) {
           <button
             type="button"
             onClick={() => setOpen("undo")}
-            className="mt-1 cursor-pointer rounded text-earth-600 underline underline-offset-2 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            className="mt-1 cursor-pointer rounded text-earth-600 underline underline-offset-2 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand max-md:min-h-11 max-md:pr-4"
           >
             Undo
           </button>
         </div>
       ) : (
-        <Button size="sm" variant="outline" className="h-9 cursor-pointer whitespace-nowrap" onClick={() => setOpen("settle")}>
+        <Button size="sm" variant="outline" className={cn("h-9 cursor-pointer whitespace-nowrap max-md:w-full", PHONE_TAP)} onClick={() => setOpen("settle")}>
           Mark settled
         </Button>
       )}

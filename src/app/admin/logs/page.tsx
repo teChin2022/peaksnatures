@@ -10,6 +10,7 @@ import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
 import { EmptyState } from "@/components/admin/empty-state";
 import { LoadError, NETWORK_ERROR, actionFailed } from "@/components/admin/load-error";
+import { PHONE_TAP, TABLE, TABLE_CARD, TABLE_WRAP, TBODY, TD, TD_LEAD, TD_TRAIL, TH, TH_ROW, TR } from "@/components/admin/table-classes";
 import { cn } from "@/lib/utils";
 import { fmtDate } from "@/lib/format-date";
 import { toast } from "sonner";
@@ -73,6 +74,10 @@ const ACTOR_TONES: Record<string, EventTone> = {
   admin:  "earth",
   system: "muted",
 };
+
+/** Field borders are earth-500 app-wide (2026-11-16); 44px and 16px text on phones (no iOS zoom). */
+const FILTER_SELECT =
+  "h-11 w-full cursor-pointer rounded-md border border-earth-500 bg-white px-3 text-base text-earth-900 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand md:h-9 md:text-sm";
 
 export default function AdminLogsPage() {
   const [logs, setLogs] = useState<LogRow[]>([]);
@@ -186,8 +191,10 @@ export default function AdminLogsPage() {
           <Button
             size="sm"
             onClick={() => setShowFilters(!showFilters)}
+            aria-expanded={showFilters}
             className={cn(
               "cursor-pointer",
+              PHONE_TAP,
               showFilters
                 ? "bg-brand hover:bg-brand-hover text-white"
                 : "bg-white border border-earth-200 text-earth-700 hover:bg-earth-50 hover:text-brand"
@@ -209,11 +216,12 @@ export default function AdminLogsPage() {
           <CardContent className="p-4">
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="text-xs font-medium text-earth-700 mb-1 block">Event Type</label>
+                <label htmlFor="log-filter-event" className="text-xs font-medium text-earth-700 mb-1 block">Event Type</label>
                 <select
+                  id="log-filter-event"
                   value={eventType}
                   onChange={(e) => setEventType(e.target.value)}
-                  className="w-full cursor-pointer rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-900 focus:outline-none focus:ring-2 focus:ring-brand"
+                  className={FILTER_SELECT}
                 >
                   <option value="">All events</option>
                   {EVENT_TYPE_OPTIONS.map((e) => (
@@ -222,11 +230,12 @@ export default function AdminLogsPage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium text-earth-700 mb-1 block">Entity Type</label>
+                <label htmlFor="log-filter-entity" className="text-xs font-medium text-earth-700 mb-1 block">Entity Type</label>
                 <select
+                  id="log-filter-entity"
                   value={entityType}
                   onChange={(e) => setEntityType(e.target.value)}
-                  className="w-full cursor-pointer rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-900 focus:outline-none focus:ring-2 focus:ring-brand"
+                  className={FILTER_SELECT}
                 >
                   <option value="">All entities</option>
                   {ENTITY_TYPE_OPTIONS.map((e) => (
@@ -235,11 +244,12 @@ export default function AdminLogsPage() {
                 </select>
               </div>
               <div>
-                <label className="text-xs font-medium text-earth-700 mb-1 block">Actor Type</label>
+                <label htmlFor="log-filter-actor" className="text-xs font-medium text-earth-700 mb-1 block">Actor Type</label>
                 <select
+                  id="log-filter-actor"
                   value={actorType}
                   onChange={(e) => setActorType(e.target.value)}
-                  className="w-full cursor-pointer rounded-md border border-earth-200 bg-white px-3 py-2 text-sm text-earth-900 focus:outline-none focus:ring-2 focus:ring-brand"
+                  className={FILTER_SELECT}
                 >
                   <option value="">All actors</option>
                   {ACTOR_TYPE_OPTIONS.map((a) => (
@@ -250,7 +260,7 @@ export default function AdminLogsPage() {
             </div>
             {hasActiveFilters && (
               <div className="mt-3 flex justify-end">
-                <Button variant="ghost" size="sm" onClick={handleClearFilters} className="text-xs cursor-pointer text-earth-600 hover:text-brand">
+                <Button variant="ghost" size="sm" onClick={handleClearFilters} className={cn("text-xs cursor-pointer text-earth-600 hover:text-brand", PHONE_TAP)}>
                   Clear all filters
                 </Button>
               </div>
@@ -279,7 +289,7 @@ export default function AdminLogsPage() {
                   type="button"
                   onClick={f.clear}
                   aria-label={`Remove ${f.name.toLowerCase()} filter`}
-                  className="flex h-6 w-6 cursor-pointer items-center justify-center rounded-full text-earth-600 hover:bg-earth-50 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                  className="flex size-6 cursor-pointer items-center justify-center rounded-full text-earth-600 hover:bg-earth-50 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand max-md:size-9"
                 >
                   <X className="h-3.5 w-3.5" />
                 </button>
@@ -311,32 +321,32 @@ export default function AdminLogsPage() {
         />
       ) : (
         <>
-          {/* A table scans faster than cards for staff working a list (audit X3). */}
-          <Card className="overflow-hidden border-earth-100 bg-white">
+          {/* Rows on phones, a table from md (owner, 2026-11-20); one markup for both. */}
+          <Card className={TABLE_CARD}>
             <CardContent className="p-0">
-              <div className="overflow-x-auto">
-                <table className="w-full min-w-[900px] text-sm">
+              <div className={TABLE_WRAP}>
+                <table className={cn(TABLE, "md:min-w-[680px]")}>
                   <thead>
-                    <tr className="border-b border-earth-100 text-left text-xs text-earth-600">
-                      <th scope="col" className="px-4 py-2.5 font-medium">Time</th>
-                      <th scope="col" className="px-4 py-2.5 font-medium">Event</th>
-                      <th scope="col" className="px-4 py-2.5 font-medium">Subject</th>
-                      <th scope="col" className="px-4 py-2.5 font-medium">By</th>
-                      <th scope="col" className="px-4 py-2.5 font-medium">Details</th>
+                    <tr className={TH_ROW}>
+                      <th scope="col" className={TH}>Time</th>
+                      <th scope="col" className={TH}>Event</th>
+                      <th scope="col" className={TH}>Subject</th>
+                      <th scope="col" className={cn(TH, "hidden lg:table-cell")}>By</th>
+                      <th scope="col" className={TH}>Details</th>
                     </tr>
                   </thead>
-                  <tbody className="divide-y divide-earth-100 text-earth-800">
+                  <tbody className={TBODY}>
                     {logs.map((log) => (
                       // Row click is a mouse shortcut; the Event button is the keyboard path.
                       <tr
                         key={log.id}
                         onClick={() => setSelectedLog(log)}
-                        className="cursor-pointer align-top hover:bg-earth-50/60"
+                        className={cn(TR, "cursor-pointer hover:bg-earth-50/60")}
                       >
-                        <td className="whitespace-nowrap px-4 py-3 text-xs tabular-nums text-earth-600">
+                        <td className={cn(TD_TRAIL, "whitespace-nowrap text-xs tabular-nums text-earth-600")}>
                           {formatDate(log.created_at)}
                         </td>
-                        <td className="px-4 py-3">
+                        <td className={TD_LEAD}>
                           <button
                             type="button"
                             onClick={(e) => {
@@ -359,17 +369,19 @@ export default function AdminLogsPage() {
                             />
                           </button>
                         </td>
-                        <td className="px-4 py-3 font-medium">
+                        <td className={cn(TD, "font-medium max-md:mt-1")}>
                           {log.entity_label}
                           {log.entity_context && (
                             <span className="block text-xs font-normal text-earth-600">{log.entity_context}</span>
                           )}
+                          {/* Below lg the By column folds in here. */}
+                          <span className="block text-xs font-normal text-earth-600 lg:hidden">by {log.actor_label}</span>
                         </td>
-                        <td className="px-4 py-3 text-xs text-earth-600">
+                        <td className="hidden px-4 py-3 text-xs text-earth-600 lg:table-cell">
                           {log.actor_label}
                           {log.ip_address && <span className="block text-earth-600">{log.ip_address}</span>}
                         </td>
-                        <td className="max-w-md px-4 py-3">{renderDataSummary(log.data)}</td>
+                        <td className={cn(TD, "md:max-w-md")}>{renderDataSummary(log.data)}</td>
                       </tr>
                     ))}
                   </tbody>
@@ -380,7 +392,7 @@ export default function AdminLogsPage() {
 
           {hasMore && (
             <div className="mt-4 flex justify-center">
-              <Button variant="outline" size="sm" className="cursor-pointer border-earth-200" onClick={handleLoadMore} disabled={loadingMore}>
+              <Button variant="outline" size="sm" className={cn("cursor-pointer border-earth-200", PHONE_TAP)} onClick={handleLoadMore} disabled={loadingMore}>
                 {loadingMore && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
                 Load More
               </Button>

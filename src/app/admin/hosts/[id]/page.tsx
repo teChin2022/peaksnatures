@@ -9,6 +9,8 @@ import { getPlanExpiryInfo } from "@/lib/plan-expiry";
 import { Card, CardContent } from "@/components/ui/card";
 import { PageHeader } from "@/components/admin/page-header";
 import { StatusBadge } from "@/components/admin/status-badge";
+import { TABLE, TABLE_CARD, TABLE_WRAP, TBODY, TD, TD_LEAD, TD_TRAIL, TH, TH_ROW, TR } from "@/components/admin/table-classes";
+import { cn } from "@/lib/utils";
 import { eventLabel } from "@/lib/history-event-types";
 import { DETAIL_LIMITS, getAdminHostDetail } from "./data";
 
@@ -16,46 +18,66 @@ const PLAN_LABELS: Record<string, string> = { free: "Free", commission: "Commiss
 const day = (d: string) => fmtDateStr(d, "MMM d, yyyy", "en");
 const signedTHB = (n: number) => `${n < 0 ? "−" : "+"}${fmtTHB(Math.abs(n))}`;
 
-function Section({ title, note, children }: { title: string; note?: string; children: React.ReactNode }) {
+/** An empty section is one line (title, then what is missing), not a card holding one sentence. */
+function Section({ title, note, empty, children }: { title: string; note?: string; empty?: string; children?: React.ReactNode }) {
+  if (empty) {
+    return (
+      <section className="mt-6 flex flex-wrap items-baseline justify-between gap-x-3 gap-y-1 border-b border-earth-100 pb-3">
+        <h2 className="text-sm font-semibold text-earth-900">{title}</h2>
+        <p className="text-sm text-earth-600">{empty}</p>
+      </section>
+    );
+  }
   return (
     <section className="mt-6">
       <div className="mb-2 flex items-baseline justify-between gap-3">
         <h2 className="text-sm font-semibold text-earth-900">{title}</h2>
         {note && <p className="text-xs text-earth-600">{note}</p>}
       </div>
-      <Card className="border-earth-100 bg-white">
+      <Card className={TABLE_CARD}>
         <CardContent className="p-0">{children}</CardContent>
       </Card>
     </section>
   );
 }
 
-function Empty({ children }: { children: React.ReactNode }) {
-  return <p className="px-4 py-6 text-sm text-earth-600">{children}</p>;
-}
-
-/** A dense table that scrolls sideways inside its card on a phone, never the page. */
+/** Rows on phones, a table from md (owner, 2026-11-20): see table-classes.ts. */
 function Table({ head, numeric, children }: { head: string[]; numeric: string[]; children: React.ReactNode }) {
   return (
-    <div className="overflow-x-auto">
-      <table className="w-full min-w-[560px] text-sm">
+    <div className={TABLE_WRAP}>
+      <table className={TABLE}>
         <thead>
-          <tr className="border-b border-earth-100 text-left text-xs text-earth-600">
+          <tr className={TH_ROW}>
             {head.map((h) => (
-              <th key={h} scope="col" className={`px-4 py-2.5 font-medium ${numeric.includes(h) ? "text-right" : ""}`}>
+              <th key={h} scope="col" className={cn(TH, numeric.includes(h) && "text-right")}>
                 {h}
               </th>
             ))}
           </tr>
         </thead>
-        <tbody className="divide-y divide-earth-100 text-earth-800">{children}</tbody>
+        <tbody className={TBODY}>{children}</tbody>
       </table>
     </div>
   );
 }
 
-const td = "px-4 py-2.5 align-top";
-const tdNum = `${td} text-right tabular-nums whitespace-nowrap`;
+const num = "text-right tabular-nums whitespace-nowrap";
+/** Phones: a small named figure beside its pair under the row's first line. */
+const part = "max-md:col-span-1 max-md:text-xs max-md:text-earth-600";
+/** Activity rows shown before "Show all". */
+const ACTIVITY_SHOWN = 10;
+
+function activityRow(l: { id: string; event_type: string; actor_type: string; created_at: string }) {
+  return (
+    <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm">
+      <span className="flex items-center gap-2">
+        <span className="text-earth-800">{eventLabel(l.event_type)}</span>
+        <StatusBadge status={l.actor_type} />
+      </span>
+      <span className="text-xs tabular-nums text-earth-600">{fmtBangkokTime(l.created_at)}</span>
+    </li>
+  );
+}
 
 export default async function AdminHostDetailPage({ params }: { params: Promise<{ id: string }> }) {
   const supabase = await createServerSupabaseClient();
@@ -85,14 +107,14 @@ export default async function AdminHostDetailPage({ params }: { params: Promise<
     <div>
       <Link
         href="/admin/hosts"
-        className="mb-3 inline-flex items-center gap-1.5 rounded text-sm text-earth-600 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+        className="mb-3 inline-flex min-h-11 items-center gap-1.5 rounded text-sm text-earth-600 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand md:min-h-0"
       >
         <ArrowLeft className="h-4 w-4" />
         Hosts
       </Link>
-      <PageHeader subtitle="Host" title={host.name} />
+      <PageHeader title={host.name} />
 
-      <Card className="border-earth-100 bg-white">
+      <Card className="border-earth-100 bg-white py-0">
         <CardContent className="grid gap-5 p-5 sm:grid-cols-2 lg:grid-cols-4">
           <div className="min-w-0">
             <p className="mb-1.5 text-xs text-earth-600">Status</p>
@@ -120,25 +142,24 @@ export default async function AdminHostDetailPage({ params }: { params: Promise<
           </div>
           <div className="min-w-0 space-y-1 text-sm text-earth-800">
             <p className="mb-1.5 text-xs text-earth-600">Contact</p>
-            <p className="flex items-center gap-1.5 break-all">
+            {/* Tap to write or call. */}
+            <a href={`mailto:${host.email}`} className="flex min-h-6 items-center gap-1.5 break-all underline-offset-4 hover:text-brand hover:underline">
               <Mail className="h-3.5 w-3.5 shrink-0 text-earth-400" />
               {host.email}
-            </p>
+            </a>
             {host.phone && (
-              <p className="flex items-center gap-1.5">
+              <a href={`tel:${host.phone}`} className="flex min-h-6 w-fit items-center gap-1.5 tabular-nums underline-offset-4 hover:text-brand hover:underline">
                 <Phone className="h-3.5 w-3.5 shrink-0 text-earth-400" />
                 {host.phone}
-              </p>
+              </a>
             )}
             <p className="text-xs text-earth-600">Joined {fmtBangkokTime(host.created_at)}</p>
           </div>
         </CardContent>
       </Card>
 
-      <Section title="Homestays">
-        {homestays.length === 0 ? (
-          <Empty>No homestay yet.</Empty>
-        ) : (
+      <Section title="Homestays" empty={homestays.length === 0 ? "No homestay yet." : undefined}>
+        {homestays.length > 0 && (
           <ul className="divide-y divide-earth-100">
             {homestays.map((h) => (
               <li key={h.id} className="flex items-center justify-between gap-3 px-4 py-3 text-sm">
@@ -150,7 +171,7 @@ export default async function AdminHostDetailPage({ params }: { params: Promise<
                   href={`/${h.slug}`}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="inline-flex shrink-0 items-center gap-1 rounded text-earth-600 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+                  className="inline-flex shrink-0 items-center gap-1 rounded text-earth-600 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand max-md:min-h-11"
                 >
                   /{h.slug}
                   <ExternalLink className="h-3.5 w-3.5" aria-hidden />
@@ -163,77 +184,69 @@ export default async function AdminHostDetailPage({ params }: { params: Promise<
       </Section>
 
       {/* Money before the wide text, so a phone sees it without scrolling sideways. */}
-      <Section title="Wallet ledger" note={`Latest ${DETAIL_LIMITS.wallet}`}>
-        {wallet.length === 0 ? (
-          <Empty>No wallet activity.</Empty>
-        ) : (
+      <Section title="Wallet ledger" note={`Latest ${DETAIL_LIMITS.wallet}`} empty={wallet.length === 0 ? "No wallet activity." : undefined}>
+        {wallet.length > 0 && (
           <Table head={["Date", "Type", "Amount", "Balance", "Description", "By"]} numeric={["Amount", "Balance"]}>
             {wallet.map((t) => (
-              <tr key={t.id}>
-                <td className={`${td} whitespace-nowrap tabular-nums`}>{fmtBangkokTime(t.created_at)}</td>
-                <td className={td}>
+              <tr key={t.id} className={TR}>
+                <td className={cn(TD, "whitespace-nowrap tabular-nums max-md:order-2 max-md:text-xs max-md:text-earth-600")}>{fmtBangkokTime(t.created_at)}</td>
+                <td className={cn(TD_LEAD, "max-md:font-medium max-md:text-earth-900")}>
                   {t.type}
                   {t.status !== "verified" && <StatusBadge status={t.status} className="ml-1.5" />}
                 </td>
-                <td className={`${tdNum} ${t.amount < 0 ? "text-red-700" : ""}`}>{signedTHB(t.amount)}</td>
-                <td className={tdNum}>{fmtTHB(t.balance_after)}</td>
-                <td className={`${td} min-w-56 text-earth-600`}>{t.description ?? "—"}</td>
-                <td className={`${td} text-earth-600`}>{t.created_by}</td>
+                <td className={cn(TD_TRAIL, num, t.amount < 0 && "text-red-700")}>{signedTHB(t.amount)}</td>
+                <td className={cn(TD, num, "max-md:text-left max-md:text-xs max-md:text-earth-600 max-md:before:content-['Balance_']")}>{fmtTHB(t.balance_after)}</td>
+                <td className={cn(TD, "text-earth-600 md:min-w-56")}>{t.description ?? "—"}</td>
+                <td className={cn(TD, "text-earth-600 max-md:order-2 max-md:text-xs max-md:before:content-['by_']")}>{t.created_by}</td>
               </tr>
             ))}
           </Table>
         )}
       </Section>
 
-      <Section title="Invoices" note={`Latest ${DETAIL_LIMITS.invoices}`}>
-        {invoices.length === 0 ? (
-          <Empty>No invoices.</Empty>
-        ) : (
+      <Section title="Invoices" note={`Latest ${DETAIL_LIMITS.invoices}`} empty={invoices.length === 0 ? "No invoices." : undefined}>
+        {invoices.length > 0 && (
           <Table head={["Period", "Term", "Due", "Status", "Amount"]} numeric={["Amount"]}>
             {invoices.map((inv) => (
-              <tr key={inv.id}>
-                <td className={`${td} whitespace-nowrap`}>
+              <tr key={inv.id} className={TR}>
+                <td className={cn(TD_LEAD, "md:whitespace-nowrap")}>
                   {day(inv.period_start)} → {day(inv.period_end)}
                 </td>
-                <td className={td}>{inv.term_months} mo</td>
-                <td className={`${td} whitespace-nowrap`}>{day(inv.due_date)}</td>
-                <td className={td}>
+                <td className={cn(TD, part)}>{inv.term_months} mo</td>
+                <td className={cn(TD, part, "whitespace-nowrap max-md:before:content-['Due_']")}>{day(inv.due_date)}</td>
+                <td className={cn(TD, "max-md:mt-1")}>
                   <StatusBadge status={inv.status} />
                   {inv.paid_at && <span className="ml-1.5 text-xs text-earth-600">{fmtBangkokTime(inv.paid_at)}</span>}
                 </td>
-                <td className={tdNum}>{fmtTHB(inv.amount)}</td>
+                <td className={cn(TD_TRAIL, num, "max-md:font-semibold max-md:text-earth-900")}>{fmtTHB(inv.amount)}</td>
               </tr>
             ))}
           </Table>
         )}
       </Section>
 
-      <Section title="Recent bookings" note={`Latest ${DETAIL_LIMITS.bookings}`}>
-        {bookings.length === 0 ? (
-          <Empty>No bookings.</Empty>
-        ) : (
+      <Section title="Recent bookings" note={`Latest ${DETAIL_LIMITS.bookings}`} empty={bookings.length === 0 ? "No bookings." : undefined}>
+        {bookings.length > 0 && (
           <Table head={["Guest", "Stay", "Source", "Status", "Total"]} numeric={["Total"]}>
             {bookings.map((b) => (
-              <tr key={b.id}>
-                <td className={td}>{b.guest_name}</td>
-                <td className={`${td} whitespace-nowrap`}>
+              <tr key={b.id} className={TR}>
+                <td className={cn(TD_LEAD, "max-md:font-medium max-md:text-earth-900")}>{b.guest_name}</td>
+                <td className={cn(TD, "md:whitespace-nowrap")}>
                   {day(b.check_in)} → {day(b.check_out)}
                 </td>
-                <td className={`${td} text-earth-600`}>{b.booking_source}</td>
-                <td className={td}>
+                <td className={cn(TD, part, "text-earth-600 max-md:self-center")}>{b.booking_source}</td>
+                <td className={cn(TD, "max-md:col-span-1 max-md:mt-1")}>
                   <StatusBadge status={b.status} />
                 </td>
-                <td className={tdNum}>{fmtTHB(b.total_price)}</td>
+                <td className={cn(TD_TRAIL, num)}>{fmtTHB(b.total_price)}</td>
               </tr>
             ))}
           </Table>
         )}
       </Section>
 
-      <Section title="Staff logins">
-        {staff.length === 0 ? (
-          <Empty>No staff logins.</Empty>
-        ) : (
+      <Section title="Staff logins" empty={staff.length === 0 ? "No staff logins." : undefined}>
+        {staff.length > 0 && (
           <ul className="divide-y divide-earth-100">
             {staff.map((s) => (
               <li key={s.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-3 text-sm">
@@ -246,21 +259,21 @@ export default async function AdminHostDetailPage({ params }: { params: Promise<
         )}
       </Section>
 
-      <Section title="Activity" note={`Latest ${DETAIL_LIMITS.logs}`}>
-        {logs.length === 0 ? (
-          <Empty>No recorded activity.</Empty>
-        ) : (
-          <ul className="divide-y divide-earth-100">
-            {logs.map((l) => (
-              <li key={l.id} className="flex flex-wrap items-center justify-between gap-2 px-4 py-2.5 text-sm">
-                <span className="flex items-center gap-2">
-                  <span className="text-earth-800">{eventLabel(l.event_type)}</span>
-                  <StatusBadge status={l.actor_type} />
-                </span>
-                <span className="text-xs tabular-nums text-earth-600">{fmtBangkokTime(l.created_at)}</span>
-              </li>
-            ))}
-          </ul>
+      <Section title="Activity" note={`Latest ${DETAIL_LIMITS.logs}`} empty={logs.length === 0 ? "No recorded activity." : undefined}>
+        {logs.length > 0 && (
+          <>
+            <ul className="divide-y divide-earth-100">{logs.slice(0, ACTIVITY_SHOWN).map(activityRow)}</ul>
+            {/* The newest few first; the rest one tap away (mostly logins and logouts). */}
+            {logs.length > ACTIVITY_SHOWN && (
+              <details className="group border-t border-earth-100">
+                <summary className="flex min-h-11 cursor-pointer list-none items-center px-4 text-sm font-medium text-earth-800 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-brand group-open:border-b group-open:border-earth-100 [&::-webkit-details-marker]:hidden">
+                  <span className="group-open:hidden">Show {logs.length - ACTIVITY_SHOWN} more</span>
+                  <span className="hidden group-open:inline">Older activity</span>
+                </summary>
+                <ul className="divide-y divide-earth-100">{logs.slice(ACTIVITY_SHOWN).map(activityRow)}</ul>
+              </details>
+            )}
+          </>
         )}
       </Section>
     </div>

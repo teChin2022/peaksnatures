@@ -64,6 +64,13 @@ describe("AdminShell: work badges", () => {
     expect(link("/admin/billing").getAttribute("aria-label")).toBeNull();
   });
 
+  it("puts the total on the phone menu button, so a closed drawer still shows waiting work", async () => {
+    await render();
+    const menu = container.querySelector<HTMLButtonElement>('button[aria-label^="Open menu"]')!;
+    expect(menu.getAttribute("aria-label")).toBe("Open menu, 3 waiting");
+    expect(menu.textContent).toBe("3");
+  });
+
   it("refetches the counts when the page changes", async () => {
     await render();
     nav.pathname = "/admin/hosts";
@@ -76,6 +83,7 @@ describe("AdminShell: work badges", () => {
     await render();
     expect(link("/admin/hosts").getAttribute("aria-label")).toBeNull();
     expect(link("/admin/hosts").textContent).toBe("Hosts");
+    expect(container.querySelector('button[aria-label="Open menu"]')).not.toBeNull();
   });
 });
 

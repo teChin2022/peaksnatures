@@ -38,7 +38,7 @@ export function SearchBox({
           onChange={(e) => setDraft(e.target.value)}
           aria-label={label}
           placeholder={placeholder}
-          className="h-10 w-full rounded-full border border-earth-500 bg-white pl-9 pr-9 text-sm text-earth-900 placeholder:text-earth-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 [&::-webkit-search-cancel-button]:hidden"
+          className="h-11 w-full rounded-full border border-earth-500 bg-white pl-9 pr-11 text-base text-earth-900 md:h-10 md:pr-9 md:text-sm placeholder:text-earth-600 focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2 [&::-webkit-search-cancel-button]:hidden"
         />
         {draft && (
           <button
@@ -48,7 +48,7 @@ export function SearchBox({
               if (value) onSearch("");
             }}
             aria-label="Clear search"
-            className="absolute right-1 top-1/2 flex h-8 w-8 -translate-y-1/2 cursor-pointer items-center justify-center rounded-full text-earth-600 hover:bg-earth-50 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
+            className="absolute right-0.5 top-1/2 flex size-10 -translate-y-1/2 md:right-1 md:size-8 cursor-pointer items-center justify-center rounded-full text-earth-600 hover:bg-earth-50 hover:text-brand focus:outline-none focus-visible:ring-2 focus-visible:ring-brand"
           >
             <X className="h-4 w-4" />
           </button>
@@ -56,7 +56,7 @@ export function SearchBox({
       </div>
       <button
         type="submit"
-        className="h-10 shrink-0 cursor-pointer rounded-full bg-brand px-4 text-sm font-medium text-white hover:bg-brand-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
+        className="h-11 shrink-0 cursor-pointer rounded-full bg-brand px-4 md:h-10 text-sm font-medium text-white hover:bg-brand-hover focus:outline-none focus-visible:ring-2 focus-visible:ring-brand focus-visible:ring-offset-2"
       >
         Search
       </button>
