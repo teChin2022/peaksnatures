@@ -16,6 +16,9 @@ export interface DemandPanelLabels {
   topDatesTitle: string;
   topDatesHint: string;
   stages: Record<DemandStage, string>;
+  /** Rows under "booked": standard bookings and quick bookings. */
+  bookedStandard: string;
+  bookedQuick: string;
   sessions: string;
   conversion: string;
   lostDemand: string;
@@ -39,10 +42,13 @@ function BarRow({
   label,
   value,
   trailing,
+  indent,
   children,
 }: {
   label: string;
   value: string;
+  /** A side row that is part of the row above, not a step of its own. */
+  indent?: boolean;
   /** Right-most column: drop-off % on the funnel, sold-out count on the dates. */
   trailing?: React.ReactNode;
   /** The bar fill, rendered inside the shared track. */
@@ -52,7 +58,7 @@ function BarRow({
     // Phones: label, value and trailing on one line, the bar full width under them
     // (beside a 112px label the bar was ~40px and unreadable). From sm: one row.
     <div className="grid grid-cols-[1fr_auto_auto] items-center gap-x-3 gap-y-1 sm:flex sm:gap-3">
-      <span className="truncate text-xs text-earth-600 sm:w-36 sm:shrink-0">{label}</span>
+      <span className={cn("truncate text-xs text-earth-600 sm:w-40 sm:shrink-0", indent && "pl-3")}>{label}</span>
       <div className="col-span-3 row-start-2 h-4 overflow-hidden rounded bg-earth-50 sm:h-5 sm:flex-1">{children}</div>
       <span className="w-12 shrink-0 text-right text-xs font-medium tabular-nums text-earth-900">
         {value}
@@ -120,6 +126,11 @@ export function DemandPanel({
   const top = Math.max(0, ...(stats?.funnel ?? []).map((f) => f.sessions));
   const hasData = top > 0;
   const maxRequested = Math.max(1, ...(stats?.topDates ?? []).map((d) => d.requested));
+  // The slip row is a side row: quick booking uploads no slip on the page, so it gets no
+  // drop-off of its own and "booked" is compared with the payment page instead.
+  const steps = (stats?.funnel ?? []).filter((f) => f.stage !== "slip_uploaded");
+  const quick = stats?.totals?.quickConversions ?? 0;
+  const barWidth = (n: number) => `${top > 0 ? Math.max(1, (n / top) * 100) : 0}%`;
 
   return (
     <Card className="border border-earth-100 shadow-sm rounded-2xl">
@@ -185,26 +196,39 @@ export function DemandPanel({
             <div>
               <p className="mb-2 text-xs font-semibold text-earth-800">{labels.funnelTitle}</p>
               <div className="space-y-1.5">
-                {stats.funnel.map((row, i) => {
-                  const prev = i === 0 ? null : stats.funnel[i - 1].sessions;
+                {stats.funnel.map((row) => {
+                  const side = row.stage === "slip_uploaded";
+                  const i = steps.indexOf(row);
+                  const prev = side || i <= 0 ? null : steps[i - 1].sessions;
                   // Drop-off against the previous stage, not against the top —
                   // that is the number that says which screen loses people.
                   const dropPct =
                     prev && prev > 0 ? Math.round(((prev - row.sessions) / prev) * 100) : null;
-                  const widthPct = top > 0 ? Math.max(1, (row.sessions / top) * 100) : 0;
                   return (
-                    <BarRow
-                      key={row.stage}
-                      label={labels.stages[row.stage]}
-                      value={row.sessions.toLocaleString()}
-                      trailing={
-                        dropPct !== null && dropPct > 0 ? (
-                          <span className="text-earth-600">{`-${dropPct}%`}</span>
-                        ) : null
-                      }
-                    >
-                      <div className="h-full rounded bg-brand/80" style={{ width: `${widthPct}%` }} />
-                    </BarRow>
+                    <React.Fragment key={row.stage}>
+                      <BarRow
+                        label={labels.stages[row.stage]}
+                        value={row.sessions.toLocaleString()}
+                        indent={side}
+                        trailing={
+                          dropPct !== null && dropPct > 0 ? (
+                            <span className="text-earth-600">{`-${dropPct}%`}</span>
+                          ) : null
+                        }
+                      >
+                        <div className="h-full rounded bg-brand/80" style={{ width: barWidth(row.sessions) }} />
+                      </BarRow>
+                      {row.stage === "booking_submitted" &&
+                        quick > 0 &&
+                        ([
+                          [labels.bookedStandard, row.sessions - quick],
+                          [labels.bookedQuick, quick],
+                        ] as const).map(([label, n]) => (
+                          <BarRow key={label} label={label} value={n.toLocaleString()} indent>
+                            <div className="h-full rounded bg-brand/80" style={{ width: barWidth(n) }} />
+                          </BarRow>
+                        ))}
+                    </React.Fragment>
                   );
                 })}
               </div>

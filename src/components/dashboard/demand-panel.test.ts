@@ -51,3 +51,37 @@ describe("DemandPanel: range buttons", () => {
     expect(pressed).toEqual(["30"]);
   });
 });
+
+// Quick booking uploads no slip on the page, so the slip row is not a step every booking passes.
+describe("DemandPanel: slip and quick bookings", () => {
+  const funnel = (quickConversions: number | null) => ({
+    funnel: [
+      ["page_view", 100], ["calendar_view", 80], ["dates_selected", 60], ["step_dates", 40],
+      ["step_details", 20], ["step_payment", 20], ["slip_uploaded", 5], ["booking_submitted", 15],
+    ].map(([stage, sessions]) => ({ stage, sessions })),
+    topDates: [],
+    totals: { sessions: 100, conversions: 15, lostDemand: 0, conversionPct: 15, quickConversions },
+  });
+  const row = (label: string) =>
+    [...container.querySelectorAll("span")].find((s) => s.textContent === label)?.parentElement?.textContent;
+
+  it("compares bookings with the payment page, and gives the slip row no drop-off", async () => {
+    await render({ ok: true, json: async () => funnel(10) });
+    expect(row("booking_submitted")).toBe("booking_submitted15-25%");
+    expect(row("slip_uploaded")).toBe("slip_uploaded5");
+  });
+
+  it("splits bookings into standard and quick", async () => {
+    await render({ ok: true, json: async () => funnel(10) });
+    expect(row("bookedStandard")).toBe("bookedStandard5");
+    expect(row("bookedQuick")).toBe("bookedQuick10");
+  });
+
+  it("shows no split when there were no quick bookings, or the count is unknown", async () => {
+    for (const quick of [0, null]) {
+      await render({ ok: true, json: async () => funnel(quick) });
+      expect(row("bookedQuick")).toBeUndefined();
+      expect(row("bookedStandard")).toBeUndefined();
+    }
+  });
+});
