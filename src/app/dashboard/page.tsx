@@ -133,6 +133,8 @@ export default function DashboardPage() {
         slip_uploaded: t("demandStageSlip"),
         booking_submitted: t("demandStageDone"),
       },
+      bookedStandard: t("demandBookedStandard"),
+      bookedQuick: t("demandBookedQuick"),
       sessions: t("demandSessions"),
       conversion: t("demandConversion"),
       lostDemand: t("demandLost"),

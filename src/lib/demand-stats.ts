@@ -8,7 +8,7 @@
  * from shipping every row into the serverless function.
  */
 import type { SupabaseClient } from "@supabase/supabase-js";
-import { DEMAND_STAGES, type DemandStage } from "@/lib/demand-events";
+import { DEMAND_STAGES, DemandEvent, type DemandStage } from "@/lib/demand-events";
 
 export interface DemandFunnelStage {
   stage: DemandStage;
@@ -31,6 +31,8 @@ export interface DemandStats {
     lostDemand: number;
     /** Percent of page_view sessions that reached booking_submitted. */
     conversionPct: number;
+    /** Of `conversions`, the quick bookings (no slip on the page). Null when that read failed. */
+    quickConversions: number | null;
   };
 }
 
@@ -43,7 +45,7 @@ interface RawStats {
 const EMPTY: DemandStats = {
   funnel: DEMAND_STAGES.map((stage) => ({ stage, sessions: 0 })),
   topDates: [],
-  totals: { sessions: 0, conversions: 0, lostDemand: 0, conversionPct: 0 },
+  totals: { sessions: 0, conversions: 0, lostDemand: 0, conversionPct: 0, quickConversions: null },
 };
 
 export async function getDemandStats(
@@ -51,10 +53,24 @@ export async function getDemandStats(
   supabase: SupabaseClient<any, any, any>,
   { homestayId, days }: { homestayId?: string | null; days: number },
 ): Promise<DemandStats> {
-  const { data, error } = await supabase.rpc("get_demand_stats" as never, {
-    p_homestay_id: homestayId ?? null,
-    p_days: days,
-  } as never);
+  // Quick bookings carry data.quick (booking-section.tsx). The RPC does not split them, so
+  // count them here over the same scope and window: distinct sessions, as the RPC counts.
+  // shortcut: reads at most the API's row cap (1,000) of quick bookings; move into the RPC if the window ever holds more.
+  let quickQuery = supabase
+    .from("demand_events")
+    .select("session_id")
+    .eq("event_type", DemandEvent.BOOKING_SUBMITTED)
+    .contains("data", { quick: true })
+    .gte("created_at", new Date(Date.now() - Math.max(days, 1) * 86_400_000).toISOString());
+  if (homestayId) quickQuery = quickQuery.eq("homestay_id", homestayId);
+
+  const [{ data, error }, quick] = await Promise.all([
+    supabase.rpc("get_demand_stats" as never, {
+      p_homestay_id: homestayId ?? null,
+      p_days: days,
+    } as never),
+    quickQuery,
+  ]);
 
   if (error) {
     console.error("[DemandStats] rpc failed:", error.message);
@@ -81,6 +97,10 @@ export async function getDemandStats(
 
   const sessions = raw.totals?.sessions ?? 0;
   const conversions = raw.totals?.conversions ?? 0;
+  if (quick.error) console.error("[DemandStats] quick count failed:", quick.error.message);
+  const quickSessions = quick.error
+    ? null
+    : new Set(((quick.data ?? []) as { session_id: string }[]).map((r) => r.session_id)).size;
 
   return {
     funnel,
@@ -90,6 +110,8 @@ export async function getDemandStats(
       conversions,
       lostDemand: raw.totals?.lost_demand ?? 0,
       conversionPct: sessions > 0 ? Math.round((conversions / sessions) * 1000) / 10 : 0,
+      // The two reads see NOW() a moment apart, so never let the part exceed the whole.
+      quickConversions: quickSessions === null ? null : Math.min(quickSessions, conversions),
     },
   };
 }

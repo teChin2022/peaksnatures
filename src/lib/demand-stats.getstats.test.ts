@@ -2,11 +2,12 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { getDemandStats } from "@/lib/demand-stats";
 import { DEMAND_STAGES } from "@/lib/demand-events";
+import { createSupabaseMock, type QueryResponse } from "../../test/helpers/supabase";
 
 type Client = Parameters<typeof getDemandStats>[0];
 
-const clientReturning = (result: { data?: unknown; error?: unknown }) =>
-  ({ rpc: vi.fn(() => Promise.resolve({ data: result.data ?? null, error: result.error ?? null })) }) as unknown as Client;
+const clientReturning = (result: { data?: unknown; error?: unknown }, quick: QueryResponse = {}) =>
+  createSupabaseMock({ rpc: { get_demand_stats: result }, tables: { demand_events: quick } }) as unknown as Client;
 
 beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
@@ -80,7 +81,7 @@ describe("getDemandStats", () => {
       { days: 30 },
     );
 
-    expect(stats.totals).toEqual({ sessions: 300, conversions: 7, lostDemand: 21, conversionPct: 2.3 });
+    expect(stats.totals).toEqual({ sessions: 300, conversions: 7, lostDemand: 21, conversionPct: 2.3, quickConversions: 0 });
   });
 
   it("reports a zero conversion rate rather than dividing by zero", async () => {
@@ -97,7 +98,7 @@ describe("getDemandStats", () => {
     expect(stats.funnel).toHaveLength(DEMAND_STAGES.length);
     expect(stats.funnel.every((f) => f.sessions === 0)).toBe(true);
     expect(stats.topDates).toEqual([]);
-    expect(stats.totals).toEqual({ sessions: 0, conversions: 0, lostDemand: 0, conversionPct: 0 });
+    expect(stats.totals).toEqual({ sessions: 0, conversions: 0, lostDemand: 0, conversionPct: 0, quickConversions: null });
     expect(console.error).toHaveBeenCalled();
   });
 
@@ -105,5 +106,51 @@ describe("getDemandStats", () => {
     const stats = await getDemandStats(clientReturning({ data: null }), { days: 30 });
     expect(stats.totals.sessions).toBe(0);
     expect(stats.funnel).toHaveLength(DEMAND_STAGES.length);
+  });
+
+  // Quick bookings upload no slip on the page, so the panel shows them apart from standard ones.
+  describe("quick bookings", () => {
+    it("counts distinct sessions whose booking was quick, in the same homestay and window", async () => {
+      vi.useFakeTimers();
+      vi.setSystemTime(new Date("2026-11-24T05:00:00Z"));
+      const client = createSupabaseMock({
+        rpc: { get_demand_stats: { data: { totals: { sessions: 50, conversions: 6 } } } },
+        tables: { demand_events: { data: [{ session_id: "a" }, { session_id: "b" }, { session_id: "a" }] } },
+      });
+
+      const stats = await getDemandStats(client as unknown as Client, { homestayId: "h-1", days: 7 });
+      vi.useRealTimers();
+
+      expect(stats.totals.quickConversions).toBe(2);
+      const q = client.builderFor("demand_events");
+      expect(q.eq).toHaveBeenCalledWith("event_type", "booking_submitted");
+      expect(q.contains).toHaveBeenCalledWith("data", { quick: true });
+      expect(q.eq).toHaveBeenCalledWith("homestay_id", "h-1");
+      expect(q.gte).toHaveBeenCalledWith("created_at", "2026-11-17T05:00:00.000Z");
+    });
+
+    it("does not narrow to a homestay for the platform-wide admin view", async () => {
+      const client = createSupabaseMock({ rpc: { get_demand_stats: { data: {} } }, tables: { demand_events: { data: [] } } });
+      await getDemandStats(client as unknown as Client, { homestayId: null, days: 30 });
+
+      expect(client.builderFor("demand_events").eq).not.toHaveBeenCalledWith("homestay_id", expect.anything());
+    });
+
+    it("never reports more quick bookings than bookings", async () => {
+      const stats = await getDemandStats(
+        clientReturning({ data: { totals: { sessions: 9, conversions: 1 } } }, { data: [{ session_id: "a" }, { session_id: "b" }] }),
+        { days: 30 },
+      );
+      expect(stats.totals.quickConversions).toBe(1);
+    });
+
+    it("reports the quick count as unknown, not zero, when its read fails", async () => {
+      const stats = await getDemandStats(
+        clientReturning({ data: { totals: { sessions: 9, conversions: 3 } } }, { error: { message: "boom" } }),
+        { days: 30 },
+      );
+      expect(stats.totals.quickConversions).toBeNull();
+      expect(stats.totals.conversions).toBe(3);
+    });
   });
 });
