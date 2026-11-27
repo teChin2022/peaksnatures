@@ -97,6 +97,18 @@ describe("matchesAccount", () => {
   it("matches on a substring, so very few visible digits match loosely", () => {
     expect(matchesAccount("xxx-x-xx12-x", "0812345678")).toBe(true);
   });
+
+  // A GSB MyMo slip to the platform's PromptPay was refused: the head and tail
+  // ran together ("095198") and never appeared inside the real number.
+  it("matches a number masked in the middle by its head and tail", () => {
+    expect(matchesAccount("09xxxx5198", "0912345198")).toBe(true);
+    expect(matchesAccount("09x-xxx-5198", "0912345198")).toBe(true);
+  });
+
+  it("does not match a middle-masked number whose head or tail differs", () => {
+    expect(matchesAccount("09xxxx5198", "0912345199")).toBe(false);
+    expect(matchesAccount("09xxxx5198", "0812345198")).toBe(false);
+  });
 });
 
 describe("validateReceiver", () => {
@@ -116,6 +128,11 @@ describe("validateReceiver", () => {
 
     const viaProxy = rawSlip({ proxy: { type: "BANKAC", account: "123-4-56789-0" } });
     expect(validateReceiver(viaProxy, "0899999999", "1234567890")).toBe(true);
+  });
+
+  it("matches a PromptPay phone masked in the middle", () => {
+    const slip = rawSlip({ proxy: { type: "MSISDN", account: "09xxxx5198" } });
+    expect(validateReceiver(slip, "0912345198", null)).toBe(true);
   });
 
   it("rejects a slip paid to somebody else", () => {

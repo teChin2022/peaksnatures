@@ -5,7 +5,7 @@ import {
 } from "@/lib/supabase/server";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { logEvent, EventType } from "@/lib/history-log";
-import { alertStrandedPayment } from "@/lib/admin-alert";
+import { alertStrandedPayment, notifyPlatformPayment } from "@/lib/admin-alert";
 import {
   callEasySlipV2,
   computeSlipHash,
@@ -271,10 +271,9 @@ export async function POST(req: NextRequest) {
       fixedRateStartDate(typedHost, billingToday(slipTime)),
     );
 
+    // Not refused (owner, 2026-11-27): a refusal here strands a real transfer.
+    // The payment goes through and notifyPlatformPayment flags it for an admin.
     const receiverOk = validateReceiver(rawSlip, config.promptpay_id, config.bank_account_number);
-    if (!receiverOk) {
-      return refuse("receiver_mismatch", { verified: false, message: "Receiver does not match platform account." });
-    }
 
     if (slipAmount !== charged.amount) {
       return refuse("amount_mismatch", {
@@ -339,6 +338,7 @@ export async function POST(req: NextRequest) {
           discount_pct: charged.discount_pct,
           slip_hash: slipHash,
           activation: true,
+          ...(!receiverOk && { receiver_unverified: true, receiver: rawSlip.receiver?.account ?? null }),
         },
         req,
       });
@@ -359,6 +359,17 @@ export async function POST(req: NextRequest) {
         req,
       });
     });
+    after(() =>
+      notifyPlatformPayment({
+        kind: "plan_activation",
+        hostName: typedHost.name,
+        hostId: typedHost.id,
+        amount: charged.amount,
+        transRef: rawSlip.transRef || null,
+        receiver: rawSlip.receiver ?? null,
+        receiverUnverified: !receiverOk,
+      }),
+    );
 
     return NextResponse.json({
       success: true,

@@ -14,8 +14,12 @@ const h = vi.hoisted(() => ({
   logEvent: vi.fn(),
   afterCallbacks: [] as Array<() => unknown>,
   alertStrandedPayment: vi.fn(),
+  notifyPlatformPayment: vi.fn(),
 }));
-vi.mock("@/lib/admin-alert", () => ({ alertStrandedPayment: h.alertStrandedPayment }));
+vi.mock("@/lib/admin-alert", () => ({
+  alertStrandedPayment: h.alertStrandedPayment,
+  notifyPlatformPayment: h.notifyPlatformPayment,
+}));
 
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: h.createServerSupabaseClient,
@@ -121,6 +125,7 @@ beforeEach(() => {
   vi.stubEnv("EASYSLIP_API_KEY", "easyslip-key");
   h.afterCallbacks.length = 0;
   h.alertStrandedPayment.mockClear();
+  h.notifyPlatformPayment.mockClear();
   h.getBillingConfig.mockResolvedValue(CONFIG);
   h.callEasySlipV2.mockImplementation(async (...args: unknown[]) =>
     easySlipSuccess(args[4] as number),
@@ -320,6 +325,7 @@ describe("POST /api/host/plan/activate", () => {
         slipAmount: 1,
         transRef: "TXN-123",
       });
+      expect(h.notifyPlatformPayment).not.toHaveBeenCalled();
     });
 
     it("is not logged when EasySlip itself could not verify it", async () => {
@@ -368,6 +374,28 @@ describe("POST /api/host/plan/activate", () => {
       );
     });
 
+    // Owner, 2026-11-27: refusing it stranded a real transfer. It goes through
+    // and the admins are told to check the slip.
+    it("activates a slip paid to another account and flags it for an admin", async () => {
+      h.getBillingConfig.mockResolvedValue(
+        makeBillingConfig({ fixed_rate_amount: 1500, promptpay_id: "0899999999", bank_account_number: null }),
+      );
+      const supabase = mockClient();
+      const { body } = await readJson(await post());
+      expect(body).toMatchObject({ success: true, verified: true });
+      expect(rpcArgs(supabase)).toMatchObject({ p_amount: STUB });
+
+      for (const cb of h.afterCallbacks) await cb();
+      expect(h.notifyPlatformPayment).toHaveBeenCalledWith(expect.objectContaining({ receiverUnverified: true }));
+      expect(h.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({
+          eventType: "INVOICE_PAID",
+          data: expect.objectContaining({ receiver_unverified: true, receiver: { account: { proxy: { type: "MSISDN", account: "xxx-xxx-5678" } } }.account }),
+        }),
+      );
+      expect(h.logEvent).not.toHaveBeenCalledWith(expect.objectContaining({ eventType: "PLATFORM_PAYMENT_REJECTED" }));
+    });
+
     it("logs the payment and the plan change after the response is sent", async () => {
       await post({ term_months: "6" });
       expect(h.logEvent).not.toHaveBeenCalled();
@@ -385,6 +413,16 @@ describe("POST /api/host/plan/activate", () => {
           data: expect.objectContaining({ from: "commission", to: "fixed_rate", immediate: true }),
         }),
       );
+      expect(h.notifyPlatformPayment).toHaveBeenCalledExactlyOnceWith({
+        kind: "plan_activation",
+        hostName: "Peaks Homestay",
+        hostId: "host-1",
+        amount: SIX_MONTH_TOTAL,
+        transRef: "TXN-123",
+        receiver: { account: { proxy: { type: "MSISDN", account: "xxx-xxx-5678" } } },
+        receiverUnverified: false,
+      });
+      expect(h.logEvent.mock.calls[0][0].data).not.toHaveProperty("receiver_unverified");
     });
   });
 
@@ -413,14 +451,6 @@ describe("POST /api/host/plan/activate", () => {
       await expectNoWrite();
     });
 
-    it("when the money went to someone else", async () => {
-      h.getBillingConfig.mockResolvedValue(
-        makeBillingConfig({ fixed_rate_amount: 1500, promptpay_id: "0899999999", bank_account_number: null }),
-      );
-      const { body } = await readJson(await post());
-      expect(body).toMatchObject({ verified: false });
-      await expectNoWrite();
-    });
 
     it("when the term is not one that is configured", async () => {
       const supabase = mockClient();

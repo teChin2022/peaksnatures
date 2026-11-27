@@ -260,7 +260,12 @@ export function matchesAccount(easyslipVal: string | undefined | null, expected:
   if (!easyslipVal || !expected) return false;
   const visible = extractVisibleDigits(easyslipVal);
   if (!visible) return false;
-  return expected === visible || expected.includes(visible);
+  if (expected.includes(visible)) return true;
+  // A mask inside the number ("09xxxx5198") leaves a head and a tail that never
+  // appear joined: the expected account must start with one and end with the other.
+  const parts = easyslipVal.replace(/[^0-9x]/gi, "").split(/x+/i);
+  if (parts.length !== 2 || !parts[0] || !parts[1]) return false;
+  return expected.length > visible.length && expected.startsWith(parts[0]) && expected.endsWith(parts[1]);
 }
 
 /**
