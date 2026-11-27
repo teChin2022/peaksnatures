@@ -423,7 +423,7 @@
     "quickPayStep4": "Come back to this page and tap “I've transferred — place booking”",
     "quickNoSlipTitle": "No need to upload a slip here",
     "quickNoSlipDesc": "Once you have transferred, please tap “I've transferred — place booking”, then send your transfer slip and booking code to the host in chat. Your booking will be confirmed once the host has checked the payment.",
-    "bblSlipNote": "Please avoid paying from Bangkok Bank. Its slips take a long time to check, so your booking will wait for the host to confirm it.",
+    "bblSlipNote": "Please avoid paying from Bangkok Bank. The bank takes a long time to confirm its slips, so your booking will wait for the host to confirm it.",
     "bblAckButton": "Got it",
     "quickPlacedTitle": "Booking placed — awaiting host confirmation",
     "quickPlacedText": "Your booking is confirmed once the host has checked your transfer. Please send your slip to the host in chat, quoting the booking code.",
