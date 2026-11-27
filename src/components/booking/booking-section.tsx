@@ -16,7 +16,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
-import { Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope, CheckCircle2, Loader2, ImageIcon, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle, Download, Shield, Minus, Plus, ShieldUser, ListPlus, HelpCircle, MessageCircle } from "lucide-react";
+import { Wifi, Car, UtensilsCrossed, TreePine, Flame, Waves, Fish, BookOpen, Telescope, CheckCircle2, Loader2, ImageIcon, Smartphone, ArrowRight, ArrowLeft, Clock, AlertTriangle, Download, Shield, Minus, Plus, ShieldUser, ListPlus, HelpCircle, MessageCircle, Info } from "lucide-react";
 import { toast } from "sonner";
 import { billingTodayStr } from "@/lib/billing-dates";
 import { cancellationNote } from "@/lib/cancellation-note";
@@ -194,6 +194,8 @@ export function BookingSection({
   const [holdId, setHoldId] = useState<string | null>(null);
   const [holdExpiresAt, setHoldExpiresAt] = useState<number | null>(null);
   const [showHeldModal, setShowHeldModal] = useState(false);
+  // The Bangkok Bank warning covers step 3 once per checkout, until the guest acknowledges it.
+  const [bblAcknowledged, setBblAcknowledged] = useState(false);
   // Guest quick booking: the booking was placed without a slip, and a hold that
   // runs out after the guest may already have transferred.
   const [quickPlaced, setQuickPlaced] = useState(false);
@@ -1150,12 +1152,6 @@ export function BookingSection({
         return;
       }
 
-      if (verifyData.slip_pending) {
-        setSlipError(t("errorSlipPending"));
-        setIsSubmitting(false);
-        return;
-      }
-
       // Stop here on a failed verification instead of falling through. Without
       // this, a 500 left slip_hash undefined and we posted a booking that
       // /api/bookings is guaranteed to reject with a 400 — the guest saw a
@@ -1178,6 +1174,9 @@ export function BookingSection({
         return;
       }
 
+      // A Bangkok Bank slip stays SLIP_PENDING for minutes (EasySlip), and making the guest
+      // retry ran the hold out on paid guests: it books as pending for the host, like any
+      // other slip EasySlip could not read.
       const isSlipVerified = !!verifyData.verified;
       if (!isSlipVerified) {
         // The guest still gets a booking (confirmedTextPending explains the
@@ -1891,6 +1890,13 @@ export function BookingSection({
                         </div>
                       </div>
 
+                      {normalEnabled && (
+                        <div className="mt-5 flex gap-3 rounded-2xl bg-pine-mist p-4 text-[15px] text-pine-deep">
+                          <Info className="mt-0.5 h-5 w-5 shrink-0 text-pine" aria-hidden="true" />
+                          <p className="leading-relaxed" data-testid="bbl-slip-notice">{t("bblSlipNote")}</p>
+                        </div>
+                      )}
+
                       {!normalEnabled && (
                         <div className="mt-5 flex gap-3 rounded-2xl bg-pine-mist p-4 text-[15px] text-pine-deep" data-testid="quick-no-slip-notice">
                           <MessageCircle className="mt-0.5 h-5 w-5 shrink-0 text-pine" aria-hidden="true" />
@@ -2123,6 +2129,25 @@ export function BookingSection({
           </DialogHeader>
           <DialogFooter>
             <Button className="w-full bg-pine text-white hover:bg-pine-hover" onClick={handleHeldModalClose}>{t("chooseDifferentDates")}</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      {/* Bangkok Bank warning: its slips stay pending at EasySlip for minutes, so the booking
+          waits for the host. Slip (EasySlip) hosts only; Escape or the backdrop also acknowledge. */}
+      <Dialog
+        open={step === "payment" && normalEnabled && !bblAcknowledged && !showConfirmedModal && !holdExpired}
+        onOpenChange={(o) => { if (!o) setBblAcknowledged(true); }}
+      >
+        <DialogContent showCloseButton={false} className="z-70" overlayClassName="z-70" aria-describedby={undefined} data-testid="bbl-ack-dialog">
+          <DialogHeader>
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-pine-mist">
+              <Info className="h-6 w-6 text-pine" aria-hidden="true" />
+            </div>
+            <DialogTitle className="text-center text-[15px] font-normal leading-relaxed text-ink">{t("bblSlipNote")}</DialogTitle>
+          </DialogHeader>
+          <DialogFooter>
+            <Button className="w-full bg-pine text-white hover:bg-pine-hover" onClick={() => setBblAcknowledged(true)}>{t("bblAckButton")}</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

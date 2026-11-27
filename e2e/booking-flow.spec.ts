@@ -103,6 +103,33 @@ test.describe("a host on the normal flow", () => {
     expect(post.body).toMatchObject({ slip_hash: "hash-e2e", easyslip_verified: true });
     expect(post.body).not.toHaveProperty("quick");
   });
+
+  // Bangkok Bank slips stay SLIP_PENDING for minutes. The guest is warned before transferring,
+  // and a slip still pending goes to the host as a pending booking instead of a "retry" dead end.
+  test("warns about Bangkok Bank before the transfer, and books a still-pending slip for the host", async ({ page, context }) => {
+    const slug = requireSlug();
+    await open(page, context, "normal");
+    session.respond("POST /api/verify-slip", {
+      body: { verified: false, slip_pending: true, reason: "SLIP_PENDING", slip_hash: "hash-bbl", payment_slip_url: "pending/bbl.jpg" },
+    });
+    await reachPayment(page, slug, { keepBblDialog: true });
+
+    // The warning covers step 3 until the guest acknowledges it; the note then stays under the QR code.
+    const dialog = page.getByRole("dialog", { name: T.booking.bblSlipNote });
+    await expect(dialog).toBeVisible();
+    await dialog.getByRole("button", { name: T.booking.bblAckButton }).click();
+    await expect(dialog).toBeHidden();
+    await expect(page.getByTestId("bbl-slip-notice")).toBeVisible();
+
+    await page.locator('input[type="file"]').setInputFiles({ name: "slip.png", mimeType: "image/png", buffer: SLIP_PNG });
+    await page.getByRole("button", { name: T.booking.submitBooking }).click();
+
+    await expect(page.getByRole("dialog").getByText(T.booking.confirmedTitlePending)).toBeVisible();
+    const posts = bookingPosts(session);
+    expect(posts).toHaveLength(1);
+    expect(posts[0].body).toMatchObject({ slip_hash: "hash-bbl", easyslip_verified: false });
+    expect(posts[0].body).not.toHaveProperty("quick");
+  });
 });
 
 test.describe("a host on quick booking only", () => {
@@ -116,6 +143,9 @@ test.describe("a host on quick booking only", () => {
     await expect(page.getByText(T.booking.quickPayStep4)).toBeVisible();
     await expect(page.getByText(T.booking.quickNoSlipTitle)).toBeVisible();
     await expect(page.getByText(T.booking.quickNoSlipDesc)).toBeVisible();
+    // No slip goes through EasySlip here, so neither the Bangkok Bank dialog nor the note applies.
+    await expect(page.getByText(T.booking.bblSlipNote)).toHaveCount(0);
+    await expect(page.getByRole("button", { name: T.booking.bblAckButton })).toHaveCount(0);
   });
 
   test("places the booking with no slip, and tells the guest what to do next", async ({ page, context }) => {
