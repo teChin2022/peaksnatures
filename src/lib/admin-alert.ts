@@ -1,6 +1,7 @@
 import { createServiceRoleClient } from "@/lib/supabase/server";
 import { getCacheEnvPrefix, getReadyRedis } from "@/lib/redis";
 import type { PlatformAdmin } from "@/types/database";
+import type { EasySlipV2RawSlip } from "@/lib/easyslip";
 
 type AlertAdmin = Pick<PlatformAdmin, "email" | "line_user_id" | "line_channel_access_token">;
 
@@ -100,6 +101,59 @@ export function alertStrandedPayment(p: {
       `ประเภท: ${PAYMENT_KIND_LABEL[p.kind]} · เหตุผล: ${p.reason}`,
       `โฮสต์: ${p.hostName} (${p.hostId})`,
       `คาด ฿${p.expectedAmount.toLocaleString()} / สลิป ฿${p.slipAmount.toLocaleString()}`,
+      `transRef: ${p.transRef ?? "-"}`,
+      ...(appUrl ? [`🔗 ${appUrl}/admin/logs`] : []),
+    ].join("\n"),
+  );
+}
+
+const PAYMENT_SMS_LABEL = {
+  wallet_topup: "เติมwallet",
+  invoice: "ใบแจ้งหนี้",
+  plan_activation: "FixedRate",
+} as const;
+
+/**
+ * A host payment the platform accepted: an SMS to every admin with a phone
+ * (owner, 2026-11-27). A slip whose receiver did not match the platform account
+ * is accepted too, so it also raises a LINE alert for an admin to check the
+ * slip. Never throttled: each one is money. Never throws.
+ */
+export async function notifyPlatformPayment(p: {
+  kind: keyof typeof PAYMENT_KIND_LABEL;
+  hostName: string;
+  hostId: string;
+  amount: number;
+  transRef: string | null;
+  receiver: EasySlipV2RawSlip["receiver"] | null;
+  receiverUnverified: boolean;
+}): Promise<void> {
+  try {
+    const { data: admins, error } = await createServiceRoleClient().from("platform_admins").select("phone");
+    if (error) console.error("[admin-alert] could not load admin phones:", error.message);
+    const phones = ((admins ?? []) as { phone: string | null }[]).flatMap((a) => (a.phone ? [a.phone] : []));
+    if (phones.length > 0) {
+      // Dynamic: notifications.ts imports this module.
+      const { sendSms, truncateForSms } = await import("@/lib/notifications");
+      // The flag leads: truncateForSms cuts the end.
+      const text = truncateForSms(
+        `${p.receiverUnverified ? "ตรวจบัญชีผู้รับ! " : ""}Peaksnature รับ฿${p.amount.toLocaleString()} ${PAYMENT_SMS_LABEL[p.kind]} ${p.hostName}`,
+      );
+      await Promise.allSettled(phones.map((phone) => sendSms(phone, text)));
+    }
+  } catch (err) {
+    console.error("[admin-alert] payment SMS failed:", err);
+  }
+
+  if (!p.receiverUnverified) return;
+  const account = p.receiver?.account;
+  const appUrl = process.env.NEXT_PUBLIC_APP_URL || "";
+  await alertAdmins(
+    [
+      "⚠️ รับชำระแล้ว แต่บัญชีผู้รับในสลิปไม่ตรงกับบัญชีแพลตฟอร์ม — ตรวจสอบสลิป",
+      `ประเภท: ${PAYMENT_KIND_LABEL[p.kind]} · ฿${p.amount.toLocaleString()}`,
+      `โฮสต์: ${p.hostName} (${p.hostId})`,
+      `ผู้รับ: ${account?.name?.th || account?.name?.en || "-"} · ${account?.proxy?.account || account?.bank?.account || "-"}`,
       `transRef: ${p.transRef ?? "-"}`,
       ...(appUrl ? [`🔗 ${appUrl}/admin/logs`] : []),
     ].join("\n"),

@@ -4,6 +4,11 @@ import { createSupabaseMock, type SupabaseMock } from "../../test/helpers/supaba
 const h = vi.hoisted(() => ({
   supabase: null as unknown as SupabaseMock,
   redis: null as null | { set: ReturnType<typeof vi.fn> },
+  sendSms: vi.fn<(phone: string, text: string) => Promise<{ success: boolean }>>(() => Promise.resolve({ success: true })),
+}));
+vi.mock("@/lib/notifications", async (importOriginal) => ({
+  ...(await importOriginal<typeof import("@/lib/notifications")>()),
+  sendSms: h.sendSms,
 }));
 vi.mock("@/lib/supabase/server", () => ({ createServiceRoleClient: () => h.supabase }));
 vi.mock("@/lib/redis", () => ({
@@ -41,6 +46,7 @@ beforeEach(() => {
   vi.spyOn(console, "error").mockImplementation(() => {});
   h.supabase = createSupabaseMock({ tables: { platform_admins: { data: ADMINS } } });
   h.redis = null;
+  h.sendSms.mockClear();
   fetchMock = vi.fn(() => Promise.resolve({ ok: true, status: 200 } as Response));
   vi.stubGlobal("fetch", fetchMock);
 });
@@ -149,5 +155,69 @@ describe("alertStrandedPayment", () => {
         "🔗 https://peaksnature.com/admin/logs",
       ].join("\n"),
     );
+  });
+});
+
+describe("notifyPlatformPayment", () => {
+  const payment = {
+    kind: "plan_activation" as const,
+    hostName: "บ้านดอย",
+    hostId: "host-1",
+    amount: 940,
+    transRef: "0123ABC",
+    receiver: {
+      bank: { id: "030", name: "GSB", short: "GSB" },
+      account: { name: { th: "นาย ทดสอบ ผู้รับ" }, proxy: { type: "MSISDN", account: "09xxxx5198" } },
+    },
+    receiverUnverified: false,
+  };
+
+  beforeEach(() => {
+    h.supabase = createSupabaseMock({
+      tables: {
+        platform_admins: {
+          data: ADMINS.map((a, i) => ({ ...a, phone: i === 1 ? null : `08100000${i}0` })),
+        },
+      },
+    });
+  });
+
+  it("texts every admin with a phone and sends no LINE alert for a matched receiver", async () => {
+    const { notifyPlatformPayment } = await load();
+    await notifyPlatformPayment(payment);
+    await notifyPlatformPayment(payment);
+
+    expect(h.sendSms.mock.calls.map(([phone]) => phone)).toEqual(["0810000000", "0810000020", "0810000000", "0810000020"]);
+    expect(h.sendSms).toHaveBeenCalledWith("0810000000", "Peaksnature รับ฿940 FixedRate บ้านดอย");
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it("leads the SMS with the flag, keeps it to 70 chars and alerts LINE when the receiver did not match", async () => {
+    vi.stubEnv("NEXT_PUBLIC_APP_URL", "https://peaksnature.com");
+    const { notifyPlatformPayment } = await load();
+    await notifyPlatformPayment({ ...payment, receiverUnverified: true, hostName: "บ้าน".repeat(30) });
+
+    const text = h.sendSms.mock.calls[0][1];
+    expect(text.startsWith("ตรวจบัญชีผู้รับ! Peaksnature รับ฿940 FixedRate")).toBe(true);
+    expect(text.length).toBe(70);
+
+    const line = pushes().filter((p) => p.body.to === "U-a").map((p) => p.body.messages[0].text);
+    expect(line).toEqual([
+      [
+        "[test] ⚠️ รับชำระแล้ว แต่บัญชีผู้รับในสลิปไม่ตรงกับบัญชีแพลตฟอร์ม — ตรวจสอบสลิป",
+        "ประเภท: เปิดใช้แผน Fixed Rate · ฿940",
+        `โฮสต์: ${"บ้าน".repeat(30)} (host-1)`,
+        "ผู้รับ: นาย ทดสอบ ผู้รับ · 09xxxx5198",
+        "transRef: 0123ABC",
+        "🔗 https://peaksnature.com/admin/logs",
+      ].join("\n"),
+    ]);
+  });
+
+  it("never throws when the admins cannot be read", async () => {
+    h.supabase = createSupabaseMock({ tables: { platform_admins: { data: null, error: { message: "boom" } } } });
+    const { notifyPlatformPayment } = await load();
+    await expect(notifyPlatformPayment({ ...payment, receiverUnverified: true })).resolves.toBeUndefined();
+    expect(h.sendSms).not.toHaveBeenCalled();
   });
 });

@@ -5,7 +5,7 @@ import {
 } from "@/lib/supabase/server";
 import { createRateLimiter } from "@/lib/rate-limit";
 import { logEvent, EventType } from "@/lib/history-log";
-import { alertStrandedPayment } from "@/lib/admin-alert";
+import { alertStrandedPayment, notifyPlatformPayment } from "@/lib/admin-alert";
 import {
   callEasySlipV2,
   computeSlipHash,
@@ -186,10 +186,9 @@ export async function POST(
       return refuse("slip_too_old", { verified: false, message: "Slip is too old." });
     }
 
+    // Not refused (owner, 2026-11-27): a refusal here strands a real transfer.
+    // The payment goes through and notifyPlatformPayment flags it for an admin.
     const receiverOk = validateReceiver(rawSlip, config.promptpay_id, config.bank_account_number);
-    if (!receiverOk) {
-      return refuse("receiver_mismatch", { verified: false, message: "Receiver does not match platform account." });
-    }
 
     // EasySlip only reports a matchAmount mismatch (isAmountMatched); it never
     // rejects one. Without this a ฿1 transfer settled any invoice.
@@ -242,10 +241,21 @@ export async function POST(
         eventType: EventType.INVOICE_PAID,
         actorType: "host",
         actorId: user.id,
-        data: { amount: typedInvoice.amount, slip_hash: slipHash },
+        data: { amount: typedInvoice.amount, slip_hash: slipHash, ...(!receiverOk && { receiver_unverified: true, receiver: rawSlip.receiver?.account ?? null }) },
         req,
       });
     });
+    after(() =>
+      notifyPlatformPayment({
+        kind: "invoice",
+        hostName: typedHost.name,
+        hostId: typedHost.id,
+        amount: typedInvoice.amount,
+        transRef: transRef || null,
+        receiver: rawSlip.receiver ?? null,
+        receiverUnverified: !receiverOk,
+      }),
+    );
 
     return NextResponse.json({ success: true, verified: true });
   } catch (error) {

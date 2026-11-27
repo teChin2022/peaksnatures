@@ -4,7 +4,7 @@ import {
   createServiceRoleClient,
 } from "@/lib/supabase/server";
 import { logEvent, EventType } from "@/lib/history-log";
-import { alertStrandedPayment } from "@/lib/admin-alert";
+import { alertStrandedPayment, notifyPlatformPayment } from "@/lib/admin-alert";
 import {
   callEasySlipV2,
   computeSlipHash,
@@ -173,11 +173,9 @@ export async function POST(req: NextRequest) {
       return refuse("slip_too_old", { verified: false, message: "Slip is too old. Use a recent transfer." });
     }
 
-    // Verify receiver is the platform account
+    // Not refused (owner, 2026-11-27): a refusal here strands a real transfer.
+    // The payment goes through and notifyPlatformPayment flags it for an admin.
     const receiverOk = validateReceiver(rawSlip, config.promptpay_id, config.bank_account_number);
-    if (!receiverOk) {
-      return refuse("receiver_mismatch", { verified: false, message: "Receiver does not match platform account." });
-    }
 
     // Amount check
     if (slipAmount !== expectedAmount) {
@@ -216,10 +214,21 @@ export async function POST(req: NextRequest) {
         eventType: EventType.WALLET_TOPUP,
         actorType: "host",
         actorId: user.id,
-        data: { amount: expectedAmount, new_balance: newBalance, slip_hash: slipHash },
+        data: { amount: expectedAmount, new_balance: newBalance, slip_hash: slipHash, ...(!receiverOk && { receiver_unverified: true, receiver: rawSlip.receiver?.account ?? null }) },
         req,
       });
     });
+    after(() =>
+      notifyPlatformPayment({
+        kind: "wallet_topup",
+        hostName: typedHost.name,
+        hostId: typedHost.id,
+        amount: expectedAmount,
+        transRef: transRef || null,
+        receiver: rawSlip.receiver ?? null,
+        receiverUnverified: !receiverOk,
+      }),
+    );
 
     return NextResponse.json({
       success: true,

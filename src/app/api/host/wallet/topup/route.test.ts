@@ -13,8 +13,12 @@ const h = vi.hoisted(() => ({
   logEvent: vi.fn(),
   afterCallbacks: [] as Array<() => unknown>,
   alertStrandedPayment: vi.fn(),
+  notifyPlatformPayment: vi.fn(),
 }));
-vi.mock("@/lib/admin-alert", () => ({ alertStrandedPayment: h.alertStrandedPayment }));
+vi.mock("@/lib/admin-alert", () => ({
+  alertStrandedPayment: h.alertStrandedPayment,
+  notifyPlatformPayment: h.notifyPlatformPayment,
+}));
 
 vi.mock("@/lib/supabase/server", () => ({
   createServerSupabaseClient: h.createServerSupabaseClient,
@@ -90,6 +94,7 @@ beforeEach(() => {
   vi.stubEnv("EASYSLIP_API_KEY", "easyslip-key");
   h.afterCallbacks.length = 0;
   h.alertStrandedPayment.mockClear();
+  h.notifyPlatformPayment.mockClear();
   h.getBillingConfig.mockResolvedValue({ promptpay_id: RECEIVER, bank_account_number: null });
   h.callEasySlipV2.mockImplementation(
     (_buf: ArrayBuffer, _n: string, _t: string, _k: string, amount: number) =>
@@ -195,6 +200,15 @@ describe("POST /api/host/wallet/topup", () => {
           data: expect.objectContaining({ amount: 1000, new_balance: 5000 }),
         }),
       );
+      expect(h.notifyPlatformPayment).toHaveBeenCalledExactlyOnceWith({
+        kind: "wallet_topup",
+        hostName: "Peaks Homestay",
+        hostId: "host-1",
+        amount: 1000,
+        transRef: "TXN-123",
+        receiver: { account: { proxy: { type: "MSISDN", account: "xxx-xxx-5678" } } },
+        receiverUnverified: false,
+      });
     });
   });
 
@@ -250,15 +264,22 @@ describe("POST /api/host/wallet/topup", () => {
       expect(supabase.rpc).not.toHaveBeenCalled();
     });
 
-    it("rejects a slip paid to someone other than the platform", async () => {
+    // Owner, 2026-11-27: refusing it stranded a real transfer. It goes through
+    // and the admins are told to check the slip.
+    it("credits a slip paid to another account and flags it for an admin", async () => {
       h.getBillingConfig.mockResolvedValue({ promptpay_id: "0999999999", bank_account_number: null });
+      const supabase = mockClient();
 
       const { body } = await readJson(await post({ amount: "1000" }));
 
-      expect(body).toMatchObject({
-        verified: false,
-        message: expect.stringContaining("Receiver does not match"),
-      });
+      expect(body).toMatchObject({ success: true, verified: true, amount: 1000 });
+      expect(supabase.rpc).toHaveBeenCalledWith("topup_wallet", expect.objectContaining({ p_amount: 1000 }));
+      for (const cb of h.afterCallbacks) await cb();
+      expect(h.notifyPlatformPayment).toHaveBeenCalledWith(expect.objectContaining({ receiverUnverified: true }));
+      expect(h.logEvent).toHaveBeenCalledWith(
+        expect.objectContaining({ eventType: "WALLET_TOPUP", data: expect.objectContaining({ receiver_unverified: true }) }),
+      );
+      expect(h.logEvent).not.toHaveBeenCalledWith(expect.objectContaining({ eventType: "PLATFORM_PAYMENT_REJECTED" }));
     });
 
     // An unconfigured receiver used to accept a slip paid to anyone. Refused
@@ -296,6 +317,7 @@ describe("POST /api/host/wallet/topup", () => {
         slipAmount: 2000,
         transRef: "TXN-123",
       });
+      expect(h.notifyPlatformPayment).not.toHaveBeenCalled();
     });
   });
 });
