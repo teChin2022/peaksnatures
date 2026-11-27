@@ -60,6 +60,7 @@ import { fmtDateStr } from "@/lib/format-date";
 import { logClientEvent } from "@/lib/history-log-client";
 import { getProvinceLabel } from "@/lib/provinces";
 import { QuickBookingDialog } from "@/components/dashboard/quick-booking-dialog";
+import { ChangeQuickBookingDialog } from "@/components/dashboard/change-quick-booking-dialog";
 import { BookingAttachments } from "@/components/dashboard/booking-attachments";
 import { countAttachmentsByBooking } from "@/lib/booking-attachments";
 import { isQuickPending } from "@/lib/quick-booking";
@@ -302,7 +303,8 @@ export default function BookingsPage() {
   const [hostName, setHostName] = useState<string | null>(null);
   const [hostPlanType, setHostPlanType] = useState<string | null>(null);
   const [quickBookingOpen, setQuickBookingOpen] = useState(false);
-  const [quickBookingRooms, setQuickBookingRooms] = useState<{ id: string; name: string; price_per_night: number; max_guests: number }[]>([]);
+  const [changeTarget, setChangeTarget] = useState<DisplayBooking | null>(null);
+  const [quickBookingRooms, setQuickBookingRooms] = useState<{ id: string; homestay_id: string; name: string; price_per_night: number; max_guests: number }[]>([]);
   const [firstHomestayId, setFirstHomestayId] = useState<string | null>(null);
 
   // Pending and Confirmed page their own status from the server. Filtering the All
@@ -438,7 +440,7 @@ export default function BookingsPage() {
       { data: bookingRows, error: bookingsError },
       dcrResult,
     ] = await Promise.all([
-      supabase.from("rooms").select("id, name, price_per_night, max_guests").in("homestay_id", homestayIds),
+      supabase.from("rooms").select("id, homestay_id, name, price_per_night, max_guests").in("homestay_id", homestayIds),
       supabase.from("bookings").select("id", { count: "exact", head: true }).in("homestay_id", homestayIds),
       supabase.from("bookings").select("id", { count: "exact", head: true }).in("homestay_id", homestayIds).in("status", ["pending", "verified"]),
       supabase.from("bookings").select("id", { count: "exact", head: true }).in("homestay_id", homestayIds).eq("status", "confirmed"),
@@ -447,7 +449,7 @@ export default function BookingsPage() {
       supabase.from("date_change_requests").select(`${DCR_COLUMNS}, bookings!inner(homestay_id, status)`).in("bookings.homestay_id", homestayIds).eq("status", "pending"),
     ]);
 
-    const typedRooms = (roomRows as { id: string; name: string; price_per_night: number; max_guests: number }[]) || [];
+    const typedRooms = (roomRows as { id: string; homestay_id: string; name: string; price_per_night: number; max_guests: number }[]) || [];
     const roomMap = Object.fromEntries(typedRooms.map((r) => [r.id, r.name]));
     roomMapRef.current = roomMap;
     setQuickBookingRooms(typedRooms);
@@ -1016,6 +1018,17 @@ export default function BookingsPage() {
   const detailPerHouse = housesDiffer(detailTarget ?? []);
   const detailMoney = cartMoney(detailTarget ?? []);
   const { pending: detailPending, completable: detailCompletable } = cartActionTargets(detailTarget ?? [], new Date());
+  // Host-entered bookings often have no guest email, so the host moves them (the route checks the same).
+  const detailChangeable =
+    detail &&
+    !detailIsGroup &&
+    detail.booking_source &&
+    detail.booking_source !== "guest" &&
+    detail.status === "confirmed" &&
+    !detail.checked_in_at &&
+    !dateChangeRequests[detail.id]
+      ? detail
+      : null;
 
   // Filter choices. Host-entered sources are the quick booking dialog's platforms.
   const sourceOptions: [SourceFilter, string][] = [
@@ -1254,6 +1267,19 @@ export default function BookingsPage() {
           onOpenChange={setQuickBookingOpen}
           homestayId={firstHomestayId}
           rooms={quickBookingRooms}
+          onSuccess={() => fetchBookings()}
+        />
+      )}
+
+      {changeTarget && (
+        <ChangeQuickBookingDialog
+          key={changeTarget.id}
+          booking={changeTarget}
+          rooms={quickBookingRooms.filter((r) => r.homestay_id === changeTarget.homestay_id)}
+          open
+          onOpenChange={(open) => {
+            if (!open) setChangeTarget(null);
+          }}
           onSuccess={() => fetchBookings()}
         />
       )}
@@ -1834,6 +1860,20 @@ export default function BookingsPage() {
                   >
                     <CheckCircle2 className="mr-1 h-4 w-4" />
                     {t("markCompleted")}
+                  </Button>
+                </DialogFooter>
+              )}
+              {detailChangeable && (
+                <DialogFooter>
+                  <Button
+                    variant="outline"
+                    onClick={() => {
+                      setDetailDialogOpen(false);
+                      setChangeTarget(detailChangeable);
+                    }}
+                  >
+                    <CalendarDays className="mr-1 h-4 w-4" />
+                    {t("changeBookingButton")}
                   </Button>
                 </DialogFooter>
               )}

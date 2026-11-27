@@ -272,6 +272,50 @@ async function reachPayment(details: Partial<Details> = {}) {
 
 const bookingPosts = () => calls.filter((c) => c.method === "POST" && /^\/api\/bookings(\/group)?$/.test(c.url));
 
+// The Bangkok Bank warning dialog that covers step 3 for a slip (EasySlip) host until acknowledged.
+const bblDialog = () => document.body.querySelector('[role="dialog"][data-testid="bbl-ack-dialog"]');
+
+describe("the Bangkok Bank warning on the payment step", () => {
+  it("covers step 3 for a host on the normal flow until the guest taps รับทราบ", async () => {
+    await renderForm("normal");
+    await reachPayment();
+
+    await vi.waitFor(() => expect(bblDialog()).toBeTruthy());
+    expect(bblDialog()!.textContent).toContain("bblSlipNote");
+    await click(buttonByText("bblAckButton"));
+    await vi.waitFor(() => expect(bblDialog()).toBeNull());
+    // Step 3 goes on as before, with the note kept under the QR code as a reminder.
+    expect(buttonByText("submitBooking")).toBeTruthy();
+    expect(document.body.querySelector('[data-testid="bbl-slip-notice"]')).toBeTruthy();
+  });
+
+  it("shows once per checkout: not again after going back to the review and on to payment", async () => {
+    await renderForm("normal");
+    await reachPayment();
+    await vi.waitFor(() => expect(bblDialog()).toBeTruthy());
+    await click(buttonByText("bblAckButton"));
+    await vi.waitFor(() => expect(bblDialog()).toBeNull());
+
+    await click(document.body.querySelector('[data-checkout] button[aria-label="back"]'));
+    await click(buttonByText("confirmProceed"));
+    await waitForText("amountToTransfer");
+    expect(bblDialog()).toBeNull();
+  });
+
+  it("covers step 3 for a host on both too, whose guests can still upload a slip", async () => {
+    await renderForm("both");
+    await reachPayment();
+    await vi.waitFor(() => expect(bblDialog()).toBeTruthy());
+  });
+
+  it("never shows for a host on quick only, where no slip goes through EasySlip", async () => {
+    await renderForm("quick");
+    await reachPayment();
+    expect(bblDialog()).toBeNull();
+    expect(text()).not.toContain("bblAckButton");
+  });
+});
+
 // ── The guest details form ──────────────────────────────────────────────────
 describe("the guest details step", () => {
   const holdsRequested = () => calls.filter((c) => c.method === "POST" && c.url === "/api/bookings/hold");
@@ -369,6 +413,8 @@ describe("BookingSection payment step", () => {
     expect(text()).toContain("payStep4");
     expect(text()).not.toContain("quickPayStep4");
     expect(text()).not.toContain("quickNoSlipTitle");
+    // Before the transfer: Bangkok Bank slips take minutes to check, so steer guests to another bank.
+    expect(document.body.querySelector('[data-testid="bbl-slip-notice"]')?.textContent).toBe("bblSlipNote");
   });
 
   it("offers only 'I have transferred — place booking' to a host on quick, with no upload step", async () => {
@@ -382,6 +428,8 @@ describe("BookingSection payment step", () => {
     // Says up front that no slip is uploaded here and that it goes to the host in chat.
     expect(text()).toContain("quickNoSlipTitle");
     expect(text()).toContain("quickNoSlipDesc");
+    // No slip goes through EasySlip here, so the Bangkok Bank note does not apply.
+    expect(text()).not.toContain("bblSlipNote");
   });
 
   it("keeps the slip upload first and adds the quick way as a second choice, for a host on both", async () => {
@@ -392,6 +440,7 @@ describe("BookingSection payment step", () => {
     expect(buttonByText("quickSubmitAlt")).toBeTruthy();
     expect(buttonByText("quickSubmit")?.textContent).toBe("quickSubmitAlt");
     expect(text()).not.toContain("quickNoSlipTitle");
+    expect(text()).toContain("bblSlipNote");
   });
 });
 
@@ -658,6 +707,26 @@ describe("the slip-verified booking, after the creation code was shared with qui
     expect(bookingPosts()[0].body).not.toHaveProperty("quick");
     expect(text()).not.toContain("quickPlacedTitle");
   });
+
+  // Bangkok Bank slips stay SLIP_PENDING for minutes. Asking the guest to wait and retry ran
+  // the 10-minute hold out on guests who had paid, so the host checks these by hand instead.
+  it("sends a Bangkok Bank slip EasySlip has not read yet to the host as a pending booking", async () => {
+    responses["POST /api/verify-slip"] = () =>
+      json({ verified: false, slip_pending: true, reason: "SLIP_PENDING", slip_hash: "hash-bbl", payment_slip_url: "pending/bbl.jpg" });
+    await renderForm("normal");
+    await reachPayment();
+    await uploadAndSubmit();
+    await waitForText("confirmedTitlePending");
+
+    expect(bookingPosts()).toHaveLength(1);
+    expect(bookingPosts()[0].body).toMatchObject({
+      easyslip_verified: false,
+      slip_hash: "hash-bbl",
+      payment_slip_url: "pending/bbl.jpg",
+    });
+    expect(bookingPosts()[0].body).not.toHaveProperty("quick");
+    expect(text()).not.toContain("errorSlipPending");
+  });
 });
 
 // ── A refused slip says why, in the upload card ─────────────────────────────
@@ -682,15 +751,6 @@ describe("a refused slip", () => {
     await submit();
     await vi.waitFor(() => expect(alertText()).toBe("errorDuplicateSlip"));
     expect(h.toastError).not.toHaveBeenCalledWith("errorDuplicateSlip");
-    expect(bookingPosts()).toHaveLength(0);
-  });
-
-  it("says a slip is still being processed by the bank", async () => {
-    responses["POST /api/verify-slip"] = () => json({ slip_pending: true });
-    await renderForm("normal");
-    await reachPayment();
-    await submit();
-    await vi.waitFor(() => expect(alertText()).toBe("errorSlipPending"));
     expect(bookingPosts()).toHaveLength(0);
   });
 

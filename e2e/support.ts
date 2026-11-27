@@ -216,12 +216,24 @@ export async function startSession(
   return session;
 }
 
-/** Opens /{slug}/book and works through the date picker, the houses (the last one's "Book Now") and the guest details to the payment step. */
-export async function reachPayment(page: Page, slug: string, options: { houses?: number; province?: boolean } = {}) {
+/**
+ * Opens /{slug}/book and works through the date picker, the houses (the last one's "Book Now") and the guest details to the payment step.
+ * A slip (EasySlip) host's guest first gets the Bangkok Bank warning over step 3; this taps รับทราบ unless `keepBblDialog`.
+ */
+export async function reachPayment(page: Page, slug: string, options: { houses?: number; province?: boolean; keepBblDialog?: boolean } = {}) {
   await reachReview(page, slug, options);
   await page.getByRole("button", { name: T.booking.confirmProceed }).click();
   // The payment page's heading is for screen readers; the amount to transfer is its headline.
-  await expect(page.getByRole("heading", { name: T.booking.stepPayment, exact: true })).toBeAttached();
+  const heading = page.getByRole("heading", { name: T.booking.stepPayment, exact: true });
+  // The warning opens in the same render as the page and hides it from the accessibility tree.
+  const ack = page.getByRole("button", { name: T.booking.bblAckButton });
+  await expect(heading.or(ack).first()).toBeAttached();
+  if (await ack.isVisible()) {
+    if (options.keepBblDialog) return;
+    await ack.click();
+    await expect(ack).toBeHidden();
+  }
+  await expect(heading).toBeAttached();
   await expect(page.getByText(T.booking.amountToTransfer).first()).toBeVisible();
 }
 

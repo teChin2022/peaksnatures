@@ -136,6 +136,64 @@ test("bookings: closing the confirm check writes nothing", async ({ page }) => {
   expect(session!.writes).toEqual([]);
 });
 
+/** The Bangkok calendar day `days` from today (the browser's timezone), as YYYY-MM-DD. */
+const dayFromToday = (days: number) =>
+  new Date(Date.now() + days * 86_400_000).toLocaleDateString("en-CA", { timeZone: "Asia/Bangkok" });
+
+test("bookings: the host moves a booking they entered to new dates at a new price", async ({ page }) => {
+  await session!.stubWrite("POST", /\/api\/bookings\/change-dates\/host$/, () => ({ body: { success: true } }));
+  // Shown as walk-in bookings, confirmed, a month ahead: the kind the host may move.
+  const [checkIn, checkOut, newCheckOut] = [dayFromToday(30), dayFromToday(32), dayFromToday(33)];
+  await page.route(/\/rest\/v1\/bookings\?/, async (route) => {
+    if (route.request().method() !== "GET") return route.fallback();
+    const response = await route.fetch();
+    const body = await response.json().catch(() => null);
+    if (!Array.isArray(body)) return route.fulfill({ response });
+    return route.fulfill({
+      response,
+      json: body.map((row) => ({
+        ...row,
+        status: "confirmed",
+        booking_source: "walk_in",
+        group_id: null,
+        checked_in_at: null,
+        checked_out_at: null,
+        check_in: checkIn,
+        check_out: checkOut,
+      })),
+    });
+  });
+  await openDashboard(page, "/dashboard/bookings?tab=all");
+
+  const D = T.dashboard;
+  const panel = page.locator("[role=tabpanel][data-state=active]");
+  const details = panel.getByRole("button", { name: D.viewDetails });
+  await details.first().waitFor({ timeout: 20_000 }).catch(() => {});
+  test.skip((await details.count()) === 0, "The test host has no booking at all.");
+  await details.first().click();
+
+  await page.getByRole("button", { name: D.changeBookingButton }).click();
+  const dialog = page.getByRole("dialog", { name: D.changeBookingTitle });
+  await expect(dialog.getByText(D.changeBookingGuestNote)).toBeVisible();
+  const save = dialog.getByRole("button", { name: D.changeBookingSave });
+  await expect(save, "nothing changed yet").toBeDisabled();
+
+  await dialog.locator("#cb-checkout").click();
+  await page.locator(`td[data-day="${newCheckOut}"] button`).click();
+  const price = dialog.locator("#cb-price");
+  const newPrice = Number(await price.inputValue()) + 1000;
+  await price.fill(String(newPrice));
+  await save.click();
+
+  await expect(page.getByText(D.changeBookingSuccess)).toBeVisible();
+  expect(session!.writes.map((w) => w.key)).toEqual(["POST /api/bookings/change-dates/host"]);
+  expect(session!.writes[0].body).toMatchObject({
+    new_check_in: checkIn,
+    new_check_out: newCheckOut,
+    total_price: newPrice,
+  });
+});
+
 // A failed read used to look like an empty day or an all-free month.
 for (const [name, path] of [
   ["check-ins", "/dashboard/checkins"],
